@@ -1,5 +1,10 @@
 # Choreo
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub last commit](https://img.shields.io/github/last-commit/ballerina-platform/ballerina-lang.svg)](https://github.com/ballerina-platform/ballerina-lang/commits/master)
 
+<img src="./logo/choreo-logo-black.svg" width="100">
+
+## What is Choreo?
 Choreo is an internal developer platform that simplifies the build, deployment, and management of applications. It provides a unified interface for developers to create, test, and deploy cloud-native applications with ease. Choreo offers features such as automated CI/CD pipelines, integrated API management, and seamless integration with various cloud services, enabling developers to focus on writing code while the platform handles the operational complexities.
 
 ## Table of Contents
