@@ -20,15 +20,19 @@ package organization
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -42,6 +46,8 @@ type Reconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
+
+const organizationFinalizer = "core.choreo.dev/delete-namespace"
 
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations/status,verbs=get;update;patch
@@ -72,6 +78,47 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// Error reading the object
 		logger.Error(err, "Failed to get Organization")
 		return ctrl.Result{}, err
+	}
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if organization.DeletionTimestamp.IsZero() {
+		// Add the finalizer if not already present
+		if !controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
+			controllerutil.AddFinalizer(organization, organizationFinalizer)
+			if err := r.Update(ctx, organization); err != nil {
+				logger.Error(err, "Failed to add finalizer")
+				return ctrl.Result{Requeue: true}, err
+			}
+		}
+	} else {
+		// Handle finalization logic
+		if controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
+			if err := controller.UpdateCondition(ctx,
+				r.Status(),
+				organization,
+				&organization.Status.Conditions,
+				controller.TypeTerminating,
+				metav1.ConditionUnknown,
+				"Finalizing",
+				fmt.Sprintf("Performing finalizer operations for the organization: %s ", organization.Name),
+			); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if err := r.handleNamespaceDeletion(ctx, organization); err != nil {
+				logger.Error(err, "Failed to delete namespace")
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+			}
+
+			// Remove finalizer once cleanup is done
+			if controllerutil.RemoveFinalizer(organization, organizationFinalizer) {
+				if err := r.Update(ctx, organization); err != nil {
+					logger.Error(err, "Failed to update organization for removing finalizer")
+					return ctrl.Result{}, err
+				}
+			}
+		}
+		return ctrl.Result{}, nil
 	}
 
 	previousCondition := meta.FindStatusCondition(organization.Status.Conditions, controller.TypeReady)
@@ -157,8 +204,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&choreov1.Organization{}).
 		Owns(&corev1.Namespace{}). // Watch any changes to owned Namespaces
 		Named("organization").
-		Owns(&corev1.Namespace{}).
 		Complete(r)
+}
+
+// handleNamespaceDeletion Ensures the namespace is deleted when the organization is deleted
+func (r *Reconciler) handleNamespaceDeletion(ctx context.Context, org *choreov1.Organization) error {
+	namespace := &corev1.Namespace{}
+	err := r.Get(ctx, types.NamespacedName{Name: org.Name}, namespace)
+
+	if apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get namespace: %w", err)
+	}
+
+	return nil
 }
 
 func makeOrganizationNamespace(organization *choreov1.Organization) *corev1.Namespace {

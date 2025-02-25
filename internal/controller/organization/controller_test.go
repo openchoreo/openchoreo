@@ -51,16 +51,17 @@ var _ = Context("Organization Controller", func() {
 		organization := &apiv1.Organization{}
 
 		It("should successfully create a custom resource for the kind organization", func() {
-			By("creating a custom resource for the Kind Organization")
-			err := k8sClient.Get(ctx, typeNamespacedName, organization)
-			if err != nil && errors.IsNotFound(err) {
-				org := &apiv1.Organization{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: orgName,
-					},
+			By("creating a custom resource for the Kind Organization", func() {
+				err := k8sClient.Get(ctx, typeNamespacedName, organization)
+				if err != nil && errors.IsNotFound(err) {
+					org := &apiv1.Organization{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: orgName,
+						},
+					}
+					Expect(k8sClient.Create(ctx, org)).To(Succeed())
 				}
-				Expect(k8sClient.Create(ctx, org)).To(Succeed())
-			}
+			})
 		})
 
 		It("should successfully reconcile the organization resource", func() {
@@ -91,23 +92,24 @@ var _ = Context("Organization Controller", func() {
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyName, orgName))
 		})
 
-		It("should not return an error for non-existing organization", func() {
-			By("Reconciling the non-existing organization resource")
+		It("should not return an error for reconciling non-existing organization", func() {
 			const nonExistOrgName = "non-existing-organization"
 
-			controllerReconciler := &Reconciler{
-				Client:   k8sClient,
-				Scheme:   k8sClient.Scheme(),
-				Recorder: record.NewFakeRecorder(100),
-			}
+			By("Reconciling the non-existing organization resource", func() {
+				controllerReconciler := &Reconciler{
+					Client:   k8sClient,
+					Scheme:   k8sClient.Scheme(),
+					Recorder: record.NewFakeRecorder(100),
+				}
 
-			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nonExistOrgName,
-				},
+				result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name: nonExistOrgName,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
 		})
 
 		When("update the organization", func() {
@@ -117,42 +119,43 @@ var _ = Context("Organization Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgNamespace.ObjectMeta.Labels).NotTo(BeNil())
 
-				By("Updating the organization's namespace resource labels")
-				orgNamespace.ObjectMeta.Labels = map[string]string{
-					labels.LabelKeyManagedBy:        labels.LabelValueManagedBy,
-					labels.LabelKeyOrganizationName: "new-org-name",
-					labels.LabelKeyName:             "new-org-name",
-				}
-				err = k8sClient.Update(ctx, orgNamespace)
-				Expect(err).NotTo(HaveOccurred())
+				By("Updating the organization's namespace resource labels", func() {
+					orgNamespace.ObjectMeta.Labels = map[string]string{
+						labels.LabelKeyManagedBy:        labels.LabelValueManagedBy,
+						labels.LabelKeyOrganizationName: "new-org-name",
+						labels.LabelKeyName:             "new-org-name",
+					}
+					err = k8sClient.Update(ctx, orgNamespace)
+					Expect(err).NotTo(HaveOccurred())
+				})
 			})
 
-			It("should successfully reconcile the organization resource", func() {
-				By("Reconciling the organization resource with updated namespace labels")
-				controllerReconciler := &Reconciler{
-					Client:   k8sClient,
-					Scheme:   k8sClient.Scheme(),
-					Recorder: record.NewFakeRecorder(100),
-				}
+			It("should successfully reconcile the organization resource after update", func() {
+				By("Reconciling the organization resource with updated namespace labels", func() {
+					controllerReconciler := &Reconciler{
+						Client:   k8sClient,
+						Scheme:   k8sClient.Scheme(),
+						Recorder: record.NewFakeRecorder(100),
+					}
 
-				result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-					NamespacedName: typeNamespacedName,
+					result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+						NamespacedName: typeNamespacedName,
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Requeue).To(BeFalse())
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
 			})
 
 			It("should have successfully updated the namespace labels back original", func() {
-				By("update the namespace labels with something else")
-				namespace := &corev1.Namespace{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: orgName}, namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("verifying the namespace has the updated labels")
-				Expect(namespace.Name).To(Equal(orgName))
-				Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyManagedBy, labels.LabelValueManagedBy))
-				Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyOrganizationName, orgName))
-				Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyName, orgName))
+				By("update the namespace labels with something else", func() {
+					namespace := &corev1.Namespace{}
+					err := k8sClient.Get(ctx, client.ObjectKey{Name: orgName}, namespace)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(namespace.Name).To(Equal(orgName))
+					Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyManagedBy, labels.LabelValueManagedBy))
+					Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyOrganizationName, orgName))
+					Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyName, orgName))
+				})
 			})
 		})
 	})

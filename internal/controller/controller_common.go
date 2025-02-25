@@ -34,6 +34,7 @@ const (
 	TypeAvailable   = "Available"
 	TypeCreated     = "Created"
 	TypeReady       = "Ready"
+	TypeTerminating = "Terminating"
 )
 
 // UpdateCondition updates or adds a condition to any resource that has a Status with Conditions
