@@ -57,6 +57,14 @@ type Organization struct {
 	Status OrganizationStatus `json:"status,omitempty"`
 }
 
+func (o *Organization) GetConditions() []metav1.Condition {
+	return o.Status.Conditions
+}
+
+func (o *Organization) SetConditions(conditions []metav1.Condition) {
+	o.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // OrganizationList contains a list of Organization.
