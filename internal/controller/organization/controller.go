@@ -20,6 +20,7 @@ package organization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -48,6 +49,8 @@ type Reconciler struct {
 }
 
 const organizationFinalizer = "core.choreo.dev/delete-namespace"
+
+var ErrNamespaceDeletionWait = errors.New("waiting for namespace to be deleted")
 
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations/status,verbs=get;update;patch
@@ -80,33 +83,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	old := organization.DeepCopy()
+
 	// examine DeletionTimestamp to determine if object is under deletion
 	if organization.DeletionTimestamp.IsZero() {
 		// Add the finalizer if not already present
-		if !controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
-			controllerutil.AddFinalizer(organization, organizationFinalizer)
+		if changed := controllerutil.AddFinalizer(organization, organizationFinalizer); changed {
 			if err := r.Update(ctx, organization); err != nil {
 				logger.Error(err, "Failed to add finalizer")
 				return ctrl.Result{Requeue: true}, err
 			}
+			return ctrl.Result{}, nil
 		}
 	} else {
 		// Handle finalization logic
 		if controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
-			if err := controller.UpdateCondition(ctx,
-				r.Status(),
-				organization,
-				&organization.Status.Conditions,
-				controller.TypeTerminating,
-				metav1.ConditionUnknown,
-				"Finalizing",
-				fmt.Sprintf("Performing finalizer operations for the organization: %s ", organization.Name),
-			); err != nil {
+			meta.SetStatusCondition(&organization.Status.Conditions, NewOrganizationDeletingCondition(organization.Generation))
+			if err := controller.UpdateStatusConditions(ctx, r.Client, old, organization); err != nil {
 				return ctrl.Result{}, err
 			}
 
 			if err := r.handleNamespaceDeletion(ctx, organization); err != nil {
-				logger.Error(err, "Failed to delete namespace")
+				if errors.Is(err, ErrNamespaceDeletionWait) {
+					return ctrl.Result{}, nil
+				}
+				logger.Error(err, "Failed to check namespace deletion status")
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 			}
 
@@ -218,7 +219,14 @@ func (r *Reconciler) handleNamespaceDeletion(ctx context.Context, org *choreov1.
 		return fmt.Errorf("failed to get namespace: %w", err)
 	}
 
-	return nil
+	// If namespace still exists, attempt deletion
+	if namespace.DeletionTimestamp.IsZero() {
+		if err := r.Delete(ctx, namespace); err != nil {
+			return fmt.Errorf("failed to delete namespace: %w", err)
+		}
+	}
+
+	return fmt.Errorf("%w: %s", ErrNamespaceDeletionWait, org.Name)
 }
 
 func makeOrganizationNamespace(organization *choreov1.Organization) *corev1.Namespace {
