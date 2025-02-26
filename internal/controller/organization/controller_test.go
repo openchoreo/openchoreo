@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -90,6 +91,15 @@ var _ = Context("Organization Controller", func() {
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyManagedBy, labels.LabelValueManagedBy))
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyOrganizationName, orgName))
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyName, orgName))
+		})
+
+		It("should add finalizer to the organization resource upon creation", func() {
+			resource := &apiv1.Organization{}
+			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Ensuring the finalizer is added")
+			Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
 		})
 
 		It("should not return an error for reconciling non-existing organization", func() {
@@ -160,7 +170,7 @@ var _ = Context("Organization Controller", func() {
 		})
 	})
 
-	Describe("delete an organization resource", func() {
+	Describe("delete organization resource", func() {
 		var uuidOfOrgResource types.UID
 		It("should be able to delete the organization resource", func() {
 			resource := &apiv1.Organization{}
@@ -172,18 +182,31 @@ var _ = Context("Organization Controller", func() {
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 
-		It("should successfully reconcile the organization resource even after deletion", func() {
+		It("should reconcile the organization resource and process finalizer removal", func() {
 			controllerReconciler := &Reconciler{
 				Client:   k8sClient,
 				Scheme:   k8sClient.Scheme(),
 				Recorder: record.NewFakeRecorder(100),
 			}
 
+			// Reconcile after deletion to trigger finalizer logic
 			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
+
+			// Fetch resource again to check if finalizer is removed
+			resource := &apiv1.Organization{}
+			err = k8sClient.Get(ctx, typeNamespacedName, resource)
+
+			if apierrors.IsNotFound(err) {
+				// Resource should be deleted after finalizer handling
+				By("Organization resource should be fully deleted after finalizer execution")
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resource.Finalizers).NotTo(ContainElement(organizationFinalizer))
+			}
 		})
 
 		It("should have deleted the namespace for the organization", func() {
