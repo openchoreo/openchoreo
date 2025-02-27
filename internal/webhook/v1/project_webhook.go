@@ -23,8 +23,10 @@ import (
 	"fmt"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -40,7 +42,7 @@ var projectlog = logf.Log.WithName("project-resource")
 // SetupProjectWebhookWithManager registers the webhook for Project in the manager.
 func SetupProjectWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&corev1.Project{}).
-		WithValidator(&ProjectCustomValidator{}).
+		WithValidator(&ProjectCustomValidator{client: mgr.GetClient()}).
 		WithDefaulter(&ProjectCustomDefaulter{}).
 		Complete()
 }
@@ -85,7 +87,7 @@ func (d *ProjectCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type ProjectCustomValidator struct {
-	// TODO(user): Add more fields as needed for validation
+	client client.Client
 }
 
 var _ webhook.CustomValidator = &ProjectCustomValidator{}
@@ -96,12 +98,10 @@ func (v *ProjectCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 	if !ok {
 		return nil, fmt.Errorf("expected a Project object but got %T", obj)
 	}
-	projectlog.Info("Validation for Project upon creation", "name", project.GetName())
 
-	if err := validateProjectLabels(project); err != nil {
+	if err := v.validateProject(ctx, project); err != nil {
 		return nil, err
 	}
-
 	return nil, nil
 }
 
@@ -113,10 +113,9 @@ func (v *ProjectCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 	}
 	projectlog.Info("Validation for Project upon update", "name", project.GetName())
 
-	if err := validateProjectLabels(project); err != nil {
+	if err := v.validateProject(ctx, project); err != nil {
 		return nil, err
 	}
-
 	return nil, nil
 }
 
@@ -133,6 +132,34 @@ func (v *ProjectCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 	return nil, nil
 }
 
+func (v *ProjectCustomValidator) validateProject(ctx context.Context, project *corev1.Project) error {
+	// First validate the required labels for the Project resource.
+	if err := validateProjectLabels(project); err != nil {
+		return err
+	}
+
+	// Validate whether the project's namespace matches with the namespace created for the organization.
+	// First get the organization object from the labelKeyOrganizationName label.
+	orgName := project.Labels[labels.LabelKeyOrganizationName]
+	org := &corev1.Organization{}
+	err := v.client.Get(ctx, client.ObjectKey{Name: orgName}, org)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("organization '%s' specified in label '%s' not found", orgName, labels.LabelKeyOrganizationName)
+		} else {
+			return fmt.Errorf("failed to get organization '%s' specified in label '%s': %w", orgName, labels.LabelKeyOrganizationName, err)
+		}
+	}
+
+	// Then check whether the organization's namespace matches with the project's namespace.
+	if org.Status.Namespace != project.Namespace {
+		return fmt.Errorf("project namespace '%s' does not match with the namespace '%s' of the organization '%s'",
+			project.Namespace, org.Status.Namespace, org.Name)
+	}
+	return nil
+}
+
+// validateProjectLabels validates the required labels for the Project resource.
 func validateProjectLabels(project *corev1.Project) error {
 	requiredLabels := []string{
 		labels.LabelKeyOrganizationName,
