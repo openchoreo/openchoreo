@@ -85,18 +85,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	old := organization.DeepCopy()
 
-	// examine DeletionTimestamp to determine if object is under deletion
-	if organization.DeletionTimestamp.IsZero() {
-		// Add the finalizer if not already present
-		if changed := controllerutil.AddFinalizer(organization, organizationFinalizer); changed {
-			if err := r.Update(ctx, organization); err != nil {
-				logger.Error(err, "Failed to add finalizer")
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
+	// Add the finalizer if not already present
+	if controllerutil.AddFinalizer(organization, organizationFinalizer) {
+		if err := r.Update(ctx, organization); err != nil {
+			logger.Error(err, "Failed to add finalizer")
+			return ctrl.Result{}, err
 		}
-	} else {
-		// Handle finalization logic
+		return ctrl.Result{}, nil
+	}
+
+	// examine DeletionTimestamp to determine if object is under deletion and handle finalization
+	if !organization.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
 			meta.SetStatusCondition(&organization.Status.Conditions, NewOrganizationDeletingCondition(organization.Generation))
 			if err := controller.UpdateStatusConditions(ctx, r.Client, old, organization); err != nil {
@@ -114,6 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			// Remove finalizer once cleanup is done
 			base := client.MergeFrom(organization.DeepCopy())
 			if controllerutil.RemoveFinalizer(organization, organizationFinalizer) {
+				logger.Info("Removing finalizer from organization")
 				if err := r.Patch(ctx, organization, base); err != nil {
 					logger.Error(err, "Failed to patch organization for removing finalizer")
 					return ctrl.Result{}, err
