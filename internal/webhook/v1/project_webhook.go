@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,9 +98,15 @@ func (v *ProjectCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 		return nil, fmt.Errorf("expected a Project object but got %T", obj)
 	}
 
-	if err := v.validateProject(ctx, project); err != nil {
+	if err := v.validateProjectCommon(ctx, project); err != nil {
 		return nil, err
 	}
+
+	// Check whether project already exists using the lable name
+	if err := v.ensureNoDuplicateProjectInOrganization(ctx, project); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
@@ -113,7 +118,7 @@ func (v *ProjectCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 	}
 	projectlog.Info("Validation for Project upon update", "name", project.GetName())
 
-	if err := v.validateProject(ctx, project); err != nil {
+	if err := v.validateProjectCommon(ctx, project); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -132,7 +137,7 @@ func (v *ProjectCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 	return nil, nil
 }
 
-func (v *ProjectCustomValidator) validateProject(ctx context.Context, project *corev1.Project) error {
+func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, project *corev1.Project) error {
 	// First validate the required labels for the Project resource.
 	if err := validateProjectLabels(project); err != nil {
 		return err
@@ -141,14 +146,9 @@ func (v *ProjectCustomValidator) validateProject(ctx context.Context, project *c
 	// Validate whether the project's namespace matches with the namespace created for the organization.
 	// First get the organization object from the labelKeyOrganizationName label.
 	orgName := project.Labels[labels.LabelKeyOrganizationName]
-	org := &corev1.Organization{}
-	err := v.client.Get(ctx, client.ObjectKey{Name: orgName}, org)
+	org, err := v.findOrganizationByNameLabel(ctx, orgName)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("organization '%s' specified in label '%s' not found", orgName, labels.LabelKeyOrganizationName)
-		} else {
-			return fmt.Errorf("failed to get organization '%s' specified in label '%s': %w", orgName, labels.LabelKeyOrganizationName, err)
-		}
+		return err
 	}
 
 	// Then check whether the organization's namespace matches with the project's namespace.
@@ -156,6 +156,12 @@ func (v *ProjectCustomValidator) validateProject(ctx context.Context, project *c
 		return fmt.Errorf("project namespace '%s' does not match with the namespace '%s' of the organization '%s'",
 			project.Namespace, org.Status.Namespace, org.Name)
 	}
+
+	// Check whether the deploymentPipelineRef: <name> exists in the namespace
+	if err := v.ensureDeploymentPipelineExists(ctx, project.Spec.DeploymentPipelineRef, project); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -178,4 +184,83 @@ func validateProjectLabels(project *corev1.Project) error {
 	}
 
 	return nil
+}
+
+// ensureDeploymentPipelineExists checks whether the deployment pipeline specified in the project exists in the namespace.
+func (v *ProjectCustomValidator) ensureDeploymentPipelineExists(ctx context.Context, pipelineName string, project *corev1.Project) error {
+	pipelineList := &corev1.DeploymentPipelineList{}
+
+	// Define label selector
+	listOpts := []client.ListOption{
+		client.MatchingLabels{
+			labels.LabelKeyName: pipelineName,
+		},
+	}
+
+	// Get the deployment pipeline object from the namespace
+	if err := v.client.List(ctx, pipelineList, listOpts...); err != nil {
+		return fmt.Errorf("failed to get deployment pipeline '%s' specified in project '%s': %w", pipelineName, project.Labels[labels.LabelKeyName], err)
+	}
+
+	// Check whether the deployment pipeline exists
+	if len(pipelineList.Items) == 0 {
+		return fmt.Errorf("deployment pipeline '%s' specified in project '%s' not found", pipelineName, project.Labels[labels.LabelKeyName])
+	}
+
+	return nil
+}
+
+func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx context.Context, project *corev1.Project) error {
+	// Create a list to hold the projects
+	projectList := &corev1.ProjectList{}
+
+	// Define label selector
+	listOpts := []client.ListOption{
+		client.MatchingLabels{
+			labels.LabelKeyName:             project.Labels[labels.LabelKeyName],
+			labels.LabelKeyOrganizationName: project.Labels[labels.LabelKeyOrganizationName],
+		},
+	}
+
+	// List all projects with the specified label
+	if err := v.client.List(ctx, projectList, listOpts...); err != nil {
+		return fmt.Errorf("failed to get project '%s' specified in label '%s': %w", project.Labels[labels.LabelKeyName], labels.LabelKeyName, err)
+	}
+
+	// Check whether the project exists
+	if len(projectList.Items) > 0 {
+		return fmt.Errorf("project '%s' specified in label '%s' already exists in organization '%s'", project.Labels[labels.LabelKeyName], labels.LabelKeyName, project.Labels[labels.LabelKeyOrganizationName])
+	}
+
+	return nil
+}
+
+func (v *ProjectCustomValidator) findOrganizationByNameLabel(ctx context.Context, orgName string) (*corev1.Organization, error) {
+	// Create a list to hold the organizations
+	orgList := &corev1.OrganizationList{}
+
+	// Define label selector
+	listOpts := []client.ListOption{
+		client.MatchingLabels{
+			labels.LabelKeyName: orgName,
+		},
+	}
+
+	// List all organizations with the specified label
+	if err := v.client.List(ctx, orgList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to get organization '%s' specified in label '%s': %w", orgName, labels.LabelKeyOrganizationName, err)
+	}
+
+	// Check whether the organization exists
+	if len(orgList.Items) == 0 {
+		return nil, fmt.Errorf("organization '%s' specified in label '%s' not found", orgName, labels.LabelKeyOrganizationName)
+	}
+
+	// Check whether multiple organizations found
+	if len(orgList.Items) > 1 {
+		// This should not happen as the organization name is unique and we validate it during the creation
+		return nil, fmt.Errorf("multiple organizations found with name '%s', specified in label '%s'", orgName, labels.LabelKeyOrganizationName)
+	}
+
+	return &orgList.Items[0], nil
 }
