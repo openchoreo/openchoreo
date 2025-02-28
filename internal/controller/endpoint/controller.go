@@ -166,6 +166,7 @@ func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
 		kubernetes.NewHTTPRouteHandler(r.Client),
+		kubernetes.NewSecurityPolicyHandler(r.Client),
 	}
 
 	return resourceHandlers

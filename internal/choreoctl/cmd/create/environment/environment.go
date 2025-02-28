@@ -75,7 +75,9 @@ func createEnvironment(params api.CreateEnvironmentParams) error {
 		Spec: corev1.EnvironmentSpec{
 			DataPlaneRef: params.DataPlaneRef,
 			IsProduction: params.IsProduction,
-			DNSPrefix:    params.DNSPrefix,
+			Gateway: corev1.GatewayConfig{
+				DNSPrefix: params.DNSPrefix,
+			},
 		},
 	}
 

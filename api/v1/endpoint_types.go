@@ -54,7 +54,7 @@ type EndpointSchemaSpec struct {
 
 // EndpointAPISettingsSpec defines configuration parameters for managed endpoints
 type EndpointAPISettingsSpec struct {
-	SecuritySchemes                      []string                  `json:"securitySchemes,omitempty"`
+	SecuritySchemes                      []SecurityScheme          `json:"securitySchemes,omitempty"`
 	AuthorizationHeader                  string                    `json:"authorizationHeader,omitempty"`
 	BackendJWT                           *BackendJWTConfig         `json:"backendJwt,omitempty"`
 	OperationPolicies                    []OperationPolicy         `json:"operationPolicies,omitempty"`
@@ -98,6 +98,12 @@ type CORSConfig struct {
 type RateLimitConfig struct {
 	Tier string `json:"tier"`
 }
+
+type SecurityScheme string
+
+const (
+	Oauth SecurityScheme = "oauth"
+)
 
 // EndpointType defines the different API technologies supported by the endpoint
 type EndpointType string

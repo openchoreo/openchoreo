@@ -19,6 +19,7 @@
 package v1
 
 import (
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,9 +32,9 @@ type EnvironmentSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Environment. Edit environment_types.go to remove/update
-	DataPlaneRef string `json:"dataPlaneRef,omitempty"`
-	IsProduction bool   `json:"isProduction,omitempty"`
-	DNSPrefix    string `json:"dnsPrefix,omitempty"`
+	DataPlaneRef string        `json:"dataPlaneRef,omitempty"`
+	IsProduction bool          `json:"isProduction,omitempty"`
+	Gateway      GatewayConfig `json:"gateway,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment.
@@ -64,6 +65,14 @@ type EnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Environment `json:"items"`
+}
+
+type GatewayConfig struct {
+	Security  SecurityConfig `json:"security,omitempty"`
+	DNSPrefix string         `json:"dnsPrefix,omitempty"`
+}
+type SecurityConfig struct {
+	egv1a1.RemoteJWKS `json:"remoteJwks"`
 }
 
 func init() {

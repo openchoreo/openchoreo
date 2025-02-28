@@ -104,7 +104,7 @@ func printEnvironmentTable(environments []corev1.Environment, orgName string) er
 		age := util.FormatAge(env.CreationTimestamp.Time)
 
 		fmt.Fprintf(w, "%s\t%s\t%t\t%v\t%s\t%s\n",
-			env.Name, env.Spec.DataPlaneRef, env.Spec.IsProduction, env.Spec.DNSPrefix,
+			env.Name, env.Spec.DataPlaneRef, env.Spec.IsProduction, env.Spec.Gateway.DNSPrefix,
 			age, orgName)
 	}
 
