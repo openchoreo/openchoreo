@@ -30,8 +30,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/choreo-idp/choreo/api/v1"
-	org "github.com/choreo-idp/choreo/internal/controller/organization"
+	apiv1 "github.com/wso2-enterprise/choreo-cp-declarative-api/api/v1"
+	org "github.com/wso2-enterprise/choreo-cp-declarative-api/internal/controller/organization"
+	"github.com/wso2-enterprise/choreo-cp-declarative-api/internal/controller/testutils"
 )
 
 var _ = Describe("DataPlane Controller", func() {
@@ -53,30 +54,19 @@ var _ = Describe("DataPlane Controller", func() {
 			orgNamespacedName := types.NamespacedName{
 				Name: orgName,
 			}
-			By("Creating the organization resource", func() {
-				org := &apiv1.Organization{}
-				err := k8sClient.Get(ctx, orgNamespacedName, org)
-				if err != nil && errors.IsNotFound(err) {
-					org := &apiv1.Organization{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: orgName,
-						},
-					}
-					Expect(k8sClient.Create(ctx, org)).To(Succeed())
-				}
-			})
-
-			By("Reconciling the organization resource", func() {
+			organization := &apiv1.Organization{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: orgName,
+				},
+			}
+			By("Creating and reconciling organization resource", func() {
 				orgReconciler := &org.Reconciler{
 					Client:   k8sClient,
 					Scheme:   k8sClient.Scheme(),
 					Recorder: record.NewFakeRecorder(100),
 				}
-				result, err := orgReconciler.Reconcile(ctx, reconcile.Request{
-					NamespacedName: orgNamespacedName,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result.Requeue).To(BeFalse())
+				testutils.CreateAndReconcileResourceWithCycles(ctx, k8sClient, organization, orgReconciler,
+					orgNamespacedName, 2)
 			})
 
 		})

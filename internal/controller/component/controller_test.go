@@ -66,7 +66,8 @@ var _ = Describe("Component Controller", func() {
 				Scheme:   k8sClient.Scheme(),
 				Recorder: record.NewFakeRecorder(100),
 			}
-			testutils.CreateAndReconcileResource(ctx, k8sClient, organization, orgReconciler, orgNamespacedName)
+			testutils.CreateAndReconcileResourceWithCycles(ctx, k8sClient, organization, orgReconciler,
+				orgNamespacedName, 2)
 		})
 
 		dpNamespacedName := types.NamespacedName{

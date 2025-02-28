@@ -75,6 +75,22 @@ var _ = Context("Organization Controller", func() {
 			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			By("Ensuring the finalizer is added", func() {
+				resource := &apiv1.Organization{}
+				err := k8sClient.Get(ctx, typeNamespacedName, resource)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
+			})
+
+			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 		})
@@ -91,15 +107,6 @@ var _ = Context("Organization Controller", func() {
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyManagedBy, labels.LabelValueManagedBy))
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyOrganizationName, orgName))
 			Expect(namespace.Labels).To(HaveKeyWithValue(labels.LabelKeyName, orgName))
-		})
-
-		It("should add finalizer to the organization resource upon creation", func() {
-			resource := &apiv1.Organization{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Ensuring the finalizer is added")
-			Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
 		})
 
 		It("should not return an error for reconciling non-existing organization", func() {
@@ -170,7 +177,7 @@ var _ = Context("Organization Controller", func() {
 		})
 	})
 
-	Describe("delete organization resource", func() {
+	Describe("delete an organization resource", func() {
 		var uuidOfOrgResource types.UID
 		It("should be able to delete the organization resource", func() {
 			resource := &apiv1.Organization{}
@@ -182,40 +189,35 @@ var _ = Context("Organization Controller", func() {
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 
-		It("should reconcile the organization resource and process finalizer removal", func() {
+		It("should successfully reconcile the organization resource even after deletion", func() {
 			controllerReconciler := &Reconciler{
 				Client:   k8sClient,
 				Scheme:   k8sClient.Scheme(),
 				Recorder: record.NewFakeRecorder(100),
 			}
 
-			// Reconcile after deletion to trigger finalizer logic
+			// first reconciliation to get the finalizer created
 			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
 
-			// Fetch resource again to check if finalizer is removed
-			resource := &apiv1.Organization{}
-			err = k8sClient.Get(ctx, typeNamespacedName, resource)
-
-			if apierrors.IsNotFound(err) {
-				// Resource should be deleted after finalizer handling
-				By("Organization resource should be fully deleted after finalizer execution")
-			} else {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resource.Finalizers).NotTo(ContainElement(organizationFinalizer))
-			}
+			// second reconciliation to get the namespace created
+			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
 		})
 
+		// since the namespace deletion not supported in envtest, the following test only checks
+		// if the namespace resource's status is terminating and owner reference
+		// more info: https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/reference/envtest.md#testing-considerations
 		It("should have deleted the namespace for the organization", func() {
 			namespace := &corev1.Namespace{}
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: orgName}, namespace)
 
-			// Since the envtest api server does not support owner reference deletion, the namespace will not be deleted
-			// and the error will be nil. Hence validating just the owner reference
-			// https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/reference/envtest.md#testing-considerations
 			expectedOwnerReference := metav1.OwnerReference{
 				Kind:               "Organization",
 				APIVersion:         "core.choreo.dev/v1",
@@ -226,6 +228,75 @@ var _ = Context("Organization Controller", func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 			Expect(namespace.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))
+
+			Expect(namespace.Status.Phase).To(Equal(corev1.NamespaceTerminating))
+		})
+	})
+
+	Describe("test organization delete finalizer", func() {
+		const orgNameDelete = "test-organization-delete"
+
+		typeNamespacedName := types.NamespacedName{
+			Name: orgNameDelete,
+		}
+
+		It("should create, reconcile, delete, and verify deletion of the organization resource in order", func() {
+			// 1. Check if the organization exists, if not, create it
+			By("Ensuring the organization resource exists")
+			orgDelete := &apiv1.Organization{}
+			err := k8sClient.Get(ctx, typeNamespacedName, orgDelete)
+			if err != nil && apierrors.IsNotFound(err) {
+				org := &apiv1.Organization{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: orgNameDelete,
+					},
+				}
+				Expect(k8sClient.Create(ctx, org)).To(Succeed())
+			}
+
+			// 2. Reconcile to add finalizer
+			// In the following test, it is trying to simulate the finalizer behavior when organization is being deleted.
+			// There is a limitation with namespace deletion in envtest,
+			//   more info: https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/reference/envtest.md#namespace-usage-limitation
+			// So it cannot simulate the full flow of organization deletion.
+			// Due to this, organization resource will only reconcile once to ensure the
+			//   finalizer is added, but not the namespace created.
+			By("Reconciling to add finalizer")
+			controllerReconciler := &Reconciler{
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(100),
+			}
+
+			result, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(result.Requeue).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+
+			// 3. Ensure finalizer is added
+			By("Ensuring the finalizer is added")
+			resource := &apiv1.Organization{}
+			err = k8sClient.Get(ctx, typeNamespacedName, resource)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
+
+			// 4. Delete the organization resource
+			By("Deleting the organization resource")
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+
+			// 5. Reconcile after deletion to trigger finalizer logic
+			By("Reconciling the organization resource and processing finalizer removal")
+			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			// 6. Verify the organization resource is deleted
+			By("Ensuring the organization resource is deleted after finalizer removal")
+			resource = &apiv1.Organization{}
+			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, typeNamespacedName, resource))).To(BeTrue())
 		})
 	})
 })

@@ -91,7 +91,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if changed := controllerutil.AddFinalizer(organization, organizationFinalizer); changed {
 			if err := r.Update(ctx, organization); err != nil {
 				logger.Error(err, "Failed to add finalizer")
-				return ctrl.Result{Requeue: true}, err
+				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
 		}
@@ -112,9 +112,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			}
 
 			// Remove finalizer once cleanup is done
+			base := client.MergeFrom(organization.DeepCopy())
 			if controllerutil.RemoveFinalizer(organization, organizationFinalizer) {
-				if err := r.Update(ctx, organization); err != nil {
-					logger.Error(err, "Failed to update organization for removing finalizer")
+				if err := r.Patch(ctx, organization, base); err != nil {
+					logger.Error(err, "Failed to patch organization for removing finalizer")
 					return ctrl.Result{}, err
 				}
 			}
