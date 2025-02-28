@@ -30,11 +30,14 @@ func (h *SecurityPolicyHandler) Name() string {
 }
 
 func (h *SecurityPolicyHandler) IsRequired(ctx *dataplane.EndpointContext) bool {
-	if secSchemes := ctx.Endpoint.Spec.APISettings.SecuritySchemes; secSchemes != nil {
-		for _, scheme := range secSchemes {
-			return scheme == choreov1.Oauth
-		}
+	if ctx.Endpoint.Spec.APISettings == nil || ctx.Endpoint.Spec.APISettings.SecuritySchemes == nil {
+		return false
 	}
+	secSchemes := ctx.Endpoint.Spec.APISettings.SecuritySchemes
+	for _, scheme := range secSchemes {
+		return scheme == choreov1.Oauth
+	}
+
 	return false
 }
 
