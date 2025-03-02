@@ -28,14 +28,14 @@ import (
 
 const ConditionDeleting controller.ConditionType = "Deleting"
 
-// ReasonOrganizationDeleting the organization is being deleted
-const ReasonOrganizationDeleting controller.ConditionReason = "OrganizationDeleting"
+// ReasonOrganizationFinalizing the organization is being deleted
+const ReasonOrganizationFinalizing controller.ConditionReason = "OrganizationFinalizing"
 
-func NewOrganizationDeletingCondition(generation int64) metav1.Condition {
+func NewOrganizationFinalizingCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionDeleting,
 		metav1.ConditionFalse,
-		ReasonOrganizationDeleting,
+		ReasonOrganizationFinalizing,
 		"Organization is being deleted",
 		generation,
 	)
