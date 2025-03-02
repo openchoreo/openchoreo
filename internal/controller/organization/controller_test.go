@@ -84,7 +84,7 @@ var _ = Context("Organization Controller", func() {
 				err := k8sClient.Get(ctx, typeNamespacedName, resource)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
+				Expect(resource.Finalizers).To(ContainElement(OrgCleanUpFinalizer))
 			})
 
 			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
@@ -279,13 +279,21 @@ var _ = Context("Organization Controller", func() {
 			resource := &apiv1.Organization{}
 			err = k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resource.Finalizers).To(ContainElement(organizationFinalizer))
+			Expect(resource.Finalizers).To(ContainElement(OrgCleanUpFinalizer))
 
 			// 4. Delete the organization resource
 			By("Deleting the organization resource")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 
-			// 5. Reconcile after deletion to trigger finalizer logic
+			// 5. Reconcile after deletion to trigger finalizer logic - Attempt 1 to update status conditions
+			By("Reconciling the organization resource and processing finalizer removal")
+			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			// 6. Reconcile after deletion to trigger finalizer logic - Attempt 2 to delete finalizer
 			By("Reconciling the organization resource and processing finalizer removal")
 			result, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,

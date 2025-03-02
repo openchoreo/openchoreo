@@ -20,20 +20,14 @@ package organization
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -47,10 +41,6 @@ type Reconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
-
-const organizationFinalizer = "core.choreo.dev/delete-namespace"
-
-var ErrNamespaceDeletionWait = errors.New("waiting for namespace to be deleted")
 
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations/status,verbs=get;update;patch
@@ -85,42 +75,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	old := organization.DeepCopy()
 
-	// Add the finalizer if not already present
-	if controllerutil.AddFinalizer(organization, organizationFinalizer) {
-		if err := r.Update(ctx, organization); err != nil {
-			logger.Error(err, "Failed to add finalizer")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
-
 	// examine DeletionTimestamp to determine if object is under deletion and handle finalization
 	if !organization.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(organization, organizationFinalizer) {
-			meta.SetStatusCondition(&organization.Status.Conditions, NewOrganizationDeletingCondition(organization.Generation))
-			if err := controller.UpdateStatusConditions(ctx, r.Client, old, organization); err != nil {
-				return ctrl.Result{}, err
-			}
+		logger.Info("Finalizing organization")
+		return r.finalize(ctx, old, organization)
+	}
 
-			if err := r.handleNamespaceDeletion(ctx, organization); err != nil {
-				if errors.Is(err, ErrNamespaceDeletionWait) {
-					return ctrl.Result{}, nil
-				}
-				logger.Error(err, "Failed to check namespace deletion status")
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-			}
-
-			// Remove finalizer once cleanup is done
-			base := client.MergeFrom(organization.DeepCopy())
-			if controllerutil.RemoveFinalizer(organization, organizationFinalizer) {
-				logger.Info("Removing finalizer from organization")
-				if err := r.Patch(ctx, organization, base); err != nil {
-					logger.Error(err, "Failed to patch organization for removing finalizer")
-					return ctrl.Result{}, err
-				}
-			}
-		}
-		return ctrl.Result{}, nil
+	// Ensure finalizer is added to the organization
+	if finalizerAdded, err := r.ensureFinalizer(ctx, organization); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
 	}
 
 	previousCondition := meta.FindStatusCondition(organization.Status.Conditions, controller.TypeReady)
@@ -207,27 +171,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Namespace{}). // Watch any changes to owned Namespaces
 		Named("organization").
 		Complete(r)
-}
-
-// handleNamespaceDeletion Ensures the namespace is deleted when the organization is deleted
-func (r *Reconciler) handleNamespaceDeletion(ctx context.Context, org *choreov1.Organization) error {
-	namespace := &corev1.Namespace{}
-	err := r.Get(ctx, types.NamespacedName{Name: org.Name}, namespace)
-
-	if apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get namespace: %w", err)
-	}
-
-	// If namespace still exists, attempt deletion
-	if namespace.DeletionTimestamp.IsZero() {
-		if err := r.Delete(ctx, namespace); err != nil {
-			return fmt.Errorf("failed to delete namespace: %w", err)
-		}
-	}
-
-	return fmt.Errorf("%w: %s", ErrNamespaceDeletionWait, org.Name)
 }
 
 func makeOrganizationNamespace(organization *choreov1.Organization) *corev1.Namespace {
