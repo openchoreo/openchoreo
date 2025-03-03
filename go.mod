@@ -1,6 +1,6 @@
 module github.com/choreo-idp/choreo
 
-go 1.24.0
+go 1.23.5
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.0
