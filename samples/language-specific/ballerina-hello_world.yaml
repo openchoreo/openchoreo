@@ -1,0 +1,88 @@
+## Sample Component kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: hello-world-ballerina
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Hello World Ballerina Component
+    core.choreo.dev/description: This component can send hello world when invoked
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: hello-world-ballerina
+spec:
+  type: Service
+  source:
+    gitRepository:
+      url: https://github.com/wso2/choreo-samples
+      authentication:
+        secretRef: choreo-bot-git-pat
+
+---
+
+## Sample DeploymentTrack kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: hello-world-ballerina-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Deployment Track
+    core.choreo.dev/description: Main deployment track
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: hello-world-ballerina
+    core.choreo.dev/name: hello-world-ballerina-main
+spec:
+  buildTemplateSpec:
+    branch: main
+    path: /hello-world
+    buildConfiguration:
+      buildpack:
+        name: Ballerina
+---
+
+## Sample Build kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Build
+metadata:
+  name: hello-world-ballerina-build-01
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Default Build
+    core.choreo.dev/description: Initial build configuration
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: hello-world-ballerina
+    core.choreo.dev/deployment-track: hello-world-ballerina-main
+    core.choreo.dev/name: hello-world-ballerina-build-01
+spec:
+  branch: main
+  path: /hello-world
+  buildConfiguration:
+    buildpack:
+      name: Ballerina
+      version: 2201.10.4
+---
+
+#### Sample Deployment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: hello-world-ballerina-development-deployment
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Deployment of Hello World Ballerina App
+    core.choreo.dev/description: Initial deployment configuration
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: hello-world-ballerina
+    core.choreo.dev/deployment-track: hello-world-ballerina-main
+    core.choreo.dev/name: hello-world-ballerina-development-deployment
+spec:
+  deploymentArtifactRef: hello-world-ballerina-build-01

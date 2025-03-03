@@ -444,7 +444,7 @@ done
 
 if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
   podman pull chalindukodikara/choreo-buildpack:ballerina-builder
-  podman save -o /shared/podman/cache/ballerina-builder.tar.tar chalindukodikara/choreo-buildpack:ballerina-builder
+  podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
 else
   if podman load -i /shared/podman/cache/ballerina-builder.tar; then
 	true
