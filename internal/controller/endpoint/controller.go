@@ -57,7 +57,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Get Endpoint CR
 	ep := &choreov1.Endpoint{}
-	oldEp := ep.DeepCopy()
+	old := ep.DeepCopy()
 
 	if err := r.Get(ctx, req.NamespacedName, ep); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -76,8 +76,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			"Context resolution failed: %v", err)
 		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
 	}
-
-	old := ep.DeepCopy()
 
 	if !ep.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing endpoint")
@@ -101,18 +99,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		return ctrl.Result{}, err
 	}
-
 	meta.SetStatusCondition(&ep.Status.Conditions, EndpointReadyCondition(ep.Generation))
-	ep.Status.Address = kubernetes.MakeAddress(epCtx.Component.Name, epCtx.Environment.Name, epCtx.Component.Spec.Type, epCtx.Endpoint.Spec.Service.BasePath)
-	if ep.Status.Address != oldEp.Status.Address ||
-		controller.NeedConditionUpdate(oldEp.Status.Conditions, ep.Status.Conditions) {
+	ep.Status.Address = kubernetes.MakeAddress(
+		epCtx.Project.Name,
+		epCtx.Component.Name,
+		epCtx.Environment.Name,
+		epCtx.Component.Spec.Type,
+		epCtx.Endpoint.Spec.Service.BasePath,
+	)
+	if ep.Status.Address != old.Status.Address ||
+		controller.NeedConditionUpdate(old.Status.Conditions, ep.Status.Conditions) {
 		if err := r.Status().Update(ctx, ep); err != nil {
 			logger.Error(err, "Failed to update Endpoint status")
 			return ctrl.Result{}, err
 		}
 	}
 
-	oldReadyCondition := meta.IsStatusConditionTrue(oldEp.Status.Conditions, ConditionReady.String())
+	oldReadyCondition := meta.IsStatusConditionTrue(old.Status.Conditions, ConditionReady.String())
 	newReadyCondition := meta.IsStatusConditionTrue(ep.Status.Conditions, ConditionReady.String())
 
 	// Emit an event if the endpoint is transitioning to ready
