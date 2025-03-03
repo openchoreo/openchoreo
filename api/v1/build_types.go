@@ -49,8 +49,7 @@ const (
 	BuildpackPython    BuildpackName = "Python"
 	BuildpackRuby      BuildpackName = "Ruby"
 	BuildpackPHP       BuildpackName = "PHP"
-	//BuildpackJava      BuildpackName = "Java"
-
+	// BuildpackJava      BuildpackName = "Java"
 )
 
 // SupportedVersions maps each buildpack to its supported versions.
@@ -63,7 +62,7 @@ var SupportedVersions = map[BuildpackName][]string{
 	BuildpackPython:    {"3.10.x", "3.11.x", "3.12.x"},
 	BuildpackRuby:      {"3.1.x", "3.2.x", "3.3.x"},
 	BuildpackPHP:       {"8.1.x", "8.2.x", "8.3.x"},
-	//BuildpackJava:      {"8", "11", "17", "18", "21"},
+	// BuildpackJava:      {"8", "11", "17", "18", "21"},
 }
 
 type DockerConfiguration struct {
