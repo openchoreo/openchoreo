@@ -337,6 +337,8 @@ EOF`
 	if build.Spec.BuildConfiguration.Buildpack != nil {
 		if build.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackReact {
 			buildScript = makeReactBuildScript(build.Spec.BuildConfiguration.Buildpack.Version, build.Spec.Path, imageName)
+		} else if build.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackBallerina {
+			buildScript = makeBallerinaBuildScript(build, imageName)
 		} else {
 			buildScript = makeGoogleBuildpackBuildScript(build, imageName)
 		}
@@ -431,6 +433,31 @@ podman save -o /mnt/vol/app-image.tar %s`,
 		imageReference, targetDir, targetDir,
 		imageReference,
 	)
+}
+
+func makeBallerinaBuildScript(build *choreov1.Build, imageName string) string {
+	return fmt.Sprintf(`
+podman system service --time=0 &
+until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q "true"; do
+  sleep 1
+done
+
+if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
+  podman pull chalindukodikara/choreo-buildpack:ballerina-builder
+  podman save -o /shared/podman/cache/ballerina-builder.tar.tar chalindukodikara/choreo-buildpack:ballerina-builder
+else
+  if podman load -i /shared/podman/cache/ballerina-builder.tar; then
+	true
+  else
+	podman pull chalindukodikara/choreo-buildpack:ballerina-builder
+	podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
+  fi
+fi
+
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=chalindukodikara/choreo-buildpack:ballerina-builder \
+--docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
+
+podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, imageName, build.Spec.Path, imageName)
 }
 
 func getDockerfileContent(nodeVersion string) string {
