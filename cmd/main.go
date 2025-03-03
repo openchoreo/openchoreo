@@ -24,12 +24,11 @@ import (
 	"log"
 	"os"
 
-	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	"github.com/google/go-github/v69/github"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	// +kubebuilder:scaffold:imports
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
+	"github.com/google/go-github/v69/github"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
