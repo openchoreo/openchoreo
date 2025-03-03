@@ -42,25 +42,28 @@ type BuildEnvironment struct {
 type BuildpackName string
 
 const (
-	BuildpackReact  BuildpackName = "React"
-	BuildpackGo     BuildpackName = "Go"
-	BuildpackJava   BuildpackName = "Java"
-	BuildpackNodeJS BuildpackName = "Node.js"
-	BuildpackPython BuildpackName = "Python"
-	BuildpackRuby   BuildpackName = "Ruby"
-	BuildpackPHP    BuildpackName = "PHP"
+	BuildpackReact     BuildpackName = "React"
+	BuildpackGo        BuildpackName = "Go"
+	BuildpackBallerina BuildpackName = "Ballerina"
+	BuildpackNodeJS    BuildpackName = "Node.js"
+	BuildpackPython    BuildpackName = "Python"
+	BuildpackRuby      BuildpackName = "Ruby"
+	BuildpackPHP       BuildpackName = "PHP"
+	//BuildpackJava      BuildpackName = "Java"
+
 )
 
 // SupportedVersions maps each buildpack to its supported versions.
 // Refer (builder:google-22): https://cloud.google.com/docs/buildpacks/builders
 var SupportedVersions = map[BuildpackName][]string{
-	BuildpackReact:  {"18.20.6", "19.9.0", "20.18.3", "21.7.3", "22.14.0", "23.7.0"},
-	BuildpackGo:     {"1.x"},
-	BuildpackJava:   {"8", "11", "17", "18", "21"},
-	BuildpackNodeJS: {"12.x.x", "14.x.x", "16.x.x", "18.x.x", "20.x.x", "22.x.x"},
-	BuildpackPython: {"3.10.x", "3.11.x", "3.12.x"},
-	BuildpackRuby:   {"3.1.x", "3.2.x", "3.3.x"},
-	BuildpackPHP:    {"8.1.x", "8.2.x", "8.3.x"},
+	BuildpackReact:     {"18.20.6", "19.9.0", "20.18.3", "21.7.3", "22.14.0", "23.7.0"},
+	BuildpackGo:        {"1.x"},
+	BuildpackBallerina: {"2201.7.5", "2201.8.9", "2201.9.6", "2201.10.4", "2201.11.0"},
+	BuildpackNodeJS:    {"12.x.x", "14.x.x", "16.x.x", "18.x.x", "20.x.x", "22.x.x"},
+	BuildpackPython:    {"3.10.x", "3.11.x", "3.12.x"},
+	BuildpackRuby:      {"3.1.x", "3.2.x", "3.3.x"},
+	BuildpackPHP:       {"8.1.x", "8.2.x", "8.3.x"},
+	//BuildpackJava:      {"8", "11", "17", "18", "21"},
 }
 
 type DockerConfiguration struct {

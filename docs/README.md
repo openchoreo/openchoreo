@@ -621,16 +621,16 @@ spec:
     buildpack:
       # Name of the buildpack to use for the build.
       #
-      # +allowedValues: [React, Go, Java, NodeJS, Python, Ruby, PHP, .NET, SpringBoot]
+      # +allowedValues: [React, Go, Ballerina, NodeJS, Python, Ruby, PHP, .NET]
       # +required
-      name: SpringBoot
+      name: Go
       # Runtime version to use for the build. This field is optional and the latest version will be used if not provided.
       #
       # Certain buildpacks will be able to automatically detect the version from the source code and specify
       # the version here means the build system will override the detected version.
       #
       # +optional (default: latest)
-      version: 2.5.3
+      version: 1.x
   # Environment variables and secrets to be set during the build process.
   #
   # +optional
