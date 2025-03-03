@@ -100,8 +100,10 @@ func makeSecurityPolicySpec(epCtx *dataplane.EndpointContext) egv1a1.SecurityPol
 		JWT: &egv1a1.JWT{
 			Providers: []egv1a1.JWTProvider{
 				{
-					Name:       "default",
-					RemoteJWKS: epCtx.Environment.Spec.Gateway.Security.RemoteJWKS, // Get from environment
+					Name: "default",
+					RemoteJWKS: egv1a1.RemoteJWKS{
+						URI: epCtx.Environment.Spec.Gateway.Security.RemoteJWKS.URI,
+					},
 				},
 			},
 		},

@@ -19,7 +19,6 @@
 package v1
 
 import (
-	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -72,7 +71,12 @@ type GatewayConfig struct {
 	DNSPrefix string         `json:"dnsPrefix,omitempty"`
 }
 type SecurityConfig struct {
-	egv1a1.RemoteJWKS `json:"remoteJwks"`
+	// +optional
+	RemoteJWKS `json:"remoteJwks"`
+}
+
+type RemoteJWKS struct {
+	URI string `json:"uri"`
 }
 
 func init() {
