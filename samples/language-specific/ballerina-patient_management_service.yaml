@@ -2,20 +2,20 @@
 apiVersion: core.choreo.dev/v1
 kind: Component
 metadata:
-  name: hello-world-ballerina
+  name: patient-management-service
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Hello World Ballerina Component
-    core.choreo.dev/description: This component can send hello world when invoked
+    core.choreo.dev/display-name: Patient Management Ballerina Component
+    core.choreo.dev/description: This component can send manage patients through its REST API
   labels:
     core.choreo.dev/organization: default-org
     core.choreo.dev/project: default-project
-    core.choreo.dev/name: hello-world-ballerina
+    core.choreo.dev/name: patient-management-service
 spec:
   type: Service
   source:
     gitRepository:
-      url: https://github.com/wso2/choreo-samples
+      url: https://github.com/chalindukodikara/choreo-samples
       authentication:
         secretRef: choreo-bot-git-pat
 
@@ -25,7 +25,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: DeploymentTrack
 metadata:
-  name: hello-world-ballerina-main
+  name: patient-management-service-main
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Deployment Track
@@ -33,12 +33,12 @@ metadata:
   labels:
     core.choreo.dev/organization: default-org
     core.choreo.dev/project: default-project
-    core.choreo.dev/component: hello-world-ballerina
-    core.choreo.dev/name: hello-world-ballerina-main
+    core.choreo.dev/component: patient-management-service
+    core.choreo.dev/name: patient-management-service-main
 spec:
   buildTemplateSpec:
-    branch: main
-    path: /hello-world
+    branch: dev
+    path: /patient-management-service
     buildConfiguration:
       buildpack:
         name: Ballerina
@@ -48,7 +48,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: hello-world-ballerina-build-01
+  name: patient-management-service-build-02
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Default Build
@@ -56,12 +56,12 @@ metadata:
   labels:
     core.choreo.dev/organization: default-org
     core.choreo.dev/project: default-project
-    core.choreo.dev/component: hello-world-ballerina
-    core.choreo.dev/deployment-track: hello-world-ballerina-main
-    core.choreo.dev/name: hello-world-ballerina-build-01
+    core.choreo.dev/component: patient-management-service
+    core.choreo.dev/deployment-track: patient-management-service-main
+    core.choreo.dev/name: patient-management-service-build-01
 spec:
-  branch: main
-  path: /hello-world
+  branch: dev
+  path: /patient-management-service
   buildConfiguration:
     buildpack:
       name: Ballerina
@@ -72,17 +72,17 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: hello-world-ballerina-development-deployment
+  name: patient-management-service-development-deployment-5
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Deployment of Hello World Ballerina App
+    core.choreo.dev/display-name: Deployment of Patient Management App
     core.choreo.dev/description: Initial deployment configuration
   labels:
     core.choreo.dev/organization: default-org
     core.choreo.dev/project: default-project
     core.choreo.dev/environment: development
-    core.choreo.dev/component: hello-world-ballerina
-    core.choreo.dev/deployment-track: hello-world-ballerina-main
-    core.choreo.dev/name: hello-world-ballerina-development-deployment
+    core.choreo.dev/component: patient-management-service
+    core.choreo.dev/deployment-track: patient-management-service-main
+    core.choreo.dev/name: patient-management-service-development-deployment-5
 spec:
-  deploymentArtifactRef: hello-world-ballerina-build-01
+  deploymentArtifactRef: patient-management-service-build-02
