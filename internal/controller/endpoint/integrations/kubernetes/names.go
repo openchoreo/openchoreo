@@ -25,10 +25,10 @@ import (
 )
 
 // NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
-func makeNamespaceName(endpointCtx *dataplane.EndpointContext) string {
-	organizationName := controller.GetOrganizationName(endpointCtx.Project)
-	projectName := controller.GetName(endpointCtx.Project)
-	environmentName := controller.GetName(endpointCtx.Environment)
+func makeNamespaceName(epCtx *dataplane.EndpointContext) string {
+	organizationName := controller.GetOrganizationName(epCtx.Project)
+	projectName := controller.GetName(epCtx.Project)
+	environmentName := controller.GetName(epCtx.Environment)
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength, "dp", organizationName, projectName, environmentName)
 }
 
