@@ -338,9 +338,9 @@ EOF`
 		if build.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackReact {
 			buildScript = makeReactBuildScript(build.Spec.BuildConfiguration.Buildpack.Version, build.Spec.Path, imageName)
 		} else if build.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackBallerina {
-			buildScript = makeBallerinaBuildScript(build, imageName)
+			buildScript = makeBuildpackBuildScript(build, imageName, true)
 		} else {
-			buildScript = makeGoogleBuildpackBuildScript(build, imageName)
+			buildScript = makeBuildpackBuildScript(build, imageName, false)
 		}
 	} else {
 		buildScript = makeDockerfileBuildScript(build, imageName)
@@ -367,7 +367,6 @@ podman tag %s-$GIT_REVISION registry.choreo-system:5000/%s-$GIT_REVISION
 podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
 
 podman rmi %s-$GIT_REVISION -f
-podman volume prune --force
 echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName, imageName, imageName, imageName, imageName)
 }
 
@@ -375,44 +374,6 @@ func makeDockerfileBuildScript(build *choreov1.Build, imageName string) string {
 	return fmt.Sprintf(`
 podman build -t %s-{{inputs.parameters.git-revision}} -f /mnt/vol/source%s /mnt/vol/source%s
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, imageName, getDockerfilePath(build), getDockerContext(build), imageName)
-}
-
-func makeGoogleBuildpackBuildScript(build *choreov1.Build, imageName string) string {
-	return fmt.Sprintf(`
-podman system service --time=0 &
-until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q "true"; do
-  sleep 1
-done
-
-if [[ ! -f "/shared/podman/cache/google-builder.tar" ]]; then
-  podman pull gcr.io/buildpacks/builder:google-22
-  podman save -o /shared/podman/cache/google-builder.tar gcr.io/buildpacks/builder:google-22
-else
-  if podman load -i /shared/podman/cache/google-builder.tar; then
-	true
-  else
-	podman pull gcr.io/buildpacks/builder:google-22
-	podman save -o /shared/podman/cache/google-builder.tar gcr.io/buildpacks/builder:google-22
-  fi
-fi
-
-if [[ ! -f "/shared/podman/cache/google-run.tar" ]]; then
-  podman pull gcr.io/buildpacks/google-22/run:latest
-  podman save -o /shared/podman/cache/google-run.tar gcr.io/buildpacks/google-22/run:latest
-else
-  if podman load -i /shared/podman/cache/google-run.tar; then
-	true
-  else
-	podman pull gcr.io/buildpacks/google-22/run:latest
-	podman save -o /shared/podman/cache/google-run.tar gcr.io/buildpacks/google-22/run:latest
-  fi
-fi
-
-/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=gcr.io/buildpacks/builder:google-22 \
---docker-host=inherit --path=/mnt/vol/source%s --pull-policy if-not-present %s
-
-podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}
-podman volume prune --force`, imageName, build.Spec.Path, getLanguageVersion(build), imageName)
 }
 
 func makeReactBuildScript(nodeVersion, path, imageName string) string {
@@ -435,29 +396,56 @@ podman save -o /mnt/vol/app-image.tar %s`,
 	)
 }
 
-func makeBallerinaBuildScript(build *choreov1.Build, imageName string) string {
-	return fmt.Sprintf(`
+func makeBuildpackBuildScript(build *choreov1.Build, imageName string, isBallerina bool) string {
+	baseScript := `
 podman system service --time=0 &
 until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q "true"; do
   sleep 1
-done
+done`
+	if isBallerina {
+		return baseScript + makeBallerinaBuildScript(imageName, build.Spec.Path)
+	}
+	return baseScript + makeGoogleBuildpackBuildScript(imageName, build)
+}
 
-if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
-  podman pull chalindukodikara/choreo-buildpack:ballerina-builder
-  podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
+func makeBuilderCacheScript(image, cachePath string) string {
+	return fmt.Sprintf(`
+if [[ ! -f "%s" ]]; then
+  podman pull %s
+  podman save -o %s %s
 else
-  if podman load -i /shared/podman/cache/ballerina-builder.tar; then
-	true
-  else
-	podman pull chalindukodikara/choreo-buildpack:ballerina-builder
-	podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
+  if ! podman load -i %s; then
+    podman pull %s
+    podman save -o %s %s
   fi
-fi
+fi`, cachePath, image, cachePath, image, cachePath, image, cachePath, image)
+}
+
+func makeBallerinaBuildScript(imageName, path string) string {
+	return fmt.Sprintf(`
+%s
 
 /usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=chalindukodikara/choreo-buildpack:ballerina-builder \
 --docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
 
-podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, imageName, build.Spec.Path, imageName)
+podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
+		makeBuilderCacheScript("chalindukodikara/choreo-buildpack:ballerina-builder", "/shared/podman/cache/ballerina-builder.tar"),
+		imageName, path, imageName)
+}
+
+func makeGoogleBuildpackBuildScript(imageName string, build *choreov1.Build) string {
+	return fmt.Sprintf(`
+%s
+
+%s
+
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=gcr.io/buildpacks/builder:google-22 \
+--docker-host=inherit --path=/mnt/vol/source%s --pull-policy if-not-present %s
+
+podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
+		makeBuilderCacheScript("gcr.io/buildpacks/builder:google-22", "/shared/podman/cache/google-builder.tar"),
+		makeBuilderCacheScript("gcr.io/buildpacks/google-22/run:latest", "/shared/podman/cache/google-run.tar"),
+		imageName, build.Spec.Path, getLanguageVersion(build), imageName)
 }
 
 func getDockerfileContent(nodeVersion string) string {
