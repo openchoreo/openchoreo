@@ -154,7 +154,7 @@ func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, proj
 	// Then check whether the organization's namespace matches with the project's namespace.
 	if org.Status.Namespace != project.Namespace {
 		return fmt.Errorf("project namespace '%s' does not match with the namespace '%s' of the organization '%s'",
-			project.Namespace, org.Status.Namespace, org.Name)
+			project.Namespace, org.Status.Namespace, orgName)
 	}
 
 	// Check whether the deploymentPipelineRef: <name> exists in the namespace
@@ -192,6 +192,7 @@ func (v *ProjectCustomValidator) ensureDeploymentPipelineExists(ctx context.Cont
 
 	// Define label selector
 	listOpts := []client.ListOption{
+		client.InNamespace(project.Namespace),
 		client.MatchingLabels{
 			labels.LabelKeyName: pipelineName,
 		},
@@ -216,6 +217,7 @@ func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx cont
 
 	// Define label selector
 	listOpts := []client.ListOption{
+		client.InNamespace(project.Namespace),
 		client.MatchingLabels{
 			labels.LabelKeyName:             project.Labels[labels.LabelKeyName],
 			labels.LabelKeyOrganizationName: project.Labels[labels.LabelKeyOrganizationName],

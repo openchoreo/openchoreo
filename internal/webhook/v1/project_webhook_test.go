@@ -192,7 +192,7 @@ var _ = Describe("Project Webhook", func() {
 
 			By("Verifying validation fails with appropriate error")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("project namespace 'different-namespace' does not match with the namespace 'org-namespace' of the organization 'org-test-org'"))
+			Expect(err.Error()).To(ContainSubstring("project namespace 'different-namespace' does not match with the namespace 'test-namespace' of the organization 'test-org'"))
 		})
 
 		It("Should deny creation if referenced deployment pipeline does not exist", func() {
