@@ -19,6 +19,7 @@ This document describes the core kinds used in Choreo CRDs, the relationships be
     - [Deployment](#deployment)
     - [DeploymentRevision](#deploymentrevision)
     - [Endpoint](#endpoint)
+    - [ConfigurationGroup](#configurationgroup)
     - [Secret](#secret)
 
 ## Design Considerations
@@ -47,6 +48,7 @@ erDiagram
     Build ||..|| DeployableArtifact : "produces"
     DeployableArtifact ||--o{ Deployment : "deploys"
     DeploymentTrack ||--o{ DeployableArtifact : "contains"
+    DeployableArtifact }o--o{ ConfigurationGroup : "refers"
     DeploymentTrack ||--o{ Deployment : "contains"
 
     Project }|--|| DeploymentPipeline : "refers"
@@ -1440,6 +1442,115 @@ spec:
   webappGatewaySettings: {}
 ```
 
+[Back to Top](#overview)
+
+### ConfigurationGroup
+
+The `ConfigurationGroup` resource kind represents configuration groupings and mappings for an organization across its environments. `ConfigurationGroups` include both configs which are not senstive as well as secrets which are sensitive. 
+This resource is created manually for an organization by the user and its values are referred to in the  `DeployableArtifact` resource kind.
+
+**Field Reference:**
+
+```yaml
+apiVersion: core.choreo.dev/v1
+kind: ConfigurationGroup
+metadata:
+  # Unique name of the configuration group within the organisation (namespace).
+  #
+  # +required
+  # +immutable
+  name: test-configuration-group
+  # Organization name that the resource belongs to.
+  #
+  # +immutable
+  namespace: test-org
+  annotations:
+    # Display name of the configuration group.
+    #
+    # +optional
+    # +mutable
+    core.choreo.dev/display-name: Test Configuration Group
+    # Description of the configuration group.
+    #
+    # +optional
+    # +mutable
+    core.choreo.dev/description: Test Configuration Group Description
+  labels:
+    # Organization name that the resource belongs to.
+    #
+    # +required
+    # +immutable
+    core.choreo.dev/organization: test-org
+    # Name of the resource.
+    #
+    # +required
+    # +immutable
+    core.choreo.dev/name: test-configuration-group
+spec:
+  # Scope of the configuration group.
+  #
+  # +optional (default: {})
+  scope: {} # TODO need to define hierarchy when scope is specific
+  # Environment groups that the configuration group is applicable.
+  # This will be used when there are multiple similar environments to avoid repetition.
+  #
+  # +optional
+  environmentGroups:
+    # Name of the environment group.
+    #
+    # +required
+    - name: test-env-group
+      # List of environments that are part of the environment group.
+      #
+      # +required
+      environments:
+        # Name of the environment.
+        #
+        # +required
+        - test-env
+  # Configuration parameters of the configuration group.
+  #
+  # +required
+  configurations:
+    # Key of the configuration parameter.
+    #
+    # +required
+    # +immutable
+    - key: test-key
+      # List of values for the configuration parameter.
+      # These values can be applicable either to a specific environment or an environment group.
+      # The value for each specified key may be either a config or a secret. These can be mixed accross environments.
+      # e.g. use a config value for dev and a secret for prod.
+      #
+      # +required
+      values:
+      # Reference to the environment group to which this configuration parameter is applicable.
+      #
+      # This field is mutually exclusive with environment field.
+      #
+      # +required
+      - environmentGroupRef: test-env-group
+        # Reference to the environment to which this configuration parameter is applicable.
+        #
+        # This field is mutually exclusive with environmentGroupRef field.
+        #
+        # +required
+        environment: test-env
+        # Value of the configuration parameter.
+        #
+        # This field is mutually exclusive with vaultKey.
+        #
+        # +required
+        value: test-value
+        # Reference to the secret vault key that contains the value for this configuration parameter.
+        #
+        # This field is mutually exclusive with value.
+        #
+        # +required
+        vaultKey: test-vault-key
+    
+
+```
 [Back to Top](#overview)
 
 ### Secret

@@ -14,4 +14,5 @@ resources:
   - core_v1_deployableartifact.yaml
   - core_v1_deployment.yaml
   - core_v1_endpoint.yaml
+  - core_v1_configurationgroup.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

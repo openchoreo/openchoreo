@@ -13,6 +13,7 @@ resources:
   - bases/core.choreo.dev_deployableartifacts.yaml
   - bases/core.choreo.dev_deployments.yaml
   - bases/core.choreo.dev_endpoints.yaml
+  - bases/core.choreo.dev_configurationgroups.yamlß
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:
