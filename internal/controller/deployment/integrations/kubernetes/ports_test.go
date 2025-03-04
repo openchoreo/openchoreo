@@ -19,9 +19,8 @@
 package kubernetes
 
 import (
-	"testing"
-
-	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -41,15 +40,14 @@ func createFakePort(name string, port int32, protocol corev1.Protocol) fakePort 
 	}
 }
 
-func TestMakeUniquePorts(t *testing.T) {
-	tests := []struct {
-		name              string
-		endpointTemplates []choreov1.EndpointTemplate
-		want              []fakePort
-	}{
-		{
-			name: "single endpoint",
-			endpointTemplates: []choreov1.EndpointTemplate{
+var _ = Describe("makeUniquePorts", func() {
+	DescribeTable("should produce unique ports",
+		func(endpointTemplates []choreov1.EndpointTemplate, expectedPorts []fakePort) {
+			ports := makeUniquePorts(endpointTemplates, createFakePort)
+			Expect(ports).To(Equal(expectedPorts))
+		},
+		Entry("for a single endpoint",
+			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
 						Service: choreov1.EndpointServiceSpec{
@@ -60,13 +58,12 @@ func TestMakeUniquePorts(t *testing.T) {
 					},
 				},
 			},
-			want: []fakePort{
+			[]fakePort{
 				{Name: "ep-8080-tcp", Port: 8080, Protocol: corev1.ProtocolTCP},
 			},
-		},
-		{
-			name: "two endpoints with same port and type",
-			endpointTemplates: []choreov1.EndpointTemplate{
+		),
+		Entry("for two endpoints with same port and type",
+			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
 						Service: choreov1.EndpointServiceSpec{
@@ -86,13 +83,12 @@ func TestMakeUniquePorts(t *testing.T) {
 					},
 				},
 			},
-			want: []fakePort{
+			[]fakePort{
 				{Name: "ep-8080-tcp", Port: 8080, Protocol: corev1.ProtocolTCP},
 			},
-		},
-		{
-			name: "two endpoints with same port but tcp and udp",
-			endpointTemplates: []choreov1.EndpointTemplate{
+		),
+		Entry("for two endpoints with same port but tcp and udp",
+			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
 						Service: choreov1.EndpointServiceSpec{
@@ -110,14 +106,13 @@ func TestMakeUniquePorts(t *testing.T) {
 					},
 				},
 			},
-			want: []fakePort{
+			[]fakePort{
 				{Name: "ep-8080-tcp", Port: 8080, Protocol: corev1.ProtocolTCP},
 				{Name: "ep-8080-udp", Port: 8080, Protocol: corev1.ProtocolUDP},
 			},
-		},
-		{
-			name: "three endpoints with different ports",
-			endpointTemplates: []choreov1.EndpointTemplate{
+		),
+		Entry("for three endpoints with different ports",
+			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
 						Service: choreov1.EndpointServiceSpec{
@@ -145,20 +140,11 @@ func TestMakeUniquePorts(t *testing.T) {
 					},
 				},
 			},
-			want: []fakePort{
+			[]fakePort{
 				{Name: "ep-8080-tcp", Port: 8080, Protocol: corev1.ProtocolTCP},
 				{Name: "ep-8081-tcp", Port: 8081, Protocol: corev1.ProtocolTCP},
 				{Name: "ep-8082-tcp", Port: 8082, Protocol: corev1.ProtocolTCP},
 			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := makeUniquePorts(tt.endpointTemplates, createFakePort)
-			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("makeUniquePorts() returned unexpected result (-want, +got): %s", diff)
-			}
-		})
-	}
-}
+		),
+	)
+})

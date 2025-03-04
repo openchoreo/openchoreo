@@ -21,82 +21,58 @@ package kubernetes
 import (
 	"fmt"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestGenerateK8sName(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   []string
-		want    string
-		wantLen int
-	}{
-		{
-			name:    "normal-names",
-			input:   []string{"project", "component"},
-			want:    "project-component-932d1646",
-			wantLen: 26,
-		},
-		{
-			name:  "names-with-special-characters",
-			input: []string{"My_Project$", "Component@Name"},
-			want:  "my-project-component-name-40314333",
-		},
-		{
-			name:    "very-long-names",
-			input:   []string{strings.Repeat("a", 300), "component"},
-			want:    fmt.Sprintf("%s-component-a250aee3", strings.Repeat("a", 122)),
-			wantLen: 141,
-		},
-		{
-			name:  "names-starting-ending-with-invalid-characters",
-			input: []string{"-invalid-start", "invalid-end-"},
-			want:  "invalid-start-invalid-end-f124257d",
-		},
-		{
-			name:  "empty-names",
-			input: []string{"", ""},
-			want:  "3973e022", // Only the hash will be generated
-		},
-		{
-			name:  "names-with-only-invalid-characters",
-			input: []string{"!!!", "###"},
-			want:  "606b424e",
-		},
-		{
-			name:    "name-exceeding-max-length-after-sanitization",
-			input:   []string{strings.Repeat("a", 260), strings.Repeat("b", 260)},
-			want:    fmt.Sprintf("%s-%s-654ba7cd", strings.Repeat("a", 122), strings.Repeat("b", 121)),
-			wantLen: 253,
-		},
-		{
-			name:  "names-with-uppercase-letters",
-			input: []string{"ProjectName", "ComponentName"},
-			want:  "projectname-componentname-755d4ced",
-		},
-		{
-			name:  "names-with-dots",
-			input: []string{"project.name", "component.name"},
-			want:  "project.name-component.name-851db5b2",
-		},
-		{
-			name:  "names-with-underscores-and-spaces",
-			input: []string{"project_name with spaces", "component_name"},
-			want:  "project-name-with-spaces-component-name-101f1326",
-		},
-	}
+var _ = Describe("GenerateK8sName", func() {
+	DescribeTable("should generate a valid K8s name",
+		func(input []string, expectedName string) {
+			generatedName := GenerateK8sName(input...)
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := GenerateK8sName(test.input...)
-
-			if test.want != got {
-				t.Errorf("Incorrect name, want '%s', got '%s'", test.want, got)
-			}
-
-			if test.wantLen > 0 && len(got) != test.wantLen {
-				t.Errorf("Incorrect length, want %d, got %d", test.wantLen, len(got))
-			}
-		})
-	}
-}
+			Expect(generatedName).To(Equal(expectedName))
+			Expect(len(generatedName)).To(BeNumerically("<=", 253))
+		},
+		Entry("for normal names",
+			[]string{"project", "component"},
+			"project-component-932d1646",
+		),
+		Entry("for names with special characters",
+			[]string{"My_Project$", "Component@Name"},
+			"my-project-component-name-40314333",
+		),
+		Entry("for very long names",
+			[]string{strings.Repeat("a", 300), "component"},
+			fmt.Sprintf("%s-component-a250aee3", strings.Repeat("a", 122)),
+		),
+		Entry("for names starting and ending with invalid characters",
+			[]string{"-invalid-start", "invalid-end-"},
+			"invalid-start-invalid-end-f124257d",
+		),
+		Entry("for empty names",
+			[]string{"", ""},
+			"3973e022",
+		),
+		Entry("for names with only invalid characters",
+			[]string{"!!!", "###"},
+			"606b424e",
+		),
+		Entry("for names exceeding max length after sanitization",
+			[]string{strings.Repeat("a", 260), strings.Repeat("b", 260)},
+			fmt.Sprintf("%s-%s-654ba7cd", strings.Repeat("a", 122), strings.Repeat("b", 121)),
+		),
+		Entry("for names with uppercase letters",
+			[]string{"ProjectName", "ComponentName"},
+			"projectname-componentname-755d4ced",
+		),
+		Entry("for names with dots",
+			[]string{"project.name", "component.name"},
+			"project.name-component.name-851db5b2",
+		),
+		Entry("for names with underscores and spaces",
+			[]string{"project_name with spaces", "component_name"},
+			"project-name-with-spaces-component-name-101f1326",
+		),
+	)
+})
