@@ -21,7 +21,7 @@ package organization
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/wso2-enterprise/choreo-cp-declarative-api/internal/controller"
+	"github.com/choreo-idp/choreo/internal/controller"
 )
 
 // Constants for condition types
