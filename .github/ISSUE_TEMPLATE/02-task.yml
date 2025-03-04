@@ -1,0 +1,10 @@
+name: New Task
+description: Create a new task to track the work that needs to be done
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what needs to be done
+    validations:
+      required: true
