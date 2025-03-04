@@ -19,9 +19,9 @@
 package kubernetes
 
 import (
-	"github.com/wso2-enterprise/choreo-cp-declarative-api/internal/controller"
-	"github.com/wso2-enterprise/choreo-cp-declarative-api/internal/dataplane"
-	dpkubernetes "github.com/wso2-enterprise/choreo-cp-declarative-api/internal/dataplane/kubernetes"
+	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/dataplane"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 )
 
 // NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
