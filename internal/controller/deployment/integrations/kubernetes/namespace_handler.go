@@ -110,7 +110,7 @@ func makeNamespace(deployCtx *dataplane.DeploymentContext) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   makeNamespaceName(deployCtx),
-			Labels: makeLabels(deployCtx),
+			Labels: makeNamespaceLabels(deployCtx),
 		},
 	}
 }

@@ -109,6 +109,18 @@ func (h *deploymentHandler) Delete(ctx context.Context, deployCtx *dataplane.Dep
 	return err
 }
 
+func (h *deploymentHandler) shouldUpdate(current, new *appsv1.Deployment) bool {
+	// Compare the labels
+	if !cmp.Equal(extractManagedLabels(current.Labels), extractManagedLabels(new.Labels)) {
+		return true
+	}
+
+	if !cmp.Equal(current.Spec, new.Spec, cmpopts.EquateEmpty()) {
+		return true
+	}
+	return false
+}
+
 func makeDeploymentName(deployCtx *dataplane.DeploymentContext) string {
 	componentName := deployCtx.Component.Name
 	deploymentTrackName := deployCtx.DeploymentTrack.Name
@@ -128,6 +140,16 @@ func makeDeployment(deployCtx *dataplane.DeploymentContext) *appsv1.Deployment {
 }
 
 func makeDeploymentSpec(deployCtx *dataplane.DeploymentContext) appsv1.DeploymentSpec {
+	mainContainer := corev1.Container{
+		Name:  "main",
+		Image: deployCtx.ContainerImage,
+	}
+
+	artifactConfig := deployCtx.DeployableArtifact.Spec.Configuration
+	if artifactConfig != nil {
+		mainContainer.Ports = makeContainerPortsFromEndpointTemplates(artifactConfig.EndpointTemplates)
+	}
+
 	deploymentSpec := appsv1.DeploymentSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: makeWorkloadLabels(deployCtx),
@@ -138,27 +160,11 @@ func makeDeploymentSpec(deployCtx *dataplane.DeploymentContext) appsv1.Deploymen
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
-					{
-						Name:  "main",
-						Image: deployCtx.ContainerImage,
-						Ports: makeContainerPortsFromEndpointTemplates(deployCtx.DeployableArtifact.Spec.Configuration.EndpointTemplates),
-					},
+					mainContainer,
 				},
 			},
 		},
 	}
 
 	return deploymentSpec
-}
-
-func (h *deploymentHandler) shouldUpdate(current, new *appsv1.Deployment) bool {
-	// Compare the labels
-	if !cmp.Equal(extractManagedLabels(current.Labels), extractManagedLabels(new.Labels)) {
-		return true
-	}
-
-	if !cmp.Equal(current.Spec, new.Spec, cmpopts.EquateEmpty()) {
-		return true
-	}
-	return false
 }

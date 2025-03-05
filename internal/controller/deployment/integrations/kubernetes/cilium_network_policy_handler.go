@@ -121,20 +121,20 @@ func makeCiliumNetworkPolicy(deployCtx *dataplane.DeploymentContext) *ciliumv2.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeCiliumNetworkPolicyName(deployCtx),
 			Namespace: makeNamespaceName(deployCtx),
-			Labels:    makeLabels(deployCtx),
+			Labels:    makeNamespaceLabels(deployCtx),
 		},
 		Spec: makeRuleAllowCommunicationWithinNamespaceOnly(),
 	}
 }
 
-// TODO: Unit test me
 func makeRuleAllowCommunicationWithinNamespaceOnly() *ciliumv2.Rule {
-	allEndpoints := ciliumv2.EndpointSelector{
-		MatchLabels: map[string]string{},
-	}
+	allEndpoints := ciliumv2.EndpointSelector{}
 
+	// Allow all pods in the namespace to communicate with each other
+	// The EndpointSelector is empty which means it selects all endpoints (pods) in the namespace
+	// The Egress and Ingress rules are defined to allow all pods in the namespace to communicate with each other
 	return &ciliumv2.Rule{
-		EndpointSelector: &ciliumv2.EndpointSelector{},
+		EndpointSelector: &allEndpoints,
 		Egress: []ciliumv2.EgressRule{
 			{
 				ToEndpoints: []ciliumv2.EndpointSelector{allEndpoints},

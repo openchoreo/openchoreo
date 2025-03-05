@@ -24,22 +24,22 @@ import (
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 )
 
-func makeLabels(deployCtx *dataplane.DeploymentContext) map[string]string {
+func makeNamespaceLabels(deployCtx *dataplane.DeploymentContext) map[string]string {
 	return map[string]string{
-		dpkubernetes.LabelKeyOrganizationName:    controller.GetOrganizationName(deployCtx.Project),
-		dpkubernetes.LabelKeyProjectName:         controller.GetName(deployCtx.Project),
-		dpkubernetes.LabelKeyComponentName:       controller.GetName(deployCtx.Component),
-		dpkubernetes.LabelKeyDeploymentTrackName: controller.GetName(deployCtx.DeploymentTrack),
-		dpkubernetes.LabelKeyEnvironmentName:     controller.GetName(deployCtx.Environment),
-		dpkubernetes.LabelKeyDeploymentName:      controller.GetName(deployCtx.Deployment),
-		dpkubernetes.LabelKeyManagedBy:           dpkubernetes.LabelValueManagedBy,
-		dpkubernetes.LabelKeyBelongTo:            dpkubernetes.LabelValueBelongTo,
+		dpkubernetes.LabelKeyOrganizationName: controller.GetOrganizationName(deployCtx.Project),
+		dpkubernetes.LabelKeyProjectName:      controller.GetName(deployCtx.Project),
+		dpkubernetes.LabelKeyEnvironmentName:  controller.GetName(deployCtx.Environment),
+		dpkubernetes.LabelKeyManagedBy:        dpkubernetes.LabelValueManagedBy,
+		dpkubernetes.LabelKeyBelongTo:         dpkubernetes.LabelValueBelongTo,
 	}
 }
 
 func makeWorkloadLabels(deployCtx *dataplane.DeploymentContext) map[string]string {
-	labels := makeLabels(deployCtx)
+	labels := makeNamespaceLabels(deployCtx)
+	labels[dpkubernetes.LabelKeyComponentName] = controller.GetName(deployCtx.Component)
 	labels[dpkubernetes.LabelKeyComponentType] = string(deployCtx.Component.Spec.Type)
+	labels[dpkubernetes.LabelKeyDeploymentTrackName] = controller.GetName(deployCtx.DeploymentTrack)
+	labels[dpkubernetes.LabelKeyDeploymentName] = controller.GetName(deployCtx.Deployment)
 	return labels
 }
 
