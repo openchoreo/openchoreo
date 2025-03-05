@@ -120,7 +120,7 @@ func makeCloneStep(build *choreov1.Build, repo string) argo.Template {
 	if build.Spec.Branch != "" {
 		branch = build.Spec.Branch
 	} else if build.Spec.GitRevision != "" {
-		gitRevision = build.Spec.GitRevision
+		gitRevision = build.Spec.GitRevision[:8]
 	} else {
 		branch = "main"
 	}
@@ -305,7 +305,7 @@ func generateCloneArgs(repo string, branch string, gitRevision string) []string 
 git clone --single-branch --branch %s --depth 1 %s /mnt/vol/source
 cd /mnt/vol/source
 COMMIT_SHA=$(git rev-parse HEAD)
-echo -n "$COMMIT_SHA" > /tmp/git-revision.txt`, branch, repo),
+echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt`, branch, repo),
 		}
 	}
 	return []string{

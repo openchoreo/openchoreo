@@ -20,8 +20,6 @@ package build
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"path"
@@ -480,11 +478,14 @@ func constructImageNameWithTag(build *choreov1.Build) string {
 	projName := build.ObjectMeta.Labels["core.choreo.dev/project"]
 	dtName := build.ObjectMeta.Labels["core.choreo.dev/deployment-track"]
 
-	hashInput := fmt.Sprintf("%s-%s", orgName, projName)
-	hash := sha256.Sum256([]byte(hashInput))
-	hashString := hex.EncodeToString(hash[:])
-
-	return fmt.Sprintf("%s-%s:%s", hashString, componentName, dtName)
+	// To prevent excessively long image names, we limit them to 128 characters for the name and 128 characters for the tag.
+	imageName := dpKubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
+	// The maximum recommended tag length is 128 characters, with 8 characters reserved for the commit SHA.
+	return fmt.Sprintf(
+		"%s:%s",
+		imageName,
+		dpKubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
+	)
 }
 
 func (r *Reconciler) createDeployableArtifact(ctx context.Context, build *choreov1.Build) (bool, error) {
