@@ -18,7 +18,7 @@ controllerManager:
         drop:
         - ALL
     image:
-      repository: choreo-controller
+      repository: ghcr.io/choreo-idp/controller
       tag: latest
     imagePullPolicy: IfNotPresent
     resources:

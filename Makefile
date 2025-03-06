@@ -1,5 +1,9 @@
+# Read the version from the VERSION file
+RELEASE_VERSION ?= $(shell cat VERSION)
+# Default image repository to use for building/pushing images
+IMG_REPO ?= ghcr.io/choreo-idp/controller
 # Image URL to use all building/pushing image targets
-IMG ?= choreo-controller:latest
+IMG ?= $(IMG_REPO):v$(RELEASE_VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
 
@@ -108,6 +112,11 @@ docker-build: ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+
+.PHONY: docker-push-latest
+docker-push-latest: ## Push docker image with the manager with the latest tag.
+	$(CONTAINER_TOOL) tag ${IMG} $(IMG_REPO):latest
+	$(CONTAINER_TOOL) push $(IMG_REPO):latest
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -277,3 +286,55 @@ choreoctl:
 .PHONY: install-choreoctl
 install-choreoctl: choreoctl
 	go install ./cmd/choreoctl
+
+
+#-----------------------------------------------------------------------------
+# Helm targets
+#-----------------------------------------------------------------------------
+
+CHART_PATH_CILIUM ?= install/helm/cilium
+CHART_PATH_CHOREO ?= install/helm/choreo
+CHART_PACKAGE_CILIUM ?= cilium-$(RELEASE_VERSION).tgz
+CHART_PACKAGE_CHOREO ?= choreo-$(RELEASE_VERSION).tgz
+HELM_REPO ?= oci://ghcr.io/choreo-idp/helm-charts
+
+.PHONY: helm-dependency-build
+helm-dependency-build:
+	helm dependency update $(CHART_PATH_CILIUM)
+	helm dependency update $(CHART_PATH_CHOREO)
+
+helm-package:
+	helm package $(CHART_PATH_CILIUM)
+	helm package $(CHART_PATH_CHOREO)
+
+helm-push:
+	helm push $(CHART_PACKAGE_CILIUM) $(HELM_REPO)
+	helm push $(CHART_PACKAGE_CHOREO) $(HELM_REPO)
+
+#-----------------------------------------------------------------------------
+# Release targets
+#-----------------------------------------------------------------------------
+
+# This target is used to prepare the release for the next version.
+# It updates the VERSION file and the necessary files for the next release that should be committed.
+# Run make prepare-release VERSION=x.y.z
+# Example: make prepare-release VERSION=0.1.0
+.PHONY: prepare-release
+prepare-release:
+	@if ! command -v yq >/dev/null 2>&1; then \
+		echo "Error: yq is not installed. Please install yq from https://github.com/mikefarah/yq" >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(VERSION)" ]; then \
+		echo "VERSION is not set. Please set the VERSION variable"; \
+		echo "Example: make prepare-release VERSION=v0.1.0"; \
+		exit 1; \
+	fi
+	@if [[ ! "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then \
+		echo "VERSION=$(VERSION) does not match the SemVer pattern (vX.X.X)"; \
+		exit 1; \
+	fi
+	@echo "$(VERSION)" > VERSION
+	@yq eval '.version = "$(VERSION)" | .appVersion = "v$(VERSION)"' install/helm/choreo/Chart.yaml -i
+	@yq eval '.version = "$(VERSION)" | .appVersion = "v$(VERSION)"' install/helm/cilium/Chart.yaml -i
+	@yq eval

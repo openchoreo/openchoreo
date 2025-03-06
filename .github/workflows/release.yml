@@ -1,12 +1,9 @@
 name: Release
 
 on:
+  # Manual Release
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version'
-        required: false
-        default: ''
+  # TODO: Add a tag to trigger the release and remove the branch push trigger
   push:
     branches:
       - main
@@ -25,17 +22,17 @@ jobs:
       - name: GitHub Container Registry Login
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Set Image Version
-        id: set-version
-        run: |
-          if [ -z "${{ github.event.inputs.version }}" ]; then
-            echo "VERSION=latest" >> $GITHUB_ENV
-          else
-            # Use the supplied version
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          fi
-
       - name: Docker Build and Push
         run: |
-          # $VERSION is loaded from the previous step
-          make docker-build docker-push IMG=ghcr.io/choreo-idp/controller:${VERSION}
+          make docker-build docker-push docker-push-latest
+
+      - name: Helm Registry Login
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Helm Package and Push
+        run: |
+          # Fix to remove tag from generated helmify values.yaml 
+          # See: https://github.com/arttor/helmify/issues/15
+          sed -i '/^[[:space:]]*tag:/d' install/helm/choreo/values.yaml
+          make helm-dependency-build helm-package helm-push
+

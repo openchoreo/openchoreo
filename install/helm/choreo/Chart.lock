@@ -1,0 +1,15 @@
+dependencies:
+- name: vault
+  repository: https://helm.releases.hashicorp.com
+  version: 0.29.1
+- name: gateway-helm
+  repository: oci://registry-1.docker.io/envoyproxy
+  version: 1.2.3
+- name: argo-workflows
+  repository: https://argoproj.github.io/argo-helm
+  version: 0.45.2
+- name: cert-manager
+  repository: https://charts.jetstack.io
+  version: v1.16.2
+digest: sha256:b59221a950fc9a80f131740ce0064e408f6af7586ab4aa704462d99c557bca50
+generated: "2025-03-06T20:53:26.396317+05:30"
