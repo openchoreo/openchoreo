@@ -1377,24 +1377,13 @@ spec:
             responses:
               '200':
                 description: OK
-  # Network visibility levels that the endpoint is exposed.
-  #
-  # Public: Exposed to the public internet.
-  # Organization: Exposed to the organization.
-  # Project: Exposed to the project.
-  #
-  # +allowedValues: [Public, Organization, Project]
-  # +optional (default: [Public])
-  networkVisibilities:
-    - Public
-    - Organization
-    - Project
   # Configuration parameters related to the managed endpoint.
   # This is only applicable for REST, GraphQL, and Websocket endpoint types.
   #
-  # The configuration parameters within this field are used to configure the managed API Gateway.
+  # The configuration parameters within this field are used to configure the managed API Gateways.
+  # This configuration may be overridden by NetworkVisibility specific configuration.
   # TODO: finalize the configuration parameters.
-  #
+
   # +optional
   apiSettings:
     securitySchemes:
@@ -1408,30 +1397,53 @@ spec:
     operationPolicies:
       - target: /test
         authenticationType: None
-    # Configurations specific to the managed API Gateway that is exposed to the public.
+  # Network visibility levels that the endpoint is exposed.
+  # The endpoint is exposed within the project by default
+  #
+  # Public: Exposed to the public internet.
+  # Organization: Exposed to the organization.
+  networkVisibilities:
+    # Configuration override for endpoints exposed within the organization
+    #
+    # +optional  
+    organization:
+      # Enable/disable this visibility level
+      #
+      # +required
+      enable: true
+      # API settings override specific to organization visibility
+      #
+      # +optional
+      apiSettings:
+        securitySchemes:
+          - OAuth2
+        cors:
+          enabled: true
+          allowOrigins: ["*"]
+          allowMethods: ["GET", "POST"]
+        rateLimit:
+          tier: Unlimited
+
+    # Configuration override for endpoints exposed externally
     #
     # +optional
-    publicVisibilityConfigurations:
-      cors:
-        enabled: true
-        allowOrigins: ["*"]
-        allowMethods: ["GET", "POST"]
-        allowHeaders: ["Authorization"]
-        exposeHeaders: ["Authorization"]
-      rateLimit:
-        tier: Gold
-    # Configurations specific to the managed API Gateway that is exposed to the organization.
-    #
-    # +optional
-    organizationVisibilityConfigurations:
-      cors:
-        enabled: true
-        allowOrigins: ["*"]
-        allowMethods: ["GET", "POST"]
-        allowHeaders: ["Authorization"]
-        exposeHeaders: ["Authorization"]
-      rateLimit:
-        tier: Unlimited
+    external:
+      # Enable/disable this visibility level
+      #
+      # +required  
+      enable: true
+      # API settings override specific to external visibility
+      #
+      # +optional
+      apiSettings:
+        securitySchemes:
+          - OAuth2
+          - APIKey
+        cors:
+          enabled: true
+          allowOrigins: ["*"]
+        rateLimit:
+          tier: Gold
   # Configuration parameters related to the webapp gateway.
   # This is only applicable for HTTP endpoint types.
   #

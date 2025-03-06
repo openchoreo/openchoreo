@@ -28,11 +28,11 @@ type Config struct {
 
 // Endpoint represents an individual service endpoint configuration
 type Endpoint struct {
-	Name                string                       `yaml:"name"`
-	DisplayName         string                       `yaml:"displayName,omitempty"`
-	Service             Service                      `yaml:"service"`
-	NetworkVisibilities []choreov1.NetworkVisibility `yaml:"networkVisibilities,omitempty"`
-	Type                choreov1.EndpointType        `yaml:"type"`
+	Name                string                     `yaml:"name"`
+	DisplayName         string                     `yaml:"displayName,omitempty"`
+	Service             Service                    `yaml:"service"`
+	NetworkVisibilities choreov1.NetworkVisibility `yaml:"networkVisibilities,omitempty"`
+	Type                choreov1.EndpointType      `yaml:"type"`
 }
 
 // Service contains the service-specific configuration

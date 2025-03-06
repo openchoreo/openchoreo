@@ -54,17 +54,17 @@ type EndpointSchemaSpec struct {
 
 // EndpointAPISettingsSpec defines configuration parameters for managed endpoints
 type EndpointAPISettingsSpec struct {
-	SecuritySchemes                      []SecurityScheme          `json:"securitySchemes,omitempty"`
-	AuthorizationHeader                  string                    `json:"authorizationHeader,omitempty"`
-	BackendJWT                           *BackendJWTConfig         `json:"backendJwt,omitempty"`
-	OperationPolicies                    []OperationPolicy         `json:"operationPolicies,omitempty"`
-	PublicVisibilityConfigurations       *VisibilityConfigurations `json:"publicVisibilityConfigurations,omitempty"`
-	OrganizationVisibilityConfigurations *VisibilityConfigurations `json:"organizationVisibilityConfigurations,omitempty"`
+	SecuritySchemes     []SecurityScheme  `json:"securitySchemes,omitempty"`
+	AuthorizationHeader string            `json:"authorizationHeader,omitempty"`
+	BackendJWT          *BackendJWTConfig `json:"backendJwt,omitempty"`
+	OperationPolicies   []OperationPolicy `json:"operationPolicies,omitempty"`
+	CORS                *CORSConfig       `json:"cors,omitempty"`
+	RateLimit           *RateLimitConfig  `json:"rateLimit,omitempty"`
 }
 
 // BackendJWTConfig defines JWT configuration for backend services
 type BackendJWTConfig struct {
-	Enabled       bool                    `json:"enabled"`
+	Enable        bool                    `json:"enable"`
 	Configuration BackendJWTConfigDetails `json:"configuration"`
 }
 
@@ -79,15 +79,9 @@ type OperationPolicy struct {
 	AuthenticationType string `json:"authenticationType"`
 }
 
-// VisibilityConfigurations defines configurations for different visibility levels
-type VisibilityConfigurations struct {
-	CORS      *CORSConfig      `json:"cors,omitempty"`
-	RateLimit *RateLimitConfig `json:"rateLimit,omitempty"`
-}
-
 // CORSConfig defines Cross-Origin Resource Sharing configuration
 type CORSConfig struct {
-	Enabled       bool     `json:"enabled"`
+	Enable        bool     `json:"enable"`
 	AllowOrigins  []string `json:"allowOrigins"`
 	AllowMethods  []string `json:"allowMethods"`
 	AllowHeaders  []string `json:"allowHeaders"`
@@ -138,24 +132,32 @@ type EndpointSpec struct {
 
 	// Network visibility levels that the endpoint is exposed
 	// +optional
-	NetworkVisibilities []NetworkVisibility `json:"networkVisibilities,omitempty"`
+	NetworkVisibilities NetworkVisibility `json:"networkVisibilities,omitempty"`
 
 	// Configuration parameters related to the managed endpoint
 	// +optional
 	APISettings *EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
-
-	// Configuration parameters related to the webapp gateway
-	// +optional
-	WebappGatewaySettings map[string]string `json:"webappGatewaySettings,omitempty"`
 }
 
-type NetworkVisibility string
+// NetworkVisibility defines the exposure configuration for different network levels of an Endpoint.
+// It allows specifying visibility and security settings separately for organizational and external access.
+// When configurations overlap with the Endpoint's APISettings, the most specific configuration takes precedence.
+type NetworkVisibility struct {
+	// When enabled, the endpoint is accessible to other services within the same organization.
+	// +optional
+	Organization VisibilityConfig `json:"organization,omitempty"`
 
-const (
-	NetworkVisibilityPublic       NetworkVisibility = "Public"
-	NetworkVisibilityOrganization NetworkVisibility = "Organization"
-	NetworkVisibilityPrivate      NetworkVisibility = "Project"
-)
+	// When enabled, the endpoint becomes accessible externally
+	// +optional
+	External VisibilityConfig `json:"external,omitempty"`
+}
+
+type VisibilityConfig struct {
+	// +required
+	Enable bool `json:"enable"`
+	// +optional
+	APISettings EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
+}
 
 // EndpointStatus defines the observed state of Endpoint
 type EndpointStatus struct {
