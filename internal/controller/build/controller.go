@@ -481,20 +481,45 @@ func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrati
 	}
 	endpointTemplates := []choreov1.EndpointTemplate{}
 	for _, endpoint := range config.Endpoints {
-		basePath := endpoint.Service.BasePath
-		if basePath == "" {
-			basePath = "/"
-		}
-		endpointTemplates = append(endpointTemplates, choreov1.EndpointTemplate{
-			Spec: choreov1.EndpointSpec{
-				Type:                endpoint.Type,
-				NetworkVisibilities: endpoint.NetworkVisibilities,
-				Service: choreov1.EndpointServiceSpec{
-					Port:     endpoint.Service.Port,
-					BasePath: basePath,
-				},
-			},
-		})
+		endpointTemplates = append(endpointTemplates, createEndpointTemplate(endpoint))
 	}
+
 	return endpointTemplates, nil
+}
+
+func createEndpointTemplate(endpoint source.Endpoint) choreov1.EndpointTemplate {
+	return choreov1.EndpointTemplate{
+		Spec: choreov1.EndpointSpec{
+			Type:                endpoint.Type,
+			NetworkVisibilities: parseNetworkVisibilities(endpoint.NetworkVisibilities),
+			Service:             createServiceSpec(endpoint.Service),
+		},
+	}
+}
+
+func createServiceSpec(service source.Service) choreov1.EndpointServiceSpec {
+	basePath := service.BasePath
+	if basePath == "" {
+		basePath = "/"
+	}
+
+	return choreov1.EndpointServiceSpec{
+		Port:     service.Port,
+		BasePath: basePath,
+	}
+}
+
+func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) choreov1.NetworkVisibility {
+	nv := choreov1.NetworkVisibility{}
+
+	for _, visibility := range visibilities {
+		switch visibility {
+		case source.NetworkVisibilityLevelOrganization:
+			nv.Organization = choreov1.VisibilityConfig{Enable: true}
+		case source.NetworkVisibilityLevelPublic:
+			nv.External = choreov1.VisibilityConfig{Enable: true}
+		}
+	}
+
+	return nv
 }
