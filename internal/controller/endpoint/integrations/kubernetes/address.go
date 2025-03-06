@@ -29,9 +29,9 @@ import (
 
 func makeHostname(componentName, environmentName string, componentType choreov1.ComponentType) gatewayv1.Hostname {
 	if componentType == choreov1.ComponentTypeWebApplication {
-		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.choreo.local", componentName, environmentName))
+		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.choreo.localhost", componentName, environmentName))
 	}
-	return gatewayv1.Hostname(fmt.Sprintf("%s.apis.choreo.local", environmentName))
+	return gatewayv1.Hostname(fmt.Sprintf("%s.apis.choreo.localhost", environmentName))
 }
 
 func makePathPrefix(projectName, componentName string, componentType choreov1.ComponentType) string {

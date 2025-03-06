@@ -26,5 +26,5 @@ spec:
     name: self-signed-issuer
     kind: ClusterIssuer
   dnsNames:
-    - choreo.local
-    - '*.choreo.local'
+    - choreo.localhost
+    - '*.choreo.localhost'

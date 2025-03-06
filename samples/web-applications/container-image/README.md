@@ -19,7 +19,7 @@ kubectl -n default-org get endpoints.core.choreo.dev
 
 This will output the endpoints in the `default-org` namespace. For this specific sample
 you will see an endpoint with the name starting with `react-starter-image-deployment-webapp-<hash>`. 
-It should have the address as `https://react-starter-image-development.choreo.local`
+It should have the address as `https://react-starter-image-development.choreo.localhost`
 
 ## Accessing the Web Application
 
@@ -36,8 +36,8 @@ For this sample, we will use kubectl port-forward to access the web application.
 2. Add the following entry to your `/etc/hosts` file.
 
     ```bash
-    echo "127.0.0.1 react-starter-image-development.choreo.local" | sudo tee -a /etc/hosts
+    echo "127.0.0.1 react-starter-image-development.choreo.localhost" | sudo tee -a /etc/hosts
     ```
 
 3. Access the web application from your browser using the following URL.
-    - https://react-starter-image-development.choreo.local:4430
+    - https://react-starter-image-development.choreo.localhost:4430

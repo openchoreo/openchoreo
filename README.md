@@ -204,8 +204,8 @@ choreoctl get endpoint --component hello-world
 ```
 You should see a similar output as follows.
 ``` shell
-NAME     ADDRESS                                                                             AGE   ORGANIZATION
-webapp   https:/default-org-default-project-hello-world-ea384b50-development.choreo.local   14h   default-org
+NAME     ADDRESS                                                                                 AGE   ORGANIZATION
+webapp   https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost   14h   default-org
 ```
 #### 7. Test the deployed WebApp
 
@@ -245,12 +245,12 @@ $ kubectl get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ing
 Then add this IP to your /etc/hosts file as follows.
 
 ```text
-<LoadBalancer-IP> react-starter-development.choreo.local
+<LoadBalancer-IP> react-starter-development.choreo.localhost
 ```
 
 Now you can access the WebApp using following URL.
 
-https://default-org-default-project-hello-world-ea384b50-development.choreo.local
+https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost
 
 ##### Option 2: Port-forward the external-gateway service
 
@@ -272,12 +272,12 @@ kubectl port-forward svc/<name> -n choreo-system 443:443
 Then add the following entry to your /etc/hosts file.
 
 ```
-127.0.0.1 default-org-default-project-hello-world-ea384b50-development.choreo.local
+127.0.0.1 default-org-default-project-hello-world-ea384b50-development.choreo.localhost
 ```
 
 Now you can access the WebApp using the following URL.
 
-https://default-org-default-project-hello-world-ea384b50-development.choreo.local
+https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost
 
 #### 8. View deployment logs
 ```shell
