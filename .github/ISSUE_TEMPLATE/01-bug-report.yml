@@ -1,23 +1,15 @@
 name: Bug Report
 description: Report a bug encountered while using the Choreo
+labels:
+  - Type/Bug
+type: Bug
 body:
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: A clear description of the bug
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: What did you expect to happen?
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: What actually happened?
+      description: Provide a clear summary of the issue, including what happened,
+        what do you expected to happen, and any error messages encountered.
     validations:
       required: true
   - type: textarea
@@ -26,14 +18,14 @@ body:
       label: Steps to Reproduce
       description: Detailed steps to reproduce the bug
     validations:
-      required: true
+      required: false
   - type: textarea
     id: environment
     attributes:
       label: Environment
       description: Details about the environment such as the Kubernetes version, Container Runtime version, and any other relevant information
     validations:
-      required: true
+      required: false
   - type: textarea
     id: additional
     attributes:
