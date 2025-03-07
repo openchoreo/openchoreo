@@ -1,7 +1,7 @@
 FROM alpine:3.21
 
 RUN apk add --no-cache \
-  bash curl git jq bash-completion docker-cli && \
+  bash curl socat git jq bash-completion docker-cli && \
   mkdir -p /etc/bash_completion.d
 
 # inject the target architecture (https://docs.docker.com/reference/dockerfile/#automatic-platform-args-in-the-global-scope)
