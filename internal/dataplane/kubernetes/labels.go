@@ -31,9 +31,12 @@ const (
 	LabelKeyDeploymentName      = "deployment-name"
 	LabelKeyDeploymentID        = "deployment-id"
 	LabelKeyManagedBy           = "managed-by"
+	LabelKeyCreatedBy           = "created-by"
 	LabelKeyBelongTo            = "belong-to"
 	LabelKeyComponentType       = "component-type"
 
 	LabelValueManagedBy = "choreo-deployment-controller"
 	LabelValueBelongTo  = "user-workloads"
+
+	LabelBuildControllerCreated = "choreo-build-controller"
 )

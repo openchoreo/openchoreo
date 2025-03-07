@@ -18,27 +18,12 @@
 
 package build
 
-import (
-	"github.com/choreo-idp/choreo/internal/controller"
-	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-)
+type BuildWorkflowStep string
 
 const (
-	Initialized               controller.ConditionType = "Initialized"
-	CloneSucceeded            controller.ConditionType = "CloneSucceeded"
-	BuildSucceeded            controller.ConditionType = "BuildSucceeded"
-	PushSucceeded             controller.ConditionType = "PushSucceeded"
-	Completed                 controller.ConditionType = "Completed"
-	DeployableArtifactCreated controller.ConditionType = "DeployableArtifactCreated"
-	DeploymentApplied         controller.ConditionType = "DeploymentApplied"
-)
-
-type WorkflowStep string
-
-const (
-	CloneStep WorkflowStep = "clone-step"
-	BuildStep WorkflowStep = "build-step"
-	PushStep  WorkflowStep = "push-step"
+	CloneStep BuildWorkflowStep = "clone-step"
+	BuildStep BuildWorkflowStep = "build-step"
+	PushStep  BuildWorkflowStep = "push-step"
 )
 
 type StepPhase string
@@ -49,23 +34,3 @@ const (
 	Succeeded StepPhase = "Succeeded"
 	Failed    StepPhase = "Failed"
 )
-
-func getStepPhase(phase argo.NodePhase) StepPhase {
-	switch phase {
-	case argo.NodeRunning, argo.NodePending:
-		return Running
-	case argo.NodeFailed, argo.NodeError, argo.NodeSkipped:
-		return Failed
-	default:
-		return Succeeded
-	}
-}
-
-func GetStepByTemplateName(nodes argo.Nodes, step WorkflowStep) (*argo.NodeStatus, bool) {
-	for _, node := range nodes {
-		if node.TemplateName == string(step) {
-			return &node, true
-		}
-	}
-	return nil, false
-}

@@ -43,6 +43,7 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/descriptor"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	argohandler "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
 	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
@@ -101,7 +102,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
-	if meta.FindStatusCondition(build.Status.Conditions, string(Completed)) == nil {
+	if meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)) == nil {
 		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
 
 		if requeue {
@@ -126,13 +127,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 		}
-		meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-			DeployableArtifactCreated,
-			metav1.ConditionTrue,
-			"ArtifactCreationSuccessful",
-			"Successfully created a deployable artifact for the build",
-			build.Generation,
-		))
+		meta.SetStatusCondition(&build.Status.Conditions, NewDeployableArtifactCreatedCondition(build.Generation))
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
@@ -155,8 +150,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(build *choreov1.Build) bool {
-	return meta.FindStatusCondition(build.Status.Conditions, string(DeploymentApplied)) != nil ||
-		meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(Completed), metav1.ConditionFalse)
+	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeploymentApplied)) != nil ||
+		meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionFalse)
 }
 
 func (r *Reconciler) handleRequeueAfterBuild(
@@ -164,9 +159,9 @@ func (r *Reconciler) handleRequeueAfterBuild(
 ) (ctrl.Result, error) {
 	// If the build step is still running, requeue the reconciliation after 1 minute.
 	// This provides a controlled requeue interval instead of relying on exponential backoff.
-	stepInfo, isFound := GetStepByTemplateName(workflow.Status.Nodes, BuildStep)
-	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(BuildSucceeded)) == nil {
-		if getStepPhase(stepInfo.Phase) == Running {
+	stepInfo, isFound := argohandler.GetStepByTemplateName(workflow.Status.Nodes, BuildStep)
+	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildSucceeded)) == nil {
+		if argohandler.GetStepPhase(stepInfo.Phase) == Running {
 			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
 		}
 	}
@@ -174,8 +169,8 @@ func (r *Reconciler) handleRequeueAfterBuild(
 }
 
 func (r *Reconciler) shouldCreateDeployableArtifact(build *choreov1.Build) bool {
-	return meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(Completed), metav1.ConditionTrue) &&
-		meta.FindStatusCondition(build.Status.Conditions, string(DeployableArtifactCreated)) == nil
+	return meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionTrue) &&
+		meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
 }
 
 func (r *Reconciler) handleAutoDeployment(ctx context.Context, build *choreov1.Build) (bool, error) {
@@ -183,39 +178,21 @@ func (r *Reconciler) handleAutoDeployment(ctx context.Context, build *choreov1.B
 	dt, err := controller.GetDeploymentTrack(ctx, r.Client, build)
 	if apierrors.IsNotFound(err) {
 		logger.Error(err, "Deployment resource not found")
-		meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-			DeploymentApplied,
-			metav1.ConditionFalse,
-			"DeploymentFailed",
-			"Deployment configuration failed.",
-			build.Generation,
-		))
+		meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentFailedCondition(build.Generation))
 		return false, nil
 	} else if err != nil {
 		return true, err
 	}
 
-	if dt.Spec.AutoDeploy && meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(DeployableArtifactCreated), metav1.ConditionTrue) {
+	if dt.Spec.AutoDeploy && meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
 		requeue, err := r.updateOrCreateDeployment(ctx, build)
 		if requeue {
 			return true, nil
 		} else if err != nil {
-			meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-				DeploymentApplied,
-				metav1.ConditionFalse,
-				"DeploymentFailed",
-				"Deployment configuration failed.",
-				build.Generation,
-			))
+			meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentFailedCondition(build.Generation))
 			return false, err
 		}
-		meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-			DeploymentApplied,
-			metav1.ConditionTrue,
-			"DeploymentAppliedSuccessfully",
-			"Successfully configured the deployment.",
-			build.Generation,
-		))
+		meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentSuccessfulCondition(build.Generation))
 	}
 	return false, nil
 }
@@ -236,7 +213,7 @@ func (r *Reconciler) ensureNamespaceResources(ctx context.Context, namespaceName
 	// Step 2: Create ServiceAccount if it doesn't exist
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "argo-workflow-sa",
+			Name:      "ci-workflow-sa",
 			Namespace: namespaceName,
 		},
 	}
@@ -248,7 +225,7 @@ func (r *Reconciler) ensureNamespaceResources(ctx context.Context, namespaceName
 	// Step 3: Create Role if it doesn't exist
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "argo-workflow-role",
+			Name:      "ci-workflow-role",
 			Namespace: namespaceName,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -267,19 +244,19 @@ func (r *Reconciler) ensureNamespaceResources(ctx context.Context, namespaceName
 	// Step 4: Create RoleBinding if it doesn't exist
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "argo-workflow-role-binding",
+			Name:      "ci-workflow-role-binding",
 			Namespace: namespaceName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      "argo-workflow-sa",
+				Name:      "ci-workflow-sa",
 				Namespace: namespaceName,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
-			Name:     "argo-workflow-role",
+			Name:     "ci-workflow-role",
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
@@ -306,17 +283,10 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, build *choreov1.Build, 
 		// Create the workflow
 		if apierrors.IsNotFound(err) {
 			workflow := makeArgoWorkflow(build, component.Spec.Source.GitRepository.URL, buildNamespace)
-
 			if err := r.Create(ctx, workflow); err != nil {
 				return nil, err
 			}
-			meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-				Initialized,
-				metav1.ConditionTrue,
-				"WorkflowCreated",
-				"Workflow was created in the cluster",
-				build.Generation,
-			))
+			meta.SetStatusCondition(&build.Status.Conditions, NewWorkflowInitializedCondition(build.Generation))
 			return nil, nil
 		}
 		return nil, err
@@ -326,17 +296,17 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, build *choreov1.Build, 
 
 func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argo.Nodes) bool {
 	steps := []struct {
-		stepName      WorkflowStep
+		stepName      BuildWorkflowStep
 		conditionType controller.ConditionType
 	}{
-		{CloneStep, CloneSucceeded},
-		{BuildStep, BuildSucceeded},
-		{PushStep, PushSucceeded},
+		{CloneStep, ConditionCloneSucceeded},
+		{BuildStep, ConditionBuildSucceeded},
+		{PushStep, ConditionPushSucceeded},
 	}
 
-	stepInfo, isFound := GetStepByTemplateName(nodes, steps[0].stepName)
+	stepInfo, isFound := argohandler.GetStepByTemplateName(nodes, steps[0].stepName)
 	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(steps[0].conditionType)) == nil {
-		switch getStepPhase(stepInfo.Phase) {
+		switch argohandler.GetStepPhase(stepInfo.Phase) {
 		case Running:
 			return true
 		case Succeeded:
@@ -348,9 +318,9 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argo.Nodes) b
 		}
 	}
 
-	stepInfo, isFound = GetStepByTemplateName(nodes, steps[1].stepName)
+	stepInfo, isFound = argohandler.GetStepByTemplateName(nodes, steps[1].stepName)
 	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(steps[1].conditionType)) == nil {
-		switch getStepPhase(stepInfo.Phase) {
+		switch argohandler.GetStepPhase(stepInfo.Phase) {
 		case Running:
 			return true
 		case Succeeded:
@@ -362,9 +332,9 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argo.Nodes) b
 		}
 	}
 
-	stepInfo, isFound = GetStepByTemplateName(nodes, steps[2].stepName)
+	stepInfo, isFound = argohandler.GetStepByTemplateName(nodes, steps[2].stepName)
 	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(steps[2].conditionType)) == nil {
-		switch getStepPhase(stepInfo.Phase) {
+		switch argohandler.GetStepPhase(stepInfo.Phase) {
 		case Running:
 			return true
 		case Succeeded:
@@ -379,89 +349,6 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argo.Nodes) b
 	return true
 }
 
-func (r *Reconciler) markWorkflowCompleted(build *choreov1.Build, argoPushStepOutput *argo.Outputs) {
-	newCondition := metav1.Condition{
-		Type:               string(Completed),
-		Status:             metav1.ConditionTrue,
-		LastTransitionTime: metav1.Now(),
-		Reason:             "BuildCompleted",
-		Message:            "Build completed successfully.",
-	}
-	image := getImageNameFromWorkflow(*argoPushStepOutput)
-	if image == "" {
-		newCondition.Status = metav1.ConditionFalse
-		newCondition.Reason = "BuildFailed"
-		newCondition.Message = "Image name is not found in the workflow"
-	} else {
-		build.Status.ImageStatus.Image = image
-	}
-	meta.SetStatusCondition(&build.Status.Conditions, newCondition)
-}
-
-func (r *Reconciler) markStepAsSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
-	successDescriptiors := map[controller.ConditionType]struct {
-		Reason  controller.ConditionReason
-		Message string
-	}{
-		CloneSucceeded: {
-			Reason:  "CloneSourceCodeSucceeded",
-			Message: "Source code cloning was successful.",
-		},
-		BuildSucceeded: {
-			Reason:  "BuildImageSucceeded",
-			Message: "Building the source code was successful.",
-		},
-		PushSucceeded: {
-			Reason:  "PushImageSucceeded",
-			Message: "Pushing the built image to the registry was successful.",
-		},
-	}
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		conditionType,
-		metav1.ConditionTrue,
-		successDescriptiors[conditionType].Reason,
-		successDescriptiors[conditionType].Message,
-		build.Generation,
-	))
-}
-
-func (r *Reconciler) markStepAsFailed(build *choreov1.Build, conditionType controller.ConditionType) {
-	failureDescriptors := map[controller.ConditionType]struct {
-		Reason  controller.ConditionReason
-		Message string
-	}{
-		CloneSucceeded: {
-			Reason:  "CloneSourceCodeFailed",
-			Message: "Source code cloning failed.",
-		},
-		BuildSucceeded: {
-			Reason:  "BuildImageFailed",
-			Message: "Building the source code failed.",
-		},
-		PushSucceeded: {
-			Reason:  "PushImageFailed",
-			Message: "Pushing the built image to the registry failed.",
-		},
-	}
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		conditionType,
-		metav1.ConditionTrue,
-		failureDescriptors[conditionType].Reason,
-		failureDescriptors[conditionType].Message,
-		build.Generation,
-	))
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		Completed,
-		metav1.ConditionFalse,
-		"BuildFailed",
-		"Build completed with a failure status",
-		build.Generation,
-	))
-}
-
 func getImageNameFromWorkflow(output argo.Outputs) string {
 	for _, param := range output.Parameters {
 		if param.Name == "image" {
@@ -472,7 +359,7 @@ func getImageNameFromWorkflow(output argo.Outputs) string {
 }
 
 // This doesn't include git revision. It is added from the workflow.
-func constructImageNameWithTag(build *choreov1.Build) string {
+func ConstructImageNameWithTag(build *choreov1.Build) string {
 	componentName := build.ObjectMeta.Labels["core.choreo.dev/component"]
 	orgName := build.ObjectMeta.Labels["core.choreo.dev/organization"]
 	projName := build.ObjectMeta.Labels["core.choreo.dev/project"]
