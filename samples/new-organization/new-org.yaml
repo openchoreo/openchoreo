@@ -8,7 +8,7 @@ metadata:
     core.choreo.dev/description: Choreo Organization for Acme
   labels:
     core.choreo.dev/name: acme
-spec:
+spec: {}
 ---
 
 ## Sample DataPlane kind (Namespaced)
@@ -77,5 +77,5 @@ metadata:
 spec:
   dataPlaneRef: dp-local 
   isProduction: false
-  dnsPrefix: local-dev
-
+  gateway:
+    dnsPrefix: local-dev

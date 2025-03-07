@@ -16,8 +16,8 @@ spec:
   source:
     gitRepository:
       url: https://github.com/wso2/choreo-samples
-    authentication:
-      secretRef: choreo-bot-git-pat
+      authentication:
+        secretRef: choreo-bot-git-pat
 ---
 
 ## Sample DeploymentTrack kind (Namespaced)
