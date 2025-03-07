@@ -140,7 +140,7 @@ type EndpointSpec struct {
 }
 
 // NetworkVisibility defines the exposure configuration for different network levels of an Endpoint.
-// It allows specifying visibility and security settings separately for organizational and external access.
+// It allows specifying visibility and security settings separately for organizational and public access.
 // When configurations overlap with the Endpoint's APISettings, the most specific configuration takes precedence.
 type NetworkVisibility struct {
 	// When enabled, the endpoint is accessible to other services within the same organization.
@@ -149,7 +149,7 @@ type NetworkVisibility struct {
 
 	// When enabled, the endpoint becomes accessible externally
 	// +optional
-	External VisibilityConfig `json:"external,omitempty"`
+	Public VisibilityConfig `json:"public,omitempty"`
 }
 
 type VisibilityConfig struct {

@@ -131,8 +131,9 @@ spec:
               networkVisibilities:
                 description: Network visibility levels that the endpoint is exposed
                 properties:
-                  external:
-                    description: When enabled, the endpoint becomes accessible externally
+                  organization:
+                    description: When enabled, the endpoint is accessible to other
+                      services within the same organization.
                     properties:
                       apiSettings:
                         description: EndpointAPISettingsSpec defines configuration
@@ -222,9 +223,8 @@ spec:
                     required:
                     - enable
                     type: object
-                  organization:
-                    description: When enabled, the endpoint is accessible to other
-                      services within the same organization.
+                  public:
+                    description: When enabled, the endpoint becomes accessible externally
                     properties:
                       apiSettings:
                         description: EndpointAPISettingsSpec defines configuration

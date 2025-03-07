@@ -517,7 +517,7 @@ func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) chor
 		case source.NetworkVisibilityLevelOrganization:
 			nv.Organization = choreov1.VisibilityConfig{Enable: true}
 		case source.NetworkVisibilityLevelPublic:
-			nv.External = choreov1.VisibilityConfig{Enable: true}
+			nv.Public = choreov1.VisibilityConfig{Enable: true}
 		}
 	}
 
