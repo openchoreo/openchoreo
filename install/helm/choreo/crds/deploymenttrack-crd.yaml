@@ -87,8 +87,6 @@ spec:
                 - branch
                 - path
                 type: object
-            required:
-            - autoDeploy
             type: object
           status:
             description: DeploymentTrackStatus defines the observed state of DeploymentTrack.

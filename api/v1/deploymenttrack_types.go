@@ -43,7 +43,7 @@ type DeploymentTrackSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// AutoDeploy defines whether deployment should be triggered automatically
-	AutoDeploy bool `json:"autoDeploy"`
+	AutoDeploy bool `json:"autoDeploy,omitempty"`
 
 	// BuildTemplateSpec defines the build template configuration
 	BuildTemplateSpec *BuildTemplateSpec `json:"buildTemplateSpec,omitempty"`
