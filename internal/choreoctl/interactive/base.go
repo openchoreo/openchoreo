@@ -24,7 +24,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 )
 
 const (
@@ -52,7 +53,12 @@ type BaseModel struct {
 }
 
 func NewBaseModel() (*BaseModel, error) {
-	orgs, err := util.GetOrganizationNames()
+	orgRes, err := kinds.NewOrganizationResource(constants.OrganizationV1Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organization resource: %w", err)
+	}
+
+	orgs, err := orgRes.GetNames()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get organizations: %w", err)
 	}
@@ -79,7 +85,7 @@ func RunInteractiveModel(model tea.Model) (tea.Model, error) {
 
 func IsQuitKey(msg tea.KeyMsg) bool {
 	switch msg.String() {
-	case "q", "ctrl+c", "esc":
+	case "ctrl+c", "esc":
 		return true
 	default:
 		return false
@@ -152,7 +158,7 @@ func ProcessListCursor(msg tea.KeyMsg, cursor, listLength int) int {
 // It fetches projects when Enter is pressed.
 func (b *BaseModel) UpdateOrgSelect(keyMsg tea.KeyMsg) tea.Cmd {
 	if IsEnterKey(keyMsg) {
-		projects, err := util.GetProjectNames(b.Organizations[b.OrgCursor])
+		projects, err := b.FetchProjects()
 		if err != nil {
 			b.ErrorMsg = fmt.Sprintf("failed to get projects: %v", err)
 			return nil
@@ -176,7 +182,7 @@ func (b *BaseModel) UpdateProjSelect(keyMsg tea.KeyMsg) (tea.Cmd, error) {
 	b.ProjCursor = ProcessListCursor(keyMsg, b.ProjCursor, len(b.Projects))
 	if IsEnterKey(keyMsg) {
 		// First fetch components for the selected project
-		components, err := util.GetComponentNames(b.Organizations[b.OrgCursor], b.Projects[b.ProjCursor])
+		components, err := b.FetchComponents()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get components: %w", err)
 		}
@@ -193,11 +199,18 @@ func (b *BaseModel) FetchDeploymentTracks() ([]string, error) {
 		b.CompCursor >= len(b.Components) {
 		return nil, fmt.Errorf("invalid selection indices for deployment tracks")
 	}
-	return util.GetDeploymentTrackNames(
+
+	trackRes, err := kinds.NewDeploymentTrackResource(
+		constants.DeploymentTrackV1Config,
 		b.Organizations[b.OrgCursor],
 		b.Projects[b.ProjCursor],
 		b.Components[b.CompCursor],
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create deployment track resource: %w", err)
+	}
+
+	return trackRes.GetNames()
 }
 
 // FetchBuildNames retrieves build names based on the current selections.
@@ -207,11 +220,19 @@ func (b *BaseModel) FetchBuildNames() ([]string, error) {
 		b.CompCursor >= len(b.Components) {
 		return nil, fmt.Errorf("invalid selection indices for build names")
 	}
-	return util.GetBuildNames(
+
+	buildRes, err := kinds.NewBuildResource(
+		constants.BuildV1Config,
 		b.Organizations[b.OrgCursor],
 		b.Projects[b.ProjCursor],
 		b.Components[b.CompCursor],
+		"",
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create build resource: %w", err)
+	}
+
+	return buildRes.GetNames()
 }
 
 // FetchDeployableArtifacts retrieves deployable artifact names based on the current selections.
@@ -221,11 +242,19 @@ func (b *BaseModel) FetchDeployableArtifacts() ([]string, error) {
 		b.CompCursor >= len(b.Components) {
 		return nil, fmt.Errorf("invalid selection indices for deployable artifacts")
 	}
-	return util.GetDeployableArtifactNames(
+
+	artifactRes, err := kinds.NewDeployableArtifactResource(
+		constants.DeployableArtifactV1Config,
 		b.Organizations[b.OrgCursor],
 		b.Projects[b.ProjCursor],
 		b.Components[b.CompCursor],
+		"",
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create deployable artifact resource: %w", err)
+	}
+
+	return artifactRes.GetNames()
 }
 
 // RenderProgress renders the selections made so far.
@@ -276,7 +305,13 @@ func (b *BaseModel) FetchProjects() ([]string, error) {
 	if b.OrgCursor >= len(b.Organizations) {
 		return nil, fmt.Errorf("invalid organization index")
 	}
-	return util.GetProjectNames(b.Organizations[b.OrgCursor])
+
+	projRes, err := kinds.NewProjectResource(constants.ProjectV1Config, b.Organizations[b.OrgCursor])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project resource: %w", err)
+	}
+
+	return projRes.GetNames()
 }
 
 // FetchComponents retrieves component names for the currently selected organization and project.
@@ -284,34 +319,65 @@ func (b *BaseModel) FetchComponents() ([]string, error) {
 	if b.OrgCursor >= len(b.Organizations) || b.ProjCursor >= len(b.Projects) {
 		return nil, fmt.Errorf("invalid selection indices for components")
 	}
-	return util.GetComponentNames(b.Organizations[b.OrgCursor], b.Projects[b.ProjCursor])
+
+	compRes, err := kinds.NewComponentResource(
+		constants.ComponentV1Config,
+		b.Organizations[b.OrgCursor],
+		b.Projects[b.ProjCursor],
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create component resource: %w", err)
+	}
+
+	return compRes.GetNames()
 }
 
 // FetchEnvironments retrieves environment names for the currently selected organization.
-// (Assumes environments depend only on the organization; adjust as needed.)
 func (b *BaseModel) FetchEnvironments() ([]string, error) {
 	if b.OrgCursor >= len(b.Organizations) {
 		return nil, fmt.Errorf("invalid organization index")
 	}
-	return util.GetEnvironmentNames(b.Organizations[b.OrgCursor])
+
+	envRes, err := kinds.NewEnvironmentResource(constants.EnvironmentV1Config, b.Organizations[b.OrgCursor])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create environment resource: %w", err)
+	}
+
+	return envRes.GetNames()
 }
 
+// FetchDataPlanes retrieves data plane names for the currently selected organization.
 func (b *BaseModel) FetchDataPlanes() ([]string, error) {
 	if b.OrgCursor >= len(b.Organizations) {
 		return nil, fmt.Errorf("invalid organization index")
 	}
-	return util.GetDataPlaneNames(b.Organizations[b.OrgCursor])
+
+	dpRes, err := kinds.NewDataPlaneResource(constants.DataPlaneV1Config, b.Organizations[b.OrgCursor])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create data plane resource: %w", err)
+	}
+
+	return dpRes.GetNames()
 }
 
+// FetchDeployments retrieves deployment names based on the current selections.
 func (b *BaseModel) FetchDeployments() ([]string, error) {
 	if b.OrgCursor >= len(b.Organizations) ||
 		b.ProjCursor >= len(b.Projects) ||
 		b.CompCursor >= len(b.Components) {
 		return nil, fmt.Errorf("invalid selection indices for deployments")
 	}
-	return util.GetDeploymentNames(
+
+	deployRes, err := kinds.NewDeploymentResource(
+		constants.DeploymentV1Config,
 		b.Organizations[b.OrgCursor],
 		b.Projects[b.ProjCursor],
 		b.Components[b.CompCursor],
+		"", // No environment filter
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create deployment resource: %w", err)
+	}
+
+	return deployRes.GetNames()
 }

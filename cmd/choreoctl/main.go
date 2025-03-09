@@ -39,7 +39,7 @@ func main() {
 	// Initialize choreoctl execution environment
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		// Initialize default context if none exists
-		if err := configContext.InitializeDefaultContext(); err != nil {
+		if err := configContext.EnsureContext(); err != nil {
 			return err
 		}
 

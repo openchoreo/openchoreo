@@ -66,6 +66,10 @@ var (
 		Name:  "environment",
 		Usage: messages.FlagEnvironmentDesc,
 	}
+	Deployment = Flag{
+		Name:  "deployment",
+		Usage: messages.FlagDeploymentDesc,
+	}
 
 	DeploymentTrack = Flag{
 		Name:  "deployment-track",
@@ -118,7 +122,7 @@ var (
 	}
 
 	LogType = Flag{
-		Name:  "log-type",
+		Name:  "type",
 		Usage: messages.FlagLogTypeDesc,
 	}
 
@@ -129,6 +133,7 @@ var (
 	Follow = Flag{
 		Name:  "follow",
 		Usage: messages.FlagFollowDesc,
+		Type:  "bool",
 	}
 	BuildTypeName = Flag{
 		Name:  "type",

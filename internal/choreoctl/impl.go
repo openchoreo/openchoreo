@@ -55,56 +55,56 @@ func NewCommandImplementation() *CommandImplementation {
 	return &CommandImplementation{}
 }
 
-// List Operations
+// Get Operations
 
-func (c *CommandImplementation) ListOrganization(params api.ListParams) error {
-	orgImpl := getorganization.NewListOrgImpl(constants.OrganizationV1Config)
-	return orgImpl.ListOrganization(params)
+func (c *CommandImplementation) GetOrganization(params api.GetParams) error {
+	orgImpl := getorganization.NewGetOrgImpl(constants.OrganizationV1Config)
+	return orgImpl.GetOrganization(params)
 }
 
-func (c *CommandImplementation) ListProject(params api.ListProjectParams) error {
-	projImpl := getproject.NewListProjImpl(constants.ProjectV1Config)
-	return projImpl.ListProject(params)
+func (c *CommandImplementation) GetProject(params api.GetProjectParams) error {
+	projImpl := getproject.NewGetProjImpl(constants.ProjectV1Config)
+	return projImpl.GetProject(params)
 }
 
-func (c *CommandImplementation) ListComponent(params api.ListComponentParams) error {
-	compImpl := getcomponent.NewListCompImpl(constants.ComponentV1Config)
-	return compImpl.ListComponent(params)
+func (c *CommandImplementation) GetComponent(params api.GetComponentParams) error {
+	compImpl := getcomponent.NewGetCompImpl(constants.ComponentV1Config)
+	return compImpl.GetComponent(params)
 }
 
-func (c *CommandImplementation) ListBuild(params api.ListBuildParams) error {
-	buildImpl := getbuild.NewListBuildImpl(constants.BuildV1Config)
-	return buildImpl.ListBuild(params)
+func (c *CommandImplementation) GetBuild(params api.GetBuildParams) error {
+	buildImpl := getbuild.NewGetBuildImpl(constants.BuildV1Config)
+	return buildImpl.GetBuild(params)
 }
 
-func (c *CommandImplementation) ListDeployableArtifact(params api.ListDeployableArtifactParams) error {
-	deployableArtifactImpl := getdeployartifcat.NewListDeployableArtifactImpl(constants.DeployableArtifactV1Config)
-	return deployableArtifactImpl.ListDeployableArtifact(params)
+func (c *CommandImplementation) GetDeployableArtifact(params api.GetDeployableArtifactParams) error {
+	deployableArtifactImpl := getdeployartifcat.NewGetDeployableArtifactImpl(constants.DeployableArtifactV1Config)
+	return deployableArtifactImpl.GetDeployableArtifact(params)
 }
 
-func (c *CommandImplementation) ListDeployment(params api.ListDeploymentParams) error {
-	deploymentImpl := getdeploy.NewListDeploymentImpl(constants.DeploymentV1Config)
-	return deploymentImpl.ListDeployment(params)
+func (c *CommandImplementation) GetDeployment(params api.GetDeploymentParams) error {
+	deploymentImpl := getdeploy.NewGetDeploymentImpl(constants.DeploymentV1Config)
+	return deploymentImpl.GetDeployment(params)
 }
 
-func (c *CommandImplementation) ListEnvironment(params api.ListEnvironmentParams) error {
-	envImpl := getenv.NewListEnvironmentImpl(constants.EnvironmentV1Config)
-	return envImpl.ListEnvironment(params)
+func (c *CommandImplementation) GetEnvironment(params api.GetEnvironmentParams) error {
+	envImpl := getenv.NewGetEnvironmentImpl(constants.EnvironmentV1Config)
+	return envImpl.GetEnvironment(params)
 }
 
-func (c *CommandImplementation) ListDataPlane(params api.ListDataPlaneParams) error {
-	dpImpl := getdataplane.NewListDataPlaneImpl(constants.DataPlaneV1Config)
-	return dpImpl.ListDataPlane(params)
+func (c *CommandImplementation) GetDataPlane(params api.GetDataPlaneParams) error {
+	dpImpl := getdataplane.NewGetDataPlaneImpl(constants.DataPlaneV1Config)
+	return dpImpl.GetDataPlane(params)
 }
 
-func (c *CommandImplementation) ListDeploymentTrack(params api.ListDeploymentTrackParams) error {
-	trackImpl := getdeploymenttrack.NewListDeploymentTrackImpl(constants.DeploymentTrackV1Config)
-	return trackImpl.ListDeploymentTrack(params)
+func (c *CommandImplementation) GetDeploymentTrack(params api.GetDeploymentTrackParams) error {
+	trackImpl := getdeploymenttrack.NewGetDeploymentTrackImpl(constants.DeploymentTrackV1Config)
+	return trackImpl.GetDeploymentTrack(params)
 }
 
-func (c *CommandImplementation) ListEndpoint(params api.ListEndpointParams) error {
-	endpointImpl := getendpoint.NewListEndpointImpl(constants.EndpointV1Config)
-	return endpointImpl.ListEndpoint(params)
+func (c *CommandImplementation) GetEndpoint(params api.GetEndpointParams) error {
+	endpointImpl := getendpoint.NewGetEndpointImpl(constants.EndpointV1Config)
+	return endpointImpl.GetEndpoint(params)
 }
 
 // Create Operations

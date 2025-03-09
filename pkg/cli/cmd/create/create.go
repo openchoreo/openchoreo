@@ -123,6 +123,12 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 		flags.DisplayName,
 		flags.GitRepositoryURL,
 		flags.ComponentType,
+		flags.DockerContext,
+		flags.DockerfilePath,
+		flags.Branch,
+		flags.BuildpackName,
+		flags.BuildpackVersion,
+		flags.Path,
 	)
 	return (&builder.CommandBuilder{
 		Command: constants.CreateComponent,
@@ -136,6 +142,12 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				GitRepositoryURL: fg.GetString(flags.GitRepositoryURL),
 				Type:             v1api.ComponentType(fg.GetString(flags.ComponentType)),
 				Interactive:      fg.GetBool(flags.Interactive),
+				Branch:           fg.GetString(flags.Branch),
+				Path:             fg.GetString(flags.Path),
+				DockerFile:       fg.GetString(flags.DockerfilePath),
+				DockerContext:    fg.GetString(flags.DockerContext),
+				BuildpackName:    fg.GetString(flags.BuildpackName),
+				BuildpackVersion: fg.GetString(flags.BuildpackVersion),
 			})
 		},
 	}).Build()
@@ -147,10 +159,11 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		flags.DockerfilePath,
 		flags.BuildpackName,
 		flags.BuildpackVersion,
-		flags.Branch, // Add new flags
+		flags.Branch,
 		flags.Path,
 		flags.Revision,
 		flags.AutoBuild,
+		flags.DeploymentTrack,
 	)
 
 	return (&builder.CommandBuilder{
@@ -162,7 +175,7 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
-				Branch:       fg.GetString(flags.Branch), // Add new params
+				Branch:       fg.GetString(flags.Branch),
 				Path:         fg.GetString(flags.Path),
 				Revision:     fg.GetString(flags.Revision),
 				AutoBuild:    fg.GetBool(flags.AutoBuild),
@@ -175,6 +188,7 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 					Name:    v1api.BuildpackName(fg.GetString(flags.BuildpackName)),
 					Version: fg.GetString(flags.BuildpackVersion),
 				},
+				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
 			})
 		},
 	}).Build()

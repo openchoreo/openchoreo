@@ -20,102 +20,56 @@ package deployableartifact
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListDeployableArtifactImpl struct {
+type GetDeployableArtifactImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListDeployableArtifactImpl(config constants.CRDConfig) *ListDeployableArtifactImpl {
-	return &ListDeployableArtifactImpl{
+func NewGetDeployableArtifactImpl(config constants.CRDConfig) *GetDeployableArtifactImpl {
+	return &GetDeployableArtifactImpl{
 		config: config,
 	}
 }
 
-func (i *ListDeployableArtifactImpl) ListDeployableArtifact(params api.ListDeployableArtifactParams) error {
+func (i *GetDeployableArtifactImpl) GetDeployableArtifact(params api.GetDeployableArtifactParams) error {
 	if params.Interactive {
-		return listDeployableArtifactInteractive(i.config)
+		return getDeployableArtifactInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceDeployableArtifact, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDeployableArtifact, params); err != nil {
 		return err
 	}
 
-	return listDeployableArtifacts(params, i.config)
+	return getDeployableArtifacts(params, i.config)
 }
 
-func listDeployableArtifacts(params api.ListDeployableArtifactParams, config constants.CRDConfig) error {
-	var artifacts []corev1.DeployableArtifact
-
-	if params.Name != "" {
-		// Get specific deployable artifact
-		artifact, err := util.GetDeployableArtifact(params.Organization, params.Project, params.Component, params.Name)
-		if err != nil {
-			return err
-		}
-		artifacts = []corev1.DeployableArtifact{*artifact}
-	} else {
-		// List all deployable artifacts
-		artifactList, err := util.GetAllDeployableArtifacts(params.Organization, params.Project, params.Component)
-		if err != nil {
-			return err
-		}
-		artifacts = artifactList.Items
+func getDeployableArtifacts(params api.GetDeployableArtifactParams, config constants.CRDConfig) error {
+	artifactRes, err := kinds.NewDeployableArtifactResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.DeploymentTrack,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create DeployableArtifact resource: %w", err)
 	}
 
-	if len(artifacts) == 0 {
-		fmt.Printf("No deployable artifacts found for organization: %s, project: %s, component: %s\n",
-			params.Organization, params.Project, params.Component)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printDeployableArtifactYAML(artifacts, params.Organization, config)
-	}
-	return printDeployableArtifactTable(artifacts, params.Organization, params.Project, params.Component)
-}
-
-func printDeployableArtifactYAML(artifacts []corev1.DeployableArtifact, orgName string, config constants.CRDConfig) error {
-	for _, artifact := range artifacts {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			artifact.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printDeployableArtifactTable(artifacts []corev1.DeployableArtifact, orgName, projectName, componentName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSOURCE\tAGE\tCOMPONENT\tPROJECT\tORGANIZATION")
-
-	for _, artifact := range artifacts {
-		source := "unknown"
-		if artifact.Spec.TargetArtifact.FromBuildRef != nil {
-			source = "build:" + artifact.Spec.TargetArtifact.FromBuildRef.Name
-		} else if artifact.Spec.TargetArtifact.FromImageRef != nil {
-			source = "image:" + artifact.Spec.TargetArtifact.FromImageRef.Tag
-		}
-
-		age := util.FormatAge(artifact.CreationTimestamp.Time)
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			artifact.Name, source, age, componentName, projectName, orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
+	return artifactRes.Print(format, filter)
 }

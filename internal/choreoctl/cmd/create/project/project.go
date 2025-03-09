@@ -19,14 +19,10 @@
 package project
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,49 +39,30 @@ func NewCreateProjImpl(config constants.CRDConfig) *CreateProjImpl {
 
 func (i *CreateProjImpl) CreateProject(params api.CreateProjectParams) error {
 	if params.Interactive {
-		return createProjectInteractive()
+		return createProjectInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceProject, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceProject, params); err != nil {
 		return err
 	}
 
-	if err := util.ValidateProject(params.Name); err != nil {
+	if err := validation.ValidateProjectName(params.Name); err != nil {
 		return err
 	}
 
-	return createProject(params)
+	return createProject(params, i.config)
 }
 
-func createProject(params api.CreateProjectParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createProject(params api.CreateProjectParams, config constants.CRDConfig) error {
+	projRes, err := kinds.NewProjectResource(config, params.Organization)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create Project resource: %w", err)
 	}
 
-	project := &corev1.Project{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Annotations: map[string]string{
-				constants.AnnotationDisplayName: params.DisplayName,
-				constants.AnnotationDescription: params.Description,
-			},
-			Labels: map[string]string{
-				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
-			},
-		},
-		Spec: corev1.ProjectSpec{
-			DeploymentPipelineRef: "default-deployment-pipeline",
-		},
+	if err := projRes.CreateProject(params); err != nil {
+		return fmt.Errorf("failed to create project '%s' in organization '%s': %w",
+			params.Name, params.Organization, err)
 	}
 
-	ctx := context.Background()
-	if err := k8sClient.Create(ctx, project); err != nil {
-		return errors.NewError("Failed to create project '%s' in organization '%s': %v", params.Name, params.Organization, err)
-	}
-
-	fmt.Printf("Project '%s' created in organization '%s'\n", params.Name, params.Organization)
 	return nil
 }

@@ -19,14 +19,10 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,52 +39,32 @@ func NewCreateDeploymentImpl(config constants.CRDConfig) *CreateDeploymentImpl {
 
 func (i *CreateDeploymentImpl) CreateDeployment(params api.CreateDeploymentParams) error {
 	if params.Interactive {
-		return createDeploymentInteractive()
+		return createDeploymentInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceDeployment, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDeployment, params); err != nil {
 		return err
 	}
 
-	return createDeployment(params)
+	return createDeployment(params, i.config)
 }
 
-func createDeployment(params api.CreateDeploymentParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createDeployment(params api.CreateDeploymentParams, config constants.CRDConfig) error {
+	deployRes, err := kinds.NewDeploymentResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.Environment,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create Deployment resource: %w", err)
 	}
 
-	deployment := &corev1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Labels: map[string]string{
-				constants.LabelOrganization:    params.Organization,
-				constants.LabelProject:         params.Project,
-				constants.LabelComponent:       params.Component,
-				constants.LabelEnvironment:     params.Environment,
-				constants.LabelDeploymentTrack: params.DeploymentTrack,
-				constants.LabelName:            params.Name,
-			},
-		},
-		Spec: corev1.DeploymentSpec{
-			DeploymentArtifactRef: params.DeployableArtifact,
-		},
+	if err := deployRes.CreateDeployment(params); err != nil {
+		return fmt.Errorf("failed to create deployment '%s' in organization '%s': %w",
+			params.Name, params.Organization, err)
 	}
-
-	if params.ConfigOverrides != nil {
-		deployment.Spec.ConfigurationOverrides = params.ConfigOverrides
-	}
-
-	ctx := context.Background()
-
-	if err := k8sClient.Create(ctx, deployment); err != nil {
-		return errors.NewError("failed to create deployment: %v", err)
-	}
-
-	fmt.Printf("Deployment '%s' created successfully in component '%s' of project '%s' in organization '%s'\n",
-		params.Name, params.Component, params.Project, params.Organization)
 
 	return nil
 }

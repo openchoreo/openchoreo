@@ -19,14 +19,10 @@
 package deploymenttrack
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,48 +39,30 @@ func NewCreateDeploymentTrackImpl(config constants.CRDConfig) *CreateDeploymentT
 
 func (i *CreateDeploymentTrackImpl) CreateDeploymentTrack(params api.CreateDeploymentTrackParams) error {
 	if params.Interactive {
-		return createDeploymentTrackInteractive()
+		return createDeploymentTrackInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceDeploymentTrack, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDeploymentTrack, params); err != nil {
 		return err
 	}
 
-	return createDeploymentTrack(params)
+	return createDeploymentTrack(params, i.config)
 }
 
-func createDeploymentTrack(params api.CreateDeploymentTrackParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createDeploymentTrack(params api.CreateDeploymentTrackParams, config constants.CRDConfig) error {
+	trackRes, err := kinds.NewDeploymentTrackResource(config,
+		params.Organization,
+		params.Project,
+		params.Component,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create DeploymentTrack resource: %w", err)
 	}
 
-	deploymentTrack := &corev1.DeploymentTrack{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Annotations: map[string]string{
-				"core.choreo.dev/display-name": params.DisplayName,
-				"core.choreo.dev/description":  params.Description,
-			},
-			Labels: map[string]string{
-				"core.choreo.dev/organization": params.Organization,
-				"core.choreo.dev/project":      params.Project,
-				"core.choreo.dev/component":    params.Component,
-				"core.choreo.dev/name":         params.Name,
-			},
-		},
-		Spec: corev1.DeploymentTrackSpec{
-			BuildTemplateSpec: params.BuildTemplateSpec,
-		},
+	if err := trackRes.CreateDeploymentTrack(params); err != nil {
+		return fmt.Errorf("failed to create deployment track '%s' in component '%s' of project '%s' in organization '%s': %w",
+			params.Name, params.Component, params.Project, params.Organization, err)
 	}
-
-	if err := k8sClient.Create(context.Background(), deploymentTrack); err != nil {
-		return errors.NewError("failed to create deployment track: %v", err)
-	}
-
-	fmt.Printf("Deployment track '%s' created successfully in project '%s' of organization '%s'\n",
-		params.Name, params.Project, params.Organization)
 
 	return nil
 }

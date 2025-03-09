@@ -20,93 +20,50 @@ package environment
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListEnvironmentImpl struct {
+type GetEnvironmentImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListEnvironmentImpl(config constants.CRDConfig) *ListEnvironmentImpl {
-	return &ListEnvironmentImpl{
+func NewGetEnvironmentImpl(config constants.CRDConfig) *GetEnvironmentImpl {
+	return &GetEnvironmentImpl{
 		config: config,
 	}
 }
 
-func (i *ListEnvironmentImpl) ListEnvironment(params api.ListEnvironmentParams) error {
+func (i *GetEnvironmentImpl) GetEnvironment(params api.GetEnvironmentParams) error {
 	if params.Interactive {
-		return listEnvironmentInteractive(i.config)
+		return getEnvironmentInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceEnvironment, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceEnvironment, params); err != nil {
 		return err
 	}
 
-	return listEnvironments(params, i.config)
+	return getEnvironments(params, i.config)
 }
 
-func listEnvironments(params api.ListEnvironmentParams, config constants.CRDConfig) error {
-	var environments []corev1.Environment
-
-	if params.Name != "" {
-		env, err := util.GetEnvironment(params.Organization, params.Name)
-		if err != nil {
-			return err
-		}
-		environments = []corev1.Environment{*env}
-	} else {
-		envList, err := util.GetAllEnvironments(params.Organization)
-		if err != nil {
-			return err
-		}
-		environments = envList.Items
+func getEnvironments(params api.GetEnvironmentParams, config constants.CRDConfig) error {
+	envRes, err := kinds.NewEnvironmentResource(config, params.Organization)
+	if err != nil {
+		return fmt.Errorf("failed to create Environment resource: %w", err)
 	}
 
-	if len(environments) == 0 {
-		fmt.Printf("No environments found for organization: %s\n", params.Organization)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printEnvironmentYAML(environments, params.Organization, config)
-	}
-	return printEnvironmentTable(environments, params.Organization)
-}
-
-func printEnvironmentYAML(environments []corev1.Environment, orgName string, config constants.CRDConfig) error {
-	for _, env := range environments {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			env.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printEnvironmentTable(environments []corev1.Environment, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDATA PLANE\tPRODUCTION\tDNS PREFIX\tAGE\tORGANIZATION")
-
-	for _, env := range environments {
-		age := util.FormatAge(env.CreationTimestamp.Time)
-
-		fmt.Fprintf(w, "%s\t%s\t%t\t%v\t%s\t%s\n",
-			env.Name, env.Spec.DataPlaneRef, env.Spec.IsProduction, env.Spec.Gateway.DNSPrefix,
-			age, orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
+	return envRes.Print(format, filter)
 }

@@ -19,14 +19,10 @@
 package dataplane
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,59 +39,26 @@ func NewCreateDataPlaneImpl(config constants.CRDConfig) *CreateDataPlaneImpl {
 
 func (i *CreateDataPlaneImpl) CreateDataPlane(params api.CreateDataPlaneParams) error {
 	if params.Interactive {
-		return createDataPlaneInteractive()
+		return createDataPlaneInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceDataPlane, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDataPlane, params); err != nil {
 		return err
 	}
 
-	return createDataPlane(params)
+	return createDataPlane(params, i.config)
 }
 
-func createDataPlane(params api.CreateDataPlaneParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createDataPlane(params api.CreateDataPlaneParams, config constants.CRDConfig) error {
+	dpRes, err := kinds.NewDataPlaneResource(config, params.Organization)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create DataPlane resource: %w", err)
 	}
 
-	ctx := context.Background()
-
-	dp := &corev1.DataPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Annotations: map[string]string{
-				"core.choreo.dev/display-name": params.DisplayName,
-				"core.choreo.dev/description":  params.Description,
-			},
-			Labels: map[string]string{
-				"core.choreo.dev/organization": params.Organization,
-				"core.choreo.dev/name":         params.Name,
-			},
-		},
-		Spec: corev1.DataPlaneSpec{
-			KubernetesCluster: corev1.KubernetesClusterSpec{
-				Name:                params.KubernetesClusterName,
-				ConnectionConfigRef: params.ConnectionConfigRef,
-				FeatureFlags: corev1.FeatureFlagsSpec{
-					Cilium:      params.EnableCilium,
-					ScaleToZero: params.EnableScaleToZero,
-					GatewayType: params.GatewayType,
-				},
-			},
-			Gateway: corev1.GatewaySpec{
-				PublicVirtualHost:       params.PublicVirtualHost,
-				OrganizationVirtualHost: params.OrganizationVirtualHost,
-			},
-		},
+	if err := dpRes.CreateDataPlane(params); err != nil {
+		return fmt.Errorf("failed to create DataPlane '%s' in organization '%s': %w",
+			params.Name, params.Organization, err)
 	}
-
-	if err := k8sClient.Create(ctx, dp); err != nil {
-		return errors.NewError("failed to create data plane: %v", err)
-	}
-
-	fmt.Printf("Data plane '%s' created successfully in organization '%s'\n", params.Name, params.Organization)
 
 	return nil
 }

@@ -77,6 +77,7 @@ const (
 	FlagDockerImageDesc        = "Docker image name (e.g., my-image:latest)"
 	FlagEnvironmentDesc        = "Environment to deploy the component (e.g., dev, staging, prod)"
 	FlagDeployableArtifactDesc = "Deployable artifact name (e.g., my-artifact)"
+	FlagDeploymentDesc         = "Name of the deployment (e.g., my-deployment)"
 )
 
 type ApplyError struct {

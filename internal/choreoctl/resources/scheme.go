@@ -16,20 +16,29 @@
  * under the License.
  */
 
-package errors
+package resources
 
-import "fmt"
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
-type CLIError struct {
-	message string
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+)
+
+var (
+	// Rename from 'scheme' to 'schemeInstance' to avoid conflict
+	schemeInstance = runtime.NewScheme()
+)
+
+func init() {
+	// Register standard Kubernetes types
+	utilruntime.Must(clientgoscheme.AddToScheme(schemeInstance))
+	// Register Choreo CRDs
+	utilruntime.Must(choreov1.AddToScheme(schemeInstance))
 }
 
-func (e *CLIError) Error() string {
-	return e.message
-}
-
-func NewError(format string, args ...interface{}) error {
-	return &CLIError{
-		message: fmt.Sprintf(format, args...),
-	}
+// GetScheme returns the runtime scheme with all required types registered
+func GetScheme() *runtime.Scheme {
+	return schemeInstance
 }

@@ -23,9 +23,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -68,7 +68,7 @@ func (m projectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
-			if err := util.ValidateProject(m.name); err != nil {
+			if err := validation.ValidateProjectName(m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -110,7 +110,7 @@ func (m projectModel) View() string {
 	return progress
 }
 
-func createProjectInteractive() error {
+func createProjectInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -128,11 +128,11 @@ func createProjectInteractive() error {
 
 	m, ok := finalModel.(projectModel)
 	if !ok || !m.selected {
-		return errors.NewError("project creation cancelled")
+		return fmt.Errorf("project creation cancelled")
 	}
 
 	return createProject(api.CreateProjectParams{
 		Name:         m.name,
 		Organization: m.Organizations[m.OrgCursor],
-	})
+	}, config)
 }

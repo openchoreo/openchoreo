@@ -19,14 +19,10 @@
 package environment
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,48 +39,26 @@ func NewCreateEnvironmentImpl(config constants.CRDConfig) *CreateEnvironmentImpl
 
 func (i *CreateEnvironmentImpl) CreateEnvironment(params api.CreateEnvironmentParams) error {
 	if params.Interactive {
-		return createEnvironmentInteractive()
+		return createEnvironmentInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceEnvironment, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceEnvironment, params); err != nil {
 		return err
 	}
 
-	return createEnvironment(params)
+	return createEnvironment(params, i.config)
 }
 
-func createEnvironment(params api.CreateEnvironmentParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createEnvironment(params api.CreateEnvironmentParams, config constants.CRDConfig) error {
+	envRes, err := kinds.NewEnvironmentResource(config, params.Organization)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create Environment resource: %w", err)
 	}
 
-	env := &corev1.Environment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Annotations: map[string]string{
-				"core.choreo.dev/display-name": params.DisplayName,
-				"core.choreo.dev/description":  params.Description,
-			},
-			Labels: map[string]string{
-				"core.choreo.dev/organization": params.Organization,
-				"core.choreo.dev/name":         params.Name,
-			},
-		},
-		Spec: corev1.EnvironmentSpec{
-			DataPlaneRef: params.DataPlaneRef,
-			IsProduction: params.IsProduction,
-			Gateway: corev1.GatewayConfig{
-				DNSPrefix: params.DNSPrefix,
-			},
-		},
+	if err := envRes.CreateEnvironment(params); err != nil {
+		return fmt.Errorf("failed to create Environment '%s' in organization '%s': %w",
+			params.Name, params.Organization, err)
 	}
 
-	if err := k8sClient.Create(context.Background(), env); err != nil {
-		return errors.NewError("failed to create environment: %v", err)
-	}
-
-	fmt.Printf("Environment '%s' created successfully in organization '%s'\n", params.Name, params.Organization)
 	return nil
 }

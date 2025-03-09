@@ -20,94 +20,50 @@ package dataplane
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListDataPlaneImpl struct {
+type GetDataPlaneImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListDataPlaneImpl(config constants.CRDConfig) *ListDataPlaneImpl {
-	return &ListDataPlaneImpl{
+func NewGetDataPlaneImpl(config constants.CRDConfig) *GetDataPlaneImpl {
+	return &GetDataPlaneImpl{
 		config: config,
 	}
 }
 
-func (i *ListDataPlaneImpl) ListDataPlane(params api.ListDataPlaneParams) error {
+func (i *GetDataPlaneImpl) GetDataPlane(params api.GetDataPlaneParams) error {
 	if params.Interactive {
-		return listDataPlaneInteractive(i.config)
+		return getDataPlaneInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceDataPlane, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDataPlane, params); err != nil {
 		return err
 	}
 
-	return listDataPlanes(params, i.config)
+	return getDataPlanes(params, i.config)
 }
 
-func listDataPlanes(params api.ListDataPlaneParams, config constants.CRDConfig) error {
-	var dataPlanes []corev1.DataPlane
-
-	if params.Name != "" {
-		dp, err := util.GetDataPlane(params.Organization, params.Name)
-		if err != nil {
-			return err
-		}
-		dataPlanes = []corev1.DataPlane{*dp}
-	} else {
-		dpList, err := util.GetDataPlanes(params.Organization)
-		if err != nil {
-			return err
-		}
-		dataPlanes = dpList.Items
+func getDataPlanes(params api.GetDataPlaneParams, config constants.CRDConfig) error {
+	dpRes, err := kinds.NewDataPlaneResource(config, params.Organization)
+	if err != nil {
+		return fmt.Errorf("failed to create DataPlane resource: %w", err)
 	}
 
-	if len(dataPlanes) == 0 {
-		fmt.Printf("No data planes found for organization: %s\n", params.Organization)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printDataPlaneYAML(dataPlanes, params.Organization, config)
-	}
-	return printDataPlaneTable(dataPlanes, params.Organization)
-}
-
-func printDataPlaneTable(dataPlanes []corev1.DataPlane, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tCLUSTER\tORGANIZATION\tAGE")
-
-	for _, dp := range dataPlanes {
-		age := util.FormatAge(dp.CreationTimestamp.Time)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			dp.Name, dp.Spec.KubernetesCluster.Name, orgName, age)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
-}
-
-func printDataPlaneYAML(dataPlanes []corev1.DataPlane, orgName string, config constants.CRDConfig) error {
-	for i, dp := range dataPlanes {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			dp.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		if i > 0 {
-			fmt.Println("---")
-		}
-		fmt.Println(yamlStr)
-	}
-	return nil
+	return dpRes.Print(format, filter)
 }

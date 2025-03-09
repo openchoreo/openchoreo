@@ -20,167 +20,56 @@ package build
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-const (
-	// Status Types
-	statusTypeCompleted      = "Completed"
-	statusTypeBuildSucceeded = "BuildSucceeded"
-	statusTypeCloneSucceeded = "CloneSucceeded"
-	statusTypePushSucceeded  = "PushSucceeded"
-	statusTypeInitialized    = "Initialized"
-
-	// Status Values
-	statusValueTrue  = "True"
-	statusValueFalse = "False"
-
-	// Status Messages
-	statusMsgCompleted    = "Completed"
-	statusMsgBuildFailed  = "BuildFailed"
-	statusMsgCloneFailed  = "CloneFailed"
-	statusMsgPushFailed   = "PushFailed"
-	statusMsgFailed       = "Failed"
-	statusMsgBuilding     = "Building"
-	statusMsgInitializing = "Initializing"
-	statusMsgUnknown      = "Unknown"
-)
-
-type ListBuildImpl struct {
+type GetBuildImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListBuildImpl(config constants.CRDConfig) *ListBuildImpl {
-	return &ListBuildImpl{
+func NewGetBuildImpl(config constants.CRDConfig) *GetBuildImpl {
+	return &GetBuildImpl{
 		config: config,
 	}
 }
 
-func (i *ListBuildImpl) ListBuild(params api.ListBuildParams) error {
+func (i *GetBuildImpl) GetBuild(params api.GetBuildParams) error {
 	if params.Interactive {
-		return listBuildInteractive(i.config)
+		return getBuildInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceBuild, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceBuild, params); err != nil {
 		return err
 	}
 
-	return listBuilds(params, i.config)
+	return getBuilds(params, i.config)
 }
 
-func listBuilds(params api.ListBuildParams, config constants.CRDConfig) error {
-	var builds []corev1.Build
-
-	if params.Name != "" {
-		// Get specific build
-		build, err := util.GetBuild(params.Organization, params.Project, params.Component, params.Name)
-		if err != nil {
-			return err
-		}
-		builds = []corev1.Build{*build}
-	} else {
-		// List all builds
-		buildList, err := util.GetAllBuilds(params.Organization, params.Project, params.Component)
-		if err != nil {
-			return err
-		}
-		builds = buildList.Items
+func getBuilds(params api.GetBuildParams, config constants.CRDConfig) error {
+	buildRes, err := kinds.NewBuildResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.DeploymentTrack,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create Build resource: %w", err)
 	}
 
-	if len(builds) == 0 {
-		fmt.Printf("No builds found for organization: %s, project: %s, component: %s\n",
-			params.Organization, params.Project, params.Component)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
-	// Output format handling
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printBuildYAML(builds, params.Organization, config)
-	}
-	return printBuildTable(builds, params.Component, params.Project, params.Organization)
-}
-
-func printBuildYAML(builds []corev1.Build, orgName string, config constants.CRDConfig) error {
-	for _, build := range builds {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			build.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printBuildTable(builds []corev1.Build, componentName, projectName, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tAGE\tPROJECT\tCOMPONENT\tORGANIZATION")
-
-	for _, build := range builds {
-		buildType := "docker"
-		if build.Spec.BuildConfiguration.Buildpack != nil {
-			buildType = "buildpack"
-		}
-
-		age := util.FormatAge(build.CreationTimestamp.Time)
-		status := getBuildStatus(build)
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			build.Name,
-			buildType,
-			status,
-			age,
-			projectName,
-			componentName,
-			orgName,
-		)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
-}
-
-func getBuildStatus(build corev1.Build) string {
-	for _, condition := range build.Status.Conditions {
-		switch {
-		case condition.Type == statusTypeCompleted && condition.Status == statusValueTrue:
-			return statusMsgCompleted
-		case condition.Type == statusTypeCompleted && condition.Status == statusValueFalse:
-			if buildFailed := meta.FindStatusCondition(build.Status.Conditions, statusTypeBuildSucceeded); buildFailed != nil && buildFailed.Status == statusValueFalse {
-				return statusMsgBuildFailed
-			}
-			if cloneFailed := meta.FindStatusCondition(build.Status.Conditions, statusTypeCloneSucceeded); cloneFailed != nil && cloneFailed.Status == statusValueFalse {
-				return statusMsgCloneFailed
-			}
-			if pushFailed := meta.FindStatusCondition(build.Status.Conditions, statusTypePushSucceeded); pushFailed != nil && pushFailed.Status == statusValueFalse {
-				return statusMsgPushFailed
-			}
-			return statusMsgFailed
-		}
-	}
-
-	for _, condition := range build.Status.Conditions {
-		switch {
-		case condition.Type == statusTypeBuildSucceeded && condition.Status == statusValueTrue:
-			return statusMsgBuilding
-		case condition.Type == statusTypeCloneSucceeded && condition.Status == statusValueTrue:
-			return statusMsgBuilding
-		case condition.Type == statusTypeInitialized && condition.Status == statusValueTrue:
-			return statusMsgInitializing
-		}
-	}
-
-	return statusMsgUnknown
+	return buildRes.Print(format, filter)
 }

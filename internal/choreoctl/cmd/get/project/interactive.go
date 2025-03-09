@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -92,7 +90,7 @@ func (m projectListModel) View() string {
 	return progress + view
 }
 
-func listProjectInteractive(config constants.CRDConfig) error {
+func getProjectInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -104,7 +102,7 @@ func listProjectInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(projectListModel)
@@ -112,21 +110,17 @@ func listProjectInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("project listing cancelled")
+		return fmt.Errorf("project listing cancelled")
 	}
 
-	params := api.ListProjectParams{
+	params := api.GetProjectParams{
 		Organization: m.Organizations[m.OrgCursor],
 	}
 
-	err = listProjects(params, config)
+	err = getProjects(params, config)
 	if err != nil {
 		return err
 	}
-
-	util.ShowEquivalentCommand("get project", map[string]string{
-		"organization": m.Organizations[m.OrgCursor],
-	})
 
 	return nil
 }

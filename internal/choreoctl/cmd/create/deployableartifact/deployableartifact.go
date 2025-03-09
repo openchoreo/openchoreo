@@ -19,14 +19,10 @@
 package deployableartifact
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,53 +39,32 @@ func NewCreateDeployableArtifactImpl(config constants.CRDConfig) *CreateDeployab
 
 func (i *CreateDeployableArtifactImpl) CreateDeployableArtifact(params api.CreateDeployableArtifactParams) error {
 	if params.Interactive {
-		return createDeployableArtifactInteractive()
+		return createDeployableArtifactInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceDeployableArtifact, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDeployableArtifact, params); err != nil {
 		return err
 	}
 
-	return createDeployableArtifact(params)
+	return createDeployableArtifact(params, i.config)
 }
 
-func createDeployableArtifact(params api.CreateDeployableArtifactParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createDeployableArtifact(params api.CreateDeployableArtifactParams, config constants.CRDConfig) error {
+	artifactRes, err := kinds.NewDeployableArtifactResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.DeploymentTrack,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create DeployableArtifact resource: %w", err)
 	}
 
-	deployableArtifact := &corev1.DeployableArtifact{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Annotations: map[string]string{
-				"core.choreo.dev/display-name": params.DisplayName,
-				"core.choreo.dev/description":  params.Description,
-			},
-			Labels: map[string]string{
-				"core.choreo.dev/organization":     params.Organization,
-				"core.choreo.dev/project":          params.Project,
-				"core.choreo.dev/component":        params.Component,
-				"core.choreo.dev/deployment-track": params.DeploymentTrack,
-				"core.choreo.dev/name":             params.Name,
-			},
-		},
-		Spec: corev1.DeployableArtifactSpec{
-			TargetArtifact: corev1.TargetArtifact{
-				FromBuildRef: params.FromBuildRef,
-				FromImageRef: params.FromImageRef,
-			},
-			Configuration: params.Configuration,
-		},
+	if err := artifactRes.CreateDeployableArtifact(params); err != nil {
+		return fmt.Errorf("failed to create deployable artifact '%s' in organization '%s': %w",
+			params.Name, params.Organization, err)
 	}
 
-	ctx := context.Background()
-	if err := k8sClient.Create(ctx, deployableArtifact); err != nil {
-		return errors.NewError("failed to create deployable artifact: %v", err)
-	}
-
-	fmt.Printf("Deployable artifact '%s' created successfully in component '%s' of project '%s' in organization '%s'\n",
-		params.Name, params.Component, params.Project, params.Organization)
 	return nil
 }

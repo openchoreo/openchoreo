@@ -20,10 +20,6 @@ package logout
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 )
 
 type LogoutImpl struct{}
@@ -33,19 +29,5 @@ func NewLogoutImpl() *LogoutImpl {
 }
 
 func (i *LogoutImpl) Logout() error {
-	if !util.IsLoginConfigFileExists() {
-		return errors.NewError("You are not logged in")
-	}
-
-	configPath, err := util.GetLoginConfigFilePath()
-	if err != nil {
-		return err
-	}
-
-	if err := os.Remove(configPath); err != nil {
-		return errors.NewError("Error occurred while logging out %v", err)
-	}
-
-	fmt.Println("Successfully logged out")
-	return nil
+	return fmt.Errorf("logout functionality is not supported")
 }

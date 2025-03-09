@@ -25,7 +25,6 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -37,18 +36,18 @@ func NewApplyImpl() *ApplyImpl {
 
 func (i *ApplyImpl) Apply(params api.ApplyParams) error {
 	if params.FilePath == "" {
-		return errors.NewError("file path is required")
+		return fmt.Errorf("file path is required")
 	}
 
 	if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
-		return errors.NewError("file %s does not exist", params.FilePath)
+		return fmt.Errorf("file %s does not exist", params.FilePath)
 	}
 
 	if _, err := os.ReadFile(params.FilePath); err != nil {
 		if os.IsPermission(err) {
-			return errors.NewError("permission denied: %s", params.FilePath)
+			return fmt.Errorf("permission denied: %s", params.FilePath)
 		}
-		return errors.NewError("error reading file: %s", params.FilePath)
+		return fmt.Errorf("error reading file: %s", params.FilePath)
 	}
 
 	// Get saved kubeconfig and context
@@ -65,7 +64,7 @@ func (i *ApplyImpl) Apply(params api.ApplyParams) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return errors.NewError("error applying file: %s", params.FilePath)
+		return fmt.Errorf("error applying file: %s", params.FilePath)
 	}
 
 	fmt.Printf("Successfully applied file: %s\n", params.FilePath)

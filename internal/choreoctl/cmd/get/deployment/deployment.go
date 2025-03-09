@@ -20,104 +20,56 @@ package deployment
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListDeploymentImpl struct {
+type GetDeploymentImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListDeploymentImpl(config constants.CRDConfig) *ListDeploymentImpl {
-	return &ListDeploymentImpl{
+func NewGetDeploymentImpl(config constants.CRDConfig) *GetDeploymentImpl {
+	return &GetDeploymentImpl{
 		config: config,
 	}
 }
 
-func (i *ListDeploymentImpl) ListDeployment(params api.ListDeploymentParams) error {
+func (i *GetDeploymentImpl) GetDeployment(params api.GetDeploymentParams) error {
 	if params.Interactive {
-		return listDeploymentInteractive(i.config)
+		return getDeploymentInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceDeployment, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDeployment, params); err != nil {
 		return err
 	}
 
-	return listDeployments(params, i.config)
+	return getDeployments(params, i.config)
 }
 
-func listDeployments(params api.ListDeploymentParams, config constants.CRDConfig) error {
-	var deployments []corev1.Deployment
-
-	if params.Name != "" {
-		// Get specific deployment
-		deployment, err := util.GetDeployment(params.Organization, params.Project, params.Component, params.Name)
-		if err != nil {
-			return err
-		}
-		deployments = []corev1.Deployment{*deployment}
-	} else {
-		// List all deployments
-		deploymentList, err := util.GetAllDeployments(params.Organization, params.Project, params.Component)
-		if err != nil {
-			return err
-		}
-		deployments = deploymentList.Items
+func getDeployments(params api.GetDeploymentParams, config constants.CRDConfig) error {
+	deployRes, err := kinds.NewDeploymentResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.Environment,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create Deployment resource: %w", err)
 	}
 
-	if len(deployments) == 0 {
-		fmt.Printf("No deployments found for organization: %s, project: %s, component: %s\n",
-			params.Organization, params.Project, params.Component)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printDeploymentYAML(deployments, params.Organization, config)
-	}
-	return printDeploymentTable(deployments, params.Organization, params.Project, params.Component)
-}
-
-func printDeploymentYAML(deployments []corev1.Deployment, orgName string, config constants.CRDConfig) error {
-	for _, deployment := range deployments {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			deployment.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printDeploymentTable(deployments []corev1.Deployment, orgName, projectName, componentName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDEPLOYABLE ARTIFACT\tENVIRONMENT\tREADY\tAGE\tCOMPONENT\tPROJECT\tORGANIZATION")
-
-	for _, deployment := range deployments {
-		ready := util.GetStatus(deployment.Status.Conditions, "Ready")
-		age := util.FormatAge(deployment.CreationTimestamp.Time)
-		environment := deployment.Labels["core.choreo.dev/environment"]
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			deployment.Name,
-			deployment.Spec.DeploymentArtifactRef,
-			environment,
-			ready,
-			age,
-			componentName,
-			projectName,
-			orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
+	return deployRes.Print(format, filter)
 }

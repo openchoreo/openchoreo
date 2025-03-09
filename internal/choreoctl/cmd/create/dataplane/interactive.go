@@ -24,9 +24,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -91,7 +91,7 @@ func (m dataPlaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dpStateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
-			if err := util.ValidateResourceName("dataplane", m.name); err != nil {
+			if err := validation.ValidateName("dataplane", m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -251,7 +251,7 @@ func (m dataPlaneModel) RenderProgress() string {
 	return progress.String()
 }
 
-func createDataPlaneInteractive() error {
+func createDataPlaneInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -264,7 +264,7 @@ func createDataPlaneInteractive() error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(dataPlaneModel)
@@ -285,5 +285,5 @@ func createDataPlaneInteractive() error {
 		GatewayType:             m.gatewayType,
 		PublicVirtualHost:       m.publicVirtualHost,
 		OrganizationVirtualHost: m.orgVirtualHost,
-	})
+	}, config)
 }

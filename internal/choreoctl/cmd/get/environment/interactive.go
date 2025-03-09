@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -94,7 +92,7 @@ func (m environmentListModel) View() string {
 	return progress + view
 }
 
-func listEnvironmentInteractive(config constants.CRDConfig) error {
+func getEnvironmentInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -107,7 +105,7 @@ func listEnvironmentInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(environmentListModel)
@@ -115,21 +113,17 @@ func listEnvironmentInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("environment listing cancelled")
+		return fmt.Errorf("environment listing cancelled")
 	}
 
-	params := api.ListEnvironmentParams{
+	params := api.GetEnvironmentParams{
 		Organization: m.Organizations[m.OrgCursor],
 	}
 
-	err = listEnvironments(params, config)
+	err = getEnvironments(params, config)
 	if err != nil {
 		return err
 	}
-
-	util.ShowEquivalentCommand("get environment", map[string]string{
-		"organization": m.Organizations[m.OrgCursor],
-	})
 
 	return nil
 }

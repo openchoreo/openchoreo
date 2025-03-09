@@ -287,6 +287,64 @@ choreoctl:
 install-choreoctl: choreoctl
 	go install ./cmd/choreoctl
 
+#-----------------------------------------------------------------------------
+# Choreoctl Distribution targets
+#-----------------------------------------------------------------------------
+VERSION ?= $(shell git describe --tags --always --dirty)
+DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS = -ldflags "-X github.com/choreo-idp/choreo/pkg/cli/version.Version=$(VERSION) -X github.com/choreo-idp/choreo/pkg/cli/version.BuildDate=$(DATE)"
+
+# Supported platforms - space separated list for proper iteration
+PLATFORMS = darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
+
+BUILD_DIR = dist/choreoctl
+
+.PHONY: choreoctl-clean
+choreoctl-clean:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: choreoctl-prepare
+choreoctl-prepare: choreoctl-clean
+	mkdir -p $(BUILD_DIR)
+
+.PHONY: choreoctl-dist
+choreoctl-dist: choreoctl-prepare
+	$(foreach platform,$(PLATFORMS),$(call build-choreoctl-platform,$(platform)))
+
+define build-choreoctl-platform
+    $(eval OS := $(word 1,$(subst /, ,$(1))))
+    $(eval ARCH := $(word 2,$(subst /, ,$(1))))
+    $(eval OUTPUT := $(BUILD_DIR)/$(OS)-$(ARCH)/choreoctl$(if $(filter windows,$(OS)),.exe))
+    @echo "Building choreoctl for $(OS)/$(ARCH)..."
+    @mkdir -p $(BUILD_DIR)/$(OS)-$(ARCH)
+    @CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build $(LDFLAGS) -o $(OUTPUT) ./cmd/choreoctl
+    @if [ "$(OS)" = "linux" ]; then \
+        cd $(BUILD_DIR)/$(OS)-$(ARCH) && tar -czf ../choreoctl-$(VERSION)-$(OS)-$(ARCH).tar.gz choreoctl; \
+    elif [ "$(OS)" = "windows" ]; then \
+        cd $(BUILD_DIR)/$(OS)-$(ARCH) && zip ../choreoctl-$(VERSION)-$(OS)-$(ARCH).zip choreoctl.exe; \
+    else \
+        cd $(BUILD_DIR)/$(OS)-$(ARCH) && zip ../choreoctl-$(VERSION)-$(OS)-$(ARCH).zip choreoctl; \
+    fi
+endef
+
+.PHONY: choreoctl-checksums
+choreoctl-checksums: choreoctl-dist
+	@echo "Generating checksums for choreoctl packages..."
+	@cd $(BUILD_DIR) && find . -maxdepth 1 -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sh -c 'shasum -a 256 {} > {}.sha256' \;
+
+.PHONY: choreoctl-installer
+choreoctl-installer: choreoctl-dist
+	@echo "Preparing choreoctl installer script..."
+	@cp install/choreoctl-install.sh $(BUILD_DIR)/
+	@sed -i.bak "s/CHOREOCTL_VERSION=.*/CHOREOCTL_VERSION=\"$(VERSION)\"/" $(BUILD_DIR)/choreoctl-install.sh
+	@rm $(BUILD_DIR)/choreoctl-install.sh.bak
+	@chmod +x $(BUILD_DIR)/choreoctl-install.sh
+
+.PHONY: choreoctl-release
+choreoctl-release: choreoctl-dist choreoctl-checksums choreoctl-installer ## Prepare choreoctl release with all artifacts
+	@echo "Choreoctl release v$(VERSION) prepared in $(BUILD_DIR)"
+	@echo "Date: $(DATE)"
+	@ls -la $(BUILD_DIR)
 
 #-----------------------------------------------------------------------------
 # Helm targets

@@ -43,7 +43,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListOrganization(api.ListParams{
+			return impl.GetOrganization(api.GetParams{
 				OutputFormat: fg.GetString(flags.Output),
 				Name:         name,
 			})
@@ -61,7 +61,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListProject(api.ListProjectParams{
+			return impl.GetProject(api.GetProjectParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
@@ -81,7 +81,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListComponent(api.ListComponentParams{
+			return impl.GetComponent(api.GetComponentParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				OutputFormat: fg.GetString(flags.Output),
@@ -102,7 +102,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListBuild(api.ListBuildParams{
+			return impl.GetBuild(api.GetBuildParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
@@ -125,7 +125,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListDeployableArtifact(api.ListDeployableArtifactParams{
+			return impl.GetDeployableArtifact(api.GetDeployableArtifactParams{
 				Organization:    fg.GetString(flags.Organization),
 				Project:         fg.GetString(flags.Project),
 				Component:       fg.GetString(flags.Component),
@@ -149,7 +149,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListEnvironment(api.ListEnvironmentParams{
+			return impl.GetEnvironment(api.GetEnvironmentParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
@@ -169,7 +169,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListDeploymentTrack(api.ListDeploymentTrackParams{
+			return impl.GetDeploymentTrack(api.GetDeploymentTrackParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
@@ -192,7 +192,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListDeployment(api.ListDeploymentParams{
+			return impl.GetDeployment(api.GetDeploymentParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
@@ -215,7 +215,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListEndpoint(api.ListEndpointParams{
+			return impl.GetEndpoint(api.GetEndpointParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
@@ -238,7 +238,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(fg.GetArgs()) > 0 {
 				name = fg.GetArgs()[0]
 			}
-			return impl.ListDataPlane(api.ListDataPlaneParams{
+			return impl.GetDataPlane(api.GetDataPlaneParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),

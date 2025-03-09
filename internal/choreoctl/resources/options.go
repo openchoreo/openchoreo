@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) 2025, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package resources
+
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
+)
+
+// ResourceOption applies configuration to a BaseResource.
+type ResourceOption[T client.Object, L client.ObjectList] func(*BaseResource[T, L])
+
+// WithClient sets the client on BaseResource.
+func WithClient[T client.Object, L client.ObjectList](c client.Client) ResourceOption[T, L] {
+	return func(b *BaseResource[T, L]) {
+		b.client = c
+	}
+}
+
+// WithScheme sets the scheme on BaseResource.
+func WithScheme[T client.Object, L client.ObjectList](s *runtime.Scheme) ResourceOption[T, L] {
+	return func(b *BaseResource[T, L]) {
+		b.scheme = s
+	}
+}
+
+// WithNamespace sets the namespace on BaseResource.
+func WithNamespace[T client.Object, L client.ObjectList](ns string) ResourceOption[T, L] {
+	return func(b *BaseResource[T, L]) {
+		b.namespace = ns
+	}
+}
+
+// WithLabels sets the labels on BaseResource.
+func WithLabels[T client.Object, L client.ObjectList](lbls map[string]string) ResourceOption[T, L] {
+	return func(b *BaseResource[T, L]) {
+		b.labels = lbls
+	}
+}
+
+// WithConfig sets the CRDConfig on BaseResource.
+func WithConfig[T client.Object, L client.ObjectList](cfg constants.CRDConfig) ResourceOption[T, L] {
+	return func(b *BaseResource[T, L]) {
+		b.config = cfg
+	}
+}

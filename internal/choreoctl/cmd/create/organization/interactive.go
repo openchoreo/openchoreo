@@ -19,11 +19,13 @@
 package organization
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -59,7 +61,7 @@ func (m organizationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
-			if err := util.ValidateOrganization(m.name); err != nil {
+			if err := validation.ValidateOrganizationName(m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -95,7 +97,7 @@ func (m organizationModel) View() string {
 	return view
 }
 
-func createOrganizationInteractive() error {
+func createOrganizationInteractive(config constants.CRDConfig) error {
 	model := organizationModel{
 		state: stateNameInput,
 	}
@@ -107,11 +109,11 @@ func createOrganizationInteractive() error {
 
 	m, ok := finalModel.(organizationModel)
 	if !ok || !m.selected {
-		return errors.NewError("organization creation cancelled")
+		return fmt.Errorf("organization creation cancelled")
 	}
 
 	return createOrganization(api.CreateOrganizationParams{
 		Name:        m.name,
 		DisplayName: m.displayName,
-	})
+	}, config)
 }

@@ -20,96 +20,55 @@ package deploymenttrack
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListDeploymentTrackImpl struct {
+type GetDeploymentTrackImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListDeploymentTrackImpl(config constants.CRDConfig) *ListDeploymentTrackImpl {
-	return &ListDeploymentTrackImpl{
+func NewGetDeploymentTrackImpl(config constants.CRDConfig) *GetDeploymentTrackImpl {
+	return &GetDeploymentTrackImpl{
 		config: config,
 	}
 }
 
-func (i *ListDeploymentTrackImpl) ListDeploymentTrack(params api.ListDeploymentTrackParams) error {
+func (i *GetDeploymentTrackImpl) GetDeploymentTrack(params api.GetDeploymentTrackParams) error {
 	if params.Interactive {
-		return listDeploymentTrackInteractive(i.config)
+		return getDeploymentTrackInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceDeploymentTrack, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDeploymentTrack, params); err != nil {
 		return err
 	}
 
-	return listDeploymentTracks(params, i.config)
+	return getDeploymentTracks(params, i.config)
 }
 
-func listDeploymentTracks(params api.ListDeploymentTrackParams, config constants.CRDConfig) error {
-	var tracks []corev1.DeploymentTrack
-
-	if params.Name != "" {
-		track, err := util.GetDeploymentTrack(params.Organization, params.Project, params.Component, params.Name)
-		if err != nil {
-			return err
-		}
-		tracks = []corev1.DeploymentTrack{*track}
-	} else {
-		trackList, err := util.GetAllDeploymentTracks(params.Organization, params.Project, params.Component)
-		if err != nil {
-			return err
-		}
-		tracks = trackList.Items
+func getDeploymentTracks(params api.GetDeploymentTrackParams, config constants.CRDConfig) error {
+	trackRes, err := kinds.NewDeploymentTrackResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create DeploymentTrack resource: %w", err)
 	}
 
-	if len(tracks) == 0 {
-		fmt.Printf("No deployment tracks found for organization: %s, project: %s, component: %s\n",
-			params.Organization, params.Project, params.Component)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printDeploymentTrackYAML(tracks, params.Organization, config)
-	}
-	return printDeploymentTrackTable(tracks, params.Organization)
-}
-
-func printDeploymentTrackTable(tracks []corev1.DeploymentTrack, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAPI VERSION\tAUTO DEPLOY\tAGE\tORGANIZATION")
-
-	for _, track := range tracks {
-		age := util.FormatAge(track.CreationTimestamp.Time)
-
-		fmt.Fprintf(w, "%s\t%s\t%v\t%s\n",
-			track.Name,
-			track.APIVersion,
-			age,
-			orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
-}
-
-func printDeploymentTrackYAML(tracks []corev1.DeploymentTrack, orgName string, config constants.CRDConfig) error {
-	for _, track := range tracks {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			track.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
+	return trackRes.Print(format, filter)
 }

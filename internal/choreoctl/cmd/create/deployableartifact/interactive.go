@@ -25,9 +25,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -109,7 +109,7 @@ func (m deployableArtifactModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
 			// Validate the artifact name.
-			if err := util.ValidateResourceName("deployableartifact", m.name); err != nil {
+			if err := validation.ValidateName("deployableartifact", m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -228,7 +228,7 @@ func (m deployableArtifactModel) RenderProgress() string {
 	return progress.String()
 }
 
-func createDeployableArtifactInteractive() error {
+func createDeployableArtifactInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func createDeployableArtifactInteractive() error {
 	// Run the interactive model.
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(deployableArtifactModel)
@@ -270,5 +270,5 @@ func createDeployableArtifactInteractive() error {
 		}
 	}
 
-	return createDeployableArtifact(params)
+	return createDeployableArtifact(params, config)
 }

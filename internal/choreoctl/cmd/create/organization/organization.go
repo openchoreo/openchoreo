@@ -19,14 +19,10 @@
 package organization
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,44 +39,30 @@ func NewCreateOrgImpl(config constants.CRDConfig) *CreateOrgImpl {
 
 func (i *CreateOrgImpl) CreateOrganization(params api.CreateOrganizationParams) error {
 	if params.Interactive {
-		return createOrganizationInteractive()
+		return createOrganizationInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceOrganization, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceOrganization, params); err != nil {
 		return err
 	}
 
-	if err := util.ValidateOrganization(params.Name); err != nil {
+	if err := validation.ValidateOrganizationName(params.Name); err != nil {
 		return err
 	}
 
-	return createOrganization(params)
+	return createOrganization(params, i.config)
 }
 
-func createOrganization(params api.CreateOrganizationParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createOrganization(params api.CreateOrganizationParams, config constants.CRDConfig) error {
+	orgRes, err := kinds.NewOrganizationResource(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create Organization resource: %w", err)
 	}
 
-	organization := &corev1.Organization{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: params.Name,
-			Annotations: map[string]string{
-				constants.AnnotationDisplayName: params.DisplayName,
-				constants.AnnotationDescription: params.Description,
-			},
-			Labels: map[string]string{
-				constants.LabelName: params.Name,
-			},
-		},
+	if err := orgRes.CreateOrganization(params); err != nil {
+		return fmt.Errorf("failed to create organization: %w", err)
 	}
 
-	ctx := context.Background()
-	if err := k8sClient.Create(ctx, organization); err != nil {
-		return errors.NewError("Failed to create organization: %v", err)
-	}
-
-	fmt.Printf("Organization %s created successfully\n", params.Name)
+	fmt.Printf("Organization '%s' created successfully\n", params.Name)
 	return nil
 }

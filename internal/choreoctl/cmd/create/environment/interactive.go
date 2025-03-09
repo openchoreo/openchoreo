@@ -24,9 +24,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -70,7 +70,7 @@ func (m environmentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateOrgSelect:
 		if interactive.IsEnterKey(keyMsg) {
-			dataPlanes, err := util.GetDataPlaneNames(m.Organizations[m.OrgCursor])
+			dataPlanes, err := m.FetchDataPlanes()
 			if err != nil {
 				m.errorMsg = fmt.Sprintf("Failed to get data planes: %v", err)
 				return m, nil
@@ -99,7 +99,7 @@ func (m environmentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
 			// First validate the environment name format
-			if err := util.ValidateResourceName("environment", m.name); err != nil {
+			if err := validation.ValidateName("environment", m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -195,7 +195,7 @@ func (m environmentModel) RenderProgress() string {
 	return progress.String()
 }
 
-func createEnvironmentInteractive() error {
+func createEnvironmentInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -208,7 +208,7 @@ func createEnvironmentInteractive() error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(environmentModel)
@@ -225,5 +225,5 @@ func createEnvironmentInteractive() error {
 		DataPlaneRef: m.dataPlanes[m.dpCursor],
 		IsProduction: m.isProduction,
 		DNSPrefix:    m.dnsPrefix,
-	})
+	}, config)
 }

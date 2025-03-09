@@ -8,8 +8,8 @@
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
@@ -24,10 +24,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
+	corev1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -36,38 +36,22 @@ const (
 	stateOrgSelect = iota
 	stateProjSelect
 	stateCompSelect
+	stateDeploymentTrackSelect
 	stateNameInput
-	stateBranchInput
-	statePathInput
 	stateRevisionInput
-	stateBuildTypeSelect
-	stateBuildpackNameInput
-	stateBuildpackVersionInput
-	stateDockerContextInput
-	stateDockerfilePathInput
 )
 
 type buildModel struct {
 	interactive.BaseModel
-	buildTypes        []string
-	buildType         string
-	buildCursor       int
-	buildpacks        []string
-	buildpackName     string
-	buildpackCursor   int
-	buildpackVersions []string
-	buildpackVer      string
-	versionCursor     int
-	dockerContext     string
-	dockerFile        string
-	name              string
-	branch            string
-	path              string
-	revision          string
-	autoBuild         bool
-	selected          bool
-	errorMsg          string
-	state             int
+	name                 string
+	revision             string
+	deploymentTracks     []corev1.DeploymentTrack
+	trackCursor          int
+	deploymentTrack      *corev1.DeploymentTrack
+	selected             bool
+	errorMsg             string
+	state                int
+	deploymentTrackNames []string // Add this field
 }
 
 func (m buildModel) Init() tea.Cmd {
@@ -86,17 +70,16 @@ func (m buildModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.state {
-	case stateOrgSelect, stateProjSelect, stateCompSelect:
+	case stateOrgSelect, stateProjSelect, stateCompSelect, stateDeploymentTrackSelect:
 		return m.handleResourceSelection(keyMsg)
-	case stateNameInput, stateBranchInput, statePathInput, stateRevisionInput, stateBuildTypeSelect:
+	case stateNameInput, stateRevisionInput:
 		return m.handleBuildConfig(keyMsg)
-	case stateBuildpackNameInput, stateBuildpackVersionInput:
-		return m.handleBuildpackFlow(keyMsg)
 	default:
-		return m.handleDockerFlow(keyMsg)
+		return m, nil
 	}
 }
 
+// Update handleResourceSelection to add deployment track selection
 func (m buildModel) handleResourceSelection(keyMsg tea.KeyMsg) (buildModel, tea.Cmd) {
 	switch m.state {
 	case stateOrgSelect:
@@ -134,9 +117,57 @@ func (m buildModel) handleResourceSelection(keyMsg tea.KeyMsg) (buildModel, tea.
 		}
 	case stateCompSelect:
 		if interactive.IsEnterKey(keyMsg) {
-			m.state = stateNameInput
+			// Using the FetchDeploymentTracks method from interactive/base.go
+			tracks, err := m.FetchDeploymentTracks()
+			if err != nil {
+				m.errorMsg = fmt.Sprintf("Failed to get deployment tracks: %v", err)
+				return m, tea.Quit
+			}
+			if len(tracks) == 0 {
+				m.errorMsg = "No deployment tracks found. Please create a deployment track first"
+				return m, tea.Quit
+			}
+
+			// Get the actual DeploymentTrack objects now that we know they exist
+			// We need to create a DeploymentTrackResource
+			trackRes, err := kinds.NewDeploymentTrackResource(
+				constants.DeploymentTrackV1Config,
+				m.Organizations[m.OrgCursor],
+				m.Projects[m.ProjCursor],
+				m.Components[m.CompCursor],
+			)
+			if err != nil {
+				m.errorMsg = fmt.Sprintf("Failed to create deployment track resource: %v", err)
+				return m, tea.Quit
+			}
+
+			// List the deployment track objects
+			trackObjects, err := trackRes.List()
+			if err != nil {
+				m.errorMsg = fmt.Sprintf("Failed to list deployment tracks: %v", err)
+				return m, tea.Quit
+			}
+
+			m.deploymentTracks = make([]corev1.DeploymentTrack, len(trackObjects))
+			m.deploymentTrackNames = make([]string, len(trackObjects)) // Initialize the new array
+			for i, trackWrapper := range trackObjects {
+				m.deploymentTracks[i] = *trackWrapper.Resource
+				m.deploymentTrackNames[i] = trackWrapper.LogicalName // Store logical names
+			}
+
+			m.state = stateDeploymentTrackSelect
+			m.errorMsg = ""
 		} else {
 			m.CompCursor = interactive.ProcessListCursor(keyMsg, m.CompCursor, len(m.Components))
+		}
+
+	case stateDeploymentTrackSelect:
+		if interactive.IsEnterKey(keyMsg) {
+			m.deploymentTrack = &m.deploymentTracks[m.trackCursor]
+			m.state = stateNameInput
+			m.errorMsg = ""
+		} else {
+			m.trackCursor = interactive.ProcessListCursor(keyMsg, m.trackCursor, len(m.deploymentTracks))
 		}
 	}
 	return m, nil
@@ -146,101 +177,30 @@ func (m buildModel) handleBuildConfig(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
-			if err := util.ValidateResourceName("build", m.name); err != nil {
+			if err := validation.ValidateName("build", m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
-			m.state = stateBranchInput
+			// Set selected to true after name input since revision is optional
+			m.selected = true
+			m.state = stateRevisionInput
 			return m, nil
 		}
 		m.name, _ = interactive.EditTextInputField(keyMsg, m.name, len(m.name))
 		return m, nil
 
-	case stateBranchInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.state = statePathInput
-			return m, nil
-		}
-		m.branch, _ = interactive.EditTextInputField(keyMsg, m.branch, len(m.branch))
-		return m, nil
-
-	case statePathInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.state = stateRevisionInput
-			return m, nil
-		}
-		m.path, _ = interactive.EditTextInputField(keyMsg, m.path, len(m.path))
-		return m, nil
-
 	case stateRevisionInput:
 		if interactive.IsEnterKey(keyMsg) {
-			m.state = stateBuildTypeSelect
-			return m, nil
+			// Keep selected as true even if revision is skipped
+			return m, tea.Quit
 		}
 		m.revision, _ = interactive.EditTextInputField(keyMsg, m.revision, len(m.revision))
 		return m, nil
-
-	case stateBuildTypeSelect:
-		if interactive.IsEnterKey(keyMsg) {
-			m.buildType = m.buildTypes[m.buildCursor]
-			if m.buildType == constants.Docker {
-				m.state = stateDockerContextInput
-			} else {
-				m.state = stateBuildpackNameInput
-			}
-			return m, nil
-		}
-		m.buildCursor = interactive.ProcessListCursor(keyMsg, m.buildCursor, len(m.buildTypes))
-		return m, nil
 	}
 	return m, nil
 }
 
-func (m buildModel) handleBuildpackFlow(keyMsg tea.KeyMsg) (buildModel, tea.Cmd) {
-	switch m.state {
-	case stateBuildpackNameInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.buildpackName = m.buildpacks[m.buildpackCursor]
-			m.buildpackVersions = choreov1.SupportedVersions[choreov1.BuildpackName(m.buildpackName)]
-			if len(m.buildpackVersions) == 0 {
-				m.errorMsg = fmt.Errorf("no versions available for selected buildpack").Error()
-				return m, nil
-			}
-			m.state = stateBuildpackVersionInput
-		} else {
-			m.buildpackCursor = interactive.ProcessListCursor(keyMsg, m.buildpackCursor, len(m.buildpacks))
-		}
-
-	case stateBuildpackVersionInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.buildpackVer = m.buildpackVersions[m.versionCursor]
-			m.selected = true
-			return m, tea.Quit
-		}
-		m.versionCursor = interactive.ProcessListCursor(keyMsg, m.versionCursor, len(m.buildpackVersions))
-	}
-	return m, nil
-}
-
-func (m buildModel) handleDockerFlow(keyMsg tea.KeyMsg) (buildModel, tea.Cmd) {
-	switch m.state {
-	case stateDockerContextInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.state = stateDockerfilePathInput
-		} else {
-			m.dockerContext, _ = interactive.EditTextInputField(keyMsg, m.dockerContext, len(m.dockerContext))
-		}
-	case stateDockerfilePathInput:
-		if interactive.IsEnterKey(keyMsg) {
-			m.selected = true
-			return m, tea.Quit
-		} else {
-			m.dockerFile, _ = interactive.EditTextInputField(keyMsg, m.dockerFile, len(m.dockerFile))
-		}
-	}
-	return m, nil
-}
-
+// Update View to show deployment track selection
 func (m buildModel) View() string {
 	progress := m.RenderProgress()
 	switch m.state {
@@ -250,50 +210,31 @@ func (m buildModel) View() string {
 		return progress + m.RenderProjSelection()
 	case stateCompSelect:
 		return progress + m.RenderComponentSelection()
+	case stateDeploymentTrackSelect:
+		// No need to create a new array, use the stored names
+		return progress + interactive.RenderListPrompt("Select deployment track:", m.deploymentTrackNames, m.trackCursor)
 	case stateNameInput:
 		return progress + interactive.RenderInputPrompt("Enter build name:", "", m.name, m.errorMsg)
-	case stateBranchInput:
-		return progress + interactive.RenderInputPrompt("Enter git branch (default: main):", "", m.branch, m.errorMsg)
-	case statePathInput:
-		return progress + interactive.RenderInputPrompt("Enter source code path:", "", m.path, m.errorMsg)
 	case stateRevisionInput:
-		return progress + interactive.RenderInputPrompt("Enter git revision (default: latest):", "", m.revision, m.errorMsg)
-	case stateBuildTypeSelect:
-		return progress + interactive.RenderListPrompt("Select build type:", m.buildTypes, m.buildCursor)
-	case stateDockerContextInput:
-		return progress + interactive.RenderInputPrompt("Enter Docker context path:", "/", m.dockerContext, m.errorMsg)
-	case stateDockerfilePathInput:
-		return progress + interactive.RenderInputPrompt("Enter Dockerfile path:", "Dockerfile", m.dockerFile, m.errorMsg)
-	case stateBuildpackNameInput:
-		return progress + interactive.RenderListPrompt("Select buildpack type:", m.buildpacks, m.buildpackCursor)
-	case stateBuildpackVersionInput:
-		return progress + interactive.RenderListPrompt("Select buildpack version:", m.buildpackVersions, m.versionCursor)
+		return progress + interactive.RenderInputPrompt("Enter git revision (optional, press Enter to use latest):", "", m.revision, m.errorMsg)
 	}
 	return progress
 }
 
-func createBuildInteractive() error {
+func createBuildInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
 	}
 
 	model := buildModel{
-		BaseModel:  *baseModel,
-		state:      stateOrgSelect,
-		buildTypes: []string{constants.Docker, constants.Buildpack},
-		buildpacks: func() []string {
-			keys := make([]string, 0, len(choreov1.SupportedVersions))
-			for k := range choreov1.SupportedVersions {
-				keys = append(keys, string(k))
-			}
-			return keys
-		}(),
+		BaseModel: *baseModel,
+		state:     stateOrgSelect,
 	}
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(buildModel)
@@ -301,33 +242,48 @@ func createBuildInteractive() error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("build creation cancelled")
+		return fmt.Errorf("build creation cancelled")
 	}
 
 	params := api.CreateBuildParams{
-		Organization: m.Organizations[m.OrgCursor],
-		Project:      m.Projects[m.ProjCursor],
-		Component:    m.Components[m.CompCursor],
-		Name:         m.name,
-		Branch:       defaultIfEmpty(m.branch, "main"),
-		Revision:     defaultIfEmpty(m.revision, "latest"),
-		Path:         m.path,
-		AutoBuild:    m.autoBuild,
+		Organization:    m.Organizations[m.OrgCursor],
+		Project:         m.Projects[m.ProjCursor],
+		Component:       m.Components[m.CompCursor],
+		Name:            m.name,
+		DeploymentTrack: m.deploymentTrackNames[m.trackCursor], // Use logical name
+		Revision:        defaultIfEmpty(m.revision, ""),
 	}
-	if m.buildType == constants.Docker {
-		params.Docker = &choreov1.DockerConfiguration{
-			Context:        m.dockerContext,
-			DockerfilePath: m.dockerFile,
-		}
-	} else {
-		params.Buildpack = &choreov1.BuildpackConfiguration{
-			Name:    choreov1.BuildpackName(m.buildpackName),
-			Version: m.buildpackVer,
+
+	// Enrich params with deployment track configuration
+	if m.deploymentTrack != nil && m.deploymentTrack.Spec.BuildTemplateSpec != nil {
+		buildSpec := m.deploymentTrack.Spec.BuildTemplateSpec
+		params.Branch = buildSpec.Branch
+		params.Path = buildSpec.Path
+
+		if buildSpec.BuildConfiguration != nil {
+			if buildSpec.BuildConfiguration.Docker != nil {
+				params.Docker = &corev1.DockerConfiguration{
+					Context:        buildSpec.BuildConfiguration.Docker.Context,
+					DockerfilePath: buildSpec.BuildConfiguration.Docker.DockerfilePath,
+				}
+			} else if buildSpec.BuildConfiguration.Buildpack != nil {
+				params.Buildpack = &corev1.BuildpackConfiguration{
+					Name:    buildSpec.BuildConfiguration.Buildpack.Name,
+					Version: buildSpec.BuildConfiguration.Buildpack.Version,
+				}
+			}
 		}
 	}
-	return createBuild(params)
+
+	err = createBuild(params, config)
+	if err != nil {
+		return fmt.Errorf("failed to create build: %w", err)
+	}
+
+	return nil
 }
 
+// Update RenderProgress to show selected deployment track
 func (m buildModel) RenderProgress() string {
 	var progress strings.Builder
 	progress.WriteString("Selected inputs:\n")
@@ -344,49 +300,19 @@ func (m buildModel) RenderProgress() string {
 		progress.WriteString(fmt.Sprintf("- component: %s\n", m.Components[m.CompCursor]))
 	}
 
+	if len(m.deploymentTracks) > 0 && m.state > stateDeploymentTrackSelect {
+		progress.WriteString(fmt.Sprintf("- deployment track: %s\n", m.deploymentTrackNames[m.trackCursor]))
+	}
+
 	if m.name != "" {
 		progress.WriteString(fmt.Sprintf("- name: %s\n", m.name))
 	}
-
-	branch := "main"
-	if m.branch != "" {
-		branch = m.branch
-	}
-	progress.WriteString(fmt.Sprintf("- branch: %s\n", branch))
 
 	revision := "latest"
 	if m.revision != "" {
 		revision = m.revision
 	}
 	progress.WriteString(fmt.Sprintf("- revision: %s\n", revision))
-
-	if m.path != "" {
-		progress.WriteString(fmt.Sprintf("- path: %s\n", m.path))
-	}
-
-	if m.buildType != "" {
-		progress.WriteString(fmt.Sprintf("- build type: %s\n", m.buildType))
-
-		if m.buildType == constants.Docker {
-			context := "/"
-			if m.dockerContext != "" {
-				context = m.dockerContext
-			}
-			dockerfile := "Dockerfile"
-			if m.dockerFile != "" {
-				dockerfile = m.dockerFile
-			}
-			progress.WriteString(fmt.Sprintf("- docker context: %s\n", context))
-			progress.WriteString(fmt.Sprintf("- dockerfile path: %s\n", dockerfile))
-		}
-
-		if m.buildType == constants.Buildpack && m.buildpackName != "" {
-			progress.WriteString(fmt.Sprintf("- buildpack: %s\n", m.buildpackName))
-			if m.buildpackVer != "" {
-				progress.WriteString(fmt.Sprintf("- buildpack version: %s\n", m.buildpackVer))
-			}
-		}
-	}
 
 	return progress.String()
 }

@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -164,7 +162,7 @@ func (m buildListModel) View() string {
 	return progress + view
 }
 
-func listBuildInteractive(config constants.CRDConfig) error {
+func getBuildInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -177,7 +175,7 @@ func listBuildInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(buildListModel)
@@ -185,25 +183,19 @@ func listBuildInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("build listing cancelled")
+		return fmt.Errorf("build listing cancelled")
 	}
 
-	params := api.ListBuildParams{
+	params := api.GetBuildParams{
 		Organization: m.Organizations[m.OrgCursor],
 		Project:      m.Projects[m.ProjCursor],
 		Component:    m.Components[m.CompCursor],
 	}
 
-	err = listBuilds(params, config)
+	err = getBuilds(params, config)
 	if err != nil {
 		return err
 	}
-
-	util.ShowEquivalentCommand("get build", map[string]string{
-		"organization": m.Organizations[m.OrgCursor],
-		"project":      m.Projects[m.ProjCursor],
-		"component":    m.Components[m.CompCursor],
-	})
 
 	return nil
 }

@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -122,7 +120,7 @@ func (m componentListModel) RenderProgress() string {
 	return progress.String()
 }
 
-func listComponentInteractive(config constants.CRDConfig) error {
+func getComponentInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -135,7 +133,7 @@ func listComponentInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(componentListModel)
@@ -143,23 +141,18 @@ func listComponentInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("component listing cancelled")
+		return fmt.Errorf("component listing cancelled")
 	}
 
-	params := api.ListComponentParams{
+	params := api.GetComponentParams{
 		Organization: m.Organizations[m.OrgCursor],
 		Project:      m.Projects[m.ProjCursor],
 	}
 
-	err = listComponents(params, config)
+	err = getComponents(params, config)
 	if err != nil {
 		return err
 	}
-
-	util.ShowEquivalentCommand("get component", map[string]string{
-		"organization": m.Organizations[m.OrgCursor],
-		"project":      m.Projects[m.ProjCursor],
-	})
 
 	return nil
 }

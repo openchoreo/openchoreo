@@ -22,22 +22,22 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 )
 
-// ListParams defines common parameters for listing resources
-type ListParams struct {
+// GetParams defines common parameters for listing resources
+type GetParams struct {
 	OutputFormat string
 	Name         string
 }
 
-// ListProjectParams defines parameters for listing projects
-type ListProjectParams struct {
+// GetProjectParams defines parameters for listing projects
+type GetProjectParams struct {
 	Organization string
 	OutputFormat string
 	Interactive  bool
 	Name         string
 }
 
-// ListComponentParams defines parameters for listing components
-type ListComponentParams struct {
+// GetComponentParams defines parameters for listing components
+type GetComponentParams struct {
 	Organization string
 	Project      string
 	OutputFormat string
@@ -72,8 +72,11 @@ type CreateComponentParams struct {
 	Description      string
 	GitRepositoryURL string
 	Branch           string
-	Context          string
+	Path             string
+	DockerContext    string
 	DockerFile       string
+	BuildpackName    string
+	BuildpackVersion string
 	BuildConfig      string
 	Image            string
 	Tag              string
@@ -94,24 +97,29 @@ type LoginParams struct {
 }
 
 type LogParams struct {
-	Organization string
-	Project      string
-	Component    string
-	Build        string
-	Type         string
-	Environment  string
-	Follow       bool
-	TailLines    int64
+	Name            string
+	Organization    string
+	Project         string
+	Component       string
+	Build           string
+	Type            string
+	Environment     string
+	Follow          bool
+	TailLines       int64
+	Interactive     bool
+	Deployment      string
+	DeploymentTrack string
 }
 
 // CreateBuildParams contains parameters for build creation
 type CreateBuildParams struct {
 	// Basic metadata
-	Name         string
-	Organization string
-	Project      string
-	Component    string
-	Interactive  bool
+	Name            string
+	Organization    string
+	Project         string
+	Component       string
+	DeploymentTrack string
+	Interactive     bool
 	// Build configuration
 	Docker    *choreov1.DockerConfiguration
 	Buildpack *choreov1.BuildpackConfiguration
@@ -122,14 +130,15 @@ type CreateBuildParams struct {
 	AutoBuild bool
 }
 
-// ListBuildParams defines parameters for listing builds
-type ListBuildParams struct {
-	Organization string
-	Project      string
-	Component    string
-	OutputFormat string
-	Interactive  bool
-	Name         string
+// GetBuildParams defines parameters for listing builds
+type GetBuildParams struct {
+	Organization    string
+	Project         string
+	Component       string
+	DeploymentTrack string
+	OutputFormat    string
+	Interactive     bool
+	Name            string
 }
 
 // CreateDeployableArtifactParams defines parameters for creating a deployable artifact
@@ -147,8 +156,8 @@ type CreateDeployableArtifactParams struct {
 	Interactive     bool
 }
 
-// ListDeployableArtifactParams defines parameters for listing deployable artifacts
-type ListDeployableArtifactParams struct {
+// GetDeployableArtifactParams defines parameters for listing deployable artifacts
+type GetDeployableArtifactParams struct {
 	// Standard resource filters
 	Organization string
 	Project      string
@@ -169,8 +178,8 @@ type ListDeployableArtifactParams struct {
 	Interactive  bool
 }
 
-// ListDeploymentParams defines parameters for listing deployments
-type ListDeploymentParams struct {
+// GetDeploymentParams defines parameters for listing deployments
+type GetDeploymentParams struct {
 	// Standard resource filters
 	Organization string
 	Project      string
@@ -214,8 +223,8 @@ type CreateDeploymentTrackParams struct {
 	Interactive       bool
 }
 
-// ListDeploymentTrackParams defines parameters for listing deployment tracks
-type ListDeploymentTrackParams struct {
+// GetDeploymentTrackParams defines parameters for listing deployment tracks
+type GetDeploymentTrackParams struct {
 	Organization string
 	Project      string
 	Component    string
@@ -236,8 +245,8 @@ type CreateEnvironmentParams struct {
 	Interactive  bool
 }
 
-// ListEnvironmentParams defines parameters for listing environments
-type ListEnvironmentParams struct {
+// GetEnvironmentParams defines parameters for listing environments
+type GetEnvironmentParams struct {
 	Organization string
 	OutputFormat string
 	Interactive  bool
@@ -260,16 +269,16 @@ type CreateDataPlaneParams struct {
 	Interactive             bool
 }
 
-// ListDataPlaneParams defines parameters for listing data planes
-type ListDataPlaneParams struct {
+// GetDataPlaneParams defines parameters for listing data planes
+type GetDataPlaneParams struct {
 	Organization string
 	OutputFormat string
 	Interactive  bool
 	Name         string
 }
 
-// ListEndpointParams defines parameters for listing endpoints
-type ListEndpointParams struct {
+// GetEndpointParams defines parameters for listing endpoints
+type GetEndpointParams struct {
 	Organization string
 	Project      string
 	Component    string

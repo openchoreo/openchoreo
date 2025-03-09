@@ -40,35 +40,35 @@ type CommandImplementationInterface interface {
 // OrganizationAPI defines organization-related operations
 type OrganizationAPI interface {
 	CreateOrganization(params CreateOrganizationParams) error
-	ListOrganization(params ListParams) error
+	GetOrganization(params GetParams) error
 }
 
 // ProjectAPI defines project-related operations
 type ProjectAPI interface {
 	CreateProject(params CreateProjectParams) error
-	ListProject(params ListProjectParams) error
+	GetProject(params GetProjectParams) error
 }
 
 // ComponentAPI defines component-related operations
 type ComponentAPI interface {
 	CreateComponent(params CreateComponentParams) error
-	ListComponent(params ListComponentParams) error
+	GetComponent(params GetComponentParams) error
 }
 
 // BuildAPI defines methods for building configurations
 type BuildAPI interface {
 	CreateBuild(params CreateBuildParams) error
-	ListBuild(params ListBuildParams) error
+	GetBuild(params GetBuildParams) error
 }
 
 type DeployableArtifactAPI interface {
 	CreateDeployableArtifact(params CreateDeployableArtifactParams) error
-	ListDeployableArtifact(params ListDeployableArtifactParams) error
+	GetDeployableArtifact(params GetDeployableArtifactParams) error
 }
 
 type DeploymentAPI interface {
 	CreateDeployment(params CreateDeploymentParams) error
-	ListDeployment(params ListDeploymentParams) error
+	GetDeployment(params GetDeploymentParams) error
 }
 
 // ApplyAPI defines methods for applying configurations
@@ -94,21 +94,21 @@ type LogAPI interface {
 
 type EnvironmentAPI interface {
 	CreateEnvironment(params CreateEnvironmentParams) error
-	ListEnvironment(params ListEnvironmentParams) error
+	GetEnvironment(params GetEnvironmentParams) error
 }
 
 type DataPlaneAPI interface {
 	CreateDataPlane(params CreateDataPlaneParams) error
-	ListDataPlane(params ListDataPlaneParams) error
+	GetDataPlane(params GetDataPlaneParams) error
 }
 
 type DeploymentTrackAPI interface {
 	CreateDeploymentTrack(params CreateDeploymentTrackParams) error
-	ListDeploymentTrack(params ListDeploymentTrackParams) error
+	GetDeploymentTrack(params GetDeploymentTrackParams) error
 }
 
 type EndpointAPI interface {
-	ListEndpoint(params ListEndpointParams) error
+	GetEndpoint(params GetEndpointParams) error
 }
 
 type ConfigContextAPI interface {

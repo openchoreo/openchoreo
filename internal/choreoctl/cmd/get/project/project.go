@@ -8,8 +8,8 @@
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations
@@ -20,95 +20,50 @@ package project
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListProjImpl struct {
+type GetProjImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListProjImpl(config constants.CRDConfig) *ListProjImpl {
-	return &ListProjImpl{
+func NewGetProjImpl(config constants.CRDConfig) *GetProjImpl {
+	return &GetProjImpl{
 		config: config,
 	}
 }
 
-func (i *ListProjImpl) ListProject(params api.ListProjectParams) error {
+func (i *GetProjImpl) GetProject(params api.GetProjectParams) error {
 	if params.Interactive {
-		return listProjectInteractive(i.config)
+		return getProjectInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceProject, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceProject, params); err != nil {
 		return err
 	}
 
-	return listProjects(params, i.config)
+	return getProjects(params, i.config)
 }
 
-func listProjects(params api.ListProjectParams, config constants.CRDConfig) error {
-	var projects []choreov1.Project
-
-	if params.Name != "" {
-		project, err := util.GetProject(params.Organization, params.Name)
-		if err != nil {
-			return err
-		}
-		projects = []choreov1.Project{*project}
-	} else {
-		projectList, err := util.GetProjects(params.Organization)
-		if err != nil {
-			return err
-		}
-		projects = projectList.Items
+func getProjects(params api.GetProjectParams, config constants.CRDConfig) error {
+	projRes, err := kinds.NewProjectResource(config, params.Organization)
+	if err != nil {
+		return fmt.Errorf("failed to create Project resource: %w", err)
 	}
 
-	if len(projects) == 0 {
-		fmt.Printf("No projects found for organization: %s\n", params.Organization)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printProjectYAML(projects, params.Organization, config)
-	}
-	return printProjectTable(projects, params.Organization)
-}
-
-func printProjectYAML(projects []choreov1.Project, orgName string, config constants.CRDConfig) error {
-	for _, project := range projects {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			project.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printProjectTable(projects []choreov1.Project, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE\tORGANIZATION")
-
-	for _, project := range projects {
-		age := util.FormatAge(project.CreationTimestamp.Time)
-		status := util.GetStatus(project.Status.Conditions, "Created")
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			project.Name,
-			status,
-			age,
-			orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
+	return projRes.Print(format, filter)
 }

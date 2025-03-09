@@ -46,7 +46,7 @@ var (
 
 	Create = Command{
 		Use:   "create",
-		Short: "Create resources like organizations, projects, components, etc.",
+		Short: "Create Choreo resources",
 		Long: fmt.Sprintf(`Create Choreo resources like organizations, projects, and components.
 
 Examples:
@@ -63,7 +63,7 @@ Examples:
 
 	List = Command{
 		Use:     "get",
-		Short:   "Get resources like organizations, projects, components, etc.",
+		Short:   "Get Choreo resources",
 		Aliases: []string{"list"},
 		Long: fmt.Sprintf(`Get Choreo resources like organizations, projects, and components.
 
@@ -84,7 +84,7 @@ Examples:
 
 	Apply = Command{
 		Use:   "apply",
-		Short: "Apply a configuration to a resource by file name",
+		Short: "Apply Choreo resource configurations",
 		Long: fmt.Sprintf(`Apply a configuration file to create or update Choreo resources.
 
 	Examples:
@@ -198,7 +198,7 @@ Examples:
 	Logs = Command{
 		Use:     "logs",
 		Aliases: []string{"log"},
-		Short:   "Get logs from a pod",
+		Short:   "Get Choreo resource logs",
 		Long: `Get logs from a pod in the current namespace.
 
 This command allows you to view the logs of a specific pod. You can:
@@ -437,7 +437,7 @@ If no organization is specified, you will be prompted to select one interactivel
 	// ConfigRoot holds usage and help texts for "config" command.
 	ConfigRoot = Command{
 		Use:   "config",
-		Short: "Manage choreoctl configuration contexts.",
+		Short: "Manage Choreo configuration contexts",
 		Long: "Manage configuration contexts that store default values (e.g., organization, project, component) " +
 			"for choreoctl commands.",
 		Example: fmt.Sprintf(`  # Get  all available contexts

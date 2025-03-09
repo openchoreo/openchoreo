@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -81,7 +79,7 @@ func (m dataPlaneListModel) RenderProgress() string {
 	return progress.String()
 }
 
-func listDataPlaneInteractive(config constants.CRDConfig) error {
+func getDataPlaneInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -93,7 +91,7 @@ func listDataPlaneInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(dataPlaneListModel)
@@ -101,21 +99,17 @@ func listDataPlaneInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("data plane listing cancelled")
+		return fmt.Errorf("data plane listing cancelled")
 	}
 
-	params := api.ListDataPlaneParams{
+	params := api.GetDataPlaneParams{
 		Organization: m.Organizations[m.OrgCursor],
 	}
 
-	err = listDataPlanes(params, config)
+	err = getDataPlanes(params, config)
 	if err != nil {
 		return err
 	}
-
-	util.ShowEquivalentCommand("get dataplane", map[string]string{
-		"organization": m.Organizations[m.OrgCursor],
-	})
 
 	return nil
 }

@@ -24,9 +24,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
+	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -118,7 +118,7 @@ func (m deploymentTrackModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateNameInput:
 		if interactive.IsEnterKey(keyMsg) {
 			// Validate name format
-			if err := util.ValidateResourceName("deploymenttrack", m.name); err != nil {
+			if err := validation.ValidateName("deploymenttrack", m.name); err != nil {
 				m.errorMsg = err.Error()
 				return m, nil
 			}
@@ -218,7 +218,7 @@ func (m deploymentTrackModel) RenderProgress() string {
 	return progress.String()
 }
 
-func createDeploymentTrackInteractive() error {
+func createDeploymentTrackInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -231,7 +231,7 @@ func createDeploymentTrackInteractive() error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(deploymentTrackModel)
@@ -249,5 +249,5 @@ func createDeploymentTrackInteractive() error {
 		Component:    m.Components[m.CompCursor],
 		APIVersion:   m.apiVersion,
 		AutoDeploy:   m.autoDeploy,
-	})
+	}, config)
 }

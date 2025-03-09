@@ -20,10 +20,7 @@ package login
 
 import (
 	"fmt"
-	"path/filepath"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -36,41 +33,13 @@ func NewAuthImpl() *AuthImpl {
 }
 
 func (i *AuthImpl) Login(params api.LoginParams) error {
-	return handleLogin(params)
+	return fmt.Errorf("login functionality is not supported")
 }
 
 func (i *AuthImpl) IsLoggedIn() bool {
-	return util.IsLoginConfigFileExists()
+	return false
 }
 
 func (i *AuthImpl) GetLoginPrompt() string {
-	return "Please login using 'choreoctl login' command"
-}
-
-func performLogin(kubeconfigPath, context string) error {
-	absPath, err := filepath.Abs(kubeconfigPath)
-	if err != nil {
-		return err
-	}
-
-	if err := util.SaveLoginConfig(absPath, context); err != nil {
-		return err
-	}
-
-	if err := util.LoginWithContext(absPath, context); err != nil {
-		if cleanupErr := util.CleanupLoginConfig(); cleanupErr != nil {
-			return errors.NewError("failed to login and cleanup login config: %v", cleanupErr)
-		}
-		return errors.NewError("failed to login: %v", err)
-	}
-
-	fmt.Println("Successfully logged in")
-	return nil
-}
-
-func handleLogin(params api.LoginParams) error {
-	if params.KubeconfigPath == "" || params.Kubecontext == "" {
-		return loginInteractive()
-	}
-	return performLogin(params.KubeconfigPath, params.Kubecontext)
+	return "login functionality is not supported"
 }

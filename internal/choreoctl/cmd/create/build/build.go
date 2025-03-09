@@ -19,14 +19,10 @@
 package build
 
 import (
-	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -43,65 +39,32 @@ func NewCreateBuildImpl(config constants.CRDConfig) *CreateBuildImpl {
 
 func (i *CreateBuildImpl) CreateBuild(params api.CreateBuildParams) error {
 	if params.Interactive {
-		return createBuildInteractive()
+		return createBuildInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdCreate, util.ResourceBuild, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceBuild, params); err != nil {
 		return err
 	}
 
-	return createBuild(params)
+	return createBuild(params, i.config)
 }
 
-func createBuild(params api.CreateBuildParams) error {
-	k8sClient, err := util.GetKubernetesClient()
+func createBuild(params api.CreateBuildParams, config constants.CRDConfig) error {
+	buildRes, err := kinds.NewBuildResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.DeploymentTrack,
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to create Build resource: %w", err)
 	}
 
-	build := &corev1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      params.Name,
-			Namespace: params.Organization,
-			Labels: map[string]string{
-				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
-				constants.LabelProject:      params.Project,
-				constants.LabelComponent:    params.Component,
-			},
-		},
-		Spec: corev1.BuildSpec{
-			Branch:             params.Branch,
-			Path:               params.Path,
-			GitRevision:        params.Revision,
-			AutoBuild:          params.AutoBuild,
-			BuildConfiguration: corev1.BuildConfiguration{},
-		},
-	}
-
-	// Add docker configuration if provided
-	if params.Docker != nil {
-		build.Spec.BuildConfiguration.Docker = &corev1.DockerConfiguration{
-			Context:        params.Docker.Context,
-			DockerfilePath: params.Docker.DockerfilePath,
-		}
-	}
-
-	// Add buildpack configuration if provided
-	if params.Buildpack != nil {
-		build.Spec.BuildConfiguration.Buildpack = &corev1.BuildpackConfiguration{
-			Name:    params.Buildpack.Name,
-			Version: params.Buildpack.Version,
-		}
-	}
-
-	ctx := context.Background()
-	if err := k8sClient.Create(ctx, build); err != nil {
-		return errors.NewError("Failed to create build '%s' in organization '%s': %v",
+	if err := buildRes.CreateBuild(params); err != nil {
+		return fmt.Errorf("Failed to create build '%s' in organization '%s': %w",
 			params.Name, params.Organization, err)
 	}
 
-	fmt.Printf("Build '%s' created successfully in project '%s' of organization '%s'\n",
-		params.Name, params.Project, params.Organization)
 	return nil
 }

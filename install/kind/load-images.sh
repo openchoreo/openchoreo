@@ -5,7 +5,7 @@
 # usage: ./load-images.sh --kind-cluster-name <kind-cluster-name>
 
 while [[ "$#" -gt 0 ]]; do
-  case $1 in 
+  case $1 in
     --kind-cluster-name)
       KIND_CLUSTER_NAME="$2"
       shift

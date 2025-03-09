@@ -24,9 +24,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/errors"
 	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -185,7 +183,7 @@ func (m endpointListModel) RenderProgress() string {
 	return progress.String()
 }
 
-func listEndpointInteractive(config constants.CRDConfig) error {
+func getEndpointInteractive(config constants.CRDConfig) error {
 	baseModel, err := interactive.NewBaseModel()
 	if err != nil {
 		return err
@@ -198,7 +196,7 @@ func listEndpointInteractive(config constants.CRDConfig) error {
 
 	finalModel, err := interactive.RunInteractiveModel(model)
 	if err != nil {
-		return errors.NewError("interactive mode failed: %v", err)
+		return fmt.Errorf("interactive mode failed: %w", err)
 	}
 
 	m, ok := finalModel.(endpointListModel)
@@ -206,10 +204,10 @@ func listEndpointInteractive(config constants.CRDConfig) error {
 		if m.errorMsg != "" {
 			return fmt.Errorf("%s", m.errorMsg)
 		}
-		return errors.NewError("endpoint listing cancelled")
+		return fmt.Errorf("endpoint listing cancelled")
 	}
 
-	params := api.ListEndpointParams{
+	params := api.GetEndpointParams{
 		Organization: m.Organizations[m.OrgCursor],
 		Project:      m.Projects[m.ProjCursor],
 		Component:    m.Components[m.CompCursor],
@@ -218,7 +216,7 @@ func listEndpointInteractive(config constants.CRDConfig) error {
 		params.Environment = m.Environments[m.EnvCursor]
 	}
 
-	err = listEndpoints(params, config)
+	err = getEndpoints(params, config)
 	if err != nil {
 		return err
 	}
@@ -231,8 +229,6 @@ func listEndpointInteractive(config constants.CRDConfig) error {
 	if len(m.Environments) > 0 {
 		flags["environment"] = m.Environments[m.EnvCursor]
 	}
-
-	util.ShowEquivalentCommand("get endpoint", flags)
 
 	return nil
 }

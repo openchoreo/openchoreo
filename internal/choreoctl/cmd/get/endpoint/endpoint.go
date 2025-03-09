@@ -20,119 +20,56 @@ package endpoint
 
 import (
 	"fmt"
-	"os"
-	"text/tabwriter"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/util"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
-type ListEndpointImpl struct {
+type GetEndpointImpl struct {
 	config constants.CRDConfig
 }
 
-func NewListEndpointImpl(config constants.CRDConfig) *ListEndpointImpl {
-	return &ListEndpointImpl{
+func NewGetEndpointImpl(config constants.CRDConfig) *GetEndpointImpl {
+	return &GetEndpointImpl{
 		config: config,
 	}
 }
 
-func (i *ListEndpointImpl) ListEndpoint(params api.ListEndpointParams) error {
+func (i *GetEndpointImpl) GetEndpoint(params api.GetEndpointParams) error {
 	if params.Interactive {
-		return listEndpointInteractive(i.config)
+		return getEndpointInteractive(i.config)
 	}
 
-	if err := util.ValidateParams(util.CmdGet, util.ResourceEndpoint, params); err != nil {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceEndpoint, params); err != nil {
 		return err
 	}
 
-	return listEndpoints(params, i.config)
+	return getEndpoints(params, i.config)
 }
 
-func listEndpoints(params api.ListEndpointParams, config constants.CRDConfig) error {
-	var endpoints []corev1.Endpoint
-
-	if params.Name != "" {
-		// Get specific endpoint
-		endpoint, err := util.GetEndpoint(
-			params.Organization,
-			params.Project,
-			params.Component,
-			params.Environment,
-			params.Name,
-		)
-		if err != nil {
-			return err
-		}
-		endpoints = []corev1.Endpoint{*endpoint}
-	} else {
-		// List all endpoints
-		endpointList, err := util.GetAllEndpoints(
-			params.Organization,
-			params.Project,
-			params.Component,
-			params.Environment,
-		)
-		if err != nil {
-			return err
-		}
-		endpoints = endpointList.Items
+func getEndpoints(params api.GetEndpointParams, config constants.CRDConfig) error {
+	endpointRes, err := kinds.NewEndpointResource(
+		config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.Environment,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create Endpoint resource: %w", err)
 	}
 
-	if len(endpoints) == 0 {
-		fmt.Printf("No endpoints found for organization: %s, project: %s, component: %s\n",
-			params.Organization, params.Project, params.Component)
-		return nil
+	filter := &resources.ResourceFilter{
+		Name: params.Name,
 	}
 
+	format := resources.OutputFormatTable
 	if params.OutputFormat == constants.OutputFormatYAML {
-		return printEndpointYAML(endpoints, params.Organization, config)
-	}
-	return printEndpointTable(endpoints, params.Organization)
-}
-
-func printEndpointYAML(endpoints []corev1.Endpoint, orgName string, config constants.CRDConfig) error {
-	for _, endpoint := range endpoints {
-		yamlStr, err := util.GetK8sObjectYAMLFromCRD(
-			config.Group,
-			string(config.Version),
-			config.Kind,
-			endpoint.Name,
-			orgName,
-		)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("---\n%s\n", yamlStr)
-	}
-	return nil
-}
-
-func printEndpointTable(endpoints []corev1.Endpoint, orgName string) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTYPE\tPORT\tBASE PATH\tVISIBILITY\tAGE")
-
-	for _, endpoint := range endpoints {
-		age := util.FormatAge(endpoint.CreationTimestamp.Time)
-		visibility := ""
-		if len(endpoint.Spec.NetworkVisibilities) > 0 {
-			for _, v := range endpoint.Spec.NetworkVisibilities {
-				visibility = fmt.Sprintf("%s,%s", visibility, v)
-			}
-		} else {
-			visibility = "Public"
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\n",
-			endpoint.Name,
-			endpoint.Spec.Type,
-			endpoint.Spec.Service.Port,
-			endpoint.Spec.Service.BasePath,
-			visibility,
-			age, orgName)
+		format = resources.OutputFormatYAML
 	}
 
-	return w.Flush()
+	return endpointRes.Print(format, filter)
 }
