@@ -1,7 +1,9 @@
-package kubernetes
+package build
 
 import "context"
 
+// ResourceHandler is an interface that defines the operations that can be performed on the external (Dataplane) or
+// internal (Control Plane) resources that are managed by the build controller during the reconciliation process.
 type ResourceHandler[T any] interface {
 	// KindName returns the kind name.
 	KindName() string

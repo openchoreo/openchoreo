@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package descriptor
+package source
 
 import choreov1 "github.com/choreo-idp/choreo/api/v1"
 

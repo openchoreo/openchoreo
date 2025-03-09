@@ -3,7 +3,7 @@ package build
 import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
-	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -156,7 +156,7 @@ func (r *Reconciler) markStepAsFailed(build *choreov1.Build, conditionType contr
 	))
 }
 
-func (r *Reconciler) markWorkflowCompleted(build *choreov1.Build, argoPushStepOutput *argo.Outputs) {
+func (r *Reconciler) markWorkflowCompleted(build *choreov1.Build, argoPushStepOutput *argoproj.Outputs) {
 	newCondition := metav1.Condition{
 		Type:               string(ConditionCompleted),
 		Status:             metav1.ConditionTrue,
@@ -173,4 +173,13 @@ func (r *Reconciler) markWorkflowCompleted(build *choreov1.Build, argoPushStepOu
 		build.Status.ImageStatus.Image = image
 	}
 	meta.SetStatusCondition(&build.Status.Conditions, newCondition)
+}
+
+func getImageNameFromWorkflow(output argoproj.Outputs) string {
+	for _, param := range output.Parameters {
+		if param.Name == "image" {
+			return *param.Value
+		}
+	}
+	return ""
 }
