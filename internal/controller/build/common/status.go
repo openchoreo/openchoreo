@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package build
+package common
 
 type BuildWorkflowStep string
 

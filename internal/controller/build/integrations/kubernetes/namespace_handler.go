@@ -2,21 +2,26 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
 )
 
 type namespaceHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ ResourceHandler[BuildContext] = (*namespaceHandler)(nil)
+var _ common.ResourceHandler[common.BuildContext] = (*namespaceHandler)(nil)
 
-func NewNamespaceHandler(kubernetesClient client.Client) ResourceHandler[BuildContext] {
+func NewNamespaceHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
 	return &namespaceHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -27,11 +32,11 @@ func (h *namespaceHandler) KindName() string {
 }
 
 // NamespaceName has the format "choreo-ci-<org-name>"
-func (h *namespaceHandler) Name(ctx context.Context, builtCtx *BuildContext) string {
+func (h *namespaceHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
 	return MakeNamespaceName(builtCtx)
 }
 
-func (h *namespaceHandler) Get(ctx context.Context, builtCtx *BuildContext) (interface{}, error) {
+func (h *namespaceHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
 	name := h.Name(ctx, builtCtx)
 	namespace := &corev1.Namespace{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name}, namespace)
@@ -43,20 +48,47 @@ func (h *namespaceHandler) Get(ctx context.Context, builtCtx *BuildContext) (int
 	return namespace, nil
 }
 
-func (h *namespaceHandler) Create(ctx context.Context, builtCtx *BuildContext) error {
+func (h *namespaceHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
 	namespace := makeNamespace(builtCtx)
 	return h.kubernetesClient.Create(ctx, namespace)
 }
 
-func MakeNamespaceName(builtCtx *BuildContext) string {
-	return "choreo-ci-" + builtCtx.Build.Labels[controller.GetOrganizationName(builtCtx.Build)]
+func (h *namespaceHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+	currentNS, ok := currentState.(*corev1.Namespace)
+	if !ok {
+		return errors.New("failed to cast current state to Namespace")
+	}
+	newNS := makeNamespace(builtCtx)
+
+	if h.shouldUpdate(currentNS, newNS) {
+		newNS.ResourceVersion = currentNS.ResourceVersion
+		return h.kubernetesClient.Update(ctx, newNS)
+	}
+
+	return nil
 }
 
-func makeNamespace(builtCtx *BuildContext) *corev1.Namespace {
+func MakeNamespaceName(builtCtx *common.BuildContext) string {
+	return "choreo-ci-" + controller.GetOrganizationName(builtCtx.Build)
+}
+
+func makeNamespace(builtCtx *common.BuildContext) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MakeNamespaceName(builtCtx),
-			Labels: makeNamespaceLabels(builtCtx),
+			Labels: MakeLabels(builtCtx),
 		},
 	}
+}
+
+func (h *namespaceHandler) shouldUpdate(current, new *corev1.Namespace) bool {
+	// Compare the labels
+	if !cmp.Equal(ExtractManagedLabels(current.Labels), ExtractManagedLabels(new.Labels)) {
+		return true
+	}
+
+	if !cmp.Equal(current.Spec, new.Spec, cmpopts.EquateEmpty()) {
+		return true
+	}
+	return false
 }

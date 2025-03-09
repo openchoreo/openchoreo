@@ -1,4 +1,4 @@
-package build
+package common
 
 import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"

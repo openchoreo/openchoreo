@@ -22,12 +22,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source/github"
-	"github.com/choreo-idp/choreo/internal/controller/build/resources"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-github/v69/github"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +37,8 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
-	argohandler "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
+	"github.com/choreo-idp/choreo/internal/controller/build/resources"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
@@ -135,7 +133,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
-	requeue, err := r.handleAutoDeployment(ctx, build)
+	requeue, err := r.handleAutoDeployment(ctx, buildCtx)
 	if requeue {
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	} else if err != nil {
@@ -153,7 +151,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*BuildContext, error) {
+func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*common.BuildContext, error) {
 	// makeBuildContext creates a build context for the given build by retrieving the
 	// parent objects that this build is required to continue its work.
 	component, err := controller.GetComponent(ctx, r.Client, build)
@@ -164,7 +162,7 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
 	}
-	return &BuildContext{
+	return &common.BuildContext{
 		Component:       component,
 		DeploymentTrack: deploymentTrack,
 		Build:           build,
@@ -173,13 +171,13 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // create the build namespace and other resources required for argo workflows.
-func (r *Reconciler) makeExternalResourceHandlers() []ResourceHandler[BuildContext] {
-	var handlers []ResourceHandler[BuildContext]
+func (r *Reconciler) makeExternalResourceHandlers() []common.ResourceHandler[common.BuildContext] {
+	var handlers []common.ResourceHandler[common.BuildContext]
 
 	handlers = append(handlers, kubernetes.NewNamespaceHandler(r.Client))
-	handlers = append(handlers, argohandler.NewServiceAccountHandler(r.Client))
-	handlers = append(handlers, argohandler.NewRoleHandler(r.Client))
-	handlers = append(handlers, argohandler.NewRoleBindingHandler(r.Client))
+	handlers = append(handlers, argointegrations.NewServiceAccountHandler(r.Client))
+	handlers = append(handlers, argointegrations.NewRoleHandler(r.Client))
+	handlers = append(handlers, argointegrations.NewRoleBindingHandler(r.Client))
 
 	return handlers
 }
@@ -187,8 +185,8 @@ func (r *Reconciler) makeExternalResourceHandlers() []ResourceHandler[BuildConte
 // ReconcileResource handles the reconciliation logic for a single resource.
 func (r *Reconciler) ReconcileResource(
 	ctx context.Context,
-	resourceHandler ResourceHandler[BuildContext],
-	buildCtx *BuildContext,
+	resourceHandler common.ResourceHandler[common.BuildContext],
+	buildCtx *common.BuildContext,
 	logger logr.Logger) error {
 	// Check if the resource exists
 	currentState, err := resourceHandler.Get(ctx, buildCtx)
@@ -200,33 +198,34 @@ func (r *Reconciler) ReconcileResource(
 	exists := currentState != nil
 	if !exists {
 		// Create the resource if it does not exist
-		if err := resourceHandler.Create(ctx, buildCtx); err != nil {
+		if err := resourceHandler.Create(ctx, buildCtx); err != nil && !apierrors.IsAlreadyExists(err) {
 			logger.Error(err, "Error creating the resource")
 			return err
 		}
-	} else {
-		// Update the resource if it exists
-		if err := resourceHandler.Update(ctx, buildCtx, currentState); err != nil {
-			logger.Error(err, "Error updating resource")
-			return err
-		}
 	}
-
-	logger.Info("Reconciled resource")
+	// TODO: Test this flow
+	// else {
+	//	// Update the resource if it exists
+	//	if err := resourceHandler.Update(ctx, buildCtx, currentState); err != nil {
+	//		logger.Error(err, "Error updating resource")
+	//		return err
+	//	}
+	// }
 	return nil
 }
 
 // reconcileExternalResources reconciles the provided external resources based on the build context.
 func (r *Reconciler) reconcileExternalResources(
 	ctx context.Context,
-	resourceHandlers []ResourceHandler[BuildContext],
-	buildCtx *BuildContext) error {
+	resourceHandlers []common.ResourceHandler[common.BuildContext],
+	buildCtx *common.BuildContext) error {
 	handlerNameLogKey := "resourceHandler"
 	for _, resourceHandler := range resourceHandlers {
 		resourceName := resourceHandler.KindName() + " - " + resourceHandler.Name(ctx, buildCtx)
 		logger := log.FromContext(ctx).WithValues(handlerNameLogKey, resourceName)
 
 		if err := r.ReconcileResource(ctx, resourceHandler, buildCtx, logger); err != nil {
+			logger.Error(err, "Error reconciling resource")
 			return err
 		}
 	}
@@ -234,9 +233,9 @@ func (r *Reconciler) reconcileExternalResources(
 	return nil
 }
 
-func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *BuildContext) (*argoproj.Workflow, error) {
+func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *common.BuildContext) (*argoproj.Workflow, error) {
 	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
-	workflowHandler := argohandler.NewWorkflowHandler(r.Client)
+	workflowHandler := argointegrations.NewWorkflowHandler(r.Client)
 	existingWorkflow, err := workflowHandler.Get(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error retrieving current state of the workflow resource")
@@ -252,8 +251,10 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *BuildContext)
 			return nil, err
 		}
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewWorkflowInitializedCondition(buildCtx.Build.Generation))
+		return nil, nil
 	}
-	return existingWorkflow.(*argoproj.Workflow), nil
+	existing := existingWorkflow.(argoproj.Workflow)
+	return &existing, nil
 }
 
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued.
@@ -261,20 +262,6 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *BuildContext)
 func (r *Reconciler) shouldIgnoreReconcile(build *choreov1.Build) bool {
 	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeploymentApplied)) != nil ||
 		meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionFalse)
-}
-
-func (r *Reconciler) handleRequeueAfterBuild(
-	ctx context.Context, old, build *choreov1.Build, workflow *argoproj.Workflow,
-) (ctrl.Result, error) {
-	// If the build step is still running, requeue the reconciliation after 1 minute.
-	// This provides a controlled requeue interval instead of relying on exponential backoff.
-	stepInfo, isFound := argohandler.GetStepByTemplateName(workflow.Status.Nodes, BuildStep)
-	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildSucceeded)) == nil {
-		if argohandler.GetStepPhase(stepInfo.Phase) == Running {
-			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
-		}
-	}
-	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 }
 
 // shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
@@ -285,58 +272,47 @@ func (r *Reconciler) shouldCreateDeployableArtifact(build *choreov1.Build) bool 
 		meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
 }
 
-func (r *Reconciler) handleAutoDeployment(ctx context.Context, build *choreov1.Build) (bool, error) {
-	logger := log.FromContext(ctx)
-	dt, err := controller.GetDeploymentTrack(ctx, r.Client, build)
-	if apierrors.IsNotFound(err) {
-		logger.Error(err, "Deployment resource not found")
-		meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentFailedCondition(build.Generation))
-		return false, nil
-	} else if err != nil {
-		return true, err
-	}
-
-	if dt.Spec.AutoDeploy && meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
-		requeue, err := r.updateOrCreateDeployment(ctx, build)
-		if requeue {
-			return true, nil
-		} else if err != nil {
-			meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentFailedCondition(build.Generation))
-			return false, err
+func (r *Reconciler) handleRequeueAfterBuild(
+	ctx context.Context, old, build *choreov1.Build, workflow *argoproj.Workflow,
+) (ctrl.Result, error) {
+	// If the build step is still running, requeue the reconciliation after 1 minute.
+	// This provides a controlled requeue interval instead of relying on exponential backoff.
+	stepInfo, isFound := argointegrations.GetStepByTemplateName(workflow.Status.Nodes, common.BuildStep)
+	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildSucceeded)) == nil {
+		if argointegrations.GetStepPhase(stepInfo.Phase) == common.Running {
+			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
 		}
-		meta.SetStatusCondition(&build.Status.Conditions, NewAutoDeploymentSuccessfulCondition(build.Generation))
 	}
-	return false, nil
+	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 }
 
 func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
 	steps := []struct {
-		stepName      BuildWorkflowStep
+		stepName      common.BuildWorkflowStep
 		conditionType controller.ConditionType
 	}{
-		{CloneStep, ConditionCloneSucceeded},
-		{BuildStep, ConditionBuildSucceeded},
-		{PushStep, ConditionPushSucceeded},
+		{common.CloneStep, ConditionCloneSucceeded},
+		{common.BuildStep, ConditionBuildSucceeded},
+		{common.PushStep, ConditionPushSucceeded},
 	}
 
 	for _, step := range steps {
-		stepInfo, isFound := argohandler.GetStepByTemplateName(nodes, step.stepName)
+		stepInfo, isFound := argointegrations.GetStepByTemplateName(nodes, step.stepName)
 		if !isFound || meta.FindStatusCondition(build.Status.Conditions, string(step.conditionType)) != nil {
 			continue
 		}
-
-		switch argohandler.GetStepPhase(stepInfo.Phase) {
-		case Running:
+		switch argointegrations.GetStepPhase(stepInfo.Phase) {
+		case common.Running:
 			return true
-		case Succeeded:
+		case common.Succeeded:
 			r.markStepAsSucceeded(build, step.conditionType)
-			isFinalStep := step.stepName == PushStep
+			isFinalStep := step.stepName == common.PushStep
 			if isFinalStep {
 				r.markWorkflowCompleted(build, stepInfo.Outputs)
 				return false
 			}
 			return true
-		case Failed:
+		case common.Failed:
 			r.markStepAsFailed(build, step.conditionType)
 			return false
 		}
@@ -344,58 +320,44 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 	return true
 }
 
-// This doesn't include git revision. It is added from the workflow.
-func ConstructImageNameWithTag(build *choreov1.Build) string {
-	orgName := build.ObjectMeta.Labels[labels.LabelKeyOrganizationName]
-	projName := build.ObjectMeta.Labels[labels.LabelKeyProjectName]
-	componentName := build.ObjectMeta.Labels[labels.LabelKeyComponentName]
-	dtName := build.ObjectMeta.Labels[labels.LabelKeyDeploymentTrackName]
-
-	// To prevent excessively long image names, we limit them to 128 characters for the name and 128 characters for the tag.
-	imageName := dpkubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
-	// The maximum recommended tag length is 128 characters, with 8 characters reserved for the commit SHA.
-	return fmt.Sprintf(
-		"%s:%s",
-		imageName,
-		dpkubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
-	)
-}
-
-func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *BuildContext) (bool, error) {
-	logger := log.FromContext(ctx)
+func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *common.BuildContext) (bool, error) {
 	deployableArtifactHandler := resources.NewDeployableArtifactHandler(r.Client)
 
-	// We only create the deployable artifact if it doesn't exist
-	existing, err := deployableArtifactHandler.Get(ctx, buildCtx)
-	if err != nil {
-		logger.Error(err, "Error retrieving the deployable artifact resource")
-		return true, err
+	if buildCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+		endpoints, err := r.getEndpointConfigs(ctx, buildCtx)
+		if err != nil {
+			return true, fmt.Errorf("error getting endpoint configs: %w", err)
+		}
+
+		// Build Context: set endpoints
+		buildCtx.Endpoints = &endpoints
 	}
 
-	exists := existing != nil
-
-	if exists {
-		return false, nil
-	}
-
-	endpoints, err := r.getEndpointConfigs(ctx, buildCtx)
-	if err != nil {
-		return true, fmt.Errorf("error getting endpoint configs: %w", err)
-	}
-
-	// Build Context: set endpoints
-	buildCtx.Endpoints = &endpoints
-
-	if err := deployableArtifactHandler.Create(ctx, buildCtx); err != nil {
+	if err := deployableArtifactHandler.Create(ctx, buildCtx); err != nil && !apierrors.IsAlreadyExists(err) {
 		return true, fmt.Errorf("failed to create deployable artifact: %w", err)
 	}
 	return false, nil
 }
 
-func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, build *choreov1.Build) (bool, error) {
+func (r *Reconciler) handleAutoDeployment(ctx context.Context, buildCtx *common.BuildContext) (bool, error) {
+	if buildCtx.DeploymentTrack.Spec.AutoDeploy &&
+		meta.IsStatusConditionPresentAndEqual(buildCtx.Build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
+		requeue, err := r.updateOrCreateDeployment(ctx, buildCtx)
+		if requeue {
+			return true, nil
+		} else if err != nil {
+			meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewAutoDeploymentFailedCondition(buildCtx.Build.Generation))
+			return false, err
+		}
+		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewAutoDeploymentSuccessfulCondition(buildCtx.Build.Generation))
+	}
+	return false, nil
+}
+
+func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, buildCtx *common.BuildContext) (bool, error) {
 	logger := log.FromContext(ctx)
 
-	environment, err := r.getFirstEnvironmentFromDeploymentPipeline(ctx, build)
+	environment, err := r.getFirstEnvironmentFromDeploymentPipeline(ctx, buildCtx.Build)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Environment not found, no need to requeue
@@ -405,24 +367,32 @@ func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, build *choreo
 		return true, err
 	}
 
+	// Build Context: set initial environment of the deployment pipeline
+	buildCtx.InitialEnvironment = environment
+
+	deploymentHandler := resources.NewDeploymentHandler(r.Client)
+
 	// Retrieve the existing deployment
-	deployment, err := controller.GetDeploymentByEnvironment(ctx, r.Client, build, environment.Labels[labels.LabelKeyName])
+	deployment, err := controller.GetDeploymentByEnvironment(ctx, r.Client, buildCtx.Build, environment.Labels[labels.LabelKeyName])
 	if err != nil {
 		var hierarchyErr *controller.HierarchyNotFoundError
 		if errors.As(err, &hierarchyErr) {
 			// Deployment does not exist, create a new one
-			logger.Info("Hierarchy not found", "error", hierarchyErr)
-			// Call your deployment creation handler
-			return r.createDeployment(ctx, build, environment.Labels[labels.LabelKeyName])
+			if err := deploymentHandler.Create(ctx, buildCtx); err != nil {
+				logger.Error(err, "Failed to create deployment", "Build.name", buildCtx.Build.Name)
+				return true, err
+			}
+			logger.Info("Created deployment", "Build.name", buildCtx.Build.Name)
+			return false, nil
 		}
 		// Return if the error is not a "Not Found" error
-		logger.Error(err, "Failed to get deployment", "Build.name", build.Name)
+		logger.Error(err, "Failed to get deployment", "Build.name", buildCtx.Build.Name)
 		return true, err
 	}
 
 	// If deployment exists, update the DeploymentArtifactRef if necessary
-	if deployment.Spec.DeploymentArtifactRef != build.Name {
-		deployment.Spec.DeploymentArtifactRef = build.Name
+	if deployment.Spec.DeploymentArtifactRef != buildCtx.Build.Name {
+		deployment.Spec.DeploymentArtifactRef = buildCtx.Build.Name
 		if err = r.Update(ctx, deployment); err != nil {
 			logger.Error(err, "Failed to update deployment", "Deployment.name", deployment.Name)
 			return true, err
@@ -465,29 +435,18 @@ func (r *Reconciler) getDeploymentPipelineOfProject(ctx context.Context, c clien
 	return dp, nil
 }
 
-func (r *Reconciler) createDeployment(ctx context.Context, build *choreov1.Build, environmentName string) (bool, error) {
+func (r *Reconciler) fetchComponentConfigs(ctx context.Context, buildCtx *common.BuildContext) (*source.Config, error) {
 	logger := log.FromContext(ctx)
-
-	deployment := resources.MakeDeployment(build, environmentName)
-
-	if err := r.Create(ctx, deployment); err != nil {
-		logger.Error(err, "Failed to create deployment", "Deployment.name", deployment.Name)
-		return true, err
-	}
-	logger.Info("Created deployment", "Deployment.Name", deployment.Name, "Deployment.Label.Name", deployment.Labels[labels.LabelKeyDeploymentName])
-	return false, nil
-}
-
-func (r *Reconciler) fetchComponentConfigs(ctx context.Context, buildCtx *BuildContext) (*source.Config, error) {
-	sourceHandler := github.NewGithubHandler(r.GithubClient)
+	sourceHandler := sourcegithub.NewGithubHandler(r.GithubClient)
 	config, err := sourceHandler.FetchComponentDescriptor(ctx, buildCtx)
 	if err != nil {
+		logger.Error(err, "Failed to fetch component descriptor")
 		return nil, fmt.Errorf("failed to get component.yaml from the repository buildName:%s;%w", buildCtx.Build.Name, err)
 	}
 	return config.(*source.Config), nil
 }
 
-func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *BuildContext) ([]choreov1.EndpointTemplate, error) {
+func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *common.BuildContext) ([]choreov1.EndpointTemplate, error) {
 	config, err := r.fetchComponentConfigs(ctx, buildCtx)
 	if err != nil {
 		return nil, err

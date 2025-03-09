@@ -21,18 +21,19 @@ package argo
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	build "github.com/choreo-idp/choreo/internal/controller/build"
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
 
-func makeArgoWorkflow(buildCtx *kubernetes.BuildContext) *argoproj.Workflow {
+func makeArgoWorkflow(buildCtx *common.BuildContext) *argoproj.Workflow {
 	workflow := argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildCtx.Build.ObjectMeta.Name,
@@ -54,14 +55,14 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 				Steps: []argoproj.ParallelSteps{
 					{
 						Steps: []argoproj.WorkflowStep{
-							{Name: string(build.CloneStep), Template: string(build.CloneStep)},
+							{Name: string(common.CloneStep), Template: string(common.CloneStep)},
 						},
 					},
 					{
 						Steps: []argoproj.WorkflowStep{
 							{
-								Name:     string(build.BuildStep),
-								Template: string(build.BuildStep),
+								Name:     string(common.BuildStep),
+								Template: string(common.BuildStep),
 								Arguments: argoproj.Arguments{
 									Parameters: []argoproj.Parameter{
 										{
@@ -76,8 +77,8 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 					{
 						Steps: []argoproj.WorkflowStep{
 							{
-								Name:     string(build.PushStep),
-								Template: string(build.PushStep),
+								Name:     string(common.PushStep),
+								Template: string(common.PushStep),
 								Arguments: argoproj.Arguments{
 									Parameters: []argoproj.Parameter{
 										{
@@ -126,10 +127,10 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 		branch = "main"
 	}
 	return argoproj.Template{
-		Name: string(build.CloneStep),
+		Name: string(common.CloneStep),
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(build.CloneStep),
+				"step":     string(common.CloneStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},
@@ -156,7 +157,7 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 
 func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 	return argoproj.Template{
-		Name: string(build.BuildStep),
+		Name: string(common.BuildStep),
 		Inputs: argoproj.Inputs{
 			Parameters: []argoproj.Parameter{
 				{
@@ -166,7 +167,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 		},
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(build.BuildStep),
+				"step":     string(common.BuildStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},
@@ -176,7 +177,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 				Privileged: ptr.Bool(true),
 			},
 			Command: []string{"sh", "-c"},
-			Args:    generateBuildArgs(buildObj, build.ConstructImageNameWithTag(buildObj)),
+			Args:    generateBuildArgs(buildObj, ConstructImageNameWithTag(buildObj)),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},
 				{Name: "podman-cache", MountPath: "/shared/podman/cache"},
@@ -187,7 +188,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 
 func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 	return argoproj.Template{
-		Name: string(build.PushStep),
+		Name: string(common.PushStep),
 		Inputs: argoproj.Inputs{
 			Parameters: []argoproj.Parameter{
 				{
@@ -197,7 +198,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 		},
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(build.PushStep),
+				"step":     string(common.PushStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},
@@ -208,7 +209,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(build.ConstructImageNameWithTag(buildObj)),
+				generatePushImageScript(ConstructImageNameWithTag(buildObj)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},

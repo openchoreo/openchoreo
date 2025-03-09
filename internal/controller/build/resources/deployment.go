@@ -2,23 +2,25 @@ package resources
 
 import (
 	"context"
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build"
-	dpKubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/labels"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 type deploymentHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ build.ResourceHandler[build.BuildContext] = (*deploymentHandler)(nil)
+var _ common.ResourceHandler[common.BuildContext] = (*deploymentHandler)(nil)
 
-func NewDeploymentHandler(kubernetesClient client.Client) build.ResourceHandler[build.BuildContext] {
+func NewDeploymentHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
 	return &deploymentHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -28,11 +30,11 @@ func (h *deploymentHandler) KindName() string {
 	return "DeployableArtifact"
 }
 
-func (h *deploymentHandler) Name(ctx context.Context, builtCtx *build.BuildContext) string {
+func (h *deploymentHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
 	return makeDeployableArtifactName(builtCtx.Build)
 }
 
-func (h *deploymentHandler) Get(ctx context.Context, builtCtx *build.BuildContext) (interface{}, error) {
+func (h *deploymentHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
 	name := h.Name(ctx, builtCtx)
 	deployment := &choreov1.Deployment{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name}, deployment)
@@ -44,16 +46,16 @@ func (h *deploymentHandler) Get(ctx context.Context, builtCtx *build.BuildContex
 	return deployment, nil
 }
 
-func (h *deploymentHandler) Create(ctx context.Context, builtCtx *build.BuildContext) error {
+func (h *deploymentHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
 	deployableArtifact := MakeDeployment(builtCtx)
 	return h.kubernetesClient.Create(ctx, deployableArtifact)
 }
 
-func (h *deploymentHandler) Update(ctx context.Context, builtCtx *build.BuildContext, currentState interface{}) error {
+func (h *deploymentHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
 	return nil
 }
 
-func MakeDeployment(buildCtx *build.BuildContext) *choreov1.Deployment {
+func MakeDeployment(buildCtx *common.BuildContext) *choreov1.Deployment {
 	return &choreov1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "core.choreo.dev/v1",
@@ -69,6 +71,7 @@ func MakeDeployment(buildCtx *build.BuildContext) *choreov1.Deployment {
 				labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(buildCtx.Build),
 				labels.LabelKeyEnvironmentName:     buildCtx.InitialEnvironment.Name,
 				labels.LabelKeyName:                makeDeploymentLabelName(buildCtx.InitialEnvironment.Name),
+				dpkubernetes.LabelKeyCreatedBy:     dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
 		Spec: choreov1.DeploymentSpec{
@@ -78,12 +81,12 @@ func MakeDeployment(buildCtx *build.BuildContext) *choreov1.Deployment {
 }
 
 func makeDeploymentLabelName(environmentName string) string {
-	return dpKubernetes.GenerateK8sNameWithLengthLimit(63, environmentName, "deployment")
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(63, environmentName, "deployment")
 }
 
 func makeDeploymentName(build *choreov1.Build, environmentName string) string {
-	return dpKubernetes.GenerateK8sNameWithLengthLimit(
-		dpKubernetes.MaxResourceNameLength,
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(
+		dpkubernetes.MaxResourceNameLength,
 		controller.GetOrganizationName(build),
 		controller.GetProjectName(build),
 		controller.GetComponentName(build),

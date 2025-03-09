@@ -1,11 +1,12 @@
 package build
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Constants for condition types
@@ -31,10 +32,12 @@ const (
 
 const (
 	// Reason for Initialized condition type
+
 	// ReasonWorkflowCreatedSuccessfully represents the workflow has been created successfully
 	ReasonWorkflowCreatedSuccessfully controller.ConditionReason = "WorkflowCreated"
 
 	// Reasons for ci workflow related conditions
+
 	ReasonCloneSucceeded    controller.ConditionReason = "CloneSourceCodeSucceeded"
 	ReasonCloneFailed       controller.ConditionReason = "CloneSourceCodeFailed"
 	ReasonBuildSucceeded    controller.ConditionReason = "BuildImageSucceeded"
@@ -44,10 +47,11 @@ const (
 	ReasonWorkflowCompleted controller.ConditionReason = "BuildCompleted"
 	ReasonWorkflowFailed    controller.ConditionReason = "BuildFailed"
 
-	// Reason for DeployableArtifactCreated condition type
+	// ReasonArtifactCreatedSuccessfully represents the reason for DeployableArtifactCreated condition type
 	ReasonArtifactCreatedSuccessfully controller.ConditionReason = "ArtifactCreationSuccessful"
 
 	// Reasons for auto deployment related conditions
+
 	ReasonAutoDeploymentFailed  controller.ConditionReason = "DeploymentFailed"
 	ReasonAutoDeploymentApplied controller.ConditionReason = "DeploymentAppliedSuccessfully"
 )

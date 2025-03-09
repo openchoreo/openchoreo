@@ -3,29 +3,31 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/choreo-idp/choreo/internal/controller/build"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
+
 	"github.com/google/go-github/v69/github"
 	"gopkg.in/yaml.v3"
+
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
 )
 
 type githubHandler struct {
 	githubClient *github.Client
 }
 
-var _ source.SourceHandler[build.BuildContext] = (*githubHandler)(nil)
+var _ source.SourceHandler[common.BuildContext] = (*githubHandler)(nil)
 
-func NewGithubHandler(githubClient *github.Client) source.SourceHandler[build.BuildContext] {
+func NewGithubHandler(githubClient *github.Client) source.SourceHandler[common.BuildContext] {
 	return &githubHandler{
 		githubClient: githubClient,
 	}
 }
 
-func (h *githubHandler) Name(ctx context.Context, builtCtx *build.BuildContext) string {
+func (h *githubHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
 	return "SourceGithub"
 }
 
-func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *build.BuildContext) (interface{}, error) {
+func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *common.BuildContext) (interface{}, error) {
 	owner, repositoryName, err := source.ExtractRepositoryInfo(buildCtx.Component.Spec.Source.GitRepository.URL)
 	if err != nil {
 		return nil, fmt.Errorf("bad git repository url: %w", err)

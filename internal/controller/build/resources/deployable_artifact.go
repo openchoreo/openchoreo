@@ -2,21 +2,25 @@ package resources
 
 import (
 	"context"
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build"
-	"github.com/choreo-idp/choreo/internal/labels"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 type deployableArtifactHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ build.ResourceHandler[build.BuildContext] = (*deployableArtifactHandler)(nil)
+var _ common.ResourceHandler[common.BuildContext] = (*deployableArtifactHandler)(nil)
 
-func NewDeployableArtifactHandler(kubernetesClient client.Client) build.ResourceHandler[build.BuildContext] {
+func NewDeployableArtifactHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
 	return &deployableArtifactHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -26,11 +30,11 @@ func (h *deployableArtifactHandler) KindName() string {
 	return "DeployableArtifact"
 }
 
-func (h *deployableArtifactHandler) Name(ctx context.Context, builtCtx *build.BuildContext) string {
+func (h *deployableArtifactHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
 	return makeDeployableArtifactName(builtCtx.Build)
 }
 
-func (h *deployableArtifactHandler) Get(ctx context.Context, builtCtx *build.BuildContext) (interface{}, error) {
+func (h *deployableArtifactHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
 	name := h.Name(ctx, builtCtx)
 	deployableArtifact := &choreov1.DeployableArtifact{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name}, deployableArtifact)
@@ -42,13 +46,13 @@ func (h *deployableArtifactHandler) Get(ctx context.Context, builtCtx *build.Bui
 	return deployableArtifact, nil
 }
 
-func (h *deployableArtifactHandler) Create(ctx context.Context, builtCtx *build.BuildContext) error {
+func (h *deployableArtifactHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
 	deployableArtifact := makeDeployabeArtifact(builtCtx.Build)
 	addComponentSpecificConfigs(builtCtx, deployableArtifact)
 	return h.kubernetesClient.Create(ctx, deployableArtifact)
 }
 
-func (h *deployableArtifactHandler) Update(ctx context.Context, builtCtx *build.BuildContext, currentState interface{}) error {
+func (h *deployableArtifactHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
 	return nil
 }
 
@@ -56,7 +60,7 @@ func makeDeployableArtifactName(build *choreov1.Build) string {
 	return build.Name
 }
 
-func addComponentSpecificConfigs(buildCtx *build.BuildContext, deployableArtifact *choreov1.DeployableArtifact) {
+func addComponentSpecificConfigs(buildCtx *common.BuildContext, deployableArtifact *choreov1.DeployableArtifact) {
 	componentType := buildCtx.Component.Spec.Type
 	if componentType == choreov1.ComponentTypeService {
 		deployableArtifact.Spec.Configuration = &choreov1.Configuration{
@@ -109,12 +113,12 @@ func makeDeployabeArtifact(build *choreov1.Build) *choreov1.DeployableArtifact {
 				"core.choreo.dev/description":  "Deployable Artifact was created by the build.",
 			},
 			Labels: map[string]string{
-				"core.choreo.dev/name":             makeDeployableArtifactName(build),
-				"core.choreo.dev/build":            makeDeployableArtifactName(build),
-				"core.choreo.dev/deployment-track": build.Labels[labels.LabelKeyDeploymentTrackName],
-				"core.choreo.dev/component":        build.Labels[labels.LabelKeyComponentName],
-				"core.choreo.dev/project":          build.Labels[labels.LabelKeyProjectName],
-				"core.choreo.dev/organization":     build.Labels[labels.LabelKeyOrganizationName],
+				labels.LabelKeyOrganizationName:    controller.GetOrganizationName(build),
+				labels.LabelKeyProjectName:         controller.GetProjectName(build),
+				labels.LabelKeyComponentName:       controller.GetComponentName(build),
+				labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(build),
+				labels.LabelKeyName:                makeDeployableArtifactName(build),
+				dpkubernetes.LabelKeyCreatedBy:     dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
 		Spec: choreov1.DeployableArtifactSpec{

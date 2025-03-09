@@ -2,20 +2,26 @@ package argo
 
 import (
 	"context"
-	"github.com/choreo-idp/choreo/internal/controller/build"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
-	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"fmt"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 type workflowHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ kubernetes.ResourceHandler[kubernetes.BuildContext] = (*workflowHandler)(nil)
+var _ common.ResourceHandler[common.BuildContext] = (*workflowHandler)(nil)
 
-func NewWorkflowHandler(kubernetesClient client.Client) kubernetes.ResourceHandler[kubernetes.BuildContext] {
+func NewWorkflowHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
 	return &workflowHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -25,11 +31,11 @@ func (h *workflowHandler) KindName() string {
 	return "ArgoWorkflow"
 }
 
-func (h *workflowHandler) Name(ctx context.Context, builtCtx *kubernetes.BuildContext) string {
+func (h *workflowHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
 	return makeWorkflowName(builtCtx)
 }
 
-func (h *workflowHandler) Get(ctx context.Context, builtCtx *kubernetes.BuildContext) (interface{}, error) {
+func (h *workflowHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
 	name := makeWorkflowName(builtCtx)
 	workflow := argoproj.Workflow{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &workflow)
@@ -41,32 +47,54 @@ func (h *workflowHandler) Get(ctx context.Context, builtCtx *kubernetes.BuildCon
 	return workflow, nil
 }
 
-func (h *workflowHandler) Create(ctx context.Context, builtCtx *kubernetes.BuildContext) error {
+func (h *workflowHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
 	workflow := makeArgoWorkflow(builtCtx)
 	return h.kubernetesClient.Create(ctx, workflow)
 }
 
+func (h *workflowHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+	return nil
+}
+
 // WorkflowName is the build name
-func makeWorkflowName(builtCtx *kubernetes.BuildContext) string {
+func makeWorkflowName(builtCtx *common.BuildContext) string {
 	return builtCtx.Build.Name
 }
 
-func GetStepPhase(phase argoproj.NodePhase) build.StepPhase {
+func GetStepPhase(phase argoproj.NodePhase) common.StepPhase {
 	switch phase {
 	case argoproj.NodeRunning, argoproj.NodePending:
-		return build.Running
+		return common.Running
 	case argoproj.NodeFailed, argoproj.NodeError, argoproj.NodeSkipped:
-		return build.Failed
+		return common.Failed
 	default:
-		return build.Succeeded
+		return common.Succeeded
 	}
 }
 
-func GetStepByTemplateName(nodes argoproj.Nodes, step build.BuildWorkflowStep) (*argoproj.NodeStatus, bool) {
+func GetStepByTemplateName(nodes argoproj.Nodes, step common.BuildWorkflowStep) (*argoproj.NodeStatus, bool) {
 	for _, node := range nodes {
 		if node.TemplateName == string(step) {
 			return &node, true
 		}
 	}
 	return nil, false
+}
+
+// ConstructImageNameWithTag creates the image name with the tag.
+// This doesn't include git revision. It is added from the workflow.
+func ConstructImageNameWithTag(build *choreov1.Build) string {
+	orgName := build.ObjectMeta.Labels[labels.LabelKeyOrganizationName]
+	projName := build.ObjectMeta.Labels[labels.LabelKeyProjectName]
+	componentName := build.ObjectMeta.Labels[labels.LabelKeyComponentName]
+	dtName := build.ObjectMeta.Labels[labels.LabelKeyDeploymentTrackName]
+
+	// To prevent excessively long image names, we limit them to 128 characters for the name and 128 characters for the tag.
+	imageName := dpkubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
+	// The maximum recommended tag length is 128 characters, with 8 characters reserved for the commit SHA.
+	return fmt.Sprintf(
+		"%s:%s",
+		imageName,
+		dpkubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
+	)
 }

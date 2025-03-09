@@ -25,6 +25,7 @@ const (
 	LabelKeyProjectName            = "core.choreo.dev/project"
 	LabelKeyComponentName          = "core.choreo.dev/component"
 	LabelKeyDeploymentTrackName    = "core.choreo.dev/deployment-track"
+	LabelKeyBuildName              = "core.choreo.dev/build"
 	LabelKeyEnvironmentName        = "core.choreo.dev/environment"
 	LabelKeyName                   = "core.choreo.dev/name"
 	LabelKeyDeployableArtifactName = "core.choreo.dev/deployable-artifact"

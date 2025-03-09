@@ -2,9 +2,10 @@ package source
 
 import (
 	"fmt"
-	"github.com/choreo-idp/choreo/internal/controller/build"
 	"path"
 	"strings"
+
+	"github.com/choreo-idp/choreo/internal/controller/build/common"
 )
 
 func ExtractRepositoryInfo(repoURL string) (string, string, error) {
@@ -25,7 +26,7 @@ func ExtractRepositoryInfo(repoURL string) (string, string, error) {
 	return owner, repo, nil
 }
 
-func MakeComponentDescriptorPath(buildCtx *build.BuildContext) string {
+func MakeComponentDescriptorPath(buildCtx *common.BuildContext) string {
 	componentManifestPath := "./choreo/component.yaml"
 	if buildCtx.Build.Spec.Path != "" {
 		componentManifestPath = path.Clean(fmt.Sprintf(".%s/.choreo/component.yaml", buildCtx.Build.Spec.Path))
