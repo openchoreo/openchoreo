@@ -14,4 +14,7 @@ type ResourceHandler[T any] interface {
 
 	// Create initializes the resource if needed.
 	Create(ctx context.Context, resourceCtx *T) error
+
+	// Update updates the resource if neeeded.
+	Update(ctx context.Context, resourceCtx *T, currentState interface{}) error
 }
