@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
@@ -34,7 +35,7 @@ import (
 func makeArgoWorkflow(build *choreov1.Build, repo string, buildNamespace string) *argo.Workflow {
 	workflow := argo.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      build.ObjectMeta.Name,
+			Name:      dpkubernetes.GenerateK8sNameWithLengthLimit(63, build.ObjectMeta.Name),
 			Namespace: buildNamespace,
 		},
 		Spec: makeWorkflowSpec(build, repo),

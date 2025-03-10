@@ -42,7 +42,7 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/descriptor"
-	dpKubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
@@ -301,7 +301,7 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, build *choreov1.Build, 
 		return nil, err
 	}
 	existingWorkflow := argo.Workflow{}
-	err = r.Get(ctx, client.ObjectKey{Name: build.ObjectMeta.Name, Namespace: buildNamespace}, &existingWorkflow)
+	err = r.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sNameWithLengthLimit(63, build.ObjectMeta.Name), Namespace: buildNamespace}, &existingWorkflow)
 	if err != nil {
 		// Create the workflow
 		if apierrors.IsNotFound(err) {
@@ -479,12 +479,12 @@ func constructImageNameWithTag(build *choreov1.Build) string {
 	dtName := build.ObjectMeta.Labels["core.choreo.dev/deployment-track"]
 
 	// To prevent excessively long image names, we limit them to 128 characters for the name and 128 characters for the tag.
-	imageName := dpKubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
+	imageName := dpkubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
 	// The maximum recommended tag length is 128 characters, with 8 characters reserved for the commit SHA.
 	return fmt.Sprintf(
 		"%s:%s",
 		imageName,
-		dpKubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
+		dpkubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
 	)
 }
 
@@ -624,8 +624,8 @@ func (r *Reconciler) createDeployment(ctx context.Context, build *choreov1.Build
 	logger := log.FromContext(ctx)
 
 	// Generate the deployment name
-	deploymentName := dpKubernetes.GenerateK8sNameWithLengthLimit(
-		dpKubernetes.MaxResourceNameLength,
+	deploymentName := dpkubernetes.GenerateK8sNameWithLengthLimit(
+		dpkubernetes.MaxResourceNameLength,
 		controller.GetOrganizationName(build),
 		controller.GetProjectName(build),
 		controller.GetComponentName(build),
@@ -633,7 +633,7 @@ func (r *Reconciler) createDeployment(ctx context.Context, build *choreov1.Build
 		environmentName,
 	)
 
-	deploymentLabelName := dpKubernetes.GenerateK8sNameWithLengthLimit(63, environmentName, "deployment")
+	deploymentLabelName := dpkubernetes.GenerateK8sNameWithLengthLimit(63, environmentName, "deployment")
 
 	// Create the deployment object
 	deployment := &choreov1.Deployment{
