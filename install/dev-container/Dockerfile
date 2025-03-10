@@ -42,6 +42,8 @@ ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
 COPY . /app
 
+COPY ../../samples/web-applications/container-image/react-starter.yaml /app
+
 WORKDIR /app
 
 ENTRYPOINT ["/bin/bash"]
