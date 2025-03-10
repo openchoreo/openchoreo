@@ -143,7 +143,7 @@ func makeEndpointLabels(deployCtx *dataplane.DeploymentContext, endpointTemplate
 	}
 
 	// Add the parent deployment name
-	l[labels.LabelKeyDeploymentName] = deployCtx.Deployment.Name
+	l[labels.LabelKeyDeploymentName] = controller.GetName(deployCtx.Deployment)
 	// Set the endpoint name as the value for the label name
 	l[labels.LabelKeyName] = endpointTemplate.Name
 
