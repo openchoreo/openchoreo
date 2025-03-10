@@ -57,11 +57,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Get Endpoint CR
 	ep := &choreov1.Endpoint{}
-	old := ep.DeepCopy()
-
 	if err := r.Get(ctx, req.NamespacedName, ep); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	old := ep.DeepCopy()
 
 	if ep.Labels == nil {
 		logger.Info("Endpoint labels not set.")
