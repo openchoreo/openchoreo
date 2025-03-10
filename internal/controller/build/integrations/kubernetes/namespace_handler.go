@@ -12,16 +12,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 )
 
 type namespaceHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ common.ResourceHandler[common.BuildContext] = (*namespaceHandler)(nil)
+var _ integrations.ResourceHandler[integrations.BuildContext] = (*namespaceHandler)(nil)
 
-func NewNamespaceHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
+func NewNamespaceHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
 	return &namespaceHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -32,11 +32,11 @@ func (h *namespaceHandler) KindName() string {
 }
 
 // NamespaceName has the format "choreo-ci-<org-name>"
-func (h *namespaceHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *namespaceHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return MakeNamespaceName(builtCtx)
 }
 
-func (h *namespaceHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
+func (h *namespaceHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := h.Name(ctx, builtCtx)
 	namespace := &corev1.Namespace{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name}, namespace)
@@ -48,12 +48,12 @@ func (h *namespaceHandler) Get(ctx context.Context, builtCtx *common.BuildContex
 	return namespace, nil
 }
 
-func (h *namespaceHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
+func (h *namespaceHandler) Create(ctx context.Context, builtCtx *integrations.BuildContext) error {
 	namespace := makeNamespace(builtCtx)
 	return h.kubernetesClient.Create(ctx, namespace)
 }
 
-func (h *namespaceHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+func (h *namespaceHandler) Update(ctx context.Context, builtCtx *integrations.BuildContext, currentState interface{}) error {
 	currentNS, ok := currentState.(*corev1.Namespace)
 	if !ok {
 		return errors.New("failed to cast current state to Namespace")
@@ -68,11 +68,11 @@ func (h *namespaceHandler) Update(ctx context.Context, builtCtx *common.BuildCon
 	return nil
 }
 
-func MakeNamespaceName(builtCtx *common.BuildContext) string {
+func MakeNamespaceName(builtCtx *integrations.BuildContext) string {
 	return "choreo-ci-" + controller.GetOrganizationName(builtCtx.Build)
 }
 
-func makeNamespace(builtCtx *common.BuildContext) *corev1.Namespace {
+func makeNamespace(builtCtx *integrations.BuildContext) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MakeNamespaceName(builtCtx),

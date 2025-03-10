@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 )
 
@@ -18,9 +18,9 @@ type serviceAccountHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ common.ResourceHandler[common.BuildContext] = (*serviceAccountHandler)(nil)
+var _ integrations.ResourceHandler[integrations.BuildContext] = (*serviceAccountHandler)(nil)
 
-func NewServiceAccountHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
+func NewServiceAccountHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
 	return &serviceAccountHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -30,11 +30,11 @@ func (h *serviceAccountHandler) KindName() string {
 	return "ArgoWorkflowServiceAccount"
 }
 
-func (h *serviceAccountHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *serviceAccountHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return makeServiceAccountName()
 }
 
-func (h *serviceAccountHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
+func (h *serviceAccountHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeServiceAccountName()
 	sa := corev1.ServiceAccount{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &sa)
@@ -46,12 +46,12 @@ func (h *serviceAccountHandler) Get(ctx context.Context, builtCtx *common.BuildC
 	return sa, nil
 }
 
-func (h *serviceAccountHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
+func (h *serviceAccountHandler) Create(ctx context.Context, builtCtx *integrations.BuildContext) error {
 	sa := makeServiceAccount(builtCtx)
 	return h.kubernetesClient.Create(ctx, sa)
 }
 
-func (h *serviceAccountHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+func (h *serviceAccountHandler) Update(ctx context.Context, builtCtx *integrations.BuildContext, currentState interface{}) error {
 	currentSA, ok := currentState.(*corev1.ServiceAccount)
 	if !ok {
 		return errors.New("failed to cast current state to ServiceAccount")
@@ -70,7 +70,7 @@ func makeServiceAccountName() string {
 	return "workflow-sa"
 }
 
-func makeServiceAccount(builtCtx *common.BuildContext) *corev1.ServiceAccount {
+func makeServiceAccount(builtCtx *integrations.BuildContext) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeServiceAccountName(),

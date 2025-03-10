@@ -327,7 +327,7 @@ func GetDeployment(ctx context.Context, c client.Client, obj client.Object) (*ch
 	)
 }
 
-func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DeployableArtifact, error) {
+func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Object, deployableName string) (*choreov1.DeployableArtifact, error) {
 	deployableArtifactList := &choreov1.DeployableArtifactList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
@@ -336,7 +336,7 @@ func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Obje
 			labels.LabelKeyProjectName:         GetProjectName(obj),
 			labels.LabelKeyComponentName:       GetComponentName(obj),
 			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyName:                GetDeployableArtifactName(obj),
+			labels.LabelKeyName:                deployableName,
 		},
 	}
 	if err := c.List(ctx, deployableArtifactList, listOpts...); err != nil {

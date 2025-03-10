@@ -1,12 +1,12 @@
 package kubernetes
 
 import (
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
 
-func MakeLabels(buildCtx *common.BuildContext) map[string]string {
+func MakeLabels(buildCtx *integrations.BuildContext) map[string]string {
 	return map[string]string{
 		dpkubernetes.LabelKeyCreatedBy: dpkubernetes.LabelBuildControllerCreated,
 		dpkubernetes.LabelKeyBelongTo:  buildCtx.Build.Labels[labels.LabelKeyOrganizationName],

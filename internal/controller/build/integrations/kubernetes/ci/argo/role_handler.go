@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 )
 
@@ -19,9 +19,9 @@ type roleHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ common.ResourceHandler[common.BuildContext] = (*roleHandler)(nil)
+var _ integrations.ResourceHandler[integrations.BuildContext] = (*roleHandler)(nil)
 
-func NewRoleHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
+func NewRoleHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
 	return &roleHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -31,11 +31,11 @@ func (h *roleHandler) KindName() string {
 	return "ArgoWorkflowRole"
 }
 
-func (h *roleHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *roleHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return makeRoleName()
 }
 
-func (h *roleHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
+func (h *roleHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeRoleName()
 	role := rbacv1.Role{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &role)
@@ -47,12 +47,12 @@ func (h *roleHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (i
 	return role, nil
 }
 
-func (h *roleHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
+func (h *roleHandler) Create(ctx context.Context, builtCtx *integrations.BuildContext) error {
 	role := makeRole(builtCtx)
 	return h.kubernetesClient.Create(ctx, role)
 }
 
-func (h *roleHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+func (h *roleHandler) Update(ctx context.Context, builtCtx *integrations.BuildContext, currentState interface{}) error {
 	currentRole, ok := currentState.(*rbacv1.Role)
 	if !ok {
 		return errors.New("failed to cast current state to Role")
@@ -71,7 +71,7 @@ func makeRoleName() string {
 	return "workflow-role"
 }
 
-func makeRole(builtCtx *common.BuildContext) *rbacv1.Role {
+func makeRole(builtCtx *integrations.BuildContext) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeRoleName(),

@@ -27,14 +27,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
 
-func makeArgoWorkflow(buildCtx *common.BuildContext) *argoproj.Workflow {
+func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 	workflow := argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MakeWorkflowName(buildCtx),
@@ -59,14 +59,14 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 				Steps: []argoproj.ParallelSteps{
 					{
 						Steps: []argoproj.WorkflowStep{
-							{Name: string(common.CloneStep), Template: string(common.CloneStep)},
+							{Name: string(integrations.CloneStep), Template: string(integrations.CloneStep)},
 						},
 					},
 					{
 						Steps: []argoproj.WorkflowStep{
 							{
-								Name:     string(common.BuildStep),
-								Template: string(common.BuildStep),
+								Name:     string(integrations.BuildStep),
+								Template: string(integrations.BuildStep),
 								Arguments: argoproj.Arguments{
 									Parameters: []argoproj.Parameter{
 										{
@@ -81,8 +81,8 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 					{
 						Steps: []argoproj.WorkflowStep{
 							{
-								Name:     string(common.PushStep),
-								Template: string(common.PushStep),
+								Name:     string(integrations.PushStep),
+								Template: string(integrations.PushStep),
 								Arguments: argoproj.Arguments{
 									Parameters: []argoproj.Parameter{
 										{
@@ -131,10 +131,10 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 		branch = "main"
 	}
 	return argoproj.Template{
-		Name: string(common.CloneStep),
+		Name: string(integrations.CloneStep),
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(common.CloneStep),
+				"step":     string(integrations.CloneStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},
@@ -161,7 +161,7 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 
 func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 	return argoproj.Template{
-		Name: string(common.BuildStep),
+		Name: string(integrations.BuildStep),
 		Inputs: argoproj.Inputs{
 			Parameters: []argoproj.Parameter{
 				{
@@ -171,7 +171,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 		},
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(common.BuildStep),
+				"step":     string(integrations.BuildStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},
@@ -192,7 +192,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 
 func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 	return argoproj.Template{
-		Name: string(common.PushStep),
+		Name: string(integrations.PushStep),
 		Inputs: argoproj.Inputs{
 			Parameters: []argoproj.Parameter{
 				{
@@ -202,7 +202,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 		},
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
-				"step":     string(common.PushStep),
+				"step":     string(integrations.PushStep),
 				"workflow": buildObj.ObjectMeta.Name,
 			},
 		},

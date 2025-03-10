@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 )
 
@@ -19,9 +19,9 @@ type roleBindingHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ common.ResourceHandler[common.BuildContext] = (*roleBindingHandler)(nil)
+var _ integrations.ResourceHandler[integrations.BuildContext] = (*roleBindingHandler)(nil)
 
-func NewRoleBindingHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
+func NewRoleBindingHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
 	return &roleBindingHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -31,11 +31,11 @@ func (h *roleBindingHandler) KindName() string {
 	return "ArgoWorkflowRoleBinding"
 }
 
-func (h *roleBindingHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *roleBindingHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return makeRoleBindingName()
 }
 
-func (h *roleBindingHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
+func (h *roleBindingHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeRoleBindingName()
 	role := rbacv1.Role{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &role)
@@ -47,12 +47,12 @@ func (h *roleBindingHandler) Get(ctx context.Context, builtCtx *common.BuildCont
 	return role, nil
 }
 
-func (h *roleBindingHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
+func (h *roleBindingHandler) Create(ctx context.Context, builtCtx *integrations.BuildContext) error {
 	roleBinding := makeRoleBinding(builtCtx)
 	return h.kubernetesClient.Create(ctx, roleBinding)
 }
 
-func (h *roleBindingHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+func (h *roleBindingHandler) Update(ctx context.Context, builtCtx *integrations.BuildContext, currentState interface{}) error {
 	currentRoleBinding, ok := currentState.(*rbacv1.RoleBinding)
 	if !ok {
 		return errors.New("failed to cast current state to Role Binding")
@@ -87,7 +87,7 @@ func makeRoleBindingName() string {
 	return "workflow-role-binding"
 }
 
-func makeRoleBinding(builtCtx *common.BuildContext) *rbacv1.RoleBinding {
+func makeRoleBinding(builtCtx *integrations.BuildContext) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeRoleBindingName(),

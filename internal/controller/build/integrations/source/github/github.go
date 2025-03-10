@@ -7,7 +7,7 @@ import (
 	"github.com/google/go-github/v69/github"
 	"gopkg.in/yaml.v3"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
 )
 
@@ -15,19 +15,19 @@ type githubHandler struct {
 	githubClient *github.Client
 }
 
-var _ source.SourceHandler[common.BuildContext] = (*githubHandler)(nil)
+var _ source.SourceHandler[integrations.BuildContext] = (*githubHandler)(nil)
 
-func NewGithubHandler(githubClient *github.Client) source.SourceHandler[common.BuildContext] {
+func NewGithubHandler(githubClient *github.Client) source.SourceHandler[integrations.BuildContext] {
 	return &githubHandler{
 		githubClient: githubClient,
 	}
 }
 
-func (h *githubHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *githubHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return "SourceGithub"
 }
 
-func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *common.BuildContext) (interface{}, error) {
+func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *integrations.BuildContext) (interface{}, error) {
 	owner, repositoryName, err := source.ExtractRepositoryInfo(buildCtx.Component.Spec.Source.GitRepository.URL)
 	if err != nil {
 		return nil, fmt.Errorf("bad git repository url: %w", err)

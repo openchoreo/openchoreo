@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build/common"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -19,9 +19,9 @@ type workflowHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ common.ResourceHandler[common.BuildContext] = (*workflowHandler)(nil)
+var _ integrations.ResourceHandler[integrations.BuildContext] = (*workflowHandler)(nil)
 
-func NewWorkflowHandler(kubernetesClient client.Client) common.ResourceHandler[common.BuildContext] {
+func NewWorkflowHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
 	return &workflowHandler{
 		kubernetesClient: kubernetesClient,
 	}
@@ -31,11 +31,11 @@ func (h *workflowHandler) KindName() string {
 	return "ArgoWorkflow"
 }
 
-func (h *workflowHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
+func (h *workflowHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
 	return MakeWorkflowName(builtCtx)
 }
 
-func (h *workflowHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
+func (h *workflowHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := MakeWorkflowName(builtCtx)
 	workflow := argoproj.Workflow{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &workflow)
@@ -47,33 +47,33 @@ func (h *workflowHandler) Get(ctx context.Context, builtCtx *common.BuildContext
 	return workflow, nil
 }
 
-func (h *workflowHandler) Create(ctx context.Context, builtCtx *common.BuildContext) error {
+func (h *workflowHandler) Create(ctx context.Context, builtCtx *integrations.BuildContext) error {
 	workflow := makeArgoWorkflow(builtCtx)
 	return h.kubernetesClient.Create(ctx, workflow)
 }
 
-func (h *workflowHandler) Update(ctx context.Context, builtCtx *common.BuildContext, currentState interface{}) error {
+func (h *workflowHandler) Update(ctx context.Context, builtCtx *integrations.BuildContext, currentState interface{}) error {
 	return nil
 }
 
 // MakeWorkflowName generates the workflow name using the build name.
 // WorkflowName is limited to 63 characters.
-func MakeWorkflowName(buildCtx *common.BuildContext) string {
+func MakeWorkflowName(buildCtx *integrations.BuildContext) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildCtx.Build.ObjectMeta.Name)
 }
 
-func GetStepPhase(phase argoproj.NodePhase) common.StepPhase {
+func GetStepPhase(phase argoproj.NodePhase) integrations.StepPhase {
 	switch phase {
 	case argoproj.NodeRunning, argoproj.NodePending:
-		return common.Running
+		return integrations.Running
 	case argoproj.NodeFailed, argoproj.NodeError, argoproj.NodeSkipped:
-		return common.Failed
+		return integrations.Failed
 	default:
-		return common.Succeeded
+		return integrations.Succeeded
 	}
 }
 
-func GetStepByTemplateName(nodes argoproj.Nodes, step common.BuildWorkflowStep) (*argoproj.NodeStatus, bool) {
+func GetStepByTemplateName(nodes argoproj.Nodes, step integrations.BuildWorkflowStep) (*argoproj.NodeStatus, bool) {
 	for _, node := range nodes {
 		if node.TemplateName == string(step) {
 			return &node, true
