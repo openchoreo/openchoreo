@@ -32,11 +32,11 @@ func (h *workflowHandler) KindName() string {
 }
 
 func (h *workflowHandler) Name(ctx context.Context, builtCtx *common.BuildContext) string {
-	return makeWorkflowName(builtCtx)
+	return MakeWorkflowName(builtCtx)
 }
 
 func (h *workflowHandler) Get(ctx context.Context, builtCtx *common.BuildContext) (interface{}, error) {
-	name := makeWorkflowName(builtCtx)
+	name := MakeWorkflowName(builtCtx)
 	workflow := argoproj.Workflow{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &workflow)
 	if apierrors.IsNotFound(err) {
@@ -56,9 +56,10 @@ func (h *workflowHandler) Update(ctx context.Context, builtCtx *common.BuildCont
 	return nil
 }
 
-// WorkflowName is the build name
-func makeWorkflowName(builtCtx *common.BuildContext) string {
-	return builtCtx.Build.Name
+// MakeWorkflowName generates the workflow name using the build name.
+// WorkflowName is limited to 63 characters.
+func MakeWorkflowName(buildCtx *common.BuildContext) string {
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildCtx.Build.ObjectMeta.Name)
 }
 
 func GetStepPhase(phase argoproj.NodePhase) common.StepPhase {

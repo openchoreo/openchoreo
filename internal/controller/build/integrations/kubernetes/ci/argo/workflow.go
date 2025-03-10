@@ -29,6 +29,7 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller/build/common"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
@@ -36,8 +37,11 @@ import (
 func makeArgoWorkflow(buildCtx *common.BuildContext) *argoproj.Workflow {
 	workflow := argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildCtx.Build.ObjectMeta.Name,
+			Name:      MakeWorkflowName(buildCtx),
 			Namespace: kubernetes.MakeNamespaceName(buildCtx),
+			Labels: map[string]string{
+				dpkubernetes.LabelKeyCreatedBy: dpkubernetes.LabelBuildControllerCreated,
+			},
 		},
 		Spec: makeWorkflowSpec(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL),
 	}
