@@ -13,7 +13,7 @@ components=("cilium" "vault" "argo" "cert_manager" "choreo_controller" "choreo_i
 
 # Unique label per each component
 cilium_deps=("app.kubernetes.io/name=cilium-agent" "app.kubernetes.io/name=cilium-operator")
-vault_deps=("app.kubernetes.io/name=vault" "app.kubernetes.io/name=vault-agent-injector")
+vault_deps=("app.kubernetes.io/name=vault")
 argo_deps=("app.kubernetes.io/name=argo-workflows-server" "app.kubernetes.io/name=argo-workflows-workflow-controller")
 cert_manager_deps=("app.kubernetes.io/name=certmanager" "app.kubernetes.io/name=cainjector" "app.kubernetes.io/name=webhook")
 choreo_controller_deps=("app.kubernetes.io/name=choreo")
