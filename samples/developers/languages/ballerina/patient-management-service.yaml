@@ -18,7 +18,6 @@ spec:
       url: https://github.com/chalindukodikara/choreo-samples
       authentication:
         secretRef: choreo-bot-git-pat
-
 ---
 
 ## Sample DeploymentTrack kind (Namespaced)

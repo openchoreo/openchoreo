@@ -5,7 +5,7 @@ This sample demonstrates how to create a new project in Choreo.
 Use the following command to create the new project.
 
 ```bash
-kubectl apply -f samples/new-project/new-project.yaml
+kubectl apply -f samples/project/project.yaml
 ``` 
 
 ```bash
