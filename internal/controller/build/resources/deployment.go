@@ -45,7 +45,6 @@ func MakeDeployment(buildCtx *integrations.BuildContext, environmentName string)
 				labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(buildCtx.Build),
 				labels.LabelKeyEnvironmentName:     environmentName,
 				labels.LabelKeyName:                MakeDeploymentLabelName(environmentName),
-				dpkubernetes.LabelKeyCreatedBy:     dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
 		Spec: choreov1.DeploymentSpec{

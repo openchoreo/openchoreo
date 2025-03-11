@@ -31,7 +31,6 @@ const (
 	LabelKeyDeploymentName      = "deployment-name"
 	LabelKeyDeploymentID        = "deployment-id"
 	LabelKeyManagedBy           = "managed-by"
-	LabelKeyCreatedBy           = "created-by"
 	LabelKeyBelongTo            = "belong-to"
 	LabelKeyComponentType       = "component-type"
 

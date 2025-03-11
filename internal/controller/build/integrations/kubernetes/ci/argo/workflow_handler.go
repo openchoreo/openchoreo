@@ -2,41 +2,35 @@ package argo
 
 import (
 	"context"
-	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 type workflowHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ integrations.ResourceHandler[integrations.BuildContext] = (*workflowHandler)(nil)
+var _ dataplane.ResourceHandler[integrations.BuildContext] = (*workflowHandler)(nil)
 
-func NewWorkflowHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
+func NewWorkflowHandler(kubernetesClient client.Client) dataplane.ResourceHandler[integrations.BuildContext] {
 	return &workflowHandler{
 		kubernetesClient: kubernetesClient,
 	}
 }
 
-func (h *workflowHandler) KindName() string {
+func (h *workflowHandler) Name() string {
 	return "ArgoWorkflow"
 }
 
-func (h *workflowHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
-	return MakeWorkflowName(builtCtx)
-}
-
-func (h *workflowHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
-	name := MakeWorkflowName(builtCtx)
+func (h *workflowHandler) GetCurrentState(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
+	name := makeWorkflowName(builtCtx)
 	workflow := argoproj.Workflow{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &workflow)
 	if apierrors.IsNotFound(err) {
@@ -56,9 +50,17 @@ func (h *workflowHandler) Update(ctx context.Context, builtCtx *integrations.Bui
 	return nil
 }
 
-// MakeWorkflowName generates the workflow name using the build name.
+func (h *workflowHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
+	return nil
+}
+
+func (h *workflowHandler) IsRequired(builtCtx *integrations.BuildContext) bool {
+	return true
+}
+
+// makeWorkflowName generates the workflow name using the build name.
 // WorkflowName is limited to 63 characters.
-func MakeWorkflowName(buildCtx *integrations.BuildContext) string {
+func makeWorkflowName(buildCtx *integrations.BuildContext) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildCtx.Build.ObjectMeta.Name)
 }
 
@@ -82,20 +84,11 @@ func GetStepByTemplateName(nodes argoproj.Nodes, step integrations.BuildWorkflow
 	return nil, false
 }
 
-// ConstructImageNameWithTag creates the image name with the tag.
-// This doesn't include git revision. It is added from the workflow.
-func ConstructImageNameWithTag(build *choreov1.Build) string {
-	orgName := build.ObjectMeta.Labels[labels.LabelKeyOrganizationName]
-	projName := build.ObjectMeta.Labels[labels.LabelKeyProjectName]
-	componentName := build.ObjectMeta.Labels[labels.LabelKeyComponentName]
-	dtName := build.ObjectMeta.Labels[labels.LabelKeyDeploymentTrackName]
-
-	// To prevent excessively long image names, we limit them to 128 characters for the name and 128 characters for the tag.
-	imageName := dpkubernetes.GenerateK8sNameWithLengthLimit(128, orgName, projName, componentName)
-	// The maximum recommended tag length is 128 characters, with 8 characters reserved for the commit SHA.
-	return fmt.Sprintf(
-		"%s:%s",
-		imageName,
-		dpkubernetes.GenerateK8sNameWithLengthLimit(119, dtName),
-	)
+func GetImageNameFromWorkflow(output argoproj.Outputs) string {
+	for _, param := range output.Parameters {
+		if param.Name == "image" {
+			return *param.Value
+		}
+	}
+	return ""
 }

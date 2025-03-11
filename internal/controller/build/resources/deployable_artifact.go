@@ -6,7 +6,6 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
 
@@ -33,7 +32,6 @@ func MakeDeployableArtifact(build *choreov1.Build) *choreov1.DeployableArtifact 
 				labels.LabelKeyComponentName:       controller.GetComponentName(build),
 				labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(build),
 				labels.LabelKeyName:                MakeDeployableArtifactName(build),
-				dpkubernetes.LabelKeyCreatedBy:     dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
 		Spec: choreov1.DeployableArtifactSpec{

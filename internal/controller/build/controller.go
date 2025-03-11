@@ -42,6 +42,7 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
 	sourcegithub "github.com/choreo-idp/choreo/internal/controller/build/integrations/source/github"
 	"github.com/choreo-idp/choreo/internal/controller/build/resources"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/labels"
 )
@@ -76,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if r.shouldIgnoreReconcile(build) {
+	if shouldIgnoreReconcile(build) {
 		return ctrl.Result{}, nil
 	}
 
@@ -108,7 +109,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if meta.FindStatusCondition(buildCtx.Build.Status.Conditions, string(ConditionCompleted)) == nil {
-		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
+		requeue := handleBuildSteps(build, existingWorkflow.Status.Nodes)
 
 		if requeue {
 			return r.handleRequeueAfterBuild(ctx, oldBuild, build, existingWorkflow)
@@ -124,7 +125,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	if r.shouldCreateDeployableArtifact(buildCtx.Build) {
+	if shouldCreateDeployableArtifact(buildCtx.Build) {
 		requeue, err := r.createDeployableArtifact(ctx, buildCtx)
 		if requeue {
 			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
@@ -174,8 +175,8 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // create the build namespace and other resources required for argo workflows.
-func (r *Reconciler) makeExternalResourceHandlers() []integrations.ResourceHandler[integrations.BuildContext] {
-	var handlers []integrations.ResourceHandler[integrations.BuildContext]
+func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[integrations.BuildContext] {
+	var handlers []dataplane.ResourceHandler[integrations.BuildContext]
 
 	handlers = append(handlers, kubernetes.NewNamespaceHandler(r.Client))
 	handlers = append(handlers, argointegrations.NewServiceAccountHandler(r.Client))
@@ -188,11 +189,11 @@ func (r *Reconciler) makeExternalResourceHandlers() []integrations.ResourceHandl
 // ReconcileResource handles the reconciliation logic for a single resource.
 func (r *Reconciler) ReconcileResource(
 	ctx context.Context,
-	resourceHandler integrations.ResourceHandler[integrations.BuildContext],
+	resourceHandler dataplane.ResourceHandler[integrations.BuildContext],
 	buildCtx *integrations.BuildContext,
 	logger logr.Logger) error {
 	// Check if the resource exists
-	currentState, err := resourceHandler.Get(ctx, buildCtx)
+	currentState, err := resourceHandler.GetCurrentState(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error retrieving current state of the resource")
 		return err
@@ -220,12 +221,11 @@ func (r *Reconciler) ReconcileResource(
 // reconcileExternalResources reconciles the provided external resources based on the build context.
 func (r *Reconciler) reconcileExternalResources(
 	ctx context.Context,
-	resourceHandlers []integrations.ResourceHandler[integrations.BuildContext],
+	resourceHandlers []dataplane.ResourceHandler[integrations.BuildContext],
 	buildCtx *integrations.BuildContext) error {
 	handlerNameLogKey := "resourceHandler"
 	for _, resourceHandler := range resourceHandlers {
-		resourceName := resourceHandler.KindName() + " - " + resourceHandler.Name(ctx, buildCtx)
-		logger := log.FromContext(ctx).WithValues(handlerNameLogKey, resourceName)
+		logger := log.FromContext(ctx).WithValues(handlerNameLogKey, resourceHandler.Name())
 
 		if err := r.ReconcileResource(ctx, resourceHandler, buildCtx, logger); err != nil {
 			logger.Error(err, "Error reconciling resource")
@@ -239,7 +239,7 @@ func (r *Reconciler) reconcileExternalResources(
 func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext) (*argoproj.Workflow, error) {
 	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
 	workflowHandler := argointegrations.NewWorkflowHandler(r.Client)
-	existingWorkflow, err := workflowHandler.Get(ctx, buildCtx)
+	existingWorkflow, err := workflowHandler.GetCurrentState(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error retrieving current state of the workflow resource")
 		return nil, err
@@ -262,7 +262,7 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued.
 // Reconciliation should be avoided if the build is in a final state.
-func (r *Reconciler) shouldIgnoreReconcile(build *choreov1.Build) bool {
+func shouldIgnoreReconcile(build *choreov1.Build) bool {
 	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeploymentApplied)) != nil ||
 		meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionFalse)
 }
@@ -270,26 +270,29 @@ func (r *Reconciler) shouldIgnoreReconcile(build *choreov1.Build) bool {
 // shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
 // Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
 // does not exist.
-func (r *Reconciler) shouldCreateDeployableArtifact(build *choreov1.Build) bool {
+func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
 	return meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionTrue) &&
 		meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
 }
 
+// handleRequeueAfterBuild manages the requeue process after a build step.
+// This function is specific to Argo Workflows.
 func (r *Reconciler) handleRequeueAfterBuild(
 	ctx context.Context, old, build *choreov1.Build, workflow *argoproj.Workflow,
 ) (ctrl.Result, error) {
-	// If the build step is still running, requeue the reconciliation after 1 minute.
-	// This provides a controlled requeue interval instead of relying on exponential backoff.
+	// Check if the build step is running and has not yet succeeded.
 	stepInfo, isFound := argointegrations.GetStepByTemplateName(workflow.Status.Nodes, integrations.BuildStep)
 	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildSucceeded)) == nil {
 		if argointegrations.GetStepPhase(stepInfo.Phase) == integrations.Running {
+			// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
 			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
 		}
 	}
+	// Default requeue without a delay if the build step is not there or already succeeded.
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 }
 
-func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
+func handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
 	steps := []struct {
 		stepName      integrations.BuildWorkflowStep
 		conditionType controller.ConditionType
@@ -308,15 +311,22 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 		case integrations.Running:
 			return true
 		case integrations.Succeeded:
-			r.markStepAsSucceeded(build, step.conditionType)
+			markStepAsSucceeded(build, step.conditionType)
 			isFinalStep := step.stepName == integrations.PushStep
 			if isFinalStep {
-				r.markWorkflowCompleted(build, stepInfo.Outputs)
+				image := argointegrations.GetImageNameFromWorkflow(*stepInfo.Outputs)
+				if image == "" {
+					meta.SetStatusCondition(&build.Status.Conditions, NewImageNotFoundErrorCondition(build.Generation))
+				} else {
+					build.Status.ImageStatus.Image = image
+					meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowCompletedCondition(build.Generation))
+				}
 				return false
 			}
 			return true
 		case integrations.Failed:
-			r.markStepAsFailed(build, step.conditionType)
+			markStepAsFailed(build, step.conditionType)
+			meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowFailedCondition(build.Generation))
 			return false
 		}
 	}

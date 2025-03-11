@@ -12,29 +12,26 @@ import (
 
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
 type serviceAccountHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ integrations.ResourceHandler[integrations.BuildContext] = (*serviceAccountHandler)(nil)
+var _ dataplane.ResourceHandler[integrations.BuildContext] = (*serviceAccountHandler)(nil)
 
-func NewServiceAccountHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
+func NewServiceAccountHandler(kubernetesClient client.Client) dataplane.ResourceHandler[integrations.BuildContext] {
 	return &serviceAccountHandler{
 		kubernetesClient: kubernetesClient,
 	}
 }
 
-func (h *serviceAccountHandler) KindName() string {
+func (h *serviceAccountHandler) Name() string {
 	return "ArgoWorkflowServiceAccount"
 }
 
-func (h *serviceAccountHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
-	return makeServiceAccountName()
-}
-
-func (h *serviceAccountHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
+func (h *serviceAccountHandler) GetCurrentState(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeServiceAccountName()
 	sa := corev1.ServiceAccount{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &sa)
@@ -64,6 +61,14 @@ func (h *serviceAccountHandler) Update(ctx context.Context, builtCtx *integratio
 	}
 
 	return nil
+}
+
+func (h *serviceAccountHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
+	return nil
+}
+
+func (h *serviceAccountHandler) IsRequired(builtCtx *integrations.BuildContext) bool {
+	return true
 }
 
 func makeServiceAccountName() string {

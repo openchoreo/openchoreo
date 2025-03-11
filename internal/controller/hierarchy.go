@@ -326,31 +326,3 @@ func GetDeployment(ctx context.Context, c client.Client, obj client.Object) (*ch
 		objWithName(&choreov1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
 	)
 }
-
-func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Object, deployableName string) (*choreov1.DeployableArtifact, error) {
-	deployableArtifactList := &choreov1.DeployableArtifactList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         GetProjectName(obj),
-			labels.LabelKeyComponentName:       GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyName:                deployableName,
-		},
-	}
-	if err := c.List(ctx, deployableArtifactList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployable artifacts: %w", err)
-	}
-
-	if len(deployableArtifactList.Items) > 0 {
-		return &deployableArtifactList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&choreov1.DeployableArtifact{}, GetDeployableArtifactName(obj)),
-		objWithName(&choreov1.Organization{}, GetOrganizationName(obj)),
-		objWithName(&choreov1.Project{}, GetProjectName(obj)),
-		objWithName(&choreov1.Component{}, GetComponentName(obj)),
-		objWithName(&choreov1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
-	)
-}

@@ -13,29 +13,26 @@ import (
 
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
 type roleBindingHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ integrations.ResourceHandler[integrations.BuildContext] = (*roleBindingHandler)(nil)
+var _ dataplane.ResourceHandler[integrations.BuildContext] = (*roleBindingHandler)(nil)
 
-func NewRoleBindingHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
+func NewRoleBindingHandler(kubernetesClient client.Client) dataplane.ResourceHandler[integrations.BuildContext] {
 	return &roleBindingHandler{
 		kubernetesClient: kubernetesClient,
 	}
 }
 
-func (h *roleBindingHandler) KindName() string {
+func (h *roleBindingHandler) Name() string {
 	return "ArgoWorkflowRoleBinding"
 }
 
-func (h *roleBindingHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
-	return makeRoleBindingName()
-}
-
-func (h *roleBindingHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
+func (h *roleBindingHandler) GetCurrentState(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeRoleBindingName()
 	role := rbacv1.Role{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &role)
@@ -65,6 +62,14 @@ func (h *roleBindingHandler) Update(ctx context.Context, builtCtx *integrations.
 	}
 
 	return nil
+}
+
+func (h *roleBindingHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
+	return nil
+}
+
+func (h *roleBindingHandler) IsRequired(builtCtx *integrations.BuildContext) bool {
+	return true
 }
 
 func (h *roleBindingHandler) shouldUpdate(current, new *rbacv1.RoleBinding) bool {

@@ -13,29 +13,26 @@ import (
 
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
 type roleHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ integrations.ResourceHandler[integrations.BuildContext] = (*roleHandler)(nil)
+var _ dataplane.ResourceHandler[integrations.BuildContext] = (*roleHandler)(nil)
 
-func NewRoleHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
+func NewRoleHandler(kubernetesClient client.Client) dataplane.ResourceHandler[integrations.BuildContext] {
 	return &roleHandler{
 		kubernetesClient: kubernetesClient,
 	}
 }
 
-func (h *roleHandler) KindName() string {
+func (h *roleHandler) Name() string {
 	return "ArgoWorkflowRole"
 }
 
-func (h *roleHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
-	return makeRoleName()
-}
-
-func (h *roleHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
+func (h *roleHandler) GetCurrentState(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
 	name := makeRoleName()
 	role := rbacv1.Role{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name, Namespace: kubernetes.MakeNamespaceName(builtCtx)}, &role)
@@ -67,6 +64,14 @@ func (h *roleHandler) Update(ctx context.Context, builtCtx *integrations.BuildCo
 	return nil
 }
 
+func (h *roleHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
+	return nil
+}
+
+func (h *roleHandler) IsRequired(builtCtx *integrations.BuildContext) bool {
+	return true
+}
+
 func makeRoleName() string {
 	return "workflow-role"
 }
@@ -89,7 +94,6 @@ func makeRole(builtCtx *integrations.BuildContext) *rbacv1.Role {
 }
 
 func (h *roleHandler) shouldUpdate(current, new *rbacv1.Role) bool {
-	// Compare the labels
 	if !cmp.Equal(kubernetes.ExtractManagedLabels(current.Labels), kubernetes.ExtractManagedLabels(new.Labels)) {
 		return true
 	}

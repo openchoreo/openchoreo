@@ -29,6 +29,7 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/choreo-idp/choreo/internal/ptr"
@@ -37,10 +38,10 @@ import (
 func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 	workflow := argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MakeWorkflowName(buildCtx),
+			Name:      makeWorkflowName(buildCtx),
 			Namespace: kubernetes.MakeNamespaceName(buildCtx),
 			Labels: map[string]string{
-				dpkubernetes.LabelKeyCreatedBy: dpkubernetes.LabelBuildControllerCreated,
+				dpkubernetes.LabelKeyManagedBy: dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
 		Spec: makeWorkflowSpec(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL),
@@ -181,7 +182,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 				Privileged: ptr.Bool(true),
 			},
 			Command: []string{"sh", "-c"},
-			Args:    generateBuildArgs(buildObj, ConstructImageNameWithTag(buildObj)),
+			Args:    generateBuildArgs(buildObj, ci.ConstructImageNameWithTag(buildObj)),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},
 				{Name: "podman-cache", MountPath: "/shared/podman/cache"},
@@ -213,7 +214,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(ConstructImageNameWithTag(buildObj)),
+				generatePushImageScript(ci.ConstructImageNameWithTag(buildObj)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},

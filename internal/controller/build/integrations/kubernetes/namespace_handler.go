@@ -13,31 +13,27 @@ import (
 
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
 type namespaceHandler struct {
 	kubernetesClient client.Client
 }
 
-var _ integrations.ResourceHandler[integrations.BuildContext] = (*namespaceHandler)(nil)
+var _ dataplane.ResourceHandler[integrations.BuildContext] = (*namespaceHandler)(nil)
 
-func NewNamespaceHandler(kubernetesClient client.Client) integrations.ResourceHandler[integrations.BuildContext] {
+func NewNamespaceHandler(kubernetesClient client.Client) dataplane.ResourceHandler[integrations.BuildContext] {
 	return &namespaceHandler{
 		kubernetesClient: kubernetesClient,
 	}
 }
 
-func (h *namespaceHandler) KindName() string {
+func (h *namespaceHandler) Name() string {
 	return "KubernetesNamespace"
 }
 
-// NamespaceName has the format "choreo-ci-<org-name>"
-func (h *namespaceHandler) Name(ctx context.Context, builtCtx *integrations.BuildContext) string {
-	return MakeNamespaceName(builtCtx)
-}
-
-func (h *namespaceHandler) Get(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
-	name := h.Name(ctx, builtCtx)
+func (h *namespaceHandler) GetCurrentState(ctx context.Context, builtCtx *integrations.BuildContext) (interface{}, error) {
+	name := MakeNamespaceName(builtCtx)
 	namespace := &corev1.Namespace{}
 	err := h.kubernetesClient.Get(ctx, client.ObjectKey{Name: name}, namespace)
 	if apierrors.IsNotFound(err) {
@@ -66,6 +62,14 @@ func (h *namespaceHandler) Update(ctx context.Context, builtCtx *integrations.Bu
 	}
 
 	return nil
+}
+
+func (h *namespaceHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
+	return nil
+}
+
+func (h *namespaceHandler) IsRequired(builtCtx *integrations.BuildContext) bool {
+	return true
 }
 
 func MakeNamespaceName(builtCtx *integrations.BuildContext) string {

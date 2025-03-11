@@ -6,7 +6,6 @@ import (
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
-	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 // Constants for condition types
@@ -66,12 +65,42 @@ func NewWorkflowInitializedCondition(generation int64) metav1.Condition {
 	)
 }
 
+func NewBuildWorkflowFailedCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionCompleted,
+		metav1.ConditionFalse,
+		ReasonWorkflowFailed,
+		"Build completed with a failure status.",
+		generation,
+	)
+}
+
 func NewDeployableArtifactCreatedCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionDeployableArtifactCreated,
 		metav1.ConditionTrue,
 		ReasonArtifactCreatedSuccessfully,
 		"Successfully created a deployable artifact for the build.",
+		generation,
+	)
+}
+
+func NewBuildWorkflowCompletedCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionCompleted,
+		metav1.ConditionTrue,
+		ReasonWorkflowCompleted,
+		"Build completed successfully",
+		generation,
+	)
+}
+
+func NewImageNotFoundErrorCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionCompleted,
+		metav1.ConditionFalse,
+		ReasonWorkflowFailed,
+		"Image name is not found in the workflow.",
 		generation,
 	)
 }
@@ -96,7 +125,7 @@ func NewAutoDeploymentSuccessfulCondition(generation int64) metav1.Condition {
 	)
 }
 
-func (r *Reconciler) markStepAsSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
+func markStepAsSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
 	successDescriptors := map[controller.ConditionType]struct {
 		Reason  controller.ConditionReason
 		Message string
@@ -124,7 +153,7 @@ func (r *Reconciler) markStepAsSucceeded(build *choreov1.Build, conditionType co
 	))
 }
 
-func (r *Reconciler) markStepAsFailed(build *choreov1.Build, conditionType controller.ConditionType) {
+func markStepAsFailed(build *choreov1.Build, conditionType controller.ConditionType) {
 	failureDescriptors := map[controller.ConditionType]struct {
 		Reason  controller.ConditionReason
 		Message string
@@ -150,40 +179,4 @@ func (r *Reconciler) markStepAsFailed(build *choreov1.Build, conditionType contr
 		failureDescriptors[conditionType].Message,
 		build.Generation,
 	))
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		ConditionCompleted,
-		metav1.ConditionFalse,
-		ReasonWorkflowFailed,
-		"Build completed with a failure status",
-		build.Generation,
-	))
-}
-
-func (r *Reconciler) markWorkflowCompleted(build *choreov1.Build, argoPushStepOutput *argoproj.Outputs) {
-	newCondition := metav1.Condition{
-		Type:               string(ConditionCompleted),
-		Status:             metav1.ConditionTrue,
-		LastTransitionTime: metav1.Now(),
-		Reason:             string(ReasonWorkflowCompleted),
-		Message:            "Build completed successfully.",
-	}
-	image := getImageNameFromWorkflow(*argoPushStepOutput)
-	if image == "" {
-		newCondition.Status = metav1.ConditionFalse
-		newCondition.Reason = string(ReasonWorkflowFailed)
-		newCondition.Message = "Image name is not found in the workflow"
-	} else {
-		build.Status.ImageStatus.Image = image
-	}
-	meta.SetStatusCondition(&build.Status.Conditions, newCondition)
-}
-
-func getImageNameFromWorkflow(output argoproj.Outputs) string {
-	for _, param := range output.Parameters {
-		if param.Name == "image" {
-			return *param.Value
-		}
-	}
-	return ""
 }

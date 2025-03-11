@@ -3,13 +3,11 @@ package kubernetes
 import (
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 func MakeLabels(buildCtx *integrations.BuildContext) map[string]string {
 	return map[string]string{
-		dpkubernetes.LabelKeyCreatedBy: dpkubernetes.LabelBuildControllerCreated,
-		dpkubernetes.LabelKeyBelongTo:  buildCtx.Build.Labels[labels.LabelKeyOrganizationName],
+		dpkubernetes.LabelKeyManagedBy: dpkubernetes.LabelBuildControllerCreated,
 	}
 }
 
@@ -23,7 +21,6 @@ func ExtractManagedLabels(labels map[string]string) map[string]string {
 		dpkubernetes.LabelKeyDeploymentName:      labels[dpkubernetes.LabelKeyDeploymentName],
 		dpkubernetes.LabelKeyManagedBy:           labels[dpkubernetes.LabelKeyManagedBy],
 		dpkubernetes.LabelKeyBelongTo:            labels[dpkubernetes.LabelKeyBelongTo],
-		dpkubernetes.LabelKeyCreatedBy:           labels[dpkubernetes.LabelKeyCreatedBy],
 		dpkubernetes.LabelKeyComponentType:       labels[dpkubernetes.LabelKeyComponentType],
 	}
 }
