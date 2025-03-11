@@ -30,7 +30,7 @@ The service exposes several REST endpoints for performing these operations.
 ## Deploy in Choreo
 
 ```bash
-kubectl apply -f samples/language-specific/ballerina-patient_management_service.yaml
+kubectl apply -f samples/languages/patient-management-service.yaml
 ``` 
 
 

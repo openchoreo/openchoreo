@@ -4,8 +4,8 @@ kind: Organization
 metadata:
   name: acme
   annotations:
-    core.choreo.dev/display-name: Acme Organization
-    core.choreo.dev/description: Choreo Organization for Acme
+    core.choreo.dev/display-name: ACME Organization
+    core.choreo.dev/description: Choreo Organization for ACME
   labels:
     core.choreo.dev/name: acme
 spec: {}
