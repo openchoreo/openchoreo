@@ -6,7 +6,7 @@ metadata:
   namespace: acme
   annotations:
     core.choreo.dev/display-name: Customer Portal
-    core.choreo.dev/description: This project contains components that are used by Acme customer portal
+    core.choreo.dev/description: This project contains types that are used by Acme customer portal
   labels:
     core.choreo.dev/organization: acme
     core.choreo.dev/name: customer-portal
