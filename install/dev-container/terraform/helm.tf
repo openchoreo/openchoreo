@@ -2,7 +2,7 @@ resource "helm_release" "cilium" {
   name             = "cilium"
   namespace        = var.namespace
   create_namespace = true
-  repository       = "oci://choreov3testacr.azurecr.io/choreo-v3"
+  repository       = "oci://ghcr.io/choreo-idp/helm-charts"
   chart           = "cilium"
   version         = var.cilium_version
   timeout         = 1800 # 30 minutes
@@ -13,7 +13,7 @@ resource "helm_release" "choreo" {
   name             = "choreo"
   namespace        = var.namespace
   create_namespace = true
-  repository       = "oci://choreov3testacr.azurecr.io/choreo-v3"
+  repository       = "oci://ghcr.io/choreo-idp/helm-charts"
   chart           = "choreo"
   version         = var.choreo_version
   wait            = false
