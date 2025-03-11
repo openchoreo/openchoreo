@@ -30,7 +30,7 @@ The service exposes several REST endpoints for performing these operations.
 ## Deploy in Choreo
 
 ```bash
-kubectl apply -f samples/languages/patient-management-service.yaml
+kubectl apply -f samples/applications/languages/ballerina/patient-management-service.yaml
 ``` 
 
 
@@ -58,7 +58,7 @@ kubectl -n choreo-ci-default-org logs -l workflow=patient-management-service-bui
 kubectl -n choreo-ci-default-org logs -l workflow=patient-management-service-build-01,step=push-step --tail=-1
 ```
 
-## Checking the Deployment Status
+## Check the Deployment Status
 You should see a namespace created for your org, project and environment combination. In this sample it will have the prefix `dp-default-org-default-project-development-`.
 
 List all the namespaces in the cluster to find the namespace created for the deployment.
@@ -82,27 +82,21 @@ For this sample, we will use kubectl port-forward to access the web application.
     kubectl port-forward svc/envoy-choreo-system-gateway-external-<hash> -n choreo-system 4430:443
     ```
 
-2. Add the following entry to your `/etc/hosts` file.
-
-    ```bash
-    echo "127.0.0.1 development.apis.choreo.local" | sudo tee -a /etc/hosts
-    ```
-
    Now you can Invoke the endpoints using the following URL.
     ```bash
-    https://development.apis.choreo.local:4430/default-project/patient-management-service/mediflow
+    https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow
    ```
    
-3. Invoke the service
+2. Invoke the service
 
    Health check
    ```bash
-    curl -k https://development.apis.choreo.local:4430/default-project/patient-management-service/mediflow/health
+    curl -k https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow/health
    ```
    
    Add a new patient
    ```bash
-   curl -k -X POST https://development.apis.choreo.local:4430/default-project/patient-management-service/mediflow \
+   curl -k -X POST https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow \
    -H "Content-Type: application/json" \
    -d '{
    "name": "Alice",
@@ -112,12 +106,12 @@ For this sample, we will use kubectl port-forward to access the web application.
    ```
    
    Retrieve a patient by name
-      ```bash
-    curl -k https://development.apis.choreo.local:4430/default-project/patient-management-service/mediflow/Alice
+   ```bash
+    curl -k https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow/Alice
    ```
    
    List all patients
    ```bash
-    curl -k https://development.apis.choreo.local:4430/default-project/patient-management-service/mediflow/patients
+    curl -k https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow/patients
    ```
    

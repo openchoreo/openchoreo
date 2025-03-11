@@ -6,7 +6,7 @@ This sample demonstrates how to deploy a web application as a container image in
 The following command will create the component, deployment track, deployable artifact and the deployment in Choreo.
 
 ```bash
-kubectl apply -f samples/web-applications/container-image/react-starter.yaml
+kubectl apply -f samples/applications/types/web-applications/container-image/react-starter.yaml
 ```
 
 ## Retrieving the Invocation URL

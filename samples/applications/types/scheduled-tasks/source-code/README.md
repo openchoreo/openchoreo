@@ -1,14 +1,14 @@
 # Time Logger Scheduled Task
 This is a simple program that logs the current time. This program can be deployed in Choreo to be executed periodically by creating a Scheduled Task.
 
-## Deploying in Choreo
+## Deploy in Choreo
 The following command will create the component, deployment track and the deployment in Choreo. It'll also trigger a build by creating a build resource. 
 
 ```bash
 kubectl apply -f samples/scheduled-tasks/source-code/time-logger.yaml
 ```
 
-## Checking the Argo Workflow Status
+## Check the Argo Workflow Status
 Argo workflow will create three tasks.
 
 ```
@@ -32,7 +32,7 @@ kubectl -n choreo-ci-default-org logs -l workflow=time-logger-build-01,step=buil
 kubectl -n choreo-ci-default-org logs -l workflow=time-logger-build-01,step=push-step --tail=-1
 ```
 
-## Checking the Deployment Status
+## Check the Deployment Status
 You should see a namespace created for your org, project and environment combination. In this sample it will have the prefix `dp-default-org-default-project-development-`. 
 
 List all the namespaces in the cluster to find the namespace created for the deployment.
