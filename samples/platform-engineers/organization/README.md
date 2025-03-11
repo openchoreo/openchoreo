@@ -1,11 +1,11 @@
 # Create a new Organization
 This sample demonstrates how to create a new organization in Choreo. It all creates other necessary resources such as environments, dataplanes, and deployment tracks.
 
-## Deploying in Choreo
+## Deploy in Choreo
 Use the following command to create the new organization called `ACME`.
 
 ```bash
-kubectl apply -f samples/organization/new-organization.yaml
+kubectl apply -f samples/platform-engineers/organization/organization.yaml
 ``` 
 
 ```bash
