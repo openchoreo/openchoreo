@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-config-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: vault-config
+    spec:
+      #serviceAccountName: vault-config-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: vault-config
+        image: hashicorp/vault:1.18.1
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for Vault to be ready
+          until vault status -address=http://choreo-vault.{{ .Release.Namespace }}.svc:8200; do
+            echo "Waiting for Vault to be ready..."
+            sleep 5
+          done
+          
+          # Set environment variables
+          export VAULT_ADDR=http://choreo-vault.{{ .Release.Namespace }}.svc:8200
+          export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
+          
+          # Enable Kubernetes authentication
+          vault auth enable kubernetes
+          
+          # Configure Kubernetes authentication
+          vault write auth/kubernetes/config \
+            kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+          
+          # Create a policy for accessing secrets
+          vault policy write choreo-secret-reader-policy - <<EOF
+          # Allow reading the data of any secret at secret/*
+          path "secret/data/*" {
+            capabilities = ["read"]
+          }
+          
+          # Allow listing and reading metadata at secret/*
+          path "secret/metadata/*" {
+            capabilities = ["list", "read"]
+          }
+          EOF
+          
+          # Create a Kubernetes auth role
+          vault write auth/kubernetes/role/choreo-secret-reader-role \
+            bound_service_account_names="default" \
+            bound_service_account_namespaces="dp*" \
+            policies=choreo-secret-reader-policy \
+            ttl=20m
+

@@ -5,15 +5,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+    "helm.sh/hook-weight": "13"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:
   backoffLimit: 3
   template:
     metadata:
       name: vault-config
     spec:
-      serviceAccountName: vault-config-sa
+      #serviceAccountName: vault-config-sa
       restartPolicy: OnFailure
       containers:
       - name: vault-config
@@ -21,13 +21,7 @@ spec:
         command:
         - /bin/sh
         - -c
-        - |
-          # Wait for Vault to be ready
-          until vault status -address=http://choreo-vault.{{ .Release.Namespace }}.svc:8200; do
-            echo "Waiting for Vault to be ready..."
-            sleep 5
-          done
-          
+        - |          
           # Set environment variables
           export VAULT_ADDR=http://choreo-vault.{{ .Release.Namespace }}.svc:8200
           export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
@@ -58,6 +52,4 @@ spec:
             bound_service_account_namespaces="dp*" \
             policies=choreo-secret-reader-policy \
             ttl=20m
-          
-          # Enable KV version 2 secrets engine
-          vault secrets enable -path=secret -version=2 kv || true
+
