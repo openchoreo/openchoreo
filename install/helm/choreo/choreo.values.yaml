@@ -88,7 +88,16 @@ vault:
       enabled: true
       devRootToken: "root"
       logLevel: "info"
+    # Add readiness probe configuration
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+      initialDelaySeconds: 5
+      timeoutSeconds: 10  # Increase from default
+      periodSeconds: 10
+      failureThreshold: 3
   injector:
+    enabled: false
     # -- Resource limits and requests for the vault injector
     resources:
       requests:
@@ -97,6 +106,13 @@ vault:
       limits:
         memory: 128Mi
         cpu: 100m
+# customizing the secrets-store-csi-driver configurations
+secrets-store-csi-driver:
+  syncSecret:
+    enabled: true
+  enableSecretRotation: true
+  vaultCsiProvider:
+    enabled: true
 # customizing the argo workflows configurations
 argo-workflows:
   controller:

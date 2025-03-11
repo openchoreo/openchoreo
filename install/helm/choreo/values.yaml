@@ -132,7 +132,15 @@ vault:
       enabled: true
       devRootToken: "root"
       logLevel: "info"
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+      initialDelaySeconds: 5
+      timeoutSeconds: 10  # Increase from default
+      periodSeconds: 10
+      failureThreshold: 3
   injector:
+    enabled: false
     resources:
       requests:
         memory: 64Mi
@@ -140,6 +148,12 @@ vault:
       limits:
         memory: 128Mi
         cpu: 100m
+secrets-store-csi-driver:
+  syncSecret:
+    enabled: true
+  enableSecretRotation: true
+  vaultCsiProvider:
+    enabled: true
 argo-workflows:
   controller:
     resources:
