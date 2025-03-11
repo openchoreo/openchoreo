@@ -1,0 +1,86 @@
+## Sample Component kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: reading-list-service
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Service
+    core.choreo.dev/description: A REST API to manage a reading list of books
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: reading-list-service
+spec:
+  type: Service
+  source:
+    gitRepository:
+      url: https://github.com/wso2/choreo-samples
+---
+
+## Sample DeploymentTrack kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: reading-list-service-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Main deployment track
+    core.choreo.dev/description: The main deployment track for the reading-list-service component
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/name: reading-list-service-main
+spec:
+  buildTemplateSpec:
+    branch: main
+    path: /go-reading-list-rest-api
+    buildConfiguration:
+      buildpack:
+        name: Go
+        version: 1.x
+---
+
+## Sample Build kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Build
+metadata:
+  name: reading-list-service-build
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Build for Reading List Service
+    core.choreo.dev/description: Build triggered for the Reading List Service
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/deployment-track: reading-list-service-main
+    core.choreo.dev/name: reading-list-service-build
+spec:
+  branch: main
+  path: /go-reading-list-rest-api
+  buildConfiguration:
+    buildpack:
+      name: Go
+      version: 1.x
+---
+
+## Sample Deployment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: reading-list-service-deployment
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Service Deployment
+    core.choreo.dev/description: Deployment for the Reading List Service
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/deployment-track: reading-list-service-main
+    core.choreo.dev/name: reading-list-service-deployment
+spec:
+  deploymentArtifactRef: reading-list-service-build
