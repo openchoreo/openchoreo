@@ -33,15 +33,14 @@ func MakeNamespaceName(epCtx *dataplane.EndpointContext) string {
 }
 
 // MakeServiceName has the format dp-<component-name>-<deployment-track-name>-<hash>
-func MakeServiceName(deployCtx *dataplane.EndpointContext) string {
-	componentName := deployCtx.Component.Name
-	deploymentTrackName := deployCtx.DeploymentTrack.Name
+func MakeServiceName(epCtx *dataplane.EndpointContext) string {
+	componentName := epCtx.Component.Name
+	deploymentTrackName := epCtx.DeploymentTrack.Name
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxServiceNameLength, componentName, deploymentTrackName)
 }
 
-// MakeHTTPRouteName has the format dp-<gateway-name>-<component-name>-<endpoint-name>-<hash>
+// MakeHTTPRouteName has the format dp-<gateway-name>-<endpoint-name>-<hash>
 func MakeHTTPRouteName(epCtx *dataplane.EndpointContext, gwName string) string {
-	componentName := epCtx.Component.Name
 	endpointName := epCtx.Endpoint.Name
-	return dpkubernetes.GenerateK8sName(gwName, componentName, endpointName)
+	return dpkubernetes.GenerateK8sName(gwName, endpointName)
 }
