@@ -15,7 +15,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace:  {{ include "choreo.fullname" . }}-system
+  namespace:  {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
   name:  {{ include "choreo.fullname" . }}-csi-secrets-store-token-creator

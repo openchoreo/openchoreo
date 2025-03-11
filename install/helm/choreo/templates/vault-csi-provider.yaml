@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name:  {{ include "choreo.fullname" . }}-vault-csi-provider
   name:  {{ include "choreo.fullname" . }}-vault-csi-provider
-  namespace:  {{ include "choreo.fullname" . }}-system
+  namespace:  {{ .Release.Namespace }}
 spec:
   updateStrategy:
     type: RollingUpdate
