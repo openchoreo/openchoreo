@@ -132,7 +132,7 @@ type EndpointSpec struct {
 
 	// Network visibility levels that the endpoint is exposed
 	// +optional
-	NetworkVisibilities NetworkVisibility `json:"networkVisibilities,omitempty"`
+	NetworkVisibilities *NetworkVisibility `json:"networkVisibilities,omitempty"`
 
 	// Configuration parameters related to the managed endpoint
 	// +optional
@@ -145,18 +145,18 @@ type EndpointSpec struct {
 type NetworkVisibility struct {
 	// When enabled, the endpoint is accessible to other services within the same organization.
 	// +optional
-	Organization VisibilityConfig `json:"organization,omitempty"`
+	Organization *VisibilityConfig `json:"organization,omitempty"`
 
 	// When enabled, the endpoint becomes accessible externally
 	// +optional
-	Public VisibilityConfig `json:"public,omitempty"`
+	Public *VisibilityConfig `json:"public,omitempty"`
 }
 
 type VisibilityConfig struct {
 	// +required
 	Enable bool `json:"enable"`
 	// +optional
-	APISettings EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
+	APISettings *EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
 }
 
 // EndpointStatus defines the observed state of Endpoint
@@ -178,12 +178,12 @@ type Endpoint struct {
 	Status EndpointStatus `json:"status,omitempty"`
 }
 
-func (e *Endpoint) GetConditions() []metav1.Condition {
-	return e.Status.Conditions
+func (ep *Endpoint) GetConditions() []metav1.Condition {
+	return ep.Status.Conditions
 }
 
-func (e *Endpoint) SetConditions(conditions []metav1.Condition) {
-	e.Status.Conditions = conditions
+func (ep *Endpoint) SetConditions(conditions []metav1.Condition) {
+	ep.Status.Conditions = conditions
 }
 
 // EndpointList contains a list of Endpoint

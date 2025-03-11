@@ -102,8 +102,8 @@ var _ = Describe("makeDeployment", func() {
 								BasePath: "/test",
 								Port:     8080,
 							},
-							NetworkVisibilities: choreov1.NetworkVisibility{
-								Public: choreov1.VisibilityConfig{
+							NetworkVisibilities: &choreov1.NetworkVisibility{
+								Public: &choreov1.VisibilityConfig{
 									Enable: true,
 								},
 							},
@@ -118,8 +118,8 @@ var _ = Describe("makeDeployment", func() {
 							Service: choreov1.EndpointServiceSpec{
 								Port: 8080,
 							},
-							NetworkVisibilities: choreov1.NetworkVisibility{
-								Public: choreov1.VisibilityConfig{
+							NetworkVisibilities: &choreov1.NetworkVisibility{
+								Public: &choreov1.VisibilityConfig{
 									Enable: true,
 								},
 							},

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package kubernetes
+package public
 
 import (
 	"context"
@@ -26,12 +26,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
@@ -58,8 +56,8 @@ func (h *SecurityPolicyHandler) IsRequired(ctx *dataplane.EndpointContext) bool 
 }
 
 func (h *SecurityPolicyHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
-	namespace := makeNamespaceName(epCtx)
-	name := makeHTTPRouteName(epCtx)
+	namespace := kubernetes.MakeNamespaceName(epCtx)
+	name := kubernetes.MakeHTTPRouteName(epCtx, kubernetes.GatewayExternal)
 	out := &egv1a1.SecurityPolicy{}
 	err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, out)
 	if apierrors.IsNotFound(err) {
@@ -71,7 +69,7 @@ func (h *SecurityPolicyHandler) GetCurrentState(ctx context.Context, epCtx *data
 }
 
 func (h *SecurityPolicyHandler) Create(ctx context.Context, epCtx *dataplane.EndpointContext) error {
-	securityPolicy := makeSecurityPolicy(epCtx)
+	securityPolicy := kubernetes.MakeSecurityPolicy(epCtx, kubernetes.GatewayExternal)
 	return h.client.Create(ctx, securityPolicy)
 }
 
@@ -80,7 +78,7 @@ func (h *SecurityPolicyHandler) Update(ctx context.Context, epCtx *dataplane.End
 	if !ok {
 		return errors.New("failed to cast current state to SecurityPolicy")
 	}
-	new := makeSecurityPolicy(epCtx)
+	new := kubernetes.MakeSecurityPolicy(epCtx, kubernetes.GatewayExternal)
 	if shouldUpdate(current, new) {
 		new.ResourceVersion = current.ResourceVersion
 		return h.client.Update(ctx, new)
@@ -98,46 +96,9 @@ func (h *SecurityPolicyHandler) Delete(ctx context.Context, epCtx *dataplane.End
 	return nil
 }
 
-func makeSecurityPolicy(epCtx *dataplane.EndpointContext) *egv1a1.SecurityPolicy {
-	return &egv1a1.SecurityPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      makeHTTPRouteName(epCtx),
-			Namespace: makeNamespaceName(epCtx),
-			Labels:    makeWorkloadLabels(epCtx),
-		},
-		Spec: makeSecurityPolicySpec(epCtx),
-	}
-}
-
-func makeSecurityPolicySpec(epCtx *dataplane.EndpointContext) egv1a1.SecurityPolicySpec {
-	return egv1a1.SecurityPolicySpec{
-		JWT: &egv1a1.JWT{
-			Providers: []egv1a1.JWTProvider{
-				{
-					Name: "default",
-					RemoteJWKS: egv1a1.RemoteJWKS{
-						URI: epCtx.Environment.Spec.Gateway.Security.RemoteJWKS.URI,
-					},
-				},
-			},
-		},
-		PolicyTargetReferences: egv1a1.PolicyTargetReferences{
-			TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
-				{
-					LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
-						Group: gwapiv1.GroupName,
-						Kind:  gwapiv1.Kind("HTTPRoute"),
-						Name:  gwapiv1a2.ObjectName(makeHTTPRouteName(epCtx)),
-					},
-				},
-			},
-		},
-	}
-}
-
 func shouldUpdate(current, new *egv1a1.SecurityPolicy) bool {
 	// Compare the labels
-	if !cmp.Equal(extractManagedLabels(current.Labels), extractManagedLabels(new.Labels)) {
+	if !cmp.Equal(kubernetes.ExtractManagedLabels(current.Labels), kubernetes.ExtractManagedLabels(new.Labels)) {
 		return true
 	}
 

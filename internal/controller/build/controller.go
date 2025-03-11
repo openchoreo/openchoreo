@@ -509,17 +509,17 @@ func createServiceSpec(service source.Service) choreov1.EndpointServiceSpec {
 	}
 }
 
-func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) choreov1.NetworkVisibility {
+func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) *choreov1.NetworkVisibility {
 	nv := choreov1.NetworkVisibility{}
 
 	for _, visibility := range visibilities {
 		switch visibility {
 		case source.NetworkVisibilityLevelOrganization:
-			nv.Organization = choreov1.VisibilityConfig{Enable: true}
+			nv.Organization = &choreov1.VisibilityConfig{Enable: true}
 		case source.NetworkVisibilityLevelPublic:
-			nv.Public = choreov1.VisibilityConfig{Enable: true}
+			nv.Public = &choreov1.VisibilityConfig{Enable: true}
 		}
 	}
 
-	return nv
+	return &nv
 }

@@ -24,7 +24,7 @@ import (
 	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
 )
 
-func makeLabels(epCtx *dataplane.EndpointContext) map[string]string {
+func MakeLabels(epCtx *dataplane.EndpointContext) map[string]string {
 	return map[string]string{
 		dpkubernetes.LabelKeyOrganizationName:    controller.GetOrganizationName(epCtx.Project),
 		dpkubernetes.LabelKeyProjectName:         controller.GetName(epCtx.Project),
@@ -37,13 +37,13 @@ func makeLabels(epCtx *dataplane.EndpointContext) map[string]string {
 	}
 }
 
-func makeWorkloadLabels(epCtx *dataplane.EndpointContext) map[string]string {
-	labels := makeLabels(epCtx)
+func MakeWorkloadLabels(epCtx *dataplane.EndpointContext) map[string]string {
+	labels := MakeLabels(epCtx)
 	labels[dpkubernetes.LabelKeyComponentType] = string(epCtx.Component.Spec.Type)
 	return labels
 }
 
-func extractManagedLabels(labels map[string]string) map[string]string {
+func ExtractManagedLabels(labels map[string]string) map[string]string {
 	return map[string]string{
 		dpkubernetes.LabelKeyOrganizationName:    labels[dpkubernetes.LabelKeyOrganizationName],
 		dpkubernetes.LabelKeyProjectName:         labels[dpkubernetes.LabelKeyProjectName],

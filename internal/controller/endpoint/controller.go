@@ -33,6 +33,8 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/organization"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/public"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
@@ -168,8 +170,10 @@ func (r *Reconciler) makeEndpointContext(ctx context.Context, ep *choreov1.Endpo
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
-		kubernetes.NewHTTPRouteHandler(r.Client),
-		kubernetes.NewSecurityPolicyHandler(r.Client),
+		public.NewHTTPRouteHandler(r.Client),
+		public.NewSecurityPolicyHandler(r.Client),
+		organization.NewHTTPRouteHandler(r.Client),
+		organization.NewSecurityPolicyHandler(r.Client),
 	}
 
 	return resourceHandlers
