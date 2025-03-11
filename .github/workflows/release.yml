@@ -36,3 +36,7 @@ jobs:
           sed -i '/^[[:space:]]*tag:/d' install/helm/choreo/values.yaml
           make helm-dependency-build helm-package helm-push
 
+      - name: Docker Build and push dev container image
+        run: |
+          make dev-container-docker-build dev-container-docker-push dev-container-docker-push-latest
+
