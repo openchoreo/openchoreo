@@ -1,0 +1,23 @@
+## Sample DataPlane kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DataPlane
+metadata:
+  name: us-east-1
+  namespace: acme
+  annotations:
+    core.choreo.dev/display-name: US East Data Plane
+    core.choreo.dev/description: Primary data plane for handling services and workloads in the US East region (AWS).
+  labels:
+    core.choreo.dev/organization: acme-corp
+    core.choreo.dev/name: us-east-1
+spec:
+  kubernetesCluster:
+    name: eks-us-east-1
+    connectionConfigRef: eks-us-east-1-connection-config
+    featureFlags:
+      cilium: true
+      scaleToZero: false
+      gatewayType: envoy
+  gateway:
+    publicVirtualHost: api.acme.com
+    organizationVirtualHost: internal.acme.com
