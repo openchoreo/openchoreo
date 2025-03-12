@@ -57,7 +57,23 @@ To begin the installation, run:
 
 Once the installation is complete, you will see the following confirmation message:
 ```text
->>>> Everything has been setup, ready to deploy application.
+Choreo Installation Status:
+
+Component                 Status         
+------------------------  ---------------
+cilium                    ✅ ready
+vault                     ✅ ready
+argo                      ✅ ready
+cert_manager              ✅ ready
+choreo_controller         ✅ ready
+choreo_image_registry     ✅ ready
+envoy_gateway             ✅ ready
+redis                     ✅ ready
+external_gateway          ✅ ready
+internal_gateway          ✅ ready
+
+Overall Status: ✅ READY
+🎉 Choreo has been successfully installed and is ready to use!
 ``` 
 
 #### Deploying a Web Application with Open Source Choreo
@@ -79,16 +95,11 @@ Once the deployment is complete, you will receive the following message together
 ### Understanding What Happens Behind the Scenes
 By following the install and deploy web application commands, you first, setup Open Source Choreo and then, successfully deployed and accessed a fully functional Web Application. 
 
-Let’s now explore what happened after each command. To access the artifacts created in Open Source Choreo we will be using choreoctl.
+Let’s now explore what happens after each command.
 
-#### 1. The Install command
-- A dev container with all the necessary tools for Open Source Choreo to run in a local Docker environment.
-- A KinD Kubernetes cluster, where the Open Source Choreo IDP and its dependencies were installed using Helm charts.
-
-To check all the installed components, run:
-```shell
-./check-status.sh
-```
+#### 1. The Install Command
+- A dev container with all the necessary tools for Open Source Choreo to run is set up in a local Docker environment.
+- A KinD Kubernetes cluster is created, where the Open Source Choreo IDP and its dependencies were installed using Helm charts.
 
 #### Foundation Resources Created by Open Source Choreo
 
@@ -96,19 +107,27 @@ The installation process, by default, sets up several essential abstractions. Th
 - Organization
 - [Dataplane](https://github.com/choreo-idp/choreo/tree/main/docs#dataplane)
 - [Environments](https://github.com/choreo-idp/choreo/tree/main/docs#environment) (e.g., Development, Staging, Production)
-- A [Deployment Pipeline](https://github.com/choreo-idp/choreo/tree/main/docs#deploymentpipeline) for the environments
-- Default [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
+- [Deployment Pipeline](https://github.com/choreo-idp/choreo/tree/main/docs#deploymentpipeline) for the environments
+- [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
 
-You can inspect these in more detail using the following commands:
+To access the artifacts created in Open Source Choreo you can use choreoctl as shown in the following commands:
 
 ```shell
 choreoctl get organizations
-
+```
+```shell
 choreoctl get dataplanes --organization default-org
-
+```
+```shell
 choreoctl get environments --organization default-org
-
+```
+```shell
 choreoctl get projects --organization default-org
+```
+To get more details on any of these abstractions, you can use a similar command to the following command:
+
+```shell
+get project default-project --organization default-org -oyaml
 ```
 
 #### 2. The Deploy Web Application Command
@@ -118,7 +137,8 @@ To inspect these resources in more detail, run the following commands:
 
 ```shell
 choreoctl get components --organization default-org --project default-project
-
+```
+```shell
 choreoctl get deployment --organization default-org --project default-project --component react-starter-image --environment development
 ```
 
@@ -126,8 +146,16 @@ Open Source Choreo generates a [DeployableArtifact](https://github.com/choreo-id
 
 ```shell
 choreoctl get deployableartifact --organization default-org --project default-project --component react-starter-image
-
+```
+```shell
 choreoctl get endpoint --organization default-org --project default-project --component react-starter-image --environment development
+```
+
+You can also check out the logs for the sample Web Application Deployment with the following command:
+```shell
+choreoctl logs --organization default-org --project default-project \
+--component react-starter-image --type deployment --environment development \
+--deployment react-starter-image-deployment
 ```
 
 ### Cleaning up
