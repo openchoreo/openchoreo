@@ -1,4 +1,4 @@
-# Choreo
+# Open Source Choreo
 A Complete, yet Customizable Internal Developer Platform
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -7,25 +7,29 @@ A Complete, yet Customizable Internal Developer Platform
 [![GitHub issues](https://img.shields.io/github/issues/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/issues)
 
 ## What is Open Source Choreo?
-Open Source Choreo is an Internal Developer Platform (IDP) designed to empower platform engineers by simplifying infrastructure automation, governance, and security. It provides the foundation for building scalable, self-service developer platforms, reducing operational overhead while ensuring compliance and standardization. With automated CI/CD, security, and cloud integrations, Choreo helps platform teams enforce best practices and streamline development workflows.
+Open Source Choreo is a fully open source Internal Developer Platform (IDP) designed to empower platform engineers by simplifying infrastructure automation, governance, and security. With Open Source Choreo, platform engineers can seamelessly setup the foundational components of the organization's IDP effortlessly. With automated CI/CD, security, and cloud tool integrations, Open Source Choreo helps platform teams enforce best practices and streamline development workflows.
 
-At the same time, Choreo provides developers with a unified interface to build, test, and deploy applications without the complexity of managing infrastructure. By embracing platform engineering principles, Choreo enables teams to accelerate software delivery, optimize operations, and free up engineering resources—allowing them to focus on innovation rather than infrastructure management.
+At the same time, Open Source Choreo provides developers with a configured platform to build, test, and deploy applications without the complexity of managing infrastructure or foundational enterprise platform artifacts. 
+
+By embracing platform engineering principles, Open Source Choreo enables teams to accelerate software delivery, optimize operations, and free up engineering resources—allowing them to focus on innovation rather than infrastructure management.
 
 [//]: # (Architecture Diagram)
 
-## Choreo Abstractions
-This [document](docs/choreo-abstractions.md) outlines Choreo abstractions as Kubernetes [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), allowing developers to manage application lifecycles and infrastructure declaratively. Here, you’ll find details on how to define projects, components, builds, and deployments, ensuring consistency, scalability, and repeatability across environments.
+##  Open Source Choreo Abstractions 
+
+Open Source Choreo converts typical enterprise abstractions into Kubernetes [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), allowing platform engineers to set up the IDP and developers to manage application artifacts declaratively. This [document](docs/choreo-abstractions.md) outlines the abstractions used in Open Source Choreo
+with references on how to define projects, components, builds, and deployments, ensuring consistency, scalability, and repeatability across environments.
 
 ## Quick Start Guide
 
-Setting up Choreo in a Kubernetes cluster involves multiple steps and tools. This tutorial provides a fast and simple way to install a fully functional Choreo instance on your local machine with minimal prerequisites and effort.
-This guide uses a pre-configured dev container that comes with all necessary tools installed and ready to use. Once the installation is complete, you can explore the underlying setup to understand how it works.
+Setting up Open Source Choreo in a Kubernetes cluster involves multiple steps and tools. This guide provides a fast and simple way to install a fully functional Open Source Choreo instance on your local machine with minimal prerequisites and effort by using a pre-configured dev container. 
+This dev container has all the necessary tools installed for setting up Open Source Choreo and is ready to be used. Once the installation is complete, you can explore the underlying setup to understand how it works.
 When you're done, you can fully clean up the setup, leaving your machine clutter-free.
 
-### Prerequisites
+#### Prerequisites
 The only requirement is Docker — just have it installed on your machine, and you're good to go. We recommend using [docker engine version 26.0+](https://docs.docker.com/engine/release-notes/26.0/).
 
-### Start the Dev Container
+#### Start the Dev Container
 
 Run the following command to start the dev container and launch a terminal session within it:
 
@@ -40,8 +44,8 @@ ghcr.io/choreo-idp/quick-start:latest
 
 ```
 
-### Install Choreo
-This process sets up a [KinD](https://kind.sigs.k8s.io/) (Kubernetes-in-Docker) cluster in your Docker environment and installs Choreo along with its dependencies.
+#### Install Open Source Choreo
+This process sets up a [KinD](https://kind.sigs.k8s.io/) (Kubernetes-in-Docker) cluster in your Docker environment and installs Open Source Choreo along with its dependencies.
 
 To begin the installation, run:
 
@@ -51,46 +55,49 @@ To begin the installation, run:
 
 Once the installation is complete, you will see the following confirmation message:
 ```text
->>>> Everything prepared, ready to deploy application.
+>>>> Everything has been setup, ready to deploy application.
 ``` 
 
-### Quick Demo: Deploying a Web Application with Choreo
+#### Deploying a Web Application with Open Source Choreo
 
-This quick demo walks you through deploying a sample Web Application on your local Choreo setup.
-
-Run the following command to deploy a demo web application:
+You now have Open Source Choreo fully setup in your docker environment. 
+Next, lets deploy a sample Web Application by running the following command:
 
 ```shell
-./demo.sh
+./deploy_web_application.sh
 ```
 
-Once the deployment is complete, you will receive a URL to access the application:
+Once the deployment is complete, you will receive the following message together with a URL to access the application:
 
 ```text
 ✅ Endpoint is ready!
-🌍 You can now access the Web app at: https://react-starter-image-development.choreo.localhost:8443
+🌍 You can now access the Sample Web Application at: https://react-starter-image-development.choreo.localhost:8443
 ```
 
 ### Understanding What Happens Behind the Scenes
-Through this demo, you’ve successfully deployed and accessed a fully functional Web Application using Choreo. Now, let’s explore the components behind it using choreoctl.
-What Gets Set Up?
-- A dev container with all necessary tools to run Choreo IDP in a local Docker environment.
-- A KinD Kubernetes cluster, where Choreo IDP and its dependencies are installed via Helm charts.
+By following the install and deploy web application commands, you first, setup Open Source Choreo and then, successfully deployed and accessed a fully functional Web Application. 
+
+Let’s now explore what happened after each command. To access the artifacts created in Open Source Choreo we will be using choreoctl.
+
+#### 1. The Install command
+- A dev container with all the necessary tools for Open Source Choreo to run in a local Docker environment.
+- A KinD Kubernetes cluster, where the Open Source Choreo IDP and its dependencies were installed using Helm charts.
 
 To check all the installed components, run:
 ```shell
 ./check-status.sh
 ```
 
-#### Key Resources Created by Choreo
-The installation process automatically sets up several essential Choreo resources, including:
-- Organization
+#### Foundation Resources Created by Open Source Choreo
+
+The installation process, by default, sets up several essential abstractions. These are:
+- Organization 
 - Dataplane
 - Environments (e.g., Development, Staging, Production)
-- Deployment Pipeline
+- A Deployment Pipeline for the environments, and a
 - Default Project
 
-You can verify these using the following commands:
+You can inspect these in more detail using the following commands:
 
 ```shell
 choreoctl get organizations --organization default-org
@@ -102,22 +109,21 @@ choreoctl get environments --organization default-org
 choreoctl get projects --organization default-org
 ```
 
-#### Application Deployment Flow
-The demo script creates a Web Application component, along with a Deployable Artifact, and a Deployment.
+#### 2. The Deploy Web Application Command
+The deploy script creates a sample Web Application component, along with a Deployment for the sample web application.
 
-To inspect these resources, run:
+To inspect these resources in more detail, run the following commands:
 
 ```shell
 choreoctl get components --organization default-org --project default-project
 
-choreoctl get deployableartifact --organization default-org --project default-project --component react-starter-image
-
+choreoctl get deployment --organization default-org --project default-project --component react-starter-image --environment development
 ```
 
-Finally, Choreo generates a Deployment and an Endpoint to access the running application:
+Open Source Choreo generates a Deployable Artifact and an Endpoint to access the running application:
 
 ```shell
-choreoctl get deployment --organization default-org --project default-project --component react-starter-image --environment development
+choreoctl get deployableartifact --organization default-org --project default-project --component react-starter-image
 
 choreoctl get endpoint --organization default-org --project default-project --component react-starter-image --environment development
 ```
@@ -141,21 +147,23 @@ To clean up your Docker environment, run:
 docker volume rm choreo-state tf-state
 ```
 
-You’re all set! Now you understand how Choreo simplifies the deployment and management of cloud-native applications.
+That's it! 
 
-## Install
-To see more Choreo installation options and detailed instructions, check out the [Installation Guide](install/README.md).
+Now you understand how  Open Source Choreo simplifies the deployment and management of cloud-native applications.
+
+## Detailed Setup of Open Source Choreo
+To do a deeper dive installation, check out the [Detailed Installation Guide](install/README.md).
 
 ## Project roadmap
-For information about the detailed project roadmap including delivered milestones, see the Roadmap.
+For information about the detailed project roadmap for Open Source Choreo, including delivered milestones, see the [Roadmap]( https://github.com/orgs/choreo-idp/projects/1).
 
 ## Community
-To engage with our community, you can join the Choreo Open Source [Discord](https://discord.gg/HYCgUacN) channel.
+To engage with our community, you can join the  Open Source Choreo [Discord](https://discord.gg/HYCgUacN) channel.
 
 
 ## Contributing
-Want to help develop Choreo Open Source? Check out our [contributing documentation](docs/contributing.md).
-If you find an issue, please report it on the issue tracker.
+Want to help develop Open Source Choreo? Check out our [contributing documentation](docs/contributing.md).
+If you find an issue, please report it on the [Github Issue Tracker](https://github.com/choreo-idp/choreo/issues).
 
 ## License
 
