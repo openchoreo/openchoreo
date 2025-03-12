@@ -28,7 +28,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
@@ -229,8 +231,22 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.recorder = mgr.GetEventRecorderFor("endpoint-controller")
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	if err := r.setupDataPlaneRefIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("failed to setup dataPlane reference index: %w", err)
+	}
+
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Endpoint{}).
 		Named("endpoint").
-		Complete(r)
+		WithEventFilter(predicate.GenerationChangedPredicate{}). // Only reconcile on spec changes
+		Watches(
+			&choreov1.DataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForDataplane),
+		).
+		Watches(
+			&choreov1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForEnvironment),
+		)
+
+	return builder.Complete(r)
 }
