@@ -55,12 +55,7 @@ func (h *httpRouteHandler) Name() string {
 }
 
 func (h *httpRouteHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
-	// HTTPRoutes are required for Web Applications
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
-		return true
-	}
-	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
-		epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable
+	return h.visibility.IsHTTPRouteRequired(epCtx)
 }
 
 func (h *httpRouteHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
