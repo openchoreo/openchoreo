@@ -1,4 +1,4 @@
-# Choreo v3 Resource Kinds
+# Choreo Resource Kinds
 
 This document describes the core kinds used in Choreo CRDs, the relationships between them, and detailed information about each kind.
 

@@ -1,4 +1,4 @@
-### Choreo Abstractions
+# Choreo Concepts
 
 This repository defines Choreo abstractions in the form of Kubernetes CRDs, enabling developers to use these abstractions to create projects, components, builds, deployments, and more. By leveraging these CRDs, developers can declaratively manage their application's lifecycle and infrastructure, ensuring consistency and repeatability across environments.
 
