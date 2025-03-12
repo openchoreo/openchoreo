@@ -4,8 +4,6 @@ RELEASE_VERSION ?= $(shell cat VERSION)
 IMG_REPO ?= ghcr.io/choreo-idp/controller
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMG_REPO):v$(RELEASE_VERSION)
-# Image URL to use for dev container
-DEV_CONTAINER_IMAGE ?= ghcr.io/choreo-idp/dev-container:v$(RELEASE_VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
 
@@ -401,30 +399,26 @@ prepare-release:
 
 
 #-----------------------------------------------------------------------------
-# dev-container build & push targets
+# quick-start build & push targets
 #-----------------------------------------------------------------------------
-IMAGE_NAME=ghcr.io/choreo-idp/dev-container:v$(RELEASE_VERSION)
-IMAGE_NAME_LATEST=ghcr.io/choreo-idp/dev-container:latest
-BUILD_CONTEXT=install/dev-container
+IMAGE_NAME=ghcr.io/choreo-idp/quick-start:v$(RELEASE_VERSION)
+IMAGE_NAME_LATEST=ghcr.io/choreo-idp/quick-start:latest
+DOCKER_PATH=install/quick-start
 SAMPLE_SOURCE=samples/web-applications/container-image/react-starter.yaml
 
-.PHONY: dev-container-docker-build
-dev-container-docker-build:
-	@echo "Copying react-starter.yaml (sample) into the build context..."
-	cp $(SAMPLE_SOURCE) $(BUILD_CONTEXT)/react-starter.yaml
-	@echo "Building Docker image..."
-	$(CONTAINER_TOOL) build -f $(BUILD_CONTEXT)/Dockerfile -t $(IMAGE_NAME) $(BUILD_CONTEXT)
-	@echo "Cleaning up temporary files..."
-	rm -f $(BUILD_CONTEXT)/react-starter.yaml
+.PHONY: quick-start-docker-build
+quick-start-docker-build:
+	@echo "Building Docker image for quick start..."
+	$(CONTAINER_TOOL) build -f $(DOCKER_PATH)/Dockerfile -t $(IMAGE_NAME) .
 	@echo "Build complete!"
 
-.PHONY: dev-container-docker-push
-dev-container-docker-push:
-	@echo "Pushing Docker image for dev-container..."
+.PHONY: quick-start-docker-push
+quick-start-docker-push:
+	@echo "Pushing Docker image for quick start..."
 	$(CONTAINER_TOOL) push $(IMAGE_NAME)
 	@echo "Push complete!"
 
-.PHONY: dev-container-docker-push-latest
-dev-container-docker-push-latest: ## Push docker image of dev container with the latest tag.
+.PHONY: quick-start-docker-push-latest
+quick-start-docker-push-latest: ## Push docker image of dev container for quick start with the latest tag.
 	$(CONTAINER_TOOL) tag ${IMAGE_NAME} $(IMAGE_NAME_LATEST)
 	$(CONTAINER_TOOL) push $(IMAGE_NAME_LATEST)

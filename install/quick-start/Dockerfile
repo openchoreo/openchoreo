@@ -40,9 +40,9 @@ RUN echo 'export PATH=/root/.choreoctl/bin:${PATH}' | tee -a /etc/profile /etc/b
 
 ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
-COPY . /app
+COPY install/quick-start /app
 
-COPY react-starter.yaml /app/react-starter.yaml
+COPY samples/web-applications/container-image/react-starter.yaml /app/react-starter.yaml
 
 WORKDIR /app
 
