@@ -170,10 +170,10 @@ func (r *Reconciler) makeEndpointContext(ctx context.Context, ep *choreov1.Endpo
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
-		k8sintegrations.NewHTTPRouteHandler(r.Client, &visibility.PublicVisibilityStrategy{}),
-		k8sintegrations.NewHTTPRouteHandler(r.Client, &visibility.OrganizationVisibilityStrategy{}),
-		k8sintegrations.NewSecurityPolicyHandler(r.Client, &visibility.PublicVisibilityStrategy{}),
-		k8sintegrations.NewSecurityPolicyHandler(r.Client, &visibility.OrganizationVisibilityStrategy{}),
+		k8sintegrations.NewHTTPRouteHandler(r.Client, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteHandler(r.Client, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(r.Client, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(r.Client, visibility.NewOrganizationVisibilityStrategy()),
 	}
 
 	return resourceHandlers
