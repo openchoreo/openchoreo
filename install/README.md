@@ -1,3 +1,4 @@
+[//]: # (&#40;Todo&#41;: Refactor this)
 # Quick choreo installation
 
 This guide will wals you through the quick default installation of choreo. Choreo uses Kubernetes custom resource definitions (CRDs) to store all its state. 
