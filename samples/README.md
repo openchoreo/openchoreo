@@ -13,7 +13,7 @@ These samples guide you through configuring platform resources to match your org
 - [Data Planes](./configuring-choreo/dataplane) – Define Kubernetes clusters for application deployments.
 - [Deployment Pipelines](./configuring-choreo/deployment-pipeline) – Automate application rollouts.
 
-For more details on these concepts, refer to the [Open Source Choreo Abstractions](../docs/README.md) Document.
+For more details on these concepts, refer to the [Open Source Choreo Abstractions](../docs/contributors/resource-kind-reference-guide.md) Document.
 
 #### Default Resources
 When you set up Open Source Choreo, certain default resources are automatically created to help you get started quickly:
