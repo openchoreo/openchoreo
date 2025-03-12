@@ -40,12 +40,12 @@ func TestKubernetes(t *testing.T) {
 var _ = Describe("HTTPRoute Handler", func() {
 	Context("When generating HTTPRoute from Endpoint", func() {
 		DescribeTable("should generate correct HTTPRoute specifications for different scenarios",
-			func(epCtx *dataplane.EndpointContext, gatewayName string, expectedPath string, expectedPort int32, expectedHostname string) {
-				httpRoute := MakeHTTPRoute(epCtx, gatewayName)
+			func(epCtx *dataplane.EndpointContext, gwType GatewayType, expectedPath string, expectedPort int32, expectedHostname string) {
+				httpRoute := MakeHTTPRoute(epCtx, gwType)
 
 				// Name
 				Expect(httpRoute).NotTo(BeNil())
-				Expect(httpRoute.ObjectMeta.Name).To(Equal(MakeHTTPRouteName(epCtx, gatewayName)))
+				Expect(httpRoute.ObjectMeta.Name).To(Equal(MakeHTTPRouteName(epCtx, gwType)))
 
 				// Verify spec details
 				Expect(httpRoute.Spec.Rules).To(HaveLen(1))
@@ -147,6 +147,20 @@ func createTestEndpointContext(basePath string, port int32, componentName, envNa
 				Name: "test-deployment",
 				Labels: map[string]string{
 					labels.LabelKeyName: "test-deployment",
+				},
+			},
+		},
+		DataPlane: &corev1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-dataplane",
+				Labels: map[string]string{
+					labels.LabelKeyName: "test-dataplane",
+				},
+			},
+			Spec: corev1.DataPlaneSpec{
+				Gateway: corev1.GatewaySpec{
+					PublicVirtualHost:       "choreo.localhost",
+					OrganizationVirtualHost: "internal.choreo.localhost",
 				},
 			},
 		},

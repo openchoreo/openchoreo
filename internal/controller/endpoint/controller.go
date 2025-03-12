@@ -102,13 +102,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 	meta.SetStatusCondition(&ep.Status.Conditions, EndpointReadyCondition(ep.Generation))
-	ep.Status.Address = kubernetes.MakeAddress(
-		epCtx.Project.Name,
-		epCtx.Component.Name,
-		epCtx.Environment.Name,
-		epCtx.Component.Spec.Type,
-		epCtx.Endpoint.Spec.Service.BasePath,
-	)
+	ep.Status.Address = kubernetes.MakeAddress(epCtx, kubernetes.GatewayExternal)
 	if ep.Status.Address != old.Status.Address ||
 		controller.NeedConditionUpdate(old.Status.Conditions, ep.Status.Conditions) {
 		if err := r.Status().Update(ctx, ep); err != nil {
@@ -156,8 +150,12 @@ func (r *Reconciler) makeEndpointContext(ctx context.Context, ep *choreov1.Endpo
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment: %w", err)
 	}
-
+	dp, err := controller.GetDataplane(ctx, r.Client, ep)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the dataplane: %w", err)
+	}
 	return &dataplane.EndpointContext{
+		DataPlane:       dp,
 		Project:         project,
 		Component:       component,
 		DeploymentTrack: deploymentTrack,

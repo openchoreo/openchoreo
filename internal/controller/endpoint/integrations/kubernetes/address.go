@@ -25,25 +25,33 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
-func makeHostname(componentName, environmentName string, componentType choreov1.ComponentType) gatewayv1.Hostname {
-	if componentType == choreov1.ComponentTypeWebApplication {
-		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.choreo.localhost", componentName, environmentName))
+func makeHostname(epCtx *dataplane.EndpointContext, gwType GatewayType) gatewayv1.Hostname {
+	var domain string
+	switch gwType {
+	case GatewayInternal:
+		domain = epCtx.DataPlane.Spec.Gateway.OrganizationVirtualHost
+	default:
+		domain = epCtx.DataPlane.Spec.Gateway.PublicVirtualHost
 	}
-	return gatewayv1.Hostname(fmt.Sprintf("%s.apis.choreo.localhost", environmentName))
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.%s", epCtx.Component.Name, epCtx.Environment.Name, domain))
+	}
+	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", epCtx.Environment.Spec.Gateway.DNSPrefix, domain))
 }
 
-func makePathPrefix(projectName, componentName string, componentType choreov1.ComponentType) string {
-	if componentType == choreov1.ComponentTypeWebApplication {
+func makePathPrefix(epCtx *dataplane.EndpointContext) string {
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
 		return "/"
 	}
-	return path.Clean(path.Join("/", projectName, componentName))
+	return path.Clean(path.Join("/", epCtx.Project.Name, epCtx.Component.Name))
 }
 
-func MakeAddress(projectName, componentName, environmentName string, componentType choreov1.ComponentType, basePath string) string {
-	host := makeHostname(componentName, environmentName, componentType)
-	pathPrefix := makePathPrefix(projectName, componentName, componentType)
+func MakeAddress(epCtx *dataplane.EndpointContext, gwType GatewayType) string {
+	host := makeHostname(epCtx, gwType)
+	pathPrefix := makePathPrefix(epCtx)
 
-	return fmt.Sprintf("https://%s", path.Join(string(host), pathPrefix, basePath))
+	return fmt.Sprintf("https://%s%s", host, pathPrefix)
 }

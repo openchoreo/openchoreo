@@ -27,18 +27,18 @@ import (
 	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
-func MakeSecurityPolicy(epCtx *dataplane.EndpointContext, gwName string) *egv1a1.SecurityPolicy {
+func MakeSecurityPolicy(epCtx *dataplane.EndpointContext, gwType GatewayType) *egv1a1.SecurityPolicy {
 	return &egv1a1.SecurityPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MakeHTTPRouteName(epCtx, gwName),
+			Name:      MakeHTTPRouteName(epCtx, gwType),
 			Namespace: MakeNamespaceName(epCtx),
 			Labels:    MakeWorkloadLabels(epCtx),
 		},
-		Spec: MakeSecurityPolicySpec(epCtx, gwName),
+		Spec: MakeSecurityPolicySpec(epCtx, gwType),
 	}
 }
 
-func MakeSecurityPolicySpec(epCtx *dataplane.EndpointContext, gwName string) egv1a1.SecurityPolicySpec {
+func MakeSecurityPolicySpec(epCtx *dataplane.EndpointContext, gwType GatewayType) egv1a1.SecurityPolicySpec {
 	return egv1a1.SecurityPolicySpec{
 		JWT: &egv1a1.JWT{
 			Providers: []egv1a1.JWTProvider{
@@ -56,7 +56,7 @@ func MakeSecurityPolicySpec(epCtx *dataplane.EndpointContext, gwName string) egv
 					LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
 						Group: gwapiv1.GroupName,
 						Kind:  gwapiv1.Kind("HTTPRoute"),
-						Name:  gwapiv1a2.ObjectName(MakeHTTPRouteName(epCtx, gwName)),
+						Name:  gwapiv1a2.ObjectName(MakeHTTPRouteName(epCtx, gwType)),
 					},
 				},
 			},

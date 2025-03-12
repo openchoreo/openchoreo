@@ -29,41 +29,47 @@ import (
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
 
+// GatewayType represents the type of gateway used to expose endpoints
+type GatewayType string
+
 const (
-	// GatewayExternal is the name of the gateway resource used to expose endpoints that are
-	// publicly accessible from outside the cluster
-	GatewayExternal = "gateway-external"
+	// GatewayExternal is the gateway used to expose endpoints that are publicly accessible from outside the cluster
+	GatewayExternal GatewayType = "gateway-external"
 
-	// GatewayInternal is the name of the gateway resource used to expose endpoints that are
-	// only accessible within the organization
-	GatewayInternal = "gateway-internal"
+	// GatewayInternal is the gateway used to expose endpoints that are only accessible within the organization
+	GatewayInternal GatewayType = "gateway-internal"
+)
 
+// Visibility represents the accessibility level of an endpoint
+type Visibility string
+
+const (
 	// VisibilityPublic indicates that an endpoint should be accessible from outside the cluster
 	// through the external gateway
-	VisibilityPublic = "Public"
+	VisibilityPublic Visibility = "Public"
 
 	// VisibilityPrivate indicates that an endpoint should only be accessible within the
 	// organization through the internal gateway
-	VisibilityPrivate = "Organization"
+	VisibilityPrivate Visibility = "Organization"
 )
 
-func MakeHTTPRoute(epCtx *dataplane.EndpointContext, gwName string) *gwapiv1.HTTPRoute {
+func MakeHTTPRoute(epCtx *dataplane.EndpointContext, gwType GatewayType) *gwapiv1.HTTPRoute {
 	return &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MakeHTTPRouteName(epCtx, gwName),
+			Name:      MakeHTTPRouteName(epCtx, gwType),
 			Namespace: MakeNamespaceName(epCtx),
 			Labels:    MakeWorkloadLabels(epCtx),
 		},
-		Spec: makeHTTPRouteSpec(epCtx, gwName),
+		Spec: makeHTTPRouteSpec(epCtx, gwType),
 	}
 }
 
-func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwName string) gwapiv1.HTTPRouteSpec {
-	updatedEp := mergeAPISettings(epCtx, gwName)
+func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwType GatewayType) gwapiv1.HTTPRouteSpec {
+	updatedEp := mergeAPISettings(epCtx, gwType)
 	pathType := gwapiv1.PathMatchPathPrefix
-	hostname := makeHostname(epCtx.Component.Name, epCtx.Environment.Name, epCtx.Component.Spec.Type)
+	hostname := makeHostname(epCtx, gwType)
 	port := gwapiv1.PortNumber(updatedEp.Spec.Service.Port)
-	prefix := makePathPrefix(epCtx.Project.Name, epCtx.Component.Name, epCtx.Component.Spec.Type)
+	prefix := makePathPrefix(epCtx)
 	basePath := epCtx.Endpoint.Spec.Service.BasePath
 	endpointPath := basePath
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
@@ -74,7 +80,7 @@ func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwName string) gwapiv1.
 		CommonRouteSpec: gwapiv1.CommonRouteSpec{
 			ParentRefs: []gwapiv1.ParentReference{
 				{
-					Name:      gwapiv1.ObjectName(gwName),
+					Name:      gwapiv1.ObjectName(gwType),
 					Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")), // Change NS based on where envoy gateway is deployed
 				},
 			},
@@ -116,17 +122,17 @@ func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwName string) gwapiv1.
 	}
 }
 
-func mergeAPISettings(epCtx *dataplane.EndpointContext, gwName string) *choreov1.Endpoint {
+func mergeAPISettings(epCtx *dataplane.EndpointContext, gwType GatewayType) *choreov1.Endpoint {
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
 		return epCtx.Endpoint
 	}
 	ep := epCtx.Endpoint.DeepCopy()
-	if gwName == GatewayExternal {
+	if gwType == GatewayExternal {
 		if ep.Spec.NetworkVisibilities.Public != nil &&
 			ep.Spec.NetworkVisibilities.Public.APISettings != nil {
 			ep.Spec.APISettings = ep.Spec.NetworkVisibilities.Public.APISettings
 		}
-	} else if gwName == GatewayInternal {
+	} else if gwType == GatewayInternal {
 		if ep.Spec.NetworkVisibilities.Organization != nil &&
 			ep.Spec.NetworkVisibilities.Organization.APISettings != nil {
 			ep.Spec.APISettings = ep.Spec.NetworkVisibilities.Organization.APISettings

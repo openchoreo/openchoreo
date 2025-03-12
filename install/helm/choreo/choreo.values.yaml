@@ -21,8 +21,8 @@ choreoDefaultValues:
         cilium: true
         scaleToZero: true
         gatewayType: envoy
-    externalGatewayVirtualHost: choreoapis.local
-    internalGatewayVirtualHost: internal.choreoapis.local
+    externalGatewayVirtualHost: choreoapis.localhost
+    internalGatewayVirtualHost: internal.choreoapis.localhost
   Environments:
     - name: development
       displayName: Development

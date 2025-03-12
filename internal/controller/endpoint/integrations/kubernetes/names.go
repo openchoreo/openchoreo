@@ -40,7 +40,7 @@ func MakeServiceName(epCtx *dataplane.EndpointContext) string {
 }
 
 // MakeHTTPRouteName has the format dp-<gateway-name>-<endpoint-name>-<hash>
-func MakeHTTPRouteName(epCtx *dataplane.EndpointContext, gwName string) string {
+func MakeHTTPRouteName(epCtx *dataplane.EndpointContext, gwType GatewayType) string {
 	endpointName := epCtx.Endpoint.Name
-	return dpkubernetes.GenerateK8sName(gwName, endpointName)
+	return dpkubernetes.GenerateK8sName(string(gwType), endpointName)
 }
