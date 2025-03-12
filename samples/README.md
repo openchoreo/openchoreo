@@ -13,7 +13,7 @@ These samples guide you through configuring platform resources to match your org
 - [Data Planes](./configuring-choreo/dataplane) – Define Kubernetes clusters for application deployments.
 - [Deployment Pipelines](./configuring-choreo/deployment-pipeline) – Automate application rollouts.
 
-For more details on these concepts, refer to the [Open Source Choreo Abstractions](https://github.com/choreo-idp/choreo/tree/main/docs) Document.
+For more details on these concepts, refer to the [Open Source Choreo Abstractions](../docs/README.md) Document.
 
 #### Default Resources
 When you set up Open Source Choreo, certain default resources are automatically created to help you get started quickly:
@@ -31,9 +31,9 @@ The following application-related samples uses the default resources created dur
 These samples help you deploy different types of applications using Open Source Choreo.
 
 ### Component Types
-- [Services](./deploying-applications/component-types/services) – Backend services & APIs.
-- [Web Applications](./deploying-applications/component-types/web-applications) – Frontend or full-stack applications.
-- [Tasks](./deploying-applications/component-types/scheduled-tasks) – Background jobs or scheduled tasks.
+- [Services](./deploying-applications/build-from-source/reading-list-service) – Backend services & APIs.
+- [Web Applications](./deploying-applications/prebuilt-image/react-spa-webapp) – Frontend or full-stack applications.
+- [Tasks](./deploying-applications/build-from-source/time-logger-task) – Background jobs or scheduled tasks.
 
 ### Supported Languages (via BuildPacks)
 Open Source Choreo abstracts the build and deployment process using BuildPacks, enabling developers to deploy applications written in:
@@ -44,4 +44,4 @@ Open Source Choreo abstracts the build and deployment process using BuildPacks, 
 - (More languages can be added as extensions.)
 
 ### Project Creation
-All the above sample components uses the default project. Follow this [sample](./deploying-applications/project) to create project if required.   
+All the above sample components uses the default project. Follow this [sample](./deploying-applications/new-project) to create project if required.   

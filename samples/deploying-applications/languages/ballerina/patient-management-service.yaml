@@ -15,7 +15,7 @@ spec:
   type: Service
   source:
     gitRepository:
-      url: https://github.com/chalindukodikara/choreo-samples
+      url: https://github.com/wso2/choreo-samples
       authentication:
         secretRef: choreo-bot-git-pat
 ---
