@@ -35,8 +35,8 @@ import (
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/organization"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/public"
+	k8sintegrations "github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
@@ -104,7 +104,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 	meta.SetStatusCondition(&ep.Status.Conditions, EndpointReadyCondition(ep.Generation))
-	ep.Status.Address = kubernetes.MakeAddress(epCtx, kubernetes.GatewayExternal)
+	ep.Status.Address = kubernetes.MakeAddress(epCtx, visibility.GatewayExternal)
 	if ep.Status.Address != old.Status.Address ||
 		controller.NeedConditionUpdate(old.Status.Conditions, ep.Status.Conditions) {
 		if err := r.Status().Update(ctx, ep); err != nil {
@@ -170,10 +170,10 @@ func (r *Reconciler) makeEndpointContext(ctx context.Context, ep *choreov1.Endpo
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
-		public.NewHTTPRouteHandler(r.Client),
-		public.NewSecurityPolicyHandler(r.Client),
-		organization.NewHTTPRouteHandler(r.Client),
-		organization.NewSecurityPolicyHandler(r.Client),
+		k8sintegrations.NewHTTPRouteHandler(r.Client, &visibility.PublicVisibilityStrategy{}),
+		k8sintegrations.NewHTTPRouteHandler(r.Client, &visibility.OrganizationVisibilityStrategy{}),
+		k8sintegrations.NewSecurityPolicyHandler(r.Client, &visibility.PublicVisibilityStrategy{}),
+		k8sintegrations.NewSecurityPolicyHandler(r.Client, &visibility.OrganizationVisibilityStrategy{}),
 	}
 
 	return resourceHandlers

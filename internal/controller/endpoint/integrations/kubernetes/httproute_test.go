@@ -27,6 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	corev1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 	"github.com/choreo-idp/choreo/internal/labels"
 	"github.com/choreo-idp/choreo/internal/ptr"
@@ -40,12 +41,12 @@ func TestKubernetes(t *testing.T) {
 var _ = Describe("HTTPRoute Handler", func() {
 	Context("When generating HTTPRoute from Endpoint", func() {
 		DescribeTable("should generate correct HTTPRoute specifications for different scenarios",
-			func(epCtx *dataplane.EndpointContext, gwType GatewayType, expectedPath string, expectedPort int32, expectedHostname string) {
+			func(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType, expectedPath string, expectedPort int32, expectedHostname string) {
 				httpRoute := MakeHTTPRoute(epCtx, gwType)
 
 				// Name
 				Expect(httpRoute).NotTo(BeNil())
-				Expect(httpRoute.ObjectMeta.Name).To(Equal(MakeHTTPRouteName(epCtx, gwType)))
+				Expect(httpRoute.ObjectMeta.Name).To(Equal(makeHTTPRouteName(epCtx, gwType)))
 
 				// Verify spec details
 				Expect(httpRoute.Spec.Rules).To(HaveLen(1))
@@ -57,7 +58,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 				// Verify backend reference
 				backendRef := rule.BackendRefs[0]
-				Expect(backendRef.BackendRef.BackendObjectReference.Name).To(Equal(gatewayv1.ObjectName(MakeServiceName(epCtx))))
+				Expect(backendRef.BackendRef.BackendObjectReference.Name).To(Equal(gatewayv1.ObjectName(makeServiceName(epCtx))))
 				Expect(backendRef.BackendRef.BackendObjectReference.Port).To(Equal((*gatewayv1.PortNumber)(ptr.Int32(expectedPort))))
 
 				// Verify hostname
@@ -65,21 +66,21 @@ var _ = Describe("HTTPRoute Handler", func() {
 			},
 			Entry("with standard path and port",
 				createTestEndpointContext("/test", 8080, "test-component", "test-env"),
-				GatewayExternal,
+				visibility.GatewayExternal,
 				"/test",
 				int32(8080),
 				"test-component-test-env.choreo.localhost",
 			),
 			Entry("with root path",
 				createTestEndpointContext("/", 9090, "api-component", "prod"),
-				GatewayExternal,
+				visibility.GatewayExternal,
 				"/",
 				int32(9090),
 				"api-component-prod.choreo.localhost",
 			),
 			Entry("with nested path",
 				createTestEndpointContext("/api/v1", 8000, "service-component", "staging"),
-				GatewayExternal,
+				visibility.GatewayExternal,
 				"/api/v1",
 				int32(8000),
 				"service-component-staging.choreo.localhost",

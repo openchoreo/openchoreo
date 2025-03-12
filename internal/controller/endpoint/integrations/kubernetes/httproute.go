@@ -19,53 +19,115 @@
 package kubernetes
 
 import (
+	"context"
+	"errors"
 	"path"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 	"github.com/choreo-idp/choreo/internal/ptr"
 )
 
-// GatewayType represents the type of gateway used to expose endpoints
-type GatewayType string
+type httpRouteHandler struct {
+	client     client.Client
+	visibility visibility.VisibilityStrategy
+}
 
-const (
-	// GatewayExternal is the gateway used to expose endpoints that are publicly accessible from outside the cluster
-	GatewayExternal GatewayType = "gateway-external"
+var _ dataplane.ResourceHandler[dataplane.EndpointContext] = (*httpRouteHandler)(nil)
 
-	// GatewayInternal is the gateway used to expose endpoints that are only accessible within the organization
-	GatewayInternal GatewayType = "gateway-internal"
-)
+func NewHTTPRouteHandler(kubernetesClient client.Client, visibility visibility.VisibilityStrategy) dataplane.ResourceHandler[dataplane.EndpointContext] {
+	return &httpRouteHandler{
+		client:     kubernetesClient,
+		visibility: visibility,
+	}
+}
 
-// Visibility represents the accessibility level of an endpoint
-type Visibility string
+func (h *httpRouteHandler) Name() string {
+	return "KubernetesHTTPRouteHandler"
+}
 
-const (
-	// VisibilityPublic indicates that an endpoint should be accessible from outside the cluster
-	// through the external gateway
-	VisibilityPublic Visibility = "Public"
+func (h *httpRouteHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
+	// HTTPRoutes are required for Web Applications
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+		return true
+	}
+	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
+		epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable
+}
 
-	// VisibilityPrivate indicates that an endpoint should only be accessible within the
-	// organization through the internal gateway
-	VisibilityPrivate Visibility = "Organization"
-)
+func (h *httpRouteHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
+	namespace := makeNamespaceName(epCtx)
+	name := makeHTTPRouteName(epCtx, h.visibility.GetGatewayType())
+	out := &gwapiv1.HTTPRoute{}
+	err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, out)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
-func MakeHTTPRoute(epCtx *dataplane.EndpointContext, gwType GatewayType) *gwapiv1.HTTPRoute {
+func (h *httpRouteHandler) Create(ctx context.Context, epCtx *dataplane.EndpointContext) error {
+	httpRoute := MakeHTTPRoute(epCtx, h.visibility.GetGatewayType())
+	return h.client.Create(ctx, httpRoute)
+}
+
+func (h *httpRouteHandler) Update(ctx context.Context, epCtx *dataplane.EndpointContext, currentState interface{}) error {
+	currentHTTPRoute, ok := currentState.(*gwapiv1.HTTPRoute)
+	if !ok {
+		return errors.New("failed to cast current state to HTTPRoute")
+	}
+
+	newHTTPRoute := MakeHTTPRoute(epCtx, h.visibility.GetGatewayType())
+
+	if h.shouldUpdate(currentHTTPRoute, newHTTPRoute) {
+		newHTTPRoute.ResourceVersion = currentHTTPRoute.ResourceVersion
+		return h.client.Update(ctx, newHTTPRoute)
+	}
+
+	return nil
+}
+
+func (h *httpRouteHandler) Delete(ctx context.Context, epCtx *dataplane.EndpointContext) error {
+	httpRoute := MakeHTTPRoute(epCtx, h.visibility.GetGatewayType())
+	err := h.client.Delete(ctx, httpRoute)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func (h *httpRouteHandler) shouldUpdate(current, new *gwapiv1.HTTPRoute) bool {
+	// Compare the labels
+	if !cmp.Equal(extractManagedLabels(current.Labels), extractManagedLabels(new.Labels)) {
+		return true
+	}
+
+	return !cmp.Equal(current.Spec, new.Spec, cmpopts.EquateEmpty())
+}
+
+func MakeHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
 	return &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MakeHTTPRouteName(epCtx, gwType),
-			Namespace: MakeNamespaceName(epCtx),
-			Labels:    MakeWorkloadLabels(epCtx),
+			Name:      makeHTTPRouteName(epCtx, gwType),
+			Namespace: makeNamespaceName(epCtx),
+			Labels:    makeWorkloadLabels(epCtx),
 		},
 		Spec: makeHTTPRouteSpec(epCtx, gwType),
 	}
 }
 
-func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwType GatewayType) gwapiv1.HTTPRouteSpec {
-	updatedEp := mergeAPISettings(epCtx, gwType)
+func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) gwapiv1.HTTPRouteSpec {
+	updatedEp := visibility.OverrideAPISettings(epCtx, gwType)
 	pathType := gwapiv1.PathMatchPathPrefix
 	hostname := makeHostname(epCtx, gwType)
 	port := gwapiv1.PortNumber(updatedEp.Spec.Service.Port)
@@ -111,7 +173,7 @@ func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwType GatewayType) gwa
 					{
 						BackendRef: gwapiv1.BackendRef{
 							BackendObjectReference: gwapiv1.BackendObjectReference{
-								Name: gwapiv1.ObjectName(MakeServiceName(epCtx)),
+								Name: gwapiv1.ObjectName(makeServiceName(epCtx)),
 								Port: &port,
 							},
 						},
@@ -120,23 +182,4 @@ func makeHTTPRouteSpec(epCtx *dataplane.EndpointContext, gwType GatewayType) gwa
 			},
 		},
 	}
-}
-
-func mergeAPISettings(epCtx *dataplane.EndpointContext, gwType GatewayType) *choreov1.Endpoint {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
-		return epCtx.Endpoint
-	}
-	ep := epCtx.Endpoint.DeepCopy()
-	if gwType == GatewayExternal {
-		if ep.Spec.NetworkVisibilities.Public != nil &&
-			ep.Spec.NetworkVisibilities.Public.APISettings != nil {
-			ep.Spec.APISettings = ep.Spec.NetworkVisibilities.Public.APISettings
-		}
-	} else if gwType == GatewayInternal {
-		if ep.Spec.NetworkVisibilities.Organization != nil &&
-			ep.Spec.NetworkVisibilities.Organization.APISettings != nil {
-			ep.Spec.APISettings = ep.Spec.NetworkVisibilities.Organization.APISettings
-		}
-	}
-	return ep
 }

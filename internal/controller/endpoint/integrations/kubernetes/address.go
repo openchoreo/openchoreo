@@ -25,13 +25,15 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/choreo-idp/choreo/internal/dataplane"
 )
 
-func makeHostname(epCtx *dataplane.EndpointContext, gwType GatewayType) gatewayv1.Hostname {
+// makeHostname generates the hostname for an endpoint based on gateway type and component type
+func makeHostname(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) gatewayv1.Hostname {
 	var domain string
 	switch gwType {
-	case GatewayInternal:
+	case visibility.GatewayInternal:
 		domain = epCtx.DataPlane.Spec.Gateway.OrganizationVirtualHost
 	default:
 		domain = epCtx.DataPlane.Spec.Gateway.PublicVirtualHost
@@ -42,6 +44,7 @@ func makeHostname(epCtx *dataplane.EndpointContext, gwType GatewayType) gatewayv
 	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", epCtx.Environment.Spec.Gateway.DNSPrefix, domain))
 }
 
+// makePathPrefix returns the URL path prefix based on component type
 func makePathPrefix(epCtx *dataplane.EndpointContext) string {
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
 		return "/"
@@ -49,7 +52,8 @@ func makePathPrefix(epCtx *dataplane.EndpointContext) string {
 	return path.Clean(path.Join("/", epCtx.Project.Name, epCtx.Component.Name))
 }
 
-func MakeAddress(epCtx *dataplane.EndpointContext, gwType GatewayType) string {
+// MakeAddress constructs the full HTTPS URL for an endpoint
+func MakeAddress(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) string {
 	host := makeHostname(epCtx, gwType)
 	pathPrefix := makePathPrefix(epCtx)
 
