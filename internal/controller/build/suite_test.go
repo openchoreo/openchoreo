@@ -21,6 +21,7 @@ package build
 import (
 	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -95,3 +96,28 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func newBuildpackBasedBuild() *corev1.Build {
+	return &corev1.Build{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-build",
+			Labels: map[string]string{
+				"core.choreo.dev/organization":     "test-organization",
+				"core.choreo.dev/project":          "test-project",
+				"core.choreo.dev/component":        "test-component",
+				"core.choreo.dev/deployment-track": "test-main",
+				"core.choreo.dev/name":             "test-build",
+			},
+		},
+		Spec: corev1.BuildSpec{
+			Branch: "main",
+			Path:   "/test-service",
+			BuildConfiguration: corev1.BuildConfiguration{
+				Buildpack: &corev1.BuildpackConfiguration{
+					Name:    "Go",
+					Version: "1.x",
+				},
+			},
+		},
+	}
+}
