@@ -27,7 +27,7 @@ func ExtractRepositoryInfo(repoURL string) (string, string, error) {
 }
 
 func MakeComponentDescriptorPath(buildCtx *integrations.BuildContext) string {
-	componentManifestPath := "./choreo/component.yaml"
+	componentManifestPath := "./.choreo/component.yaml"
 	if buildCtx.Build.Spec.Path != "" {
 		componentManifestPath = path.Clean(fmt.Sprintf(".%s/.choreo/component.yaml", buildCtx.Build.Spec.Path))
 	}
