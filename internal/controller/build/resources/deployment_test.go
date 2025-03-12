@@ -1,12 +1,14 @@
 package resources
 
 import (
+	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/labels"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"strings"
 )
 
 var _ = Describe("Deployment Kind", func() {
@@ -28,7 +30,7 @@ var _ = Describe("Deployment Kind", func() {
 			})
 			It("should return the workflow name of 63 characters", func() {
 				name := MakeDeploymentLabelName(environmentName)
-				Expect(len(name)).To(BeNumerically("==", 47))
+				Expect(name).To(HaveLen(47))
 				Expect(name).To(Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaa-deployment-4a18e108"))
 			})
 		})

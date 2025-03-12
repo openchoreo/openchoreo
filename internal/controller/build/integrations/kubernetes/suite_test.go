@@ -1,13 +1,15 @@
 package kubernetes
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/labels"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 func TestDeploymentIntegrationKubernetes(t *testing.T) {
@@ -65,55 +67,5 @@ func newTestBuildContext() *integrations.BuildContext {
 		},
 	}
 
-	return buildCtx
-}
-
-func newDockerBasedBuildCtx(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &choreov1.BuildTemplateSpec{
-		Branch: "main",
-		Path:   "/test-service",
-		BuildConfiguration: &choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
-				Context:        "/time-logger",
-				DockerfilePath: "/time-logger/Dockerfile",
-			},
-		},
-	}
-
-	buildCtx.Build.Spec = choreov1.BuildSpec{
-		Branch: "main",
-		Path:   "/test-service",
-		BuildConfiguration: choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
-				Context:        "/time-logger",
-				DockerfilePath: "/time-logger/Dockerfile",
-			},
-		},
-	}
-	return buildCtx
-}
-
-func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &choreov1.BuildTemplateSpec{
-		Branch: "main",
-		Path:   "/test-service",
-		BuildConfiguration: &choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
-				Name:    choreov1.BuildpackGo,
-				Version: choreov1.SupportedVersions[choreov1.BuildpackGo][0],
-			},
-		},
-	}
-
-	buildCtx.Build.Spec = choreov1.BuildSpec{
-		Branch: "main",
-		Path:   "/test-service",
-		BuildConfiguration: choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
-				Name:    choreov1.BuildpackGo,
-				Version: choreov1.SupportedVersions[choreov1.BuildpackGo][0],
-			},
-		},
-	}
 	return buildCtx
 }

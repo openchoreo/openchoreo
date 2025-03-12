@@ -19,20 +19,17 @@
 package build
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
 )
 
 var _ = Describe("Reconciler Step Handling", func() {
-	var (
-		buildResource *choreov1.Build
-	)
-
-	buildResource = newBuildpackBasedBuild()
+	var buildResource *choreov1.Build = newBuildpackBasedBuild()
 
 	DescribeTable("Mark step as succeeded",
 		func(build choreov1.Build, conditionType controller.ConditionType, expectedReason controller.ConditionReason, expectedMessage string) {

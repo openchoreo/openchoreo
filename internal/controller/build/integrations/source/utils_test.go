@@ -3,9 +3,10 @@ package source
 import (
 	"path"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 )
 
 var _ = Describe("Source Utilities", func() {

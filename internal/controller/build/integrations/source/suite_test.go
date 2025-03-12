@@ -1,13 +1,15 @@
 package source
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/labels"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 func TestDeploymentIntegrationKubernetes(t *testing.T) {
@@ -88,46 +90,6 @@ func newTestBuildpackBasedBuild() *choreov1.Build {
 				Buildpack: &choreov1.BuildpackConfiguration{
 					Name:    "Go",
 					Version: "1.x",
-				},
-			},
-		},
-	}
-}
-
-func newTestDeployableArtifact() *choreov1.DeployableArtifact {
-	return &choreov1.DeployableArtifact{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-build",
-			Labels: map[string]string{
-				"core.choreo.dev/organization":     "test-organization",
-				"core.choreo.dev/project":          "test-project",
-				"core.choreo.dev/component":        "test-component",
-				"core.choreo.dev/deployment-track": "test-main",
-				"core.choreo.dev/name":             "test-build",
-			},
-			Namespace: "test-organization",
-		},
-		Spec: choreov1.DeployableArtifactSpec{
-			TargetArtifact: choreov1.TargetArtifact{
-				FromBuildRef: &choreov1.FromBuildRef{
-					Name: "test-build",
-				},
-			},
-		},
-	}
-}
-
-func newTestEndpoints() *[]choreov1.EndpointTemplate {
-	return &[]choreov1.EndpointTemplate{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "endpoint-1",
-			},
-			Spec: choreov1.EndpointSpec{
-				Type: "HTTP",
-				Service: choreov1.EndpointServiceSpec{
-					BasePath: "/api/v1",
-					Port:     80,
 				},
 			},
 		},

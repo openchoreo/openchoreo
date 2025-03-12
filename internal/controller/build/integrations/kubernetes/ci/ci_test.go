@@ -20,10 +20,12 @@ package ci
 
 import (
 	"fmt"
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"strings"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
 )
 
 var _ = Describe("CI", func() {
@@ -67,7 +69,7 @@ var _ = Describe("CI", func() {
 			result := ConstructImageNameWithTag(build)
 
 			tag := result[strings.LastIndex(result, ":")+1:]
-			Expect(len(tag)).To(BeNumerically("==", 119))
+			Expect(tag).To(HaveLen(119))
 		})
 	})
 })

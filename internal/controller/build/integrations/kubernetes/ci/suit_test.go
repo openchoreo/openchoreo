@@ -1,11 +1,13 @@
 package ci
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
 )
 
 func TestDeploymentIntegrationKubernetes(t *testing.T) {

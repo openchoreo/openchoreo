@@ -1,12 +1,14 @@
 package argo
 
 import (
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
-	"strings"
+	"k8s.io/utils/ptr"
+
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 var _ = Describe("Argo Workflow", func() {
@@ -59,7 +61,7 @@ var _ = Describe("Argo Workflow", func() {
 			Expect(image).To(Equal(expectedImage))
 		},
 		Entry("should return image if it exists", argo.Outputs{
-			Parameters: []argo.Parameter{{Name: "image", Value: pointer.String("registry.io/repo/image:tag")}},
+			Parameters: []argo.Parameter{{Name: "image", Value: ptr.To("registry.io/repo/image:tag")}},
 		}, "registry.io/repo/image:tag"),
 		Entry("should return empty string if it doesn't exist", argo.Outputs{}, ""),
 	)
@@ -72,7 +74,7 @@ var _ = Describe("Argo Workflow", func() {
 			})
 			It("should return the workflow name of 63 characters", func() {
 				name := makeWorkflowName(buildCtx)
-				Expect(len(name)).To(BeNumerically("==", 63))
+				Expect(name).To(HaveLen(63))
 				Expect(name).To(Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-28165978"))
 			})
 		})

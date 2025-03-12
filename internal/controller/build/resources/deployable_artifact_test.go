@@ -1,12 +1,13 @@
 package resources
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	"github.com/choreo-idp/choreo/internal/labels"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Deployable Artifact Creation", func() {
