@@ -14,7 +14,7 @@ import (
 
 func TestDeploymentIntegrationKubernetes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Build Integration Kubernetes CI Suite")
+	RunSpecs(t, "Build Source Suite")
 }
 
 // Create a new BuildContext for testing. Each test should create a new context
