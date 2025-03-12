@@ -37,6 +37,8 @@ ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
 COPY install/quick-start /app
 
+COPY install/check-status.sh /app/check-status.sh
+
 COPY samples/web-applications/container-image/react-starter.yaml /app/react-starter.yaml
 
 COPY dist /dist
@@ -49,4 +51,4 @@ RUN rm -rf /dist
 
 WORKDIR /app
 
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/app/startup.sh"]

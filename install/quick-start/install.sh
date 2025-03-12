@@ -32,5 +32,4 @@ echo "Setting up a port-forwarding proxy from 8443 to the gateway NodePort..."
 # Run socat with the retrieved NodePort
 socat TCP-LISTEN:8443,fork TCP:choreo-worker:$NODEPORT &
 
-echo ""
-echo ">>>> Everything prepared, ready to deploy application."
+./check-status.sh
