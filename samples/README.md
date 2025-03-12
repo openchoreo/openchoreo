@@ -1,29 +1,49 @@
-# Open Source Choreo IDP Samples
-
-This directory contains some sample implementations to help you understand, get started and utilize Open Source Choreo IDP effectively.
+# Open Source Choreo Samples
+This directory contains sample implementations to help you understand, configure, and use Open Source Choreo effectively. These samples cover different use cases, from setting up platform configurations to deploying applications in various environments.
 
 ## Categories
-We have broken down these samples to represent the tasks for each user category. 
-- **Platform Configuration** - Targetted at Platform Engineers who would want to customize the Open Source Choreo IDP according to an organization's needs.
-- **Developer Applications** - For developers who would want to deploy different types of applications (web applications, services and tasks) in different languages.
+We have categorized the samples based on what you want to do: 
+- **Setting Up & Configuring Open Source Choreo** - Define and customize foundational platform elements such as organizations, environments, and deployment pipelines according to your organization needs.
+- **Deploying Applications** - Deploy different types of applications (services, APIs, web apps, tasks) using various programming languages.
 
-## Platform Configuration Samples
-These samples provide the required configurations for setting up Choreo platform resources. These are the Choreo abstractions that help you configure foundational elements like data planes, deployment-pipelines, environments, and projects to match what is required in your organization.
+## Setting Up & Configuring Open Source Choreo
+These samples guide you through configuring platform resources to match your organization's requirements. Open Source Choreo provides abstractions to define:
+- Organizations – Manage access and group related applications.
+- Environments – Set up Dev, Staging, and Prod environments.
+- Data Planes – Define Kubernetes clusters for application deployments.
+- Deployment Pipelines – Automate application rollouts.
 
-For more detailed information on the Choreo abstractions, refer to the [Open Source Choreo Abstractions Document](https://github.com/choreo-idp/choreo/tree/main/docs).
+For more details on these concepts, refer to the [Open Source Choreo Abstractions](https://github.com/choreo-idp/choreo/tree/main/docs) Document.
 
 #### Default Resources
-When you set up Open Source Choreo, some default resources are automatically created in order to get you started fast. On a new Open Source Choreo setup you would already have a default organization, a default dataplane, three default environments that are linked using a default deployment-pipeline and a default project to which developers can add their various application components.
+When you set up Open Source Choreo, certain default resources are automatically created to help you get started quickly:
+- A default organization
+- A default data plane
+- Three default environments (Dev, Staging, Prod)
+- A default deployment pipeline connecting these environments
+- A default project to organize applications
 
-However, if you wish to experiment and change this default setup to better suit what your organization requires, the samples in this folder are designed to help you do just that.
+These default configurations provide a quick starting point, but you can modify them based on your organization’s needs. The samples in this section demonstrate how to customize and extend this setup.
 
-## Developer Application Samples
-The samples in this category are for developers who would want to deploy a particular type of application which is written in a specific language. 
+## Deploying Applications
+These samples help you deploy different types of applications using Open Source Choreo.
 
-An application is abstracted as a Component within a given Project. Open Source Choreo supports Services, APIs, Web Applications and Tasks. The language used to develop the component is abstracted into a BuildPack in Open Source Choreo. This opens up many options such as Ballerina, Go, Node, Python etc. for developer applications.
+### Component Types
+- Services – Backend services & APIs.
+- Web Applications – Frontend or full-stack applications.
+- Tasks – Background jobs or scheduled tasks.
+
+### Supported Languages (via BuildPacks)
+Open Source Choreo abstracts the build and deployment process using BuildPacks, enabling developers to deploy applications written in:
+- Ballerina
+- Go
+- Node.js
+- Python
+- (More languages can be added as extensions.)
+
+Each sample demonstrates how to package, deploy, and manage applications using Open Source Choreo.
 
 ## How to Use These Samples
-
 Each sample includes:
 - Description of the sample use case
 - Source code link
@@ -33,14 +53,15 @@ Each sample includes:
 
 To run a sample:
 1. Navigate to the specific sample directory
-2. Read the sample-specific README and follow the instructions 
+2. Read the sample-specific README.
+3. Follow the step-by-step setup instructions. 
 
 
 ## Available Samples
-#### Platform Configuration
-- [Create a new organization](https://github.com/choreo-idp/choreo/tree/samples/samples/platform-configuration/organization) - Brief description
-- [Add a new environment to an organization](https://github.com/choreo-idp/choreo/tree/samples/samples/platform-configuration/environment) - Brief description
+#### Setting Up & Configuring Open Source Choreo
+- [Create a new organization](https://github.com/choreo-idp/choreo/tree/samples/samples/platform-configuration/organization)
+- [Add a new environment to an organization](https://github.com/choreo-idp/choreo/tree/samples/samples/platform-configuration/environment)
 
-#### Developer Applications
-- [Deploy a Ballerina Service](https://github.com/choreo-idp/choreo/tree/samples/samples/applications/languages/ballerina) - Brief description
-- [Deploy a Go Service](https://github.com/choreo-idp/choreo/tree/samples/samples/applications/languages/go) - Brief description
+#### Deploying Applications
+- [Deploy a Ballerina Service](./samples/applications/languages/ballerina)
+- [Deploy a Go Service](./samples/applications/languages/go)
