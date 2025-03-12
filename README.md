@@ -93,11 +93,11 @@ To check all the installed components, run:
 #### Foundation Resources Created by Open Source Choreo
 
 The installation process, by default, sets up several essential abstractions. These are:
-- Organization 
-- Dataplane
-- Environments (e.g., Development, Staging, Production)
-- A Deployment Pipeline for the environments, and a
-- Default Project
+- Organization
+- [Dataplane](https://github.com/choreo-idp/choreo/tree/main/docs#dataplane)
+- [Environments](https://github.com/choreo-idp/choreo/tree/main/docs#environment) (e.g., Development, Staging, Production)
+- A [Deployment Pipeline](https://github.com/choreo-idp/choreo/tree/main/docs#deploymentpipeline) for the environments
+- Default [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
 
 You can inspect these in more detail using the following commands:
 
@@ -112,7 +112,7 @@ choreoctl get projects --organization default-org
 ```
 
 #### 2. The Deploy Web Application Command
-The deploy script creates a sample Web Application component, along with a Deployment for the sample web application.
+The deploy script creates a sample Web Application [Component](https://github.com/choreo-idp/choreo/tree/main/docs#component), along with a [Deployment](https://github.com/choreo-idp/choreo/tree/main/docs#component) for the sample web application.
 
 To inspect these resources in more detail, run the following commands:
 
@@ -122,7 +122,7 @@ choreoctl get components --organization default-org --project default-project
 choreoctl get deployment --organization default-org --project default-project --component react-starter-image --environment development
 ```
 
-Open Source Choreo generates a Deployable Artifact and an Endpoint to access the running application:
+Open Source Choreo generates a [DeployableArtifact](https://github.com/choreo-idp/choreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/choreo-idp/choreo/tree/main/docs#endpoint) to access the running application:
 
 ```shell
 choreoctl get deployableartifact --organization default-org --project default-project --component react-starter-image
@@ -151,16 +151,16 @@ docker volume rm choreo-state tf-state
 
 That's it! 
 
-Now you understand how  Open Source Choreo simplifies the deployment and management of cloud-native applications.
+Now you understand how Open Source Choreo simplifies the deployment and management of cloud-native applications.
 
 ## Detailed Setup of Open Source Choreo
-To do a deeper dive installation, check out the [Detailed Installation Guide](install/README.md).
+For a more in-depth installation, check out the [Detailed Installation Guide](install/README.md).
 
 ## Project roadmap
 For information about the detailed project roadmap for Open Source Choreo, including delivered milestones, see the [Roadmap]( https://github.com/orgs/choreo-idp/projects/1).
 
 ## Community
-To engage with our community, you can join the  Open Source Choreo [Discord](https://discord.gg/HYCgUacN) channel.
+To engage with our community, you can join the Open Source Choreo [Discord](https://discord.gg/HYCgUacN) channel.
 
 
 ## Contributing
