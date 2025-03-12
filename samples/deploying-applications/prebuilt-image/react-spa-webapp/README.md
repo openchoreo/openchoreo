@@ -23,7 +23,7 @@ It should have the address as `https://react-starter-image-development.choreo.lo
 
 ## Accessing the Web Application
 
-In order to access the web application, you can use one of the approaches mentioned in [README.md](../../../../../README.md#7-test-the-deployed-webapp).
+In order to access the web application, you can use one of the approaches mentioned in [README.md](../../../../README.md#7-test-the-deployed-webapp).
 
 For this sample, we will use kubectl port-forward to access the web application.
 
