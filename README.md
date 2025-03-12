@@ -7,11 +7,13 @@ A Complete, yet Customizable Internal Developer Platform
 [![GitHub issues](https://img.shields.io/github/issues/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/issues)
 
 ## What is Open Source Choreo?
-Open Source Choreo is a fully open source Internal Developer Platform (IDP) designed to empower platform engineers by simplifying infrastructure automation, governance, and security. With Open Source Choreo, platform engineers can seamelessly setup the foundational components of the organization's IDP effortlessly. With automated CI/CD, security, and cloud tool integrations, Open Source Choreo helps platform teams enforce best practices and streamline development workflows.
+Open Source Choreo is a fully open source Internal Developer Platform (IDP) designed to empower platform engineers by simplifying infrastructure automation, governance, and security. 
+
+With Open Source Choreo, platform engineers can seamlessly setup the foundational components of the organization's IDP effortlessly. With automated CI/CD, security, and cloud tool integrations, Open Source Choreo helps platform teams enforce best practices and streamline development workflows.
 
 At the same time, Open Source Choreo provides developers with a configured platform to build, test, and deploy applications without the complexity of managing infrastructure or foundational enterprise platform artifacts. 
 
-By embracing platform engineering principles, Open Source Choreo enables teams to accelerate software delivery, optimize operations, and free up engineering resources—allowing them to focus on innovation rather than infrastructure management.
+What sets Open Source Choreo apart is its full customizability—organizations have complete control over deployment, configurations, and extensions, enabling them to adapt the platform to their unique needs. By embracing platform engineering principles, Open Source Choreo enables teams to accelerate software delivery, optimize operations, and free up engineering resources—allowing them to focus on innovation rather than infrastructure management.
 
 [//]: # (Architecture Diagram)
 
