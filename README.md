@@ -42,7 +42,7 @@ docker run --rm -it --name choreo-quick-idp \
 -v tf-state:/app/terraform \
 --network bridge \
 -p 8443:8443 \
-ghcr.io/choreo-idp/quick-start:latest
+ghcr.io/choreo-idp/quick-start:v0.1.0
 
 ```
 
@@ -102,7 +102,7 @@ The installation process, by default, sets up several essential abstractions. Th
 You can inspect these in more detail using the following commands:
 
 ```shell
-choreoctl get organizations --organization default-org
+choreoctl get organizations
 
 choreoctl get dataplanes --organization default-org
 
