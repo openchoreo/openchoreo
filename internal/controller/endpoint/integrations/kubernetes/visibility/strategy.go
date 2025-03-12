@@ -67,7 +67,7 @@ func NewPublicVisibilityStrategy() *PublicVisibilityStrategy {
 }
 
 func (s *PublicVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return true
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
@@ -85,8 +85,8 @@ func NewOrganizationVisibilityStrategy() *OrganizationVisibilityStrategy {
 }
 
 func (s *OrganizationVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
-		return false
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+		return true
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Organization != nil &&
 		epCtx.Endpoint.Spec.NetworkVisibilities.Organization.Enable
