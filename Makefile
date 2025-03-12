@@ -407,8 +407,9 @@ DOCKER_PATH=install/quick-start
 SAMPLE_SOURCE=samples/web-applications/container-image/react-starter.yaml
 
 .PHONY: quick-start-docker-build
-quick-start-docker-build:
+quick-start-docker-build: choreoctl-release
 	@echo "Building Docker image for quick start..."
+	# run another make target to build the choreoctl binary
 	$(CONTAINER_TOOL) build -f $(DOCKER_PATH)/Dockerfile -t $(IMAGE_NAME) .
 	@echo "Build complete!"
 

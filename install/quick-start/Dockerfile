@@ -33,16 +33,19 @@ RUN mkdir /tmp/terraform && \
   install -o root -g root -m 0755 /tmp/terraform/terraform /usr/local/bin/terraform && \
   rm -rf /tmp/terraform
 
-# install choreoctl
-RUN curl -fsSL https://raw.githubusercontent.com/vajiraprabuddhaka/choreo-v3-cli/fix-detect-profile/choreoctl-install.sh | bash
-
-RUN echo 'export PATH=/root/.choreoctl/bin:${PATH}' | tee -a /etc/profile /etc/bash.bashrc /root/.bashrc
-
 ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
 COPY install/quick-start /app
 
 COPY samples/web-applications/container-image/react-starter.yaml /app/react-starter.yaml
+
+COPY dist /dist
+
+# install choreoctl
+RUN ./dist/choreoctl/choreoctl-install.sh
+RUN echo 'export PATH=/root/.choreoctl/bin:${PATH}' | tee -a /etc/profile /etc/bash.bashrc /root/.bashrc
+
+RUN rm -rf /dist
 
 WORKDIR /app
 

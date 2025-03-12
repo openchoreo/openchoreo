@@ -18,7 +18,7 @@ NAMESPACE="default-org"
 ENDPOINT_PREFIX="react-starter-image-deployment-webapp"
 
 # Apply the YAML file
-kubectl apply -f "$YAML_FILE" > output.log 2>&1
+choreoctl apply -f "$YAML_FILE" > output.log 2>&1
 
 if grep -q "component.core.choreo.dev/react-starter-image created" output.log; then
   echo "Component \`react-starter-image\` created.."
