@@ -27,7 +27,7 @@ func (h *githubHandler) Name(ctx context.Context, builtCtx *integrations.BuildCo
 	return "SourceGithub"
 }
 
-func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *integrations.BuildContext) (interface{}, error) {
+func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *integrations.BuildContext) (*source.Config, error) {
 	owner, repositoryName, err := source.ExtractRepositoryInfo(buildCtx.Component.Spec.Source.GitRepository.URL)
 	if err != nil {
 		return nil, fmt.Errorf("bad git repository url: %w", err)
@@ -53,5 +53,5 @@ func (h *githubHandler) FetchComponentDescriptor(ctx context.Context, buildCtx *
 		return nil, fmt.Errorf("failed to unmarshal component.yaml from the repository buildName:%s;owner:%s;repo:%s;%w", buildCtx.Build.Name, owner, repositoryName, err)
 	}
 
-	return config, nil
+	return &config, nil
 }
