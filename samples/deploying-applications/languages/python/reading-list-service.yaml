@@ -1,0 +1,87 @@
+## Sample Component kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: reading-list-python-service
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Python Component
+    core.choreo.dev/description: A simple REST API service for managing a reading list.
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: reading-list-python-service
+spec:
+  type: Service
+  source:
+    gitRepository:
+      url: https://github.com/wso2/choreo-samples
+      authentication:
+        secretRef: choreo-bot-git-pat
+---
+
+## Sample DeploymentTrack kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: reading-list-python-service-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Main Deployment Track
+    core.choreo.dev/description: Deployment track for the Reading List Python service.
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-python-service
+    core.choreo.dev/name: reading-list-python-service-main
+spec:
+  buildTemplateSpec:
+    branch: main
+    path: /reading-books-list-service-python
+    buildConfiguration:
+      buildpack:
+        name: Python
+---
+
+## Sample Build kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Build
+metadata:
+  name: reading-list-python-service-build-01
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Default Build
+    core.choreo.dev/description: Initial build configuration for the Reading List Python service.
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-python-service
+    core.choreo.dev/deployment-track: reading-list-python-service-main
+    core.choreo.dev/name: reading-list-python-service-build-01
+spec:
+  branch: main
+  path: /reading-books-list-service-python
+  buildConfiguration:
+    buildpack:
+      name: Python
+      version: 3.10.x
+---
+
+#### Sample Deployment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: reading-list-python-service-development-deployment-1
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Python Service Deployment
+    core.choreo.dev/description: Initial deployment configuration for the Reading List Python service.
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: reading-list-python-service
+    core.choreo.dev/deployment-track: reading-list-python-service-main
+    core.choreo.dev/name: reading-list-python-service-development-deployment-1
+spec:
+  deploymentArtifactRef: reading-list-python-service-build-01
