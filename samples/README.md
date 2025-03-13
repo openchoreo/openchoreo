@@ -26,9 +26,9 @@ For more details on these concepts, refer to the [Open Source Choreo Abstraction
 These default configurations provide a quick starting point. Once you have done some exploration you can start creating the necessary artifacts to match the needs of your organization. You can;
 
 - Create a new organization 
-- Add a data plane to your new organization
-- Add new environments to the new organization and create a deployment pipeline that will link these 
-- Add a new environment to the default-organization and modify the existing deployment pipeline to include it
+- Create new environments in the new organization
+- Create a new deployment pipeline that will link these new environments
+- Update an existing deployment pipeline with a new environment
  
 
 ## Deploying Applications

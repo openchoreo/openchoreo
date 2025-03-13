@@ -12,6 +12,8 @@ Use the following command to create the new deployment pipeline.
 choreoctl apply -f samples/platform-configuration/deployment-pipeline/deployment-pipeline.yaml
 ``` 
 
+You will see the following output.
+
 ```bash
 deploymentpipeline.core.choreo.dev/pipeline-dev-stage-prod created
 ```

@@ -16,7 +16,7 @@ You will see the following output.
 organization.core.choreo.dev/acme created
 ```
 
-The following commaind will create the organization and all the other support resources as well.
+Use the following commaind to create the organization and all the other support resources as well.
 
 ```bash
 choreoctl apply -f samples/platform-configuration/organization/complete-organization.yaml
