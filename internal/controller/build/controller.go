@@ -22,6 +22,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-github/v69/github"
 	corev1 "k8s.io/api/core/v1"
@@ -339,8 +341,8 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 			return true
 		case integrations.Failed:
 			markStepAsFailed(build, step.conditionType)
+			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
 			meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowFailedCondition(build.Generation))
-			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step failed")
 			return false
 		}
 	}
