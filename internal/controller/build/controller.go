@@ -22,14 +22,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-github/v69/github"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -52,6 +52,7 @@ type Reconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	GithubClient *github.Client
+	recorder     record.EventRecorder
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -87,12 +88,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	buildCtx, err := r.makeBuildContext(ctx, build)
 	if err != nil {
 		logger.Error(err, "Error creating build context")
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "ContextResolutionFailed",
+			"Context resolution failed: %s", err)
 		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
 	}
 
 	externalResourceHandlers := r.makeExternalResourceHandlers()
 	if err := r.reconcileExternalResources(ctx, externalResourceHandlers, buildCtx); err != nil {
 		logger.Error(err, "Error reconciling external resources")
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "ExternalResourceReconciliationFailed",
+			"External resource reconciliation failed: %s", err)
 		return ctrl.Result{}, err
 	}
 
@@ -100,6 +105,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if err != nil {
 		logger.Error(err, "Failed to ensure workflow")
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "WorkflowReconciliationFailed",
+			"Build workflow reconciliation failed: %s", err)
 		return ctrl.Result{}, err
 	}
 
@@ -109,7 +116,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if meta.FindStatusCondition(buildCtx.Build.Status.Conditions, string(ConditionCompleted)) == nil {
-		requeue := handleBuildSteps(build, existingWorkflow.Status.Nodes)
+		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
 
 		if requeue {
 			return r.handleRequeueAfterBuild(ctx, oldBuild, build, existingWorkflow)
@@ -134,6 +141,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 		}
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
+		r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
@@ -149,6 +157,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.recorder == nil {
+		r.recorder = mgr.GetEventRecorderFor("build-controller")
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Build{}).
 		Named("build").
@@ -292,7 +304,7 @@ func (r *Reconciler) handleRequeueAfterBuild(
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 }
 
-func handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
+func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
 	steps := []struct {
 		stepName      integrations.BuildWorkflowStep
 		conditionType controller.ConditionType
@@ -312,6 +324,7 @@ func handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
 			return true
 		case integrations.Succeeded:
 			markStepAsSucceeded(build, step.conditionType)
+			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
 			isFinalStep := step.stepName == integrations.PushStep
 			if isFinalStep {
 				image := argointegrations.GetImageNameFromWorkflow(*stepInfo.Outputs)
@@ -327,6 +340,7 @@ func handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
 		case integrations.Failed:
 			markStepAsFailed(build, step.conditionType)
 			meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowFailedCondition(build.Generation))
+			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step failed")
 			return false
 		}
 	}
@@ -392,6 +406,7 @@ func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, buildCtx *int
 				return true, err
 			}
 			logger.Info("Created deployment", "Build.name", buildCtx.Build.Name)
+			r.recorder.Event(buildCtx.Build, corev1.EventTypeNormal, "DeploymentReady", "Deployment created")
 			return false, nil
 		}
 		// Return if the error is not a "Not Found" error
@@ -406,6 +421,7 @@ func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, buildCtx *int
 			logger.Error(err, "Failed to update deployment", "Deployment.name", deployment.Name)
 			return true, err
 		}
+		r.recorder.Event(buildCtx.Build, corev1.EventTypeNormal, "DeploymentReady", "Deployment updated")
 	}
 
 	// No further reconciliation needed
@@ -450,6 +466,7 @@ func (r *Reconciler) fetchComponentConfigs(ctx context.Context, buildCtx *integr
 	config, err := sourceHandler.FetchComponentDescriptor(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Failed to fetch component descriptor")
+		r.recorder.Eventf(buildCtx.Build, corev1.EventTypeWarning, "RetrievingComponentDescriptorFailed", "Retrieving component descriptor failed: %s", err)
 		return nil, fmt.Errorf("failed to get component.yaml from the repository buildName:%s;%w", buildCtx.Build.Name, err)
 	}
 	return config.(*source.Config), nil
