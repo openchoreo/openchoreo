@@ -48,7 +48,7 @@ spec:
   ingress:
     - fromEndpoints:
        - matchLabels:
-          gateway.envoyproxy.io/owning-gateway-name: gateway-external
+          gateway.envoyproxy.io/owning-gateway-name: gateway-internal
           gateway.envoyproxy.io/owning-gateway-namespace: {{ .Release.Namespace }}
 ---
 apiVersion: cilium.io/v2
