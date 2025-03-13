@@ -44,8 +44,9 @@ These samples help you deploy different types of applications using Open Source 
 Open Source Choreo abstracts the build and deployment process using BuildPacks, enabling developers to deploy applications written in:
 - [Ballerina](./deploying-applications/languages/ballerina)
 - [Go](./deploying-applications/languages/go)
-- Node.js
-- Python
+- [Node.js](./deploying-applications/languages/node-js)
+- [Python](./deploying-applications/languages/python)
+- Ruby
 - (More languages can be added as extensions.)
 
 ### Project Creation

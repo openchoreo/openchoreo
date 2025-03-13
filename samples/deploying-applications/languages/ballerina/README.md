@@ -27,6 +27,9 @@ The service exposes several REST endpoints for performing these operations.
 **Method:** `GET`  
 **Functionality:** Retrieves all patients.
 
+The source code is available at:
+https://github.com/wso2/choreo-samples/tree/main/patient-management-service
+
 ## Deploy in Choreo
 
 ```bash
