@@ -1,7 +1,7 @@
 # Update an existing Deployment Pipeline
 This sample demonstrates how to update an existing Deployment Pipeline in Choreo. 
 
-The DeploymentPipeline resource kind represents an ordered set of environments that a deployment will go through to reach a critical environment. 
+The [DeploymentPipeline](../../../docs/resource-kind-reference-guide.md#deploymentpipeline) resource kind represents an ordered set of environments that a deployment will go through to reach a critical environment. 
 
 Currently the default-org has a deployment pipeline which consists of three environments - namely development, staging and production. 
 

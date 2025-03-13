@@ -16,12 +16,12 @@ When you set up Open Source Choreo, certain default resources are automatically 
 - A default project to organize applications
 
 Open Source Choreo provides abstractions to define:
-- Organizations – Manage access and group related [projects](https://github.com/choreo-idp/choreo/blob/main/docs/contributors/resource-kind-reference-guide.md#project).
-- [Environments](https://github.com/choreo-idp/choreo/blob/main/docs/contributors/resource-kind-reference-guide.md#environment) – Set up Dev, Staging, and Prod environments.
-- [Data Planes](https://github.com/choreo-idp/choreo/blob/main/docs/contributors/resource-kind-reference-guide.md#dataplane) – Define Kubernetes clusters for application deployments.
-- [Deployment Pipelines](https://github.com/choreo-idp/choreo/blob/main/docs/contributors/resource-kind-reference-guide.md#deploymentpipeline) – Automate application rollouts.
+- Organizations – Manage access and group related projects.
+- Environments – Set up Dev, Staging, and Prod environments.
+- Data Planes – Define Kubernetes clusters for application deployments.
+- Deployment Pipelines – Automate application rollouts.
 
-For more details on these concepts, refer to the [Open Source Choreo Abstractions](../docs/contributors/resource-kind-reference-guide.md) Document.
+For more details on these concepts, refer to the [Open Source Choreo Abstractions](../docs/choreo-concepts.md) Document.
 
 These default configurations provide a quick starting point. Once you have done some exploration you can start creating the necessary artifacts to match the needs of your organization. You can;
 
@@ -37,7 +37,7 @@ These samples help you deploy different types of applications using Open Source 
 
 ### Component Types
 - [Services](./deploying-applications/build-from-source/reading-list-service) – Backend services & APIs.
-- [Web Applications](./deploying-applications/prebuilt-image/react-spa-webapp) – Frontend or full-stack applications.
+- [Web Applications](./deploying-applications/use-prebuilt-image/react-spa-webapp) – Frontend or full-stack applications.
 - [Tasks](./deploying-applications/build-from-source/time-logger-task) – Background jobs or scheduled tasks.
 
 ### Supported Languages (via BuildPacks)
@@ -50,6 +50,6 @@ Open Source Choreo abstracts the build and deployment process using BuildPacks, 
 - (More languages can be added as extensions.)
 
 ### Project Creation
-All the above sample components uses the default project. Follow this [sample](./deploying-applications/new-project) to create a new project if required.   
+All the above sample components uses the default project. Follow this [sample](./deploying-applications/add-new-project) to create a new project if required.   
 
 Note: In case you need to try these application samples in a new configuration remember to use the new resource names you created while following the "Configuring Open Source Choreo" section above.

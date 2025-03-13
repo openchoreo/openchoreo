@@ -1,7 +1,7 @@
 # Create a new Environment
 This guide demonstrates how to create new environments in Choreo. 
 
-Environments help organize and manage different stages of the application lifecycle, such as development, testing, and production. The environment is bound to a specific data plane in Choreo. 
+The [Environment](../../../docs/resource-kind-reference-guide.md#environment) resource kind helps organize and manage different stages of the application lifecycle, such as development, testing, and production. The environment is bound to a specific data plane in Choreo. 
 
 We will create three such environments in the new organization created earlier.
 
