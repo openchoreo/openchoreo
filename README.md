@@ -21,6 +21,18 @@ Open Source Choreo provides a third path—a self-hosted, open-source IDP that d
 
 [//]: # (Architecture Diagram)
 
+## Inspired by WSO2 Choreo SaaS
+
+Open Source Choreo is inspired by **[WSO2 Choreo SaaS](https://choreo.dev/)**, an enterprise-grade internal developer platform that has been adopted by organizations to streamline software delivery and engineering.
+
+WSO2 Choreo SaaS provides a complete IDP experience, combining:
+
+- Software Delivery – Seamless workflows to build, deploy, run, and manage applications at scale.
+- Software Engineering – Advanced capabilities for API management, modularity, service reuse, and observability.
+
+With Open Source Choreo, we are bringing these capabilities to the open-source community—allowing organizations to run, extend, and customize an internal developer platform on their own infrastructure, while [WSO2 Choreo SaaS](https://choreo.dev/) remains a fully managed alternative.
+
+
 ## Getting Started
 
 The easiest way to try Open Source Choreo is by following the **[Quick Start Guide](./docs/quick-start-guide.md)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
