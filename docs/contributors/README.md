@@ -10,7 +10,7 @@ Before you start contributing, check out our guidelines:
 - **[GitHub Workflow](./GitHub_workflow.md)** – Understand our GitHub workflow for submitting pull requests.
 - **[Resource Kind Reference Guide](./resource-kind-reference-guide.md)** – Get details about resource kinds in Open Source Choreo.
 
-## 💬 Need Help?
+## Need Help?
 
 If you have any questions, join our **[Discord Community](https://discord.gg/HYCgUacN)** or open a **[GitHub Discussion](https://github.com/choreo-idp/choreo/discussions)**.
 

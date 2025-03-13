@@ -156,6 +156,3 @@ docker volume rm choreo-state tf-state
 That's it!
 
 Now you understand how Open Source Choreo simplifies the deployment and management of cloud-native applications.
-
-## Detailed Setup of Open Source Choreo
-For a more in-depth installation, check out the [Detailed Installation Guide](install/README.md).
