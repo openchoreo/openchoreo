@@ -35,7 +35,7 @@ Once the installation is complete, you will see the following confirmation messa
 ```text
 Choreo Installation Status:
 
-Component                 Status         
+Component                 Status
 ------------------------  ---------------
 cilium                    ✅ ready
 vault                     ✅ ready
@@ -50,7 +50,7 @@ internal_gateway          ✅ ready
 
 Overall Status: ✅ READY
 🎉 Choreo has been successfully installed and is ready to use!
-``` 
+```
 
 #### Deploying a Web Application with Open Source Choreo
 
@@ -87,23 +87,25 @@ The installation process, by default, sets up several essential abstractions. Th
 - [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
 
 To access the artifacts created in Open Source Choreo you can use choreoctl as shown in the following commands:
-
+```
+choreoctl config current-context
+```
 ```shell
 choreoctl get organizations
 ```
 ```shell
-choreoctl get dataplanes --organization default-org
+choreoctl get dataplanes
 ```
 ```shell
-choreoctl get environments --organization default-org
+choreoctl get environments
 ```
 ```shell
-choreoctl get projects --organization default-org
+choreoctl get projects
 ```
 To get more details on any of these abstractions, you can use a similar command to the following command:
 
 ```shell
-get project default-project --organization default-org -oyaml
+choreoctl get project default-project -oyaml
 ```
 
 #### 2. The Deploy Web Application Command
@@ -112,26 +114,24 @@ The deploy script creates a sample Web Application [Component](https://github.co
 To inspect these resources in more detail, run the following commands:
 
 ```shell
-choreoctl get components --organization default-org --project default-project
+choreoctl get components
 ```
 ```shell
-choreoctl get deployment --organization default-org --project default-project --component react-starter-image --environment development
+choreoctl get deployment --component react-starter-image
 ```
 
 Open Source Choreo generates a [DeployableArtifact](https://github.com/choreo-idp/choreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/choreo-idp/choreo/tree/main/docs#endpoint) to access the running application:
 
 ```shell
-choreoctl get deployableartifact --organization default-org --project default-project --component react-starter-image
+choreoctl get deployableartifact --component react-starter-image
 ```
 ```shell
-choreoctl get endpoint --organization default-org --project default-project --component react-starter-image --environment development
+choreoctl get endpoint --component react-starter-image
 ```
 
 You can also check out the logs for the sample Web Application Deployment with the following command:
 ```shell
-choreoctl logs --organization default-org --project default-project \
---component react-starter-image --type deployment --environment development \
---deployment react-starter-image-deployment
+choreoctl logs --type deployment --component react-starter-image --deployment react-starter-image-deployment --follow
 ```
 
 ### Cleaning up
