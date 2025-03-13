@@ -1,5 +1,5 @@
 # Open Source Choreo
-A Complete, yet Customizable Internal Developer Platform
+Internal Developer Platform
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub last commit](https://img.shields.io/github/last-commit/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/commits/main)
