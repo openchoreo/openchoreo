@@ -35,8 +35,3 @@ jobs:
           # See: https://github.com/arttor/helmify/issues/15
           sed -i '/^[[:space:]]*tag:/d' install/helm/choreo/values.yaml
           make helm-dependency-build helm-package helm-push
-
-      - name: Docker Build and push dev container image for quick start
-        run: |
-          make quick-start-docker-build quick-start-docker-push quick-start-docker-push-latest
-
