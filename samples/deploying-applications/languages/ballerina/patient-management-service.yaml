@@ -59,7 +59,7 @@ metadata:
     core.choreo.dev/deployment-track: patient-management-service-main
     core.choreo.dev/name: patient-management-service-build-01
 spec:
-  branch: dev
+  branch: main
   path: /patient-management-service
   buildConfiguration:
     buildpack:
