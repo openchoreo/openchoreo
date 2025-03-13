@@ -40,15 +40,15 @@ Check out the **[Samples Directory](./samples/)** for more details.
 We’d love for you to be part of Open Source Choreo’s journey! 
 Whether you’re fixing a bug, improving documentation, or suggesting new features, every contribution counts.
 
-- [Contributor Guide](./docs/contributors/README.md) – Learn how to get started.
-- [Report an Issue](https://github.com/choreo-idp/choreo/issues) – Help us improve Choreo.
-- [Join our Discord](https://discord.gg/HYCgUacN) – Be part of the community.
+- **[Contributor Guide](./docs/contributors/README.md)** – Learn how to get started.
+- **[Report an Issue](https://github.com/choreo-idp/choreo/issues)** – Help us improve Choreo.
+- **[Join our Discord](https://discord.gg/HYCgUacN)** – Be part of the community.
 
 We’re excited to have you onboard!
 
 ## Roadmap
-Explore the Open Source Choreo roadmap, including completed milestones and upcoming plans, in our [Roadmap]( https://github.com/orgs/choreo-idp/projects/1).
+Explore the Open Source Choreo roadmap, including completed milestones and upcoming plans, in our **[Roadmap]( https://github.com/orgs/choreo-idp/projects/1)**.
 
 ## License
-Open Source Choreo is licensed under Apache 2.0. See the [LICENSE](./LICENSE) file for full details.
+Open Source Choreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.
 
