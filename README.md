@@ -7,13 +7,16 @@ Internal Developer Platform
 [![GitHub issues](https://img.shields.io/github/issues/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/issues)
 
 ## What is Open Source Choreo?
-Open Source Choreo is a fully open source Internal Developer Platform (IDP) designed to empower platform engineers by simplifying infrastructure automation, governance, and security. 
 
-With Open Source Choreo, platform engineers can seamlessly setup the foundational components of the organization's IDP effortlessly. With automated CI/CD, security, and cloud tool integrations, Open Source Choreo helps platform teams enforce best practices and streamline development workflows.
+Open Source Choreo is an internal developer platform (IDP) designed for both platform engineers and developers.
+- For platform engineers, Choreo offers a customizable yet fully-featured platform that integrates CI/CD, security, and cloud tools, enforcing best practices while reducing operational overhead.
+- For developers, it abstracts away infrastructure complexities, enabling them to focus on building and deploying applications with minimal friction.
 
-At the same time, Open Source Choreo provides developers with a configured platform to build, test, and deploy applications without the complexity of managing infrastructure or foundational enterprise platform artifacts. 
+Most organizations face a dilemma when adopting an IDP:
+1. Build their own by integrating multiple tools—offering control but requiring significant engineering effort and maintenance.
+2. Buy a SaaS-based IDP, which simplifies adoption but often limits customization and flexibility.
 
-What sets Open Source Choreo apart is its full customizability—organizations have complete control over deployment, configurations, and extensions, enabling them to adapt the platform to their unique needs. By embracing platform engineering principles, Open Source Choreo enables teams to accelerate software delivery, optimize operations, and free up engineering resources—allowing them to focus on innovation rather than infrastructure management.
+Open Source Choreo provides a third path—a self-hosted, open-source IDP that delivers production-grade capabilities out of the box without sacrificing control or flexibility.
 
 [//]: # (Architecture Diagram)
 
