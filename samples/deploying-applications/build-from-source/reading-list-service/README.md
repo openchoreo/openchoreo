@@ -40,7 +40,7 @@ https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
 The following command will create the component, deployment track, and deployment in Choreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
+choreoctl apply -f samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
 ```
 
 ## Check the Build Workflow Status

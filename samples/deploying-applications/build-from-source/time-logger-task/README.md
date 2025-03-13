@@ -8,7 +8,7 @@ https://github.com/wso2/choreo-samples/tree/main/docker-time-logger-schedule
 The following command will create the component, deployment track and the deployment in Choreo. It'll also trigger a build by creating a build resource. 
 
 ```bash
-kubectl apply -f samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
+choreoctl apply -f samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
 ```
 ## Check the Build Workflow Status
 You can check the logs of the workflow by running the following command.

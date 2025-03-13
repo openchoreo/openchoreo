@@ -16,7 +16,7 @@ https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 ## Deploy in Choreo
 
 ```bash
-kubectl apply -f samples/deploying-applications/languages/go/greeter-service.yaml
+choreoctl apply -f samples/deploying-applications/languages/go/greeter-service.yaml
 ``` 
 
 ## Check the Build Workflow Status

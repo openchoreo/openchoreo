@@ -33,7 +33,7 @@ https://github.com/wso2/choreo-samples/tree/main/patient-management-service
 ## Deploy in Choreo
 
 ```bash
-kubectl apply -f samples/deploying-applications/languages/ballerina/patient-management-service.yaml
+choreoctl apply -f samples/deploying-applications/languages/ballerina/patient-management-service.yaml
 ``` 
 
 
