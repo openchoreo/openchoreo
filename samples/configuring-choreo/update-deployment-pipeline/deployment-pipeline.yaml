@@ -1,0 +1,28 @@
+## Sample DeploymentPipeline kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentPipeline
+metadata:
+  name: pipeline-dev-stage-prod
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Default Deployment Pipeline
+    core.choreo.dev/description: Allows promoting from development, staging to production environments.
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/name: pipeline-dev-stage-prod
+spec:
+  promotionPaths:
+    - sourceEnvironmentRef: development
+      targetEnvironmentRefs:
+      - name: test
+        requiresApproval: false
+    - sourceEnvironmentRef: test
+      targetEnvironmentRefs:
+        - name: staging
+          requiresApproval: false
+        - name: production
+          isManualApprovalRequired: true
+    - sourceEnvironmentRef: staging
+      targetEnvironmentRefs:
+        - name: production
+          requiresApproval: true
