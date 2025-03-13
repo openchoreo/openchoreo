@@ -10,7 +10,7 @@ The following command will create the component, deployment track and the deploy
 ```bash
 kubectl apply -f samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
 ```
-## Checking the Build Workflow Status
+## Check the Build Workflow Status
 You can check the logs of the workflow by running the following command.
 
 ```bash

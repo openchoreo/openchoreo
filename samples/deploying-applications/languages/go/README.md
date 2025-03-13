@@ -19,7 +19,7 @@ https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 kubectl apply -f samples/deploying-applications/languages/go/greeter-service.yaml
 ``` 
 
-## Checking the Build Workflow Status
+## Check the Build Workflow Status
 You can check the logs of the workflow by running the following command.
 
 ```bash
@@ -36,7 +36,7 @@ choreoctl logs --type deployment --deployment greeting-service-go-development-de
 Note: You should see a k8s namespace created for your org, project and environment combination.
 
 ## Invoke the service
-For this sample, we will use kubectl port-forward to access the web application.
+For this sample, we will use kubectl port-forward to access the service.
 
 1. Run the following command to port-forward the gateway.
 

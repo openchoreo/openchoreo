@@ -71,7 +71,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: reading-list-python-service-development-deployment-1
+  name: reading-list-python-service-development-deployment-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Reading List Python Service Deployment
@@ -82,6 +82,6 @@ metadata:
     core.choreo.dev/environment: development
     core.choreo.dev/component: reading-list-python-service
     core.choreo.dev/deployment-track: reading-list-python-service-main
-    core.choreo.dev/name: reading-list-python-service-development-deployment-1
+    core.choreo.dev/name: reading-list-python-service-development-deployment-01
 spec:
   deploymentArtifactRef: reading-list-python-service-build-01
