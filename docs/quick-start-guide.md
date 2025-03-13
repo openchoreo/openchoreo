@@ -5,7 +5,12 @@ This dev container has all the necessary tools installed for setting up Open Sou
 When you're done, you can fully clean up the setup, leaving your machine clutter-free.
 
 #### Prerequisites
-The only requirement is Docker — just have it installed on your machine, and you're good to go. We recommend using [docker engine version 26.0+](https://docs.docker.com/engine/release-notes/26.0/).
+
+To get started, you’ll need:
+
+- **Docker** – Just have it installed on your machine, and you're good to go.
+    - We recommend using [Docker Engine version 26.0+](https://docs.docker.com/engine/release-notes/26.0/).
+- **5–10 minutes of your time** – Setup is quick and depends on your internet connection speed.
 
 #### Start the Dev Container
 
