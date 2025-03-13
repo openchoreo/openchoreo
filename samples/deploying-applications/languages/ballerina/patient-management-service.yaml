@@ -47,7 +47,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: patient-management-service-build-02
+  name: patient-management-service-build-03
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Default Build
@@ -71,7 +71,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: patient-management-service-development-deployment-5
+  name: patient-management-service-development-deployment-6
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Deployment of Patient Management App
