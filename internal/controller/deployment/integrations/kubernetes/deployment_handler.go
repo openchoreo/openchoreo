@@ -140,16 +140,6 @@ func makeDeployment(deployCtx *dataplane.DeploymentContext) *appsv1.Deployment {
 }
 
 func makeDeploymentSpec(deployCtx *dataplane.DeploymentContext) appsv1.DeploymentSpec {
-	mainContainer := corev1.Container{
-		Name:  "main",
-		Image: deployCtx.ContainerImage,
-	}
-
-	artifactConfig := deployCtx.DeployableArtifact.Spec.Configuration
-	if artifactConfig != nil {
-		mainContainer.Ports = makeContainerPortsFromEndpointTemplates(artifactConfig.EndpointTemplates)
-	}
-
 	deploymentSpec := appsv1.DeploymentSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: makeWorkloadLabels(deployCtx),
@@ -158,11 +148,7 @@ func makeDeploymentSpec(deployCtx *dataplane.DeploymentContext) appsv1.Deploymen
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: makeWorkloadLabels(deployCtx),
 			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					mainContainer,
-				},
-			},
+			Spec: *makePodSpec(deployCtx),
 		},
 	}
 

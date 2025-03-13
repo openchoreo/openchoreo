@@ -52,13 +52,13 @@ var _ = Describe("makeDeployment", func() {
 		It("should create a Deployment with correct name and namespace", func() {
 			Expect(deployment).NotTo(BeNil())
 			Expect(deployment.Name).To(Equal("my-component-my-main-track-a43a18e7"))
-			Expect(deployment.Namespace).To(Equal("dp-test-organiza-my-project-development-314a8e4f"))
+			Expect(deployment.Namespace).To(Equal("dp-test-organiza-my-project-test-environ-04bdf416"))
 		})
 
 		expectedLabels := map[string]string{
 			"organization-name":     "test-organization",
 			"project-name":          "my-project",
-			"environment-name":      "development",
+			"environment-name":      "test-environment",
 			"component-name":        "my-component",
 			"component-type":        "Service",
 			"deployment-track-name": "my-main-track",

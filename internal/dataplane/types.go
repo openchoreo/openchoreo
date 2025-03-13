@@ -33,6 +33,8 @@ type DeploymentContext struct {
 	Deployment         *choreov1.Deployment
 	Environment        *choreov1.Environment
 
+	ConfigurationGroups []*choreov1.ConfigurationGroup
+
 	ContainerImage string
 }
 

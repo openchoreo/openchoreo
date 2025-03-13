@@ -71,13 +71,13 @@ var _ = Describe("makeService", func() {
 		It("should create a Service with correct name and namespace", func() {
 			Expect(service).NotTo(BeNil())
 			Expect(service.Name).To(Equal("my-component-my-main-track-a43a18e7"))
-			Expect(service.Namespace).To(Equal("dp-test-organiza-my-project-development-314a8e4f"))
+			Expect(service.Namespace).To(Equal("dp-test-organiza-my-project-test-environ-04bdf416"))
 		})
 
 		expectedLabels := map[string]string{
 			"organization-name":     "test-organization",
 			"project-name":          "my-project",
-			"environment-name":      "development",
+			"environment-name":      "test-environment",
 			"component-name":        "my-component",
 			"component-type":        "Service",
 			"deployment-track-name": "my-main-track",

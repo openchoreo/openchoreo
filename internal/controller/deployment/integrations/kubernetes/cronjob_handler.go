@@ -118,7 +118,6 @@ func makeCronJobName(deployCtx *dataplane.DeploymentContext) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxCronJobNameLength, componentName, deploymentTrackName)
 }
 
-// TODO: Unit test me
 func makeCronJob(deployCtx *dataplane.DeploymentContext) *batchv1.CronJob {
 	return &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -145,16 +144,7 @@ func makeCronJobSpec(deployCtx *dataplane.DeploymentContext) batchv1.CronJobSpec
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: makeWorkloadLabels(deployCtx),
 					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "main",
-								Env:   makeEnvironmentVariables(deployCtx),
-								Image: deployCtx.ContainerImage,
-							},
-						},
-						RestartPolicy: corev1.RestartPolicyNever,
-					},
+					Spec: *makePodSpec(deployCtx),
 				},
 				TTLSecondsAfterFinished: ptr.Int32(360),
 			},
@@ -182,25 +172,4 @@ func makeCronJobSpec(deployCtx *dataplane.DeploymentContext) batchv1.CronJobSpec
 		}
 	}
 	return cronJobSpec
-}
-
-// TODO: move this to a common place
-func makeEnvironmentVariables(deployCtx *dataplane.DeploymentContext) []corev1.EnvVar {
-	if deployCtx.DeployableArtifact.Spec.Configuration == nil ||
-		deployCtx.DeployableArtifact.Spec.Configuration.Application == nil {
-		return nil
-	}
-
-	envVars := deployCtx.DeployableArtifact.Spec.Configuration.Application.Env
-	k8sEnvVars := make([]corev1.EnvVar, 0, len(envVars))
-	for _, v := range envVars {
-		if v.Key == "" {
-			continue
-		}
-		k8sEnvVars = append(k8sEnvVars, corev1.EnvVar{
-			Name:  v.Key,
-			Value: v.Value,
-		})
-	}
-	return k8sEnvVars
 }

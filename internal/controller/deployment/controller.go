@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +36,6 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 	k8sintegrations "github.com/choreo-idp/choreo/internal/controller/deployment/integrations/kubernetes"
 	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 // Reconciler reconciles a Deployment object
@@ -160,148 +158,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) findDeployableArtifact(ctx context.Context, deployment *choreov1.Deployment) (*choreov1.DeployableArtifact, error) {
-	// Find the DeployableArtifact that the Deployment is referring to within the hierarchy
-	deployableArtifactList := &choreov1.DeployableArtifactList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(deployment.Namespace),
-		client.MatchingLabels(makeHierarchyLabelsForDeploymentTrack(deployment.ObjectMeta)),
-	}
-	if err := r.Client.List(ctx, deployableArtifactList, listOpts...); err != nil {
-		return nil, err
-	}
-
-	// Find the target deployable artifact
-	var targetDeployableArtifact *choreov1.DeployableArtifact
-	for _, deployableArtifact := range deployableArtifactList.Items {
-		if deployableArtifact.Name == deployment.Spec.DeploymentArtifactRef {
-			targetDeployableArtifact = &deployableArtifact
-			break
-		}
-	}
-
-	if targetDeployableArtifact == nil {
-		return nil, fmt.Errorf("deployable artifact %q is not found for deployment: %s/%s", deployment.Spec.DeploymentArtifactRef, deployment.Namespace, deployment.Name)
-	}
-
-	return targetDeployableArtifact, nil
-}
-
-func makeHierarchyLabelsForDeploymentTrack(objMeta metav1.ObjectMeta) map[string]string {
-	// Hierarchical labels to be used for DeploymentTrack
-	keys := []string{
-		labels.LabelKeyOrganizationName,
-		labels.LabelKeyProjectName,
-		labels.LabelKeyComponentName,
-		labels.LabelKeyDeploymentTrackName,
-	}
-
-	// Prepare a new map to hold the extracted labels.
-	hierarchyLabelMap := make(map[string]string, len(keys))
-
-	for _, key := range keys {
-		// We need to assign an empty string if the label is not present.
-		// Otherwise, the k8s listing will return all the objects.
-		val := ""
-		if objMeta.Labels != nil {
-			val = objMeta.Labels[key]
-		}
-		hierarchyLabelMap[key] = val
-	}
-
-	return hierarchyLabelMap
-}
-
-// TODO: move this logic to the resource handler implementation as figuring out the container image is specific to the external resource
-func (r *Reconciler) findContainerImage(ctx context.Context, component *choreov1.Component,
-	deployableArtifact *choreov1.DeployableArtifact, deployment *choreov1.Deployment) (string, error) {
-	if buildRef := deployableArtifact.Spec.TargetArtifact.FromBuildRef; buildRef != nil {
-		if buildRef.Name != "" {
-			// Find the build that the deployable artifact is referring to
-			buildList := &choreov1.BuildList{}
-			listOpts := []client.ListOption{
-				client.InNamespace(deployableArtifact.Namespace),
-				client.MatchingLabels(makeHierarchyLabelsForDeploymentTrack(deployableArtifact.ObjectMeta)),
-			}
-			if err := r.Client.List(ctx, buildList, listOpts...); err != nil {
-				return "", fmt.Errorf("findContainerImage: failed to list builds: %w", err)
-			}
-
-			for _, build := range buildList.Items {
-				if build.Name == buildRef.Name {
-					// TODO: Make local registry configurable and move to build controller
-					return fmt.Sprintf("%s/%s", "localhost:30003", build.Status.ImageStatus.Image), nil
-				}
-			}
-			meta.SetStatusCondition(&deployment.Status.Conditions,
-				NewArtifactBuildNotFoundCondition(deployment.Spec.DeploymentArtifactRef, buildRef.Name, deployment.Generation))
-			return "", fmt.Errorf("build %q is not found for deployable artifact: %s/%s", buildRef.Name, deployableArtifact.Namespace, deployableArtifact.Name)
-		} else if buildRef.GitRevision != "" {
-			// TODO: Search for the build by git revision
-			return "", fmt.Errorf("search by git revision is not supported")
-		}
-		return "", fmt.Errorf("one of the build name or git revision should be provided")
-	} else if imageRef := deployableArtifact.Spec.TargetArtifact.FromImageRef; imageRef != nil {
-		if imageRef.Tag == "" {
-			return "", fmt.Errorf("image tag is not provided")
-		}
-		containerRegistry := component.Spec.Source.ContainerRegistry
-		if containerRegistry == nil {
-			return "", fmt.Errorf("container registry is not provided for the component %s/%s", component.Namespace, component.Name)
-		}
-		return fmt.Sprintf("%s:%s", containerRegistry.ImageName, imageRef.Tag), nil
-	}
-	return "", fmt.Errorf("one of the build or image reference should be provided")
-}
-
-// makeDeploymentContext creates a deployment context for the given deployment by retrieving the
-// parent objects that this deployment is associated with.
-func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *choreov1.Deployment) (*dataplane.DeploymentContext, error) {
-	project, err := controller.GetProject(ctx, r.Client, deployment)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
-	}
-
-	component, err := controller.GetComponent(ctx, r.Client, deployment)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the component: %w", err)
-	}
-
-	deploymentTrack, err := controller.GetDeploymentTrack(ctx, r.Client, deployment)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
-	}
-
-	environment, err := controller.GetEnvironment(ctx, r.Client, deployment)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the environment: %w", err)
-	}
-
-	targetDeployableArtifact, err := r.findDeployableArtifact(ctx, deployment)
-	if err != nil {
-		meta.SetStatusCondition(&deployment.Status.Conditions,
-			NewArtifactNotFoundCondition(deployment.Spec.DeploymentArtifactRef, deployment.Generation))
-		return nil, fmt.Errorf("cannot retrieve the deployable artifact: %w", err)
-	}
-
-	containerImage, err := r.findContainerImage(ctx, component, targetDeployableArtifact, deployment)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the container image: %w", err)
-	}
-
-	meta.SetStatusCondition(&deployment.Status.Conditions, NewArtifactResolvedCondition(deployment.Generation))
-
-	return &dataplane.DeploymentContext{
-		Project:            project,
-		Component:          component,
-		DeploymentTrack:    deploymentTrack,
-		DeployableArtifact: targetDeployableArtifact,
-		Deployment:         deployment,
-		Environment:        environment,
-		ContainerImage:     containerImage,
-	}, nil
-}
-
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // bring the external resources to the desired state.
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.DeploymentContext] {
@@ -311,6 +167,7 @@ func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[
 	// For example, the namespace handler should be reconciled before creating resources that depend on the namespace.
 	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(r.Client))
+	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewCronJobHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewServiceHandler(r.Client))

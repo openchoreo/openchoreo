@@ -45,13 +45,13 @@ var _ = Describe("makeNamespace", func() {
 
 		It("should create a Namespace with valid name", func() {
 			Expect(namespace).NotTo(BeNil())
-			Expect(namespace.Name).To(Equal("dp-test-organiza-my-project-development-314a8e4f"))
+			Expect(namespace.Name).To(Equal("dp-test-organiza-my-project-test-environ-04bdf416"))
 		})
 
 		expectedLabels := map[string]string{
 			"organization-name": "test-organization",
 			"project-name":      "my-project",
-			"environment-name":  "development",
+			"environment-name":  "test-environment",
 			"managed-by":        "choreo-deployment-controller",
 			"belong-to":         "user-workloads",
 		}

@@ -46,13 +46,13 @@ var _ = Describe("makeCiliumNetworkPolicy", func() {
 		It("should create a CiliumNetworkPolicy with correct name and namespace", func() {
 			Expect(cnp).NotTo(BeNil())
 			Expect(cnp.Name).To(Equal("default-policy"))
-			Expect(cnp.Namespace).To(Equal("dp-test-organiza-my-project-development-314a8e4f"))
+			Expect(cnp.Namespace).To(Equal("dp-test-organiza-my-project-test-environ-04bdf416"))
 		})
 
 		expectedLabels := map[string]string{
 			"organization-name": "test-organization",
 			"project-name":      "my-project",
-			"environment-name":  "development",
+			"environment-name":  "test-environment",
 			"managed-by":        "choreo-deployment-controller",
 			"belong-to":         "user-workloads",
 		}
