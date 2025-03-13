@@ -452,7 +452,11 @@ func (r *Reconciler) fetchComponentConfigs(ctx context.Context, buildCtx *integr
 		logger.Error(err, "Failed to fetch component descriptor")
 		return nil, fmt.Errorf("failed to get component.yaml from the repository buildName:%s;%w", buildCtx.Build.Name, err)
 	}
-	return config.(*source.Config), nil
+	sourceConfig, ok := config.(source.Config)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for component descriptor: %T", config)
+	}
+	return &sourceConfig, nil
 }
 
 func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrations.BuildContext) ([]choreov1.EndpointTemplate, error) {
