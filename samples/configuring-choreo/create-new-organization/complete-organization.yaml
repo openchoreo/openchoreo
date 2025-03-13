@@ -1,0 +1,97 @@
+## Sample Organization kind (Cluster-scoped)
+apiVersion: core.choreo.dev/v1
+kind: Organization
+metadata:
+  name: acme
+  annotations:
+    core.choreo.dev/display-name: ACME Organization
+    core.choreo.dev/description: Choreo Organization for ACME
+  labels:
+    core.choreo.dev/name: acme
+spec: {}
+---
+
+## Sample DataPlane kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DataPlane
+metadata:
+  name: dp-local
+  namespace: acme
+  annotations:
+    core.choreo.dev/display-name: Local Data Plane
+    core.choreo.dev/description: Data plane in Kind cluster
+  labels:
+    core.choreo.dev/organization: acme
+    core.choreo.dev/name: dp-local
+spec:
+  kubernetesCluster:
+    name: kind-cluster-1
+    connectionConfigRef: kind-cluster-1-connection-config
+    featureFlags:
+      cilium: true
+      scaleToZero: true
+      gatewayType: envoy
+  gateway:
+    publicVirtualHost: choreoapis.local
+    organizationVirtualHost: internal.choreoapis.local
+---
+
+## Sample DeploymentPipeline kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentPipeline
+metadata:
+  name: default-pipeline
+  namespace: acme
+  annotations:
+    core.choreo.dev/display-name: Default Deployment Pipeline
+    core.choreo.dev/description: Allows promoting from dev to production
+  labels:
+    core.choreo.dev/organization: acme
+    core.choreo.dev/name: default-pipeline
+spec:
+  promotionPaths:
+    - sourceEnvironmentRef: development
+      targetEnvironmentRefs:
+        - name: staging
+          requiresApproval: false
+        - name: production
+          isManualApprovalRequired: true
+    - sourceEnvironmentRef: staging
+      targetEnvironmentRefs:
+        - name: production
+          requiresApproval: true
+---
+
+## Sample Environment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Environment
+metadata:
+  name: development
+  namespace: acme
+  annotations:
+    core.choreo.dev/display-name: Development Environment
+    core.choreo.dev/description: The environment where you can play around
+  labels:
+    core.choreo.dev/organization: acme
+    core.choreo.dev/name: development
+spec:
+  dataPlaneRef: dp-local 
+  isProduction: false
+  gateway:
+    dnsPrefix: local-dev
+
+---
+## Sample Project kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Project
+metadata:
+  name: customer-portal
+  namespace: acme
+  annotations:
+    core.choreo.dev/display-name: Customer Portal
+    core.choreo.dev/description: This project contains types that are used by Acme customer portal
+  labels:
+    core.choreo.dev/organization: acme
+    core.choreo.dev/name: customer-portal
+spec:
+  deploymentPipelineRef: default-pipeline
