@@ -46,7 +46,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: reading-list-service-build
+  name: reading-list-service-build-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Build for Reading List Service
@@ -56,7 +56,7 @@ metadata:
     core.choreo.dev/project: default-project
     core.choreo.dev/component: reading-list-service
     core.choreo.dev/deployment-track: reading-list-service-main
-    core.choreo.dev/name: reading-list-service-build
+    core.choreo.dev/name: reading-list-service-build-01
 spec:
   branch: main
   path: /go-reading-list-rest-api
@@ -70,7 +70,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: reading-list-service-deployment
+  name: reading-list-service-development-deployment-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Reading List Service Deployment
@@ -81,6 +81,6 @@ metadata:
     core.choreo.dev/environment: development
     core.choreo.dev/component: reading-list-service
     core.choreo.dev/deployment-track: reading-list-service-main
-    core.choreo.dev/name: reading-list-service-deployment
+    core.choreo.dev/name: reading-list-service-development-deployment-01
 spec:
-  deploymentArtifactRef: reading-list-service-build
+  deploymentArtifactRef: reading-list-service-build-01

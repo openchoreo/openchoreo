@@ -47,7 +47,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: react-starter-build
+  name: react-starter-build-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Build for react-starter
@@ -82,4 +82,4 @@ metadata:
     core.choreo.dev/deployment-track: main
     core.choreo.dev/name: react-starter-deployment
 spec:
-  deploymentArtifactRef: react-starter-build
+  deploymentArtifactRef: react-starter-build-01

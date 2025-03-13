@@ -30,48 +30,25 @@ The service exposes several REST endpoints for performing these operations.
 ## Deploy in Choreo
 
 ```bash
-kubectl apply -f samples/applications/languages/ballerina/patient-management-service.yaml
+kubectl apply -f samples/deploying-applications/languages/ballerina/patient-management-service.yaml
 ``` 
 
 
-## Checking the Argo Workflow Status
-Argo workflow will create three tasks.
-
-```
-NAMESPACE                       NAME 
-choreo-ci-default-org           patient-management-service-build-01-clone-step-2079439001     
-choreo-ci-default-org           patient-management-service-build-01-build-step-3941607917                      
-choreo-ci-default-org           patient-management-service-build-01-push-step-3448493733                  
-```
-
-You can check the status of the workflow by running the following commands.
+## Checking the Build Workflow Status
+You can check the logs of the workflow by running the following command.
 
 ```bash
-kubectl get pods -n choreo-ci-default-org
-```
-
-You can check build logs of each step by running the following commands.
-
-```bash
-kubectl -n choreo-ci-default-org logs -l workflow=patient-management-service-build-01,step=clone-step --tail=-1
-kubectl -n choreo-ci-default-org logs -l workflow=patient-management-service-build-01,step=build-step --tail=-1
-kubectl -n choreo-ci-default-org logs -l workflow=patient-management-service-build-01,step=push-step --tail=-1
+choreoctl logs --type build --build patient-management-service-build-01 --organization default-org --project default-project --component patient-management-service
 ```
 
 ## Check the Deployment Status
-You should see a namespace created for your org, project and environment combination. In this sample it will have the prefix `dp-default-org-default-project-development-`.
-
-List all the namespaces in the cluster to find the namespace created for the deployment.
+You can check the deployment logs by running the following command.
 
 ```bash
-kubectl get namespaces
-``` 
-
-You can check the status of the deployment by running the following commands.
-
-```bash
-kubectl get pods -n dp-default-org-default-project-development-39faf2d8
+choreoctl logs --type deployment --deployment patient-management-service-development-deployment-01 --organization default-org --project default-project --component patient-management-service
 ```
+
+Note: You should see a k8s namespace created for your org, project and environment combination.
 
 ## Invoke the service
 For this sample, we will use kubectl port-forward to access the web application.
@@ -82,12 +59,12 @@ For this sample, we will use kubectl port-forward to access the web application.
     kubectl port-forward svc/envoy-choreo-system-gateway-external-<hash> -n choreo-system 4430:443
     ```
 
-   Now you can Invoke the endpoints using the following URL.
+   Note: You can find the <hash> part of the gateway name by running the following command:
     ```bash
-    https://development.apis.choreo.localhost:4430/default-project/patient-management-service/mediflow
+    kubectl -n choreo-system get services
    ```
    
-2. Invoke the service
+2. Invoke the service.
 
    Health check
    ```bash

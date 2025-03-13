@@ -71,7 +71,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: time-logger-development-deployment
+  name: time-logger-development-deployment-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Deployment of Time Logger

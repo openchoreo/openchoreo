@@ -36,7 +36,7 @@ metadata:
     core.choreo.dev/name: patient-management-service-main
 spec:
   buildTemplateSpec:
-    branch: dev
+    branch: main
     path: /patient-management-service
     buildConfiguration:
       buildpack:
@@ -47,7 +47,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: patient-management-service-build-03
+  name: patient-management-service-build-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Default Build
@@ -71,7 +71,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: patient-management-service-development-deployment-6
+  name: patient-management-service-development-deployment-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Deployment of Patient Management App
@@ -82,6 +82,6 @@ metadata:
     core.choreo.dev/environment: development
     core.choreo.dev/component: patient-management-service
     core.choreo.dev/deployment-track: patient-management-service-main
-    core.choreo.dev/name: patient-management-service-development-deployment-5
+    core.choreo.dev/name: patient-management-service-development-deployment-01
 spec:
-  deploymentArtifactRef: patient-management-service-build-02
+  deploymentArtifactRef: patient-management-service-build-01

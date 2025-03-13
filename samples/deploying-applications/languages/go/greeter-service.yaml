@@ -46,7 +46,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Build
 metadata:
-  name: greeting-service-go-build
+  name: greeting-service-go-build-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: Build for greeting-service-go
@@ -56,7 +56,7 @@ metadata:
     core.choreo.dev/project: default-project
     core.choreo.dev/component: greeting-service-go
     core.choreo.dev/deployment-track: greeting-service-go-main
-    core.choreo.dev/name: greeting-service-go-build
+    core.choreo.dev/name: greeting-service-go-build-01
 spec:
   branch: main
   path: /greeting-service-go
@@ -70,7 +70,7 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: Deployment
 metadata:
-  name: greeting-service-go-deployment
+  name: greeting-service-go-development-deployment-01
   namespace: default-org
   annotations:
     core.choreo.dev/display-name: greeting-service-go deployment
@@ -80,6 +80,6 @@ metadata:
     core.choreo.dev/environment: development
     core.choreo.dev/component: greeting-service-go
     core.choreo.dev/deployment-track: greeting-service-go-main
-    core.choreo.dev/name: greeting-service-go-deployment
+    core.choreo.dev/name: greeting-service-go-development-deployment-01
 spec:
-  deploymentArtifactRef: greeting-service-go-build
+  deploymentArtifactRef: greeting-service-go-build-01

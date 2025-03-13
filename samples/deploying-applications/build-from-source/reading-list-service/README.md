@@ -33,48 +33,31 @@ The service exposes several REST endpoints for performing these operations.
 **Method:** `GET`  
 **Functionality:** Retrieves all books from the reading list.
 
+The source code is available at:
+https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
+
 ## Deploy in Choreo
 The following command will create the component, deployment track, and deployment in Choreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f samples/applications/types/services/source-code/reading-list-service.yaml
+kubectl apply -f samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
 ```
 
-## Check the Argo Workflow Status
-The Argo Workflow will create three tasks for building and deploying the service:
-
-NAMESPACE	            NAME
-choreo-ci-default-org	reading-list-service-build-bfe565e2-clone-step-2854902034
-choreo-ci-default-org	reading-list-service-build-bfe565e2-build-step-1687356778
-choreo-ci-default-org	reading-list-service-build-bfe565e2-push-step-2561049231
-
-You can check the status of the workflow by running the following command:
+## Checking the Build Workflow Status
+You can check the logs of the workflow by running the following command.
 
 ```bash
-kubectl get pods -n choreo-ci-default-org
+choreoctl logs --type build --build reading-list-service-build-01 --organization default-org --project default-project --component reading-list-service
 ```
-## Check Build Logs
-You can check the build logs of each step by running the following commands:
 
-```bash
-kubectl -n choreo-ci-default-org logs -l workflow=reading-list-service-build,step=clone-step --tail=-1
-kubectl -n choreo-ci-default-org logs -l workflow=reading-list-service-build,step=build-step --tail=-1
-kubectl -n choreo-ci-default-org logs -l workflow=reading-list-service-build,step=push-step --tail=-1
-```
 ## Check the Deployment Status
-You should see a namespace created for your org, project and environment combination. In this sample it will have the prefix `dp-default-org-default-project-development-`.
-
-List all the namespaces in the cluster to find the namespace created for the deployment.
+You can check the deployment logs by running the following command.
 
 ```bash
-kubectl get namespaces
-``` 
-
-You can check the status of the deployment by running the following commands.
-
-```bash             
-kubectl get pods -n dp-default-org-default-project-development-39faf2d8
+choreoctl logs --type deployment --deployment reading-list-service-development-deployment-01 --organization default-org --project default-project --component reading-list-service
 ```
+
+Note: You should see a k8s namespace created for your org, project and environment combination.
 
 ## Invoke the service
 For this sample, we will use kubectl port-forward to access the web application.
@@ -85,12 +68,12 @@ For this sample, we will use kubectl port-forward to access the web application.
     kubectl port-forward svc/envoy-choreo-system-gateway-external-<hash> -n choreo-system 4430:443
     ```
 
-   Now you can Invoke the endpoints using the following URL.
+   Note: You can find the <hash> part of the gateway name by running the following command:
     ```bash
-    https://development.apis.choreo.localhost:4430/default-project/reading-list-service/api/v1/reading-list
+    kubectl -n choreo-system get services
    ```
 
-2. Invoke the service
+2. Invoke the service.
 
    Add a new book
    ```bash
