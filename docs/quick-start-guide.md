@@ -87,9 +87,13 @@ The installation process, by default, sets up several essential abstractions. Th
 - [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
 
 To access the artifacts created in Open Source Choreo you can use choreoctl as shown in the following commands:
-```
+
+First you can get the current context
+```shell
 choreoctl config current-context
 ```
+Next you can check each resource type
+
 ```shell
 choreoctl get organizations
 ```
