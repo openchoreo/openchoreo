@@ -39,7 +39,7 @@ COPY install/quick-start /app
 
 COPY install/check-status.sh /app/check-status.sh
 
-COPY samples/deploying-applications/prebuilt-image/react-spa-webapp/react-starter.yaml /app/react-starter.yaml
+COPY samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml /app/react-starter.yaml
 
 COPY dist /dist
 
