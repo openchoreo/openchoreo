@@ -253,14 +253,9 @@ var (
 		Usage: "Enable automatic deployments",
 	}
 
-	BuildRef = Flag{
-		Name:  "build-ref",
-		Usage: "Reference to the build",
-	}
-
 	DataPlane = Flag{
 		Name:  "dataplane",
-		Usage: "Data plane name",
+		Usage: "Name of the Data plane",
 	}
 	Interactive = Flag{
 		Name:      "interactive",

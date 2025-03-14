@@ -63,6 +63,5 @@ func createOrganization(params api.CreateOrganizationParams, config constants.CR
 		return fmt.Errorf("failed to create organization: %w", err)
 	}
 
-	fmt.Printf("Organization '%s' created successfully\n", params.Name)
 	return nil
 }

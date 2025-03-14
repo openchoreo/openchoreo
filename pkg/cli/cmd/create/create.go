@@ -300,7 +300,7 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	artifactFlags := append(getComponentLevelFlags(),
 		flags.DeploymentTrack,
-		flags.BuildRef,
+		flags.Build,
 	)
 	return (&builder.CommandBuilder{
 		Command: constants.CreateDeployableArtifact,

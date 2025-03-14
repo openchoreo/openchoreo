@@ -74,9 +74,9 @@ func generateHelpError(cmdType CommandType, resource ResourceType, fields map[st
 	errMsg.WriteString(fmt.Sprintf("Missing required fields for %s %s: %s\n\n",
 		cmdType, resource, strings.Join(missingFields, ", ")))
 
-	errMsg.WriteString("To see how to use this command, run:\n")
+	errMsg.WriteString("To see usage details:\n")
 	errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s -h\n\n", cmdType, resource))
-	errMsg.WriteString("To use interactive mode, run:\n")
+	errMsg.WriteString("To use interactive mode:\n")
 	errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s --interactive", cmdType, resource))
 
 	return fmt.Errorf("%s", errMsg.String())

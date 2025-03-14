@@ -51,34 +51,34 @@ var (
 
 Examples:
   # Create an organization interactively
-  %[1]s create org
+  %[1]s create organization --interactive
 
   # Create a project in an organization
-  %[1]s create project --organization myorg --name myproject
+  %[1]s create project --organization acme-corp --name online-store
 
   # Create a component in a project
-  %[1]s create component --organization myorg --project myproject --name mycomponent --url https://github.com/org/repo`,
-			messages.DefaultCLIName),
+  %[1]s create component --organization acme-corp --project online-store --name product-catalog \
+   --git-repository-url https://github.com/org/repo`, messages.DefaultCLIName),
 	}
 
 	List = Command{
 		Use:     "get",
-		Short:   "Get Choreo resources",
+		Short:   "List Choreo resources",
 		Aliases: []string{"list"},
-		Long: fmt.Sprintf(`Get Choreo resources like organizations, projects, and components.
+		Long: fmt.Sprintf(`List Choreo resources like organizations, projects, and components.
 
 Examples:
-  # Get all organizations
-  %[1]s get org
+  # List all organizations
+  %[1]s get organization
 
-  # Get projects in an organization
-  %[1]s get project --organization myorg
+  # List projects in an organization
+  %[1]s get project --organization acme-corp
 
-  # Get components in a project
-  %[1]s get component --organization myorg --project myproject
+  # List components in a project
+  %[1]s get component --organization acme-corp --project online-store
 
-  # Get YAML output
-  %[1]s get org -o yaml`,
+  # Output organization details in YAML format
+  %[1]s get organization -o yaml`,
 			messages.DefaultCLIName),
 	}
 
@@ -101,17 +101,32 @@ Examples:
 
 Examples:
   # Create a project interactively
-  %[1]s create project
+  %[1]s create project --interactive
 
   # Create a project in a specific organization
-  %[1]s create project --organization myorg --name myproject`,
+  %[1]s create project --organization acme-corp --name online-store`,
 			messages.DefaultCLIName),
 	}
 
 	CreateComponent = Command{
 		Use:     "component",
 		Aliases: []string{"comp", "components"},
-		Short:   "Create a component",
+		Short:   "Create a new component in a project",
+		Long: fmt.Sprintf(`Create a new component in the specified project and organization.
+
+Examples:
+  # Create a component interactively
+  %[1]s create component --interactive
+
+  # Create a component with Git repository
+  %[1]s create component --name product-catalog --organization acme-corp --project online-store \
+    --display-name "Product Catalog" --git-repository-url https://github.com/acme-corp/product-catalog --type Service
+
+  # Create a component with build configuration
+  %[1]s create component --name product-catalog --organization acme-corp --project online-store \
+    --type Service --git-repository-url https://github.com/acme-corp/product-catalog --branch main \
+	--path / --docker-context ./src --dockerfile-path ./src/Dockerfile`,
+			messages.DefaultCLIName),
 	}
 
 	CreateOrganization = Command{
@@ -122,101 +137,105 @@ Examples:
 
 Examples:
   # Create an organization interactively
-  %[1]s create org
+  %[1]s create organization --interactive
 
   # Create an organization with specific details
-  %[1]s create org --name myorg --display-name "My Organization" --description "My organization description"`,
+  %[1]s create organization --name acme-corp --display-name "ACME" --description "ACME Corporation"`,
 			messages.DefaultCLIName),
 	}
 
 	ListOrganization = Command{
 		Use:     "organization",
 		Aliases: []string{"org", "orgs", "organizations"},
-		Short:   "Get organizations",
-		Long: fmt.Sprintf(`Get all organizations or get details of a specific organization.
+		Short:   "List organizations",
+		Long: fmt.Sprintf(`List all organizations or get details of a specific organization.
 
 Examples:
-  # Get all organizations
-  %[1]s get org
+  # List all organizations
+  %[1]s get organization
 
-  # Get a specific organization
-  %[1]s get org myorg
+  # List a specific organization
+  %[1]s get organization acme-corp
 
   # Output organization details in YAML format
-  %[1]s get org -o yaml
+  %[1]s get organization -o yaml
 
   # Output specific organization in YAML format
-  %[1]s get org myorg -o yaml`,
+  %[1]s get organization acme-corp -o yaml`,
 			messages.DefaultCLIName),
 	}
 
 	ListProject = Command{
 		Use:     "project",
 		Aliases: []string{"proj", "projects"},
-		Short:   "Get projects",
-		Long: fmt.Sprintf(`Get all projects in an organization or get details of a specific project.
+		Short:   "List projects",
+		Long: fmt.Sprintf(`List all projects in an organization or get details of a specific project.
 
 Examples:
-  # Get all projects in the current organization
+  # List all projects in the current organization
   %[1]s get project
 
-  # Get all projects in a specific organization
-  %[1]s get project --organization myorg
+  # List all projects in a specific organization
+  %[1]s get project --organization acme-corp
 
-  # Get a specific project
-  %[1]s get project myproject --organization myorg
+  # List a specific project
+  %[1]s get project online-store --organization acme-corp
 
   # Output project details in YAML format
-  %[1]s get project -o yaml --organization myorg
+  %[1]s get project -o yaml --organization acme-corp
 
   # Output specific project in YAML format
-  %[1]s get project myproject -o yaml --organization myorg`,
+  %[1]s get project online-store -o yaml --organization acme-corp`,
 			messages.DefaultCLIName),
 	}
 
 	ListComponent = Command{
 		Use:     "component",
 		Aliases: []string{"comp", "components"},
-		Short:   "Get components",
-		Long: fmt.Sprintf(`Get all components in a project or get details of a specific component.
+		Short:   "List components",
+		Long: fmt.Sprintf(`List all components in a project or get details of a specific component.
 
 Examples:
-  # Get all components in the current project
-  %[1]s get component --organization myorg --project myproject
+  # List all components in the current project
+  %[1]s get component --organization acme-corp --project online-store
 
-  # Get a specific component
-  %[1]s get component mycomponent --organization myorg --project myproject
+  # List a specific component
+  %[1]s get component product-catalog --organization acme-corp --project online-store
 
   # Output component details in YAML format
-  %[1]s get component -o yaml --organization myorg --project myproject
+  %[1]s get component -o yaml --organization acme-corp --project online-store
 
   # Output specific component in YAML format
-  %[1]s get component mycomponent -o yaml --organization myorg --project myproject`,
+  %[1]s get component product-catalog -o yaml --organization acme-corp --project online-store`,
 			messages.DefaultCLIName),
 	}
 
 	Logs = Command{
 		Use:     "logs",
 		Aliases: []string{"log"},
-		Short:   "Get Choreo resource logs",
-		Long: `Get logs from a pod in the current namespace.
+		Short:   "Get logs for Choreo resources",
+		Long: `Get logs for Choreo resources such as build and deployment.
 
-This command allows you to view the logs of a specific pod. You can:
+This command allows you to:
 - Stream logs in real-time
-- Get logs from a specific container
-- View logs since a specific time
+- Get logs from a specific build or deployment
 - Follow log output`,
-		Example: `  # Get logs from a specific pod
-  choreoctl logs pod-name
+		Example: `  # Get logs from a specific build
+  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  --component product-catalog
 
-  # Stream logs from a pod
-  choreoctl logs -f pod-name
+  # Get logs from a specific deployment
+  choreoctl logs --type deployment --deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+  --component product-catalog --environment development
 
-  # Get logs from a specific container in a pod
-  choreoctl logs pod-name -c container-name
+  # Get last 100 lines of logs from a specific build
+  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  --component product-catalog --tail 100
 
-  # Get logs since 1 hour
-  choreoctl logs pod-name --since=1h`,
+  # Stream logs from a specific build
+  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+   --component product-catalog --follow
+  `,
 	}
 
 	CreateBuild = Command{
@@ -229,80 +248,86 @@ This command creates a new build for a component. You can:
 - Create Docker builds
 - Create Buildpack builds
 - Specify build context and Dockerfile
-- Set build arguments`,
+- Define custom build arguments`,
 		Example: `  # Create a build interactively
-  choreoctl create build
+  choreoctl create build --interactive
 
   # Create a Docker build
-  choreoctl create build --type docker --context . --dockerfile Dockerfile
+  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+    --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
 
   # Create a Buildpack build
-  choreoctl create build --type buildpack --buildpack java
+  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+    --component product-catalog --buildpack-name java --buildpack-version  --deployment-track main
 
-  # Create a build with specific name
-  choreoctl create build my-build --type docker`,
+  # Create a build with revision and branch
+  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+    --component product-catalog --branch main --revision abc123 --auto-build true`,
 	}
 
 	ListBuild = Command{
 		Use:     "build",
 		Aliases: []string{"builds"},
-		Short:   "Get builds",
-		Long: `Get all builds in the current project or organization.
+		Short:   "List builds",
+		Long: `List all builds in the current project or organization.
 `,
-		Example: `  # Get all builds
-  choreoctl get builds
+		Example: `  # List all builds
+  choreoctl get build
 
-  # Get builds for a specific component
-  choreoctl get builds  --organization myorg --project myproject --component my-component
+  # List builds for a specific component
+  choreoctl get build  --organization acme-corp --project online-store --component product-catalog
 
-  # Get builds in yaml format
-  choreoctl get builds -o yaml
+  # List builds in yaml format
+  choreoctl get build -o yaml
 `,
 	}
 	ListDeployableArtifact = Command{
 		Use:     "deployableartifact",
 		Aliases: []string{"deployableartifacts"},
-		Short:   "Get deployable artifacts",
-		Long: `Get all deployable artifacts in the current project or organization.
+		Short:   "List deployable artifacts",
+		Long: `List all deployable artifacts in the current project or organization.
 `,
-		Example: `  # Get all deployable artifacts
-		  choreoctl get deployableartifacts
+		Example: `  # List all deployable artifacts
+		  choreoctl get deployableartifact
 
-		  # Get deployable artifacts for a specific component
-		  choreoctl get deployableartifacts  --organization myorg --project myproject --component my-component
+		  # List deployable artifacts for a specific component
+		  choreoctl get deployableartifact  --organization acme-corp --project online-store --component product-catalog
 
-		  # Get deployable artifacts in yaml format
-		  choreoctl get deployableartifacts --organization myorg --project myproject --component my-component -o yaml
+		  # List deployable artifacts in yaml format
+		  choreoctl get deployableartifact --organization acme-corp --project online-store --component product-catalog -o yaml
 `,
 	}
 	ListDeployment = Command{
 		Use:     "deployment",
 		Aliases: []string{"deployments", "deploy"},
-		Short:   "Get deployments",
-		Long: `Get all deployments in the current project or organization.
+		Short:   "List deployments",
+		Long: `List all deployments in the current project or organization.
 
 This command allows you to:
-- Get all deployments
+- List all deployments
 - Filter by organization, project, and component
 - Filter by environment and deployment track
 - View deployments in different output formats`,
-		Example: `  # Get all deployments
-  choreoctl get deployments
+		Example: `  # List all deployments
+  choreoctl get deployment
 
-  # Get deployments for a specific component
-  choreoctl get deployments --organization myorg --project myproject --component mycomp
+  # List deployments for a specific component
+  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog
 
-  # Get deployments for a specific environment
-  choreoctl get deployments --organization myorg --project myproject --component mycomp --environment dev
+  # List deployments for a specific environment
+  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog \
+  --environment dev
 
-  # Get deployments for a specific deployment track
-  choreoctl get deployments --organization myorg --project myproject --component mycomp --deployment-track main
+  # List deployments for a specific deployment track
+  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog \
+   --deployment-track main
 
-  # Get deployments in yaml format
-  choreoctl get deployments -o yaml --organization myorg --project mycomp
+  # List deployments in yaml format
+  choreoctl get deployment -o yaml --organization acme-corp --project product-catalog
 
-  # Get details of a specific deployment
-  choreoctl get deployment mydeployment --organization myorg --project myproject --component mycomp`,
+  # List details of a specific deployment
+  choreoctl get deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+   --component product-catalog`,
 	}
 
 	CreateDeployment = Command{
@@ -311,11 +336,11 @@ This command allows you to:
 		Short:   "Create a deployment",
 		Long:    `Create a deployment in the specified organization, project and component.`,
 		Example: `  # Create a deployment interactively
-  choreoctl create deployment
+  choreoctl create deployment --interactive
 
   # Create a deployment with specific parameters
-  choreoctl create deployment --name mydeployment --organization myorg --project myproj --component mycomp
-  --environment dev --deployableartifact myartifact`,
+  choreoctl create deployment --name product-catalog-dev-01 --organization acme-corp --project online-store \
+    --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
 	}
 
 	CreateDeploymentTrack = Command{
@@ -324,44 +349,45 @@ This command allows you to:
 		Short:   "Create a deployment track",
 		Long:    `Create a deployment track in the specified organization, project and component.`,
 		Example: `  # Create a deployment track interactively
-  choreoctl create deploymenttrack
+  choreoctl create deploymenttrack --interactive
 
   # Create a deployment track with specific parameters
-  choreoctl create deploymenttrack --name mytrack --org myorg --project myproj --component mycomp`,
+  choreoctl create deploymenttrack --name main-track --organization acme-corp --project online-store \
+    --component product-catalog --api-version v1 --auto-deploy true`,
 	}
 
 	ListDeploymentTrack = Command{
 		Use:     "deploymenttrack [name]",
 		Aliases: []string{"deptrack", "deptracks"},
-		Short:   "Get deployment tracks",
-		Long:    `Get deployment tracks in an organization, project and component.`,
-		Example: `  # Get all deployment tracks
-  choreoctl get deploymenttrack --org myorg --project myproj --component mycomp
+		Short:   "List deployment tracks",
+		Long:    `List deployment tracks in an organization, project and component.`,
+		Example: `  # List all deployment tracks
+  choreoctl get deploymenttrack --organization acme-corp --project online-store --component product-catalog
 
-  # Get specific deployment track
-  choreoctl get deploymenttrack mytrack --org myorg --project myproj --component mycomp
+  # List specific deployment track
+  choreoctl get deploymenttrack main-track --organization acme-corp --project online-store --component product-catalog
 
-  # Get in YAML format
+  # Output deployment tracks in YAML format
   choreoctl get deploymenttrack -o yaml`,
 	}
 
 	ListEnvironment = Command{
 		Use:     "environment [name]",
 		Aliases: []string{"env", "environments", "envs"},
-		Short:   "Get environments",
-		Long: `Get all environments or a specific environment in an organization.
+		Short:   "List environments",
+		Long: `List all environments or a specific environment in an organization.
 If no organization is specified, you will be prompted to select one interactively.`,
-		Example: `  # Get all environments in an organization
-  choreoctl get environment --organization myorg
+		Example: `  # List all environments in an organization
+  choreoctl get environment --organization acme-corp
 
-  # Get a specific environment
-  choreoctl get environment myenv --organization myorg
+  # List a specific environment
+  choreoctl get environment development --organization acme-corp
 
-  # Get  environments in YAML format
-  choreoctl get environment --organization myorg -o yaml
+  # Output environments in YAML format
+  choreoctl get environment --organization acme-corp -o yaml
 
   # get environments interactively
-  choreoctl get environment`,
+  choreoctl get environment --interactive`,
 	}
 
 	CreateDataPlane = Command{
@@ -370,40 +396,45 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create a data plane",
 		Long:    `Create a data plane in the specified organization.`,
 		Example: `  # Create a data plane interactively
-  choreoctl create dataplane
+  choreoctl create dataplane --interactive
 
   # Create a data plane with specific parameters
-  choreoctl create dataplane --name mydp --organization myorg --cluster-name mycluster`,
+  choreoctl create dataplane --name primary-dataplane --organization acme-corp --cluster-name k8s-cluster-01 \
+    --connection-config kubeconfig --enable-cilium --enable-scale-to-zero --gateway-type envoy \
+    --public-virtual-host api.example.com`,
 	}
 
 	ListDataPlane = Command{
 		Use:     "dataplane [name]",
 		Aliases: []string{"dp", "dataplanes"},
-		Short:   "Get data planes",
-		Long:    `Get all data planes or a specific data plane in an organization.`,
-		Example: `  # Get all data planes
-  choreoctl get dataplane --organization myorg
+		Short:   "List data planes",
+		Long:    `List all data planes or a specific data plane in an organization.`,
+		Example: `  # List all data planes
+  choreoctl get dataplane --organization acme-corp
 
-  # Get a specific data plane
-  choreoctl get dataplane mydp --organization myorg
+  # List a specific data plane
+  choreoctl get dataplane primary-dataplane --organization acme-corp
 
-  # Get in YAML format
-  choreoctl get dataplane --organization myorg -o yaml`,
+  # Output data plane details in YAML format
+  choreoctl get dataplane --organization acme-corp -o yaml`,
 	}
 
 	ListEndpoint = Command{
 		Use:     "endpoint [name]",
 		Aliases: []string{"ep", "endpoints"},
-		Short:   "Get endpoints",
-		Long:    `Get all endpoints in an organization, project, component, and environment.`,
-		Example: `  # Get all endpoints
-  choreoctl get endpoint --org myorg --project myproj --component mycomp --environment dev
+		Short:   "List endpoints",
+		Long:    `List all endpoints in an organization, project, component, and environment.`,
+		Example: `  # List all endpoints
+  choreoctl get endpoint --organization acme-corp --project online-store --component product-catalog \
+  --environment dev
 
-  # Get a specific endpoint
-  choreoctl get endpoint myendpoint --org myorg --project myproj --component mycomp --environment dev
+  # List a specific endpoint
+  choreoctl get endpoint product-ep --organization acme-corp --project online-store --component product-catalog \
+   --environment dev
 
-  # Get in YAML format
-  choreoctl get endpoint --org myorg --project myproj --component mycomp --environment dev -o yaml`,
+  # Output endpoint details in YAML format
+  choreoctl get endpoint --organization acme-corp --project online-store --component product-catalog \
+  --environment development -o yaml`,
 	}
 
 	CreateEnvironment = Command{
@@ -412,10 +443,14 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create an environment",
 		Long:    `Create an environment in the specified organization.`,
 		Example: `  # Create an environment interactively
-  choreoctl create environment
+  choreoctl create environment --interactive
 
-  # Create an environment with specific parameters
-  choreoctl create environment --name dev --organization myorg --dataplane-ref dp1 --dns-prefix dev`,
+  # Create a development environment
+  choreoctl create environment --name dev --organization acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
+
+  # Create a production environment
+  choreoctl create environment --name production --organization acme-corp --dataplane-ref primary-dataplane \
+    --dns-prefix prod --production`,
 	}
 
 	CreateDeployableArtifact = Command{
@@ -424,10 +459,15 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create a deployable artifact",
 		Long:    `Create a deployable artifact in the specified organization, project and component.`,
 		Example: `  # Create a deployable artifact interactively
-  choreoctl create deployableartifact
+  choreoctl create deployableartifact --interactive
 
   # Create a deployable artifact from a build
-  choreoctl create deployableartifact --name myartifact --org myorg --project myproj --component mycomp`,
+  choreoctl create deployableartifact --name product-catalog-artifact --organization acme-corp \
+    --project online-store --component product-catalog --build product-catalog-build-01
+
+  # Create a deployable artifact from an image
+  choreoctl create deployableartifact --name product-catalog-artifact --organization acme-corp \
+    --project online-store --component product-catalog --from-image-ref product-catalog:latest`,
 	}
 
 	// ------------------------------------------------------------------------
@@ -440,53 +480,54 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short: "Manage Choreo configuration contexts",
 		Long: "Manage configuration contexts that store default values (e.g., organization, project, component) " +
 			"for choreoctl commands.",
-		Example: fmt.Sprintf(`  # Get  all available contexts
+		Example: fmt.Sprintf(`  # List all stored configuration contexts
   %[1]s config get-contexts
 
-  # Set or update a context
-  %[1]s config set-context --name myctx --org myorg
+  # Set or update a configuration context
+  %[1]s config set-context --name acme-corp-context --organization acme-corp
 
-  # Use a context
-  %[1]s config use-context --name myctx
+  # Use a configuration context
+  %[1]s config use-context --name acme-corp-context
 
-  # Show the current context's details
+  # Show the current configuration context's details
   %[1]s config current-context`, messages.DefaultCLIName),
 	}
 
 	// ConfigGetContexts holds usage and help texts for "config get-contexts" command.
 	ConfigGetContexts = Command{
 		Use:   "get-contexts",
-		Short: "Get  all available contexts",
-		Long:  "Get  all stored contexts along with an asterisk marking the current context.",
-		Example: fmt.Sprintf(`  # Show all contexts
+		Short: "List all available configuration contexts",
+		Long:  "List all stored configuration contexts, with an asterisk (*) marking the currently active context",
+		Example: fmt.Sprintf(`  # Show all configuration contexts
   %[1]s config get-contexts`, messages.DefaultCLIName),
 	}
 
 	// ConfigSetContext holds usage and help texts for "config set-context" command.
 	ConfigSetContext = Command{
 		Use:   "set-context",
-		Short: "Create or update a context",
-		Long:  "Set a context by specifying values for organization, project, component, build, environment, etc.",
-		Example: fmt.Sprintf(`  # Set a context named myctx
-  %[1]s config set-context myctx --org myorg --project myproj --environment dev`, messages.DefaultCLIName),
+		Short: "Create or update a configuration context",
+		Long:  "Configure a context by specifying values for organization, project, component, build, environment, etc.",
+		Example: fmt.Sprintf(`  # Set a configuration context named acme-corp-context
+  %[1]s config set-context acme-corp-context --organization acme-corp \
+    --project online-store --environment dev`,
+			messages.DefaultCLIName),
 	}
 
 	// ConfigUseContext holds usage and help texts for "config use-context" command.
 	ConfigUseContext = Command{
 		Use:   "use-context",
-		Short: "Switch to a specified context",
-		Long: "Set the active context so that subsequent commands will automatically use its " +
-			"stored values for flags if omitted.",
-		Example: fmt.Sprintf(`  # Switch to context myctx
-  %[1]s config use-context --name myctx`, messages.DefaultCLIName),
+		Short: "Switch to a specified configuration context",
+		Long:  "Set the active context, so subsequent commands automatically use its stored values when flags are omitted.",
+		Example: fmt.Sprintf(`  # Switch to the configuration context named acme-corp-context
+  %[1]s config use-context --name acme-corp-context`, messages.DefaultCLIName),
 	}
 
 	// ConfigCurrentContext holds usage and help texts for "config current-context" command.
 	ConfigCurrentContext = Command{
 		Use:   "current-context",
-		Short: "Display the current context",
-		Long:  "Show which context is currently active, along with any stored configuration values.",
-		Example: fmt.Sprintf(`  # Display the current context
+		Short: "Display the currently active configuration context",
+		Long:  "Display the currently active configuration context, including any stored configuration values.",
+		Example: fmt.Sprintf(`  # Display the currently active configuration context
   %[1]s config current-context`, messages.DefaultCLIName),
 	}
 
@@ -495,31 +536,31 @@ If no organization is specified, you will be prompted to select one interactivel
 	// ------------------------------------------------------------------------
 
 	// FlagContextNameDesc is used for the --name flag.
-	FlagContextNameDesc = "Name of the context to create, update, or use"
+	FlagContextNameDesc = "Name of the configuration context to create, update, or use"
 
-	// FlagOrgDesc is used for the --org flag.
-	FlagOrgDesc = "Organization name stored in this context"
+	// FlagOrgDesc is used for the --organization flag.
+	FlagOrgDesc = "Organization name stored in this configuration context"
 
 	// FlagProjDesc is used for the --project flag.
-	FlagProjDesc = "Project name stored in this context"
+	FlagProjDesc = "Project name stored in this configuration context"
 
 	// FlagComponentDesc is used for the --component flag.
-	FlagComponentDesc = "Component name stored in this context"
+	FlagComponentDesc = "Component name stored in this configuration context"
 
 	// FlagBuildDesc is used for the --build flag.
-	FlagBuildDesc = "Build identifier stored in this context"
+	FlagBuildDesc = "Build identifier stored in this configuration context"
 
 	// FlagDeploymentTrackDesc is used for the --deploymenttrack flag.
-	FlagDeploymentTrackDesc = "Deployment track name stored in this context"
+	FlagDeploymentTrackDesc = "Deployment track name stored in this configuration context"
 
 	// FlagEnvDesc is used for the --environment flag.
-	FlagEnvDesc = "Environment name stored in this context"
+	FlagEnvDesc = "Environment name stored in this configuration context"
 
 	// FlagDataplaneDesc is used for the --dataplane flag.
-	FlagDataplaneDesc = "Data plane reference stored in this context"
+	FlagDataplaneDesc = "Data plane reference stored in this configuration context"
 
 	// FlagDeployableArtifactDesc is used for the --deployableartifact flag.
-	FlagDeployableArtifactDesc = "Deployable artifact name stored in this context"
+	FlagDeployableArtifactDesc = "Deployable artifact name stored in this configuration context"
 
 	// ------------------------------------------------------------------------
 	// Delete Command Definitions
