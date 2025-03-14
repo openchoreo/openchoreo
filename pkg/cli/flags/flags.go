@@ -276,6 +276,19 @@ var (
 		Name:  "kube-context",
 		Usage: "Name of the kubeconfig context to use",
 	}
+
+	Wait = Flag{
+		Name:      "wait",
+		Shorthand: "w",
+		Usage:     messages.FlagWaitDesc,
+		Type:      "bool",
+	}
+
+	DeleteFileFlag = Flag{
+		Name:      "file",
+		Shorthand: "f",
+		Usage:     messages.DeleteFileFlag,
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

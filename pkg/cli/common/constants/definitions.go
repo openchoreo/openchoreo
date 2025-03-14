@@ -520,4 +520,17 @@ If no organization is specified, you will be prompted to select one interactivel
 
 	// FlagDeployableArtifactDesc is used for the --deployableartifact flag.
 	FlagDeployableArtifactDesc = "Deployable artifact name stored in this context"
+
+	// ------------------------------------------------------------------------
+	// Delete Command Definitions
+	// ------------------------------------------------------------------------
+
+	// Delete command definitions
+	Delete = Command{
+		Use:   "delete",
+		Short: "Delete Choreo resources",
+		Long:  "Delete resources in Choreo platform such as organizations, projects, components, etc.",
+		Example: `  # Delete resources from a YAML file
+  choreoctl delete -f resources.yaml`,
+	}
 )

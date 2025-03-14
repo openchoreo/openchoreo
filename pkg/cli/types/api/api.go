@@ -27,6 +27,7 @@ type CommandImplementationInterface interface {
 	DeployableArtifactAPI
 	DeploymentAPI
 	ApplyAPI
+	DeleteAPI
 	LoginAPI
 	LogoutAPI
 	LogAPI
@@ -74,6 +75,11 @@ type DeploymentAPI interface {
 // ApplyAPI defines methods for applying configurations
 type ApplyAPI interface {
 	Apply(params ApplyParams) error
+}
+
+// DeleteAPI defines methods for deleting resources from configuration files
+type DeleteAPI interface {
+	Delete(params DeleteParams) error
 }
 
 // LoginAPI defines methods for authentication

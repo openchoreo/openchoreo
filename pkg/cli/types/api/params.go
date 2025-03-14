@@ -90,6 +90,11 @@ type ApplyParams struct {
 	FilePath string
 }
 
+type DeleteParams struct {
+	FilePath string
+	Wait     bool
+}
+
 // LoginParams defines parameters for login
 type LoginParams struct {
 	KubeconfigPath string

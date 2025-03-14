@@ -78,6 +78,8 @@ const (
 	FlagEnvironmentDesc        = "Environment to deploy the component (e.g., dev, staging, prod)"
 	FlagDeployableArtifactDesc = "Deployable artifact name (e.g., my-artifact)"
 	FlagDeploymentDesc         = "Name of the deployment (e.g., my-deployment)"
+	DeleteFileFlag             = "Path to the configuration file to delete (e.g., deploy.yaml)"
+	FlagWaitDesc               = "Wait for resources to be deleted before returning"
 )
 
 type ApplyError struct {

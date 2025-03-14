@@ -30,6 +30,7 @@ import (
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/environment"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/organization"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/project"
+	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/delete"
 	getbuild "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/build"
 	getcomponent "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/component"
 	getdataplane "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/dataplane"
@@ -152,6 +153,13 @@ func (c *CommandImplementation) CreateDeploymentTrack(params api.CreateDeploymen
 func (c *CommandImplementation) CreateDeployableArtifact(params api.CreateDeployableArtifactParams) error {
 	daImpl := deployableartifact.NewCreateDeployableArtifactImpl(constants.DeployableArtifactV1Config)
 	return daImpl.CreateDeployableArtifact(params)
+}
+
+// Delete Operations
+
+func (c *CommandImplementation) Delete(params api.DeleteParams) error {
+	deleteImpl := delete.NewDeleteImpl()
+	return deleteImpl.Delete(params)
 }
 
 // Authentication Operations

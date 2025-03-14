@@ -23,8 +23,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/spf13/viper"
-
+	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -50,9 +49,10 @@ func (i *ApplyImpl) Apply(params api.ApplyParams) error {
 		return fmt.Errorf("error reading file: %s", params.FilePath)
 	}
 
-	// Get saved kubeconfig and context
-	kubeconfig := viper.GetString("kubeconfig")
-	context := viper.GetString("context")
+	kubeconfig, context, err := config.GetStoredKubeConfigValues()
+	if err != nil {
+		return fmt.Errorf("failed to get kubeconfig values: %w", err)
+	}
 
 	// Execute kubectl apply ToDo: move to use k8s client instead of kubectl
 	cmd := exec.Command("kubectl",

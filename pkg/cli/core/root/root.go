@@ -24,6 +24,7 @@ import (
 	"github.com/choreo-idp/choreo/pkg/cli/cmd/apply"
 	configContext "github.com/choreo-idp/choreo/pkg/cli/cmd/config"
 	"github.com/choreo-idp/choreo/pkg/cli/cmd/create"
+	"github.com/choreo-idp/choreo/pkg/cli/cmd/delete"
 	"github.com/choreo-idp/choreo/pkg/cli/cmd/get"
 	"github.com/choreo-idp/choreo/pkg/cli/cmd/logs"
 	"github.com/choreo-idp/choreo/pkg/cli/common/config"
@@ -47,6 +48,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		// logout.NewLogoutCmd(impl),
 		logs.NewLogsCmd(impl),
 		configContext.NewConfigCmd(impl),
+		delete.NewDeleteCmd(impl),
 	)
 
 	return rootCmd
