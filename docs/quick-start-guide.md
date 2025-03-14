@@ -36,6 +36,9 @@ To begin the installation, run:
 ./install.sh
 ```
 
+> [!TIP]
+> If you previously used this setup and encounter errors during installation, ensure you perform the proper cleanup as outlined in the [Cleaning up](#cleaning-up) section before starting again.
+
 Once the installation is complete, you will see the following confirmation message:
 ```text
 Choreo Installation Status:
@@ -144,23 +147,25 @@ choreoctl logs --type deployment --component react-starter-image --deployment re
 ```
 
 ### Cleaning up
-To remove all resources and clean up the environment, run:
+After finishing your work, you have two options:
 
-```shell
-./uninstall.sh
-```
-
-Then exit the dev container by running:
-
-```shell
-exit
-```
-
-To clean up your Docker environment, run:
-
-```shell
-docker volume rm choreo-state tf-state
-```
+1. **Exit and return later**: If you plan to return, simply exit the dev container by running:
+    ```shell
+    exit
+    ```
+2. **Full cleanup**: To remove all resources and clean up the environment completely, run:
+    ```shell
+    ./uninstall.sh
+    ```
+    ```shell
+    exit
+    ```
+    ```shell
+    docker volume rm choreo-state tf-state
+    ```
+> [!Note]
+> The `tf-state` Docker volume is used to persist the installation state, so if you exit the dev container before completing the uninstallation and return later, your installation progress will still be there.
+> The `choreo-state` volume is used to store the kubeconfig of the created KinD cluster, ensuring that the cluster configuration remains available even after restarting the container.
 
 That's it!
 
