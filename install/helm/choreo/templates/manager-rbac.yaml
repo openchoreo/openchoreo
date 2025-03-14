@@ -8,13 +8,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - ""
-  resources:
+  - configmaps
   - namespaces
   - serviceaccounts
   - services
@@ -26,6 +20,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - apps
   resources:
@@ -131,6 +132,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - configurationgroups
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
