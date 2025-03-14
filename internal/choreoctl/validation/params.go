@@ -288,6 +288,7 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateDataPlaneParams); ok {
 			fields := map[string]string{
 				"organization": p.Organization,
+				"name":         p.Name,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDataPlane, fields)
