@@ -21,7 +21,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"log"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -41,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller/build"
 	"github.com/choreo-idp/choreo/internal/controller/component"
 	"github.com/choreo-idp/choreo/internal/controller/dataplane"
@@ -55,6 +54,7 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller/project"
 	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	csisecretv1 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	webhookcorev1 "github.com/choreo-idp/choreo/internal/webhook/v1"
 	// +kubebuilder:scaffold:imports
 )
@@ -68,9 +68,11 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(choreov1.AddToScheme(scheme))
 	utilruntime.Must(gwapiv1.Install(scheme))
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
+	utilruntime.Must(argo.AddToScheme(scheme))
+	utilruntime.Must(csisecretv1.Install(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -162,11 +164,6 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
-	}
-
-	// Register the Argo Workflow types to the scheme
-	if err := argo.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatalf("unable to add Argo Workflow types to scheme: %v", err)
 	}
 
 	// -----------------------------------------------------------------------------
