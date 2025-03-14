@@ -68,7 +68,7 @@ choreoDefaultValues:
         scaleToZero: true
         gatewayType: envoy
     externalGatewayVirtualHost: choreoapis.localhost
-    internalGatewayVirtualHost: internal.choreoapis.localhost
+    internalGatewayVirtualHost: choreoapis.internal
   Environments:
     - name: development
       displayName: Development
