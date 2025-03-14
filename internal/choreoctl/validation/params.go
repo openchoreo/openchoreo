@@ -49,6 +49,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateEndpointParams(cmdType, params)
 	case ResourceLogs:
 		return validateLogParams(cmdType, params)
+	case ResourceApply:
+		return validateApplyParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -257,15 +259,43 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 
 // validateLogParams validates parameters for log operations
 func validateLogParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdGet {
+	if cmdType == CmdLogs {
 		if p, ok := params.(api.LogParams); ok {
-			fields := map[string]string{
-				"organization": p.Organization,
-				"project":      p.Project,
-				"component":    p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceLogs, fields)
+			// For non-interactive mode, validate required fields
+			if !p.Interactive {
+				// Check type parameter first
+				if p.Type == "" {
+					fields := map[string]string{
+						"type": "",
+					}
+					// Use empty resource string since this is a top-level parameter
+					return generateHelpError(cmdType, "", fields)
+				}
+
+				// Validate type-specific required fields based on the type
+				switch p.Type {
+				case "build":
+					buildFields := map[string]string{
+						"organization": p.Organization,
+						"build":        p.Build,
+					}
+					if !checkRequiredFields(buildFields) {
+						return generateHelpError(cmdType, ResourceLogs, buildFields)
+					}
+				case "deployment":
+					deployFields := map[string]string{
+						"organization": p.Organization,
+						"project":      p.Project,
+						"component":    p.Component,
+						"environment":  p.Environment,
+						"deployment":   p.Deployment,
+					}
+					if !checkRequiredFields(deployFields) {
+						return generateHelpError(cmdType, ResourceLogs, deployFields)
+					}
+				default:
+					return fmt.Errorf("log type '%s' not supported. Valid types are: build, deployment", p.Type)
+				}
 			}
 		}
 	}
@@ -323,6 +353,21 @@ func validateEndpointParams(cmdType CommandType, params interface{}) error {
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceEndpoint, fields)
+			}
+		}
+	}
+	return nil
+}
+
+// validateApplyParams validates parameters for apply operations
+func validateApplyParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdApply {
+		if p, ok := params.(api.ApplyParams); ok {
+			fields := map[string]string{
+				"file": p.FilePath,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, "", fields)
 			}
 		}
 	}

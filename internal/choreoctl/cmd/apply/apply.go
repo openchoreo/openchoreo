@@ -24,6 +24,7 @@ import (
 	"os/exec"
 
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
+	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
 
@@ -34,8 +35,8 @@ func NewApplyImpl() *ApplyImpl {
 }
 
 func (i *ApplyImpl) Apply(params api.ApplyParams) error {
-	if params.FilePath == "" {
-		return fmt.Errorf("file path is required")
+	if err := validation.ValidateParams(validation.CmdApply, validation.ResourceApply, params); err != nil {
+		return err
 	}
 
 	if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {

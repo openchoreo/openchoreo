@@ -30,6 +30,7 @@ const (
 	CmdCreate CommandType = "create"
 	CmdGet    CommandType = "get"
 	CmdLogs   CommandType = "logs"
+	CmdApply  CommandType = "apply"
 )
 
 // ResourceType represents the resource being managed
@@ -47,6 +48,7 @@ const (
 	ResourceOrganization       ResourceType = "organization"
 	ResourceDataPlane          ResourceType = "dataplane"
 	ResourceLogs               ResourceType = "logs"
+	ResourceApply              ResourceType = "apply"
 )
 
 // checkRequiredFields verifies if all required fields are populated
@@ -71,13 +73,33 @@ func generateHelpError(cmdType CommandType, resource ResourceType, fields map[st
 		}
 	}
 
-	errMsg.WriteString(fmt.Sprintf("Missing required fields for %s %s: %s\n\n",
-		cmdType, resource, strings.Join(missingFields, ", ")))
+	errMsg.WriteString(fmt.Sprintf("Missing required parameter%s: --%s\n\n",
+		pluralS(len(missingFields)), strings.Join(missingFields, ", --")))
 
 	errMsg.WriteString("To see usage details:\n")
-	errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s -h\n\n", cmdType, resource))
-	errMsg.WriteString("To use interactive mode:\n")
-	errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s --interactive", cmdType, resource))
+	if resource == "" {
+		errMsg.WriteString(fmt.Sprintf("  choreoctl %s -h", cmdType))
+	} else {
+		errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s -h", cmdType, resource))
+	}
+
+	// Only show interactive mode for commands that typically support it
+	if cmdType != CmdApply {
+		errMsg.WriteString("\n\nTo use interactive mode:\n")
+		if resource == "" {
+			errMsg.WriteString(fmt.Sprintf("  choreoctl %s --interactive", cmdType))
+		} else {
+			errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s --interactive", cmdType, resource))
+		}
+	}
 
 	return fmt.Errorf("%s", errMsg.String())
+}
+
+// Helper function to handle plural forms
+func pluralS(count int) string {
+	if count > 1 {
+		return "s"
+	}
+	return ""
 }
