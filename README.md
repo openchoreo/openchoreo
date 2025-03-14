@@ -24,7 +24,9 @@ Open Source Choreo provides a third path—a self-hosted, open-source IDP that d
 
 The easiest way to try Open Source Choreo is by following the **[Quick Start Guide](./docs/quick-start-guide.md)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
-For a deeper understanding of Open Source Choreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
+If you prefer to set up Choreo on your local machine from scratch, check out our **[Installation Guide](./docs/install/install-choreo.md)**.
+
+For a deeper understanding on Open Source Choreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
 
 ## Samples
 
