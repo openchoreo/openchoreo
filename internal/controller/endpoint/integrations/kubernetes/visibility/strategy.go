@@ -40,18 +40,6 @@ type baseVisibilityStrategy struct {
 	gatewayType GatewayType
 }
 
-func (s *baseVisibilityStrategy) IsSecurityPolicyRequired(epCtx *dataplane.EndpointContext) bool {
-	ep := OverrideAPISettings(epCtx, s.gatewayType)
-	if ep.Spec.APISettings == nil || ep.Spec.APISettings.SecuritySchemes == nil {
-		return false
-	}
-	secSchemes := epCtx.Endpoint.Spec.APISettings.SecuritySchemes
-	for _, scheme := range secSchemes {
-		return scheme == choreov1.Oauth
-	}
-	return false
-}
-
 func (s *baseVisibilityStrategy) GetGatewayType() GatewayType {
 	return s.gatewayType
 }
@@ -74,6 +62,21 @@ func (s *PublicVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.Endpoint
 		epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable
 }
 
+func (s *PublicVisibilityStrategy) IsSecurityPolicyRequired(epCtx *dataplane.EndpointContext) bool {
+	// Check if public visibility is enabled
+	if epCtx.Endpoint.Spec.NetworkVisibilities == nil ||
+		epCtx.Endpoint.Spec.NetworkVisibilities.Public == nil ||
+		!epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable {
+		return false
+	}
+
+	// Get endpoint with overridden API settings
+	ep := OverrideAPISettings(epCtx, s.gatewayType)
+
+	// Check if OAuth security scheme is configured
+	return hasOAuthSecurityScheme(ep)
+}
+
 type OrganizationVisibilityStrategy struct {
 	baseVisibilityStrategy
 }
@@ -86,10 +89,40 @@ func NewOrganizationVisibilityStrategy() *OrganizationVisibilityStrategy {
 
 func (s *OrganizationVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
-		return true
+		return false // Disable organization visibility for webapp
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Organization != nil &&
 		epCtx.Endpoint.Spec.NetworkVisibilities.Organization.Enable
+}
+
+func (s *OrganizationVisibilityStrategy) IsSecurityPolicyRequired(epCtx *dataplane.EndpointContext) bool {
+	// Check if organization visibility is enabled
+	if epCtx.Endpoint.Spec.NetworkVisibilities == nil ||
+		epCtx.Endpoint.Spec.NetworkVisibilities.Organization == nil ||
+		!epCtx.Endpoint.Spec.NetworkVisibilities.Organization.Enable {
+		return false
+	}
+
+	// Get endpoint with overridden API settings
+	ep := OverrideAPISettings(epCtx, s.gatewayType)
+
+	// Check if OAuth security scheme is configured
+	return hasOAuthSecurityScheme(ep)
+}
+
+// hasOAuthSecurityScheme checks if the endpoint has OAuth configured as a security scheme
+func hasOAuthSecurityScheme(ep *choreov1.Endpoint) bool {
+	if ep.Spec.APISettings == nil || ep.Spec.APISettings.SecuritySchemes == nil {
+		return false
+	}
+
+	for _, scheme := range ep.Spec.APISettings.SecuritySchemes {
+		if scheme == choreov1.Oauth {
+			return true
+		}
+	}
+
+	return false
 }
 
 // OverrideAPISettings applies visibility-specific API settings to the endpoint based on the gateway type.
