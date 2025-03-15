@@ -248,7 +248,7 @@ func (b *BaseResource[T, L]) PrintTableItems(items []ResourceWrapper[T]) error {
 	}
 
 	// Basic table implementation for any client.Object
-	headers := []string{"NAME", "NAMESPACE", "AGE", "CREATION TIME"}
+	headers := []string{"NAME", "ORGANIZATION", "AGE"}
 	rows := make([][]string, 0, len(items))
 
 	for _, wrapper := range items {
@@ -262,7 +262,6 @@ func (b *BaseResource[T, L]) PrintTableItems(items []ResourceWrapper[T]) error {
 			name,
 			namespace,
 			age,
-			creationTime.Format("2006-01-02 15:04:05"),
 		})
 	}
 

@@ -19,6 +19,8 @@
 package create
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	v1api "github.com/choreo-idp/choreo/api/v1"
@@ -78,6 +80,7 @@ func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		newCreateDeploymentTrackCmd(impl),
 		newCreateEnvironmentCmd(impl),
 		newCreateDeployableArtifactCmd(impl),
+		newCreateDeploymentPipelineCmd(impl),
 	)
 
 	return createCmd
@@ -313,6 +316,36 @@ func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *co
 				Component:       fg.GetString(flags.Component),
 				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
 				Interactive:     fg.GetBool(flags.Interactive),
+			})
+		},
+	}).Build()
+}
+
+func newCreateDeploymentPipelineCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	dpFlags := []flags.Flag{
+		flags.Organization,
+		flags.Name,
+		flags.EnvironmentOrder,
+	}
+
+	return (&builder.CommandBuilder{
+		Command: constants.CreateDeploymentPipeline,
+		Flags:   dpFlags,
+		RunE: func(fg *builder.FlagGetter) error {
+			// Get environment order from flag
+			envOrderStr := fg.GetString(flags.EnvironmentOrder)
+			var environmentOrder []string
+			if envOrderStr != "" {
+				environmentOrder = strings.Split(envOrderStr, ",")
+				for i := range environmentOrder {
+					environmentOrder[i] = strings.TrimSpace(environmentOrder[i])
+				}
+			}
+
+			return impl.CreateDeploymentPipeline(api.CreateDeploymentPipelineParams{
+				Name:             fg.GetString(flags.Name),
+				Organization:     fg.GetString(flags.Organization),
+				EnvironmentOrder: environmentOrder,
 			})
 		},
 	}).Build()

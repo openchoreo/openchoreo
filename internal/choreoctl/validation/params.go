@@ -20,6 +20,7 @@ package validation
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -51,6 +52,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateLogParams(cmdType, params)
 	case ResourceApply:
 		return validateApplyParams(cmdType, params)
+	case ResourceDeploymentPipeline:
+		return validateDeploymentPipelineParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -369,6 +372,34 @@ func validateApplyParams(cmdType CommandType, params interface{}) error {
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, "", fields)
+			}
+		}
+	}
+	return nil
+}
+
+// Add validation function:
+func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) error {
+	switch cmdType {
+	case CmdGet:
+		if p, ok := params.(api.GetDeploymentPipelineParams); ok {
+			fields := map[string]string{
+				"organization": p.Organization,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, ResourceDeploymentPipeline, fields)
+			}
+		}
+	case CmdCreate:
+		if p, ok := params.(api.CreateDeploymentPipelineParams); ok {
+			fields := map[string]string{
+				"organization":      p.Organization,
+				"name":              p.Name,
+				"environment-order": strings.Join(p.EnvironmentOrder, ","),
+			}
+
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, ResourceDeploymentPipeline, fields)
 			}
 		}
 	}

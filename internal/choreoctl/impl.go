@@ -26,6 +26,7 @@ import (
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/dataplane"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/deployableartifact"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/deployment"
+	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/deploymentpipeline"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/deploymenttrack"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/environment"
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/create/organization"
@@ -36,6 +37,7 @@ import (
 	getdataplane "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/dataplane"
 	getdeployartifcat "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/deployableartifact"
 	getdeploy "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/deployment"
+	getdeploymentpipeline "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/deploymentpipeline"
 	getdeploymenttrack "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/deploymenttrack"
 	getendpoint "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/endpoint"
 	getenv "github.com/choreo-idp/choreo/internal/choreoctl/cmd/get/environment"
@@ -155,6 +157,11 @@ func (c *CommandImplementation) CreateDeployableArtifact(params api.CreateDeploy
 	return daImpl.CreateDeployableArtifact(params)
 }
 
+func (c *CommandImplementation) CreateDeploymentPipeline(params api.CreateDeploymentPipelineParams) error {
+	dpImpl := deploymentpipeline.NewCreateDeploymentPipelineImpl(constants.DeploymentPipelineV1Config)
+	return dpImpl.CreateDeploymentPipeline(params)
+}
+
 // Delete Operations
 
 func (c *CommandImplementation) Delete(params api.DeleteParams) error {
@@ -218,4 +225,9 @@ func (c *CommandImplementation) SetContext(params api.SetContextParams) error {
 func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
 	configContextImpl := config.NewConfigContextImpl()
 	return configContextImpl.UseContext(params)
+}
+
+func (c *CommandImplementation) GetDeploymentPipeline(params api.GetDeploymentPipelineParams) error {
+	pipelineImpl := getdeploymentpipeline.NewGetDeploymentPipelineImpl(constants.DeploymentPipelineV1Config)
+	return pipelineImpl.GetDeploymentPipeline(params)
 }

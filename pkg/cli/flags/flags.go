@@ -284,6 +284,11 @@ var (
 		Shorthand: "f",
 		Usage:     messages.DeleteFileFlag,
 	}
+
+	EnvironmentOrder = Flag{
+		Name:  "environment-order",
+		Usage: messages.FlagEnvironmentOrderDesc,
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

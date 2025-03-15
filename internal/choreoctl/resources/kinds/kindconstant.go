@@ -132,6 +132,7 @@ const (
 	StatusReady        = "Ready"
 	StatusNotReady     = "Not Ready"
 	StatusInitializing = "Initializing"
+	StatusFailed       = "Failed"
 )
 
 //

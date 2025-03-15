@@ -36,6 +36,7 @@ type CommandImplementationInterface interface {
 	DeploymentTrackAPI
 	EndpointAPI
 	ConfigContextAPI
+	DeploymentPipelineAPI
 }
 
 // OrganizationAPI defines organization-related operations
@@ -122,4 +123,9 @@ type ConfigContextAPI interface {
 	GetCurrentContext() error
 	UseContext(params UseContextParams) error
 	SetContext(params SetContextParams) error
+}
+
+type DeploymentPipelineAPI interface {
+	CreateDeploymentPipeline(params CreateDeploymentPipelineParams) error
+	GetDeploymentPipeline(params GetDeploymentPipelineParams) error
 }

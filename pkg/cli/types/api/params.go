@@ -308,3 +308,29 @@ type SetContextParams struct {
 type UseContextParams struct {
 	Name string
 }
+
+type CreateDeploymentPipelineParams struct {
+	Name             string
+	DisplayName      string
+	Description      string
+	Organization     string
+	PromotionPaths   []PromotionPathParams
+	EnvironmentOrder []string // Ordered list of environment names for promotion path
+}
+
+type PromotionPathParams struct {
+	SourceEnvironment  string
+	TargetEnvironments []TargetEnvironmentParams
+}
+
+type TargetEnvironmentParams struct {
+	Name                     string
+	RequiresApproval         bool
+	IsManualApprovalRequired bool
+}
+
+type GetDeploymentPipelineParams struct {
+	Name         string
+	Organization string
+	OutputFormat string
+}
