@@ -60,6 +60,8 @@ spec:
                         - uri
                         type: object
                     type: object
+                required:
+                - dnsPrefix
                 type: object
               isProduction:
                 type: boolean
