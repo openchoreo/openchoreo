@@ -31,15 +31,15 @@ import (
 
 // makeHostname generates the hostname for an endpoint based on gateway type and component type
 func makeHostname(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) gatewayv1.Hostname {
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.%s", epCtx.Component.Name, epCtx.Environment.Name, "choreoapps.localhost"))
+	}
 	var domain string
 	switch gwType {
 	case visibility.GatewayInternal:
 		domain = epCtx.DataPlane.Spec.Gateway.OrganizationVirtualHost
 	default:
 		domain = epCtx.DataPlane.Spec.Gateway.PublicVirtualHost
-	}
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
-		return gatewayv1.Hostname(fmt.Sprintf("%s-%s.%s", epCtx.Component.Name, epCtx.Environment.Name, domain))
 	}
 	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", epCtx.Environment.Spec.Gateway.DNSPrefix, domain))
 }
