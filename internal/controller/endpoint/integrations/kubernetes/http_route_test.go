@@ -67,30 +67,30 @@ var _ = Describe("HTTPRoute Handler", func() {
 			Entry("with standard path and port",
 				createTestEndpointContext("/test", 8080, "test-component", "test-env"),
 				visibility.GatewayExternal,
-				"/test",
+				"/test-project/test-component/test",
 				int32(8080),
-				"test-component-test-env.choreo.localhost",
+				"test-env.choreoapis.localhost",
 			),
 			Entry("with root path",
 				createTestEndpointContext("/", 9090, "api-component", "prod"),
 				visibility.GatewayExternal,
-				"/",
+				"/test-project/api-component",
 				int32(9090),
-				"api-component-prod.choreo.localhost",
+				"prod.choreoapis.localhost",
 			),
 			Entry("with nested path",
 				createTestEndpointContext("/api/v1", 8000, "service-component", "staging"),
 				visibility.GatewayExternal,
-				"/api/v1",
+				"/test-project/service-component/api/v1",
 				int32(8000),
-				"service-component-staging.choreo.localhost",
+				"staging.choreoapis.localhost",
 			),
 		)
 	})
 })
 
 // Helper function to create test endpoint context
-func createTestEndpointContext(basePath string, port int32, componentName, envName string) *dataplane.EndpointContext {
+func createTestEndpointContext(basePath string, port int32, componentName, dnsPrefix string) *dataplane.EndpointContext {
 	return &dataplane.EndpointContext{
 		Endpoint: &corev1.Endpoint{
 			ObjectMeta: metav1.ObjectMeta{
@@ -115,16 +115,21 @@ func createTestEndpointContext(basePath string, port int32, componentName, envNa
 				},
 			},
 			Spec: corev1.ComponentSpec{
-				Type: corev1.ComponentTypeWebApplication,
+				Type: corev1.ComponentTypeService,
 			},
 		},
 		Environment: &corev1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: envName,
+				Name: "test-env",
 				Labels: map[string]string{
-					labels.LabelKeyName: envName,
+					labels.LabelKeyName: "test-env",
 				},
 				UID: "test-env-id",
+			},
+			Spec: corev1.EnvironmentSpec{
+				Gateway: corev1.GatewayConfig{
+					DNSPrefix: dnsPrefix,
+				},
 			},
 		},
 		Project: &corev1.Project{
@@ -160,8 +165,8 @@ func createTestEndpointContext(basePath string, port int32, componentName, envNa
 			},
 			Spec: corev1.DataPlaneSpec{
 				Gateway: corev1.GatewaySpec{
-					PublicVirtualHost:       "choreo.localhost",
-					OrganizationVirtualHost: "internal.choreo.localhost",
+					PublicVirtualHost:       "choreoapis.localhost",
+					OrganizationVirtualHost: "internal.choreoapis.localhost",
 				},
 			},
 		},

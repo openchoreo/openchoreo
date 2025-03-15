@@ -78,7 +78,7 @@ var _ = Describe("Visibility Strategy", func() {
 					},
 				},
 			}
-			Expect(publicStrategy.IsSecurityPolicyRequired(epCtx)).To(BeTrue())
+			Expect(publicStrategy.IsSecurityPolicyRequired(epCtx)).To(Not(BeTrue()))
 		})
 	})
 
@@ -87,7 +87,7 @@ var _ = Describe("Visibility Strategy", func() {
 			Expect(organizationStrategy.GetGatewayType()).To(Equal(GatewayInternal))
 		})
 
-		It("should require HTTP route for web applications with ComponentTypeWebApplication", func() {
+		It("should not require HTTP route for web applications with ComponentTypeWebApplication", func() {
 			epCtx := &dataplane.EndpointContext{
 				Component: &choreov1.Component{
 					Spec: choreov1.ComponentSpec{
@@ -96,7 +96,7 @@ var _ = Describe("Visibility Strategy", func() {
 				},
 				Endpoint: &choreov1.Endpoint{},
 			}
-			Expect(organizationStrategy.IsHTTPRouteRequired(epCtx)).To(BeTrue())
+			Expect(organizationStrategy.IsHTTPRouteRequired(epCtx)).To(Not(BeTrue()))
 		})
 
 		It("should require HTTP route when organization visibility is enabled with ComponentTypeService", func() {

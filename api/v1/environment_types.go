@@ -67,9 +67,8 @@ type EnvironmentList struct {
 }
 
 type GatewayConfig struct {
-	Security SecurityConfig `json:"security,omitempty"`
-	// +required
-	DNSPrefix string `json:"dnsPrefix,omitempty"`
+	Security  SecurityConfig `json:"security,omitempty"`
+	DNSPrefix string         `json:"dnsPrefix,omitempty"`
 }
 type SecurityConfig struct {
 	// +optional
