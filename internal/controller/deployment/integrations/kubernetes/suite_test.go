@@ -162,6 +162,19 @@ func newTestRedisConfigurationGroup() *choreov1.ConfigurationGroup {
 						},
 					},
 				},
+				{
+					Key: "password",
+					Values: []choreov1.ConfigurationValue{
+						{
+							Environment: "test-environment",
+							VaultKey:    "secret/test/redis/password",
+						},
+						{
+							Environment: "production",
+							VaultKey:    "secret/prod/redis/password",
+						},
+					},
+				},
 			},
 		})
 }
@@ -194,6 +207,19 @@ func newTestMysqlConfigurationGroup() *choreov1.ConfigurationGroup {
 						{
 							Environment: "production",
 							Value:       "3306",
+						},
+					},
+				},
+				{
+					Key: "password",
+					Values: []choreov1.ConfigurationValue{
+						{
+							Environment: "test-environment",
+							VaultKey:    "secret/test/mysql/password",
+						},
+						{
+							Environment: "production",
+							VaultKey:    "secret/prod/mysql/password",
 						},
 					},
 				},

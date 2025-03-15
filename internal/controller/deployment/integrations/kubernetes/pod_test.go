@@ -111,6 +111,15 @@ var _ = Describe("makePodSpec", func() {
 							},
 						},
 						{
+							Key: "REDIS_PASSWORD",
+							ValueFrom: &choreov1.EnvVarValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "redis-config-group",
+									Key:  "password",
+								},
+							},
+						},
+						{
 							Key: "MYSQL_HOST",
 							ValueFrom: &choreov1.EnvVarValueFrom{
 								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
@@ -125,6 +134,15 @@ var _ = Describe("makePodSpec", func() {
 								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "port",
+								},
+							},
+						},
+						{
+							Key: "MYSQL_PASSWORD",
+							ValueFrom: &choreov1.EnvVarValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "mysql-config-group",
+									Key:  "password",
 								},
 							},
 						},
@@ -143,7 +161,7 @@ var _ = Describe("makePodSpec", func() {
 
 			envs := podSpec.Containers[0].Env
 			By("checking the environment variables count")
-			Expect(envs).To(HaveLen(4))
+			Expect(envs).To(HaveLen(6))
 
 			By("checking the REDIS_HOST environment variable")
 			Expect(envs[0].Name).To(Equal("REDIS_HOST"))
@@ -156,14 +174,36 @@ var _ = Describe("makePodSpec", func() {
 				},
 			}))
 
+			By("checking the REDIS_PASSWORD environment variable")
+			Expect(envs[2].Name).To(Equal("REDIS_PASSWORD"))
+			Expect(envs[2].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+					},
+					Key: "password",
+				},
+			}))
+
 			By("checking the MYSQL_PORT environment variable")
-			Expect(envs[3].Name).To(Equal("MYSQL_PORT"))
-			Expect(envs[3].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
+			Expect(envs[4].Name).To(Equal("MYSQL_PORT"))
+			Expect(envs[4].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
 				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
 					},
 					Key: "port",
+				},
+			}))
+
+			By("checking the MYSQL_PASSWORD environment variable")
+			Expect(envs[5].Name).To(Equal("MYSQL_PASSWORD"))
+			Expect(envs[5].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+					},
+					Key: "password",
 				},
 			}))
 		})
@@ -200,7 +240,7 @@ var _ = Describe("makePodSpec", func() {
 
 			envs := podSpec.Containers[0].Env
 			By("checking the environment variables count")
-			Expect(envs).To(HaveLen(2))
+			Expect(envs).To(HaveLen(3))
 
 			By("checking the sanitized 'host' environment variable")
 			Expect(envs[0].Name).To(Equal("HOST"))
@@ -221,6 +261,17 @@ var _ = Describe("makePodSpec", func() {
 						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
 					},
 					Key: "port",
+				},
+			}))
+
+			By("checking the `password` environment variable")
+			Expect(envs[2].Name).To(Equal("PASSWORD"))
+			Expect(envs[2].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+					},
+					Key: "password",
 				},
 			}))
 		})
