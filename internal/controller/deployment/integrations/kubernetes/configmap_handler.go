@@ -184,6 +184,11 @@ func makeConfigMaps(deployCtx *dataplane.DeploymentContext) []*corev1.ConfigMap 
 			// TODO: Improvement: filter the values that are only used in deployable artifact
 			cmData[cgConfig.Key] = cgv.Value
 		}
+
+		// If there are no configuration values to add to the ConfigMap, skip creating it
+		if len(cmData) == 0 {
+			continue
+		}
 		cm.Data = cmData
 		configMaps = append(configMaps, cm)
 	}

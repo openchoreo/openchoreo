@@ -40,6 +40,7 @@ const (
 	MaxServiceNameLength   = 63
 	MaxNamespaceNameLength = 63
 	MaxContainerNameLength = 63
+	MaxVolumeNameLength    = 63
 )
 
 // GenerateK8sName generates a Kubernetes-compliant name within the length limit,

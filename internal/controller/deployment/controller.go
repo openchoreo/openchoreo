@@ -168,6 +168,7 @@ func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[
 	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(r.Client))
+	handlers = append(handlers, k8sintegrations.NewSecretProviderClassHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewCronJobHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(r.Client))
 	handlers = append(handlers, k8sintegrations.NewServiceHandler(r.Client))

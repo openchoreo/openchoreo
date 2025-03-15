@@ -19,16 +19,25 @@
 package kubernetes
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/dataplane"
+	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/choreo-idp/choreo/internal/ptr"
 )
 
 func makePodSpec(deployCtx *dataplane.DeploymentContext) *corev1.PodSpec {
 	ps := &corev1.PodSpec{}
 	ps.Containers = []corev1.Container{*makeMainContainer(deployCtx)}
 	ps.RestartPolicy = getRestartPolicy(deployCtx)
+
+	// Add the secret volumes for the secret storage CSI driver
+	secretCSIVolumes, _ := makeSecretCSIVolumes(deployCtx)
+	ps.Volumes = append(ps.Volumes, secretCSIVolumes...)
 	return ps
 }
 
@@ -39,6 +48,10 @@ func makeMainContainer(deployCtx *dataplane.DeploymentContext) *corev1.Container
 	}
 
 	c.Env = makeEnvironmentVariables(deployCtx)
+
+	// Add the secret volumes mounts for the secret storage CSI driver
+	_, secretCSIMounts := makeSecretCSIVolumes(deployCtx)
+	c.VolumeMounts = append(c.VolumeMounts, secretCSIMounts...)
 
 	artifactConfig := deployCtx.DeployableArtifact.Spec.Configuration
 	if artifactConfig != nil {
@@ -56,83 +69,55 @@ func makeEnvironmentVariables(deployCtx *dataplane.DeploymentContext) []corev1.E
 
 	var k8sEnvVars []corev1.EnvVar
 
-	// Build the container environment variables from the direct values and configuration groups mapping.
+	// Build the container environment variables from the direct values.
 	// Example Direct values:
 	// env:
 	//   - key: REDIS_HOST
 	//	   value: redis.example.com
-	// Example Configuration group mapping:
-	// env:
-	//   - key: REDIS_HOST
-	//	   valueFrom:
-	//	     configurationGroupRef:
-	//		   name: redis-config
-	//		   key: redis-host
 	envVars := deployCtx.DeployableArtifact.Spec.Configuration.Application.Env
 	for _, envVar := range envVars {
 		if envVar.Key == "" {
 			continue
 		}
-		// Direct values set in the deployable artifact configuration
 		if envVar.Value != "" {
 			k8sEnvVars = append(k8sEnvVars, corev1.EnvVar{
 				Name:  envVar.Key,
 				Value: envVar.Value,
 			})
-			continue
 		}
-		// Values set from a configuration group
-		if envVar.ValueFrom != nil && envVar.ValueFrom.ConfigurationGroupRef != nil {
-			cgRef := envVar.ValueFrom.ConfigurationGroupRef
-			targetCg := findConfigGroupByName(deployCtx.ConfigurationGroups, cgRef.Name)
-			if targetCg == nil {
-				continue // Ignore if the configuration group is not found.
-			}
-			configMapName := makeConfigMapName(deployCtx, targetCg)
+	}
+
+	// Build the container environment variables from the configuration groups.
+	for _, cg := range deployCtx.ConfigurationGroups {
+		mappedCfg := newMappedConfig(deployCtx, cg)
+
+		// Add plain configuration values to the environment variables
+		configMapName := makeConfigMapName(deployCtx, cg)
+		for _, pc := range mappedCfg.PlainConfigs {
 			k8sEnvVars = append(k8sEnvVars, corev1.EnvVar{
-				Name: envVar.Key,
+				Name: pc.EnvVarKey,
 				ValueFrom: &corev1.EnvVarSource{
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: configMapName,
 						},
-						Key: cgRef.Key,
+						Key: pc.ConfigGroupKey,
 					},
 				},
 			})
 		}
-	}
 
-	// Build the container environment variables from the bulk configuration group injection.
-	// Example Configuration group injection:
-	// envFrom:
-	//   - configurationGroupRef:
-	//       name: redis-config
-	envFromSources := deployCtx.DeployableArtifact.Spec.Configuration.Application.EnvFrom
-	for _, envFrom := range envFromSources {
-		if envFrom.ConfigurationGroupRef == nil {
-			continue
-		}
-		cgRef := envFrom.ConfigurationGroupRef
-		targetCg := findConfigGroupByName(deployCtx.ConfigurationGroups, cgRef.Name)
-		if targetCg == nil {
-			continue // Ignore if the configuration group is not found.
-		}
-		configMapName := makeConfigMapName(deployCtx, targetCg)
-
-		for _, cfConfig := range targetCg.Spec.Configurations {
-			envKey := sanitizeEnvVarKey(cfConfig.Key)
-			if envKey == "" {
-				continue
-			}
+		// Add secret configuration values to the environment variables
+		secretName := makeSecretProviderClassName(deployCtx, cg)
+		for _, sc := range mappedCfg.SecretConfigs {
 			k8sEnvVars = append(k8sEnvVars, corev1.EnvVar{
-				Name: envKey,
+				Name: sc.EnvVarKey,
 				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: configMapName,
+							Name: secretName,
 						},
-						Key: cfConfig.Key,
+						Key: sc.ConfigGroupKey,
 					},
 				},
 			})
@@ -140,6 +125,43 @@ func makeEnvironmentVariables(deployCtx *dataplane.DeploymentContext) []corev1.E
 	}
 
 	return k8sEnvVars
+}
+
+// makeSecretCSIVolumes creates the secret volumes and mounts for the secret storage CSI driver.
+func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes := make([]corev1.Volume, 0)
+	mounts := make([]corev1.VolumeMount, 0)
+
+	for _, cg := range deployCtx.ConfigurationGroups {
+		mappedCfg := newMappedConfig(deployCtx, cg)
+		// If there are no secrets in the mapped configuration group, skip creating the secret volumes and mounts
+		if len(mappedCfg.SecretConfigs) == 0 {
+			continue
+		}
+
+		cgName := controller.GetName(cg)
+		secretName := makeSecretProviderClassName(deployCtx, cg)
+		volumeName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxVolumeNameLength, cgName)
+
+		volumes = append(volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
+					Driver:   "secrets-store.csi.k8s.io",
+					ReadOnly: ptr.Bool(true),
+					VolumeAttributes: map[string]string{
+						"secretProviderClass": secretName,
+					},
+				},
+			},
+		})
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: fmt.Sprintf("/mnt/secrets-store/%s", cgName),
+		})
+	}
+
+	return volumes, mounts
 }
 
 func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPolicy {
