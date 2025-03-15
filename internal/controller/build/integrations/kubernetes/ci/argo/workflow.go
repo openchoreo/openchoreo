@@ -289,20 +289,24 @@ func getDockerfilePath(buildObj *choreov1.Build) string {
 }
 
 func getLanguageVersion(buildObj *choreov1.Build) string {
-	if buildObj.Spec.BuildConfiguration.Buildpack.Version == "" {
+	version := buildObj.Spec.BuildConfiguration.Buildpack.Version
+	if version == "" {
 		return ""
 	}
-	if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackGo {
-		return fmt.Sprintf("--env GOOGLE_GO_VERSION=%q", buildObj.Spec.BuildConfiguration.Buildpack.Version)
-	} else if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackNodeJS {
-		return fmt.Sprintf("--env GOOGLE_NODEJS_VERSION=%s", buildObj.Spec.BuildConfiguration.Buildpack.Version)
-	} else if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackPython {
-		return fmt.Sprintf("--env GOOGLE_PYTHON_VERSION=%q", buildObj.Spec.BuildConfiguration.Buildpack.Version)
-	} else if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackPHP {
-		return fmt.Sprintf("--env GOOGLE_COMPOSER_VERSION=%q", buildObj.Spec.BuildConfiguration.Buildpack.Version)
+	switch buildObj.Spec.BuildConfiguration.Buildpack.Name {
+	case choreov1.BuildpackGo:
+		return fmt.Sprintf("--env GOOGLE_GO_VERSION=%q", version)
+	case choreov1.BuildpackNodeJS:
+		return fmt.Sprintf("--env GOOGLE_NODEJS_VERSION=%s", version)
+	case choreov1.BuildpackPython:
+		return fmt.Sprintf("--env GOOGLE_PYTHON_VERSION=%q", version)
+	case choreov1.BuildpackPHP:
+		// Handled separately by generating composer.json
+		return ""
+	default:
+		// For BuildpackRuby and BuildpackJava
+		return fmt.Sprintf("--env GOOGLE_RUNTIME_VERSION=%s", version)
 	}
-	// BuildpackRuby and BuildpackJava
-	return fmt.Sprintf("--env GOOGLE_RUNTIME_VERSION=%s", buildObj.Spec.BuildConfiguration.Buildpack.Version)
 }
 
 func generateCloneArgs(repo string, branch string, gitRevision string) []string {
@@ -440,8 +444,33 @@ podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
 		imageName, path, imageName)
 }
 
+func makePHPVersionSetup(buildObj *choreov1.Build) string {
+	if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackPHP {
+		buildPath := fmt.Sprintf("/mnt/vol/source%s", buildObj.Spec.Path)
+		version := buildObj.Spec.BuildConfiguration.Buildpack.Version
+		return fmt.Sprintf(`
+apk add --no-cache jq
+
+if [ -f %s/composer.json ]; then
+    if jq -e '.require' %s/composer.json > /dev/null; then
+        jq '.require["php"] = "%s"' %s/composer.json > %s/composer.json.tmp && mv %s/composer.json.tmp %s/composer.json
+    else
+        echo '{"require": {"php": "%s"}}' > %s/composer.json
+    fi
+else
+    echo '{"require": {"php": "%s"}}' > %s/composer.json
+fi
+`, buildPath, buildPath, version, buildPath, buildPath, buildPath, buildPath, version, buildPath, version, buildPath)
+	}
+	return ""
+}
+
 func makeGoogleBuildpackBuildScript(imageName string, buildObj *choreov1.Build) string {
+	phpVersionSetup := makePHPVersionSetup(buildObj)
+
 	return fmt.Sprintf(`
+%s
+
 %s
 
 %s
@@ -450,6 +479,7 @@ func makeGoogleBuildpackBuildScript(imageName string, buildObj *choreov1.Build) 
 --docker-host=inherit --path=/mnt/vol/source%s --pull-policy if-not-present %s
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
+		phpVersionSetup,
 		makeBuilderCacheScript("gcr.io/buildpacks/builder:google-22", "/shared/podman/cache/google-builder.tar"),
 		makeBuilderCacheScript("gcr.io/buildpacks/google-22/run:latest", "/shared/podman/cache/google-run.tar"),
 		imageName, buildObj.Spec.Path, getLanguageVersion(buildObj), imageName)
