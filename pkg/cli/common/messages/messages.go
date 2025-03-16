@@ -23,7 +23,7 @@ const (
 
 	DefaultCLIName             = "choreoctl"
 	DefaultCLIShortDescription = "Welcome to Choreo CLI, " +
-		"the command-line interface for Open Source Choreo - Internal Developer Platform"
+		"the command-line interface for OpenChoreo - Internal Developer Platform"
 
 	// Common prefix for errors
 
