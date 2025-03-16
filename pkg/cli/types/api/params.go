@@ -55,11 +55,12 @@ type CreateOrganizationParams struct {
 
 // CreateProjectParams defines parameters for creating projects
 type CreateProjectParams struct {
-	Organization string
-	Name         string
-	DisplayName  string
-	Description  string
-	Interactive  bool
+	Organization       string
+	Name               string
+	DisplayName        string
+	Description        string
+	DeploymentPipeline string
+	Interactive        bool
 }
 
 // CreateComponentParams contains parameters for component creation

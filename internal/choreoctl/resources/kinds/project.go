@@ -153,7 +153,12 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 			},
 		},
 		Spec: choreov1.ProjectSpec{
-			DeploymentPipelineRef: DefaultDeploymentPipeline,
+			DeploymentPipelineRef: func() string {
+				if params.DeploymentPipeline != "" {
+					return params.DeploymentPipeline
+				}
+				return DefaultDeploymentPipeline
+			}(),
 		},
 	}
 	if err := p.Create(project); err != nil {

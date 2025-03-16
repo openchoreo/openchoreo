@@ -111,11 +111,12 @@ func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command
 		Flags:   projectFlags,
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.CreateProject(api.CreateProjectParams{
-				Name:         fg.GetString(flags.Name),
-				Organization: fg.GetString(flags.Organization),
-				DisplayName:  fg.GetString(flags.DisplayName),
-				Description:  fg.GetString(flags.Description),
-				Interactive:  fg.GetBool(flags.Interactive),
+				Name:               fg.GetString(flags.Name),
+				Organization:       fg.GetString(flags.Organization),
+				DisplayName:        fg.GetString(flags.DisplayName),
+				Description:        fg.GetString(flags.Description),
+				DeploymentPipeline: fg.GetString(flags.DeploymentPipeline),
+				Interactive:        fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
