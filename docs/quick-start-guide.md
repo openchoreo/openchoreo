@@ -1,7 +1,7 @@
 ## Quick Start Guide
 
-Setting up Open Source Choreo in a Kubernetes cluster involves multiple steps and tools. This guide provides a fast and simple way to install a fully functional Open Source Choreo instance on your local machine with minimal prerequisites and effort by using a pre-configured dev container.
-This dev container has all the necessary tools installed for setting up Open Source Choreo and is ready to be used. Once the installation is complete, you can explore the underlying setup to understand how it works.
+Setting up OpenChoreo in a Kubernetes cluster involves multiple steps and tools. This guide provides a fast and simple way to install a fully functional OpenChoreo instance on your local machine with minimal prerequisites and effort by using a pre-configured dev container.
+This dev container has all the necessary tools installed for setting up OpenChoreo and is ready to be used. Once the installation is complete, you can explore the underlying setup to understand how it works.
 When you're done, you can fully clean up the setup, leaving your machine clutter-free.
 
 #### Prerequisites
@@ -27,8 +27,8 @@ ghcr.io/choreo-idp/quick-start:v0.1.0
 
 ```
 
-#### Install Open Source Choreo
-This process sets up a [KinD](https://kind.sigs.k8s.io/) (Kubernetes-in-Docker) cluster in your Docker environment and installs Open Source Choreo along with its dependencies.
+#### Install OpenChoreo
+This process sets up a [KinD](https://kind.sigs.k8s.io/) (Kubernetes-in-Docker) cluster in your Docker environment and installs OpenChoreo along with its dependencies.
 
 To begin the installation, run:
 
@@ -60,9 +60,9 @@ Overall Status: ✅ READY
 🎉 Choreo has been successfully installed and is ready to use!
 ```
 
-#### Deploying a Web Application with Open Source Choreo
+#### Deploying a Web Application with OpenChoreo
 
-You now have Open Source Choreo fully setup in your docker environment.
+You now have OpenChoreo fully setup in your docker environment.
 Next, lets deploy a sample Web Application by running the following command:
 
 ```shell
@@ -77,15 +77,15 @@ Once the deployment is complete, you will receive the following message together
 ```
 
 ### Understanding What Happens Behind the Scenes
-By following the install and deploy web application commands, you first, setup Open Source Choreo and then, successfully deployed and accessed a fully functional Web Application.
+By following the install and deploy web application commands, you first, setup OpenChoreo and then, successfully deployed and accessed a fully functional Web Application.
 
 Let’s now explore what happens after each command.
 
 #### 1. The Install Command
-- A dev container with all the necessary tools for Open Source Choreo to run is set up in a local Docker environment.
-- A KinD Kubernetes cluster is created, where the Open Source Choreo IDP and its dependencies were installed using Helm charts.
+- A dev container with all the necessary tools for OpenChoreo to run is set up in a local Docker environment.
+- A KinD Kubernetes cluster is created, where the OpenChoreo IDP and its dependencies were installed using Helm charts.
 
-#### Foundation Resources Created by Open Source Choreo
+#### Foundation Resources Created by OpenChoreo
 
 The installation process, by default, sets up several essential abstractions. These are:
 - Organization
@@ -94,7 +94,7 @@ The installation process, by default, sets up several essential abstractions. Th
 - [Deployment Pipeline](https://github.com/choreo-idp/choreo/tree/main/docs#deploymentpipeline) for the environments
 - [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
 
-To access the artifacts created in Open Source Choreo you can use choreoctl as shown in the following commands:
+To access the artifacts created in OpenChoreo you can use choreoctl as shown in the following commands:
 
 First you can get the current context
 ```shell
@@ -132,7 +132,7 @@ choreoctl get components
 choreoctl get deployment --component react-starter-image
 ```
 
-Open Source Choreo generates a [DeployableArtifact](https://github.com/choreo-idp/choreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/choreo-idp/choreo/tree/main/docs#endpoint) to access the running application:
+OpenChoreo generates a [DeployableArtifact](https://github.com/choreo-idp/choreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/choreo-idp/choreo/tree/main/docs#endpoint) to access the running application:
 
 ```shell
 choreoctl get deployableartifact --component react-starter-image
@@ -169,4 +169,4 @@ After finishing your work, you have two options:
 
 That's it!
 
-Now you understand how Open Source Choreo simplifies the deployment and management of cloud-native applications.
+Now you understand how OpenChoreo simplifies the deployment and management of cloud-native applications.
