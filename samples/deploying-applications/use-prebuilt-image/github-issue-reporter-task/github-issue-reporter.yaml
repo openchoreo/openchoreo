@@ -1,0 +1,311 @@
+# This is a sample GitHub Issue Reporter component that demonstrates
+# the application configuration capabilities of the Choreo.
+
+# -------------------------------------------------------------------------------------------------
+# Create the necessary ConfigurationGroups for the GitHub Issue Reporter component
+# -------------------------------------------------------------------------------------------------
+
+apiVersion: core.choreo.dev/v1
+kind: ConfigurationGroup
+metadata:
+  name: github
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: GitHub Configuration
+    core.choreo.dev/description: GitHub configuration for the main repository
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/name: github
+spec:
+  environmentGroups:
+    # Define an environment groups that includes all environments for environment independent configurations
+    # This helps to avoid duplication of configurations across environments when writing the YAML.
+    # You can define these same configurations for each environment separately if needed.
+    - environments:
+        - development
+        - staging
+        - production
+      name: all-environments
+  configurations:
+    - key: repository
+      values:
+        - environmentGroupRef: all-environments
+          value: "https://github.com/choreo-idp/choreo"
+    - key: pat
+      # Define GitHub Personal Access Token (PAT) Key Vault reference for each environment
+      # The vaultKey is the path to the secret in the vault.
+      values:
+        - environment: development
+          vaultKey: "secret/data/dev/github/pat"
+        - environment: staging
+          vaultKey: "secret/data/stg/github/pat"
+        - environment: production
+          vaultKey: "secret/data/prod/github/pat"
+
+---
+apiVersion: core.choreo.dev/v1
+kind: ConfigurationGroup
+metadata:
+  name: mysql
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: MySQL Configuration
+    core.choreo.dev/description: MySQL configuration for the internal database of the organization
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/name: mysql
+spec:
+  environmentGroups:
+    - environments:
+        - development
+        - staging
+        - production
+      name: all-environments
+  configurations:
+    - key: host
+      values:
+        - environment: development
+          value: "dev-mysql.internal"
+        - environment: staging
+          value: "stg-mysql.internal"
+        - environment: production
+          value: "prod-mysql.internal"
+    - key: port
+      values:
+        - environmentGroupRef: all-environments
+          value: "3306"
+    - key: user
+      values:
+        - environment: development
+          value: "dev-sql-user"
+        - environment: staging
+          value: "stg-sql-user"
+        - environment: production
+          value: "prod-sql-user"
+    - key: password
+      values:
+        - environment: development
+          vaultKey: "secret/data/dev/mysql/password"
+        - environment: staging
+          vaultKey: "secret/data/stg/mysql/password"
+        - environment: production
+          vaultKey: "secret/data/prod/mysql/password"
+    - key: database
+      values:
+        - environmentGroupRef: all-environments
+          value: "github-issue-reporter"
+
+---
+apiVersion: core.choreo.dev/v1
+kind: ConfigurationGroup
+metadata:
+  name: email
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Email SMTP Configuration
+    core.choreo.dev/description: Email configuration for internal services
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/name: email
+spec:
+  environmentGroups:
+    - environments:
+        - development
+        - staging
+        - production
+      name: all-environments
+    - environments:
+        - development
+        - staging
+      name: non-production
+  configurations:
+    - key: email-host
+      values:
+        - environmentGroupRef: non-production
+          value: "smtp-test.internal"
+        - environment: production
+          value: "smtp.internal"
+    - key: email-port
+      values:
+        - environmentGroupRef: all-environments
+          value: "587"
+    - key: email-sender
+      values:
+        - environmentGroupRef: all-environments
+          value: "no-reply@example.com"
+    - key: email-password
+      values:
+        - environmentGroupRef: non-production
+          vaultKey: "secret/data/dev/email/no-reply/password"
+        - environment: production
+          vaultKey: "secret/data/prod/email/no-reply/password"
+    - key: email-to
+      values:
+        - environmentGroupRef: non-production
+          value: "john@example.com"
+        - environment: production
+          value: "max@example.com,john@example.com"
+
+# -------------------------------------------------------------------------------------------------
+# Create the GitHub Issue Reporter component
+# -------------------------------------------------------------------------------------------------
+---
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: github-issue-reporter
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: GitHub Issue Reporter
+    core.choreo.dev/description: Report summary of GitHub issues
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: github-issue-reporter
+spec:
+  type: ScheduledTask
+  source:
+    containerRegistry:
+      imageName: ghcr.io/choreo-idp/samples/github-issue-reporter
+
+---
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: github-issue-reporter-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Deployment Track
+    core.choreo.dev/description: Main deployment track
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: github-issue-reporter
+    core.choreo.dev/name: main
+spec: { }
+
+---
+apiVersion: core.choreo.dev/v1
+kind: DeployableArtifact
+metadata:
+  name: github-issue-reporter-latest
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: GitHub Issue Reporter Latest
+    core.choreo.dev/description: Latest deployable artifact for GitHub Issue Reporter
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: github-issue-reporter
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: github-issue-reporter-latest
+spec:
+  targetArtifact:
+    fromImageRef:
+      tag: latest
+  configuration:
+    application:
+      # Define mapping of environment variables to configuration group keys
+      env:
+        - key: GITHUB_REPOSITORY
+          valueFrom:
+            configurationGroupRef:
+              name: github
+              key: repository
+        - key: GITHUB_TOKEN
+          valueFrom:
+            configurationGroupRef:
+              name: github
+              key: pat
+        - key: MYSQL_HOST
+          valueFrom:
+            configurationGroupRef:
+              name: mysql
+              key: host
+        - key: MYSQL_PORT
+          valueFrom:
+            configurationGroupRef:
+              name: mysql
+              key: port
+        - key: MYSQL_USER
+          valueFrom:
+            configurationGroupRef:
+              name: mysql
+              key: user
+        - key: MYSQL_PASSWORD
+          valueFrom:
+            configurationGroupRef:
+              name: mysql
+              key: password
+        - key: MYSQL_DATABASE
+          valueFrom:
+            configurationGroupRef:
+              name: mysql
+              key: database
+      # Here, we bulk map the entire email configuration group to the environment variables
+      # The configuration group key will be converted into a compatible environment variable key
+      # Ex: email-host -> EMAIL_HOST
+      envFrom:
+        - configurationGroupRef:
+            name: email
+      task:
+       schedule:
+         # Run the task every minute so we can see the results quickly
+         cron: "*/1 * * * *"
+---
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: github-issue-reporter-development
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Development Deployment
+    core.choreo.dev/description: Development deployment for GitHub Issue Reporter
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: github-issue-reporter
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: development-deployment
+spec:
+  deploymentArtifactRef: github-issue-reporter-latest
+
+---
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: github-issue-reporter-staging
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Staging Deployment
+    core.choreo.dev/description: Staging deployment for GitHub Issue Reporter
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: staging
+    core.choreo.dev/component: github-issue-reporter
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: staging-deployment
+spec:
+  deploymentArtifactRef: github-issue-reporter-latest
+
+---
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: github-issue-reporter-production
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Production Deployment
+    core.choreo.dev/description: Production deployment for GitHub Issue Reporter
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: production
+    core.choreo.dev/component: github-issue-reporter
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: production-deployment
+spec:
+  deploymentArtifactRef: github-issue-reporter-latest
+

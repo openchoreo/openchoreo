@@ -49,6 +49,9 @@ Open Source Choreo abstracts the build and deployment process using BuildPacks, 
 - Ruby
 - (More languages can be added as extensions.)
 
+### Features
+- [Configuration Management](./deploying-applications/use-prebuilt-image/github-issue-reporter-task) – Manage application configurations across environments with Configuration Groups.
+
 ### Project Creation
 All the above sample components uses the default project. Follow this [sample](./deploying-applications/add-new-project) to create a new project if required.   
 
