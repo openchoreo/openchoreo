@@ -459,8 +459,7 @@ if [ -f %s/composer.json ]; then
     fi
 else
     echo '{"require": {"php": "%s"}}' > %s/composer.json
-fi
-`, buildPath, buildPath, version, buildPath, buildPath, buildPath, buildPath, version, buildPath, version, buildPath)
+fi`, buildPath, buildPath, version, buildPath, buildPath, buildPath, buildPath, version, buildPath, version, buildPath)
 	}
 	return ""
 }

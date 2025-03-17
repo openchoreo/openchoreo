@@ -268,10 +268,32 @@ podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, ex
 			Entry("when the buildpack is Go", choreov1.BuildpackGo, "1.x", "--env GOOGLE_GO_VERSION=\"1.x\""),
 			Entry("when the buildpack is NodeJS", choreov1.BuildpackNodeJS, "18.x.x", "--env GOOGLE_NODEJS_VERSION=18.x.x"),
 			Entry("when the buildpack is Python", choreov1.BuildpackPython, "3.10", "--env GOOGLE_PYTHON_VERSION=\"3.10\""),
-			Entry("when the buildpack is PHP", choreov1.BuildpackPHP, "8.1.x", "--env GOOGLE_COMPOSER_VERSION=\"8.1.x\""),
+			Entry("when the buildpack is PHP", choreov1.BuildpackPHP, "8.1.x", ""),
 			Entry("when the buildpack is Ruby", choreov1.BuildpackRuby, "3.1.x", "--env GOOGLE_RUNTIME_VERSION=3.1.x"),
 			Entry("when the version is empty", choreov1.BuildpackGo, "", ""),
 		)
+
+		It("should generate correct php build script", func() {
+			buildCtx := newTestBuildContext()
+			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
+			buildCtx.Build.Spec.BuildConfiguration.Buildpack.Name = choreov1.BuildpackPHP
+			buildCtx.Build.Spec.BuildConfiguration.Buildpack.Version = "8.1.x"
+
+			expectedScript := `
+apk add --no-cache jq
+
+if [ -f /mnt/vol/source/test-service/composer.json ]; then
+    if jq -e '.require' /mnt/vol/source/test-service/composer.json > /dev/null; then
+        jq '.require["php"] = "8.1.x"' /mnt/vol/source/test-service/composer.json > /mnt/vol/source/test-service/composer.json.tmp && mv /mnt/vol/source/test-service/composer.json.tmp /mnt/vol/source/test-service/composer.json
+    else
+        echo '{"require": {"php": "8.1.x"}}' > /mnt/vol/source/test-service/composer.json
+    fi
+else
+    echo '{"require": {"php": "8.1.x"}}' > /mnt/vol/source/test-service/composer.json
+fi`
+			result := makePHPVersionSetup(buildCtx.Build)
+			Expect(result).To(Equal(expectedScript))
+		})
 
 		It("should generate the correct google buildpack build script", func() {
 			cacheScript1 := `
@@ -295,8 +317,11 @@ else
     podman save -o /shared/podman/cache/google-run.tar gcr.io/buildpacks/google-22/run:latest
   fi
 fi`
+			phpVersionSetup := ""
 
 			expectedScript := fmt.Sprintf(`
+%s
+
 %s
 
 %s
@@ -305,7 +330,7 @@ fi`
 --docker-host=inherit --path=/mnt/vol/source/time-logger --pull-policy if-not-present --env GOOGLE_GO_VERSION="1.x"
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
-				cacheScript1, cacheScript2, imageName(), imageName())
+				phpVersionSetup, cacheScript1, cacheScript2, imageName(), imageName())
 
 			build := &choreov1.Build{
 				Spec: choreov1.BuildSpec{
