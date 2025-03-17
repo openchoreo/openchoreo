@@ -292,7 +292,7 @@ var (
 
 	DeploymentPipeline = Flag{
 		Name:  "deployment-pipeline",
-		Usage: "Name of the deployment pipeline",
+		Usage: messages.FlagDeploymentPipelineDesc,
 	}
 )
 

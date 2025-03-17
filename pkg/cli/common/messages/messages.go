@@ -79,4 +79,5 @@ const (
 	DeleteFileFlag             = "Path to the configuration file to delete (e.g., manifests/deployment.yaml)"
 	FlagWaitDesc               = "Wait for resources to be deleted before returning"
 	FlagEnvironmentOrderDesc   = "Comma-separated list of environment names in promotion order (e.g., dev,staging,prod)"
+	FlagDeploymentPipelineDesc = "Name of the deployment pipeline (e.g., dev-prod-pipeline)"
 )
