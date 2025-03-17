@@ -1,0 +1,85 @@
+---
+## Sample Component kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: greeting-service-image
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Greeting Service
+    core.choreo.dev/description: Basic Starter project
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: greeting-service-image
+spec:
+  type: Service
+  source:
+    containerRegistry:
+      imageName: docker.io/jhivandb/greeter
+---
+## Sample DeploymentTrack kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: greeting-service-image-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Main deployment track
+    core.choreo.dev/description: The main deployment track for the greeting-service-image component
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: greeting-service-image
+    core.choreo.dev/name: main
+spec: {}
+---
+## Sample Deployable Artifact kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeployableArtifact
+metadata:
+  name: greeting-service-image
+  namespace: default-org
+  annotations:
+    core.choreo.dev/description: Deployable Artifact for go greeter latest
+    core.choreo.dev/display-name: greeting-service-image
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: greeting-service-image
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: greeting-service-image
+spec:
+  configuration:
+    endpointTemplates:
+      - metadata:
+          name: service-port
+        spec:
+          apiSettings:
+            securitySchemes:
+              - oauth
+          service:
+            basePath: /greeter
+            port: 9090
+          type: HTTP
+  targetArtifact:
+    fromImageRef:
+      tag: latest
+---
+## Sample Deployment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: greeting-service-image-deployment
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: greeting-service-image deployment
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: greeting-service-image
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: greeting-service-image-deployment
+spec:
+  deploymentArtifactRef: greeting-service-image
