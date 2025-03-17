@@ -1,0 +1,103 @@
+## Sample Project kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Project
+metadata:
+  name: portal
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Customer Portal
+    core.choreo.dev/description: This project contains reading list webapp
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/name: portal
+spec:
+  deploymentPipelineRef: default-pipeline
+---
+## Component Definition
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: reading-list-webapp
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Web App
+    core.choreo.dev/description: Web application for managing reading lists
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: portal
+    core.choreo.dev/name: reading-list-webapp
+spec:
+  type: WebApplication
+  source:
+    containerRegistry:
+      imageName: docker.io/jhivandb/reading-list-webapp
+---
+## Deployment Track Definition
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: reading-list-webapp-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Main deployment track
+    core.choreo.dev/description: The main deployment track for the reading-list-webapp component
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: portal
+    core.choreo.dev/component: reading-list-webapp
+    core.choreo.dev/name: main
+spec: {}
+---
+## Deployable Artifact Definition
+apiVersion: core.choreo.dev/v1
+kind: DeployableArtifact
+metadata:
+  name: reading-list-webapp
+  namespace: default-org
+  annotations:
+    core.choreo.dev/description: Deployable Artifact for reading-list-webapp
+    core.choreo.dev/display-name: reading-list-webapp
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: portal
+    core.choreo.dev/component: reading-list-webapp
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: reading-list-webapp
+spec:
+  
+  configuration:
+    application:
+      env:
+      - key: READING_LIST_SERVICE_URL
+        value: https://dev.choreoapis.internal/default-project/reading-list-service/api/v1/reading-list
+      - key: NODE_TLS_REJECT_UNAUTHORIZED # This is for testing only and is not safe for production use
+        value: "0"
+    endpointTemplates:
+      - metadata:
+          name: webapp
+        spec:
+          service:
+            basePath: /
+            port: 3000
+          type: HTTP
+  targetArtifact:
+    fromImageRef:
+      tag: latest
+---
+## Deployment Definition
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: reading-list-webapp-deployment
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: reading-list-webapp deployment
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: portal
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: reading-list-webapp
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: reading-list-webapp-deployment
+spec:
+  deploymentArtifactRef: reading-list-webapp

@@ -1,0 +1,86 @@
+## Sample Component kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Component
+metadata:
+  name: reading-list-service
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Reading List Service
+    core.choreo.dev/description: Reading List Server Application
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/name: reading-list-service
+spec:
+  type: Service
+  source:
+    containerRegistry:
+      imageName: docker.io/jhivandb/reading-list-server
+---
+## Sample DeploymentTrack kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeploymentTrack
+metadata:
+  name: reading-list-service-main
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: Main deployment track
+    core.choreo.dev/description: The main deployment track for the reading-list-service component
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/name: main
+spec: {}
+---
+## Sample Deployable Artifact kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: DeployableArtifact
+metadata:
+  name: reading-list-service
+  namespace: default-org
+  annotations:
+    core.choreo.dev/description: Deployable Artifact for reading list server
+    core.choreo.dev/display-name: reading-list-service
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: reading-list-service
+spec:
+  configuration:
+    endpointTemplates:
+      - metadata:
+          name: service-port
+        spec:
+          networkVisibilities:
+            public:
+              enable: false
+            organization:
+              enable: true
+          service:
+            basePath: /
+            port: 8080
+          type: HTTP
+  targetArtifact:
+    fromImageRef:
+      tag: latest
+---
+## Sample Deployment kind (Namespaced)
+apiVersion: core.choreo.dev/v1
+kind: Deployment
+metadata:
+  name: reading-list-service-deployment
+  namespace: default-org
+  annotations:
+    core.choreo.dev/display-name: reading-list-service deployment
+  labels:
+    core.choreo.dev/organization: default-org
+    core.choreo.dev/project: default-project
+    core.choreo.dev/environment: development
+    core.choreo.dev/component: reading-list-service
+    core.choreo.dev/deployment-track: main
+    core.choreo.dev/name: reading-list-service-deployment
+spec:
+  deploymentArtifactRef: reading-list-service
