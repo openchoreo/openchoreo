@@ -21,6 +21,7 @@ package kubernetes
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -164,48 +165,56 @@ var _ = Describe("makePodSpec", func() {
 			Expect(envs).To(HaveLen(6))
 
 			By("checking the REDIS_HOST environment variable")
-			Expect(envs[0].Name).To(Equal("REDIS_HOST"))
-			Expect(envs[0].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("REDIS_HOST"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+						Key: "host",
 					},
-					Key: "host",
-				},
-			}))
+				}),
+			})))
 
 			By("checking the REDIS_PASSWORD environment variable")
-			Expect(envs[2].Name).To(Equal("REDIS_PASSWORD"))
-			Expect(envs[2].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("REDIS_PASSWORD"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+						Key: "password",
 					},
-					Key: "password",
-				},
-			}))
+				}),
+			})))
 
 			By("checking the MYSQL_PORT environment variable")
-			Expect(envs[4].Name).To(Equal("MYSQL_PORT"))
-			Expect(envs[4].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("MYSQL_PORT"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+						},
+						Key: "port",
 					},
-					Key: "port",
-				},
-			}))
+				}),
+			})))
 
 			By("checking the MYSQL_PASSWORD environment variable")
-			Expect(envs[5].Name).To(Equal("MYSQL_PASSWORD"))
-			Expect(envs[5].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("MYSQL_PASSWORD"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+						},
+						Key: "password",
 					},
-					Key: "password",
-				},
-			}))
+				}),
+			})))
 		})
 	})
 
@@ -243,37 +252,44 @@ var _ = Describe("makePodSpec", func() {
 			Expect(envs).To(HaveLen(3))
 
 			By("checking the sanitized 'host' environment variable")
-			Expect(envs[0].Name).To(Equal("HOST"))
-			Expect(envs[0].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("HOST"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+						Key: "host",
 					},
-					Key: "host",
-				},
-			}))
+				}),
+			})))
 
 			By("checking the `port` environment variable")
-			Expect(envs[1].Name).To(Equal("PORT"))
-			Expect(envs[1].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("PORT"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+						Key: "port",
 					},
-					Key: "port",
-				},
-			}))
+				}),
+			})))
 
 			By("checking the `password` environment variable")
-			Expect(envs[2].Name).To(Equal("PASSWORD"))
-			Expect(envs[2].ValueFrom).To(BeComparableTo(&corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+			By("checking the `password` environment variable")
+			Expect(envs).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("PASSWORD"),
+				"ValueFrom": BeComparableTo(&corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+						Key: "password",
 					},
-					Key: "password",
-				},
-			}))
+				}),
+			})))
 		})
 	})
 })
