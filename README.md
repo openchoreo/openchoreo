@@ -37,7 +37,9 @@ With OpenChoreo, we are bringing these capabilities to the open-source community
 
 The easiest way to try OpenChoreo is by following the **[Quick Start Guide](./docs/quick-start-guide.md)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
-For a deeper understanding of OpenChoreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
+If you prefer to set up OpenChoreo on your local machine from scratch, check out our **[Installation Guide](./docs/install/install-choreo.md)**.
+
+For a deeper understanding on OpenChoreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
 
 ## Samples
 
