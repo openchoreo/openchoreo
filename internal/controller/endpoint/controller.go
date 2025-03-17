@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
@@ -125,48 +124,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-// makeEndpointContext creates a endpoint context for the given deployment by retrieving the
-// parent objects that this deployment is associated with.
-func (r *Reconciler) makeEndpointContext(ctx context.Context, ep *choreov1.Endpoint) (*dataplane.EndpointContext, error) {
-	project, err := controller.GetProject(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
-	}
-
-	component, err := controller.GetComponent(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the component: %w", err)
-	}
-
-	deploymentTrack, err := controller.GetDeploymentTrack(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
-	}
-
-	environment, err := controller.GetEnvironment(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the environment: %w", err)
-	}
-
-	deployment, err := controller.GetDeployment(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the deployment: %w", err)
-	}
-	dp, err := controller.GetDataplane(ctx, r.Client, ep)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the dataplane: %w", err)
-	}
-	return &dataplane.EndpointContext{
-		DataPlane:       dp,
-		Project:         project,
-		Component:       component,
-		DeploymentTrack: deploymentTrack,
-		Deployment:      deployment,
-		Environment:     environment,
-		Endpoint:        ep,
-	}, nil
-}
-
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
@@ -238,7 +195,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Endpoint{}).
 		Named("endpoint").
-		WithEventFilter(predicate.GenerationChangedPredicate{}). // Only reconcile on spec changes
 		Watches(
 			&choreov1.DataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForDataplane),
