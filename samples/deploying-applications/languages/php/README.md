@@ -1,42 +1,35 @@
-# Hello World PHP Service
+# Reading List Php web app
 
 ## Overview
-The Hello World PHP Service is a simple REST service that responds with a friendly greeting message when accessed via a GET request. It demonstrates a basic PHP application with minimal configuration.
-
-The service exposes one REST endpoint which responds with a "Hello, world!" message when accessed via a GET request.
-
-### Get greeting message
-**Endpoint:** `/`  
-**Method:** `GET`  
-**Functionality:** Get a greeting message.
+This is a simple hello world web application built with PHP.
 
 The source code is available at:
-https://github.com/wso2/choreo-samples/tree/main/hello-world-php-service
+https://github.com/wso2/choreo-samples/tree/main/hello-world-php-webapp
 
 ## Deploy in Choreo
 
 ```bash
-choreoctl apply -f samples/deploying-applications/languages/php/hello-world-service.yaml
+choreoctl apply -f samples/deploying-applications/languages/php/hello-world-web-app.yaml
 ``` 
 
 ## Check the Build Workflow Status
 You can check the logs of the workflow by running the following command.
 
 ```bash
-choreoctl logs --type build --build hello-world-php-service-build-01 --organization default-org --project default-project --component hello-world-php-service
+choreoctl logs --type build --build hello-world-web-application-php-build-01 --organization default-org --project default-project --component hello-world-web-application-php
 ```
 
 ## Check the Deployment Status
 You can check the deployment logs by running the following command.
 
 ```bash
-choreoctl logs --type deployment --deployment hello-world-php-service-development-deployment-01 --organization default-org --project default-project --component hello-world-php-service
+choreoctl logs --type deployment --deployment hello-world-web-application-php-development-deployment-01 --organization default-org --project default-project --component hello-world-web-application-php
 ```
 
 Note: You should see a k8s namespace created for your org, project and environment combination.
 
-## Invoke the service
-For this sample, we will use kubectl port-forward to access the service.
+## Access the web application
+For this sample, we will use kubectl port-forward to access the web application.
 
 1. Run the following command to port-forward the gateway.
 
@@ -49,10 +42,5 @@ For this sample, we will use kubectl port-forward to access the service.
     kubectl -n choreo-system get services
    ```
 
-2. Invoke the service.
-   
-   Get a greeting message
-   ```bash
-   curl -k https://development.apis.choreo.localhost:4430/default-project/hello-world-php-service 
-   ```
-   
+2. Access the web application from your browser using the following URL.
+    - https://hello-world-web-application-php-development.choreo.localhost:4430
