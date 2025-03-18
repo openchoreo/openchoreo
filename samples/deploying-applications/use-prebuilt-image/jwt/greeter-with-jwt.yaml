@@ -15,7 +15,7 @@ spec:
   type: Service
   source:
     containerRegistry:
-      imageName: docker.io/jhivandb/greeter
+      imageName: ghcr.io/choreo-idp/samples/greeter-service
 ---
 ## Sample DeploymentTrack kind (Namespaced)
 apiVersion: core.choreo.dev/v1
