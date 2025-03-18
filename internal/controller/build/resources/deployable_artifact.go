@@ -81,8 +81,8 @@ func AddComponentSpecificConfigs(buildCtx *integrations.BuildContext, deployable
 			},
 		}
 	} else if componentType == choreov1.ComponentTypeWebApplication {
-		// Set default port for the web apps
-		webAppPort := 80
+		// Set default port for the web app
+		webAppPort := int32(80)
 		// TODO: Currently, there is no straightforward way to configure the Nginx port in Google Buildpacks.
 		//       The default port used by the buildpack is 8080.
 		//       We need to find a way to change this configuration.
@@ -100,7 +100,7 @@ func AddComponentSpecificConfigs(buildCtx *integrations.BuildContext, deployable
 						Type: "HTTP",
 						Service: choreov1.EndpointServiceSpec{
 							BasePath: "/",
-							Port:     int32(webAppPort),
+							Port:     webAppPort,
 						},
 					},
 				},
