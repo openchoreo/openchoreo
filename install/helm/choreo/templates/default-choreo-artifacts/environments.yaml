@@ -17,6 +17,7 @@ metadata:
 spec:
   dataPlaneRef: {{ $.Values.choreoDefaultValues.dataPlane.name }}
   isProduction: {{ .isCritical }}
-  dnsPrefix: {{ .dnsPrefix }}
+  gateway:
+    dnsPrefix: {{ .dnsPrefix }}
 {{- end }}
 {{ end }}
