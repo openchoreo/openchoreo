@@ -15,7 +15,7 @@ spec:
   type: Service
   source:
     containerRegistry:
-      imageName: docker.io/jhivandb/reading-list-server
+      imageName: ghcr.io/choreo-idp/samples/reading-list-server
 ---
 ## Sample DeploymentTrack kind (Namespaced)
 apiVersion: core.choreo.dev/v1

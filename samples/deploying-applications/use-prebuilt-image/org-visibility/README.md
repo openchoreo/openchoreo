@@ -21,8 +21,8 @@ This sample deploys:
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` CLI tool installed
 - Docker images:
-  - `docker.io/jhivandb/reading-list-server`
-  - `docker.io/jhivandb/reading-list-webapp`
+  - `ghcr.io/choreo-idp/samples/reading-list-service`
+  - `ghcr.io/choreo-idp/samples/reading-list-webapp`
 
 ## Deploying the Applications
 
