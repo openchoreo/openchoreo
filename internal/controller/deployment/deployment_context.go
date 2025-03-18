@@ -249,6 +249,10 @@ func (r *Reconciler) findConfigurationGroups(ctx context.Context, deployableArti
 		configGroupNames = append(configGroupNames, name)
 	}
 
+	if len(configGroupNames) == 0 {
+		return nil, nil
+	}
+
 	req, err := k8slabels.NewRequirement(labels.LabelKeyName, selection.In, configGroupNames)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build the label selector: %w", err)
