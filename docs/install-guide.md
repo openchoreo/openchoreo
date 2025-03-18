@@ -1,10 +1,12 @@
-# Choreo Installation
+# OpenChoreo Installation
 
-This guide provides step-by-step instructions to install and set up Choreo on a Kubernetes cluster. 
-It begins with installing choreoctl, the CLI tool required for managing Choreo. 
-Next, it covers creating a compatible Kubernetes cluster with Cilium installed, offering setup instructions for your environment. 
-The guide then walks through installing Choreo using Helm and concludes with steps to verify the installation. 
-By following this guide, you'll have a fully functional Choreo deployment running on your Kubernetes cluster.
+This guide provides step-by-step instructions to install and set up OpenChoreo on a Kubernetes cluster.
+
+It begins with creating a compatible Kubernetes cluster with Cilium installed, followed by installing OpenChoreo using Helm and verifying the installation. Next, it covers installing the choreoctl CLI tool, which is required to manage OpenChoreo.
+
+Additionally, the guide provides options to expose the OpenChoreo external gateway service to your host machine, enabling seamless access to the components you create.
+
+By the end of this guide, you'll have a fully functional OpenChoreo deployment running on your Kubernetes cluster.
 
 
 ## Create Compatible Kubernetes Cluster
@@ -15,7 +17,7 @@ If you don't have a compatible kubernetes cluster, you can create one of followi
 
 ### Kind
 
-In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) cluster and install Cilium into that for making it compatible with Choreo.
+In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) cluster and install Cilium into that for making it compatible with OpenChoreo.
 
 #### _Prerequisites_
 
@@ -53,7 +55,7 @@ kind create cluster --config=kind/kind-config.yaml
 
 #### Install Cilium
 
-You can easily install Cilium into your cluster using the helm chart provided by us. This chart installs Cilium with minimal configurations required for Choreo.
+You can easily install Cilium into your cluster using the helm chart provided by us. This chart installs Cilium with minimal configurations required for OpenChoreo.
 Run the following command to install Cilium:
 ```shell
 helm install cilium oci://ghcr.io/choreo-idp/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
@@ -67,17 +69,17 @@ helm install cilium oci://ghcr.io/choreo-idp/helm-charts/cilium  --version 0.1.0
 [//]: # (#### steps for creating the kind cluster)
 
 [//]: # ()
-[//]: # (#### Exposing the Choreo Gateway)
+[//]: # (#### Exposing the OpenChoreo Gateway)
 
 
-## Install Choreo
+## Install OpenChoreo
 
-You can install Choreo on any Kubernetes cluster that has Cilium installed. The main installation method of Choreo is by using the Helm charts provided by us.
+You can install OpenChoreo on any Kubernetes cluster that has Cilium installed. The main installation method of OpenChoreo is by using the Helm charts provided by us.
 
 
-1. Install Choreo using Helm
+1. Install OpenChoreo using Helm
 
-Use the following helm command to install Choreo into your cluster.
+Use the following helm command to install OpenChoreo into your cluster.
 
 ```shell
 helm install choreo oci://ghcr.io/choreo-idp/helm-charts/choreo \
@@ -94,17 +96,17 @@ Run the following command to verify the installation status:
 curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/install/check-status.sh | bash
 ```
 
-Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of Choreo.
+Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
 
 > [!TIP]
-> Refer to "Exposing the Choreo Gateway" section to learn how to access the components you create in Choreo via the external gateway.
+> Refer to "Exposing the OpenChoreo Gateway" section to learn how to access the components you create in OpenChoreo via the external gateway.
 
 
-## Install the Choreoctl
+## Install the choreoctl
 
 [//]: # (TODO: Refine this once we properly release the CLI as a binary.)
 
-`choreoctl` is the command-line interface for Choreo. With that, you can seamlessly interact with Choreo and manage your resources.
+`choreoctl` is the command-line interface for OpenChoreo. With that, you can seamlessly interact with OpenChoreo and manage your resources.
 
 ### _Prerequisites_
 
@@ -173,15 +175,15 @@ Run the following command to uninstall `choreoctl`:
 curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
-## Exposing the Choreo Gateway
+## Exposing the OpenChoreo Gateway
 
-To fully experience the end-to-end functionality of the Choreo components you create, it's essential to expose the Choreo external gateway service to your host machine. This ensures seamless access to your deployed components.
+To fully experience the end-to-end functionality of the OpenChoreo components you create, it's essential to expose the OpenChoreo external gateway service to your host machine. This ensures seamless access to your deployed components.
 
 ### Kind
 
-In this section, we will guide you on how to expose the Choreo external gateway service to your host machine in a [kind](https://kind.sigs.k8s.io/) cluster.
+In this section, we will guide you on how to expose the OpenChoreo external gateway service to your host machine in a [kind](https://kind.sigs.k8s.io/) cluster.
 
-Once you successfully [installed Choreo](#Install-Choreo) into your cluster, you will see a LoadBalancer service created for our external gateway.
+Once you successfully [installed OpenChoreo](#install-openchoreo) into your cluster, you will see a LoadBalancer service created for our external gateway.
 
 You can see the service using the following command.
 
@@ -226,7 +228,7 @@ kubectl get svc -n choreo-system | grep choreo-external-gateway
 $ kubectl get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
-Then you can use this IP address to access the components you create in Choreo via the external gateway.
+Then you can use this IP address to access the components you create in OpenChoreo via the external gateway.
 
 ##### Option 2: Port-forward the external-gateway service
 
