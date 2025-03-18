@@ -70,9 +70,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	old := project.DeepCopy()
 
 	// Reconcile the Project resource
-	if result, err := r.reconcileProject(ctx, project); err != nil {
-		return result, err
-	}
+	r.reconcileProject(ctx, project)
 
 	// Update status if needed
 	if err := controller.UpdateStatusConditions(ctx, r.Client, old, project); err != nil {
@@ -89,7 +87,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileProject handles the core reconciliation logic for the Project resource
-func (r *Reconciler) reconcileProject(ctx context.Context, project *choreov1.Project) (ctrl.Result, error) {
+func (r *Reconciler) reconcileProject(ctx context.Context, project *choreov1.Project) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 	logger.Info("Reconciling project")
 
@@ -101,8 +99,6 @@ func (r *Reconciler) reconcileProject(ctx context.Context, project *choreov1.Pro
 		&project.Status.Conditions,
 		NewProjectCreatedCondition(project.Generation),
 	)
-
-	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
