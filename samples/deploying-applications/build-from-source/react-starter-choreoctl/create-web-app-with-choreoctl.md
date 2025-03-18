@@ -2,7 +2,7 @@
 
 This section guides you through creating, deploy and accessing a sample Web Application using `choreoctl`.
 
-If you haven't installed Choreo & `choreoctl` yet, please follow the [installation guide](../../../../docs/install/install-choreo.md/#install-the-choreoctl) to install them.
+If you haven't installed Choreo & `choreoctl` yet, please follow the [installation guide](../../../../docs/install-guides.md/#install-the-choreoctl) to install them.
 
 ## Step 1 - Create the sample Web Application component
 
