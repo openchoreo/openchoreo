@@ -9,9 +9,9 @@ We will create three such environments in the new organization created earlier.
 Use the following command to create new environments.
 
 ```bash
-choreoctl apply -f samples/platform-configuration/environment/development-environment.yaml
-choreoctl apply -f samples/platform-configuration/environment/staging-environment.yaml
-choreoctl apply -f samples/platform-configuration/environment/production-environment.yaml
+choreoctl apply -f samples/configuring-choreo/create-new-environments/development-environment.yaml
+choreoctl apply -f samples/configuring-choreo/create-new-environments/staging-environment.yaml
+choreoctl apply -f samples/configuring-choreo/create-new-environments/production-environment.yaml
 ``` 
 
 You will see the following output

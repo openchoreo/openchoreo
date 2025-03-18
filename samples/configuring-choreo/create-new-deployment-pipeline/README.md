@@ -9,7 +9,7 @@ In this sample the new deployment pipeline facilitates promoting from developmen
 Use the following command to create the new deployment pipeline.
 
 ```bash
-choreoctl apply -f samples/platform-configuration/deployment-pipeline/deployment-pipeline.yaml
+choreoctl apply -f samples/configuring-choreo/create-new-deployment-pipeline/deployment-pipeline.yaml
 ``` 
 
 You will see the following output.
