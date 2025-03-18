@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,11 +40,6 @@ type Reconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
-
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=projects,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=projects/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=projects/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -72,25 +66,41 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Keep a copy of the original object for comparison
+	old := project.DeepCopy()
+
+	// Reconcile the Project resource
+	if result, err := r.reconcileProject(ctx, project); err != nil {
+		return result, err
+	}
+
+	// Update status if needed
+	if err := controller.UpdateStatusConditions(ctx, r.Client, old, project); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	previousCondition := meta.FindStatusCondition(project.Status.Conditions, controller.TypeCreated)
 
-	project.Status.ObservedGeneration = project.Generation
-	if err := controller.UpdateCondition(
-		ctx,
-		r.Status(),
-		project,
-		&project.Status.Conditions,
-		controller.TypeCreated,
-		metav1.ConditionTrue,
-		"ProjectCreated",
-		"Project is created",
-	); err != nil {
-		return ctrl.Result{}, err
-	} else {
-		if previousCondition == nil {
-			r.Recorder.Event(project, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+project.Name)
-		}
+	if previousCondition == nil {
+		r.Recorder.Event(project, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+project.Name)
 	}
+
+	return ctrl.Result{}, nil
+}
+
+// reconcileProject handles the core reconciliation logic for the Project resource
+func (r *Reconciler) reconcileProject(ctx context.Context, project *choreov1.Project) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+	logger.Info("Reconciling project")
+
+	// Set the observed generation
+	project.Status.ObservedGeneration = project.Generation
+
+	// Update the status condition to indicate the project is created/ready
+	meta.SetStatusCondition(
+		&project.Status.Conditions,
+		NewProjectCreatedCondition(project.Generation),
+	)
 
 	return ctrl.Result{}, nil
 }

@@ -55,6 +55,14 @@ type Project struct {
 	Status ProjectStatus `json:"status,omitempty"`
 }
 
+func (p *Project) GetConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *Project) SetConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // ProjectList contains a list of Project.
