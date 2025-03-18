@@ -39,7 +39,7 @@ The easiest way to try OpenChoreo is by following the **[Quick Start Guide](./do
 
 For a deeper understanding of OpenChoreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
 
-Visit **[Installation Guides](./docs/install-guides.md)** to learn more about installation methods.
+Visit **[Installation Guide](./docs/install-guide.md)** to learn more about installation methods.
 
 ## Samples
 

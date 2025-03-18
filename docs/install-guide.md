@@ -59,78 +59,6 @@ Run the following command to install Cilium:
 helm install cilium oci://ghcr.io/choreo-idp/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
-#### Exposing the Choreo Gateway
-
-Once you successfully [installed Choreo](#Install-Choreo) into your cluster, you will see a LoadBalancer service created for our external gateway.
-
-You can see the service using the following command.
-
-```shell
-kubectl get svc choreo-external-gateway -n choreo-system
-```
-
-You will see an output similar to the following:
-
-```text
-NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
-choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
-```
-
-You have two options to expose the external-gateway service to your host machine.
-
-1. Option 1: Use [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) to expose the service. 
-2. Option 2: port-forward from your host machine to external-gateway service.
-
-##### Option 1: Use _cloud-provider-kind_ to expose the service.
-
-The following steps will guide you through using the [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) tool for exposing the external-gateway service.
-
-First, [install](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main?tab=readme-ov-file#install) the cloud-provider-kind tool to your host machine.
-
-Then, run this tool in sudo mode, and it will automatically assign LoadBalancer IP to your choreo-external-gateway service.
-
-```shell
-# run this command in a separate terminal and keep it running.
-sudo $(which cloud-provider-kind)
-```
-
-Then you could find the load balancer IP for your external-gateway service as follows.
-
-```shell
-kubectl get svc -n choreo-system | grep choreo-external-gateway
-```
-
-```shell
-# to find the LoadBalancer-IP
-# <name> should be replaced with the service name found in the previous step.
-$ kubectl get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
-```
-
-Then you can use this IP address to access the components you create in Choreo via the external gateway.
-
-##### Option 2: Port-forward the external-gateway service
-
-> [!NOTE]
-> Before following this, make sure you have [installed Choreo](#install-choreo) into your cluster.
-
-Run the following command to do port-forwarding from your host machine to the choreo-external-gateway service.
-
-```shell
-kubectl port-forward svc/choreo-external-gateway -n choreo-system 443:443
-```
-
-> [!TIP]
-> If you have an existing service listening on port 443, or any permission issues, you may encounter issues when attempting port forwarding. To avoid conflicts, consider changing the port as needed.
-> Ex: `kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443`
-
-> [!NOTE]
-> You might need to add /etc/hosts entries to access the components using via external gateway since the external gateway uses the hostname to route the requests.
-> For example, if your endpoint URL is `https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost`, and your load balancer IP is `172.19.0.4` you need to add the following entry to your /etc/hosts file.
-> ```
-> 172.19.0.4 default-org-default-project-hello-world-ea384b50-development.choreo.localhost
-> ```
-
-
 [//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
 
 [//]: # (### k3d)
@@ -191,7 +119,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 From the root level of the repo, run:
 
 ```shell
-make choreoctl-relase
+make choreoctl-release
 ```
 
 Once this is completed, it will have a `dist` directory created in the project root directory.
@@ -244,3 +172,75 @@ Run the following command to uninstall `choreoctl`:
 ```shell
 curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
+
+## Exposing the Choreo Gateway
+
+To fully experience the end-to-end functionality of the Choreo components you create, it's essential to expose the Choreo external gateway service to your host machine. This ensures seamless access to your deployed components.
+
+### Kind
+
+In this section, we will guide you on how to expose the Choreo external gateway service to your host machine in a [kind](https://kind.sigs.k8s.io/) cluster.
+
+Once you successfully [installed Choreo](#Install-Choreo) into your cluster, you will see a LoadBalancer service created for our external gateway.
+
+You can see the service using the following command.
+
+```shell
+kubectl get svc choreo-external-gateway -n choreo-system
+```
+
+You will see an output similar to the following:
+
+```text
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
+choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
+```
+
+You have two options to expose the choreo-external-gateway service to your host machine.
+
+1. Option 1: Use [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) to expose the service.
+2. Option 2: port-forward from your host machine to choreo-external-gateway service.
+
+##### Option 1: Use _cloud-provider-kind_ to expose the service.
+
+The following steps will guide you through using the [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) tool for exposing the external-gateway service.
+
+First, [install](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main?tab=readme-ov-file#install) the cloud-provider-kind tool to your host machine.
+
+Then, run this tool in sudo mode, and it will automatically assign LoadBalancer IP to your choreo-external-gateway service.
+
+```shell
+# run this command in a separate terminal and keep it running.
+sudo $(which cloud-provider-kind)
+```
+
+Then you could find the load balancer IP for your external-gateway service as follows.
+
+```shell
+kubectl get svc -n choreo-system | grep choreo-external-gateway
+```
+
+```shell
+# to find the LoadBalancer-IP
+# <name> should be replaced with the service name found in the previous step.
+$ kubectl get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+```
+
+Then you can use this IP address to access the components you create in Choreo via the external gateway.
+
+##### Option 2: Port-forward the external-gateway service
+
+Run the following command to do port-forwarding from your host machine to the `choreo-external-gateway` service.
+
+```shell
+kubectl port-forward svc/choreo-external-gateway -n choreo-system 443:443
+```
+
+> [!TIP]
+> If you have an existing service listening on port 443, or any permission issues, you may encounter issues when attempting port forwarding. To avoid conflicts, consider changing the port as needed.
+> Ex: `kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443`
+
+> [!NOTE]
+> You may need to add entries to `/etc/hosts` to access components through the external gateway, as it relies on the hostname for request routing.
+> For example, if your endpoint URL is `https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost`, and your load balancer IP is `172.19.0.4` you need to add the following entry to your /etc/hosts file.
+> `172.19.0.4 default-org-default-project-hello-world-ea384b50-development.choreo.localhost`

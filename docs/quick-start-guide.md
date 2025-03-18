@@ -146,6 +146,9 @@ You can also check out the logs for the sample Web Application Deployment with t
 choreoctl logs --type deployment --component react-starter-image --deployment react-starter-image-deployment --follow
 ```
 
+> [!TIP]
+> You can try out more samples on this setup. Check out our [Samples](../samples/README.md) for more details.
+
 ### Cleaning up
 After finishing your work, you have two options:
 

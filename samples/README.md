@@ -34,6 +34,8 @@ These default configurations provide a quick starting point. Once you have done 
 ## Deploying Applications
 These samples help you deploy different types of applications using OpenChoreo. All samples refer to the default setup.
 
+> [!TIP]
+> To access the deployed applications, you need to expose the OpenChoreo Gateway to your host machine. Follow the instructions in the [Exposing the Choreo Gateway](../docs/install-guide.md#exposing-the-choreo-gateway) section of the installation guide to learn more.
 
 ### Component Types
 - [Services](./deploying-applications/build-from-source/reading-list-service) – Backend services & APIs.
