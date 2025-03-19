@@ -40,17 +40,12 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     kubectl version --client
     ```
 
-4. Clone our repository and navigate to the `install` directory.
-    ```shell
-    git clone https://github.com/choreo-idp/choreo.git && cd choreo/install
-    ```
-
 #### Steps for creating the kind cluster
 
 Run the following command to create your kind cluster with the configurations provided in our [kind config](../install/kind/kind-config.yaml) file.
 
 ```shell
-kind create cluster --config=kind/kind-config.yaml
+curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
 ```
 
 #### Install Cilium
@@ -93,7 +88,7 @@ We already provided a [script](../install/check-status.sh) to verify the install
 Run the following command to verify the installation status:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/install/check-status.sh | bash
+curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/check-status.sh | bash
 ```
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
