@@ -28,7 +28,7 @@ This command deploys the greeter application to your Kubernetes cluster.
 
 ## 3. Expose the API gateway locally
 
-Forward the Choreo gateway service to access it locally:
+Port forward the Choreo gateway service to access it locally:
 
 ```bash
 kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
@@ -51,13 +51,21 @@ curl -k https://dev.choreoapis.localhost:8443/default-project/greeting-service-i
 -H "Authorization: Bearer $VALID_TOKEN" -v
 ```
 
-## Verification
+### Verification
 
 You should receive a successful response from your Go greeter service. If you attempt to access the endpoint without a valid token, you'll receive a 401 Unauthorized response.
 
+## 6. Clean Up
+
+To remove all deployed resources, use the following command.
+
+```shell
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
+```
+
 ## Note
 
-The following configuration was used to enable OAuth in Choreo's gateway.
+The following configuration is used to enable OAuth in Choreo's gateway.
 
 ```yaml
   apiSettings:

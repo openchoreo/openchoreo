@@ -1,6 +1,8 @@
 # Book Store Sample with Organization-Level Service Visibility
 
-This sample demonstrates how to deploy two interconnected applications in Choreo - a backend service and a web application - while configuring organization-level visibility for internal service communication.
+This sample demonstrates how to deploy two interconnected applications in Choreo: a backend service and a web application. The frontend communicates with the backend service internally.
+
+Choreo enables this communication through organization-level visibility, allowing seamless interaction between internal services.
 
 ## What does this sample do?
 
@@ -24,6 +26,17 @@ This sample deploys:
   - `ghcr.io/choreo-idp/samples/reading-list-service`
   - `ghcr.io/choreo-idp/samples/reading-list-webapp`
 
+## Understand the project structure
+
+- **Default Project**: Contains the Reading List Service
+  - Handles data management and business logic
+  - Exposed internally to the organization
+
+- **Portal Project**: Contains the Reading List Web Application
+  - Provides the user interface
+  - Communicates with the service through internal endpoints
+  - Configured for server-side rendering
+
 ## 1. Deploy the applications
 
 I. First, deploy the `Reading List Service`:
@@ -40,55 +53,41 @@ choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samp
 
 ## 2. Verify the deployment
 
-I. Check the service deployment:
+I. Check the reading list service deployment.
 
 ```shell
 choreoctl get deployments --organization default-org --project default-project --component reading-list-service
 ```
-II. Check the webapp deployment:
+II. Check the web application deployment.
 
 ```shell
 choreoctl get deployments --organization default-org --project portal --component reading-list-webapp
 ```
 
-III. Access the web application through the provided endpoint in the Choreo console.
+## 3. Expose the API gateway locally
 
-## Understanding the Project Structure
+Port forward the Choreo gateway service to access it locally.
 
-- **Default Project**: Contains the Reading List Service
-  - Handles data management and business logic
-  - Exposed internally to the organization
-
-- **Portal Project**: Contains the Reading List Web Application
-  - Provides the user interface
-  - Communicates with the service through internal endpoints
-  - Configured for server-side rendering
-
-## Cleaning Up
-
-To remove all deployed resources:
-
-```shell
-choreoctl delete -f samples/deploying-applications/use-prebuilt-image/access-service-internally/reading-list-service.yaml
-choreoctl delete -f samples/deploying-applications/use-prebuilt-image/access-service-internally/reading-list-webapp.yaml
+```bash
+kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443
 ```
 
-## Troubleshooting
+## 4. Access the web application
 
-- If the web application can't connect to the service, verify:
-  - The service deployment is running
-  - Organization-level visibility is properly configured
-  - The service URL in the webapp's environment variables is correct
+Access the web application from your browser using the following URL.
 
-- For deployment issues, check the logs:
-
-```shell
-choreoctl logs --type=deployment --organization default-org --project default-project --component reading-list-service
-choreoctl logs --type=deployment --organization default-org --project portal --component reading-list-webapp
+```bash
+https://reading-list-webapp-development.choreoapps.localhost:8443
 ```
 
-This guide provides a clear explanation of the sample's architecture, deployment steps, and key configuration points while maintaining a similar structure to the GitHub Issue Reporter example. It emphasizes the organization-level visibility feature and the internal communication between the applications.
+## 5. Clean Up
 
+To remove all deployed resources, use the following command.
+
+```shell
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
+```
 
 ## Note
 
@@ -117,3 +116,19 @@ env:
 ### Server-Side Rendering (SSR)
 
 The web application uses SSR to make API calls from within the cluster, ensuring secure and efficient communication between the frontend and backend services.
+
+## Troubleshoot
+
+- If the web application can't connect to the service, verify:
+  - The service deployment is running
+  - Organization-level visibility is properly configured
+  - The service URL in the webapp's environment variables is correct
+
+- For deployment issues, check the logs:
+
+```shell
+choreoctl logs --type=deployment --organization default-org --project default-project --component reading-list-service
+choreoctl logs --type=deployment --organization default-org --project portal --component reading-list-webapp
+```
+
+This guide provides a clear explanation of the sample's architecture, deployment steps, and key configuration points while maintaining a similar structure to the GitHub Issue Reporter example. It emphasizes the organization-level visibility feature and the internal communication between the applications.

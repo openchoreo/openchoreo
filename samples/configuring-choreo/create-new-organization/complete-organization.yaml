@@ -79,8 +79,8 @@ spec:
   isProduction: false
   gateway:
     dnsPrefix: local-dev
-
 ---
+
 ## Sample Project kind (Namespaced)
 apiVersion: core.choreo.dev/v1
 kind: Project

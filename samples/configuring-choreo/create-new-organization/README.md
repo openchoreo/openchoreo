@@ -1,14 +1,19 @@
 # Create a new Organization
-This sample demonstrates how to create a new organization in Choreo. 
+This sample demonstrates how to create a new organization in Choreo.
 
-An organization is the overall grouping for related projects. 
-An organization to start creating applications needs environments, a dataplane, deployment pipelines and a project. 
+An organization serves as the top-level grouping for related projects and is essential for managing applications effectively.
+
+To start creating applications within an organization, you need the following resources:
+- Environments
+- Data Plane
+- Deployment Pipeline
+- Project
 
 ## Deploy in Choreo
-Use the following command to create the new organization called `ACME`. This will create only an organization. 
+Use the following command to create a new organization called `ACME`. This will create only tbe organization. 
 
 ```bash
-choreoctl apply -f samples/confguring-choreo/create-new-organization/organization.yaml
+choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
 ``` 
 
 You will see the following output.
@@ -16,10 +21,10 @@ You will see the following output.
 organization.core.choreo.dev/acme created
 ```
 
-Use the following commaind to create the organization and all the other support resources as well.
+If you want to create the organization along with all the necessary resources, use the following command:
 
 ```bash
-choreoctl apply -f samples/confguring-choreo/create-new-organization/complete-organization.yaml
+choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
 ``` 
 
 You will see the following output.
@@ -29,4 +34,12 @@ dataplane.core.choreo.dev/dp-local created
 deploymentpipeline.core.choreo.dev/default-pipeline created
 environment.core.choreo.dev/development created
 project.core.choreo.dev/customer-portal created
+```
+
+## Clean Up
+
+To remove all deployed resources, use the following command.
+
+```shell
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
 ```
