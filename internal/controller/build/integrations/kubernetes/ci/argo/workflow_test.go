@@ -227,12 +227,12 @@ podman save -o /mnt/vol/app-image.tar %s`,
 
 			expectedCacheScript := `
 if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
-  podman pull chalindukodikara/choreo-buildpack:ballerina-builder
-  podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
+  podman pull ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
+  podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
 else
   if ! podman load -i /shared/podman/cache/ballerina-builder.tar; then
-    podman pull chalindukodikara/choreo-buildpack:ballerina-builder
-    podman save -o /shared/podman/cache/ballerina-builder.tar chalindukodikara/choreo-buildpack:ballerina-builder
+    podman pull ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
+    podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
   fi
 fi`
 
@@ -241,7 +241,7 @@ fi`
 			expectedScript := fmt.Sprintf(`
 %s
 
-/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=chalindukodikara/choreo-buildpack:ballerina-builder \
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/choreo-idp/choreo-buildpack/ballerina:18 \
 --docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, expectedCacheScript, imageName(), path, imageName())
@@ -413,7 +413,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			Expect(pushStep.Inputs.Parameters[0].Name).To(Equal("git-revision"))
 			Expect(pushStep.Metadata.Labels).To(HaveKeyWithValue("step", string(integrations.PushStep)))
 			Expect(pushStep.Metadata.Labels).To(HaveKeyWithValue("workflow", buildCtx.Build.ObjectMeta.Name))
-			Expect(pushStep.Container.Image).To(Equal("chalindukodikara/podman-runner:1.0"))
+			Expect(pushStep.Container.Image).To(Equal("ghcr.io/choreo-idp/podman-runner:v1.0"))
 
 			isPrivileged := true
 			Expect(pushStep.Container.SecurityContext.Privileged).To(Equal(&isPrivileged))
