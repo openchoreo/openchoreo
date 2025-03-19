@@ -57,6 +57,9 @@ spec:
           apiSettings:
             securitySchemes:
               - oauth
+          networkVisibilities:
+            public:
+              enable: true
           service:
             basePath: /greeter
             port: 9090

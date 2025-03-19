@@ -42,12 +42,12 @@ This application will simulate the following steps:
 - EMAIL_PASSWORD: Password of the email server
 - EMAIL_TO: Email address of the recipient
 
-## Prerequisites
+## Pre-requisites
 
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` and `kubectl` CLI tools installed
 
-## Adding the secret values to the vault
+## Add secret values to the vault
 
 The Choreo data plane comes with a built-in HashiCorp Vault that can be used to store sensitive information such as
 passwords, API keys, and tokens. For this sample, we will add the necessary secret values to the vault.
@@ -99,7 +99,7 @@ NOTE:
 - The value should be in the format `value=<secret_value>`. This means we store only one key-value pair in each secret.
   This is to keep the compatibility with other key-value stores and provide a clear separation of the secrets.
 
-## Deploying the ConfigurationGroups and the Task
+## Deploy the ConfigurationGroups and the Task
 
 For simplicity, this sample provides a [single YAML](github-issue-reporter.yaml) file that contains the both the
 ConfigurationGroups and the Task.
@@ -148,7 +148,7 @@ Additionally, the Task is scheduled to run every minute.
         production-deployment   github-issue-reporter-latest   production    Ready (DeploymentReady)   20h   github-issue-reporter   default-project   default-org
         ```
 
-### Checking the logs
+### View the logs
 
 After waiting for a minute for the Task to run, you can check the logs to see if the Task is running as expected with the
 environment specific configurations.
@@ -221,7 +221,7 @@ Notice that the logs show the environment specific configurations being used for
 If you don't see any logs or have different output, please refer to the [Troubleshooting](#troubleshooting) section.
 
 
-## Troubleshooting
+## Troubleshoot
 
 - Log output: `Error: no deployment pods found for component 'github-issue-reporter' in environment '<environment>''`
    - The Task might not have run yet. Wait for a minute and try again.
@@ -250,7 +250,7 @@ If you don't see any logs or have different output, please refer to the [Trouble
 
 If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/HYCgUacN) for further assistance.
 
-## Cleaning up
+## Clean up
 
 To clean up the resources created by this sample, you can run the following commands:
 
