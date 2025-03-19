@@ -41,6 +41,8 @@ COPY install/check-status.sh /app/check-status.sh
 
 COPY samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml /app/react-starter.yaml
 
+COPY samples/ /app/samples
+
 COPY dist /dist
 
 # install choreoctl

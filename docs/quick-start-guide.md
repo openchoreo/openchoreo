@@ -148,6 +148,10 @@ choreoctl logs --type deployment --component react-starter-image --deployment re
 
 > [!TIP]
 > You can try out more samples on this setup. Check out our [Samples](../samples/README.md) for more details.
+> The samples are also available in the dev container at `/app/samples`.
+
+> [!IMPORTANT]
+> If you try out samples in the dev container, you don't need to expose the OpenChoreo Gateway to your host machine. The OpenChoreo gateway is already exposed to host machine via dev container port 8443.
 
 ### Cleaning up
 After finishing your work, you have two options:
