@@ -29,13 +29,13 @@ This sample deploys:
 1. First, deploy the Reading List Service:
 
 ```shell
-choreoctl apply -f samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
 ```
 
 2. Then, deploy the Reading List Web Application:
 
 ```shell
-choreoctl apply -f samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
+kubectl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
 ```
 
 ## Key Configuration Points
@@ -80,7 +80,17 @@ choreoctl get deployments --organization default-org --project default-project -
 choreoctl get deployments --organization default-org --project portal --component reading-list-webapp
 ```
 
-3. Access the web application through the provided endpoint in the Choreo console.
+3. Set up port forwarding to access the gateway:
+
+```shell
+kubectl port-forward svc/choreo-external-gateway 8443:443 -n choreo-system
+```
+
+4. Access the web application through the endpoint
+
+```bash
+choreoctl get endpoints
+```
 
 ## Understanding the Project Structure
 

@@ -21,7 +21,7 @@ kubectl patch environments.core.choreo.dev development --type=merge -p '{"spec":
 ## 2. Deploy greeter application
 
 ```bash
-kubectl apply -f samples/deploying-applications/use-prebuilt-image/jwt/greeter-go.yaml
+kubectl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
 ```
 
 This command deploys the greeter application to your Kubernetes cluster.
@@ -31,7 +31,7 @@ This command deploys the greeter application to your Kubernetes cluster.
 Forward the Choreo gateway service to access it locally:
 
 ```bash
-kubectl port-forward -n choreo-system svc/choreo-external-gateway 8888:443 &
+kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
 ```
 
 ## 4. Obtain an Access Token
