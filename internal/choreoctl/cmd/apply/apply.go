@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
 	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
@@ -39,15 +40,22 @@ func (i *ApplyImpl) Apply(params api.ApplyParams) error {
 		return err
 	}
 
-	if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
-		return fmt.Errorf("file %s does not exist", params.FilePath)
-	}
+	// TODO: Properly fix this, This is a quick fix to support remote URLs for samples
+	isRemoteURL := strings.HasPrefix(params.FilePath, "http://") ||
+		strings.HasPrefix(params.FilePath, "https://")
 
-	if _, err := os.ReadFile(params.FilePath); err != nil {
-		if os.IsPermission(err) {
-			return fmt.Errorf("permission denied: %s", params.FilePath)
+	// Only perform file existence/permission checks if NOT a remote URL
+	if !isRemoteURL {
+		if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
+			return fmt.Errorf("file %s does not exist", params.FilePath)
 		}
-		return fmt.Errorf("error reading file: %s", params.FilePath)
+
+		if _, err := os.ReadFile(params.FilePath); err != nil {
+			if os.IsPermission(err) {
+				return fmt.Errorf("permission denied: %s", params.FilePath)
+			}
+			return fmt.Errorf("error reading file: %s", params.FilePath)
+		}
 	}
 
 	kubeconfig, context, err := config.GetStoredKubeConfigValues()
@@ -68,6 +76,10 @@ func (i *ApplyImpl) Apply(params api.ApplyParams) error {
 		return fmt.Errorf("error applying file: %s", params.FilePath)
 	}
 
-	fmt.Printf("Successfully applied file: %s\n", params.FilePath)
+	if isRemoteURL {
+		fmt.Printf("Successfully applied the remote file: %s\n", params.FilePath)
+	} else {
+		fmt.Printf("Successfully applied file: %s\n", params.FilePath)
+	}
 	return nil
 }

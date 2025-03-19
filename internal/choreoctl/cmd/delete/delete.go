@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,16 +68,42 @@ func (i *DeleteImpl) Delete(params api.DeleteParams) error {
 		return fmt.Errorf("file path is required")
 	}
 
-	if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
-		return fmt.Errorf("file %s does not exist", params.FilePath)
-	}
+	// TODO: Properly fix this, This is a quick fix to support remote URLs for samples
+	isRemoteURL := strings.HasPrefix(params.FilePath, "http://") ||
+		strings.HasPrefix(params.FilePath, "https://")
 
-	fileBytes, err := os.ReadFile(params.FilePath)
-	if err != nil {
-		if os.IsPermission(err) {
-			return fmt.Errorf("permission denied: %s", params.FilePath)
+	var contentBytes []byte
+
+	if !isRemoteURL {
+		if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
+			return fmt.Errorf("file %s does not exist", params.FilePath)
 		}
-		return fmt.Errorf("error reading file: %s", params.FilePath)
+
+		fileBytes, err := os.ReadFile(params.FilePath)
+		if err != nil {
+			if os.IsPermission(err) {
+				return fmt.Errorf("permission denied: %s", params.FilePath)
+			}
+			return fmt.Errorf("error reading file: %s", params.FilePath)
+		}
+		contentBytes = fileBytes
+	} else {
+		// Read the file bytes from the remote URL
+		resp, err := http.Get(params.FilePath)
+		if err != nil {
+			return fmt.Errorf("failed to GET %s: %w", params.FilePath, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to GET %s: status code %d", params.FilePath, resp.StatusCode)
+		}
+
+		remoteBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response from %s: %w", params.FilePath, err)
+		}
+		contentBytes = remoteBytes
 	}
 
 	kubeconfig, context, err := config.GetStoredKubeConfigValues()
@@ -84,8 +111,8 @@ func (i *DeleteImpl) Delete(params api.DeleteParams) error {
 		return fmt.Errorf("failed to get kubeconfig values: %w", err)
 	}
 
-	if isMultiDocYAML(fileBytes) {
-		return deleteResourcesInOrder(fileBytes, kubeconfig, context, params.Wait)
+	if isMultiDocYAML(contentBytes) {
+		return deleteResourcesInOrder(contentBytes, kubeconfig, context, params.Wait)
 	}
 
 	deleteArgs := []string{"delete", "-f", params.FilePath}
