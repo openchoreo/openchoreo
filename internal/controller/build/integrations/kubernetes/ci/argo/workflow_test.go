@@ -227,12 +227,12 @@ podman save -o /mnt/vol/app-image.tar %s`,
 
 			expectedCacheScript := `
 if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
-  podman pull ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
-  podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
+  podman pull ghcr.io/choreo-idp/buildpack/ballerina:18
+  podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/buildpack/ballerina:18
 else
   if ! podman load -i /shared/podman/cache/ballerina-builder.tar; then
-    podman pull ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
-    podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/choreo-buildpack/ballerina:18
+    podman pull ghcr.io/choreo-idp/buildpack/ballerina:18
+    podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/buildpack/ballerina:18
   fi
 fi`
 
@@ -241,7 +241,7 @@ fi`
 			expectedScript := fmt.Sprintf(`
 %s
 
-/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/choreo-idp/choreo-buildpack/ballerina:18 \
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/choreo-idp/buildpack/ballerina:18 \
 --docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, expectedCacheScript, imageName(), path, imageName())
