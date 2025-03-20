@@ -26,7 +26,7 @@ import (
 
 // Constants for condition types for the deployableArtifact controller
 
-// ReasonDeployableArtifactCreated is the reason used when a deployableArtifact is created/ready
+// ReasonDeployableArtifactAvailable is the reason used when a deployableArtifact is available
 const ReasonDeployableArtifactAvailable controller.ConditionReason = "DeployableArtifactAvailable"
 
 // NewDeployableArtifactAvailableCondition creates a condition to indicate the deployableArtifact is available
