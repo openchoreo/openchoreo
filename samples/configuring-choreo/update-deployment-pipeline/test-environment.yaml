@@ -3,12 +3,12 @@ apiVersion: core.choreo.dev/v1
 kind: Environment
 metadata:
   name: test
-  namespace: acme
+  namespace: default-org
   annotations:
     core.choreo.dev/display-name: Test Environment
     core.choreo.dev/description: The test environment for testing.
   labels:
-    core.choreo.dev/organization: acme
+    core.choreo.dev/organization: default-org
     core.choreo.dev/name: test
 spec:
   dataPlaneRef: us-east-1

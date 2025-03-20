@@ -11,5 +11,5 @@ metadata:
     core.choreo.dev/organization: acme
     core.choreo.dev/name: customer-portal
 spec:
-  deploymentPipelineRef: default-pipeline
+  deploymentPipelineRef: pipeline-dev-stage-prod
 

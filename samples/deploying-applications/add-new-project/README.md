@@ -7,7 +7,7 @@ A [Project](../../../docs/resource-kind-reference-guide.md#project) resource kin
 Use the following command to create the new project in the organization you created earlier.
 
 ```bash
-choreoctl apply -f samples/deploying-applications/add-new-project/project.yaml
+choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/add-new-project/project.yaml
 ``` 
 
 You will see the following output.

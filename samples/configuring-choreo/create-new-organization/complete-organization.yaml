@@ -40,14 +40,14 @@ spec:
 apiVersion: core.choreo.dev/v1
 kind: DeploymentPipeline
 metadata:
-  name: default-pipeline
+  name: pipeline-dev-stage-prod
   namespace: acme
   annotations:
     core.choreo.dev/display-name: Default Deployment Pipeline
     core.choreo.dev/description: Allows promoting from dev to production
   labels:
     core.choreo.dev/organization: acme
-    core.choreo.dev/name: default-pipeline
+    core.choreo.dev/name: pipeline-dev-stage-prod
 spec:
   promotionPaths:
     - sourceEnvironmentRef: development
@@ -94,4 +94,4 @@ metadata:
     core.choreo.dev/organization: acme
     core.choreo.dev/name: customer-portal
 spec:
-  deploymentPipelineRef: default-pipeline
+  deploymentPipelineRef: pipeline-dev-stage-prod
