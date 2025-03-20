@@ -73,7 +73,7 @@ Once the deployment is complete, you will receive the following message together
 
 ```text
 ✅ Endpoint is ready!
-🌍 You can now access the Sample Web Application at: https://react-starter-image-development.choreo.localhost:8443
+🌍 You can now access the Sample Web Application at: https://react-starter-image-development.choreoapps.localhost:8443
 ```
 
 ### Understanding What Happens Behind the Scenes

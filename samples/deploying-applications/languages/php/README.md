@@ -39,3 +39,11 @@ For this sample, we will use kubectl port-forward to access the web application.
 
 2. Access the web application from your browser using the following URL.
     - https://hello-world-web-application-php-development.choreoapps.localhost:8443/
+
+## Cleanup
+
+To clean up the resources created by this sample, you can run the following command:
+
+```bash
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/php/hello-world-web-app.yaml
+```

@@ -250,7 +250,7 @@ If you don't see any logs or have different output, please refer to the [Trouble
 
 If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/HYCgUacN) for further assistance.
 
-## Clean up
+## Cleanup
 
 To clean up the resources created by this sample, you can run the following commands:
 
@@ -260,7 +260,7 @@ To clean up the resources created by this sample, you can run the following comm
     ```
 - Delete the resources created by the sample
     ```shell
-    choreoctl delete -f samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
+    choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
     ```
 - Delete the secrets from the vault
     ```shell

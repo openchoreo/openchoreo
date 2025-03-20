@@ -3,6 +3,7 @@
 This sample demonstrates how to deploy a web application as a container image in Choreo without the source code.
 
 ## Deploying in Choreo
+
 The following command will create the component, deployment track, deployable artifact and the deployment in Choreo.
 
 ```bash
@@ -19,10 +20,9 @@ choreoctl get endpoint --organization default-org --project default-project --co
 
 This will output the endpoints in the `default-org` namespace. For this specific sample
 you will see an endpoint with the name starting with `react-starter-image-deployment-webapp-<hash>`. 
-It should have the address as `https://react-starter-image-development.choreo.localhost`
+It should have the address as `https://react-starter-image-development.choreoapps.localhost`
 
 ## Accessing the Web Application
-
 
 For this sample, we will use kubectl port-forward to access the web application.
 
@@ -31,6 +31,15 @@ For this sample, we will use kubectl port-forward to access the web application.
     ```bash
     kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443 &
     ```
-   
+
 2. Access the web application from your browser using the following URL.
     - https://react-starter-image-development.choreoapps.localhost:8443
+
+
+## Cleanup
+
+To clean up the resources created by this sample, you can run the following command:
+
+```bash
+choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
+```
