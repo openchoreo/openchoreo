@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,11 +40,6 @@ type Reconciler struct {
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
-
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=components/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=components/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -72,26 +66,36 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Keep a copy of the original object for comparison
+	old := component.DeepCopy()
+
+	// Reconcile the Component resource
+	r.reconcileComponent(ctx, component)
+
+	// Update status if needed
+	if err := controller.UpdateStatusConditions(ctx, r.Client, old, component); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	previousCondition := meta.FindStatusCondition(component.Status.Conditions, controller.TypeCreated)
 
-	if err := controller.UpdateCondition(
-		ctx,
-		r.Status(),
-		component,
-		&component.Status.Conditions,
-		controller.TypeCreated,
-		metav1.ConditionTrue,
-		"ComponentCreated",
-		"Component is created",
-	); err != nil {
-		return ctrl.Result{}, err
-	} else {
-		if previousCondition == nil {
-			r.Recorder.Event(component, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+component.Name)
-		}
+	if previousCondition == nil {
+		r.Recorder.Event(component, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+component.Name)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) reconcileComponent(ctx context.Context, component *choreov1.Component) {
+	logger := log.FromContext(ctx).WithValues("component", component.Name)
+	logger.Info("Reconciling component")
+
+	component.Status.ObservedGeneration = component.Generation
+
+	meta.SetStatusCondition(
+		&component.Status.Conditions,
+		NewComponentCreatedCondition(component.Generation),
+	)
 }
 
 // SetupWithManager sets up the controller with the Manager.

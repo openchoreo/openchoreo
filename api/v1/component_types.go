@@ -58,7 +58,8 @@ type ComponentSpec struct {
 
 // ComponentStatus defines the observed state of Component.
 type ComponentStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // ComponentType defines how the component is deployed.
@@ -120,4 +121,12 @@ type ContainerRegistry struct {
 type RegistryAuthentication struct {
 	// Reference to the secret that contains the container registry authentication info.
 	SecretRef string `json:"secretRef,omitempty"`
+}
+
+func (p *Component) GetConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *Component) SetConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
 }
