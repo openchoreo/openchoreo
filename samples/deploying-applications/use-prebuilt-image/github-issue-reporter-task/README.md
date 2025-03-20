@@ -247,7 +247,7 @@ If you don't see any logs or have different output, please refer to the [Trouble
        |
      ```
 
-If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/HYCgUacN) for further assistance.
+If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/asqDFC8suT) for further assistance.
 
 ## Cleanup
 

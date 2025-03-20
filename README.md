@@ -57,7 +57,7 @@ Whether you’re fixing a bug, improving documentation, or suggesting new featur
 
 - **[Contributor Guide](./docs/contributors/README.md)** – Learn how to get started.
 - **[Report an Issue](https://github.com/choreo-idp/choreo/issues)** – Help us improve Choreo.
-- **[Join our Discord](https://discord.gg/HYCgUacN)** – Be part of the community.
+- **[Join our Discord](https://discord.gg/asqDFC8suT)** – Be part of the community.
 
 We’re excited to have you onboard!
 

@@ -12,6 +12,6 @@ Before you start contributing, check out our guidelines:
 
 ## Need Help?
 
-If you have any questions, join our **[Discord Community](https://discord.gg/HYCgUacN)** or open a **[GitHub Discussion](https://github.com/choreo-idp/choreo/discussions)**.
+If you have any questions, join our **[Discord Community](https://discord.gg/asqDFC8suT)** or open a **[GitHub Discussion](https://github.com/choreo-idp/choreo/discussions)**.
 
 We appreciate your contributions—thank you for making OpenChoreo better! 
