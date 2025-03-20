@@ -63,10 +63,8 @@ To remove all deployed resources, use the following command.
 choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
 ```
 
-## Note
-
-The following configuration is used to enable OAuth in Choreo's gateway.
-
+> [!Note] 
+> The following configuration is used to enable OAuth in Choreo's gateway.
 ```yaml
   apiSettings:
     securitySchemes:

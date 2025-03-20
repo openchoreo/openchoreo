@@ -34,7 +34,8 @@ This section provides a comprehensive guide for contributors to set up their dev
 make docker-build docker-push IMG=<some-registry>/choreo:tag
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
+> [!Note] 
+> This image ought to be published in the personal registry you specified.
 And it is required to have access to pull the image from the working environment.
 Make sure you have the proper permission to the registry if the above commands don’t work.
 
@@ -50,7 +51,8 @@ make install
 make deploy IMG=<some-registry>/choreo:tag
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
+> [!Note] 
+> If you encounter RBAC errors, you may need to grant yourself cluster-admin
 privileges or be logged in as admin.
 
 **Create instances of your solution**
@@ -104,7 +106,8 @@ Following are the steps to build the installer and distribute this project to us
 make build-installer IMG=<some-registry>/choreo:tag
 ```
 
-NOTE: The makefile target mentioned above generates an 'install.yaml'
+> [!Note] 
+> The makefile target mentioned above generates an 'install.yaml'
 file in the dist directory. This file contains all the resources built
 with Kustomize, which are necessary to install this project without
 its dependencies.
@@ -117,6 +120,7 @@ Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project
 kubectl apply -f https://raw.githubusercontent.com/<org>/choreo/<tag or branch>/dist/install.yaml
 ```
 ### Implement Custom Resources
-**NOTE:** Run `make help` for more information on all potential `make` targets
+> [!Note] 
+>  Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)

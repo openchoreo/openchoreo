@@ -92,11 +92,10 @@ If you want to add the secret values one by one or modify the values, here are t
     kubectl -n choreo-system exec -it choreo-vault-0 -- vault kv put --mount=secret prod/email/no-reply/password value=email_prod_password
     ```
 
-NOTE:
-
-- The provided secret format is just for clear separation of the secrets. You can use any key format that suits your
+> [!Note] 
+> - The provided secret format is just for clear separation of the secrets. You can use any key format that suits your
   requirement.
-- The value should be in the format `value=<secret_value>`. This means we store only one key-value pair in each secret.
+> - The value should be in the format `value=<secret_value>`. This means we store only one key-value pair in each secret.
   This is to keep the compatibility with other key-value stores and provide a clear separation of the secrets.
 
 ## Deploy the ConfigurationGroups and the Task

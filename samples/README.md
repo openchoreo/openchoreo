@@ -57,4 +57,5 @@ OpenChoreo abstracts the build and deployment process using BuildPacks, enabling
 ### Project Creation
 All the above sample components uses the default project. Follow this [sample](./deploying-applications/add-new-project) to create a new project if required.   
 
-Note: In case you need to try these application samples in a new configuration remember to use the new resource names you created while following the "Configuring OpenChoreo" section above.
+> [!Note] 
+> In case you need to try these application samples in a new configuration remember to use the new resource names you created while following the "Configuring OpenChoreo" section above.
