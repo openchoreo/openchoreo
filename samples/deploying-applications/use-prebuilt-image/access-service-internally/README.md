@@ -89,46 +89,44 @@ choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/sam
 choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
 ```
 
-## Note
+> [!NOTE]
+> #### Organization-Level Service Visibility
+> 
+> The Reading List Service is configured to be visible at the organization level through the following configuration in `book-store-service.yaml`:
+> 
+> ```yaml
+> networkVisibilities:
+>   public:
+>     enable: false
+>   organization:
+>     enable: true
+> ```
+>
+> #### Internal Service Communication
+>
+> The web application is configured to communicate with the service using Choreo's internal DNS. This is set up through an environment variable in `book-store-webapp.yaml`:
+>
+> ```yaml
+> env:
+> - key: READING_LIST_SERVICE_URL
+>   value: https://dev.choreoapis.internal/default-project/reading-list-service/api/v1/reading-list
+> ```
+>
+> #### Server-Side Rendering (SSR)
+>
+> The web application uses SSR to make API calls from within the cluster, ensuring secure and efficient communication between the frontend and backend services.
 
-### Organization-Level Service Visibility
-
-The Reading List Service is configured to be visible at the organization level through the following configuration in `book-store-service.yaml`:
-
-```yaml
-networkVisibilities:
-  public:
-    enable: false
-  organization:
-    enable: true
-```
-
-### Internal Service Communication
-
-The web application is configured to communicate with the service using Choreo's internal DNS. This is set up through an environment variable in `book-store-webapp.yaml`:
-
-```yaml
-env:
-- key: READING_LIST_SERVICE_URL
-  value: https://dev.choreoapis.internal/default-project/reading-list-service/api/v1/reading-list
-```
-
-### Server-Side Rendering (SSR)
-
-The web application uses SSR to make API calls from within the cluster, ensuring secure and efficient communication between the frontend and backend services.
-
-## Troubleshoot
-
-- If the web application can't connect to the service, verify:
-  - The service deployment is running
-  - Organization-level visibility is properly configured
-  - The service URL in the webapp's environment variables is correct
-
-- For deployment issues, check the logs:
-
-```shell
-choreoctl logs --type=deployment --organization default-org --project default-project --component reading-list-service
-choreoctl logs --type=deployment --organization default-org --project portal --component reading-list-webapp
-```
-
-This guide provides a clear explanation of the sample's architecture, deployment steps, and key configuration points while maintaining a similar structure to the GitHub Issue Reporter example. It emphasizes the organization-level visibility feature and the internal communication between the applications.
+> [!TIP]
+> #### Troubleshoot
+>
+> - If the web application can't connect to the service, verify:
+>   - The service deployment is running
+>   - Organization-level visibility is properly configured
+>   - The service URL in the webapp's environment variables is correct
+> 
+> - For deployment issues, check the logs:
+> 
+> ```shell
+> choreoctl logs --type=deployment --organization default-org --project default-project --component reading-list-service
+> choreoctl logs --type=deployment --organization default-org --project portal --component reading-list-webapp
+> ```

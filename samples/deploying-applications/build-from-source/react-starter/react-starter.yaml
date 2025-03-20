@@ -1,4 +1,3 @@
----
 ## Sample Component kind (Namespaced)
 apiVersion: core.choreo.dev/v1
 kind: Component

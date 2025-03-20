@@ -16,7 +16,7 @@ Exposed REST endpoints:
 The source code is available at:
 https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 
-## Deploy in Choreo
+## 1. Deploy in Choreo
 
 Run the following command to deploy the service in Choreo. This will create the necessary resources in Choreo and deploy
 the service including the build for the Go service.
@@ -25,7 +25,7 @@ the service including the build for the Go service.
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
 ``` 
 
-## Check the Build Workflow Status
+## 2. Check the build workflow status
 
 Run the following command to check the logs of the build workflow.
 
@@ -33,10 +33,10 @@ Run the following command to check the logs of the build workflow.
 choreoctl logs --type build --build greeting-service-go-build-01 --organization default-org --project default-project --component greeting-service-go
 ```
 
-> [!Note]
+> [!NOTE]
 > The build will take around 5 minutes depending on the network speed.
 
-## Check the Deployment Status
+## 3. Check the deployment status
 
 You can check the deployment logs by running the following command.
 
@@ -51,16 +51,16 @@ You will see an output similar to the following:
 2025/03/19 11:52:55 Starting HTTP Greeter on port 9090
 ```
 
-## Invoke the service
+## 4. Invoke the service
 
 For this sample, we will use kubectl port-forward to access the service.
 
-1. Run the following command to port-forward the gateway.
+I. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl -n choreo-system port-forward svc/choreo-external-gateway 8443:443
     ```
-2. Invoke the service.
+II. Invoke the service.
    Greet
    ```bash
     curl -k "https://dev.choreoapis.localhost:8443/default-project/greeting-service-go/greeter/greet"
@@ -71,7 +71,7 @@ For this sample, we will use kubectl port-forward to access the service.
    curl -k "https://dev.choreoapis.localhost:8443/default-project/greeting-service-go/greeter/greet?name=Alice"
    ```
 
-## Clean up
+## 5. Clean up
 
 To clean up the resources created by this sample, run the following command.
 

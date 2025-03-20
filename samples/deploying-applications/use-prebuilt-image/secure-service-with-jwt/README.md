@@ -51,9 +51,10 @@ curl -k https://dev.choreoapis.localhost:8443/default-project/greeting-service-i
 -H "Authorization: Bearer $VALID_TOKEN" -v
 ```
 
-### Verification
-
-You should receive a successful response from your Go greeter service. If you attempt to access the endpoint without a valid token, you'll receive a 401 Unauthorized response.
+> [!TIP]
+> #### Verification
+> 
+> You should receive a successful response from your Go greeter service. If you attempt to access the endpoint without a valid token, you'll receive a 401 Unauthorized response.
 
 ## 6. Clean Up
 
@@ -63,13 +64,14 @@ To remove all deployed resources, use the following command.
 choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
 ```
 
-> [!Note] 
+> [!NOTE]
 > The following configuration is used to enable OAuth in Choreo's gateway.
-```yaml
-  apiSettings:
-    securitySchemes:
-      - oauth
-  networkVisibilities:
-    public:
-      enable: true
-```
+>
+> ```yaml
+>  apiSettings:
+>    securitySchemes:
+>      - oauth
+>  networkVisibilities:
+>    public:
+>      enable: true
+> ```

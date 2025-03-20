@@ -36,7 +36,7 @@ The service exposes several REST endpoints for performing these operations.
 The source code is available at:
 https://github.com/wso2/choreo-samples/tree/main/patient-management-service
 
-## Deploy in Choreo
+## 1. Deploy in Choreo
 
 Run the following command to deploy the service in Choreo.
 This will create the necessary resources in Choreo and deploy the service including the build for the Ballerina service
@@ -45,7 +45,7 @@ This will create the necessary resources in Choreo and deploy the service includ
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/ballerina/patient-management-service.yaml
 ``` 
 
-## Check the Build Workflow Status
+## 2. Check the build workflow status
 
 You can check the logs of the workflow by running the following command.
 
@@ -53,10 +53,10 @@ You can check the logs of the workflow by running the following command.
 choreoctl logs --type build --build patient-management-service-build-01 --organization default-org --project default-project --component patient-management-service
 ```
 
-> [!Note]
+> [!NOTE]
 > The build will take around 5 minutes depending on the network speed.
 
-## Check the Deployment Status
+## 3. Check the deployment status
 
 You can check the deployment logs by running the following command.
 
@@ -72,17 +72,17 @@ Notice that you will only see any application logs after invoking the service.
 === Pod: patient-management-service-patient-management-service-main7hmf5 ===
 ```
 
-## Invoke the service
+## 4. Invoke the service
 
 For this sample, we will use kubectl port-forward to access the web application.
 
-1. Run the following command to port-forward the gateway.
+I. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl -n choreo-system port-forward svc/choreo-external-gateway 8443:443
     ```
 
-2. Invoke the service.
+II. Invoke the service.
 
    Health check
    ```bash
@@ -110,7 +110,7 @@ For this sample, we will use kubectl port-forward to access the web application.
     curl -k https://dev.choreoapis.localhost:8443/default-project/patient-management-service/mediflow/patients
    ```
 
-## Clean up
+## 5. Clean up
 
 To clean up the resources created by this sample, run the following command.
 

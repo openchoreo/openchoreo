@@ -92,7 +92,7 @@ If you want to add the secret values one by one or modify the values, here are t
     kubectl -n choreo-system exec -it choreo-vault-0 -- vault kv put --mount=secret prod/email/no-reply/password value=email_prod_password
     ```
 
-> [!Note] 
+> [!NOTE] 
 > - The provided secret format is just for clear separation of the secrets. You can use any key format that suits your
   requirement.
 > - The value should be in the format `value=<secret_value>`. This means we store only one key-value pair in each secret.
@@ -216,40 +216,9 @@ environment specific configurations.
 
 Notice that the logs show the environment specific configurations being used for each environment.
 
+If you don't see any logs or have different output, please refer to the [Troubleshoot](#troubleshoot) section.
 
-If you don't see any logs or have different output, please refer to the [Troubleshooting](#troubleshooting) section.
-
-
-## Troubleshoot
-
-- Log output: `Error: no deployment pods found for component 'github-issue-reporter' in environment '<environment>''`
-   - The Task might not have run yet. Wait for a minute and try again.
-
-- Log output: `failed to get log stream: container "main" in pod "<pod-name>" is waiting to start: ContainerCreating`
-   - This could indicate that the secret is not created in the data plane. Please ensure that the secret is created in the
-     vault as mentioned in the [Adding the secret values to the vault](#adding-the-secret-values-to-the-vault) section.
-   - To verify the secret, you can run the following command for each secret in the environment:
-     ```shell
-     kubectl -n choreo-system exec -it choreo-vault-0 -- vault kv get --mount=secret dev/github/pat
-     ```
-   - Run the following command to verify the vault operator can retrieve the secret value.
-     ```shell
-     kubectl -n choreo-system logs -l app.kubernetes.io/name=choreo-vault-csi-provider --since=10m -f | grep 404 -C 10
-     ```
-     If you see a log similar to the following, it means the secret is not found in the vault.
-     ```
-     2025-03-16T07:17:10.920Z [INFO]  server: Finished unary gRPC call: grpc.method=/v1alpha1.CSIDriverProvider/Mount grpc.time=2.718397ms grpc.code=Unknown
-      err=
-       | error making mount request: couldn't read secret "pat": error requesting secret: Error making API request.
-       |
-       | URL: GET http://choreo-vault:8200/v1/secret/data/dev/github/pat`
-       | Code: 404. Errors:
-       |
-     ```
-
-If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/asqDFC8suT) for further assistance.
-
-## Cleanup
+## Clean up
 
 To clean up the resources created by this sample, you can run the following commands:
 
@@ -265,3 +234,33 @@ To clean up the resources created by this sample, you can run the following comm
     ```shell
     kubectl -n choreo-system exec -it choreo-vault-0 -- sh -c "vault kv destroy -mount=secret -versions=1 dev/github/pat && vault kv metadata delete -mount=secret dev/github/pat && vault kv destroy -mount=secret -versions=1 stg/github/pat && vault kv metadata delete -mount=secret stg/github/pat && vault kv destroy -mount=secret -versions=1 prod/github/pat && vault kv metadata delete -mount=secret prod/github/pat && vault kv destroy -mount=secret -versions=1 dev/mysql/password && vault kv metadata delete -mount=secret dev/mysql/password && vault kv destroy -mount=secret -versions=1 stg/mysql/password && vault kv metadata delete -mount=secret stg/mysql/password && vault kv destroy -mount=secret -versions=1 prod/mysql/password && vault kv metadata delete -mount=secret prod/mysql/password && vault kv destroy -mount=secret -versions=1 dev/email/no-reply/password && vault kv metadata delete -mount=secret dev/email/no-reply/password && vault kv destroy -mount=secret -versions=1 prod/email/no-reply/password && vault kv metadata delete -mount=secret prod/email/no-reply/password"
     ```
+
+> [!TIP]
+> #### Troubleshoot
+> 
+> - Log output: `Error: no deployment pods found for component 'github-issue-reporter' in environment '<environment>''`
+>    - The Task might not have run yet. Wait for a minute and try again.
+> 
+> - Log output: `failed to get log stream: container "main" in pod "<pod-name>" is waiting to start: ContainerCreating`
+>    - This could indicate that the secret is not created in the data plane. Please ensure that the secret is created in the
+>      vault as mentioned in the [Adding the secret values to the vault](#adding-the-secret-values-to-the-vault) section.
+>    - To verify the secret, you can run the following command for each secret in the environment:
+>      ```shell
+>      kubectl -n choreo-system exec -it choreo-vault-0 -- vault kv get --mount=secret dev/github/pat
+>      ```
+>    - Run the following command to verify the vault operator can retrieve the secret value.
+>      ```shell
+>      kubectl -n choreo-system logs -l app.kubernetes.io/name=choreo-vault-csi-provider --since=10m -f | grep 404 -C 10
+>      ```
+>      If you see a log similar to the following, it means the secret is not found in the vault.
+>      ```
+>      2025-03-16T07:17:10.920Z [INFO]  server: Finished unary gRPC call: grpc.method=/v1alpha1.CSIDriverProvider/Mount grpc.time=2.718397ms grpc.code=Unknown
+>       err=
+>        | error making mount request: couldn't read secret "pat": error requesting secret: Error making API request.
+>        |
+>        | URL: GET http://choreo-vault:8200/v1/secret/data/dev/github/pat`
+>        | Code: 404. Errors:
+>        |
+>      ```
+> 
+> If any of the above does not resolve the issue, please contact us via the [Discord channel](https://discord.gg/HYCgUacN) for further assistance.
