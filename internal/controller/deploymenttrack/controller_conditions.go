@@ -27,15 +27,15 @@ import (
 // Constants for condition types for the deploymenttrack controller
 
 // ReasonDeploymentTrackCreated is the reason used when a deploymentTrack is created/ready
-const ReasonDeploymentTrackCreated controller.ConditionReason = "DeploymentTrackCreated"
+const ReasonDeploymentTrackAvailable controller.ConditionReason = "DeploymentTrackAvailable"
 
 // NewDeploymentTrackCreatedCondition creates a condition to indicate the deploymentTrack is created/ready
-func NewDeploymentTrackCreatedCondition(generation int64) metav1.Condition {
+func NewDeploymentTrackAvailableCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		controller.TypeCreated,
+		controller.TypeAvailable,
 		metav1.ConditionTrue,
-		ReasonDeploymentTrackCreated,
-		"DeploymentTrack is created",
+		ReasonDeploymentTrackAvailable,
+		"DeploymentTrack is available",
 		generation,
 	)
 }

@@ -93,10 +93,10 @@ func (r *Reconciler) reconcileDeploymentTrack(ctx context.Context, deploymentTra
 	// Set the observed generation
 	deploymentTrack.Status.ObservedGeneration = deploymentTrack.Generation
 
-	// Update the status condition to indicate the deploymentTrack is created/ready
+	// Update the status condition to indicate the deploymentTrack is available
 	meta.SetStatusCondition(
 		&deploymentTrack.Status.Conditions,
-		NewDeploymentTrackCreatedCondition(deploymentTrack.Generation),
+		NewDeploymentTrackAvailableCondition(deploymentTrack.Generation),
 	)
 }
 
