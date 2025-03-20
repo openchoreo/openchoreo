@@ -41,7 +41,7 @@ https://github.com/wso2/choreo-samples/tree/main/reading-books-list-service-pyth
 ## Deploy in Choreo
 
 ```bash
-choreoctl apply -f samples/deploying-applications/languages/python/reading-list-service.yaml
+choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/python/reading-list-service.yaml
 ``` 
 
 ## Check the Build Workflow Status
@@ -51,6 +51,10 @@ You can check the logs of the workflow by running the following command.
 choreoctl logs --type build --build reading-list-python-service-build-01 --organization default-org --project default-project --component reading-list-python-service
 ```
 
+> [!Note]
+> The build will take around 5 minutes depending on the network speed.
+
+
 ## Check the Deployment Status
 You can check the deployment logs by running the following command.
 
@@ -58,7 +62,8 @@ You can check the deployment logs by running the following command.
 choreoctl logs --type deployment --deployment reading-list-python-service-development-deployment-01 --organization default-org --project default-project --component reading-list-python-service
 ```
 
-Note: You should see a k8s namespace created for your org, project and environment combination.
+> [!Note]
+> Once deployment is successful you should see a k8s namespace created for your deployment with the org, project and environment combination in the following format: dp-organisation-project-environment-somehashvalue.
 
 ## Invoke the service
 For this sample, we will use kubectl port-forward to access the service.
@@ -66,19 +71,14 @@ For this sample, we will use kubectl port-forward to access the service.
 1. Run the following command to port-forward the gateway.
 
     ```bash
-    kubectl port-forward svc/envoy-choreo-system-gateway-external-<hash> -n choreo-system 4430:443
+    kubectl -n choreo-system port-forward svc/choreo-external-gateway 8443:443
     ```
-
-   Note: You can find the <hash> part of the gateway name by running the following command:
-    ```bash
-    kubectl -n choreo-system get services
-   ```
 
 2. Invoke the service.
    
    Add a new book
    ```bash
-   curl -k -X POST https://development.apis.choreo.localhost:4430/default-project/reading-list-python-service/reading-list/books \
+   curl -k -X POST https://dev.choreoapis.localhost:8443/default-project/reading-list-python-service/reading-list/books \
    -H "Content-Type: application/json" \
    -d '{
    "author": "Nova Starling",
@@ -89,17 +89,18 @@ For this sample, we will use kubectl port-forward to access the service.
    
    Retrieve a book by id
    ```bash
-    curl -k https://development.apis.choreo.localhost:4430/default-project/reading-list-python-service/reading-list/books/1
+    curl -k https://dev.choreoapis.localhost:8443/default-project/reading-list-python-service/reading-list/books/1
    ```
    
    List all books
    ```bash
-    curl -k https://development.apis.choreo.localhost:4430/default-project/reading-list-python-service/reading-list/books
+    curl -k https://dev.choreoapis.localhost:8443/default-project/reading-list-python-service/reading-list/books
    ```
 
    Update a book
    ```bash
-    curl -k -X PUT https://development.apis.choreo.localhost:4430/default-project/reading-list-python-service/reading-list/books/1
+   curl -k https://dev.choreoapis.localhost:8443/default-project/reading-list-python-service/reading-list/books/1 \
+   -X PUT \
    -H "Content-Type: application/json" \
    -d '{
    "id": "1",
@@ -109,6 +110,6 @@ For this sample, we will use kubectl port-forward to access the service.
 
    Delete a book
    ```bash
-    curl -k -X DELETE https://development.apis.choreo.localhost:4430/default-project/reading-list-python-service/reading-list/books/1
+    curl -k -X DELETE https://dev.choreoapis.localhost:8443/default-project/reading-list-python-service/reading-list/books/1
    ```
    
