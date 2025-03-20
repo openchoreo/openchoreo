@@ -327,6 +327,8 @@ type TaskSchedule struct {
 type DeployableArtifactStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -352,4 +354,12 @@ type DeployableArtifactList struct {
 
 func init() {
 	SchemeBuilder.Register(&DeployableArtifact{}, &DeployableArtifactList{})
+}
+
+func (p *DeployableArtifact) GetConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *DeployableArtifact) SetConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
 }
