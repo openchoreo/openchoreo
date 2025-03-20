@@ -7,7 +7,7 @@ This sample demonstrates how to deploy a web application as a container image in
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` CLI tool installed
 
-## 1. Deploy in Choreo
+## Deploy in Choreo
 
 The following command will create the component, deployment track, deployable artifact and the deployment in Choreo.
 
@@ -15,7 +15,7 @@ The following command will create the component, deployment track, deployable ar
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
 ```
 
-## 2. Retrieve the invocation URL
+## Retrieve the Invocation URL
 
 You can retrieve the invocation URL of the deployment by running the following command.
 
@@ -27,21 +27,21 @@ This will output the endpoints in the `default-org` namespace. For this specific
 you will see an endpoint with the name starting with `react-starter-image-deployment-webapp-<hash>`. 
 It should have the address as `https://react-starter-image-development.choreoapps.localhost`
 
-## 3. Access the web application
+## Access the Web Application
 
 For this sample, we will use kubectl port-forward to access the web application.
 
-I. Run the following command to port-forward the gateway.
+1. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443 &
     ```
 
-II. Access the web application from your browser using the following URL.
+2. Access the web application from your browser using the following URL.
     - https://react-starter-image-development.choreoapps.localhost:8443
 
 
-## 4. Cleanup
+## Clean up
 
 To clean up the resources created by this sample, you can run the following command:
 

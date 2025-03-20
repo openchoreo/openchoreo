@@ -37,34 +37,34 @@ This sample deploys:
   - Communicates with the service through internal endpoints
   - Configured for server-side rendering
 
-## 1. Deploy the applications
+## Deploy the Applications
 
-I. First, deploy the `Reading List Service`:
+1. First, deploy the `Reading List Service`:
 
 ```shell
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
 ```
 
-II. Then, deploy the `Reading List Web Application`:
+2. Then, deploy the `Reading List Web Application`:
 
 ```shell
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
 ```
 
-## 2. Verify the deployment
+## Verify the Deployment
 
-I. Check the reading list service deployment.
+1. Check the reading list service deployment.
 
 ```shell
 choreoctl get deployments --organization default-org --project default-project --component reading-list-service
 ```
-II. Check the web application deployment.
+2. Check the web application deployment.
 
 ```shell
 choreoctl get deployments --organization default-org --project portal --component reading-list-webapp
 ```
 
-## 3. Expose the API gateway locally
+## Expose the API gateway locally
 
 Port forward the Choreo gateway service to access it locally.
 
@@ -72,7 +72,7 @@ Port forward the Choreo gateway service to access it locally.
 kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443
 ```
 
-## 4. Access the web application
+## Access the Web Application
 
 Access the web application from your browser using the following URL.
 
@@ -80,7 +80,7 @@ Access the web application from your browser using the following URL.
 https://reading-list-webapp-development.choreoapps.localhost:8443
 ```
 
-## 5. Clean Up
+## Clean Up
 
 To remove all deployed resources, use the following command.
 

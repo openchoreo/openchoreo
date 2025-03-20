@@ -47,7 +47,7 @@ This application will simulate the following steps:
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` and `kubectl` CLI tools installed
 
-## Add secret values to the vault
+## Add Secret Values to the Vault
 
 The Choreo data plane comes with a built-in HashiCorp Vault that can be used to store sensitive information such as
 passwords, API keys, and tokens. For this sample, we will add the necessary secret values to the vault.
@@ -94,9 +94,9 @@ If you want to add the secret values one by one or modify the values, here are t
 
 > [!NOTE] 
 > - The provided secret format is just for clear separation of the secrets. You can use any key format that suits your
-  requirement.
+>   requirement.
 > - The value should be in the format `value=<secret_value>`. This means we store only one key-value pair in each secret.
-  This is to keep the compatibility with other key-value stores and provide a clear separation of the secrets.
+>   This is to keep the compatibility with other key-value stores and provide a clear separation of the secrets.
 
 ## Deploy the ConfigurationGroups and the Task
 
@@ -147,7 +147,7 @@ Additionally, the Task is scheduled to run every minute.
         production-deployment   github-issue-reporter-latest   production    Ready (DeploymentReady)   20h   github-issue-reporter   default-project   default-org
         ```
 
-### View the logs
+### View the Logs
 
 After waiting for a minute for the Task to run, you can check the logs to see if the Task is running as expected with the
 environment specific configurations.

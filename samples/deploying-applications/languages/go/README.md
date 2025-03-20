@@ -16,7 +16,7 @@ Exposed REST endpoints:
 The source code is available at:
 https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 
-## 1. Deploy in Choreo
+## Deploy in Choreo
 
 Run the following command to deploy the service in Choreo. This will create the necessary resources in Choreo and deploy
 the service including the build for the Go service.
@@ -25,7 +25,7 @@ the service including the build for the Go service.
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
 ``` 
 
-## 2. Check the build workflow status
+## Check the Build Workflow Status
 
 Run the following command to check the logs of the build workflow.
 
@@ -36,7 +36,7 @@ choreoctl logs --type build --build greeting-service-go-build-01 --organization 
 > [!NOTE]
 > The build will take around 5 minutes depending on the network speed.
 
-## 3. Check the deployment status
+## Check the Deployment Status
 
 You can check the deployment logs by running the following command.
 
@@ -51,16 +51,16 @@ You will see an output similar to the following:
 2025/03/19 11:52:55 Starting HTTP Greeter on port 9090
 ```
 
-## 4. Invoke the service
+## Invoke the Service
 
 For this sample, we will use kubectl port-forward to access the service.
 
-I. Run the following command to port-forward the gateway.
+1. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl -n choreo-system port-forward svc/choreo-external-gateway 8443:443
     ```
-II. Invoke the service.
+2. Invoke the service.
    Greet
    ```bash
     curl -k "https://dev.choreoapis.localhost:8443/default-project/greeting-service-go/greeter/greet"
@@ -71,7 +71,7 @@ II. Invoke the service.
    curl -k "https://dev.choreoapis.localhost:8443/default-project/greeting-service-go/greeter/greet?name=Alice"
    ```
 
-## 5. Clean up
+## Clean up
 
 To clean up the resources created by this sample, run the following command.
 

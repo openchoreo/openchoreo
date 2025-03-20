@@ -36,7 +36,7 @@ The service exposes several REST endpoints for performing these operations.
 The source code is available at:
 https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
 
-## 1. Deploy in Choreo
+## Deploy in Choreo
 
 The following command will create the component, deployment track, and deployment in Choreo. It will also trigger a build by creating a build resource.
 
@@ -44,7 +44,7 @@ The following command will create the component, deployment track, and deploymen
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
 ```
 
-## 2. Check the build workflow status
+## Check the Build Workflow Status
 
 You can check the build workflow status by running the following command.
 
@@ -52,7 +52,7 @@ You can check the build workflow status by running the following command.
 choreoctl get build reading-list-service-build-01 --component reading-list-service
 ```
 
-## 3. Check the build workflow logs
+## Check the Build Workflow Logs
 
 You can check the logs of the workflow by running the following command.
 
@@ -60,7 +60,10 @@ You can check the logs of the workflow by running the following command.
 choreoctl logs --type build --build reading-list-service-build-01 --organization default-org --project default-project --component reading-list-service
 ```
 
-## 4. Check the deployment status
+> [!NOTE]
+> The build will take around 5 minutes depending on the network speed.
+
+## Check the Deployment Status
 
 You can check the deployment status by running the following command.
 
@@ -68,7 +71,7 @@ You can check the deployment status by running the following command.
 choreoctl get deployment --component reading-list-service
 ```
 
-## 5. Check the deployment logs
+## Check the Deployment Logs
 
 You can check the deployment logs by running the following command.
 
@@ -76,17 +79,17 @@ You can check the deployment logs by running the following command.
 choreoctl logs --type deployment --deployment reading-list-service-development-deployment-01 --organization default-org --project default-project --component reading-list-service
 ```
 
-## 6. Invoke the service
+## Invoke the Service
 
 For this sample, we will use kubectl port-forward to access the service.
 
-I. Run the following command to port-forward the gateway.
+1. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443
     ```
 
-II. Invoke the service.
+2. Invoke the service.
 
    Add a new book:
 

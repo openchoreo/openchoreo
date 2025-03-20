@@ -45,13 +45,13 @@ The service exposes several REST endpoints for performing these operations.
 The source code is available at:
 https://github.com/wso2/choreo-samples/tree/main/reading-books-list-service-nodejs
 
-## 1. Deploy in Choreo
+## Deploy in Choreo
 
 ```bash
 choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/node-js/reading-list-service.yaml
 ``` 
 
-## 2. Check the build workflow status
+## Check the Build Workflow Status
 
 You can check the logs of the workflow by running the following command.
 
@@ -62,7 +62,7 @@ choreoctl logs --type build --build reading-list-node-service-build-01 --organiz
 > [!NOTE]
 > The build will take around 5 minutes depending on the network speed.
 
-## 3. Check the deployment status
+## Check the Deployment Status
 
 You can check the deployment logs by running the following command.
 
@@ -81,17 +81,17 @@ You will see an output similar to the following:
 listening on http://localhost:8080
 ```
 
-## 4. Invoke the service
+## Invoke the Service
 
 For this sample, we will use kubectl port-forward to access the service.
 
-I. Run the following command to port-forward the gateway.
+1. Run the following command to port-forward the gateway.
 
     ```bash
     kubectl -n choreo-system port-forward svc/choreo-external-gateway 8443:443
     ```
 
-II. Invoke the service.
+2. Invoke the service.
 
    Add a new book
    ```bash
@@ -137,7 +137,7 @@ II. Invoke the service.
    curl -k -X DELETE https://dev.choreoapis.localhost:8443/default-project/reading-list-node-service/reading-list/books/${BOOK_UUID}
    ```
 
-## 5. Clean up
+## Clean up
 
 To clean up the resources created by this sample, run the following command.
 
