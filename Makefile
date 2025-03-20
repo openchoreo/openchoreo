@@ -389,13 +389,13 @@ prepare-release:
 		exit 1; \
 	fi
 	@if [[ ! "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then \
-		echo "VERSION=$(VERSION) does not match the SemVer pattern (vX.X.X)"; \
+		echo "VERSION=$(VERSION) does not match the SemVer pattern (X.X.X)"; \
 		exit 1; \
 	fi
 	@echo "$(VERSION)" > VERSION
 	@yq eval '.version = "$(VERSION)" | .appVersion = "v$(VERSION)"' install/helm/choreo/Chart.yaml -i
 	@yq eval '.version = "$(VERSION)" | .appVersion = "v$(VERSION)"' install/helm/cilium/Chart.yaml -i
-	@yq eval
+
 
 
 #-----------------------------------------------------------------------------
