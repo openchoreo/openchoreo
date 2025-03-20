@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,11 +40,6 @@ type Reconciler struct {
 	Scheme   *runtime.Scheme
 	recorder record.EventRecorder
 }
-
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymenttracks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymenttracks/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymenttracks/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -72,27 +66,38 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Keep a copy of the original object for comparison
+	old := deploymentTrack.DeepCopy()
+
+	// Reconcile the DeploymentTrack resource
+	r.reconcileDeploymentTrack(ctx, deploymentTrack)
+
+	// Update status if needed
+	if err := controller.UpdateStatusConditions(ctx, r.Client, old, deploymentTrack); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	previousCondition := meta.FindStatusCondition(deploymentTrack.Status.Conditions, controller.TypeAvailable)
 
-	deploymentTrack.Status.ObservedGeneration = deploymentTrack.Generation
-	if err := controller.UpdateCondition(
-		ctx,
-		r.Status(),
-		deploymentTrack,
-		&deploymentTrack.Status.Conditions,
-		controller.TypeAvailable,
-		metav1.ConditionTrue,
-		"DeploymentTrackAvailable",
-		"DeploymentTrack is available",
-	); err != nil {
-		return ctrl.Result{}, err
-	} else {
-		if previousCondition == nil {
-			r.recorder.Event(deploymentTrack, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deploymentTrack.Name)
-		}
+	if previousCondition == nil {
+		r.recorder.Event(deploymentTrack, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deploymentTrack.Name)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) reconcileDeploymentTrack(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) {
+	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
+	logger.Info("Reconciling deploymentTrack")
+
+	// Set the observed generation
+	deploymentTrack.Status.ObservedGeneration = deploymentTrack.Generation
+
+	// Update the status condition to indicate the deploymentTrack is created/ready
+	meta.SetStatusCondition(
+		&deploymentTrack.Status.Conditions,
+		NewDeploymentTrackCreatedCondition(deploymentTrack.Generation),
+	)
 }
 
 // SetupWithManager sets up the controller with the Manager.

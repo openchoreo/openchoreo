@@ -83,3 +83,11 @@ type DeploymentTrackList struct {
 func init() {
 	SchemeBuilder.Register(&DeploymentTrack{}, &DeploymentTrackList{})
 }
+
+func (p *DeploymentTrack) GetConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *DeploymentTrack) SetConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
+}
