@@ -59,6 +59,7 @@ while true; do
 
   if [[ "$READY_CONDITION" == "True" ]]; then
     ENDPOINT_URL=$(kubectl get endpoints.core.choreo.dev "$ENDPOINT_NAME" -n "$NAMESPACE" -o jsonpath="{.status.address}")
+    ENDPOINT_URL="${ENDPOINT_URL%/}
     echo "✅ Endpoint is ready!"
     echo "🌍 You can now access the Sample Web Application at: $ENDPOINT_URL:8443"
     break
