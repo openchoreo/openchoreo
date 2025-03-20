@@ -109,7 +109,7 @@ Additionally, the Task is scheduled to run every minute.
 1. Run the following command to deploy the ConfigurationGroups and the Task in one go.
 
     ```shell
-    choreoctl apply -f samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
+    choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
     ```
 
 2. Run the following command to see if the Task is deployed successfully in each environment.
