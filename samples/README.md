@@ -25,10 +25,10 @@ For more details on these concepts, refer to the [OpenChoreo Abstractions](../do
 
 These default configurations provide a quick starting point. Once you have done some exploration you can start creating the necessary artifacts to match the needs of your organization. You can;
 
-- Create a new organization 
-- Create new environments in the new organization
-- Create a new deployment pipeline that will link these new environments
-- Update an existing deployment pipeline with a new environment
+- [Create a new organization](./configuring-choreo/create-new-organization/) 
+- [Create new environments](./configuring-choreo/create-new-environments/) in the new organization
+- [Create a new deployment pipeline](./configuring-choreo/create-new-deployment-pipeline/) that will link these new environments
+- [Update an existing deployment pipeline](./configuring-choreo/update-deployment-pipeline/) with a new environment
  
 
 ## Deploying Applications

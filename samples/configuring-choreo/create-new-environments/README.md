@@ -5,6 +5,13 @@ The [Environment](../../../docs/resource-kind-reference-guide.md#environment) re
 
 We will create three such environments in the new organization created earlier.
 
+> [!Note] 
+> In case you have not created a new organization name "acme", please run the following command before creating the new environments.
+
+```bash
+choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
+```
+
 ## Deploy in Choreo
 Use the following command to create new environments.
 
