@@ -77,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	previousCondition := meta.FindStatusCondition(deployableartifact.Status.Conditions, controller.TypeCreated)
+	previousCondition := meta.FindStatusCondition(deployableartifact.Status.Conditions, controller.TypeAvailable)
 
 	if previousCondition == nil {
 		r.Recorder.Event(deployableartifact, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deployableartifact.Name)
@@ -97,7 +97,7 @@ func (r *Reconciler) reconcileDeployableArtifact(ctx context.Context, deployable
 	// Update the status condition to indicate the deployableArtifact is created/ready
 	meta.SetStatusCondition(
 		&deployableartifact.Status.Conditions,
-		NewDeployableArtifactCreatedCondition(deployableartifact.Generation),
+		NewDeployableArtifactAvailableCondition(deployableartifact.Generation),
 	)
 }
 

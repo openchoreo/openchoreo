@@ -27,15 +27,15 @@ import (
 // Constants for condition types for the deployableArtifact controller
 
 // ReasonDeployableArtifactCreated is the reason used when a deployableArtifact is created/ready
-const ReasonDeployableArtifactCreated controller.ConditionReason = "DeployableArtifactCreated"
+const ReasonDeployableArtifactAvailable controller.ConditionReason = "DeployableArtifactAvailable"
 
-// NewDeployableArtifactCreatedCondition creates a condition to indicate the deployableArtifact is created/ready
-func NewDeployableArtifactCreatedCondition(generation int64) metav1.Condition {
+// NewDeployableArtifactAvailableCondition creates a condition to indicate the deployableArtifact is available
+func NewDeployableArtifactAvailableCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		controller.TypeCreated,
+		controller.TypeAvailable,
 		metav1.ConditionTrue,
-		ReasonDeployableArtifactCreated,
-		"DeployableArtofact is created",
+		ReasonDeployableArtifactAvailable,
+		"DeployableArtofact is available",
 		generation,
 	)
 }
