@@ -24,8 +24,6 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 )
 
-// Constants for condition types for the project controller
-
 // ReasonComponentCreated is the reason used when a component is created/ready
 const ReasonComponentCreated controller.ConditionReason = "ComponentCreated"
 

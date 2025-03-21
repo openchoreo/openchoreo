@@ -69,6 +69,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the original object for comparison
 	old := deploymentTrack.DeepCopy()
 
+	// Check if a condition exists already to determine if this is a first-time creation
+	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeAvailable)
+	isNewResource := existingCondition == nil
+
 	// Reconcile the DeploymentTrack resource
 	r.reconcileDeploymentTrack(ctx, deploymentTrack)
 
@@ -77,9 +81,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	previousCondition := meta.FindStatusCondition(deploymentTrack.Status.Conditions, controller.TypeAvailable)
-
-	if previousCondition == nil {
+	if isNewResource {
 		r.recorder.Event(deploymentTrack, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deploymentTrack.Name)
 	}
 

@@ -24,8 +24,6 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 )
 
-// Constants for condition types for the deploymenttrack controller
-
 // ReasonDeploymentTrackAvailable is the reason used when a deploymentTrack is available
 const ReasonDeploymentTrackAvailable controller.ConditionReason = "DeploymentTrackAvailable"
 

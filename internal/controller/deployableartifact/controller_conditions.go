@@ -24,8 +24,6 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 )
 
-// Constants for condition types for the deployableArtifact controller
-
 // ReasonDeployableArtifactAvailable is the reason used when a deployableArtifact is available
 const ReasonDeployableArtifactAvailable controller.ConditionReason = "DeployableArtifactAvailable"
 

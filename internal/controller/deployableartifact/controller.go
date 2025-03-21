@@ -52,6 +52,7 @@ type Reconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger.Info("Reconciling DeployableArtifact")
 
 	// Fetch the DeployableArtifact instance
 	deployableartifact := &choreov1.DeployableArtifact{}
@@ -66,6 +67,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Ignore reconcile if the DeployableArtifact is already available since this is a one-time createß
+	if r.shouldIgnoreReconcile(deployableartifact) {
+		return ctrl.Result{}, nil
+	}
+
 	// Keep a copy of the original object for comparison
 	old := deployableartifact.DeepCopy()
 
@@ -77,13 +83,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	previousCondition := meta.FindStatusCondition(deployableartifact.Status.Conditions, controller.TypeAvailable)
-
-	if previousCondition == nil {
-		r.Recorder.Event(deployableartifact, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deployableartifact.Name)
-	}
+	// Emit an event to indicate the reconcile create is complete
+	r.Recorder.Event(deployableartifact, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+deployableartifact.Name)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) shouldIgnoreReconcile(deployableArtifact *choreov1.DeployableArtifact) bool {
+	return meta.FindStatusCondition(deployableArtifact.Status.Conditions, string(controller.TypeAvailable)) != nil
 }
 
 // reconcileDeployableArtifact handles the core reconciliation logic for the DeployableArtifact resource
