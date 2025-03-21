@@ -45,4 +45,5 @@ cilium:
   kubeProxyReplacement: false
   rollOutCiliumPods: true
 waitJob:
+  enabled: true
   image: bitnami/kubectl:latest

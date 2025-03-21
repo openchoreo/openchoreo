@@ -1,3 +1,4 @@
+{{ if .Values.waitJob.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -22,3 +23,4 @@ spec:
             --for=condition=Ready pods --all --timeout=900s
       restartPolicy: Never
   backoffLimit: 5
+{{ end }}
