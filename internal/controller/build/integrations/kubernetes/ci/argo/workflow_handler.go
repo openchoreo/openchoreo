@@ -69,7 +69,12 @@ func (h *workflowHandler) Update(ctx context.Context, builtCtx *integrations.Bui
 }
 
 func (h *workflowHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
-	return nil
+	workflow := makeArgoWorkflow(builtCtx)
+	err := h.kubernetesClient.Delete(ctx, workflow)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (h *workflowHandler) IsRequired(builtCtx *integrations.BuildContext) bool {

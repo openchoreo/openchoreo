@@ -98,6 +98,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
+	// Handle the deletion of the build
+	if !build.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing build")
+		return r.finalize(ctx, build)
+	}
+
+	// Ensure the finalizer is added to the build
+	if finalizerAdded, err := r.ensureFinalizer(ctx, build); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
+	}
+
 	// Create a new build context for the build with required hierarchy objects
 	buildCtx, err := r.makeBuildContext(ctx, build)
 	if err != nil {
