@@ -8,11 +8,6 @@ resource "helm_release" "cilium" {
   timeout         = 1800 # 30 minutes
   depends_on = [kind_cluster.kind_choreo, null_resource.connect_container_to_kind_network]
 
-  set {
-    name  = "waitJob.enabled"
-    value = "false"
-  }
-
   lifecycle {
     prevent_destroy = true
   }

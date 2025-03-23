@@ -32,4 +32,14 @@ echo "Setting up a port-forwarding proxy from 8443 to the gateway NodePort..."
 # Run socat with the retrieved NodePort
 socat TCP-LISTEN:8443,fork TCP:choreo-worker:$NODEPORT &
 
+# enable choreoctl auto-completion
+if [ -f /state/kube/config-internal.yaml ]; then
+  echo "Enabling choreoctl auto-completion..."
+  /usr/local/bin/choreoctl completion bash > /usr/local/bin/choreoctl-completion
+  chmod +x /usr/local/bin/choreoctl-completion
+  echo "source /usr/local/bin/choreoctl-completion" >> /etc/profile
+fi
+
 ./check-status.sh
+
+exec /bin/bash -l

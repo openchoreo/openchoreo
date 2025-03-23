@@ -2,7 +2,7 @@
 
 container_id="$(cat /etc/hostname)"
 
-# Check if the "kind" network exists
+# Check if the "kind" network exists and connect the container to kind network
 if docker network inspect kind &>/dev/null; then
   # Check if the container is already connected
   if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${container_id}")" = "null" ]; then
@@ -13,4 +13,12 @@ if docker network inspect kind &>/dev/null; then
   fi
 fi
 
-exec /bin/bash "$@"
+# create choreoctl auto-completion if the kube config is available
+if [ -f /state/kube/config-internal.yaml ]; then
+  echo "Enabling choreoctl auto-completion..."
+  /usr/local/bin/choreoctl completion bash > /usr/local/bin/choreoctl-completion
+  chmod +x /usr/local/bin/choreoctl-completion
+  echo "source /usr/local/bin/choreoctl-completion" >> /etc/profile
+fi
+
+exec /bin/bash -l
