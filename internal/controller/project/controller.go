@@ -69,6 +69,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the original object for comparison
 	old := project.DeepCopy()
 
+	// Check if a condition exists already to determine if this is a first-time creation
+	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
+	isNewResource := existingCondition == nil
+
 	// Reconcile the Project resource
 	r.reconcileProject(ctx, project)
 
@@ -77,9 +81,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	previousCondition := meta.FindStatusCondition(project.Status.Conditions, controller.TypeCreated)
-
-	if previousCondition == nil {
+	if isNewResource {
 		r.Recorder.Event(project, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+project.Name)
 	}
 
