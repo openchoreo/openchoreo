@@ -29,40 +29,33 @@ import (
 // Constants for condition types
 
 const (
-	// ConditionInitialized represents whether the workflow has been created
-	ConditionInitialized controller.ConditionType = "Initialized"
-	// ConditionCloneSucceeded represents whether the source code clone step is succeeded
-	ConditionCloneSucceeded controller.ConditionType = "CloneSucceeded"
-	// ConditionBuildSucceeded represents whether the build step is succeeded
-	ConditionBuildSucceeded controller.ConditionType = "BuildSucceeded"
-	// ConditionPushSucceeded represents whether the push step is succeeded
-	ConditionPushSucceeded controller.ConditionType = "PushSucceeded"
-	// ConditionCompleted represents whether the ci workflow is completed
-	ConditionCompleted controller.ConditionType = "Completed"
+	// ConditionCloneStepSucceeded represents whether the source code clone step is succeeded
+	ConditionCloneStepSucceeded controller.ConditionType = "StepCloneSucceeded"
+	// ConditionBuildStepSucceeded represents whether the build step is succeeded
+	ConditionBuildStepSucceeded controller.ConditionType = "StepBuildSucceeded"
+	// ConditionPushStepSucceeded represents whether the push step is succeeded
+	ConditionPushStepSucceeded controller.ConditionType = "StepPushSucceeded"
+
 	// ConditionDeployableArtifactCreated represents whether the deployable artifact is created after a successful build
 	ConditionDeployableArtifactCreated controller.ConditionType = "DeployableArtifactCreated"
 	// ConditionDeploymentApplied represents whether the deployment is created/updated when auto deploy is enabled
 	ConditionDeploymentApplied controller.ConditionType = "DeploymentApplied"
+	// ConditionCompleted represents whether the build is completed
+	ConditionCompleted controller.ConditionType = "Completed"
 )
 
 // Constants for condition reasons
 
 const (
-	// Reason for Initialized condition type
+	// Reasons for ci workflow/pipeline related steps
+
+	ReasonStepQueued     controller.ConditionReason = "Queued"
+	ReasonStepInProgress controller.ConditionReason = "Progressing"
+	ReasonStepSucceeded  controller.ConditionReason = "Succeeded"
+	ReasonStepFailed     controller.ConditionReason = "Failed"
 
 	// ReasonWorkflowCreatedSuccessfully represents the workflow has been created successfully
 	ReasonWorkflowCreatedSuccessfully controller.ConditionReason = "WorkflowCreated"
-
-	// Reasons for ci workflow related conditions
-
-	ReasonCloneSucceeded    controller.ConditionReason = "CloneSourceCodeSucceeded"
-	ReasonCloneFailed       controller.ConditionReason = "CloneSourceCodeFailed"
-	ReasonBuildSucceeded    controller.ConditionReason = "BuildImageSucceeded"
-	ReasonBuildFailed       controller.ConditionReason = "BuildImageFailed"
-	ReasonPushSucceeded     controller.ConditionReason = "PushImageSucceeded"
-	ReasonPushFailed        controller.ConditionReason = "PushImageFailed"
-	ReasonWorkflowCompleted controller.ConditionReason = "BuildCompleted"
-	ReasonWorkflowFailed    controller.ConditionReason = "BuildFailed"
 
 	// ReasonArtifactCreatedSuccessfully represents the reason for DeployableArtifactCreated condition type
 	ReasonArtifactCreatedSuccessfully controller.ConditionReason = "ArtifactCreationSuccessful"
@@ -71,26 +64,80 @@ const (
 
 	ReasonAutoDeploymentFailed  controller.ConditionReason = "DeploymentFailed"
 	ReasonAutoDeploymentApplied controller.ConditionReason = "DeploymentAppliedSuccessfully"
+
+	ReasonBuildInProgress controller.ConditionReason = "BuildProgressing"
+	ReasonBuildFailed     controller.ConditionReason = "BuildFailed"
+	ReasonBuildCompleted  controller.ConditionReason = "BuildCompleted"
 )
 
-func NewWorkflowInitializedCondition(generation int64) metav1.Condition {
-	return controller.NewCondition(
-		ConditionInitialized,
-		metav1.ConditionTrue,
-		ReasonWorkflowCreatedSuccessfully,
-		"Workflow was created in the cluster.",
-		generation,
-	)
+func setInitialBuildConditions(build *choreov1.Build) {
+	steps := []struct {
+		conditionType controller.ConditionType
+		reason        controller.ConditionReason
+		message       string
+	}{
+		{ConditionCloneStepSucceeded, ReasonStepQueued, "Clone source code step is queued for execution."},
+		{ConditionBuildStepSucceeded, ReasonStepQueued, "Image build step is queued for execution."},
+		{ConditionPushStepSucceeded, ReasonStepQueued, "Image push step is queued for execution."},
+		{ConditionCompleted, ReasonBuildInProgress, "Build process is in progress."},
+	}
+
+	for _, step := range steps {
+		meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
+			step.conditionType,
+			metav1.ConditionFalse,
+			step.reason,
+			step.message,
+			build.Generation,
+		))
+	}
 }
 
-func NewBuildWorkflowFailedCondition(generation int64) metav1.Condition {
-	return controller.NewCondition(
-		ConditionCompleted,
+func markStepInProgress(build *choreov1.Build, conditionType controller.ConditionType) {
+	messageMap := map[controller.ConditionType]string{
+		ConditionCloneStepSucceeded: "Clone source code step is executing.",
+		ConditionBuildStepSucceeded: "Image build step is executing.",
+		ConditionPushStepSucceeded:  "Image push step is executing.",
+	}
+
+	cond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
+	if cond != nil {
+		cond.Reason = string(ReasonStepInProgress)
+		if message, exists := messageMap[conditionType]; exists {
+			cond.Message = message
+		}
+		meta.SetStatusCondition(&build.Status.Conditions, *cond)
+	}
+}
+
+func markStepSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
+	successMessages := map[controller.ConditionType]string{
+		ConditionCloneStepSucceeded: "Source code clone step completed successfully.",
+		ConditionBuildStepSucceeded: "Image build step completed successfully.",
+		ConditionPushStepSucceeded:  "Image push step completed successfully.",
+	}
+	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
+		conditionType,
+		metav1.ConditionTrue,
+		ReasonStepSucceeded,
+		successMessages[conditionType],
+		build.Generation,
+	))
+}
+
+func markStepFailed(build *choreov1.Build, conditionType controller.ConditionType) {
+	failureMessages := map[controller.ConditionType]string{
+		ConditionCloneStepSucceeded: "Source code cloning failed.",
+		ConditionBuildStepSucceeded: "Building the source code failed.",
+		ConditionPushStepSucceeded:  "Pushing the built image to the registry failed.",
+	}
+	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
+		conditionType,
 		metav1.ConditionFalse,
-		ReasonWorkflowFailed,
-		"Build completed with a failure status.",
-		generation,
-	)
+		ReasonStepFailed,
+		failureMessages[conditionType],
+		build.Generation,
+	))
 }
 
 func NewDeployableArtifactCreatedCondition(generation int64) metav1.Condition {
@@ -103,22 +150,32 @@ func NewDeployableArtifactCreatedCondition(generation int64) metav1.Condition {
 	)
 }
 
-func NewBuildWorkflowCompletedCondition(generation int64) metav1.Condition {
+func NewBuildFailedCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionCompleted,
-		metav1.ConditionTrue,
-		ReasonWorkflowCompleted,
-		"Build completed successfully",
+		metav1.ConditionFalse,
+		ReasonBuildFailed,
+		"Build completed with a failure status.",
 		generation,
 	)
 }
 
-func NewImageNotFoundErrorCondition(generation int64) metav1.Condition {
+func NewBuildCompletedCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionCompleted,
+		metav1.ConditionTrue,
+		ReasonBuildCompleted,
+		"Build completed successfully.",
+		generation,
+	)
+}
+
+func NewImageMissingBuildFailedCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionCompleted,
 		metav1.ConditionFalse,
-		ReasonWorkflowFailed,
-		"Image name is not found in the workflow.",
+		ReasonBuildFailed,
+		"Image name is not found in the ci workflow.",
 		generation,
 	)
 }
@@ -128,7 +185,7 @@ func NewAutoDeploymentFailedCondition(generation int64) metav1.Condition {
 		ConditionDeploymentApplied,
 		metav1.ConditionFalse,
 		ReasonAutoDeploymentFailed,
-		"Deployment configuration failed.",
+		"Auto deployment failed.",
 		generation,
 	)
 }
@@ -138,63 +195,7 @@ func NewAutoDeploymentSuccessfulCondition(generation int64) metav1.Condition {
 		ConditionDeploymentApplied,
 		metav1.ConditionTrue,
 		ReasonAutoDeploymentApplied,
-		"Successfully configured the deployment.",
+		"Successfully applied the deployment.",
 		generation,
 	)
-}
-
-func markStepAsSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
-	successDescriptors := map[controller.ConditionType]struct {
-		Reason  controller.ConditionReason
-		Message string
-	}{
-		ConditionCloneSucceeded: {
-			Reason:  ReasonCloneSucceeded,
-			Message: "Source code cloning was successful.",
-		},
-		ConditionBuildSucceeded: {
-			Reason:  ReasonBuildSucceeded,
-			Message: "Building the source code was successful.",
-		},
-		ConditionPushSucceeded: {
-			Reason:  ReasonPushSucceeded,
-			Message: "Pushing the built image to the registry was successful.",
-		},
-	}
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		conditionType,
-		metav1.ConditionTrue,
-		successDescriptors[conditionType].Reason,
-		successDescriptors[conditionType].Message,
-		build.Generation,
-	))
-}
-
-func markStepAsFailed(build *choreov1.Build, conditionType controller.ConditionType) {
-	failureDescriptors := map[controller.ConditionType]struct {
-		Reason  controller.ConditionReason
-		Message string
-	}{
-		ConditionCloneSucceeded: {
-			Reason:  ReasonCloneFailed,
-			Message: "Source code cloning failed.",
-		},
-		ConditionBuildSucceeded: {
-			Reason:  ReasonBuildFailed,
-			Message: "Building the source code failed.",
-		},
-		ConditionPushSucceeded: {
-			Reason:  ReasonPushFailed,
-			Message: "Pushing the built image to the registry failed.",
-		},
-	}
-
-	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
-		conditionType,
-		metav1.ConditionFalse,
-		failureDescriptors[conditionType].Reason,
-		failureDescriptors[conditionType].Message,
-		build.Generation,
-	))
 }
