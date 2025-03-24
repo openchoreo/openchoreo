@@ -24,16 +24,39 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 )
 
-// ReasonComponentCreated is the reason used when a component is created/ready
-const ReasonComponentCreated controller.ConditionReason = "ComponentCreated"
+const (
+	// ConditionCreated represents whether the component is created
+	ConditionCreated controller.ConditionType = "Created"
+	// ConditionReady represents whether the component is ready
+	ConditionReady controller.ConditionType = "Ready"
+)
+
+const (
+	// ReasonComponentCreated is the reason used when a component is created/ready
+	ReasonComponentCreated controller.ConditionReason = "ComponentCreated"
+
+	// ReasonComponentFinalizing is the reason used when a component is being finalized
+	ReasonComponentFinalizing controller.ConditionReason = "ComponentFinalizing"
+)
 
 // NewComponentCreatedCondition creates a condition to indicate the component is created/ready
 func NewComponentCreatedCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		controller.TypeCreated,
+		ConditionCreated,
 		metav1.ConditionTrue,
 		ReasonComponentCreated,
 		"Component is created",
+		generation,
+	)
+}
+
+// NewComponentFinalizingCondition creates a condition to indicate the component is being finalized
+func NewComponentFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionReady,
+		metav1.ConditionFalse,
+		ReasonComponentFinalizing,
+		"Component is being finalized",
 		generation,
 	)
 }

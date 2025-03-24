@@ -69,6 +69,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the original object for comparison
 	old := component.DeepCopy()
 
+	// Handle the deletion of the component
+	if !component.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing component")
+		return r.finalize(ctx, old, component)
+	}
+
+	// Ensure the finalizer is added to the component
+	if finalizerAdded, err := r.ensureFinalizer(ctx, component); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
+	}
+
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
 	isNewResource := existingCondition == nil

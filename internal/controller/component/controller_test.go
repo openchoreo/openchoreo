@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	apiv1 "github.com/choreo-idp/choreo/api/v1"
@@ -254,22 +255,30 @@ var _ = Describe("Component Controller", func() {
 		By("Deleting the component resource", func() {
 			err := k8sClient.Get(ctx, componentNamespacedName, component)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Check if the finalizer exists and remove it (for testing purposes)
+			if controllerutil.ContainsFinalizer(component, ComponentCleanupFinalizer) {
+				controllerutil.RemoveFinalizer(component, ComponentCleanupFinalizer)
+				Expect(k8sClient.Update(ctx, component)).To(Succeed())
+			}
+
 			Expect(k8sClient.Delete(ctx, component)).To(Succeed())
 		})
 
 		By("Checking the component resource deletion", func() {
-			Eventually(func() error {
-				return k8sClient.Get(ctx, componentNamespacedName, component)
-			}, time.Second*10, time.Millisecond*500).ShouldNot(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, componentNamespacedName, component)
+				return errors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
 		})
 
 		By("Reconciling the component resource after deletion", func() {
-			dpReconciler := &Reconciler{
+			componentReconciler := &Reconciler{
 				Client:   k8sClient,
 				Scheme:   k8sClient.Scheme(),
 				Recorder: record.NewFakeRecorder(100),
 			}
-			result, err := dpReconciler.Reconcile(ctx, reconcile.Request{
+			result, err := componentReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: componentNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
