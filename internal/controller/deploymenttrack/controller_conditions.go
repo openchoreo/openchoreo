@@ -24,16 +24,39 @@ import (
 	"github.com/choreo-idp/choreo/internal/controller"
 )
 
-// ReasonDeploymentTrackAvailable is the reason used when a deploymentTrack is available
-const ReasonDeploymentTrackAvailable controller.ConditionReason = "DeploymentTrackAvailable"
+const (
+	// ConditionAvailable represents whether the deploymentTrack is created
+	ConditionAvailable controller.ConditionType = "Available"
+	// ConditionReady represents whether the deploymentTrack is ready
+	ConditionReady controller.ConditionType = "Ready"
+)
+
+const (
+	// ReasonDeploymentTrackAvailable is the reason used when a deploymentTrack is available
+	ReasonDeploymentTrackAvailable controller.ConditionReason = "DeploymentTrackAvailable"
+
+	// ReasonDeploymentTrackFinalizing is the reason used when a component is being finalized
+	ReasonDeploymentTrackFinalizing controller.ConditionReason = "DeploymentTrackFinalizing"
+)
 
 // NewDeploymentTrackAvailableCondition creates a condition to indicate the deploymentTrack is available
 func NewDeploymentTrackAvailableCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		controller.TypeAvailable,
+		ConditionAvailable,
 		metav1.ConditionTrue,
 		ReasonDeploymentTrackAvailable,
 		"DeploymentTrack is available",
+		generation,
+	)
+}
+
+// NewDeploymentTrackFinalizingCondition creates a condition to indicate the component is being finalized
+func NewDeploymentTrackFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionReady,
+		metav1.ConditionFalse,
+		ReasonDeploymentTrackFinalizing,
+		"DeploymentTrack is being finalized",
 		generation,
 	)
 }

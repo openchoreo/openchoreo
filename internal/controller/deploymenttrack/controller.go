@@ -69,6 +69,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the original object for comparison
 	old := deploymentTrack.DeepCopy()
 
+	// Handle the deletion of the deploymentTrack
+	if !deploymentTrack.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing deploymentTrack")
+		return r.finalize(ctx, old, deploymentTrack)
+	}
+
+	// Ensure the finalizer is added to the deploymentTrack
+	if finalizerAdded, err := r.ensureFinalizer(ctx, deploymentTrack); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
+	}
+
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeAvailable)
 	isNewResource := existingCondition == nil
