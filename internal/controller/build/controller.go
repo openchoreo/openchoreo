@@ -86,6 +86,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	oldBuild := build.DeepCopy()
 
+	if len(build.Status.Conditions) == 0 {
+		setInitialBuildConditions(build)
+		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+	}
+
 	// Create a new build context for the build with required hierarchy objects
 	buildCtx, err := r.makeBuildContext(ctx, build)
 	if err != nil {
@@ -112,19 +117,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// If a new workflow was created, update status and requeue
-	if existingWorkflow == nil {
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
-	}
-
-	if meta.FindStatusCondition(buildCtx.Build.Status.Conditions, string(ConditionCompleted)) == nil {
+	if isBuildWorkflowRunning(build) {
 		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
 
 		if requeue {
 			return r.handleRequeueAfterBuild(ctx, oldBuild, build, existingWorkflow)
 		}
 
-		// When build is completed, it is required to update conditions
+		// When ci workflow is completed, it is required to update conditions
 		if oldBuild.Status.ImageStatus.Image != buildCtx.Build.Status.ImageStatus.Image ||
 			controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
 			if err := r.Status().Update(ctx, build); err != nil {
@@ -151,9 +151,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if requeue {
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	} else if err != nil {
+		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildFailedCondition(buildCtx.Build.Generation))
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 	}
-
+	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildCompletedCondition(buildCtx.Build.Generation))
 	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 }
 
@@ -267,7 +268,8 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 			logger.Error(err, "Error creating workflow resource")
 			return nil, err
 		}
-		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewWorkflowInitializedCondition(buildCtx.Build.Generation))
+		r.recorder.Eventf(buildCtx.Build, corev1.EventTypeNormal, "NewWorkflowCreated",
+			"New build workflow created: %s", buildCtx.Build.Name)
 		return nil, nil
 	}
 	existing := existingWorkflow.(argoproj.Workflow)
@@ -277,16 +279,32 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued.
 // Reconciliation should be avoided if the build is in a final state.
 func shouldIgnoreReconcile(build *choreov1.Build) bool {
-	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeploymentApplied)) != nil ||
-		meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionFalse)
+	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
+		return true
+	}
+	return false
 }
 
 // shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
 // Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
 // does not exist.
 func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
-	return meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionCompleted), metav1.ConditionTrue) &&
-		meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
+	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
+}
+
+func isBuildWorkflowRunning(build *choreov1.Build) bool {
+	conditions := []controller.ConditionType{
+		ConditionCloneStepSucceeded,
+		ConditionBuildStepSucceeded,
+		ConditionPushStepSucceeded,
+	}
+	for _, conditionType := range conditions {
+		condition := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
+		if condition.Reason == string(ReasonStepQueued) || condition.Reason == string(ReasonStepInProgress) {
+			return true
+		}
+	}
+	return false
 }
 
 // handleRequeueAfterBuild manages the requeue process after a build step.
@@ -296,7 +314,7 @@ func (r *Reconciler) handleRequeueAfterBuild(
 ) (ctrl.Result, error) {
 	// Check if the build step is running and has not yet succeeded.
 	stepInfo, isFound := argointegrations.GetStepByTemplateName(workflow.Status.Nodes, integrations.BuildStep)
-	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildSucceeded)) == nil {
+	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded)) == nil {
 		if argointegrations.GetStepPhase(stepInfo.Phase) == integrations.Running {
 			// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
 			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
@@ -311,38 +329,38 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 		stepName      integrations.BuildWorkflowStep
 		conditionType controller.ConditionType
 	}{
-		{integrations.CloneStep, ConditionCloneSucceeded},
-		{integrations.BuildStep, ConditionBuildSucceeded},
-		{integrations.PushStep, ConditionPushSucceeded},
+		{integrations.CloneStep, ConditionCloneStepSucceeded},
+		{integrations.BuildStep, ConditionBuildStepSucceeded},
+		{integrations.PushStep, ConditionPushStepSucceeded},
 	}
 
 	for _, step := range steps {
 		stepInfo, isFound := argointegrations.GetStepByTemplateName(nodes, step.stepName)
-		if !isFound || meta.FindStatusCondition(build.Status.Conditions, string(step.conditionType)) != nil {
+		if !isFound || meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(step.conditionType), metav1.ConditionTrue) {
 			continue
 		}
 		switch argointegrations.GetStepPhase(stepInfo.Phase) {
 		case integrations.Running:
+			markStepInProgress(build, step.conditionType)
 			return true
 		case integrations.Succeeded:
-			markStepAsSucceeded(build, step.conditionType)
+			markStepSucceeded(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
 			isFinalStep := step.stepName == integrations.PushStep
 			if isFinalStep {
 				image := argointegrations.GetImageNameFromWorkflow(*stepInfo.Outputs)
 				if image == "" {
-					meta.SetStatusCondition(&build.Status.Conditions, NewImageNotFoundErrorCondition(build.Generation))
+					meta.SetStatusCondition(&build.Status.Conditions, NewImageMissingBuildFailedCondition(build.Generation))
 				} else {
 					build.Status.ImageStatus.Image = image
-					meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowCompletedCondition(build.Generation))
 				}
 				return false
 			}
 			return true
 		case integrations.Failed:
-			markStepAsFailed(build, step.conditionType)
+			markStepFailed(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
-			meta.SetStatusCondition(&build.Status.Conditions, NewBuildWorkflowFailedCondition(build.Generation))
+			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFailedCondition(build.Generation))
 			return false
 		}
 	}
@@ -363,14 +381,14 @@ func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *int
 	}
 
 	if err := r.Client.Create(ctx, deployableArtifact); err != nil && !apierrors.IsAlreadyExists(err) {
+		r.recorder.Event(buildCtx.Build, corev1.EventTypeWarning, "DeployableArtifactCreationFailed", "Deployable artifact creation failed.")
 		return true, fmt.Errorf("failed to create deployable artifact: %w", err)
 	}
 	return false, nil
 }
 
 func (r *Reconciler) handleAutoDeployment(ctx context.Context, buildCtx *integrations.BuildContext) (bool, error) {
-	if buildCtx.DeploymentTrack.Spec.AutoDeploy &&
-		meta.IsStatusConditionPresentAndEqual(buildCtx.Build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
+	if buildCtx.DeploymentTrack.Spec.AutoDeploy && meta.IsStatusConditionPresentAndEqual(buildCtx.Build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
 		requeue, err := r.updateOrCreateDeployment(ctx, buildCtx)
 		if requeue {
 			return true, nil
