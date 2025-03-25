@@ -20,8 +20,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -165,4 +167,56 @@ func UpdateStatusConditionsAndRequeueAfter[T ConditionedObject](
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: duration}, nil
+}
+
+// UpdateStatusConditionsWithPatch updates status conditions using a patch operation with retry on conflicts.
+// This is more robust for handling concurrent updates to the same resource.
+func UpdateStatusConditionsWithPatch[T ConditionedObject](
+	ctx context.Context,
+	c client.Client,
+	current, updated T,
+) error {
+	// Only update if there are actually changes
+	if !NeedConditionUpdate(current.GetConditions(), updated.GetConditions()) {
+		return nil
+	}
+
+	// Maximum number of retries for conflict resolution
+	maxRetries := 5
+
+	for i := 0; i < maxRetries; i++ {
+		// Get a fresh copy of the object to ensure we have the latest version
+		latestObj := current.DeepCopyObject().(T)
+		key := client.ObjectKeyFromObject(current)
+
+		if err := c.Get(ctx, key, latestObj); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Object no longer exists, nothing to update
+				return nil
+			}
+			return fmt.Errorf("failed to get latest object: %w", err)
+		}
+
+		// Create a patch from the latest version
+		patch := client.MergeFrom(latestObj.DeepCopyObject().(T))
+
+		// Only update the conditions, preserving other status fields
+		latestObj.SetConditions(updated.GetConditions())
+
+		// Apply the patch to the status subresource
+		if err := c.Status().Patch(ctx, latestObj, patch); err != nil {
+			if apierrors.IsConflict(err) {
+				// On conflict, wait with exponential backoff and retry
+				backoffTime := time.Millisecond * 100 * time.Duration(1<<uint(i))
+				time.Sleep(backoffTime)
+				continue
+			}
+			return fmt.Errorf("failed to patch status: %w", err)
+		}
+
+		// Success
+		return nil
+	}
+
+	return fmt.Errorf("exceeded maximum retries (%d) resolving conflicts when updating status", maxRetries)
 }
