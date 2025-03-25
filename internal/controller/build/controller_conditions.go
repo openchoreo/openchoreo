@@ -100,14 +100,13 @@ func markStepInProgress(build *choreov1.Build, conditionType controller.Conditio
 		ConditionPushStepSucceeded:  "Image push step is executing.",
 	}
 
-	cond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
-	if cond != nil {
-		cond.Reason = string(ReasonStepInProgress)
-		if message, exists := messageMap[conditionType]; exists {
-			cond.Message = message
-		}
-		meta.SetStatusCondition(&build.Status.Conditions, *cond)
-	}
+	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
+		conditionType,
+		metav1.ConditionFalse,
+		ReasonStepInProgress,
+		messageMap[conditionType],
+		build.Generation,
+	))
 }
 
 func markStepSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
@@ -128,7 +127,7 @@ func markStepSucceeded(build *choreov1.Build, conditionType controller.Condition
 func markStepFailed(build *choreov1.Build, conditionType controller.ConditionType) {
 	failureMessages := map[controller.ConditionType]string{
 		ConditionCloneStepSucceeded: "Source code cloning failed.",
-		ConditionBuildStepSucceeded: "Building the source code failed.",
+		ConditionBuildStepSucceeded: "Building the image from the source code failed.",
 		ConditionPushStepSucceeded:  "Pushing the built image to the registry failed.",
 	}
 	meta.SetStatusCondition(&build.Status.Conditions, controller.NewCondition(
