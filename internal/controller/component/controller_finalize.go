@@ -65,7 +65,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 
 	// Mark the component condition as finalizing and return so that the component will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&component.Status.Conditions, NewComponentFinalizingCondition(component.Generation)) {
+	if meta.SetStatusCondition(&component.Status.Conditions, NewComponentCleanDeploymentTracksCondition(component.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, component); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -73,7 +73,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 	}
 
 	// Perform cleanup logic for dependent resources here
-	if err := r.cleanupDependentResources(ctx, component); err != nil {
+	if err := r.deleteDeploymentTracks(ctx, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to clean up dependent resources: %w", err)
 	}
 
@@ -88,8 +88,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 	return ctrl.Result{}, nil
 }
 
-// cleanupDependentResources cleans up any resources that are dependent on this Component
-func (r *Reconciler) cleanupDependentResources(ctx context.Context, component *choreov1.Component) error {
+// deleteDeploymentTracks cleans up any resources that are dependent on this Component
+func (r *Reconciler) deleteDeploymentTracks(ctx context.Context, component *choreov1.Component) error {
 	logger := log.FromContext(ctx).WithValues("component", component.Name)
 	logger.Info("Cleaning up dependent resources")
 

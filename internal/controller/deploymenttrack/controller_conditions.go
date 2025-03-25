@@ -27,16 +27,25 @@ import (
 const (
 	// ConditionAvailable represents whether the deploymentTrack is created
 	ConditionAvailable controller.ConditionType = "Available"
-	// ConditionReady represents whether the deploymentTrack is ready
-	ConditionReady controller.ConditionType = "Ready"
+	// ConditionFinalizing represents whether the deploymentTrack is being finalized
+	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
 
 const (
 	// ReasonDeploymentTrackAvailable is the reason used when a deploymentTrack is available
 	ReasonDeploymentTrackAvailable controller.ConditionReason = "DeploymentTrackAvailable"
 
-	// ReasonDeploymentTrackFinalizing is the reason used when a component is being finalized
-	ReasonDeploymentTrackFinalizing controller.ConditionReason = "DeploymentTrackFinalizing"
+	// ReasonDeploymentTrackFinalizingStarted is the reason used when a deploymentTrack's dependents are being deleted'
+	ReasonDeploymentTrackFinalizingStarted controller.ConditionReason = "DeploymentTrackFinalizingStarted"
+
+	// ReasonDeploymentTrackDeletingBuilds is the reason used when a deploymentTrack's builds are being deleted'
+	ReasonDeploymentTrackDeletingBuilds controller.ConditionReason = "DeploymentTrackDeletingBuilds"
+
+	// ReasonDeploymentTrackDeletingDeployableArtifacts is the reason used when a deploymentTrack's deployable artifacts are being deleted'
+	ReasonDeploymentTrackDeletingDeployableArtifacts controller.ConditionReason = "DeploymentTrackDeletingDeployableArtifacts"
+
+	// ReasonDeploymentTrackDeletingDeployments is the reason used when a deploymentTrack's deployments are being deleted'
+	ReasonDeploymentTrackDeletingDeployments controller.ConditionReason = "DeploymentTrackDeletingDeployments"
 )
 
 // NewDeploymentTrackAvailableCondition creates a condition to indicate the deploymentTrack is available
@@ -50,13 +59,46 @@ func NewDeploymentTrackAvailableCondition(generation int64) metav1.Condition {
 	)
 }
 
-// NewDeploymentTrackFinalizingCondition creates a condition to indicate the component is being finalized
-func NewDeploymentTrackFinalizingCondition(generation int64) metav1.Condition {
+// NewDeploymentTrackStartFinalizeCondition creates a condition to indicate the deploymenttrack is being finalized
+func NewDeploymentTrackStartFinalizeCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		ConditionReady,
-		metav1.ConditionFalse,
-		ReasonDeploymentTrackFinalizing,
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonDeploymentTrackFinalizingStarted,
 		"DeploymentTrack is being finalized",
+		generation,
+	)
+}
+
+// NewDeploymentTrackCleanBuildsCondition creates a condition to indicate the deploymenttrack is being finalized
+func NewDeploymentTrackCleanBuildsCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonDeploymentTrackDeletingBuilds,
+		"DeploymentTracks's Builds are being cleaned",
+		generation,
+	)
+}
+
+// NewDeploymentTrackCleanDeployableArtifactsCondition creates a condition to indicate the deploymenttrack is being finalized
+func NewDeploymentTrackCleanDeployableArtifactsCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonDeploymentTrackDeletingDeployableArtifacts,
+		"DeploymentTracks's DeployableArtifacts are being cleaned",
+		generation,
+	)
+}
+
+// NewDeploymentTrackCleanDeploymentsCondition creates a condition to indicate the deploymenttrack is being finalized
+func NewDeploymentTrackCleanDeploymentsCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonDeploymentTrackDeletingDeployments,
+		"DeploymentTracks's Deployments are being cleaned",
 		generation,
 	)
 }
