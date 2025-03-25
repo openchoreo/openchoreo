@@ -26,6 +26,7 @@ import (
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
+	buildController "github.com/choreo-idp/choreo/internal/controller/build"
 	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
 	"github.com/choreo-idp/choreo/pkg/cli/types/api"
 )
@@ -88,11 +89,9 @@ func (b *BuildResource) WithNamespace(namespace string) {
 // GetStatus returns the status of a Build with detailed information.
 func (b *BuildResource) GetStatus(build *choreov1.Build) string {
 	priorityConditions := []string{
-		ConditionTypeBuildComplete,
-		ConditionTypeBuildSucceeded,
-		ConditionTypeBuildFailed,
-		ConditionTypePushSucceeded,
-		ConditionTypePushFailed,
+		ConditionTypeCompleted,
+		ConditionTypeDeployableArtifactCreated,
+		ConditionTypeDeploymentApplied,
 	}
 
 	return resources.GetResourceStatus(
@@ -113,24 +112,19 @@ func (b *BuildResource) GetAge(build *choreov1.Build) string {
 func (b *BuildResource) GetBuildDuration(build *choreov1.Build) string {
 	conditions := build.Status.Conditions
 	var startTime, endTime time.Time
-	hasStart, hasEnd := false, false
+	hasEnd := false
+
+	startTime = build.GetCreationTimestamp().Time
 
 	for _, condition := range conditions {
-		// Look for build initiated condition
-		if condition.Type == ConditionTypeBuildStarted && condition.Status == ConditionStatusTrue {
-			startTime = condition.LastTransitionTime.Time
-			hasStart = true
-		}
-
 		// Look for build completion conditions
-		if (condition.Type == ConditionTypeBuildComplete || condition.Type == ConditionTypeBuildFailed) &&
-			condition.Status == ConditionStatusTrue {
+		if condition.Type == ConditionTypeCompleted && condition.Reason != string(buildController.ReasonBuildInProgress) {
 			endTime = condition.LastTransitionTime.Time
 			hasEnd = true
 		}
 	}
 
-	if hasStart && hasEnd {
+	if hasEnd {
 		duration := endTime.Sub(startTime)
 		return resources.FormatDuration(duration)
 	}

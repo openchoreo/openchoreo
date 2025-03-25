@@ -133,6 +133,7 @@ const (
 	StatusNotReady     = "Not Ready"
 	StatusInitializing = "Initializing"
 	StatusFailed       = "Failed"
+	StatusProgressing  = "Progressing"
 )
 
 //
@@ -155,12 +156,12 @@ const (
 
 // Build specific condition types
 const (
-	ConditionTypeBuildStarted   = "BuildStarted"
-	ConditionTypeBuildComplete  = "BuildComplete"
-	ConditionTypeBuildFailed    = "BuildFailed"
-	ConditionTypeBuildSucceeded = "BuildSucceeded"
-	ConditionTypePushSucceeded  = "PushSucceeded"
-	ConditionTypePushFailed     = "PushFailed"
+	ConditionTypeStepCloneSucceeded        = "StepCloneSucceeded"
+	ConditionTypeStepBuildSucceeded        = "StepBuildSucceeded"
+	ConditionTypeStepPushSucceeded         = "StepPushSucceeded"
+	ConditionTypeCompleted                 = "Completed"
+	ConditionTypeDeployableArtifactCreated = "DeployableArtifactCreated"
+	ConditionTypeDeploymentApplied         = "DeploymentApplied"
 )
 
 // Environment specific condition types
