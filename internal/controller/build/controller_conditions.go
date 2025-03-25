@@ -42,6 +42,10 @@ const (
 	ConditionDeploymentApplied controller.ConditionType = "DeploymentApplied"
 	// ConditionCompleted represents whether the build is completed
 	ConditionCompleted controller.ConditionType = "Completed"
+	// ConditionBuildFinalizing represents the build resource is being deleted
+	ConditionBuildFinalizing controller.ConditionType = "Finalizing"
+	// ConditionDeployableArtifactReferencesRemaining represents the build deletion stucked due to deployable artifact references
+	ConditionDeployableArtifactReferencesRemaining controller.ConditionType = "DeployableArtifactReferencesRemaining"
 )
 
 // Constants for condition reasons
@@ -68,6 +72,9 @@ const (
 	ReasonBuildInProgress controller.ConditionReason = "BuildProgressing"
 	ReasonBuildFailed     controller.ConditionReason = "BuildFailed"
 	ReasonBuildCompleted  controller.ConditionReason = "BuildCompleted"
+
+	ReasonBuildFinalizing                  controller.ConditionReason = "BuildBeingDeleted"
+	ReasonDeployableArtifactDeletionFailed controller.ConditionReason = "DeployableArtifactRemain"
 )
 
 func setInitialBuildConditions(build *choreov1.Build) {
