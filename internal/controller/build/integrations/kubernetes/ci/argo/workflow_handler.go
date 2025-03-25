@@ -20,6 +20,7 @@ package argo
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,8 +69,16 @@ func (h *workflowHandler) Update(ctx context.Context, builtCtx *integrations.Bui
 	return nil
 }
 
-func (h *workflowHandler) Delete(ctx context.Context, builtCtx *integrations.BuildContext) error {
-	workflow := makeArgoWorkflow(builtCtx)
+func (h *workflowHandler) Delete(ctx context.Context, buildCtx *integrations.BuildContext) error {
+	workflow := &argoproj.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      makeWorkflowName(buildCtx),
+			Namespace: kubernetes.MakeNamespaceName(buildCtx),
+			Labels: map[string]string{
+				dpkubernetes.LabelKeyManagedBy: dpkubernetes.LabelBuildControllerCreated,
+			},
+		},
+	}
 	err := h.kubernetesClient.Delete(ctx, workflow)
 	if apierrors.IsNotFound(err) {
 		return nil

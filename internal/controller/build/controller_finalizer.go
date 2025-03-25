@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,9 +40,10 @@ func (r *Reconciler) finalize(ctx context.Context, build *choreov1.Build) (ctrl.
 	}
 
 	// Construct the build context for resource finalization
-	buildCtx, err := r.makeBuildContext(ctx, build)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to construct build context for finalization: %w", err)
+	buildCtx := &integrations.BuildContext{
+		Component:       nil,
+		DeploymentTrack: nil,
+		Build:           build,
 	}
 
 	// Initialize the workflow handler and attempt to delete the workflow resource
