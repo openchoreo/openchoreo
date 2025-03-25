@@ -4,15 +4,21 @@ import (
 	"context"
 	"fmt"
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
 	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
 	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
+	"github.com/choreo-idp/choreo/internal/controller/build/resources"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	// CleanUpFinalizer is used to ensure proper cleanup of data plane resources before a Build resource is deleted.
-	CleanUpFinalizer = "core.choreo.dev/cleanup"
+	CleanUpFinalizer = "core.choreo.dev/build-cleanup"
 )
 
 // ensureFinalizer ensures that the build resource has the cleanup finalizer.
@@ -34,22 +40,26 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build)
 
 // finalize cleans up data plane resources associated with the build before deletion.
 // It is invoked when the build resource has the cleanup finalizer.
-func (r *Reconciler) finalize(ctx context.Context, build *choreov1.Build) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, oldBuild *choreov1.Build, build *choreov1.Build) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(build, CleanUpFinalizer) {
 		return ctrl.Result{}, nil
 	}
 
-	// Construct the build context for resource finalization
-	buildCtx := &integrations.BuildContext{
-		Component:       nil,
-		DeploymentTrack: nil,
-		Build:           build,
+	// Delete Workflow resource
+	if err := r.deleteWorkflow(ctx, build); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to delete workflow resource: %w", err)
+		}
 	}
 
-	// Initialize the workflow handler and attempt to delete the workflow resource
-	workflowHandler := argointegrations.NewWorkflowHandler(r.Client)
-	if err := workflowHandler.Delete(ctx, buildCtx); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to delete workflow resource: %w", err)
+	// Delete DeployableArtifact if it exists
+	if meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
+		needsRequeue, err := r.deleteDeployableArtifact(ctx, build)
+		if err != nil {
+			return ctrl.Result{}, err
+		} else if needsRequeue {
+			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+		}
 	}
 
 	// Remove the finalizer after successful cleanup
@@ -61,4 +71,46 @@ func (r *Reconciler) finalize(ctx context.Context, build *choreov1.Build) (ctrl.
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// deleteWorkflow deletes the workflow resource.
+func (r *Reconciler) deleteWorkflow(ctx context.Context, build *choreov1.Build) error {
+	buildCtx := &integrations.BuildContext{Build: build}
+	workflowHandler := argointegrations.NewWorkflowHandler(r.Client)
+	return workflowHandler.Delete(ctx, buildCtx)
+}
+
+// deleteDeployableArtifact attempts to delete the DeployableArtifact and determines whether requeueing is needed.
+func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreov1.Build) (bool, error) {
+	deployableArtifact := resources.MakeDeployableArtifact(build)
+	existingArtifact := &choreov1.DeployableArtifact{}
+
+	// Check if the DeployableArtifact exists
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(deployableArtifact), existingArtifact); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Artifact does not exist, no need to requeue
+			return false, nil
+		}
+		// Unexpected error
+		return true, fmt.Errorf("failed to check deployable artifact: %w", err)
+	}
+
+	// If artifact is pending deletion (has DeletionTimestamp), update condition and requeue
+	if !existingArtifact.DeletionTimestamp.IsZero() {
+		meta.SetStatusCondition(&build.Status.Conditions, NewArtifactRemainingCondition(build.Generation))
+		return true, nil
+	}
+
+	// Attempt to delete the DeployableArtifact
+	if err := r.Client.Delete(ctx, deployableArtifact); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Artifact already deleted, no need to requeue
+			return false, nil
+		}
+		// Other errors require requeueing
+		return true, fmt.Errorf("failed to delete deployable artifact: %w", err)
+	}
+
+	// Deletion initiated successfully, requeue to check if it gets finalized
+	return true, nil
 }
