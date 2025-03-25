@@ -94,19 +94,19 @@ func (r *Reconciler) cleanupDependentResources(ctx context.Context, deploymentTr
 	logger.Info("Cleaning up dependent resources")
 
 	// Clean up Builds
-	shouldReturn, err := deleteBuilds(ctx, deploymentTrack, r)
+	shouldReturn, err := r.deleteBuilds(ctx, deploymentTrack)
 	if shouldReturn {
 		return err
 	}
 
 	// Clean up DeployableArtifacts
-	shouldReturn, err = deleteDeployableArtifacts(ctx, deploymentTrack, r)
+	shouldReturn, err = r.deleteDeployableArtifacts(ctx, deploymentTrack)
 	if shouldReturn {
 		return err
 	}
 
 	// Clean up Deployments
-	shouldReturn, err = deleteDeployments(ctx, deploymentTrack, r)
+	shouldReturn, err = r.deleteDeployments(ctx, deploymentTrack)
 	if shouldReturn {
 		return err
 	}
@@ -114,7 +114,7 @@ func (r *Reconciler) cleanupDependentResources(ctx context.Context, deploymentTr
 	return nil
 }
 
-func deleteBuilds(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack, r *Reconciler) (bool, error) {
+func (r *Reconciler) deleteBuilds(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up builds")
 
@@ -155,7 +155,7 @@ func deleteBuilds(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack
 	return false, nil
 }
 
-func deleteDeployableArtifacts(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack, r *Reconciler) (bool, error) {
+func (r *Reconciler) deleteDeployableArtifacts(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployableArtifacts")
 
@@ -196,7 +196,7 @@ func deleteDeployableArtifacts(ctx context.Context, deploymentTrack *choreov1.De
 	return false, nil
 }
 
-func deleteDeployments(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack, r *Reconciler) (bool, error) {
+func (r *Reconciler) deleteDeployments(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployments")
 
