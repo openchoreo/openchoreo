@@ -193,6 +193,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Build{}).
 		Named("build").
+		Owns(&choreov1.DeployableArtifact{}).
 		Complete(r)
 }
 
@@ -408,6 +409,10 @@ func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *int
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, &endpoints)
 	} else {
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, nil)
+	}
+
+	if err := ctrl.SetControllerReference(buildCtx.Build, deployableArtifact, r.Scheme); err != nil {
+		return true, err
 	}
 
 	if err := r.Client.Create(ctx, deployableArtifact); err != nil && !apierrors.IsAlreadyExists(err) {

@@ -63,6 +63,9 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild *choreov1.Build, bui
 		} else if needsRequeue {
 			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 		}
+		if meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactReferencesRemaining)) != nil {
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+		}
 	}
 
 	// Remove the finalizer after successful cleanup
@@ -92,24 +95,26 @@ func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreo
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(deployableArtifact), existingArtifact); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Artifact does not exist, no need to requeue
+			meta.RemoveStatusCondition(&build.Status.Conditions, string(ConditionDeployableArtifactReferencesRemaining))
 			return false, nil
 		}
 		// Unexpected error
 		return true, fmt.Errorf("failed to check deployable artifact: %w", err)
 	}
 
-	// If artifact is pending deletion (has DeletionTimestamp), update condition and requeue
+	// If artifact is pending deletion (has DeletionTimestamp), update condition and wait for new event
 	if !existingArtifact.DeletionTimestamp.IsZero() {
 		meta.SetStatusCondition(&build.Status.Conditions, NewArtifactRemainingCondition(build.Generation))
 		r.recorder.Event(build, corev1.EventTypeWarning, "DeployableArtifactPendingDeletion",
 			"Deployable artifact is pending deletion due to finalizer. Build deletion is blocked.")
-		return true, nil
+		return false, nil
 	}
 
 	// Attempt to delete the DeployableArtifact
 	if err := r.Client.Delete(ctx, deployableArtifact); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Artifact already deleted, no need to requeue
+			meta.RemoveStatusCondition(&build.Status.Conditions, string(ConditionDeployableArtifactReferencesRemaining))
 			return false, nil
 		}
 		// Other errors require requeueing
