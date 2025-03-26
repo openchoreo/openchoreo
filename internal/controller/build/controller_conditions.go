@@ -75,7 +75,7 @@ const (
 
 	// Reasons for build finalizing
 
-	ReasonBuildFinalizing                  controller.ConditionReason = "BuildBeingDeleted"
+	ReasonBuildFinalizing                  controller.ConditionReason = "BuildCleanupOngoing"
 	ReasonDeployableArtifactDeletionFailed controller.ConditionReason = "DeployableArtifactRemain"
 )
 

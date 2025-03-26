@@ -43,9 +43,15 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build)
 
 // finalize cleans up data plane resources associated with the build before deletion.
 // It is invoked when the build resource has the cleanup finalizer.
-func (r *Reconciler) finalize(ctx context.Context, oldBuild *choreov1.Build, build *choreov1.Build) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Build) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(build, CleanUpFinalizer) {
 		return ctrl.Result{}, nil
+	}
+
+	// Mark the build condition as finalizing and return so that the component will indicate that it is being finalized.
+	// The actual finalization will be done in the next reconcile loop triggered by the status update.
+	if meta.SetStatusCondition(&build.Status.Conditions, NewBuildFinalizingCondition(build.Generation)) {
+		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 	}
 
 	// Delete Workflow resource

@@ -101,10 +101,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Handle the deletion of the build
 	if !build.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing build")
-		if meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildFinalizing)) == nil {
-			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFinalizingCondition(build.Generation))
-			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
-		}
 		return r.finalize(ctx, oldBuild, build)
 	}
 
