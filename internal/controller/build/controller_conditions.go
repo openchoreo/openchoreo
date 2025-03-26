@@ -44,7 +44,7 @@ const (
 	ConditionCompleted controller.ConditionType = "Completed"
 	// ConditionBuildFinalizing represents the build resource is being deleted
 	ConditionBuildFinalizing controller.ConditionType = "Finalizing"
-	// ConditionDeployableArtifactReferencesRemaining represents the build deletion stucked due to deployable artifact references
+	// ConditionDeployableArtifactReferencesRemaining indicates that the build deletion is blocked due to existing DeployableArtifact references
 	ConditionDeployableArtifactReferencesRemaining controller.ConditionType = "DeployableArtifactReferencesRemaining"
 )
 
@@ -72,6 +72,8 @@ const (
 	ReasonBuildInProgress controller.ConditionReason = "BuildProgressing"
 	ReasonBuildFailed     controller.ConditionReason = "BuildFailed"
 	ReasonBuildCompleted  controller.ConditionReason = "BuildCompleted"
+
+	// Reasons for build finalizing
 
 	ReasonBuildFinalizing                  controller.ConditionReason = "BuildBeingDeleted"
 	ReasonDeployableArtifactDeletionFailed controller.ConditionReason = "DeployableArtifactRemain"

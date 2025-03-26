@@ -110,7 +110,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Ensure the finalizer is added to the build
 	if finalizerAdded, err := r.ensureFinalizer(ctx, build); err != nil || finalizerAdded {
-		// Return after adding the finalizer to ensure the finalizer is persisted
 		return ctrl.Result{}, err
 	}
 

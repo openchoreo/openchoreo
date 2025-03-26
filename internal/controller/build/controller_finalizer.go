@@ -3,17 +3,20 @@ package build
 import (
 	"context"
 	"fmt"
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
-	"github.com/choreo-idp/choreo/internal/controller/build/resources"
+
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
+	"github.com/choreo-idp/choreo/internal/controller/build/resources"
 )
 
 const (
@@ -98,6 +101,8 @@ func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreo
 	// If artifact is pending deletion (has DeletionTimestamp), update condition and requeue
 	if !existingArtifact.DeletionTimestamp.IsZero() {
 		meta.SetStatusCondition(&build.Status.Conditions, NewArtifactRemainingCondition(build.Generation))
+		r.recorder.Event(build, corev1.EventTypeWarning, "DeployableArtifactPendingDeletion",
+			"Deployable artifact is pending deletion due to finalizer. Build deletion is blocked.")
 		return true, nil
 	}
 
