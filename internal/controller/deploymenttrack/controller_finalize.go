@@ -21,6 +21,7 @@ package deploymenttrack
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -55,115 +56,74 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, deploymentTrack *chore
 }
 
 func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov1.DeploymentTrack) (ctrl.Result, error) {
-	finalizingCond := meta.FindStatusCondition(deploymentTrack.Status.Conditions, "Finalizing")
+	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 
-	// First reconciliation - set the initial status
-	if finalizingCond == nil {
-		meta.SetStatusCondition(&deploymentTrack.Status.Conditions, NewDeploymentTrackStartFinalizeCondition(deploymentTrack.Generation))
+	if !controllerutil.ContainsFinalizer(deploymentTrack, DeploymentTrackCleanupFinalizer) {
+		// Nothing to do if the finalizer is not present
+		return ctrl.Result{}, nil
+	}
+
+	// Mark the deployment condition as finalizing and return so that the deployment will indicate that it is being finalized.
+	// The actual finalization will be done in the next reconcile loop triggered by the status update.
+	if meta.SetStatusCondition(&deploymentTrack.Status.Conditions, NewDeploymentTrackFinalizingCondition(deploymentTrack.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, deploymentTrack); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
-	// Execute appropriate action based on current status
-	switch finalizingCond.Reason {
-	case string(ReasonDeploymentTrackFinalizingStarted):
-		if err := r.deleteBuilds(ctx, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		// Update status and requeue
-		meta.SetStatusCondition(&deploymentTrack.Status.Conditions, NewDeploymentTrackCleanBuildsCondition(deploymentTrack.Generation))
-		if err := controller.UpdateStatusConditionsWithPatch(ctx, r.Client, old, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true}, nil
+	// Perform cleanup logic for dependent resources
+	if err := r.deleteChildResources(ctx, deploymentTrack); err != nil {
+		logger.Info("Waiting for dependent resources to be deleted", "error", err.Error())
+		// Return with requeue to check again later
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
 
-	case string(ReasonDeploymentTrackDeletingBuilds):
-		if err := r.deleteDeployableArtifacts(ctx, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		// Update status and requeue
-		meta.SetStatusCondition(&deploymentTrack.Status.Conditions, NewDeploymentTrackCleanDeployableArtifactsCondition(deploymentTrack.Generation))
-		if err := controller.UpdateStatusConditionsWithPatch(ctx, r.Client, old, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true}, nil
-
-	case string(ReasonDeploymentTrackDeletingDeployableArtifacts):
-		if err := r.deleteDeployments(ctx, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		// Update status and requeue
-		meta.SetStatusCondition(&deploymentTrack.Status.Conditions, NewDeploymentTrackCleanDeploymentsCondition(deploymentTrack.Generation))
-		if err := controller.UpdateStatusConditionsWithPatch(ctx, r.Client, old, deploymentTrack); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true}, nil
-
-	case string(ReasonDeploymentTrackDeletingDeployments):
-		// Final stage - remove finalizer
-		if controllerutil.RemoveFinalizer(deploymentTrack, DeploymentTrackCleanupFinalizer) {
-			if err := r.Update(ctx, deploymentTrack); err != nil {
-				if errors.IsConflict(err) {
-					return ctrl.Result{Requeue: true}, nil
-				}
-				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+	// Remove the finalizer once cleanup is done
+	if controllerutil.RemoveFinalizer(deploymentTrack, DeploymentTrackCleanupFinalizer) {
+		if err := r.Update(ctx, deploymentTrack); err != nil {
+			if errors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
 			}
+			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
 
+	logger.Info("Successfully finalized deployment track")
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) deleteBuilds(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+// deleteChildResources cleans up any resources that are dependent on this DeploymentTrack
+func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
-	logger.Info("Cleaning up builds")
 
-	buildList := &choreov1.BuildList{}
-	buildListOpts := []client.ListOption{
-		client.InNamespace(deploymentTrack.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
-			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
-			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
-			labels.LabelKeyDeploymentTrackName: deploymentTrack.Name,
-		},
+	// Clean up builds
+	if err := r.deleteBuildsAndWait(ctx, deploymentTrack); err != nil {
+		return err
 	}
 
-	if err := r.List(ctx, buildList, buildListOpts...); err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to list builds: %w", err)
-		}
-		// Not found error is okay, it means no builds exist
-		logger.Info("No builds found for deletion")
-		return nil
+	// Clean up deployable artifacts
+	if err := r.deleteDeployableArtifactsAndWait(ctx, deploymentTrack); err != nil {
+		return err
 	}
 
-	// Process each Build
-	for i := range buildList.Items {
-		build := &buildList.Items[i]
-
-		// Only process if not already being deleted
-		if build.DeletionTimestamp.IsZero() {
-			logger.Info("Deleting build", "name", build.Name)
-			if err := r.Delete(ctx, build); err != nil {
-				if !errors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete build %s: %w", build.Name, err)
-				}
-				logger.Info("Build already deleted", "name", build.Name)
-			}
-		}
+	// Clean up deployments
+	if err := r.deleteDeploymentsAndWait(ctx, deploymentTrack); err != nil {
+		return err
 	}
+
+	logger.Info("All dependent resources are deleted")
 	return nil
 }
 
-func (r *Reconciler) deleteDeployableArtifacts(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+// deleteBuildsAndWait deletes builds and waits for them to be fully deleted
+func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
-	logger.Info("Cleaning up deployableArtifacts")
+	logger.Info("Cleaning up builds")
 
-	deployableArtifactList := &choreov1.DeployableArtifactList{}
-	artifactListOpts := []client.ListOption{
+	// Find all Builds owned by this DeploymentTrack
+	buildList := &choreov1.BuildList{}
+	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{
 			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
@@ -173,44 +133,130 @@ func (r *Reconciler) deleteDeployableArtifacts(ctx context.Context, deploymentTr
 		},
 	}
 
-	if err := r.List(ctx, deployableArtifactList, artifactListOpts...); err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to list deployable artifacts: %w", err)
+	if err := r.List(ctx, buildList, listOpts...); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Builds not found. Continuing with deletion.")
+			return nil
 		}
-		// Not found error is okay, it means no deployable artifacts exist
-		logger.Info("No deployable artifacts found for deletion")
-		return nil
+		return fmt.Errorf("failed to list builds: %w", err)
 	}
 
-	// Process each DeployableArtifact, skipping those with owner references
-	for i := range deployableArtifactList.Items {
-		artifact := &deployableArtifactList.Items[i]
+	// Check if any builds still exist
+	if len(buildList.Items) > 0 {
+		pendingDeletion := false
 
-		// Skip artifact if there is an owner references - this will be managed by the build controller
+		// Process each Build
+		for i := range buildList.Items {
+			build := &buildList.Items[i]
+
+			// Check if the build is already being deleted
+			if !build.DeletionTimestamp.IsZero() {
+				// Still in the process of being deleted
+				pendingDeletion = true
+				logger.Info("Build is still being deleted", "name", build.Name)
+				continue
+			}
+
+			// If not being deleted, trigger deletion
+			logger.Info("Deleting build", "name", build.Name)
+			if err := r.Delete(ctx, build); err != nil {
+				if errors.IsNotFound(err) {
+					logger.Info("Build already deleted", "name", build.Name)
+					continue
+				}
+				return fmt.Errorf("failed to delete build %s: %w", build.Name, err)
+			}
+
+			// Mark as pending since we just triggered deletion
+			pendingDeletion = true
+		}
+
+		// If there are still builds being deleted, requeue to check again later
+		if pendingDeletion {
+			return fmt.Errorf("waiting for builds to be fully deleted")
+		}
+	}
+
+	logger.Info("All builds are deleted")
+	return nil
+}
+
+// deleteDeployableArtifactsAndWait deletes deployable artifacts and waits for them to be fully deleted
+func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
+	logger.Info("Cleaning up deployable artifacts")
+
+	// Find all DeployableArtifacts owned by this DeploymentTrack
+	artifactList := &choreov1.DeployableArtifactList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(deploymentTrack.Namespace),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
+			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
+			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
+			labels.LabelKeyDeploymentTrackName: deploymentTrack.Name,
+		},
+	}
+
+	if err := r.List(ctx, artifactList, listOpts...); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Deployable artifacts not found. Continuing with deletion.")
+			return nil
+		}
+		return fmt.Errorf("failed to list deployable artifacts: %w", err)
+	}
+
+	// Check if any artifacts still exist
+	pendingDeletion := false
+
+	// Process each DeployableArtifact
+	for i := range artifactList.Items {
+		artifact := &artifactList.Items[i]
+
+		// Skip artifact if there is an owner reference - this will be managed by the build controller
 		if len(artifact.OwnerReferences) > 0 {
 			continue
 		}
 
-		// Only process if not already being deleted
-		if artifact.DeletionTimestamp.IsZero() {
-			logger.Info("Deleting deployable artifact", "name", artifact.Name)
-			if err := r.Delete(ctx, artifact); err != nil {
-				if !errors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete deployable artifact %s: %w", artifact.Name, err)
-				}
-				logger.Info("Deployable artifact already deleted", "name", artifact.Name)
-			}
+		// Check if the artifact is already being deleted
+		if !artifact.DeletionTimestamp.IsZero() {
+			// Still in the process of being deleted
+			pendingDeletion = true
+			logger.Info("Deployable artifact is still being deleted", "name", artifact.Name)
+			continue
 		}
+
+		// If not being deleted, trigger deletion
+		logger.Info("Deleting deployable artifact", "name", artifact.Name)
+		if err := r.Delete(ctx, artifact); err != nil {
+			if errors.IsNotFound(err) {
+				logger.Info("Deployable artifact already deleted", "name", artifact.Name)
+				continue
+			}
+			return fmt.Errorf("failed to delete deployable artifact %s: %w", artifact.Name, err)
+		}
+
+		// Mark as pending since we just triggered deletion
+		pendingDeletion = true
 	}
+
+	// If there are still artifacts being deleted, requeue to check again later
+	if pendingDeletion {
+		return fmt.Errorf("waiting for deployable artifacts to be fully deleted")
+	}
+
+	logger.Info("All deployable artifacts are deleted")
 	return nil
 }
 
-func (r *Reconciler) deleteDeployments(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+// deleteDeploymentsAndWait deletes deployments and waits for them to be fully deleted
+func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployments")
 
+	// Find all Deployments owned by this DeploymentTrack
 	deploymentList := &choreov1.DeploymentList{}
-	deploymentListOpts := []client.ListOption{
+	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{
 			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
@@ -220,29 +266,50 @@ func (r *Reconciler) deleteDeployments(ctx context.Context, deploymentTrack *cho
 		},
 	}
 
-	if err := r.List(ctx, deploymentList, deploymentListOpts...); err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to list deployments: %w", err)
+	if err := r.List(ctx, deploymentList, listOpts...); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Deployments not found. Continuing with deletion.")
+			return nil
 		}
-		// Not found error is okay, it means no deployments exist
-		logger.Info("No deployments found for deletion")
-		return nil
+		return fmt.Errorf("failed to list deployments: %w", err)
 	}
 
-	// Process each Deployment
-	for i := range deploymentList.Items {
-		deployment := &deploymentList.Items[i]
+	// Check if any deployments still exist
+	if len(deploymentList.Items) > 0 {
+		pendingDeletion := false
 
-		// Only process if not already being deleted
-		if deployment.DeletionTimestamp.IsZero() {
+		// Process each Deployment
+		for i := range deploymentList.Items {
+			deployment := &deploymentList.Items[i]
+
+			// Check if the deployment is already being deleted
+			if !deployment.DeletionTimestamp.IsZero() {
+				// Still in the process of being deleted
+				pendingDeletion = true
+				logger.Info("Deployment is still being deleted", "name", deployment.Name)
+				continue
+			}
+
+			// If not being deleted, trigger deletion
 			logger.Info("Deleting deployment", "name", deployment.Name)
 			if err := r.Delete(ctx, deployment); err != nil {
-				if !errors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete deployment %s: %w", deployment.Name, err)
+				if errors.IsNotFound(err) {
+					logger.Info("Deployment already deleted", "name", deployment.Name)
+					continue
 				}
-				logger.Info("Deployment already deleted", "name", deployment.Name)
+				return fmt.Errorf("failed to delete deployment %s: %w", deployment.Name, err)
 			}
+
+			// Mark as pending since we just triggered deletion
+			pendingDeletion = true
+		}
+
+		// If there are still deployments being deleted, requeue to check again later
+		if pendingDeletion {
+			return fmt.Errorf("waiting for deployments to be fully deleted")
 		}
 	}
+
+	logger.Info("All deployments are deleted")
 	return nil
 }

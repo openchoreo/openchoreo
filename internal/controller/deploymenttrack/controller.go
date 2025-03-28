@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -52,6 +53,7 @@ type Reconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger.Info("Reconciling deploymentTrack")
 
 	// Fetch the DeploymentTrack instance
 	deploymentTrack := &choreov1.DeploymentTrack{}
@@ -81,12 +83,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Handle create
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeAvailable)
 	isNewResource := existingCondition == nil
 
-	// Reconcile the DeploymentTrack resource
-	r.reconcileDeploymentTrack(ctx, deploymentTrack)
+	// Set the observed generation
+	deploymentTrack.Status.ObservedGeneration = deploymentTrack.Generation
+
+	// Update the status condition to indicate the deploymentTrack is available
+	meta.SetStatusCondition(
+		&deploymentTrack.Status.Conditions,
+		NewDeploymentTrackAvailableCondition(deploymentTrack.Generation),
+	)
 
 	// Update status if needed
 	if err := controller.UpdateStatusConditions(ctx, r.Client, old, deploymentTrack); err != nil {
@@ -100,20 +109,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) reconcileDeploymentTrack(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) {
-	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
-	logger.Info("Reconciling deploymentTrack")
-
-	// Set the observed generation
-	deploymentTrack.Status.ObservedGeneration = deploymentTrack.Generation
-
-	// Update the status condition to indicate the deploymentTrack is available
-	meta.SetStatusCondition(
-		&deploymentTrack.Status.Conditions,
-		NewDeploymentTrackAvailableCondition(deploymentTrack.Generation),
-	)
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.recorder == nil {
@@ -123,5 +118,20 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.DeploymentTrack{}).
 		Named("deploymenttrack").
+		// Watch for Build changes to reconcile the Deployment Track
+		Watches(
+			&choreov1.Build{},
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+		).
+		// Watch for DeployableArtifact changes to reconcile the Deployment Track
+		Watches(
+			&choreov1.DeployableArtifact{},
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+		).
+		// Watch for Deployment changes to reconcile the Deployment Track
+		Watches(
+			&choreov1.Deployment{},
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+		).
 		Complete(r)
 }
