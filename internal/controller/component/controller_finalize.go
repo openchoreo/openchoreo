@@ -21,6 +21,7 @@ package component
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -69,9 +70,11 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, component)
 	}
 
-	// Perform cleanup logic for dependent resources here
-	if err := r.deleteDeploymentTracks(ctx, component); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to clean up dependent resources: %w", err)
+	// Perform cleanup logic for deployment tracks
+	if err := r.deleteDeploymentTracksAndWait(ctx, component); err != nil {
+		logger.Info("Waiting for dependent resources to be deleted", "error", err.Error())
+		// Return with requeue to check again later
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
@@ -85,8 +88,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 	return ctrl.Result{}, nil
 }
 
-// deleteDeploymentTracks cleans up any resources that are dependent on this Component
-func (r *Reconciler) deleteDeploymentTracks(ctx context.Context, component *choreov1.Component) error {
+// deleteDeploymentTracksAndWait cleans up any resources that are dependent on this Component
+func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, component *choreov1.Component) error {
 	logger := log.FromContext(ctx).WithValues("component", component.Name)
 	logger.Info("Cleaning up dependent resources")
 
@@ -112,23 +115,42 @@ func (r *Reconciler) deleteDeploymentTracks(ctx context.Context, component *chor
 		return fmt.Errorf("failed to list deployment tracks: %w", err)
 	}
 
-	// Process each DeploymentTrack
-	for i := range deploymentTrackList.Items {
-		deploymentTrack := &deploymentTrackList.Items[i]
+	// Check if any deployment tracks still exist
+	if len(deploymentTrackList.Items) > 0 {
+		pendingDeletion := false
 
-		// Only process if not already being deleted
-		if deploymentTrack.DeletionTimestamp.IsZero() {
+		// Process each DeploymentTrack
+		for i := range deploymentTrackList.Items {
+			deploymentTrack := &deploymentTrackList.Items[i]
+
+			// Check if the deployment track is already being deleted
+			if !deploymentTrack.DeletionTimestamp.IsZero() {
+				// Still in the process of being deleted
+				pendingDeletion = true
+				logger.Info("Deployment track is still being deleted", "name", deploymentTrack.Name)
+				continue
+			}
+
+			// If not being deleted, trigger deletion
 			logger.Info("Deleting deployment track", "name", deploymentTrack.Name)
 			if err := r.Delete(ctx, deploymentTrack); err != nil {
-				// If the deployment track is not found, that's okay - continue with others
 				if errors.IsNotFound(err) {
 					logger.Info("Deployment track already deleted", "name", deploymentTrack.Name)
 					continue
 				}
 				return fmt.Errorf("failed to delete deployment track %s: %w", deploymentTrack.Name, err)
 			}
+
+			// Mark as pending since we just triggered deletion
+			pendingDeletion = true
+		}
+
+		// If there are still tracks being deleted, requeue to check again later
+		if pendingDeletion {
+			return fmt.Errorf("waiting for deployment tracks to be fully deleted")
 		}
 	}
 
+	logger.Info("All deployment tracks are deleted")
 	return nil
 }

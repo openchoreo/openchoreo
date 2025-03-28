@@ -20,6 +20,7 @@ package component
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -27,6 +28,7 @@ import (
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 // All the watch handlers for the component controller are defined in this file.
@@ -43,10 +45,14 @@ func (r *Reconciler) listComponentsForDeploymentTrack(ctx context.Context, obj c
 	}
 
 	// Gets the component for the deployment track
-	component, err := controller.GetComponentForDeploymentTrack(ctx, r.Client, deploymentTrack)
+	component, err := getComponentForDeploymentTrack(ctx, r.Client, deploymentTrack)
 	if err != nil {
 		// Log the error and return
 		logger.Error(err, "Failed to get component for deployment track", "deploymentTrack", deploymentTrack)
+		return nil
+	}
+
+	if component == nil {
 		return nil
 	}
 
@@ -58,6 +64,28 @@ func (r *Reconciler) listComponentsForDeploymentTrack(ctx context.Context, obj c
 		},
 	}
 
-	// Enqueue the component if the deployment trackß is updated
+	// Enqueue the component if the deployment track is updated
 	return requests
+}
+
+func getComponentForDeploymentTrack(ctx context.Context, c client.Client, obj client.Object) (*choreov1.Component, error) {
+	componentList := &choreov1.ComponentList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(obj.GetNamespace()),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: controller.GetOrganizationName(obj),
+			labels.LabelKeyProjectName:      controller.GetProjectName(obj),
+			labels.LabelKeyComponentName:    controller.GetComponentName(obj),
+		},
+	}
+
+	if err := c.List(ctx, componentList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list components: %w", err)
+	}
+
+	if len(componentList.Items) > 0 {
+		return &componentList.Items[0], nil
+	}
+
+	return nil, nil
 }

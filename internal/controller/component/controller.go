@@ -83,7 +83,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Handle creation of the componentß
+	// Handle creation of the component
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
 	isNewResource := existingCondition == nil
