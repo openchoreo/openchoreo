@@ -35,8 +35,8 @@ const (
 	// ReasonComponentCreated is the reason used when a component is created/ready
 	ReasonComponentCreated controller.ConditionReason = "ComponentCreated"
 
-	// ReasonComponentDeletingDeploymentTracks is the reason used when a component's dependents are being deleted'
-	ReasonComponentDeletingDeploymentTracks controller.ConditionReason = "ComponentDeletingDeploymentTracks"
+	// ReasonComponentFinalizing is the reason used when a component's dependents are being deleted'
+	ReasonComponentFinalizing controller.ConditionReason = "ComponentFinalizing"
 )
 
 // NewComponentCreatedCondition creates a condition to indicate the component is created/ready
@@ -50,13 +50,13 @@ func NewComponentCreatedCondition(generation int64) metav1.Condition {
 	)
 }
 
-// NewComponentCleanDeploymentTracksCondition creates a condition to indicate the component is being finalized
-func NewComponentCleanDeploymentTracksCondition(generation int64) metav1.Condition {
+// NewComponentFinalizingCondition creates a condition to indicate the component is being finalized
+func NewComponentFinalizingCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionFinalizing,
 		metav1.ConditionTrue,
-		ReasonComponentDeletingDeploymentTracks,
-		"Component's DeploymentTracks are being cleaned",
+		ReasonComponentFinalizing,
+		"Component is finalizing",
 		generation,
 	)
 }

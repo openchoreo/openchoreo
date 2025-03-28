@@ -65,11 +65,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 
 	// Mark the component condition as finalizing and return so that the component will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&component.Status.Conditions, NewComponentCleanDeploymentTracksCondition(component.Generation)) {
-		if err := controller.UpdateStatusConditions(ctx, r.Client, old, component); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+	if meta.SetStatusCondition(&component.Status.Conditions, NewComponentFinalizingCondition(component.Generation)) {
+		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, component)
 	}
 
 	// Perform cleanup logic for dependent resources here

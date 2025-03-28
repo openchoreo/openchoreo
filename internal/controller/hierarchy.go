@@ -165,6 +165,31 @@ func GetComponent(ctx context.Context, c client.Client, obj client.Object) (*cho
 	)
 }
 
+func GetComponentForDeploymentTrack(ctx context.Context, c client.Client, obj client.Object) (*choreov1.Component, error) {
+	componentList := &choreov1.ComponentList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(obj.GetNamespace()),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: GetOrganizationName(obj),
+			labels.LabelKeyProjectName:      GetProjectName(obj),
+			labels.LabelKeyComponentName:    GetComponentName(obj),
+		},
+	}
+
+	if err := c.List(ctx, componentList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list components: %w", err)
+	}
+
+	if len(componentList.Items) > 0 {
+		return &componentList.Items[0], nil
+	}
+
+	return nil, NewHierarchyNotFoundError(obj, objWithName(&choreov1.Component{}, GetComponentName(obj)),
+		objWithName(&choreov1.Organization{}, GetOrganizationName(obj)),
+		objWithName(&choreov1.Project{}, GetProjectName(obj)),
+	)
+}
+
 func GetDeploymentTrack(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DeploymentTrack, error) {
 	deploymentTrackList := &choreov1.DeploymentTrackList{}
 	listOpts := []client.ListOption{

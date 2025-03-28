@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
@@ -52,6 +53,7 @@ type Reconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger.Info("Reconciling component")
 
 	// Fetch the Component instance
 	component := &choreov1.Component{}
@@ -81,12 +83,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Handle creation of the componentß
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
 	isNewResource := existingCondition == nil
 
-	// Reconcile the Component resource
-	r.reconcileComponent(ctx, component)
+	component.Status.ObservedGeneration = component.Generation
+
+	meta.SetStatusCondition(
+		&component.Status.Conditions,
+		NewComponentCreatedCondition(component.Generation),
+	)
 
 	// Update status if needed
 	if err := controller.UpdateStatusConditions(ctx, r.Client, old, component); err != nil {
@@ -100,18 +107,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) reconcileComponent(ctx context.Context, component *choreov1.Component) {
-	logger := log.FromContext(ctx).WithValues("component", component.Name)
-	logger.Info("Reconciling component")
-
-	component.Status.ObservedGeneration = component.Generation
-
-	meta.SetStatusCondition(
-		&component.Status.Conditions,
-		NewComponentCreatedCondition(component.Generation),
-	)
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
@@ -121,5 +116,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Component{}).
 		Named("component").
+		// Watch for DeploymentTrack changes to reconcile the component
+		Watches(
+			&choreov1.DeploymentTrack{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForDeploymentTrack),
+		).
 		Complete(r)
 }
