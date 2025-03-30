@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,24 +72,33 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	previousCondition := meta.FindStatusCondition(environment.Status.Conditions, controller.TypeAvailable)
+	old := environment.DeepCopy()
 
-	environment.Status.ObservedGeneration = environment.Generation
-	if err := controller.UpdateCondition(
-		ctx,
-		r.Status(),
-		environment,
-		&environment.Status.Conditions,
-		controller.TypeAvailable,
-		metav1.ConditionTrue,
-		"EnvironmentAvailable",
-		"Environment is available",
-	); err != nil {
+	// examine DeletionTimestamp to determine if object is under deletion and handle finalization
+	if !environment.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing environment")
+		return r.finalize(ctx, old, environment)
+	}
+
+	// Ensure finalizer is added to the environment
+	if finalizerAdded, err := r.ensureFinalizer(ctx, environment); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
 		return ctrl.Result{}, err
-	} else {
-		if previousCondition == nil {
-			r.Recorder.Event(environment, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+environment.Name)
-		}
+	}
+
+	// Mark the environment as ready. Reaching this point means the environment is successfully reconciled.
+	meta.SetStatusCondition(&environment.Status.Conditions, NewEnvironmentReadyCondition(environment.Generation))
+
+	if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	oldReadyCondition := meta.IsStatusConditionTrue(old.Status.Conditions, ConditionReady.String())
+	newReadyCondition := meta.IsStatusConditionTrue(environment.Status.Conditions, ConditionReady.String())
+
+	// Emit an event if the environment is transitioning to ready
+	if !oldReadyCondition && newReadyCondition {
+		r.Recorder.Event(environment, corev1.EventTypeNormal, "EnvironmentReady", "Environment is ready")
 	}
 
 	return ctrl.Result{}, nil
