@@ -207,3 +207,23 @@ func NewAutoDeploymentSuccessfulCondition(generation int64) metav1.Condition {
 		generation,
 	)
 }
+
+func NewBuildFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionBuildFinalizing,
+		metav1.ConditionTrue,
+		ReasonBuildFinalizing,
+		"Build resource is being finalized.",
+		generation,
+	)
+}
+
+func NewArtifactRemainingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionDeployableArtifactReferencesRemaining,
+		metav1.ConditionTrue,
+		ReasonDeployableArtifactDeletionFailed,
+		"Deployable artifact resource is remaining.",
+		generation,
+	)
+}

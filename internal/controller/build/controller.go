@@ -151,7 +151,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
 			if err := r.Status().Update(ctx, build); err != nil {
 				logger.Error(err, "Failed to update build status")
-				return ctrl.Result{Requeue: true}, err
+				return ctrl.Result{}, err
 			}
 		}
 	}
