@@ -21,7 +21,6 @@ package deploymenttrack
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -74,17 +73,13 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 
 	// Perform cleanup logic for dependent resources
 	if err := r.deleteChildResources(ctx, deploymentTrack); err != nil {
-		logger.Info("Waiting for dependent resources to be deleted", "error", err.Error())
-		// Return with requeue to check again later
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		logger.Error(err, "Failed to clean up child resources")
+		return ctrl.Result{}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
 	if controllerutil.RemoveFinalizer(deploymentTrack, DeploymentTrackCleanupFinalizer) {
 		if err := r.Update(ctx, deploymentTrack); err != nil {
-			if errors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
@@ -141,10 +136,10 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 		return fmt.Errorf("failed to list builds: %w", err)
 	}
 
+	pendingDeletion := false
+
 	// Check if any builds still exist
 	if len(buildList.Items) > 0 {
-		pendingDeletion := false
-
 		// Process each Build
 		for i := range buildList.Items {
 			build := &buildList.Items[i]
@@ -171,7 +166,7 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 			pendingDeletion = true
 		}
 
-		// If there are still builds being deleted, requeue to check again later
+		// If there are still builds being deleted, go to next iteration to check again later
 		if pendingDeletion {
 			return fmt.Errorf("waiting for builds to be fully deleted")
 		}
@@ -240,7 +235,7 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 		pendingDeletion = true
 	}
 
-	// If there are still artifacts being deleted, requeue to check again later
+	// If there are still artifacts being deleted, go to next iteration to check again later
 	if pendingDeletion {
 		return fmt.Errorf("waiting for deployable artifacts to be fully deleted")
 	}
@@ -274,10 +269,10 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 		return fmt.Errorf("failed to list deployments: %w", err)
 	}
 
+	pendingDeletion := false
+
 	// Check if any deployments still exist
 	if len(deploymentList.Items) > 0 {
-		pendingDeletion := false
-
 		// Process each Deployment
 		for i := range deploymentList.Items {
 			deployment := &deploymentList.Items[i]
@@ -304,7 +299,7 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 			pendingDeletion = true
 		}
 
-		// If there are still deployments being deleted, requeue to check again later
+		// If there are still deployments being deleted, go to next iteration to check again later
 		if pendingDeletion {
 			return fmt.Errorf("waiting for deployments to be fully deleted")
 		}

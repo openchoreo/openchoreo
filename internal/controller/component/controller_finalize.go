@@ -21,7 +21,6 @@ package component
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -72,9 +71,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 
 	// Perform cleanup logic for deployment tracks
 	if err := r.deleteDeploymentTracksAndWait(ctx, component); err != nil {
-		logger.Info("Waiting for dependent resources to be deleted", "error", err.Error())
-		// Return with requeue to check again later
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		logger.Error(err, "Failed to delete dependent resources")
+		return ctrl.Result{}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
@@ -115,10 +113,9 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 		return fmt.Errorf("failed to list deployment tracks: %w", err)
 	}
 
+	pendingDeletion := false
 	// Check if any deployment tracks still exist
 	if len(deploymentTrackList.Items) > 0 {
-		pendingDeletion := false
-
 		// Process each DeploymentTrack
 		for i := range deploymentTrackList.Items {
 			deploymentTrack := &deploymentTrackList.Items[i]
@@ -145,7 +142,7 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 			pendingDeletion = true
 		}
 
-		// If there are still tracks being deleted, requeue to check again later
+		// If there are still tracks being deleted, go to next iteration to check again later
 		if pendingDeletion {
 			return fmt.Errorf("waiting for deployment tracks to be fully deleted")
 		}

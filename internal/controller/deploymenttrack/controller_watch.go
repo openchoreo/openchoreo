@@ -20,7 +20,7 @@ package deploymenttrack
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,15 +28,15 @@ import (
 
 	choreov1 "github.com/choreo-idp/choreo/api/v1"
 	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/labels"
 )
 
 // All the watch handlers for the component controller are defined in this file.
 
 // listDeploymentTrackForChild is a watch handler that lists the deployment tracks
 // that refers to a given build, deployable artifact or deployment and makes a reconcile.Request for reconciliation.
-func (r *Reconciler) listDeploymentTrackForChild(ctx context.Context, obj client.Object) []reconcile.Request {
+func (r *Reconciler) listDeploymentTrackForBuild(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
+	logger.Info("In watch for Build in DT")
 
 	build, ok := obj.(*choreov1.Build)
 	if !ok {
@@ -44,10 +44,15 @@ func (r *Reconciler) listDeploymentTrackForChild(ctx context.Context, obj client
 		return nil
 	}
 
-	deploymentTrack, err := getDeploymentTrackForObject(ctx, r.Client, build)
+	deploymentTrack, err := controller.GetDeploymentTrack(ctx, r.Client, build)
 	if err != nil {
+		if errors.Is(err, &controller.HierarchyNotFoundError{}) {
+			logger.Error(err, "Hierarchy not found for build", "build", build)
+			return nil
+		}
+
 		// Log the error and return
-		logger.Error(err, "Failed to get component for deployment track", "deploymentTrack", build)
+		logger.Error(err, "Failed to get deployment track for build", "build", build)
 		return nil
 	}
 
@@ -67,25 +72,78 @@ func (r *Reconciler) listDeploymentTrackForChild(ctx context.Context, obj client
 	return requests
 }
 
-func getDeploymentTrackForObject(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DeploymentTrack, error) {
-	deploymentTrackList := &choreov1.DeploymentTrackList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         controller.GetProjectName(obj),
-			labels.LabelKeyComponentName:       controller.GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(obj),
+func (r *Reconciler) listDeploymentTrackForDeployableArtifact(ctx context.Context, obj client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	logger.Info("In watch for DeployableArtifact in DT")
+
+	deployableArtifact, ok := obj.(*choreov1.DeployableArtifact)
+	if !ok {
+		// Ideally, this should not happen as obj is always expected to be a Deployable Artifact from the Watch
+		return nil
+	}
+
+	deploymentTrack, err := controller.GetDeploymentTrack(ctx, r.Client, deployableArtifact)
+	if err != nil {
+		if errors.Is(err, &controller.HierarchyNotFoundError{}) {
+			logger.Error(err, "Hierarchy not found for deployableArtifact", "deployableArtifact", deployableArtifact)
+			return nil
+		}
+
+		// Log the error and return
+		logger.Error(err, "Failed to get deployment track for deployableArtifact", "deployableArtifact ", deployableArtifact)
+		return nil
+	}
+
+	if deploymentTrack == nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 1)
+	requests[0] = reconcile.Request{
+		NamespacedName: client.ObjectKey{
+			Namespace: deploymentTrack.Namespace,
+			Name:      deploymentTrack.Name,
 		},
 	}
 
-	if err := c.List(ctx, deploymentTrackList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deploymentTracks: %w", err)
+	// Enqueue the deploymentTrack if the build is updated
+	return requests
+}
+
+func (r *Reconciler) listDeploymentTrackForDeployments(ctx context.Context, obj client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	logger.Info("In watch for Deployment in DT")
+
+	deployment, ok := obj.(*choreov1.Deployment)
+	if !ok {
+		// Ideally, this should not happen as obj is always expected to be a Deployment from the Watch
+		return nil
 	}
 
-	if len(deploymentTrackList.Items) > 0 {
-		return &deploymentTrackList.Items[0], nil
+	deploymentTrack, err := controller.GetDeploymentTrack(ctx, r.Client, deployment)
+	if err != nil {
+		if errors.Is(err, &controller.HierarchyNotFoundError{}) {
+			logger.Error(err, "Hierarchy not found for deployment", "deployment", deployment)
+			return nil
+		}
+
+		// Log the error and return
+		logger.Error(err, "Failed to get deployment track for deployment", "deployment", deployment)
+		return nil
 	}
 
-	return nil, nil
+	if deploymentTrack == nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 1)
+	requests[0] = reconcile.Request{
+		NamespacedName: client.ObjectKey{
+			Namespace: deploymentTrack.Namespace,
+			Name:      deploymentTrack.Name,
+		},
+	}
+
+	// Enqueue the deploymentTrack if the build is updated
+	return requests
 }

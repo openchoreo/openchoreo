@@ -251,7 +251,6 @@ var _ = Describe("Component Controller", func() {
 			Expect(component.Spec.Type).To(Equal(apiv1.ComponentTypeService))
 		})
 
-		//
 		By("Deleting the component resource", func() {
 			err := k8sClient.Get(ctx, componentNamespacedName, component)
 			Expect(err).NotTo(HaveOccurred())

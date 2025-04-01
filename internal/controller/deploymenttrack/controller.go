@@ -121,17 +121,17 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for Build changes to reconcile the Deployment Track
 		Watches(
 			&choreov1.Build{},
-			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForBuild),
 		).
 		// Watch for DeployableArtifact changes to reconcile the Deployment Track
 		Watches(
 			&choreov1.DeployableArtifact{},
-			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForDeployableArtifact),
 		).
 		// Watch for Deployment changes to reconcile the Deployment Track
 		Watches(
 			&choreov1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForChild),
+			handler.EnqueueRequestsFromMapFunc(r.listDeploymentTrackForDeployments),
 		).
 		Complete(r)
 }
