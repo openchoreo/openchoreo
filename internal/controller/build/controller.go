@@ -80,6 +80,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	if build.Spec.BuildConfiguration.Docker == nil && build.Spec.BuildConfiguration.Buildpack == nil {
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "BuildConfigsNotFound",
+			"Build configurations are not found: %s", build.Name)
+		logger.Error(errors.New("BuildConfigsNotFound"), "build cannot proceed without build configs")
+		return ctrl.Result{}, nil
+	}
+
 	if shouldIgnoreReconcile(build) {
 		return ctrl.Result{}, nil
 	}
@@ -115,9 +122,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		r.recorder.Eventf(build, corev1.EventTypeWarning, "WorkflowReconciliationFailed",
 			"Build workflow reconciliation failed: %s", err)
 		return ctrl.Result{}, err
-	} else if existingWorkflow == nil {
-		// Build configurations not found, no need to requeue
-		return ctrl.Result{}, nil
 	}
 
 	if isBuildWorkflowRunning(build) {
@@ -266,12 +270,6 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 	exists := existingWorkflow != nil
 
 	if !exists {
-		if buildCtx.Build.Spec.BuildConfiguration.Docker == nil && buildCtx.Build.Spec.BuildConfiguration.Buildpack == nil {
-			r.recorder.Eventf(buildCtx.Build, corev1.EventTypeWarning, "BuildConfigsNotFound",
-				"Build configurations are not found: %s", buildCtx.Build.Name)
-			logger.Error(errors.New("BuildConfigsNotFound"), "Build configurations not found.")
-			return nil, nil
-		}
 		// Create the external resource if it does not exist
 		if err := workflowHandler.Create(ctx, buildCtx); err != nil {
 			logger.Error(err, "Error creating workflow resource")
@@ -390,11 +388,6 @@ func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *int
 		}
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, &endpoints)
 	} else {
-		if buildCtx.Build.Spec.BuildConfiguration.Docker == nil && buildCtx.Build.Spec.BuildConfiguration.Buildpack == nil {
-			r.recorder.Eventf(buildCtx.Build, corev1.EventTypeWarning, "BuildConfigsNotFound",
-				"Build configuration is not found: %s", buildCtx.Build.Name)
-			return false, errors.New("Build configurations are not found.")
-		}
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, nil)
 	}
 
