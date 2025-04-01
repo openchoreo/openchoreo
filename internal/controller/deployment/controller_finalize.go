@@ -115,7 +115,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 	if err := r.cleanupEndpoints(ctx, deployment); err != nil {
 		if errors.Is(err, ErrEndpointDeletionWait) {
 			// this means the endpoint deletion is still in progress. So, we need to retry later.
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}

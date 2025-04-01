@@ -58,6 +58,22 @@ func (r *Reconciler) setupDeploymentArtifactRefIndex(ctx context.Context, mgr ct
 	)
 }
 
+func (r *Reconciler) setupEndpointsOwnerRefIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(
+		ctx,
+		&choreov1.Endpoint{},
+		"metadata.ownerReferences",
+		func(rawObj client.Object) []string {
+			endpoint := rawObj.(*choreov1.Endpoint)
+			var owners []string
+			for _, ownerRef := range endpoint.OwnerReferences {
+				owners = append(owners, string(ownerRef.UID))
+			}
+			return owners
+		},
+	)
+}
+
 // listDeploymentsForDeployableArtifact is a watch handler that lists all the deployments
 // that refers to a given deployable artifact and makes reconcile.Request for reconciliation.
 func (r *Reconciler) listDeploymentsForDeployableArtifact(ctx context.Context, obj client.Object) []reconcile.Request {
