@@ -263,6 +263,11 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 	exists := existingWorkflow != nil
 
 	if !exists {
+		if buildCtx.Build.Spec.BuildConfiguration.Docker == nil && buildCtx.Build.Spec.BuildConfiguration.Buildpack == nil {
+			r.recorder.Eventf(buildCtx.Build, corev1.EventTypeWarning, "BuildConfigsNotFound",
+				"Build configuration is not found: %s", buildCtx.Build.Name)
+			return nil, errors.New("Build configurations are not found.")
+		}
 		// Create the external resource if it does not exist
 		if err := workflowHandler.Create(ctx, buildCtx); err != nil {
 			logger.Error(err, "Error creating workflow resource")
@@ -377,6 +382,11 @@ func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *int
 		}
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, &endpoints)
 	} else {
+		if buildCtx.Build.Spec.BuildConfiguration.Docker == nil && buildCtx.Build.Spec.BuildConfiguration.Buildpack == nil {
+			r.recorder.Eventf(buildCtx.Build, corev1.EventTypeWarning, "BuildConfigsNotFound",
+				"Build configuration is not found: %s", buildCtx.Build.Name)
+			return false, errors.New("Build configurations are not found.")
+		}
 		resources.AddComponentSpecificConfigs(buildCtx, deployableArtifact, nil)
 	}
 
