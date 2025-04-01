@@ -1,24 +1,12 @@
-# Stage 1: Build choreoctl
-FROM golang:1.23.5-alpine AS builder
-WORKDIR /app
-
-# inject the target architecture (https://docs.docker.com/reference/dockerfile/#automatic-platform-args-in-the-global-scope)
-ARG TARGETARCH
-
-COPY . /app/choreo
-
-RUN cd choreo && \
-  GOOS=linux GOARCH=$TARGETARCH go build -o choreoctl ./cmd/choreoctl
-
-# Stage 2: Build the image
 FROM alpine:3.21
 
 RUN apk add --no-cache \
   bash curl socat git jq bash-completion docker-cli && \
   mkdir -p /etc/bash_completion.d
 
-# inject the target architecture (https://docs.docker.com/reference/dockerfile/#automatic-platform-args-in-the-global-scope)
+# inject the target os and architecture (https://docs.docker.com/reference/dockerfile/#automatic-platform-args-in-the-global-scope)
 ARG TARGETARCH
+ARG TARGETOS
 
 # install kubectl
 RUN curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/$TARGETARCH/kubectl" > /tmp/kubectl && \
@@ -57,7 +45,7 @@ COPY samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-st
 COPY samples/ /app/samples
 
 # Copy the built choreoctl binary from the builder stage
-COPY --from=builder /app/choreo/choreoctl /usr/local/bin/choreoctl
+COPY bin/dist/${TARGETOS}/${TARGETARCH}/choreoctl /usr/local/bin/choreoctl
 
 ENV PATH="/usr/local/bin:${PATH}"
 
