@@ -21,10 +21,12 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -44,6 +46,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, ep *choreov1.Endpoint)
 
 // finalize cleans up the data plane resources associated with the endpoint.
 func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("endpoint", ep.Name)
 	if !controllerutil.ContainsFinalizer(ep, choreov1.EndpointDeletionFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil
@@ -65,10 +68,27 @@ func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (
 	}
 
 	resourceHandlers := r.makeExternalResourceHandlers()
+	pendingDeletion := false
+
 	for _, resourceHandler := range resourceHandlers {
 		if err := resourceHandler.Delete(ctx, epCtx); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
 		}
+
+		exists, err := resourceHandler.GetCurrentState(ctx, epCtx)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to get current state of external resource %s: %w", resourceHandler.Name(), err)
+		}
+
+		if exists != nil {
+			pendingDeletion = true
+		}
+	}
+
+	// Requeue the reconcile loop if there are still resources pending deletion
+	if pendingDeletion {
+		logger.Info("endpoint deletion is still pending as the dependent resource deletion pending.. retrying..")
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// Remove the finalizer after all the data plane resources are cleaned up
