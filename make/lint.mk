@@ -12,7 +12,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
 .PHONY: code.gen
-code.gen: manifests generate helm lint-fix ## Generate code and fix the code with linter
+code.gen: manifests generate lint-fix helm-generate ## Generate code and fix the code with linter
 
 .PHONY: code.gen-check
 code.gen-check: code.gen ## Verify the clean Git status after code generation

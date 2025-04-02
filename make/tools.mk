@@ -30,6 +30,7 @@ CONTROLLER_GEN ?= $(TOOL_BIN)/controller-gen
 ENVTEST ?= $(TOOL_BIN)/setup-envtest
 GOLANGCI_LINT = $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
+YQ ?= $(TOOL_BIN)/yq
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -37,6 +38,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.16.4
 ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v1.64.0
 HELMIFY_VERSION ?= v0.4.17
+YQ_VERSION ?= v4.45.1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -62,3 +64,8 @@ $(GOLANGCI_LINT): $(TOOL_BIN)
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
 $(HELMIFY): $(TOOL_BIN)
 	$(call go-install-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify,$(HELMIFY_VERSION))
+
+.PHONY: yq
+yq: $(YQ) ## Download yq locally if necessary.
+$(YQ): $(TOOL_BIN)
+	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))

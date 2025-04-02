@@ -8,7 +8,7 @@ BUILDER_NAME ?= "open-choreo-builder"
 
 # Define general image details
 IMAGE_REPO_PREFIX ?= ghcr.io/choreo-idp
-TAG ?= $(GIT_REV)
+TAG ?= latest-dev
 
 # Current platform for image build
 # OS will be always linux
@@ -24,6 +24,7 @@ BUILDX_TARGET_PLATFORMS := $(subst $(space),$(comma),$(IMAGE_TARGET_PLATFORMS))
 
 # Define the docker images that need to be built with corresponding dockerfile and the context.
 # Format: <image_name>:<dockerfile_path>:<docker_context_path>
+# NOTE: If the `controller` image is updated, make sure to update the `HELM_CONTROLLER_IMAGE` in helm.mk
 DOCKER_BUILD_IMAGES = \
 	controller:$(PROJECT_DIR)/Dockerfile:$(PROJECT_DIR) \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR)
