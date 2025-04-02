@@ -26,20 +26,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller/watchfilters"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -162,6 +159,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup endpoints owner reference index: %w", err)
 	}
 
+	// Create a watch filter for the endpoints that are not owned by the deployment
+	nonOwnedEndpointWatchFilter := &NonOwnedEndpointWatchFilter{
+		labelKey: labels.LabelKeyDeploymentName,
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Deployment{}).
 		Named("deployment").
@@ -179,69 +181,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch Endpoints that are NOT owned by the Deployment but have the label
 		Watches(
 			&choreov1.Endpoint{},
-			handler.EnqueueRequestsFromMapFunc(r.listDeploymentsForUnownedEndpoint),
-			builder.WithPredicates(r.buildPredicatesForEndpointWatch()),
+			handler.EnqueueRequestsFromMapFunc(watchfilters.BuildMapFunc(nonOwnedEndpointWatchFilter)),
+			builder.WithPredicates(watchfilters.BuildPredicates(nonOwnedEndpointWatchFilter)),
 		).
 		Complete(r)
-}
-
-// buildPredicatesForEndpointWatch builds the predicates for watching the Endpoints that are not having
-// owner references but have the label to indicate the Deployment they belong to.
-func (r *Reconciler) buildPredicatesForEndpointWatch() predicate.Funcs {
-	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return r.isRelevantEndpoint(e.Object)
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return r.isRelevantEndpoint(e.ObjectNew)
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return r.isRelevantEndpoint(e.Object)
-		},
-		GenericFunc: func(e event.GenericEvent) bool {
-			return r.isRelevantEndpoint(e.Object)
-		},
-	}
-}
-
-// isRelevantEndpoint checks if the given object is an Endpoint that is not owned by any other object
-func (r *Reconciler) isRelevantEndpoint(obj client.Object) bool {
-	endpoint, ok := obj.(*choreov1.Endpoint)
-	if !ok {
-		return false
-	}
-
-	// Check if it has owner references
-	// If it has owner references, returning as it is not relevant
-	if len(endpoint.GetOwnerReferences()) > 0 {
-		return false
-	}
-
-	// Check if the label exists
-	_, exists := endpoint.Labels[labels.LabelKeyDeploymentName]
-	return exists
-}
-
-// listDeploymentsForUnownedEndpoint is a watch handler map func that creates a reconcile req for relevant Deployment.
-func (r *Reconciler) listDeploymentsForUnownedEndpoint(ctx context.Context, obj client.Object) []reconcile.Request {
-	endpoint, ok := obj.(*choreov1.Endpoint)
-	if !ok {
-		return nil
-	}
-
-	deploymentName, exists := endpoint.Labels[labels.LabelKeyDeploymentName]
-	if !exists {
-		return nil
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      deploymentName,
-				Namespace: endpoint.Namespace,
-			},
-		},
-	}
 }
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
