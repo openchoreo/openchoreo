@@ -25,16 +25,16 @@ BUILDX_TARGET_PLATFORMS := $(subst $(space),$(comma),$(IMAGE_TARGET_PLATFORMS))
 # Define the docker images that need to be built with corresponding dockerfile and the context.
 # Format: <image_name>:<dockerfile_path>:<docker_context_path>
 # NOTE: If the `controller` image is updated, make sure to update the `HELM_CONTROLLER_IMAGE` in helm.mk
-DOCKER_BUILD_IMAGES = \
+DOCKER_BUILD_IMAGES := \
 	controller:$(PROJECT_DIR)/Dockerfile:$(PROJECT_DIR) \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR)
 
-DOCKER_BUILD_IMAGE_NAMES = $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
+DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 
 
 # Helper functions
-getDockerfilePath = $(word 2, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMAGES))))
-getDockerContextPath = $(word 3, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMAGES))))
+get_dockerfile_path = $(word 2, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMAGES))))
+get_docker_context_path = $(word 3, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMAGES))))
 
 ##@ Docker
 
@@ -44,13 +44,13 @@ getDockerContextPath = $(word 3, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMA
 .PHONY: docker.build.%
 docker.build.%:  ## Build a docker image for the current platform. Ex: make docker.build.controller
 	@if [ -z "$(filter $*,$(DOCKER_BUILD_IMAGE_NAMES))" ]; then \
-		$(call log-error, Invalid image build target '$*'); \
+		$(call log_error, Invalid image build target '$*'); \
 		exit 1; \
 	fi
 	$(eval IMAGE := $*)
-	$(eval DOCKERFILE_PATH := $(call getDockerfilePath,$(IMAGE)))
-	$(eval DOCKER_CONTEXT_PATH := $(call getDockerContextPath,$(IMAGE)))
-	@$(call log-info, Building image '$(IMAGE)' for platform $(IMAGE_CURRENT_PLATFORM))
+	$(eval DOCKERFILE_PATH := $(call get_dockerfile_path,$(IMAGE)))
+	$(eval DOCKER_CONTEXT_PATH := $(call get_docker_context_path,$(IMAGE)))
+	@$(call log_info, Building image '$(IMAGE)' for platform $(IMAGE_CURRENT_PLATFORM))
 	$(DOCKER) buildx build --platform $(IMAGE_CURRENT_PLATFORM) --load \
 		-t $(IMAGE_REPO_PREFIX)/$(IMAGE):$(TAG) -f $(DOCKERFILE_PATH) $(DOCKER_CONTEXT_PATH)
 
@@ -89,14 +89,14 @@ docker.setup-multiarch:
 .PHONY: docker.build-multiarch.%
 docker.build-multiarch.%: ## Build a docker image for multiple platforms. Ex: make docker.build-multiarch.controller
 	@if [ -z "$(filter $*,$(DOCKER_BUILD_IMAGE_NAMES))" ]; then \
-		$(call log-error, Invalid image multiarch build target '$*'); \
+		$(call log_error, Invalid image multiarch build target '$*'); \
 		exit 1; \
 	fi
 	$(eval IMAGE := $*)
-	$(eval DOCKERFILE_PATH := $(call getDockerfilePath,$(IMAGE)))
-	$(eval DOCKER_CONTEXT_PATH := $(call getDockerContextPath,$(IMAGE)))
+	$(eval DOCKERFILE_PATH := $(call get_dockerfile_path,$(IMAGE)))
+	$(eval DOCKER_CONTEXT_PATH := $(call get_docker_context_path,$(IMAGE)))
 	$(eval PLATFORMS := $(subst $(space),:,$(IMAGE_TARGET_PLATFORMS)))
-	@$(call log-info, Building image '$(IMAGE)' for platform(s) $(BUILDX_TARGET_PLATFORMS))
+	@$(call log_info, Building image '$(IMAGE)' for platform(s) $(BUILDX_TARGET_PLATFORMS))
 	@$(DOCKER) buildx build --platform $(BUILDX_TARGET_PLATFORMS) \
 		-t $(IMAGE_REPO_PREFIX)/$(IMAGE):$(TAG) -f $(DOCKERFILE_PATH) $(DOCKER_CONTEXT_PATH)
 

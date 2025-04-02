@@ -10,27 +10,27 @@ GO_TARGET_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows
 
 # Define the binaries that need to be built.
 # Format: <binary_name>:<main_file_path>
-GO_BUILD_BINARIES = \
+GO_BUILD_BINARIES := \
 	manager:$(PROJECT_DIR)/cmd/main.go \
 	choreoctl:$(PROJECT_DIR)/cmd/choreoctl/main.go
 
-GO_BUILD_BINARY_NAMES = $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
+GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
 
-GO_BUILD_OUTPUT_DIR = $(PROJECT_BIN_DIR)/dist
+GO_BUILD_OUTPUT_DIR := $(PROJECT_BIN_DIR)/dist
 
 # Define link flags for the Go build
 GO_LDFLAGS ?= -s -w
 
 # Helper functions
-getGoMainPackagePath = $(word 2, $(subst :, ,$(filter $(1):%, $(GO_BUILD_BINARIES))))
+get_go_main_package_path = $(word 2, $(subst :, ,$(filter $(1):%, $(GO_BUILD_BINARIES))))
 
-define go-build
+define go_build
 	$(eval COMMAND := $(1))
-	$(eval MAIN_PACKAGE_PATH := $(call getGoMainPackagePath,$(COMMAND)))
-	$(eval OS := $(call getPlatformOS,$(2)))
-	$(eval ARCH := $(call getPlatformArch,$(2)))
+	$(eval MAIN_PACKAGE_PATH := $(call get_go_main_package_path,$(COMMAND)))
+	$(eval OS := $(call get_platform_os,$(2)))
+	$(eval ARCH := $(call get_platform_arch,$(2)))
 	$(eval OUTPUT_PATH := $(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH))
-	$(call log-info, Building binary '$(COMMAND)' for $(OS)/$(ARCH))
+	$(call log_info, Building binary '$(COMMAND)' for $(OS)/$(ARCH))
 	@mkdir -p $(OUTPUT_PATH)
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO) build -o $(OUTPUT_PATH)/$(COMMAND) -ldflags "$(GO_LDFLAGS)" \
@@ -45,10 +45,10 @@ endef
 .PHONY: go.build.%
 go.build.%: ## Build a binary for the current platform. Ex: make go.build.manager
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
-		$(call log-error, Invalid go build target '$*'); \
+		$(call log_error, Invalid go build target '$*'); \
 		exit 1; \
 	fi
-	@$(call go-build, $*, $(GO_CURRENT_PLATFORM))
+	@$(call go_build, $*, $(GO_CURRENT_PLATFORM))
 
 .PHONY: go.build
 go.build: $(addprefix go.build., $(GO_BUILD_BINARY_NAMES)) ## Build all binaries for the current platform.
@@ -58,11 +58,11 @@ go.build: $(addprefix go.build., $(GO_BUILD_BINARY_NAMES)) ## Build all binaries
 .PHONY: go.build-multiarch.%
 go.build-multiarch.%: ## Build a binary for multiple platforms. Ex: make go.build-multiarch.manager
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
-    		$(call log-error, Invalid go multiarch build target '$*'); \
+    		$(call log_error, Invalid go multiarch build target '$*'); \
     		exit 1; \
     fi
 	@$(foreach platform,$(GO_TARGET_PLATFORMS), \
-	  	$(call go-build, $*, $(platform)); \
+	  	$(call go_build, $*, $(platform)); \
 	)
 
 .PHONY: go.build-multiarch
@@ -77,7 +77,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.31.0
+ENVTEST_K8S_VERSION := 1.31.0
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
