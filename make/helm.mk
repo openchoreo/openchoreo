@@ -82,3 +82,6 @@ helm-push.%: helm-package.% ## Push helm chart for the specified chart name.
 	fi
 	$(eval CHART_NAME := $(word 1,$(subst ., ,$*)))
 	helm push $(HELM_CHARTS_OUTPUT_DIR)/$(CHART_NAME)-$(HELM_CHART_VERSION).tgz $(HELM_OCI_REGISTRY)
+
+.PHONY: helm-push
+helm-push: $(addprefix helm-push., $(HELM_CHART_NAMES)) ## Push all helm charts.
