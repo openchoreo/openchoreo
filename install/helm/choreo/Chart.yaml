@@ -19,7 +19,7 @@ version: 0.0.0-latest-dev
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "latest-dev"
-icon: https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/logo/choreo-logo-black.svg
+icon: https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/logo/choreo-logo-black.svg
 dependencies:
   - name: vault
     version: 0.29.1
