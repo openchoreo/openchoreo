@@ -29,14 +29,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	dp "github.com/choreo-idp/choreo/internal/controller/dataplane"
-	deppip "github.com/choreo-idp/choreo/internal/controller/deploymentpipeline"
-	env "github.com/choreo-idp/choreo/internal/controller/environment"
-	org "github.com/choreo-idp/choreo/internal/controller/organization"
-	"github.com/choreo-idp/choreo/internal/controller/testutils"
-	"github.com/choreo-idp/choreo/internal/labels"
+	apiv1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
+	deppip "github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
+	env "github.com/openchoreo/openchoreo/internal/controller/environment"
+	org "github.com/openchoreo/openchoreo/internal/controller/organization"
+	"github.com/openchoreo/openchoreo/internal/controller/testutils"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("Project Controller", func() {

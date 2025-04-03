@@ -25,7 +25,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	configContext "github.com/choreo-idp/choreo/pkg/cli/cmd/config"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // IsConfigFileExists checks if the configuration file exists

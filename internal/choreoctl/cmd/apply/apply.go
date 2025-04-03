@@ -24,9 +24,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
-	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 type ApplyImpl struct{}

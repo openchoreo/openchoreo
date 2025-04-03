@@ -30,7 +30,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	configContext "github.com/choreo-idp/choreo/pkg/cli/cmd/config"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 var (

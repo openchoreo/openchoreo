@@ -19,7 +19,7 @@
 package api
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 // GetParams defines common parameters for listing resources

@@ -30,11 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
-	"github.com/choreo-idp/choreo/internal/controller/build/resources"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	argointegrations "github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes/ci/argo"
+	"github.com/openchoreo/openchoreo/internal/controller/build/resources"
 )
 
 const (

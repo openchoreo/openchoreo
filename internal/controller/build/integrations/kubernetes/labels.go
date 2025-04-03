@@ -19,8 +19,8 @@
 package kubernetes
 
 import (
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func MakeLabels(buildCtx *integrations.BuildContext) map[string]string {

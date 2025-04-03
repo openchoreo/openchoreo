@@ -26,9 +26,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	configContext "github.com/choreo-idp/choreo/pkg/cli/cmd/config"
-	"github.com/choreo-idp/choreo/pkg/cli/flags"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // ConfigContextImpl implements context-related commands.

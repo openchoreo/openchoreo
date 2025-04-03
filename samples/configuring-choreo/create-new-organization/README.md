@@ -13,7 +13,7 @@ To start creating applications within an organization, you need the following re
 Use the following command to create a new organization called `ACME`. This will create only tbe organization. 
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
 ``` 
 
 You will see the following output.
@@ -24,7 +24,7 @@ organization.core.choreo.dev/acme created
 If you want to create the organization along with all the necessary resources, use the following command:
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
 ``` 
 
 You will see the following output.
@@ -41,5 +41,5 @@ project.core.choreo.dev/customer-portal created
 To remove all deployed resources, use the following command.
 
 ```shell
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml
 ```

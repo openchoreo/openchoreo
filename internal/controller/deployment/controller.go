@@ -32,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	k8sintegrations "github.com/choreo-idp/choreo/internal/controller/deployment/integrations/kubernetes"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // Reconciler reconciles a Deployment object

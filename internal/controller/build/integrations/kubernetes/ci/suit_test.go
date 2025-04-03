@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 func TestDeploymentIntegrationKubernetes(t *testing.T) {

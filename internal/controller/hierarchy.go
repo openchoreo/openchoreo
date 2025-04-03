@@ -27,8 +27,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // This file contains the helper functions to get the Choreo specific parent objects from the Kubernetes objects.

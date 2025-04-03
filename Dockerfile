@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o ma
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 
-LABEL org.opencontainers.image.source="https://github.com/choreo-idp/choreo"
+LABEL org.opencontainers.image.source="https://github.com/openchoreo/openchoreo"
 LABEL org.opencontainers.image.description="Kubernetes Controller for Choreo"
 LABEL org.opencontainers.image.license="Apache-2.0"
 

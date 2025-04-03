@@ -26,11 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/labels"
-	"github.com/choreo-idp/choreo/internal/ptr"
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 func TestKubernetes(t *testing.T) {

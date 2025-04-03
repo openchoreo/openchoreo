@@ -6,7 +6,7 @@ domain: choreo.dev
 layout:
 - go.kubebuilder.io/v4
 projectName: choreo
-repo: github.com/choreo-idp/choreo
+repo: github.com/openchoreo/openchoreo
 resources:
 - api:
     crdVersion: v1
@@ -14,7 +14,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: Organization
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -23,7 +23,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: Project
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -32,7 +32,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: Build
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -41,7 +41,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: DeployableArtifact
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -50,7 +50,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: Deployment
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -59,7 +59,7 @@ resources:
   domain: choreo.dev
   group: core
   kind: Endpoint
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:
     crdVersion: v1
@@ -67,6 +67,6 @@ resources:
   domain: choreo.dev
   group: core
   kind: ConfigurationGroup
-  path: github.com/choreo-idp/choreo/api/v1
+  path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 version: "3"

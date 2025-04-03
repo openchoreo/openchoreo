@@ -22,9 +22,9 @@ import (
 	"regexp"
 	"strings"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // This file contains the helper functions that are related to deploying configuration groups in Kubernetes.

@@ -31,11 +31,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
-	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
-	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources/kinds"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 type LogsImpl struct{}

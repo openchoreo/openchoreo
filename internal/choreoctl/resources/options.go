@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
 // ResourceOption applies configuration to a BaseResource.

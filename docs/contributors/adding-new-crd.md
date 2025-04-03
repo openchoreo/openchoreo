@@ -104,7 +104,7 @@ testEnv = &envtest.Environment{
 In `main.go`, update the import path for the moved controller and ensure it’s registered with the manager. For example:
 ```go
 import (
-	component "github.com/choreo-idp/choreo/internal/controller/component"
+	component "github.com/openchoreo/openchoreo/internal/controller/component"
 )
 
 // Register the controller

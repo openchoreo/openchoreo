@@ -17,7 +17,7 @@ Following this workflow ensures that contributions remain clean and consistent w
 ---
 
 ## Forking the Repository
-1. Navigate to the repository on GitHub: [choreo-idp/choreo](https://github.com/choreo-idp/choreo).
+1. Navigate to the repository on GitHub: [openchoreo/openchoreo](https://github.com/openchoreo/openchoreo).
 2. Click the **Fork** button in the top-right corner.
 3. This will create a fork under your GitHub account.
 
@@ -25,25 +25,25 @@ Following this workflow ensures that contributions remain clean and consistent w
 To work on your fork locally:
 ```sh
 # Replace <your-username> with your GitHub username
-$ git clone https://github.com/<your-username>/choreo.git
-$ cd choreo
+$ git clone https://github.com/<your-username>/openchoreo.git
+$ cd openchoreo
 ```
 
 ## Configuring Upstream
 To keep your fork up to date with the original repository:
 ```sh
 # Add the upstream repository
-$ git remote add upstream https://github.com/choreo-idp/choreo.git
+$ git remote add upstream https://github.com/openchoreo/openchoreo.git
 
 # Verify the remote repositories
 $ git remote -v
 ```
 Expected output:
 ```
-origin    https://github.com/<your-username>/choreo.git (fetch)
-origin    https://github.com/<your-username>/choreo.git (push)
-upstream  https://github.com/choreo-idp/choreo.git (fetch)
-upstream  https://github.com/choreo-idp/choreo.git (push)
+origin    https://github.com/<your-username>/openchoreo.git (fetch)
+origin    https://github.com/<your-username>/openchoreo.git (push)
+upstream  https://github.com/openchoreo/openchoreo.git (fetch)
+upstream  https://github.com/openchoreo/openchoreo.git (push)
 ```
 
 ## Syncing with Upstream
@@ -51,21 +51,21 @@ Before starting new work, sync your fork with the upstream repository:
 
 ```sh
 $ git fetch upstream
-$ git checkout v3-on-k8s
-$ git rebase upstream/v3-on-k8s
+$ git checkout main
+$ git rebase upstream/main
 ```
 
-If you have local commits on `v3-on-k8s`, you may need to force-push:
+If you have local commits on `main`, you may need to force-push:
 
 ```sh
-$ git push -f origin v3-on-k8s
+$ git push -f origin main
 ```
 
 ## Creating and Rebasing Feature Branches
 
-1. Create a new branch for your feature, based on `v3-on-k8s`:
+1. Create a new branch for your feature, based on `main`:
     ```sh
-    $ git checkout -b feature-branch upstream/v3-on-k8s
+    $ git checkout -b feature-branch upstream/main
     ```
 
 2. Make your changes and commit them.
@@ -73,7 +73,7 @@ $ git push -f origin v3-on-k8s
 3. Before opening a pull request, rebase against the latest upstream changes:
     ```sh
     $ git fetch upstream
-    $ git rebase upstream/v3-on-k8s
+    $ git rebase upstream/main
     ```
 
 ## Resolving Conflicts
@@ -101,7 +101,7 @@ $ git push -f origin feature-branch
 ```
 > **Note**: Force-pushing is necessary because rebase rewrites history.
 
-Open a pull request on GitHub targeting `v3-on-k8s` in the upstream repository.
+Open a pull request on GitHub targeting `main` in the upstream repository.
 
 ## Squashing Commits to Meaningful Milestones
 

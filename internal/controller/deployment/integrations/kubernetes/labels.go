@@ -19,9 +19,9 @@
 package kubernetes
 
 import (
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func makeNamespaceLabels(deployCtx *dataplane.DeploymentContext) map[string]string {

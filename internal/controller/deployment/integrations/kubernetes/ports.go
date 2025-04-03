@@ -24,7 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 func makeServicePortsFromEndpointTemplates(endpointTemplates []choreov1.EndpointTemplate) []corev1.ServicePort {

@@ -21,14 +21,14 @@ package root
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/pkg/cli/cmd/apply"
-	configContext "github.com/choreo-idp/choreo/pkg/cli/cmd/config"
-	"github.com/choreo-idp/choreo/pkg/cli/cmd/create"
-	"github.com/choreo-idp/choreo/pkg/cli/cmd/delete"
-	"github.com/choreo-idp/choreo/pkg/cli/cmd/get"
-	"github.com/choreo-idp/choreo/pkg/cli/cmd/logs"
-	"github.com/choreo-idp/choreo/pkg/cli/common/config"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/apply"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/create"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/get"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/logs"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // BuildRootCmd assembles the root command with all subcommands

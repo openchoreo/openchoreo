@@ -23,9 +23,9 @@ import (
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/ptr"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("makeCronJob", func() {

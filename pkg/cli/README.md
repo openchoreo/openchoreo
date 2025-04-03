@@ -25,7 +25,7 @@ A framework for building consistent and user-friendly command-line interfaces in
 go mod init mycli
 
 # Add the Choreo CLI library as a dependency
-go get github.com/choreo-idp/choreo/pkg/cli
+go get github.com/openchoreo/openchoreo/pkg/cli
 ```
 
 ### 2. Create Main Entry Point
@@ -38,8 +38,8 @@ import (
     "fmt"
     "os"
 
-    "github.com/choreo-idp/choreo/pkg/cli/common/config"
-    "github.com/choreo-idp/choreo/pkg/cli/core/root"
+    "github.com/openchoreo/openchoreo/pkg/cli/common/config"
+    "github.com/openchoreo/openchoreo/pkg/cli/core/root"
 )
 
 func main() {
@@ -68,7 +68,7 @@ Create ```internal/mycli/impl.go```:
 ```go
 package mycli
 
-import "github.com/choreo-idp/choreo/pkg/cli/types/api"
+import "github.com/openchoreo/openchoreo/pkg/cli/types/api"
 
 type CommandImplementation struct{}
 
@@ -128,8 +128,8 @@ package mycommand
 
 import (
     "github.com/spf13/cobra"
-    "github.com/choreo-idp/choreo/pkg/cli/common/constants"
-    "github.com/choreo-idp/choreo/pkg/cli/types/api"
+    "github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+    "github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 func NewMyCommand(impl api.CommandImplementationInterface) *cobra.Command {

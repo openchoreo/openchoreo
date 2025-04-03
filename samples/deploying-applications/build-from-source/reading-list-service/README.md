@@ -41,7 +41,7 @@ https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
 The following command will create the component, deployment track, and deployment in Choreo. It will also trigger a build by creating a build resource.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
 ```
 
 ## Check the Build Workflow Status
@@ -139,5 +139,5 @@ For this sample, we will use kubectl port-forward to access the service.
 To clean up the resources created by this sample, run the following command.
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/build-from-source/reading-list-service/reading-list-service.yaml
 ```

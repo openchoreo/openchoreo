@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
 type OutputFormat string

@@ -19,7 +19,7 @@
 package dataplane
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 // DeploymentContext is a struct that holds the all necessary data required for the resource handlers to

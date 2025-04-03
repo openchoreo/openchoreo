@@ -19,7 +19,7 @@
 package integrations
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 type BuildContext struct {

@@ -1,8 +1,8 @@
 package visibility
 
 import (
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // GatewayType represents the type of gateway used to expose endpoints

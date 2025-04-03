@@ -28,9 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 type serviceAccountHandler struct {

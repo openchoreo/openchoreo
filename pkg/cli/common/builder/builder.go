@@ -21,8 +21,8 @@ package builder
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
 
 type CommandBuilder struct {

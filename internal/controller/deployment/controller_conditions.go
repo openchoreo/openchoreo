@@ -23,7 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/choreo-idp/choreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Constants for condition types

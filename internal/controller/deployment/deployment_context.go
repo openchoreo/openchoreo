@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // makeDeploymentContext creates a deployment context for the given deployment by retrieving the

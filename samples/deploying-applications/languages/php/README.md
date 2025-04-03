@@ -9,7 +9,7 @@ https://github.com/wso2/choreo-samples/tree/main/hello-world-php-webapp
 ## Deploy in Choreo
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/php/hello-world-web-app.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/php/hello-world-web-app.yaml
 ``` 
 
 ## Check the Build Workflow Status
@@ -48,5 +48,5 @@ For this sample, we will use kubectl port-forward to access the web application.
 To clean up the resources created by this sample, you can run the following command:
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/php/hello-world-web-app.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/php/hello-world-web-app.yaml
 ```

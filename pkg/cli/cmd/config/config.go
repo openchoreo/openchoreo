@@ -23,10 +23,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/pkg/cli/common/builder"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/flags"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // StoredConfig is the structure to store configuration contexts.

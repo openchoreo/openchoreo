@@ -23,11 +23,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/ptr"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 func makePodSpec(deployCtx *dataplane.DeploymentContext) *corev1.PodSpec {

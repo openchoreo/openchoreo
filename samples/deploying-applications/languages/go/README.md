@@ -22,7 +22,7 @@ Run the following command to deploy the service in Choreo. This will create the 
 the service including the build for the Go service.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
 ``` 
 
 ## Check the Build Workflow Status
@@ -76,5 +76,5 @@ For this sample, we will use kubectl port-forward to access the service.
 To clean up the resources created by this sample, run the following command.
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/go/greeter-service.yaml
 ```

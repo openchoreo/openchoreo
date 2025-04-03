@@ -24,9 +24,9 @@ import (
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // makeHostname generates the hostname for an endpoint based on gateway type and component type

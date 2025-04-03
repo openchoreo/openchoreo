@@ -11,7 +11,7 @@ In this sample we first add a new environment named test, and then, update the d
 Use the following command to create a new environment.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/update-deployment-pipeline/test-environment.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/update-deployment-pipeline/test-environment.yaml
 ```
 You will see the following output.
 
@@ -22,7 +22,7 @@ environment.core.choreo.dev/test created
 Use the following command to update the existing deployment pipeline.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/update-deployment-pipeline/deployment-pipeline.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/update-deployment-pipeline/deployment-pipeline.yaml
 ``` 
 
 You will see the following output.

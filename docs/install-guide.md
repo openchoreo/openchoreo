@@ -45,7 +45,7 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
 Run the following command to create your kind cluster with the configurations provided in our [kind config](../install/kind/kind-config.yaml) file.
 
 ```shell
-curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
 ```
 
 #### Install Cilium
@@ -53,7 +53,7 @@ curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/kind/k
 You can easily install Cilium into your cluster using the helm chart provided by us. This chart installs Cilium with minimal configurations required for OpenChoreo.
 Run the following command to install Cilium:
 ```shell
-helm install cilium oci://ghcr.io/choreo-idp/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
+helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
 [//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
@@ -77,7 +77,7 @@ You can install OpenChoreo on any Kubernetes cluster that has Cilium installed. 
 Use the following helm command to install OpenChoreo into your cluster.
 
 ```shell
-helm install choreo oci://ghcr.io/choreo-idp/helm-charts/choreo \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo \
 --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
@@ -88,7 +88,7 @@ We already provided a [script](../install/check-status.sh) to verify the install
 Run the following command to verify the installation status:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/check-status.sh | bash
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh | bash
 ```
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
@@ -108,7 +108,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.23.5.
 2. Make sure to clone the repository into your local machine.
    ```shell
-   git clone https://github.com/choreo-idp/choreo.git
+   git clone https://github.com/openchoreo/openchoreo.git
    ```
 
 
@@ -167,7 +167,7 @@ If you want to uninstall `choreoctl` from your host machine, you can use the [sc
 Run the following command to uninstall `choreoctl`:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
 ## Exposing the OpenChoreo Gateway

@@ -9,14 +9,14 @@ In this sample the new deployment pipeline facilitates promoting from developmen
 > In case you have not created a new organization name "acme", please run the following command before creating the deployment pipeline.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-organization/organization.yaml
 ```
 
 ## Deploy in Choreo
 Use the following command to create the new deployment pipeline.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/configuring-choreo/create-new-deployment-pipeline/deployment-pipeline.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-deployment-pipeline/deployment-pipeline.yaml
 ``` 
 
 You will see the following output.

@@ -24,9 +24,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 type projectListModel struct {

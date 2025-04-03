@@ -108,7 +108,7 @@ Additionally, the Task is scheduled to run every minute.
 1. Run the following command to deploy the ConfigurationGroups and the Task in one go.
 
     ```shell
-    choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
+    choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
     ```
 
 2. Run the following command to see if the Task is deployed successfully in each environment.
@@ -164,7 +164,7 @@ environment specific configurations.
     DEMO: This is for demonstration purposes only. DO NOT log secrets from your application.
     ----------------------------------------------------------------------------------------
     Fetched 2 issues from GitHub repository.
-    Connecting to GitHub repository: https://github.com/choreo-idp/choreo with token: gh_dev_token
+    Connecting to GitHub repository: https://github.com/openchoreo/openchoreo with token: gh_dev_token
     Connecting to MySQL at dev-mysql.internal:3306 with user: dev-sql-user and password: mysql_dev_password to database: github-issue-reporter
     Processing issues and storing them in the database...
     Issues have been processed and stored in the database successfully.
@@ -184,7 +184,7 @@ environment specific configurations.
     DEMO: This is for demonstration purposes only. DO NOT log secrets from your application.
     ----------------------------------------------------------------------------------------
     Fetched 2 issues from GitHub repository.
-    Connecting to GitHub repository: https://github.com/choreo-idp/choreo with token: gh_stg_token
+    Connecting to GitHub repository: https://github.com/openchoreo/openchoreo with token: gh_stg_token
     Connecting to MySQL at stg-mysql.internal:3306 with user: stg-sql-user and password: mysql_stg_password to database: github-issue-reporter
     Processing issues and storing them in the database...
     Issues have been processed and stored in the database successfully.
@@ -205,7 +205,7 @@ environment specific configurations.
     DEMO: This is for demonstration purposes only. DO NOT log secrets from your application.
     ----------------------------------------------------------------------------------------
     Fetched 2 issues from GitHub repository.
-    Connecting to GitHub repository: https://github.com/choreo-idp/choreo with token: gh_prod_token
+    Connecting to GitHub repository: https://github.com/openchoreo/openchoreo with token: gh_prod_token
     Connecting to MySQL at prod-mysql.internal:3306 with user: prod-sql-user and password: mysql_prod_password to database: github-issue-reporter
     Processing issues and storing them in the database...
     Issues have been processed and stored in the database successfully.
@@ -228,7 +228,7 @@ To clean up the resources created by this sample, you can run the following comm
     ```
 - Delete the resources created by the sample
     ```shell
-    choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
+    choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/github-issue-reporter-task/github-issue-reporter.yaml
     ```
 - Delete the secrets from the vault
     ```shell

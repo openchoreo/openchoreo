@@ -27,11 +27,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // reconcileChoreoEndpoints reconciles the Choreo endpoints in the Control Plane based on the deployment context so that

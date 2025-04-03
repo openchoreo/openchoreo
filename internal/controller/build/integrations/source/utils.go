@@ -23,7 +23,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 )
 
 func ExtractRepositoryInfo(repoURL string) (string, string, error) {

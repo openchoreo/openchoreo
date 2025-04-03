@@ -24,7 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // CheckLoginStatus ensures the user is logged in before executing any command.

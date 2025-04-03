@@ -21,7 +21,7 @@ kubectl -n default-org patch environments.core.choreo.dev development --type=mer
 ## Deploy Greeter Application
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
 ```
 
 This command deploys the greeter application to your Kubernetes cluster.
@@ -61,7 +61,7 @@ curl -k https://dev.choreoapis.localhost:8443/default-project/greeting-service-i
 To remove all deployed resources, use the following command.
 
 ```shell
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/jwt/greeter-with-jwt.yaml
 ```
 
 > [!NOTE]

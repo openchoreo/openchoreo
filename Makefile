@@ -1,7 +1,7 @@
 # Read the version from the VERSION file
 RELEASE_VERSION ?= $(shell cat VERSION)
 # Default image repository to use for building/pushing images
-IMG_REPO ?= ghcr.io/choreo-idp/controller
+IMG_REPO ?= ghcr.io/openchoreo/controller
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMG_REPO):v$(RELEASE_VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -292,7 +292,7 @@ install-choreoctl: choreoctl
 #-----------------------------------------------------------------------------
 VERSION ?= $(shell git describe --tags --always --dirty)
 DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS = -ldflags "-X github.com/choreo-idp/choreo/pkg/cli/version.Version=$(VERSION) -X github.com/choreo-idp/choreo/pkg/cli/version.BuildDate=$(DATE)"
+LDFLAGS = -ldflags "-X github.com/openchoreo/openchoreo/pkg/cli/version.Version=$(VERSION) -X github.com/openchoreo/openchoreo/pkg/cli/version.BuildDate=$(DATE)"
 
 # Supported platforms - space separated list for proper iteration
 PLATFORMS = darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
@@ -354,7 +354,7 @@ CHART_PATH_CILIUM ?= install/helm/cilium
 CHART_PATH_CHOREO ?= install/helm/choreo
 CHART_PACKAGE_CILIUM ?= cilium-$(RELEASE_VERSION).tgz
 CHART_PACKAGE_CHOREO ?= choreo-$(RELEASE_VERSION).tgz
-HELM_REPO ?= oci://ghcr.io/choreo-idp/helm-charts
+HELM_REPO ?= oci://ghcr.io/openchoreo/helm-charts
 
 .PHONY: helm-dependency-build
 helm-dependency-build:
@@ -401,8 +401,8 @@ prepare-release:
 #-----------------------------------------------------------------------------
 # quick-start build & push targets
 #-----------------------------------------------------------------------------
-IMAGE_NAME=ghcr.io/choreo-idp/quick-start:v$(RELEASE_VERSION)
-IMAGE_NAME_LATEST=ghcr.io/choreo-idp/quick-start:latest
+IMAGE_NAME=ghcr.io/openchoreo/quick-start:v$(RELEASE_VERSION)
+IMAGE_NAME_LATEST=ghcr.io/openchoreo/quick-start:latest
 DOCKER_PATH=install/quick-start
 SAMPLE_SOURCE=samples/web-applications/container-image/react-starter.yaml
 

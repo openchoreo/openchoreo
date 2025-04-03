@@ -12,7 +12,7 @@ This sample demonstrates how to deploy a web application as a container image in
 The following command will create the component, deployment track, deployable artifact and the deployment in Choreo.
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
 ```
 
 ## Retrieve the Invocation URL
@@ -46,5 +46,5 @@ For this sample, we will use kubectl port-forward to access the web application.
 To clean up the resources created by this sample, you can run the following command:
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml
 ```

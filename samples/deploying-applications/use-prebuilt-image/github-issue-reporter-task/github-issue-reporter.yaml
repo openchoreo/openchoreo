@@ -30,7 +30,7 @@ spec:
     - key: repository
       values:
         - environmentGroupRef: all-environments
-          value: "https://github.com/choreo-idp/choreo"
+          value: "https://github.com/openchoreo/openchoreo"
     - key: pat
       # Define GitHub Personal Access Token (PAT) Key Vault reference for each environment
       # The vaultKey is the path to the secret in the vault.
@@ -166,7 +166,7 @@ spec:
   type: ScheduledTask
   source:
     containerRegistry:
-      imageName: ghcr.io/choreo-idp/samples/github-issue-reporter
+      imageName: ghcr.io/openchoreo/samples/github-issue-reporter
 
 ---
 apiVersion: core.choreo.dev/v1

@@ -41,7 +41,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 

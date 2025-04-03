@@ -22,8 +22,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	ciliumv2 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 )
 
 var _ = Describe("makeCiliumNetworkPolicy", func() {

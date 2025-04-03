@@ -17,13 +17,13 @@ To get started, you’ll need:
 Run the following command to start the dev container and launch a terminal session within it:
 
 ```shell
-docker run --rm -it --name choreo-quick-idp \
+docker run --rm -it --name choreo-quick-start \
 -v /var/run/docker.sock:/var/run/docker.sock \
 -v choreo-state:/state \
 -v tf-state:/app/terraform \
 --network bridge \
 -p 8443:8443 \
-ghcr.io/choreo-idp/quick-start:v0.1.0
+ghcr.io/openchoreo/quick-start:v0.1.0
 
 ```
 
@@ -89,10 +89,10 @@ Let’s now explore what happens after each command.
 
 The installation process, by default, sets up several essential abstractions. These are:
 - Organization
-- [Dataplane](https://github.com/choreo-idp/choreo/tree/main/docs#dataplane)
-- [Environments](https://github.com/choreo-idp/choreo/tree/main/docs#environment) (e.g., Development, Staging, Production)
-- [Deployment Pipeline](https://github.com/choreo-idp/choreo/tree/main/docs#deploymentpipeline) for the environments
-- [Project](https://github.com/choreo-idp/choreo/tree/main/docs#project)
+- [Dataplane](https://github.com/openchoreo/openchoreo/tree/main/docs#dataplane)
+- [Environments](https://github.com/openchoreo/openchoreo/tree/main/docs#environment) (e.g., Development, Staging, Production)
+- [Deployment Pipeline](https://github.com/openchoreo/openchoreo/tree/main/docs#deploymentpipeline) for the environments
+- [Project](https://github.com/openchoreo/openchoreo/tree/main/docs#project)
 
 To access the artifacts created in OpenChoreo you can use choreoctl as shown in the following commands:
 
@@ -121,7 +121,7 @@ choreoctl get project default-project -oyaml
 ```
 
 #### 2. The Deploy Web Application Command
-The deploy script creates a sample Web Application [Component](https://github.com/choreo-idp/choreo/tree/main/docs#component), along with a [Deployment](https://github.com/choreo-idp/choreo/tree/main/docs#component) for the sample web application.
+The deploy script creates a sample Web Application [Component](https://github.com/openchoreo/openchoreo/tree/main/docs#component), along with a [Deployment](https://github.com/openchoreo/openchoreo/tree/main/docs#component) for the sample web application.
 
 To inspect these resources in more detail, run the following commands:
 
@@ -132,7 +132,7 @@ choreoctl get components
 choreoctl get deployment --component react-starter-image
 ```
 
-OpenChoreo generates a [DeployableArtifact](https://github.com/choreo-idp/choreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/choreo-idp/choreo/tree/main/docs#endpoint) to access the running application:
+OpenChoreo generates a [DeployableArtifact](https://github.com/openchoreo/openchoreo/tree/main/docs#deployableartifact) and an [Endpoint](https://github.com/openchoreo/openchoreo/tree/main/docs#endpoint) to access the running application:
 
 ```shell
 choreoctl get deployableartifact --component react-starter-image

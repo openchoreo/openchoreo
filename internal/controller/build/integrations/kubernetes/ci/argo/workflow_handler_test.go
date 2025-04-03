@@ -25,8 +25,8 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 var _ = Describe("Argo Workflow", func() {

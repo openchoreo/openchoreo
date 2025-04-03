@@ -18,7 +18,7 @@
 
 package source
 
-import choreov1 "github.com/choreo-idp/choreo/api/v1"
+import choreov1 "github.com/openchoreo/openchoreo/api/v1"
 
 // Config represents the root configuration structure
 type Config struct {

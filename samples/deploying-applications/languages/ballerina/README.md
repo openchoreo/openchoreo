@@ -42,7 +42,7 @@ Run the following command to deploy the service in Choreo.
 This will create the necessary resources in Choreo and deploy the service including the build for the Ballerina service
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/ballerina/patient-management-service.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/ballerina/patient-management-service.yaml
 ``` 
 
 ## Check the Build Workflow Status
@@ -115,5 +115,5 @@ For this sample, we will use kubectl port-forward to access the web application.
 To clean up the resources created by this sample, run the following command.
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/languages/ballerina/patient-management-service.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/languages/ballerina/patient-management-service.yaml
 ```

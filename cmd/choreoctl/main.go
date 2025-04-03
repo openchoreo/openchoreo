@@ -23,10 +23,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl"
-	configContext "github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
-	"github.com/choreo-idp/choreo/pkg/cli/common/config"
-	"github.com/choreo-idp/choreo/pkg/cli/core/root"
+	"github.com/openchoreo/openchoreo/internal/choreoctl"
+	configContext "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/core/root"
 )
 
 func main() {

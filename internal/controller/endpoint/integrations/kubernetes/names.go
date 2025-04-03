@@ -19,10 +19,10 @@
 package kubernetes
 
 import (
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // makeNamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>

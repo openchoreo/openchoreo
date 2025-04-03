@@ -24,9 +24,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("Deployment Kind", func() {

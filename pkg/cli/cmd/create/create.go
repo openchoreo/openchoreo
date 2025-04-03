@@ -23,11 +23,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	v1api "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/pkg/cli/common/builder"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/flags"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	v1api "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // Helper functions for common flag sets

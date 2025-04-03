@@ -24,11 +24,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/resources"
-	buildController "github.com/choreo-idp/choreo/internal/controller/build"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
+	buildController "github.com/openchoreo/openchoreo/internal/controller/build"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // BuildResource provides operations for Build CRs.

@@ -1,4 +1,4 @@
-module github.com/choreo-idp/choreo
+module github.com/openchoreo/openchoreo
 
 go 1.23.5
 

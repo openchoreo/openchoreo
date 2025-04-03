@@ -21,7 +21,7 @@ package flags
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/choreo-idp/choreo/pkg/cli/common/messages"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/messages"
 )
 
 type Flag struct {

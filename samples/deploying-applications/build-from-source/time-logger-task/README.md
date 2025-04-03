@@ -10,7 +10,7 @@ https://github.com/wso2/choreo-samples/tree/main/docker-time-logger-schedule
 The following command will create the component, deployment track and the deployment in Choreo. It'll also trigger a build by creating a build resource. 
 
 ```bash
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
 ```
 
 ## Check the Build Workflow Status
@@ -55,5 +55,5 @@ choreoctl logs --type deployment --deployment time-logger-development-deployment
 To clean up the resources created by this sample, run the following command.
 
 ```bash
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/build-from-source/time-logger-task/time-logger.yaml
 ```

@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 )
 
 var _ = Describe("Build Namespace", func() {

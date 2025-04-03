@@ -33,8 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // DeleteImpl implements the delete command for Choreo resources

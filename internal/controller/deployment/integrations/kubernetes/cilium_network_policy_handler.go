@@ -28,8 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	ciliumv2 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 )
 
 type ciliumNetworkPolicyHandler struct {

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // ValidateParams validates command parameters based on command and resource types

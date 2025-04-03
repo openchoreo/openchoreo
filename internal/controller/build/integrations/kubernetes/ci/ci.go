@@ -21,9 +21,9 @@ package ci
 import (
 	"fmt"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // ConstructImageNameWithTag constructs an image name with the tag.

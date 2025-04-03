@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 var (

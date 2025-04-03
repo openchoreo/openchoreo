@@ -21,7 +21,7 @@ package controller
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // This file contains the helper functions to get the Choreo specific metadata from the Kubernetes objects.

@@ -36,17 +36,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
-	argointegrations "github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes/ci/argo"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
-	sourcegithub "github.com/choreo-idp/choreo/internal/controller/build/integrations/source/github"
-	"github.com/choreo-idp/choreo/internal/controller/build/resources"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
+	argointegrations "github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes/ci/argo"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/source"
+	sourcegithub "github.com/openchoreo/openchoreo/internal/controller/build/integrations/source/github"
+	"github.com/openchoreo/openchoreo/internal/controller/build/resources"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Build object

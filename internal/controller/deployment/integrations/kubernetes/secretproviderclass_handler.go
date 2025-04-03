@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	csisecretv1 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 )
 
 const (

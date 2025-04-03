@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/choreo-idp/choreo/api/v1"
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 var _ = Describe("Endpoint Controller", func() {

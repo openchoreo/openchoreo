@@ -27,8 +27,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/cmd/config"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
 )
 
 // CreateNewScheme creates a new runtime scheme with Choreo CRDs registered

@@ -31,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
-	k8sintegrations "github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
+	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // Reconciler reconciles a Endpoint object

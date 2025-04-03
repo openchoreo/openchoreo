@@ -2,9 +2,9 @@
 Internal Developer Platform
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub last commit](https://img.shields.io/github/last-commit/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/commits/main)
-[![Go Report Card](https://goreportcard.com/badge/github.com/choreo-idp/choreo)](https://goreportcard.com/report/github.com/choreo-idp/choreo)
-[![GitHub issues](https://img.shields.io/github/issues/choreo-idp/choreo.svg)](https://github.com/choreo-idp/choreo/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
+[![Go Report Card](https://goreportcard.com/badge/github.com/openchoreo/openchoreo)](https://goreportcard.com/report/github.com/openchoreo/openchoreo)
+[![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
 [![Twitter Follow](https://img.shields.io/twitter/follow/Choreo?style=social)](https://twitter.com/ChoreoDev)
 
 ## What is OpenChoreo?
@@ -56,13 +56,13 @@ We’d love for you to be part of OpenChoreo’s journey!
 Whether you’re fixing a bug, improving documentation, or suggesting new features, every contribution counts.
 
 - **[Contributor Guide](./docs/contributors/README.md)** – Learn how to get started.
-- **[Report an Issue](https://github.com/choreo-idp/choreo/issues)** – Help us improve Choreo.
+- **[Report an Issue](https://github.com/openchoreo/openchoreo/issues)** – Help us improve Choreo.
 - **[Join our Discord](https://discord.gg/asqDFC8suT)** – Be part of the community.
 
 We’re excited to have you onboard!
 
 ## Roadmap
-Explore the OpenChoreo roadmap, including completed milestones and upcoming plans, in our **[Roadmap]( https://github.com/orgs/choreo-idp/projects/1)**.
+Explore the OpenChoreo roadmap, including completed milestones and upcoming plans, in our **[Roadmap]( https://github.com/orgs/openchoreo/projects/1)**.
 
 ## License
 OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.

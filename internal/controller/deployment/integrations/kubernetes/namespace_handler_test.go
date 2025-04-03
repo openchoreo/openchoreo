@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/choreo-idp/choreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 var _ = Describe("makeNamespace", func() {

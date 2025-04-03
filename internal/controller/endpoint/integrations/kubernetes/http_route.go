@@ -30,10 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/endpoint/integrations/kubernetes/visibility"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	"github.com/choreo-idp/choreo/internal/ptr"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 type httpRouteHandler struct {

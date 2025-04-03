@@ -25,11 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/kubernetes"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	dpkubernetes "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	argoproj "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 type workflowHandler struct {

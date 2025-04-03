@@ -11,8 +11,8 @@ This section provides a comprehensive guide for contributors to set up their dev
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/<org>/choreo.git
-   cd choreo
+   git clone https://github.com/<org>/openchoreo.git
+   cd openchoreo
    ```
 
 2. Build the binaries:

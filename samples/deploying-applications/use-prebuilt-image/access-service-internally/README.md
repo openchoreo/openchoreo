@@ -23,8 +23,8 @@ This sample deploys:
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` CLI tool installed
 - Docker images:
-  - `ghcr.io/choreo-idp/samples/reading-list-service`
-  - `ghcr.io/choreo-idp/samples/reading-list-webapp`
+  - `ghcr.io/openchoreo/samples/reading-list-service`
+  - `ghcr.io/openchoreo/samples/reading-list-webapp`
 
 ## Understand the project structure
 
@@ -42,13 +42,13 @@ This sample deploys:
 1. First, deploy the `Reading List Service`:
 
 ```shell
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
 ```
 
 2. Then, deploy the `Reading List Web Application`:
 
 ```shell
-choreoctl apply -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
+choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
 ```
 
 ## Verify the Deployment
@@ -85,8 +85,8 @@ https://reading-list-webapp-development.choreoapps.localhost:8443
 To remove all deployed resources, use the following command.
 
 ```shell
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
-choreoctl delete -f https://raw.githubusercontent.com/choreo-idp/choreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-service.yaml
+choreoctl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/deploying-applications/use-prebuilt-image/org-visibility/reading-list-webapp.yaml
 ```
 
 > [!NOTE]

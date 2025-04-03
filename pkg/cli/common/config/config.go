@@ -18,7 +18,7 @@
 
 package config
 
-import "github.com/choreo-idp/choreo/pkg/cli/common/messages"
+import "github.com/openchoreo/openchoreo/pkg/cli/common/messages"
 
 type CLIConfig struct {
 	Name             string

@@ -22,9 +22,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/dataplane"
-	csisecretv1 "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
+	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 )
 
 var _ = Describe("makeSecretProviderClasses", func() {

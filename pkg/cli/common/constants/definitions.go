@@ -21,7 +21,7 @@ package constants
 import (
 	"fmt"
 
-	"github.com/choreo-idp/choreo/pkg/cli/common/messages"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/messages"
 )
 
 type Command struct {

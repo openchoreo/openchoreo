@@ -24,8 +24,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/choreo-idp/choreo/internal/choreoctl/resources/kinds"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources/kinds"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
 const (

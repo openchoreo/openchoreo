@@ -28,10 +28,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	argo "github.com/choreo-idp/choreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/choreo-idp/choreo/internal/ptr"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("Argo Workflow Generation", func() {
@@ -227,12 +227,12 @@ podman save -o /mnt/vol/app-image.tar %s`,
 
 			expectedCacheScript := `
 if [[ ! -f "/shared/podman/cache/ballerina-builder.tar" ]]; then
-  podman pull ghcr.io/choreo-idp/buildpack/ballerina:18
-  podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/buildpack/ballerina:18
+  podman pull ghcr.io/openchoreo/buildpack/ballerina:18
+  podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/openchoreo/buildpack/ballerina:18
 else
   if ! podman load -i /shared/podman/cache/ballerina-builder.tar; then
-    podman pull ghcr.io/choreo-idp/buildpack/ballerina:18
-    podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/choreo-idp/buildpack/ballerina:18
+    podman pull ghcr.io/openchoreo/buildpack/ballerina:18
+    podman save -o /shared/podman/cache/ballerina-builder.tar ghcr.io/openchoreo/buildpack/ballerina:18
   fi
 fi`
 
@@ -241,7 +241,7 @@ fi`
 			expectedScript := fmt.Sprintf(`
 %s
 
-/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/choreo-idp/buildpack/ballerina:18 \
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/openchoreo/buildpack/ballerina:18 \
 --docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, expectedCacheScript, imageName(), path, imageName())
@@ -413,7 +413,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			Expect(pushStep.Inputs.Parameters[0].Name).To(Equal("git-revision"))
 			Expect(pushStep.Metadata.Labels).To(HaveKeyWithValue("step", string(integrations.PushStep)))
 			Expect(pushStep.Metadata.Labels).To(HaveKeyWithValue("workflow", buildCtx.Build.ObjectMeta.Name))
-			Expect(pushStep.Container.Image).To(Equal("ghcr.io/choreo-idp/podman-runner:v1.0"))
+			Expect(pushStep.Container.Image).To(Equal("ghcr.io/openchoreo/podman-runner:v1.0"))
 
 			isPrivileged := true
 			Expect(pushStep.Container.SecurityContext.Privileged).To(Equal(&isPrivileged))

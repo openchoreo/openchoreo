@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	rbacv1 "k8s.io/api/rbac/v1"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 )
 
 var _ = Describe("Role Binding", func() {

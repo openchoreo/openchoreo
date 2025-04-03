@@ -24,11 +24,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/choreoctl/interactive"
-	"github.com/choreo-idp/choreo/internal/choreoctl/validation"
-	"github.com/choreo-idp/choreo/pkg/cli/common/constants"
-	"github.com/choreo-idp/choreo/pkg/cli/types/api"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 const (

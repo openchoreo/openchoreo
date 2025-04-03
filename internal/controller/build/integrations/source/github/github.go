@@ -25,8 +25,8 @@ import (
 	"github.com/google/go-github/v69/github"
 	"gopkg.in/yaml.v3"
 
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations"
-	"github.com/choreo-idp/choreo/internal/controller/build/integrations/source"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/source"
 )
 
 type githubHandler struct {

@@ -48,7 +48,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/choreo-idp/choreo)
+      - prefix(github.com/openchoreo/openchoreo)
   govet:
     # Enable all analyzers.
     # Default: false
@@ -80,7 +80,7 @@ linters-settings:
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
-    local-prefixes: github.com/choreo-idp/choreo
+    local-prefixes: github.com/openchoreo/openchoreo
   misspell:
     # Correct spellings using locale preferences for US or UK.
     # Default is to use a neutral variety of English.
