@@ -87,10 +87,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	if shouldIgnoreReconcile(build) {
-		return ctrl.Result{}, nil
-	}
-
 	oldBuild := build.DeepCopy()
 
 	if len(build.Status.Conditions) == 0 {
