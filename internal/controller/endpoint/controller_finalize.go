@@ -71,10 +71,6 @@ func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (
 	pendingDeletion := false
 
 	for _, resourceHandler := range resourceHandlers {
-		if err := resourceHandler.Delete(ctx, epCtx); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
-		}
-
 		exists, err := resourceHandler.GetCurrentState(ctx, epCtx)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to get current state of external resource %s: %w", resourceHandler.Name(), err)
@@ -82,6 +78,10 @@ func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (
 
 		if exists != nil {
 			pendingDeletion = true
+			// Trigger deletion of the resource as it is still exists
+			if err := resourceHandler.Delete(ctx, epCtx); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
+			}
 		}
 	}
 

@@ -90,18 +90,19 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 		if resourceHandler.Name() == k8sintegrations.NamespaceHandlerName {
 			continue
 		}
-		// Attempt to delete the resource
-		if err := resourceHandler.Delete(ctx, deploymentCtx); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
-		}
 
 		// Check if the resource is still being deleted
 		exists, err := resourceHandler.GetCurrentState(ctx, deploymentCtx)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to check existence of external resource %s: %w", resourceHandler.Name(), err)
 		}
+
 		if exists != nil {
 			pendingDeletion = true
+			// Trigger deletion of the resource as it is still exists
+			if err := resourceHandler.Delete(ctx, deploymentCtx); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
+			}
 		}
 	}
 
@@ -150,9 +151,17 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 		return fmt.Errorf("error listing endpoints: %w", err)
 	}
 
-	pendingDeletion := false
+	if len(endpointList.Items) == 0 {
+		logger.Info("No endpoints associated with the deployment")
+		return nil
+	}
 
 	for _, endpoint := range endpointList.Items {
+		// Check if the endpoint is being already deleting
+		if endpoint.DeletionTimestamp != nil {
+			continue
+		}
+
 		if err := r.Delete(ctx, &endpoint); err != nil {
 			if k8sapierrors.IsNotFound(err) {
 				// The endpoint is already deleted, no need to retry
@@ -160,24 +169,8 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 			}
 			return fmt.Errorf("error deleting endpoint %s: %w", endpoint.Name, err)
 		}
-
-		// Get the resource back to check if the resource still exists
-		if err := r.Get(ctx, client.ObjectKeyFromObject(&endpoint), &endpoint); err != nil {
-			if k8sapierrors.IsNotFound(err) {
-				// The endpoint is already deleted, no need to retry
-				continue
-			}
-			return fmt.Errorf("error getting endpoint %s: %w", endpoint.Name, err)
-		}
-
-		// marking blocked as true as the endpoint has still not deleted.
-		pendingDeletion = true
 	}
 
-	// If at least one endpoint is blocked, signal that we need to retry later
-	if pendingDeletion {
-		return ErrEndpointDeletionWait
-	}
-
-	return nil
+	// Reaching to this point means the endpoint deletion is still in progress.
+	return ErrEndpointDeletionWait
 }
