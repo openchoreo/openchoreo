@@ -7,7 +7,7 @@ DOCKER := docker
 BUILDER_NAME ?= "open-choreo-builder"
 
 # Define general image details
-IMAGE_REPO_PREFIX ?= ghcr.io/choreo-idp
+IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 TAG ?= latest-dev
 
 # Current platform for image build

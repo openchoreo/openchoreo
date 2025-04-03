@@ -6,7 +6,7 @@ HELM_CHART_NAMES := $(foreach c,$(HELM_CHARTS),$(notdir $(c)))
 HELM_CHART_VERSION ?= 0.0.0-latest-dev
 
 HELM_CHARTS_OUTPUT_DIR := $(PROJECT_BIN_DIR)/dist/charts
-HELM_OCI_REGISTRY ?= oci://ghcr.io/choreo-idp/helm-charts
+HELM_OCI_REGISTRY ?= oci://ghcr.io/openchoreo/helm-charts
 
 # Define the controller image that is used in the Choreo helm chart.
 # This value should be equal to the controller image define in `DOCKER_BUILD_IMAGES` in docker.mk
