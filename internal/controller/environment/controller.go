@@ -32,6 +32,8 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/environment/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 // Reconciler reconciles a Environment object
@@ -74,6 +76,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	old := environment.DeepCopy()
 
+	_, err := r.makeEnvironmentContext(ctx, environment)
+	if err != nil {
+		logger.Error(err, "Error creating environment context")
+		r.Recorder.Eventf(environment, corev1.EventTypeWarning, "ContextResolutionFailed",
+			"Context resolution failed: %s", err)
+		if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
+	}
+
 	// examine DeletionTimestamp to determine if object is under deletion and handle finalization
 	if !environment.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing environment")
@@ -114,4 +127,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&choreov1.Environment{}).
 		Named("environment").
 		Complete(r)
+}
+
+func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EnvironmentContext] {
+	// Environments only has k8s namespaces as external resources
+	resourceHandlers := []dataplane.ResourceHandler[dataplane.EnvironmentContext]{
+		k8sintegrations.NewNamespacesHandler(r.Client),
+	}
+
+	return resourceHandlers
 }

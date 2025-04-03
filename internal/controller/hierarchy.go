@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
@@ -359,4 +360,22 @@ func GetDeployment(ctx context.Context, c client.Client, obj client.Object) (*ch
 		objWithName(&choreov1.Component{}, GetComponentName(obj)),
 		objWithName(&choreov1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
 	)
+}
+
+// GetDataPlane retrieves the DataPlane object for the given Environment.
+// It uses the DataPlaneRef field in the Environment to find the DataPlane object.
+func GetDataPlane(ctx context.Context, c client.Client, env *choreov1.Environment) (*choreov1.DataPlane, error) {
+	dataPlane := &choreov1.DataPlane{}
+	key := client.ObjectKey{Namespace: env.Namespace, Name: env.Spec.DataPlaneRef}
+
+	if err := c.Get(ctx, key, dataPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, NewHierarchyNotFoundError(env, objWithName(&choreov1.DataPlane{}, env.Spec.DataPlaneRef),
+				objWithName(&choreov1.Organization{}, GetOrganizationName(env)),
+			)
+		}
+		return nil, fmt.Errorf("failed to get data plane: %w", err)
+	}
+
+	return dataPlane, nil
 }

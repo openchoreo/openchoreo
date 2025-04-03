@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	k8sapierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,10 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/choreo-idp/choreo/api/v1"
-	"github.com/choreo-idp/choreo/internal/controller"
-	k8s "github.com/choreo-idp/choreo/internal/dataplane/kubernetes"
-	"github.com/choreo-idp/choreo/internal/labels"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -64,6 +62,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *choreov1.
 
 // finalize cleans up the data plane resources associated with the environment.
 func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.Environment) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
 	if !controllerutil.ContainsFinalizer(environment, EnvCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil
@@ -90,13 +89,34 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 		return ctrl.Result{}, err
 	}
 
-	// Delete all namespaces created for the environment
-	if err := r.deleteNamespaces(ctx, environment); err != nil {
-		if errors.Is(err, ErrNamespaceDeletionWait) {
-			// this means the namespace deletion is still in progress. So, we need to retry later.
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	// Get the deployment context and delete the data plane resources
+	envCtx, err := r.makeEnvironmentContext(ctx, environment)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to make environment context for finalization: %w", err)
+	}
+
+	resourceHandlers := r.makeExternalResourceHandlers()
+	pendingDpResourcesDeletion := false
+
+	for _, resourceHandler := range resourceHandlers {
+		if err := resourceHandler.Delete(ctx, envCtx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
 		}
-		return ctrl.Result{}, err
+
+		exists, err := resourceHandler.GetCurrentState(ctx, envCtx)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to get current state of external resource %s: %w", resourceHandler.Name(), err)
+		}
+
+		if exists != nil {
+			pendingDpResourcesDeletion = true
+		}
+	}
+
+	// Requeue the reconcile loop if there are still resources pending deletion
+	if pendingDpResourcesDeletion {
+		logger.Info("environment deletion is still pending as the dependent resource deletion pending.. retrying..")
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// Remove the finalizer after all the dependent resources are cleaned up
@@ -158,58 +178,6 @@ func (r *Reconciler) deleteDeployments(ctx context.Context, environment *choreov
 	// If at least one deployment is blocked, signal that we need to retry later
 	if blocked {
 		return ErrDeploymentDeletionWait
-	}
-
-	return nil
-}
-
-// deleteNamespaces deletes all the namespaces created for the environment.
-func (r *Reconciler) deleteNamespaces(ctx context.Context, environment *choreov1.Environment) error {
-	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
-	logger.Info("Cleaning up the namespaces created for the environment")
-	// List all namespaces with the labels `environment-name=<environment.Name>` and `organization-name=<environment.Namespace>`
-	namespaceList := &corev1.NamespaceList{}
-	labelSelector := client.MatchingLabels{
-		k8s.LabelKeyEnvironmentName:  environment.Name,
-		k8s.LabelKeyOrganizationName: environment.Namespace,
-	}
-
-	if err := r.List(ctx, namespaceList, labelSelector); err != nil {
-		if k8sapierrors.IsNotFound(err) {
-			logger.Info("No namespaces created for the environment")
-			return nil
-		}
-		return fmt.Errorf("error listing namespaces: %w", err)
-	}
-
-	blocked := false
-
-	// Deleting each namespace
-	for _, namespace := range namespaceList.Items {
-		if err := r.Delete(ctx, &namespace); err != nil {
-			if k8sapierrors.IsNotFound(err) {
-				// The namespace is already deleted, no need to retry
-				continue
-			}
-			return fmt.Errorf("error deleting namespace %s: %w", namespace.Name, err)
-		}
-
-		// Get the resource back to check if the resource still exists
-		if err := r.Get(ctx, client.ObjectKeyFromObject(&namespace), &namespace); err != nil {
-			if k8sapierrors.IsNotFound(err) {
-				// The namespace is already deleted, no need to retry
-				continue
-			}
-			return fmt.Errorf("error getting namespace %s: %w", namespace.Name, err)
-		}
-
-		// marking blocked as true as the namespace has still not deleted.
-		blocked = true
-	}
-
-	// If at least one namespace is blocked, return an error to trigger a retry
-	if blocked {
-		return ErrNamespaceDeletionWait
 	}
 
 	return nil
