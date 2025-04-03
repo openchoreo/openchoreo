@@ -48,3 +48,10 @@ type EndpointContext struct {
 	Environment     *choreov1.Environment
 	Endpoint        *choreov1.Endpoint
 }
+
+// EnvironmentContext is a struct that holds the all necessary data required for the resource handlers of the environment
+// to perform its operations.
+type EnvironmentContext struct {
+	Environment *choreov1.Environment
+	DataPlane   *choreov1.DataPlane
+}

@@ -57,6 +57,14 @@ type Environment struct {
 	Status EnvironmentStatus `json:"status,omitempty"`
 }
 
+func (e *Environment) GetConditions() []metav1.Condition {
+	return e.Status.Conditions
+}
+
+func (e *Environment) SetConditions(conditions []metav1.Condition) {
+	e.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // EnvironmentList contains a list of Environment.
