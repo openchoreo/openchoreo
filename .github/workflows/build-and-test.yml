@@ -1,0 +1,136 @@
+name: Build and Test
+on:
+  push:
+    branches:
+      - "main"
+      - "release/v*"
+      - "release-improvements"
+  pull_request:
+    branches:
+      - "main"
+      - "release/v*"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Run linter
+        run: make lint
+
+  gen-check:
+    name: Code Generation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Run Code Generation Checks
+        run: make code.gen-check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Running Tests
+        run: |
+          make test
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    needs: [lint, gen-check, test]
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Build multiarch binaries
+        run: make go.build-multiarch
+
+      - name: Upload choreoctl binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: choreoctl
+          path: bin/dist/**/choreoctl
+
+      - name: Upload manager binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: manager
+          path: bin/dist/**/manager
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-24.04
+    needs: [ build ]
+    if: github.event_name == 'push'
+    permissions:
+      packages: write
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Download choreoctl binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: choreoctl
+          path: bin/dist
+
+      - name: Download manager binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: manager
+          path: bin/dist
+
+      - name: Set executable permissions
+        # See: https://github.com/actions/download-artifact/issues/14
+        run: |
+          chmod +x bin/dist/linux/amd64/choreoctl
+          chmod +x bin/dist/linux/arm64/choreoctl
+          chmod +x bin/dist/linux/amd64/manager
+          chmod +x bin/dist/linux/arm64/manager
+
+      - name: Login to GitHub container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup docker multiarch
+        run: make docker.setup-multiarch
+
+      - name: Set commit SHA
+        run: echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Build and push multiarch commit images
+        run: make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
+
+      - name: Build and push multiarch latest-dev images
+        if: github.ref == 'refs/heads/release-improvements'
+        run: make docker.push-multiarch
+
+      - name: Package and push latest-dev helm chart
+        if: github.ref == 'refs/heads/release-improvements' #TODO: update this to main
+        run: make helm-push
