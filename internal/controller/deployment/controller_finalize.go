@@ -33,7 +33,6 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -87,7 +86,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 
 	for _, resourceHandler := range resourceHandlers {
 		// Skip the namespace resource as it should not be considered to handle the deletion
-		if resourceHandler.Name() == k8sintegrations.NamespaceHandlerName {
+		if resourceHandler.Name() == "KubernetesNamespace" {
 			continue
 		}
 
@@ -97,12 +96,14 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 			return ctrl.Result{}, fmt.Errorf("failed to check existence of external resource %s: %w", resourceHandler.Name(), err)
 		}
 
-		if exists != nil {
-			pendingDeletion = true
-			// Trigger deletion of the resource as it is still exists
-			if err := resourceHandler.Delete(ctx, deploymentCtx); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
-			}
+		if exists == nil {
+			continue
+		}
+
+		pendingDeletion = true
+		// Trigger deletion of the resource as it is still exists
+		if err := resourceHandler.Delete(ctx, deploymentCtx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
 		}
 	}
 
@@ -139,15 +140,15 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels{
-			labels.LabelKeyDeploymentName: deployment.Name,
+			labels.LabelKeyDeploymentName:      deployment.Name,
+			labels.LabelKeyOrganizationName:    deployment.Labels[labels.LabelKeyOrganizationName],
+			labels.LabelKeyProjectName:         deployment.Labels[labels.LabelKeyProjectName],
+			labels.LabelKeyComponentName:       deployment.Labels[labels.LabelKeyComponentName],
+			labels.LabelKeyDeploymentTrackName: deployment.Labels[labels.LabelKeyDeploymentTrackName],
 		},
 	}
 
 	if err := r.List(ctx, endpointList, listOpts...); err != nil {
-		if k8sapierrors.IsNotFound(err) {
-			logger.Info("No endpoints associated with the environment")
-			return nil
-		}
 		return fmt.Errorf("error listing endpoints: %w", err)
 	}
 
@@ -158,7 +159,7 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 
 	for _, endpoint := range endpointList.Items {
 		// Check if the endpoint is being already deleting
-		if endpoint.DeletionTimestamp != nil {
+		if !endpoint.DeletionTimestamp.IsZero() {
 			continue
 		}
 
@@ -171,6 +172,7 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 		}
 	}
 
-	// Reaching to this point means the endpoint deletion is still in progress.
+	// Reaching this point means the endpoint deletion is either still in progress or has just been initiated.
+	// If this is the initial deletion attempt, requeue the request to verify deletion completion.
 	return ErrEndpointDeletionWait
 }

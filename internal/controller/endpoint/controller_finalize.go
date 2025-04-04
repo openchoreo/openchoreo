@@ -21,7 +21,6 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -88,7 +87,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (
 	// Requeue the reconcile loop if there are still resources pending deletion
 	if pendingDeletion {
 		logger.Info("endpoint deletion is still pending as the dependent resource deletion pending.. retrying..")
-		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Remove the finalizer after all the data plane resources are cleaned up

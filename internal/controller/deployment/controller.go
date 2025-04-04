@@ -160,8 +160,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	// Create a watch filter for the endpoints that are not owned by the deployment
-	nonOwnedEndpointWatchFilter := &NonOwnedEndpointWatchFilter{
-		labelKey: labels.LabelKeyDeploymentName,
+	nonOwnedEndpointWatchFilter := &nonOwnedEndpointWatchFilter{
+		labelKeys: []string{
+			labels.LabelKeyOrganizationName,
+			labels.LabelKeyProjectName,
+			labels.LabelKeyComponentName,
+			labels.LabelKeyDeploymentTrackName,
+			labels.LabelKeyDeploymentName,
+		},
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

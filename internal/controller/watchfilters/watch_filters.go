@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// LabelWatchFilter is an interface for creating a filter to
-type LabelWatchFilter interface {
+// LabelFilter is an interface for creating a filter to
+type LabelFilter interface {
 	// IsRelevant Determines whether an object is relevant based on labels and owner references.
 	IsRelevant(obj client.Object) bool
 
@@ -38,7 +38,7 @@ type LabelWatchFilter interface {
 }
 
 // BuildPredicates constructs predicates using the LabelWatchFilter interface.
-func BuildPredicates(filter LabelWatchFilter) predicate.Funcs {
+func BuildPredicates(filter LabelFilter) predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return filter.IsRelevant(e.Object)
@@ -56,7 +56,7 @@ func BuildPredicates(filter LabelWatchFilter) predicate.Funcs {
 }
 
 // BuildMapFunc constructs a handler.MapFunc using the LabelWatchFilter interface.
-func BuildMapFunc(filter LabelWatchFilter) handler.MapFunc {
+func BuildMapFunc(filter LabelFilter) handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
 		return filter.GetReconcileRequests(ctx, obj)
 	}

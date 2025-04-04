@@ -33,8 +33,6 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
-const NamespaceHandlerName = "KubernetesNamespace"
-
 type namespaceHandler struct {
 	kubernetesClient client.Client
 }
@@ -48,7 +46,7 @@ func NewNamespaceHandler(kubernetesClient client.Client) dataplane.ResourceHandl
 }
 
 func (h *namespaceHandler) Name() string {
-	return NamespaceHandlerName
+	return "KubernetesNamespace"
 }
 
 func (h *namespaceHandler) IsRequired(deployCtx *dataplane.DeploymentContext) bool {
