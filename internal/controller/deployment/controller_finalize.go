@@ -20,20 +20,28 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
+	k8sapierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	// DataPlaneCleanupFinalizer is the finalizer that is used to clean up the data plane resources.
 	DataPlaneCleanupFinalizer = "core.choreo.dev/data-plane-cleanup"
 )
+
+var ErrEndpointDeletionWait = errors.New("some endpoints are still finalizing, retry later")
 
 // ensureFinalizer ensures that the finalizer is added to the deployment.
 // The first return value indicates whether the finalizer was added to the deployment.
@@ -52,6 +60,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, deployment *choreov1.D
 
 // finalize cleans up the data plane resources associated with the deployment.
 func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Deployment) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("deployment", deployment.Name)
 	if !controllerutil.ContainsFinalizer(deployment, DataPlaneCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil
@@ -73,10 +82,44 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 	}
 
 	resourceHandlers := r.makeExternalResourceHandlers()
+	pendingDeletion := false
+
 	for _, resourceHandler := range resourceHandlers {
+		// Skip the namespace resource as it should not be considered to handle the deletion
+		if resourceHandler.Name() == "KubernetesNamespace" {
+			continue
+		}
+
+		// Check if the resource is still being deleted
+		exists, err := resourceHandler.GetCurrentState(ctx, deploymentCtx)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to check existence of external resource %s: %w", resourceHandler.Name(), err)
+		}
+
+		if exists == nil {
+			continue
+		}
+
+		pendingDeletion = true
+		// Trigger deletion of the resource as it is still exists
 		if err := resourceHandler.Delete(ctx, deploymentCtx); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
 		}
+	}
+
+	// Requeue the reconcile loop if there are still resources pending deletion
+	if pendingDeletion {
+		logger.Info("endpoint deletion is still pending as the dependent resource deletion pending.. retrying..")
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+
+	// Clean up the endpoints associated with the deployment
+	if err := r.cleanupEndpoints(ctx, deployment); err != nil {
+		if errors.Is(err, ErrEndpointDeletionWait) {
+			// this means the endpoint deletion is still in progress. So, we need to retry later.
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	// Remove the finalizer after all the data plane resources are cleaned up
@@ -86,4 +129,50 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.Deployment) error {
+	logger := log.FromContext(ctx).WithValues("deployment", deployment.Name)
+	logger.Info("Cleaning up the endpoints associated with the deployment")
+
+	// List all the endpoints associated with the deployment
+	endpointList := &choreov1.EndpointList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(deployment.Namespace),
+		client.MatchingLabels{
+			labels.LabelKeyDeploymentName:      deployment.Name,
+			labels.LabelKeyOrganizationName:    deployment.Labels[labels.LabelKeyOrganizationName],
+			labels.LabelKeyProjectName:         deployment.Labels[labels.LabelKeyProjectName],
+			labels.LabelKeyComponentName:       deployment.Labels[labels.LabelKeyComponentName],
+			labels.LabelKeyDeploymentTrackName: deployment.Labels[labels.LabelKeyDeploymentTrackName],
+		},
+	}
+
+	if err := r.List(ctx, endpointList, listOpts...); err != nil {
+		return fmt.Errorf("error listing endpoints: %w", err)
+	}
+
+	if len(endpointList.Items) == 0 {
+		logger.Info("No endpoints associated with the deployment")
+		return nil
+	}
+
+	for _, endpoint := range endpointList.Items {
+		// Check if the endpoint is being already deleting
+		if !endpoint.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		if err := r.Delete(ctx, &endpoint); err != nil {
+			if k8sapierrors.IsNotFound(err) {
+				// The endpoint is already deleted, no need to retry
+				continue
+			}
+			return fmt.Errorf("error deleting endpoint %s: %w", endpoint.Name, err)
+		}
+	}
+
+	// Reaching this point means the endpoint deletion is either still in progress or has just been initiated.
+	// If this is the initial deletion attempt, requeue the request to verify deletion completion.
+	return ErrEndpointDeletionWait
 }

@@ -47,13 +47,7 @@ func (r *Reconciler) reconcileChoreoEndpoints(ctx context.Context, deploymentCtx
 	var currentEndpoints choreov1.EndpointList
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentCtx.Deployment.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentCtx.Deployment),
-			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentCtx.Deployment),
-			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentCtx.Deployment),
-			labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(deploymentCtx.Deployment),
-			labels.LabelKeyDeploymentName:      controller.GetName(deploymentCtx.Deployment),
-		},
+		client.MatchingFields{"metadata.ownerReferences": string(deploymentCtx.Deployment.UID)},
 	}
 	if err := r.List(ctx, &currentEndpoints, listOpts...); err != nil {
 		return fmt.Errorf("failed to list current endpoints: %w", err)
