@@ -44,6 +44,12 @@ var (
 		Short: "Logout from Choreo",
 	}
 
+	Version = Command{
+		Use:   "version",
+		Short: "Show the version information",
+		Long:  "Show the version information of the Choreo CLI.",
+	}
+
 	Create = Command{
 		Use:   "create",
 		Short: "Create Choreo resources",

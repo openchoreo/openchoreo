@@ -55,6 +55,7 @@ import (
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
 	// +kubebuilder:scaffold:imports
 )
@@ -100,6 +101,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	setupLog.Info("starting controller manager", version.GetLogKeyValues()...)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

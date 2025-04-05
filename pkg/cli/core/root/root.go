@@ -27,6 +27,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/get"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/logs"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -49,6 +50,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		logs.NewLogsCmd(impl),
 		configContext.NewConfigCmd(impl),
 		delete.NewDeleteCmd(impl),
+		version.NewVersionCmd(),
 	)
 
 	return rootCmd
