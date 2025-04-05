@@ -18,8 +18,14 @@ GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$
 
 GO_BUILD_OUTPUT_DIR := $(PROJECT_BIN_DIR)/dist
 
+GO_VERSION_PACKAGE := github.com/openchoreo/openchoreo/internal/version
+
 # Define link flags for the Go build
-GO_LDFLAGS ?= -s -w
+GO_LDFLAGS_COMMON ?= -s -w
+GO_LDFLAGS_BUILD_DATA ?= \
+	-X $(GO_VERSION_PACKAGE).buildTime=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+	-X $(GO_VERSION_PACKAGE).gitRevision=$(GIT_REV) \
+	-X $(GO_VERSION_PACKAGE).version=$(RELEASE_VERSION)
 
 # Helper functions
 get_go_main_package_path = $(word 2, $(subst :, ,$(filter $(1):%, $(GO_BUILD_BINARIES))))
@@ -31,7 +37,10 @@ define go_build
 	$(eval ARCH := $(call get_platform_arch,$(2)))
 	$(eval OUTPUT_PATH := $(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH))
 	$(call log_info, Building binary '$(COMMAND)' for $(OS)/$(ARCH))
-	@mkdir -p $(OUTPUT_PATH)
+	mkdir -p $(OUTPUT_PATH)
+	$(eval GO_LDFLAGS := $(GO_LDFLAGS_COMMON))
+	$(eval GO_LDFLAGS += $(GO_LDFLAGS_BUILD_DATA))
+	$(eval GO_LDFLAGS += -X $(GO_VERSION_PACKAGE).componentName=$$(COMMAND))
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO) build -o $(OUTPUT_PATH)/$(COMMAND) -ldflags "$(GO_LDFLAGS)" \
 		$(MAIN_PACKAGE_PATH)
