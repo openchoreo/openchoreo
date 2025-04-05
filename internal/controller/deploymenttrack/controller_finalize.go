@@ -72,9 +72,16 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 	}
 
 	// Perform cleanup logic for dependent resources
-	if err := r.deleteChildResources(ctx, deploymentTrack); err != nil {
+	complete, err := r.deleteChildResources(ctx, deploymentTrack)
+	if err != nil {
 		logger.Error(err, "Failed to clean up child resources")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
+	}
+
+	// If deletion is still in progress, requeue
+	if !complete {
+		logger.Info("Child resources are still being deleted, will retry")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
@@ -89,30 +96,49 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 }
 
 // deleteChildResources cleans up any resources that are dependent on this DeploymentTrack
-func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+// Returns a boolean indicating if all resources are deleted and an error if something unexpected occurred
+func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 
 	// Clean up builds
-	if err := r.deleteBuildsAndWait(ctx, deploymentTrack); err != nil {
-		return err
+	buildsDeleted, err := r.deleteBuildsAndWait(ctx, deploymentTrack)
+	if err != nil {
+		logger.Error(err, "Failed to delete builds")
+		return false, err
+	}
+	if !buildsDeleted {
+		logger.Info("Builds are still being deleted", "name", deploymentTrack.Name)
+		return false, nil
 	}
 
 	// Clean up deployable artifacts
-	if err := r.deleteDeployableArtifactsAndWait(ctx, deploymentTrack); err != nil {
-		return err
+	artifactsDeleted, err := r.deleteDeployableArtifactsAndWait(ctx, deploymentTrack)
+	if err != nil {
+		logger.Error(err, "Failed to delete deployable artifacts")
+		return false, err
+	}
+	if !artifactsDeleted {
+		logger.Info("Deployable artifacts are still being deleted", "name", deploymentTrack.Name)
+		return false, nil
 	}
 
 	// Clean up deployments
-	if err := r.deleteDeploymentsAndWait(ctx, deploymentTrack); err != nil {
-		return err
+	deploymentsDeleted, err := r.deleteDeploymentsAndWait(ctx, deploymentTrack)
+	if err != nil {
+		logger.Error(err, "Failed to delete deployments")
+		return false, err
+	}
+	if !deploymentsDeleted {
+		logger.Info("Deployments are still being deleted", "name", deploymentTrack.Name)
+		return false, nil
 	}
 
 	logger.Info("All dependent resources are deleted")
-	return nil
+	return true, nil
 }
 
 // deleteBuildsAndWait deletes builds and waits for them to be fully deleted
-func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up builds")
 
@@ -131,9 +157,9 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 	if err := r.List(ctx, buildList, listOpts...); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("Builds not found. Continuing with deletion.")
-			return nil
+			return true, nil
 		}
-		return fmt.Errorf("failed to list builds: %w", err)
+		return false, fmt.Errorf("failed to list builds: %w", err)
 	}
 
 	pendingDeletion := false
@@ -159,7 +185,7 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 					logger.Info("Build already deleted", "name", build.Name)
 					continue
 				}
-				return fmt.Errorf("failed to delete build %s: %w", build.Name, err)
+				return false, fmt.Errorf("failed to delete build %s: %w", build.Name, err)
 			}
 
 			// Mark as pending since we just triggered deletion
@@ -168,16 +194,16 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 
 		// If there are still builds being deleted, go to next iteration to check again later
 		if pendingDeletion {
-			return fmt.Errorf("waiting for builds to be fully deleted")
+			return false, nil
 		}
 	}
 
 	logger.Info("All builds are deleted")
-	return nil
+	return true, nil
 }
 
 // deleteDeployableArtifactsAndWait deletes deployable artifacts and waits for them to be fully deleted
-func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployable artifacts")
 
@@ -196,9 +222,9 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 	if err := r.List(ctx, artifactList, listOpts...); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("Deployable artifacts not found. Continuing with deletion.")
-			return nil
+			return true, nil
 		}
-		return fmt.Errorf("failed to list deployable artifacts: %w", err)
+		return false, fmt.Errorf("failed to list deployable artifacts: %w", err)
 	}
 
 	// Check if any artifacts still exist
@@ -228,7 +254,7 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 				logger.Info("Deployable artifact already deleted", "name", artifact.Name)
 				continue
 			}
-			return fmt.Errorf("failed to delete deployable artifact %s: %w", artifact.Name, err)
+			return false, fmt.Errorf("failed to delete deployable artifact %s: %w", artifact.Name, err)
 		}
 
 		// Mark as pending since we just triggered deletion
@@ -237,15 +263,15 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 
 	// If there are still artifacts being deleted, go to next iteration to check again later
 	if pendingDeletion {
-		return fmt.Errorf("waiting for deployable artifacts to be fully deleted")
+		return false, nil
 	}
 
 	logger.Info("All deployable artifacts are deleted")
-	return nil
+	return true, nil
 }
 
 // deleteDeploymentsAndWait deletes deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) error {
+func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployments")
 
@@ -264,9 +290,9 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 	if err := r.List(ctx, deploymentList, listOpts...); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("Deployments not found. Continuing with deletion.")
-			return nil
+			return true, nil
 		}
-		return fmt.Errorf("failed to list deployments: %w", err)
+		return false, fmt.Errorf("failed to list deployments: %w", err)
 	}
 
 	pendingDeletion := false
@@ -292,7 +318,7 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 					logger.Info("Deployment already deleted", "name", deployment.Name)
 					continue
 				}
-				return fmt.Errorf("failed to delete deployment %s: %w", deployment.Name, err)
+				return false, fmt.Errorf("failed to delete deployment %s: %w", deployment.Name, err)
 			}
 
 			// Mark as pending since we just triggered deletion
@@ -301,10 +327,10 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 
 		// If there are still deployments being deleted, go to next iteration to check again later
 		if pendingDeletion {
-			return fmt.Errorf("waiting for deployments to be fully deleted")
+			return false, nil
 		}
 	}
 
 	logger.Info("All deployments are deleted")
-	return nil
+	return true, nil
 }

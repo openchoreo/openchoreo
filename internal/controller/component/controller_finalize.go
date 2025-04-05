@@ -70,9 +70,14 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 	}
 
 	// Perform cleanup logic for deployment tracks
-	if err := r.deleteDeploymentTracksAndWait(ctx, component); err != nil {
-		logger.Error(err, "Failed to delete dependent resources")
-		return ctrl.Result{}, nil
+	artifactsDeleted, err := r.deleteDeploymentTracksAndWait(ctx, component)
+	if err != nil {
+		logger.Error(err, "Failed to delete deployment tracks")
+		return ctrl.Result{}, err
+	}
+	if !artifactsDeleted {
+		logger.Info("Deployment tracks are still being deleted", "name", component.Name)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
@@ -87,7 +92,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 }
 
 // deleteDeploymentTracksAndWait cleans up any resources that are dependent on this Component
-func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, component *choreov1.Component) error {
+func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, component *choreov1.Component) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("component", component.Name)
 	logger.Info("Cleaning up dependent resources")
 
@@ -106,11 +111,11 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 		if errors.IsNotFound(err) {
 			// The DeploymentTrack resource may have been deleted since it triggered the reconcile
 			logger.Info("Deployment track not found. Ignoring since it must either be deleted or no deployment tracks have been created.")
-			return nil
+			return true, nil
 		}
 
 		// It's a real error
-		return fmt.Errorf("failed to list deployment tracks: %w", err)
+		return false, fmt.Errorf("failed to list deployment tracks: %w", err)
 	}
 
 	pendingDeletion := false
@@ -135,7 +140,7 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 					logger.Info("Deployment track already deleted", "name", deploymentTrack.Name)
 					continue
 				}
-				return fmt.Errorf("failed to delete deployment track %s: %w", deploymentTrack.Name, err)
+				return false, fmt.Errorf("failed to delete deployment track %s: %w", deploymentTrack.Name, err)
 			}
 
 			// Mark as pending since we just triggered deletion
@@ -144,10 +149,10 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 
 		// If there are still tracks being deleted, go to next iteration to check again later
 		if pendingDeletion {
-			return fmt.Errorf("waiting for deployment tracks to be fully deleted")
+			return false, nil
 		}
 	}
 
 	logger.Info("All deployment tracks are deleted")
-	return nil
+	return true, nil
 }
