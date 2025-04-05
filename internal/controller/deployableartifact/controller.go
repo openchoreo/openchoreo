@@ -83,7 +83,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	//Handle create
+	// Handle create
 	// Ignore reconcile if the DeployableArtifact is already available since this is a one-time createß
 	if r.shouldIgnoreReconcile(deployableartifact) {
 		return ctrl.Result{}, nil
