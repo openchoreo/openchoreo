@@ -77,7 +77,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 	}
 	if !artifactsDeleted {
 		logger.Info("Deployment tracks are still being deleted", "name", component.Name)
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Remove the finalizer once cleanup is done

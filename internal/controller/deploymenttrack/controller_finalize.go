@@ -78,10 +78,10 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 		return ctrl.Result{}, err
 	}
 
-	// If deletion is still in progress, requeue
+	// If deletion is still in progress, check in next cycle
 	if !complete {
 		logger.Info("Child resources are still being deleted, will retry")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
