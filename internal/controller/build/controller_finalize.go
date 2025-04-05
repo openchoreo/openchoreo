@@ -21,6 +21,7 @@ package build
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,6 +95,13 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 	if controllerutil.RemoveFinalizer(build, CleanUpFinalizer) {
 		// Update the resource to reflect finalizer removal
 		if err := r.Update(ctx, build); err != nil {
+			// Handle common error cases that are expected during deletion
+			if apierrors.IsNotFound(err) || apierrors.IsConflict(err) ||
+				strings.Contains(err.Error(), "Precondition failed") ||
+				strings.Contains(err.Error(), "the object has been modified") {
+				// Resource already gone or modified by another controller, no need to do anything
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}
@@ -124,11 +132,12 @@ func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreo
 		return fmt.Errorf("failed to check deployable artifact: %w", err)
 	}
 
-	// If artifact is pending deletion, update condition and wait for new event
+	// If artifact is pending deletion, update condition and let the next cycle handle it
 	if !existingArtifact.DeletionTimestamp.IsZero() {
 		meta.SetStatusCondition(&build.Status.Conditions, NewArtifactRemainingCondition(build.Generation))
 		r.recorder.Event(build, corev1.EventTypeWarning, "DeployableArtifactPendingDeletion",
 			"Deployable artifact is pending deletion due to finalizer. Build deletion is blocked.")
+		// Return nil instead of error to indicate the process is happening normally
 		return nil
 	}
 
@@ -143,6 +152,7 @@ func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreo
 		return fmt.Errorf("failed to delete deployable artifact: %w", err)
 	}
 
-	// Deletion initiated successfully, requeue to check if it gets finalized
-	return fmt.Errorf("deletion initiated, requeue to confirm completion")
+	// Deletion initiated successfully, set condition so that the normal reconciliation cycle continues
+	meta.SetStatusCondition(&build.Status.Conditions, NewArtifactRemainingCondition(build.Generation))
+	return nil
 }
