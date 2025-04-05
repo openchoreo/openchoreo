@@ -36,7 +36,6 @@ import (
 // that refers to a given build, deployable artifact or deployment and makes a reconcile.Request for reconciliation.
 func (r *Reconciler) listDeploymentTrackForBuild(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	logger.Info("In watch for Build in DT")
 
 	build, ok := obj.(*choreov1.Build)
 	if !ok {
@@ -74,7 +73,6 @@ func (r *Reconciler) listDeploymentTrackForBuild(ctx context.Context, obj client
 
 func (r *Reconciler) listDeploymentTrackForDeployableArtifact(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	logger.Info("In watch for DeployableArtifact in DT")
 
 	deployableArtifact, ok := obj.(*choreov1.DeployableArtifact)
 	if !ok {
@@ -112,7 +110,6 @@ func (r *Reconciler) listDeploymentTrackForDeployableArtifact(ctx context.Contex
 
 func (r *Reconciler) listDeploymentTrackForDeployments(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	logger.Info("In watch for Deployment in DT")
 
 	deployment, ok := obj.(*choreov1.Deployment)
 	if !ok {
