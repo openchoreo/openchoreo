@@ -36,7 +36,6 @@ import (
 // that refers to a given deployment track and makes a reconcile.Request for reconciliation.
 func (r *Reconciler) listComponentsForDeploymentTrack(ctx context.Context, obj client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	logger.Info("In watch for DeploymentTrack in Component")
 
 	deploymentTrack, ok := obj.(*choreov1.DeploymentTrack)
 	if !ok {

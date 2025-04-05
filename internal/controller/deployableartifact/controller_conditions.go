@@ -24,16 +24,39 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
-// ReasonDeployableArtifactAvailable is the reason used when a deployableArtifact is available
-const ReasonDeployableArtifactAvailable controller.ConditionReason = "DeployableArtifactAvailable"
+const (
+	// ConditionAvailable represents whether the deployableArtifact is created
+	ConditionAvailable controller.ConditionType = "Available"
+	// ConditionFinalizing represents whether the deployableArtifact is being finalized
+	ConditionFinalizing controller.ConditionType = "Finalizing"
+)
+
+const (
+	// ReasonDeployableArtifactAvailable is the reason used when a deployableArtifact is available
+	ReasonDeployableArtifactAvailable controller.ConditionReason = "DeployableArtifactAvailable"
+
+	// ReasonDeployableArtifactFinalizing is the reason used when a deployableArtifact's dependents are being deleted'
+	ReasonDeployableArtifactFinalizing controller.ConditionReason = "DeployableArtifactFinalizing"
+)
 
 // NewDeployableArtifactAvailableCondition creates a condition to indicate the deployableArtifact is available
 func NewDeployableArtifactAvailableCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
-		controller.TypeAvailable,
+		ConditionAvailable,
 		metav1.ConditionTrue,
 		ReasonDeployableArtifactAvailable,
-		"DeployableArtofact is available",
+		"DeployableArtifact is available",
+		generation,
+	)
+}
+
+// NewDeployableArtifactFinalizingCondition creates a condition to indicate the deployableArtifact is being finalized
+func NewDeployableArtifactFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonDeployableArtifactFinalizing,
+		"DeployableArtifact is finalizing",
 		generation,
 	)
 }
