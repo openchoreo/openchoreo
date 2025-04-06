@@ -131,6 +131,6 @@ jobs:
         if: github.ref == 'refs/heads/release-improvements'
         run: make docker.push-multiarch
 
-      - name: Package and push latest-dev helm chart
+      - name: Package and push latest-dev helm charts
         if: github.ref == 'refs/heads/release-improvements' #TODO: update this to main
         run: make helm-push

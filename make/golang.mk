@@ -46,6 +46,25 @@ define go_build
 		$(MAIN_PACKAGE_PATH)
 endef
 
+define package_binary
+	$(eval BINARY_NAME := $(1))
+	$(eval OS := $(call get_platform_os,$(2)))
+    $(eval ARCH := $(call get_platform_arch,$(2)))
+    $(eval OUTPUT_PATH := $(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH))
+	$(eval BIN_PATH := $(OUTPUT_PATH)/$(BINARY_NAME))
+	$(eval PACKAGE_FILE_NAME := $(BINARY_NAME)_v$(RELEASE_VERSION)_$(OS)_$(ARCH))
+	$(call log_info, Packaging binary '$(BINARY_NAME)' for $(OS)/$(ARCH))
+	if [ -f $(BIN_PATH) ]; then \
+		if [ $(OS) = "windows" ]; then \
+			zip -rj $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).zip $(BIN_PATH); \
+		else \
+			 tar -zcvf $(OUTPUT_PATH)/$(PACKAGE_FILE_NAME).tar.gz -C $(OUTPUT_PATH) $(BINARY_NAME); \
+		fi; \
+	else \
+		$(call log_info, "Skipping binary '$(BINARY_NAME)': $(BIN_PATH) not found"); \
+	fi
+endef
+
 ##@ Golang
 
 # Define the build target for a binary
@@ -76,6 +95,20 @@ go.build-multiarch.%: ## Build a binary for multiple platforms. Ex: make go.buil
 
 .PHONY: go.build-multiarch
 go.build-multiarch: $(addprefix go.build-multiarch., $(GO_BUILD_BINARY_NAMES)) ## Build all binaries for multiple platforms.
+
+
+.PHONY: go.package.%
+go.package.%: ## Package the multi arch binaries. Ex: make go.package.choreoctl
+	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
+		$(call log_error, Invalid go package target '$*'); \
+		exit 1; \
+	fi
+	@$(foreach platform,$(GO_TARGET_PLATFORMS), \
+    	$(call package_binary, $*, $(platform)); \
+    )
+
+.PHONY: go.package
+go.package: $(addprefix go.package., $(GO_BUILD_BINARY_NAMES)) ## Package all binaries for multiple platforms.
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
