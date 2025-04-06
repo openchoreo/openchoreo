@@ -20,7 +20,6 @@ package deployment
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -40,8 +39,6 @@ const (
 	// DataPlaneCleanupFinalizer is the finalizer that is used to clean up the data plane resources.
 	DataPlaneCleanupFinalizer = "core.choreo.dev/data-plane-cleanup"
 )
-
-var ErrEndpointDeletionWait = errors.New("some endpoints are still finalizing, retry later")
 
 // ensureFinalizer ensures that the finalizer is added to the deployment.
 // The first return value indicates whether the finalizer was added to the deployment.
@@ -86,6 +83,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 
 	for _, resourceHandler := range resourceHandlers {
 		// Skip the namespace resource as it should not be considered to handle the deletion
+		// Otherwise it will become an infinite retry, as the deletion of namespace is not implemented (returning null)
+		// and GetCurrentState returns the actual resource.
 		if resourceHandler.Name() == "KubernetesNamespace" {
 			continue
 		}
@@ -114,12 +113,15 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 	}
 
 	// Clean up the endpoints associated with the deployment
-	if err := r.cleanupEndpoints(ctx, deployment); err != nil {
-		if errors.Is(err, ErrEndpointDeletionWait) {
-			// this means the endpoint deletion is still in progress. So, we need to retry later.
-			return ctrl.Result{}, nil
-		}
+	isPending, err := r.cleanupEndpoints(ctx, deployment)
+
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if isPending {
+		// the next reconcile will be triggered after the pending endpoint/s deleted
+		return ctrl.Result{}, nil
 	}
 
 	// Remove the finalizer after all the data plane resources are cleaned up
@@ -131,7 +133,10 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.Deployment) error {
+// cleanupEndpoints cleans up the endpoints associated with the deployment.
+// it will return true, nil if the deletion is still in progress and false, nil if the deletion is completed.
+// false, error will be returned if there is an error while deleting the endpoints.
+func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.Deployment) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deployment", deployment.Name)
 	logger.Info("Cleaning up the endpoints associated with the deployment")
 
@@ -149,12 +154,12 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 	}
 
 	if err := r.List(ctx, endpointList, listOpts...); err != nil {
-		return fmt.Errorf("error listing endpoints: %w", err)
+		return false, fmt.Errorf("error listing endpoints: %w", err)
 	}
 
 	if len(endpointList.Items) == 0 {
 		logger.Info("No endpoints associated with the deployment")
-		return nil
+		return false, nil
 	}
 
 	for _, endpoint := range endpointList.Items {
@@ -168,11 +173,11 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 				// The endpoint is already deleted, no need to retry
 				continue
 			}
-			return fmt.Errorf("error deleting endpoint %s: %w", endpoint.Name, err)
+			return false, fmt.Errorf("error deleting endpoint %s: %w", endpoint.Name, err)
 		}
 	}
 
 	// Reaching this point means the endpoint deletion is either still in progress or has just been initiated.
-	// If this is the initial deletion attempt, requeue the request to verify deletion completion.
-	return ErrEndpointDeletionWait
+	// If this is the first deletion attempt, marking the pending deletion as true.
+	return true, nil
 }

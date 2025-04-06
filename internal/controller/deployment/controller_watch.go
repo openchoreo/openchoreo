@@ -21,14 +21,12 @@ package deployment
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // All the watch handlers for the deployment controller are defined in this file.
@@ -60,6 +58,7 @@ func (r *Reconciler) setupDeploymentArtifactRefIndex(ctx context.Context, mgr ct
 	)
 }
 
+// setupEndpointsOwnerRefIndex creates a field index for the endpoints that are owned by the deployment.
 func (r *Reconciler) setupEndpointsOwnerRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
@@ -201,55 +200,4 @@ func (r *Reconciler) listDeploymentsForConfigurationGroup(ctx context.Context, o
 		}
 	}
 	return requests
-}
-
-// nonOwnedEndpointWatchFilter is a watch filter that filters out the endpoints that are not owned by the deployment,
-// but has the label refers to the deployment.
-type nonOwnedEndpointWatchFilter struct {
-	labelKeys []string
-}
-
-func (r *nonOwnedEndpointWatchFilter) IsRelevant(obj client.Object) bool {
-	endpoint, ok := obj.(*choreov1.Endpoint)
-	if !ok {
-		return false
-	}
-
-	// Check if it has owner references
-	// If it has owner references, returning as it is not relevant
-	if len(endpoint.GetOwnerReferences()) > 0 {
-		return false
-	}
-
-	// Check if the label exists
-	isRelevant := true
-	for _, labelKey := range r.labelKeys {
-		if _, exists := endpoint.Labels[labelKey]; !exists {
-			isRelevant = false
-		}
-	}
-
-	return isRelevant
-}
-
-func (r *nonOwnedEndpointWatchFilter) GetReconcileRequests(ctx context.Context, obj client.Object) []reconcile.Request {
-	endpoint, ok := obj.(*choreov1.Endpoint)
-	if !ok {
-		return nil
-	}
-
-	for _, labelKey := range r.labelKeys {
-		if _, exists := endpoint.Labels[labelKey]; !exists {
-			return nil
-		}
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      endpoint.Labels[labels.LabelKeyDeploymentName],
-				Namespace: endpoint.Namespace,
-			},
-		},
-	}
 }

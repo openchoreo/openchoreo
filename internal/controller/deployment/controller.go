@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,9 +35,7 @@ import (
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/controller/watchfilters"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Deployment object
@@ -159,17 +156,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup endpoints owner reference index: %w", err)
 	}
 
-	// Create a watch filter for the endpoints that are not owned by the deployment
-	nonOwnedEndpointWatchFilter := &nonOwnedEndpointWatchFilter{
-		labelKeys: []string{
-			labels.LabelKeyOrganizationName,
-			labels.LabelKeyProjectName,
-			labels.LabelKeyComponentName,
-			labels.LabelKeyDeploymentTrackName,
-			labels.LabelKeyDeploymentName,
-		},
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Deployment{}).
 		Named("deployment").
@@ -183,12 +169,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&choreov1.ConfigurationGroup{},
 			handler.EnqueueRequestsFromMapFunc(r.listDeploymentsForConfigurationGroup),
 		).
-		Owns(&choreov1.Endpoint{}).
-		// Watch Endpoints that are NOT owned by the Deployment but have the label
+		// Watch Endpoints that are associated to the deployment by label
 		Watches(
 			&choreov1.Endpoint{},
-			handler.EnqueueRequestsFromMapFunc(watchfilters.BuildMapFunc(nonOwnedEndpointWatchFilter)),
-			builder.WithPredicates(watchfilters.BuildPredicates(nonOwnedEndpointWatchFilter)),
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Endpoint, *choreov1.Deployment](
+				r.Client, controller.GetDeployment)),
 		).
 		Complete(r)
 }

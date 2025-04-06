@@ -87,6 +87,11 @@ func IgnoreHierarchyNotFoundError(err error) error {
 	return err
 }
 
+// HierarchyFunc is a generic function type that takes a context, client, and object as input and
+// returns an object of type T and an error.
+// This is used for MakeHierarchyWatchHandler to define the function that will be called to get the target object.
+type HierarchyFunc[T any] func(ctx context.Context, c client.Client, obj client.Object) (T, error)
+
 // objWithName is a helper functions to set the name of the object.
 // Use this function to only set the name of a newly created object as it directly modifies the object.
 func objWithName(obj client.Object, name string) client.Object {
