@@ -1,37 +1,90 @@
 name: Release
 
 on:
-  # Manual Release
-  workflow_dispatch:
-  # TODO: Add a tag to trigger the release and remove the branch push trigger
   push:
-    branches:
-      - main
-
+    tags:
+      - "v*.*.*"
 
 jobs:
+  # In the release job, try to use artifacts from the build job as much as possible
+  # to keep the release deterministic. This will ensure the release includes the tested artifacts.
   release:
-    runs-on: ubuntu-latest
+    name: Release
+    runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: GitHub Container Registry Login
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
 
-      - name: Docker Build and Push
+      - name: Set commit SHA and release tag
         run: |
-          make docker-build docker-push docker-push-latest
+          echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "GIT_SHA_LONG=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+          echo "RELEASE_TAG_WITHOUT_V=$(echo ${GITHUB_REF##*/v})" >> $GITHUB_ENV
 
-      - name: Helm Registry Login
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Helm Package and Push
+      - name: Validate VERSION file
         run: |
-          # Fix to remove tag from generated helmify values.yaml 
-          # See: https://github.com/arttor/helmify/issues/15
-          sed -i '/^[[:space:]]*tag:/d' install/helm/choreo/values.yaml
-          make helm-dependency-build helm-package helm-push
+          VERSION=$(cat VERSION)
+          if [ "${VERSION}" != "${{ env.RELEASE_TAG_WITHOUT_V }}" ]; then
+            echo "VERSION file value '${VERSION}' does not match the release tag '${{ env.RELEASE_TAG_WITHOUT_V }}'"
+            echo "The VERSION file should contain the tag version without the leading 'v'."
+            echo "Please update the VERSION file to match the release tag."
+            exit 1
+          fi
+
+      - name: Login to GitHub container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag and push existing images
+        run: |
+          docker buildx imagetools create -t ghcr.io/openchoreo/controller:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/controller:${{ env.GIT_SHA_SHORT }}
+          docker buildx imagetools create -t ghcr.io/openchoreo/quick-start:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/quick-start:${{ env.GIT_SHA_SHORT }}
+
+      - name: Download choreoctl artifact from the build workflow
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: build-and-test.yml
+          commit: ${{ env.GIT_SHA_LONG }}
+          event: push
+          name: choreoctl
+          path: bin/dist
+
+      - name: Set executable permissions
+        run: |          
+          chmod +x bin/dist/linux/amd64/choreoctl
+          chmod +x bin/dist/linux/arm64/choreoctl
+          chmod +x bin/dist/darwin/amd64/choreoctl
+          chmod +x bin/dist/darwin/arm64/choreoctl
+
+      - name: Package the choreoctl binaries
+        run: |
+          make go.package.choreoctl
+
+      - name: Package and push helm charts
+        run: |
+          make helm-push HELM_CHART_VERSION=${{ env.RELEASE_TAG_WITHOUT_V }} TAG=${{ env.RELEASE_TAG }} HELM_CONTROLLER_IMAGE_PULL_POLICY=IfNotPresent
+
+      - name: Upload GitHub release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            bin/dist/linux/amd64/choreoctl_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
+            bin/dist/linux/arm64/choreoctl_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz
+            bin/dist/darwin/amd64/choreoctl_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz
+            bin/dist/darwin/arm64/choreoctl_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
+            bin/dist/windows/amd64/choreoctl_${{ env.RELEASE_TAG }}_windows_amd64.zip
+            bin/dist/windows/arm64/choreoctl_${{ env.RELEASE_TAG }}_windows_arm64.zip
+
