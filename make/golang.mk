@@ -1,7 +1,8 @@
 # This makefile contains all the make targets related to the building of Go binaries.
 
-# Define Go command to use
+# Define Go command and GOPATH to use
 GO := go
+GOPATH ?= $(shell go env GOPATH)
 
 # Current platform for local build
 GO_CURRENT_PLATFORM := $(shell $(GO) env GOOS)/$(shell $(GO) env GOARCH)
@@ -67,6 +68,10 @@ endef
 
 ##@ Golang
 
+#-----------------------------------------------------------------------------
+# Go Build targets
+#-----------------------------------------------------------------------------
+
 # Define the build target for a binary
 # This will build the binary for the current platform
 # Ex: make go.build.manager, make go.build.choreoctl
@@ -96,6 +101,9 @@ go.build-multiarch.%: ## Build a binary for multiple platforms. Ex: make go.buil
 .PHONY: go.build-multiarch
 go.build-multiarch: $(addprefix go.build-multiarch., $(GO_BUILD_BINARY_NAMES)) ## Build all binaries for multiple platforms.
 
+#-----------------------------------------------------------------------------
+# Go Package targets
+#-----------------------------------------------------------------------------
 
 .PHONY: go.package.%
 go.package.%: ## Package the multi arch binaries. Ex: make go.package.choreoctl
@@ -109,6 +117,38 @@ go.package.%: ## Package the multi arch binaries. Ex: make go.package.choreoctl
 
 .PHONY: go.package
 go.package: $(addprefix go.package., $(GO_BUILD_BINARY_NAMES)) ## Package all binaries for multiple platforms.
+
+#-----------------------------------------------------------------------------
+# Go Run and Install targets
+#-----------------------------------------------------------------------------
+
+.PHONY: go.run.%
+go.run.%: ## Run the go program using go run. Ex: make go.run.choreoctl GO_RUN_ARGS="version"
+	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
+		$(call log_error, Invalid go run target '$*'); \
+		exit 1; \
+	fi
+	@$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	@$(eval MAIN_PACKAGE_PATH := $(call get_go_main_package_path,$(COMMAND)))
+	$(GO) run $(MAIN_PACKAGE_PATH) $(GO_RUN_ARGS)
+
+.PHONY: go.install.%
+go.install.%: go.build.% ## Install the go program to the GOBIN directory. Ex: make go.install.choreoctl
+	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
+		$(call log_error, Invalid go install target '$*'); \
+		exit 1; \
+	fi
+	@$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	@$(eval OS := $(call get_platform_os,$(GO_CURRENT_PLATFORM)))
+	@$(eval ARCH := $(call get_platform_arch,$(GO_CURRENT_PLATFORM)))
+	@cp $(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH)/$(COMMAND) $(GOPATH)/bin/$(COMMAND)
+
+.PHONY: go.install
+go.install: $(addprefix go.install., $(GO_BUILD_BINARY_NAMES)) ## Install all binaries to the GOBIN directory.
+
+#-----------------------------------------------------------------------------
+# Go Other targets
+#-----------------------------------------------------------------------------
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
