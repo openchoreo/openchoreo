@@ -296,11 +296,6 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 		}
 	}
 
-	// Make sure existingWorkflow is not nil before type assertion
-	if existingWorkflow == nil {
-		return nil, fmt.Errorf("workflow not found after creation attempt")
-	}
-
 	// Use the two-value form of type assertion for safety
 	existing, ok := existingWorkflow.(argoproj.Workflow)
 	if !ok {
