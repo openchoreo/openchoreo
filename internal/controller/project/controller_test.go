@@ -220,23 +220,41 @@ var _ = Describe("Project Controller", func() {
 			Expect(k8sClient.Delete(ctx, project)).To(Succeed())
 		})
 
-		By("Checking the project resource deletion", func() {
-			Eventually(func() error {
-				return k8sClient.Get(ctx, projectNamespacedName, project)
-			}, time.Second*10, time.Millisecond*500).ShouldNot(Succeed())
-		})
-
 		By("Reconciling the project resource after deletion", func() {
-			dpReconciler := &Reconciler{
+			projectReconciler := &Reconciler{
 				Client:   k8sClient,
 				Scheme:   k8sClient.Scheme(),
 				Recorder: record.NewFakeRecorder(100),
 			}
-			result, err := dpReconciler.Reconcile(ctx, reconcile.Request{
+
+			// Project should exist but be marked for deletion
+			updatedProject := &apiv1.Project{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, projectNamespacedName, updatedProject)
+				if err != nil {
+					return false
+				}
+				return !updatedProject.DeletionTimestamp.IsZero()
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Run the finalizer reconciliation
+			result, err := projectReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: projectNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Run the finalizer reconciliation again to complete deletion
+			result, err = projectReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: projectNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
+		})
+
+		By("Checking the project resource deletion", func() {
+			Eventually(func() error {
+				return k8sClient.Get(ctx, projectNamespacedName, project)
+			}, time.Second*10, time.Millisecond*500).ShouldNot(Succeed())
 		})
 	})
 
