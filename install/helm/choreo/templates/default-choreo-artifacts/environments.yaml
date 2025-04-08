@@ -9,7 +9,7 @@ metadata:
   annotations:
     core.choreo.dev/display-name: {{ .displayName }}
     core.choreo.dev/description: {{ .displayName }}
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "9"
   labels:
     core.choreo.dev/organization: {{ .organization }}

@@ -1,5 +1,7 @@
 # This makefile contains all the make targets related Kubernetes development.
 
+KUBE_DEV_DEPLOY_NAMESPACE ?= choreo-system
+
 ##@ Kubernetes Development
 
 .PHONY: manifests
@@ -28,3 +30,15 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 	}
 	go test ./test/e2e/ -v -ginkgo.v
 
+.PHONY: dev-deploy
+dev-deploy: ## Deploy the Choreo developer version to a Kind cluster configured in ~/.kube/config
+	@$(MAKE) helm-package
+	helm upgrade --install cilium $(HELM_CHARTS_OUTPUT_DIR)/cilium-$(HELM_CHART_VERSION).tgz \
+		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
+	helm upgrade --install choreo $(HELM_CHARTS_OUTPUT_DIR)/choreo-$(HELM_CHART_VERSION).tgz \
+    	--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
+
+.PHONY: dev-undeploy
+dev-undeploy: ## Undeploy the Choreo developer version from a Kind cluster configured in ~/.kube/config
+	helm uninstall choreo --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
+	helm uninstall cilium --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"

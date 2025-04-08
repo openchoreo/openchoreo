@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: wait-for-vault-ready
   annotations:
-    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "12"
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:

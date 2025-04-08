@@ -3,7 +3,7 @@ kind: ClusterIssuer
 metadata:
   name: self-signed-issuer
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "1"
     labels:
     {{- include "choreo.labels" . | nindent 4 }}
@@ -16,7 +16,7 @@ metadata:
   name: selfsigned-cert
   namespace: {{ .Values.namespace | default .Release.Namespace }}
   annotations:
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "2"
     labels:
     {{- include "choreo.labels" . | nindent 4 }}

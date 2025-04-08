@@ -7,7 +7,7 @@ metadata:
   annotations:
     core.choreo.dev/display-name: {{ .Values.choreoDefaultValues.dataPlane.displayName }}
     core.choreo.dev/description: {{ .Values.choreoDefaultValues.dataPlane.description }}
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "8"
   labels:
     core.choreo.dev/organization: {{ .Values.choreoDefaultValues.dataPlane.organization }}

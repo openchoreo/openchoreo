@@ -16,7 +16,7 @@ metadata:
   annotations:
     core.choreo.dev/display-name: {{ .Values.choreoDefaultValues.organization.displayName }}
     core.choreo.dev/description: {{ .Values.choreoDefaultValues.organization.description }}
-    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "7"
   labels:
     core.choreo.dev/name: {{ .Values.choreoDefaultValues.organization.name }}
