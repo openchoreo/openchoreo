@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/openchoreo/openchoreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	deppip "github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
@@ -51,7 +51,7 @@ var _ = Describe("Project Controller", func() {
 		Name: orgName,
 	}
 
-	organization := &apiv1.Organization{
+	organization := &choreov1.Organization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: orgName,
 		},
@@ -73,7 +73,7 @@ var _ = Describe("Project Controller", func() {
 			Namespace: orgName,
 		}
 
-		dataplane := &apiv1.DataPlane{
+		dataplane := &choreov1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
 				Namespace: orgName,
@@ -94,7 +94,7 @@ var _ = Describe("Project Controller", func() {
 			Name:      envName,
 		}
 
-		environment := &apiv1.Environment{
+		environment := &choreov1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envName,
 				Namespace: orgName,
@@ -105,6 +105,13 @@ var _ = Describe("Project Controller", func() {
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Environment",
 					controller.AnnotationKeyDescription: "Test Environment Description",
+				},
+			},
+			Spec: choreov1.EnvironmentSpec{
+				DataPlaneRef: dpName,
+				IsProduction: false,
+				Gateway: choreov1.GatewayConfig{
+					DNSPrefix: envName,
 				},
 			},
 		}
@@ -123,7 +130,7 @@ var _ = Describe("Project Controller", func() {
 			Name:      deppipName,
 		}
 
-		depPip := &apiv1.DeploymentPipeline{
+		depPip := &choreov1.DeploymentPipeline{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deppipName,
 				Namespace: orgName,
@@ -136,11 +143,11 @@ var _ = Describe("Project Controller", func() {
 					controller.AnnotationKeyDescription: "Test Deployment pipeline Description",
 				},
 			},
-			Spec: apiv1.DeploymentPipelineSpec{
-				PromotionPaths: []apiv1.PromotionPath{
+			Spec: choreov1.DeploymentPipelineSpec{
+				PromotionPaths: []choreov1.PromotionPath{
 					{
 						SourceEnvironmentRef:  "test-env",
-						TargetEnvironmentRefs: make([]apiv1.TargetEnvironmentRef, 0),
+						TargetEnvironmentRefs: make([]choreov1.TargetEnvironmentRef, 0),
 					},
 				},
 			},
@@ -165,12 +172,12 @@ var _ = Describe("Project Controller", func() {
 			Name:      projectName,
 		}
 
-		project := &apiv1.Project{}
+		project := &choreov1.Project{}
 
 		By("Creating the project resource", func() {
 			err := k8sClient.Get(ctx, projectNamespacedName, project)
 			if err != nil && errors.IsNotFound(err) {
-				dp := &apiv1.Project{
+				dp := &choreov1.Project{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      projectName,
 						Namespace: orgName,
@@ -183,7 +190,7 @@ var _ = Describe("Project Controller", func() {
 							controller.AnnotationKeyDescription: "Test Project Description",
 						},
 					},
-					Spec: apiv1.ProjectSpec{
+					Spec: choreov1.ProjectSpec{
 						DeploymentPipelineRef: "test-deployment-pipeline",
 					},
 				}
@@ -204,13 +211,13 @@ var _ = Describe("Project Controller", func() {
 		})
 
 		By("Checking the project resource", func() {
-			project := &apiv1.Project{}
+			project := &choreov1.Project{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, projectNamespacedName, project)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(project.Name).To(Equal(projectName))
 			Expect(project.Namespace).To(Equal(orgName))
-			Expect(project.Spec).To(Equal(apiv1.ProjectSpec{DeploymentPipelineRef: "test-deployment-pipeline"}))
+			Expect(project.Spec).To(Equal(choreov1.ProjectSpec{DeploymentPipelineRef: "test-deployment-pipeline"}))
 			Expect(project.Spec).NotTo(BeNil())
 		})
 
@@ -228,7 +235,7 @@ var _ = Describe("Project Controller", func() {
 			}
 
 			// Project should exist but be marked for deletion
-			updatedProject := &apiv1.Project{}
+			updatedProject := &choreov1.Project{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, projectNamespacedName, updatedProject)
 				if err != nil {
@@ -259,7 +266,7 @@ var _ = Describe("Project Controller", func() {
 
 	AfterEach(func() {
 		By("Deleting the organization resource", func() {
-			org := &apiv1.Organization{}
+			org := &choreov1.Organization{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: orgName}, org)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, org)).To(Succeed())
