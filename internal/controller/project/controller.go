@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
@@ -69,12 +70,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the original object for comparison
 	old := project.DeepCopy()
 
+	// Handle the deletion of the project
+	if !project.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing project")
+		return r.finalize(ctx, old, project)
+	}
+
+	// Ensure the finalizer is added to the project
+	if finalizerAdded, err := r.ensureFinalizer(ctx, project); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
+	}
+
+	// Handle creation of the project
 	// Check if a condition exists already to determine if this is a first-time creation
 	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
 	isNewResource := existingCondition == nil
 
-	// Reconcile the Project resource
-	r.reconcileProject(ctx, project)
+	// Set the observed generation
+	project.Status.ObservedGeneration = project.Generation
+
+	// Update the status condition to indicate the project is created/ready
+	meta.SetStatusCondition(
+		&project.Status.Conditions,
+		NewProjectCreatedCondition(project.Generation),
+	)
 
 	// Update status if needed
 	if err := controller.UpdateStatusConditions(ctx, r.Client, old, project); err != nil {
@@ -88,21 +108,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-// reconcileProject handles the core reconciliation logic for the Project resource
-func (r *Reconciler) reconcileProject(ctx context.Context, project *choreov1.Project) {
-	logger := log.FromContext(ctx).WithValues("project", project.Name)
-	logger.Info("Reconciling project")
-
-	// Set the observed generation
-	project.Status.ObservedGeneration = project.Generation
-
-	// Update the status condition to indicate the project is created/ready
-	meta.SetStatusCondition(
-		&project.Status.Conditions,
-		NewProjectCreatedCondition(project.Generation),
-	)
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
@@ -112,5 +117,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Project{}).
 		Named("project").
+		// Watch for Component changes to reconcile the project
+		Watches(
+			&choreov1.Component{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Component, *choreov1.Project](
+				r.Client, controller.GetProject)),
+		).
 		Complete(r)
 }
