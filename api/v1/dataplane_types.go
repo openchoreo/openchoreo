@@ -29,20 +29,20 @@ import (
 type KubernetesClusterSpec struct {
 	// Name of the Kubernetes cluster
 	Name string `json:"name"`
-	// Reference to the connection configuration for the cluster
-	ConnectionConfigRef string `json:"connectionConfigRef"`
-	// FeatureFlags specifies enabled/disabled features
-	FeatureFlags FeatureFlagsSpec `json:"featureFlags"`
+	// Credentials contains the authentication details for accessing the Kubernetes API server.
+	Credentials APIServerCredentials `json:"credentials"`
 }
 
-// FeatureFlagsSpec defines the feature flags for the data plane
-type FeatureFlagsSpec struct {
-	// Enable/disable Cilium networking
-	Cilium bool `json:"cilium"`
-	// Enable/disable scale to zero functionality
-	ScaleToZero bool `json:"scaleToZero"`
-	// GatewayType specifies the type of gateway to be used (e.g., envoy)
-	GatewayType string `json:"gatewayType"`
+// APIServerCredentials holds the TLS credentials to connect securely with a Kubernetes API server.
+type APIServerCredentials struct {
+	// APIServerURL is the URL of the Kubernetes API server.
+	APIServerURL string `json:"apiServerURL"`
+	// CACert is the base64-encoded CA certificate used to verify the server's certificate.
+	CACert string `json:"caCert"`
+	// ClientCert is the base64-encoded client certificate used for authentication.
+	ClientCert string `json:"clientCert"`
+	// ClientKey is the base64-encoded private key corresponding to the client certificate.
+	ClientKey string `json:"clientKey"`
 }
 
 // GatewaySpec defines the gateway configuration for the data plane
