@@ -129,7 +129,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for Deployment changes to reconcile the component
 		Watches(
 			&choreov1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(r.listDeployableArtifactForDeployment),
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeployableArtifact](
+				r.Client, controller.GetDeployableArtifact)),
 		).
 		Complete(r)
 }

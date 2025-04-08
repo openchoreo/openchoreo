@@ -46,6 +46,11 @@ func GetDeploymentTrackName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyDeploymentTrackName)
 }
 
+// GetBuildName returns the build name that the object belongs to.
+func GetBuildName(obj client.Object) string {
+	return getLabelValueOrEmpty(obj, labels.LabelKeyBuildName)
+}
+
 // GetDeploymentName returns the deployment name that the object belongs to.
 func GetDeploymentName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyDeploymentName)
