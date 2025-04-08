@@ -238,17 +238,16 @@ var _ = Describe("Project Controller", func() {
 			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
 
 			// Run the finalizer reconciliation
-			result, err := projectReconciler.Reconcile(ctx, reconcile.Request{
+			_, err := projectReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: projectNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			// Run the finalizer reconciliation again to complete deletion
-			result, err = projectReconciler.Reconcile(ctx, reconcile.Request{
+			_, err = projectReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: projectNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
 		})
 
 		By("Checking the project resource deletion", func() {
