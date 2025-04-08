@@ -20,7 +20,6 @@ package environment
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -39,11 +38,6 @@ import (
 const (
 	// EnvCleanupFinalizer is the finalizer that is used to clean up the environment.
 	EnvCleanupFinalizer = "core.choreo.dev/env-cleanup"
-)
-
-var (
-	ErrDeploymentDeletionWait = errors.New("some deployments are still finalizing, retry later")
-	ErrNamespaceDeletionWait  = errors.New("some namespaces are still finalizing, retry later")
 )
 
 // ensureFinalizer ensures that the finalizer is added to the environment.
@@ -81,12 +75,15 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 	// This assumes that, user already removed the environment from the deployment pipelines.
 
 	// Delete all the deployments associated to the environment.
-	if err := r.deleteDeployments(ctx, environment); err != nil {
-		if errors.Is(err, ErrDeploymentDeletionWait) {
-			// this means the deployment deletion is still in progress. So, we need to retry later.
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
-		}
+	isPending, err := r.cleanupDeployments(ctx, environment)
+
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if isPending {
+		// the next reconcile will be triggered after the pending endpoint/s deleted
+		return ctrl.Result{}, nil
 	}
 
 	// Get the deployment context and delete the data plane resources
@@ -129,56 +126,47 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 	return ctrl.Result{}, nil
 }
 
-// deleteDeployments deletes all the deployments associated with the environment.
-func (r *Reconciler) deleteDeployments(ctx context.Context, environment *choreov1.Environment) error {
+// cleanupDeployments deletes all the deployments associated with the environment.
+func (r *Reconciler) cleanupDeployments(ctx context.Context, environment *choreov1.Environment) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
 	logger.Info("Cleaning up the deployments associated with the environment")
+
 	// List all deployments with the label `core.choreo.dev/environment=<environment.Name>`
 	deploymentList := &choreov1.DeploymentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(environment.Namespace),
 		client.MatchingLabels{
-			labels.LabelKeyEnvironmentName: environment.Name,
+			labels.LabelKeyEnvironmentName:  environment.Name,
+			labels.LabelKeyOrganizationName: environment.Labels[labels.LabelKeyOrganizationName],
 		},
 	}
 
 	if err := r.List(ctx, deploymentList, listOpts...); err != nil {
-		if k8sapierrors.IsNotFound(err) {
-			logger.Info("No deployments associated with the environment")
-			return nil
-		}
-		return fmt.Errorf("error listing deployments: %w", err)
+		return false, fmt.Errorf("error listing deployments: %w", err)
 	}
 
-	blocked := false
+	if len(deploymentList.Items) == 0 {
+		logger.Info("No deployments associated with the environment")
+		return false, nil
+	}
 
 	// Delete each deployment
 	for _, deployment := range deploymentList.Items {
+		// Check if the deployment is being already deleting
+		if !deployment.DeletionTimestamp.IsZero() {
+			continue
+		}
+
 		if err := r.Delete(ctx, &deployment); err != nil {
 			if k8sapierrors.IsNotFound(err) {
 				// The deployment is already deleted, no need to retry
 				continue
 			}
-			return fmt.Errorf("error deleting deployment %s: %w", deployment.Name, err)
+			return false, fmt.Errorf("error deleting deployment %s: %w", deployment.Name, err)
 		}
-
-		// Get the resource back to check if the resource still exists
-		if err := r.Get(ctx, client.ObjectKeyFromObject(&deployment), &deployment); err != nil {
-			if k8sapierrors.IsNotFound(err) {
-				// The deployment is already deleted, no need to retry
-				continue
-			}
-			return fmt.Errorf("error getting deployment %s: %w", deployment.Name, err)
-		}
-
-		// marking blocked as true as the deployment has still not deleted.
-		blocked = true
 	}
 
-	// If at least one deployment is blocked, signal that we need to retry later
-	if blocked {
-		return ErrDeploymentDeletionWait
-	}
-
-	return nil
+	// Reaching this point means the deployment deletion is either still in progress or has just been initiated.
+	// If this is the first deletion attempt, marking the pending deletion as true.
+	return true, nil
 }
