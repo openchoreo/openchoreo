@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
@@ -126,6 +127,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Environment{}).
 		Named("environment").
+		Watches(
+			&choreov1.Endpoint{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.Environment](
+				r.Client, controller.GetEnvironment)),
+		).
 		Complete(r)
 }
 
