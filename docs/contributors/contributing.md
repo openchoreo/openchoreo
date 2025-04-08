@@ -1,126 +1,112 @@
-## Contributor Guide
+# Contributing to OpenChoreo Development
 
-This section provides a comprehensive guide for contributors to set up their development environment, build and use the binaries, and deploy Choreo on a Kubernetes cluster for testing and development purposes.
+## Prerequisites
 
-### Prerequisites for Contributors
 - Go version v1.23.0+
-- Docker version 17.03+
+- Docker version 23.0+
+- Make version 3.81+
 - Kubernetes cluster with version v1.30.0+
+- Kubectl version v1.30.0+
+- Helm version v3.16.0+
 
-### Build and Use Binaries
 
-1. Clone the repository:
+To verify the tool versions, run the following command:
    ```sh
-   git clone https://github.com/<org>/openchoreo.git
-   cd openchoreo
+   ./check-tools.sh
    ```
 
-2. Build the binaries:
+## Getting Started
+
+The OpenChoreo project is built using the [Kubebuilder](https://book.kubebuilder.io/) framework and uses Make for build automation.
+After cloning the repository following the [github_workflow.md](github_workflow.md), run the following command to see all the available make targets:
+
+```sh
+make help
+```
+
+### Setting Up the KinD Kubernetes Cluster
+
+For testing and development, we recommend using a KinD (Kubernetes in Docker) cluster.
+
+1. Run the following command to create a KinD cluster:
+
    ```sh
-   make build
+   kind create cluster --config=install/kind/kind-config.yaml
    ```
 
-3. Run the binaries:
+2. To verify the cluster context is set correctly, and the cluster is running, use the following commands:
+
    ```sh
-   ./bin/manager
+   kubectl config current-context # This should show the `kind-choreo` as the current context
+   kubectl cluster-info
+   ```
+   
+3. Deploy the necessary components to the KinD cluster:
+
+   ```sh
+   make dev-deploy
+   ```
+   This may take around 5-15 minutes to complete depending on the internet bandwidth.
+
+4. Once completed, you can verify the deployment by running:
+
+   ```sh
+   ./install/check-status.sh
    ```
 
-4. Follow the deployment steps mentioned below under "To Deploy on the cluster" section.
+> [!IMPORTANT]
+> The KinD cluster will already have the manager running and if you need to run the manager locally, you need to scale down the existing manager deployment first. 
+You can do this by running: `kubectl -n choreo-system scale deployment choreo-controller-manager --replicas=0`
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
 
-```sh
-make docker-build docker-push IMG=<some-registry>/choreo:tag
-```
+### Building and Running the Binaries
 
-> [!Note] 
-> This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
-
-**Install the CRDs into the cluster:**
+This project comprises multiple binaries, mainly the `manager` binary and the `choreoctl` CLI tool.
+To build all the binaries, run:
 
 ```sh
-make install
+make go.build
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+This will produce the binaries in the `bin/dist` directory based on your OS and architecture.
+You can directly run the `manager` or `choreoctl` binary this location to try out.
+
+### Incremental Development
+
+Rather using build and run the binaries every time, you can use the go run make targets to run the binaries directly.
+
+- Running the `manager` binary:
+  ```sh
+  make go.run.manager ENABLE_WEBHOOKS=false
+  ```
+
+- Running the `choreoctl` CLI tool:
+  ```sh
+  make go.run.choreoctl GO_RUN_ARGS="version"
+  ```
+  
+### Testing
+
+To run the tests, you can use the following command:
 
 ```sh
-make deploy IMG=<some-registry>/choreo:tag
+make test
 ```
+This will run all the unit tests in the project.
 
-> [!Note] 
-> If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
 
 ### Code Generation and Linting
 
-After updating the Custom Resource Definitions (CRDs) or the controller code, run the following commands to generate necessary code and lint the codebase before committing the changes.
+Before committing any changes, ensure to run the following commands to generate necessary code and lint the codebase:
 
-1. Run the linter:
-    ```sh
-    make lint
-    ```
-2. Run the code generator:
-    ```sh
-    make code.gen
-    ```
+ ```sh
+ make lint code.gen
+ ```
 
-## Project Distribution
+### Submitting Changes
 
-Following are the steps to build the installer and distribute this project to users.
+Once all changes are made and tested, you can submit a pull request by following the [GitHub workflow](github_workflow.md).
 
-1. Build the installer for the image built and published in the registry:
+## Additional Resources
 
-```sh
-make build-installer IMG=<some-registry>/choreo:tag
-```
-
-> [!Note] 
-> The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
-
-2. Using the installer
-
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/choreo/<tag or branch>/dist/install.yaml
-```
-### Implement Custom Resources
-> [!Note] 
->  Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+- [Add New CRD Guide](adding-new-crd.md) - A guide to add new CRDs to the project.

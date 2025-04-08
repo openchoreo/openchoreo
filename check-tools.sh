@@ -31,9 +31,10 @@ checkVersion() {
 
 # Format: <Command Display Name> <Min Version> <Max Version> <Version Command Line> <Version Line Number> <Version Extract RegEx>
 checkVersion "Go Language" "1.23.0" "1.24.0" "go version" 1 "[0-9]\.[0-9]+\.[0-9]+"
-checkVersion "GNU Make" "3.5" "4.5" "make -version" 1 "[0-9]\.[0-9]+"
-checkVersion "Docker Client" "17.0.0" "28.0.0" "docker version --format '{{.Client.Version}}'" 1 "[0-9]+\.[0-9]+\.[0-9]+"
-checkVersion "Docker Server" "17.0.0" "28.0.0" "docker version --format '{{.Server.Version}}'" 1 "[0-9]+\.[0-9]+\.[0-9]+"
+checkVersion "GNU Make" "3.8" "4.5" "make -version" 1 "[0-9]\.[0-9]+"
+checkVersion "Docker Client" "23.0.0" "28.0.0" "docker version --format '{{.Client.Version}}'" 1 "[0-9]+\.[0-9]+\.[0-9]+"
+checkVersion "Docker Server" "23.0.0" "28.0.0" "docker version --format '{{.Server.Version}}'" 1 "[0-9]+\.[0-9]+\.[0-9]+"
 checkVersion "Kubectl Client" "v1.30.0" "v1.33.0" "kubectl version" 1 "v[0-9]\.[0-9]+\.[0-9]+"
 checkVersion "Kubectl Server (context=$(kubectl config current-context))" "v1.30.0" "v1.33.0" "kubectl version" 3 "v[0-9]\.[0-9]+\.[0-9]+"
 checkVersion "Kubebuilder" "4.3.0" "4.4.0" "kubebuilder version" 1 "[0-9]+\.[0-9]+\.[0-9]+"
+checkVersion "Helm" "v3.16.0" "v3.30.0" "helm version" 1 "v[0-9]+\.[0-9]+\.[0-9]+"

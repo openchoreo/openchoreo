@@ -130,5 +130,5 @@ make test
 Run the following to update the helm chart for your generated CRD.
 
 ```bash
-make helm
+make helm-generate
 ```
