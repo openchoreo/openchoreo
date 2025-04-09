@@ -241,7 +241,6 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				Name:                    fg.GetString(flags.Name),
 				Organization:            fg.GetString(flags.Organization),
 				KubernetesClusterName:   fg.GetString(flags.KubernetesClusterName),
-				ConnectionConfigRef:     fg.GetString(flags.ConnectionConfigRef),
 				EnableCilium:            fg.GetBool(flags.EnableCilium),
 				EnableScaleToZero:       fg.GetBool(flags.EnableScaleToZero),
 				GatewayType:             fg.GetString(flags.GatewayType),

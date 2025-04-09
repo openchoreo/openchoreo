@@ -21,16 +21,17 @@ package kubernetes
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"sync"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
-	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
-	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 type KubeClientManager struct {
