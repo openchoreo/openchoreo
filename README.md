@@ -87,12 +87,13 @@ At runtime, OpenChoreo turns each Project (Bounded Context) into a Cell, a secur
   - Handles outbound traffic to other cells or to the internal network.
 
 ## OpenChoreo benefits
+These abstractions provide the following benefits for businesses to build & operate cloud-native applications:
+
 <div align="left">
   <img src="./docs/images/openchoreo-ddd-to-cell-mapping.png" alt="OpenChoreo DDD-to-Cell Mapping" width="800"/>
 </div>
 </br>
 
-These abstractions provide the following benefits for businesses to build & operate cloud-native applications:
 - **Design clarity for cloud-native applications**
   - OpenChoreo’s abstractions—Projects, Components, Endpoints, and Connections—enable teams to model systems around business domains. 
   - These abstractions align with Domain-Driven Design (DDD) and promote modular, independently deployable services with explicit service boundaries.
@@ -115,6 +116,14 @@ These abstractions provide the following benefits for businesses to build & oper
 - **Developer and platform separation of concerns**
   - The platform team defines the rules (networking, security, observability, and operational policies). Application teams work within those boundaries by modeling their systems using OpenChoreo abstractions. 
   - This separation ensures consistency, security, and operational reliability at scale.
+
+## How does it work?
+In this section, we explain how the OpenChoreo abstractions for platform engineering, code & team organization, software architecture, software engineering and operations are mapping to Kubernetes abstractions and a set of CNCF and other tools that are used to ensure the higher level abstractions are properly maintained.
+
+<div align="left">
+  <img src="./docs/images/openchoreo-overall-architecture.png" alt="OpenChoreo Architecture" width="800"/>
+</div>
+</br>
 
 ## Getting Started
 
