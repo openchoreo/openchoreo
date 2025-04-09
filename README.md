@@ -25,7 +25,7 @@ OpenChoreo introduces a combination of platform abstractions and application abs
 
 Platform engineers use the following abstractions to create their internal developer platform:
 <div align="left">
-  <img src="./docs/images/openchoreo-platform-abstractions.png" alt="OpenChoreo Platform Abstractions" width="600"/>
+  <img src="./docs/images/openchoreo-platform-abstractions.png" alt="OpenChoreo Platform Abstractions" width="800"/>
 </div>
 </br>
 
@@ -42,7 +42,7 @@ Platform engineers use the following abstractions to create their internal devel
 
 Project managers, architects, and developers use the following abstractions to manage the organization of their work:
 <div align="left">
-  <img src="./docs/images/openchoreo-development-abstractions.png" alt="OpenChoreo Development Abstractions" width="600"/>
+  <img src="./docs/images/openchoreo-development-abstractions.png" alt="OpenChoreo Development Abstractions" width="800"/>
 </div>
 </br>
 
@@ -85,11 +85,10 @@ At runtime, OpenChoreo turns each Project (Bounded Context) into a Cell, a secur
   - Endpoints with `visibility: organization` are exposed through this ingress path.
 - **Eastbound Egress**
   - Handles outbound traffic to other cells or to the internal network.
-</br>
 
 ## OpenChoreo benefits
 <div align="left">
-  <img src="./docs/images/openchoreo-ddd-to-cell-mapping.png" alt="OpenChoreo DDD-to-Cell Mapping" width="600"/>
+  <img src="./docs/images/openchoreo-ddd-to-cell-mapping.png" alt="OpenChoreo DDD-to-Cell Mapping" width="800"/>
 </div>
 </br>
 
