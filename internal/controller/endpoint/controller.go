@@ -37,13 +37,15 @@ import (
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Endpoint object
 type Reconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	DpClientMgr *dpKubernetes.KubeClientManager
+	Scheme      *runtime.Scheme
+	recorder    record.EventRecorder
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -71,7 +73,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	resourceHandlers := r.makeExternalResourceHandlers()
 	epCtx, err := r.makeEndpointContext(ctx, ep)
 	if err != nil {
 		logger.Error(err, "Failed to create endpoint context")
@@ -90,6 +91,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// Return after adding the finalizer to ensure the finalizer is persisted
 		return ctrl.Result{}, err
 	}
+
+	dpClient, err := r.getDPClient(ctx, epCtx.Environment)
+	if err != nil {
+		logger.Error(err, "Error getting DP client")
+		return ctrl.Result{}, err
+	}
+
+	resourceHandlers := r.makeExternalResourceHandlers(dpClient)
 
 	if err = r.reconcileExternalResources(ctx, resourceHandlers, epCtx); err != nil {
 		base := client.MergeFrom(ep.DeepCopy())
@@ -124,13 +133,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EndpointContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient *client.Client) []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
-		k8sintegrations.NewHTTPRouteHandler(r.Client, visibility.NewPublicVisibilityStrategy()),
-		k8sintegrations.NewHTTPRouteHandler(r.Client, visibility.NewOrganizationVisibilityStrategy()),
-		k8sintegrations.NewSecurityPolicyHandler(r.Client, visibility.NewPublicVisibilityStrategy()),
-		k8sintegrations.NewSecurityPolicyHandler(r.Client, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteHandler(*dpClient, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteHandler(*dpClient, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(*dpClient, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(*dpClient, visibility.NewOrganizationVisibilityStrategy()),
 	}
 
 	return resourceHandlers
@@ -205,4 +214,23 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		)
 
 	return builder.Complete(r)
+}
+
+func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (*client.Client, error) {
+	// Retrieve the dataplane associated with the environment
+	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	if err != nil {
+		// Return an error if dataplane retrieval fails
+		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
+	}
+
+	// Get the DP client using the credentials from the dataplane
+	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	if err != nil {
+		// Return an error if client creation fails
+		return nil, fmt.Errorf("failed to get DP client: %w", err)
+	}
+
+	// Return the DP client
+	return dpClient, nil
 }

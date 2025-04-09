@@ -36,13 +36,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Deployment object
 type Reconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	DpClientMgr *dpKubernetes.KubeClientManager
+	Scheme      *runtime.Scheme
+	recorder    record.EventRecorder
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -99,8 +101,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
 	}
 
+	dpClient, err := r.getDPClient(ctx, deploymentCtx.Environment)
+	if err != nil {
+		logger.Error(err, "Error getting DP client")
+		return ctrl.Result{}, err
+	}
+
 	// Find and reconcile all the external resources
-	externalResourceHandlers := r.makeExternalResourceHandlers()
+	externalResourceHandlers := r.makeExternalResourceHandlers(dpClient)
 	if err := r.reconcileExternalResources(ctx, externalResourceHandlers, deploymentCtx); err != nil {
 		logger.Error(err, "Error reconciling external resources")
 		r.recorder.Eventf(deployment, corev1.EventTypeWarning, "ExternalResourceReconciliationFailed",
@@ -180,20 +188,39 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // bring the external resources to the desired state.
-func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.DeploymentContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient *client.Client) []dataplane.ResourceHandler[dataplane.DeploymentContext] {
 	var handlers []dataplane.ResourceHandler[dataplane.DeploymentContext]
 
 	// IMPORTANT: The order of the handlers is important when reconciling the resources.
 	// For example, the namespace handler should be reconciled before creating resources that depend on the namespace.
-	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewSecretProviderClassHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewCronJobHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(r.Client))
-	handlers = append(handlers, k8sintegrations.NewServiceHandler(r.Client))
+	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewSecretProviderClassHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewCronJobHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewServiceHandler(*dpClient))
 
 	return handlers
+}
+
+func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (*client.Client, error) {
+	// Retrieve the dataplane associated with the environment
+	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	if err != nil {
+		// Return an error if dataplane retrieval fails
+		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
+	}
+
+	// Get the DP client using the credentials from the dataplane
+	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	if err != nil {
+		// Return an error if client creation fails
+		return nil, fmt.Errorf("failed to get DP client: %w", err)
+	}
+
+	// Return the DP client
+	return dpClient, nil
 }
 
 // reconcileExternalResources reconciles the provided external resources based on the deployment context.
