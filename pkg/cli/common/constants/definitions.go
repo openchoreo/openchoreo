@@ -483,15 +483,15 @@ If no organization is specified, you will be prompted to select one interactivel
 	ListDeploymentPipeline = Command{
 		Use:     "deploymentpipeline [name]",
 		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
-		Short:   "Get deployment pipelines",
-		Long:    `Get all deployment pipelines or a specific deployment pipeline in an organization.`,
-		Example: `  # Get all deployment pipelines
+		Short:   "List deployment pipelines",
+		Long:    `List all deployment pipelines or a specific deployment pipeline in an organization.`,
+		Example: `  # List all deployment pipelines
   choreoctl get deploymentpipeline --organization acme-corp
 
-  # Get a specific deployment pipeline
+  # List a specific deployment pipeline
   choreoctl get deploymentpipeline default-pipeline --organization acme-corp
 
-  # Get in YAML format
+  # Output deployment pipeline details in YAML format
   choreoctl get deploymentpipeline --organization acme-corp -o yaml`,
 	}
 
