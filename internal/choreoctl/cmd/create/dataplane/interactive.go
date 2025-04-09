@@ -213,7 +213,6 @@ func createDataPlaneInteractive(config constants.CRDConfig) error {
 		Name:                    m.name,
 		Organization:            m.Organizations[m.OrgCursor],
 		KubernetesClusterName:   "kind-cluster-1",
-		ConnectionConfigRef:     "kind-cluster-1-connection-config",
 		EnableCilium:            true,
 		EnableScaleToZero:       true,
 		GatewayType:             m.gatewayType,
