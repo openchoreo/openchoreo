@@ -37,7 +37,7 @@ import (
 
 const (
 	// EnvCleanupFinalizer is the finalizer that is used to clean up the environment.
-	EnvCleanupFinalizer = "core.choreo.dev/env-cleanup"
+	EnvCleanupFinalizer = "core.choreo.dev/environment-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the environment.
@@ -71,6 +71,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 		return ctrl.Result{}, nil
 	}
 
+	// Get the deployment context and delete the data plane resources
+	envCtx, err := r.makeEnvironmentContext(ctx, environment)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to make environment context for finalization: %w", err)
+	}
+
 	// Cleaning up the environment.
 	// This assumes that, user already removed the environment from the deployment pipelines.
 
@@ -82,36 +88,33 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 	}
 
 	if isPending {
-		// the next reconcile will be triggered after the pending endpoint/s deleted
+		// the next reconcile will be triggered after the pending deployment(s) deleted
 		return ctrl.Result{}, nil
 	}
 
-	// Get the deployment context and delete the data plane resources
-	envCtx, err := r.makeEnvironmentContext(ctx, environment)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to make environment context for finalization: %w", err)
-	}
-
 	resourceHandlers := r.makeExternalResourceHandlers()
-	pendingDpResourcesDeletion := false
+	pendingDeletion := false
 
 	for _, resourceHandler := range resourceHandlers {
-		if err := resourceHandler.Delete(ctx, envCtx); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
-		}
-
+		// Check if the resource is still being deleted
 		exists, err := resourceHandler.GetCurrentState(ctx, envCtx)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to get current state of external resource %s: %w", resourceHandler.Name(), err)
+			return ctrl.Result{}, fmt.Errorf("failed to check existence of external resource %s: %w", resourceHandler.Name(), err)
 		}
 
-		if exists != nil {
-			pendingDpResourcesDeletion = true
+		if exists == nil {
+			continue
+		}
+
+		pendingDeletion = true
+		// Trigger deletion of the resource as it is still exists
+		if err := resourceHandler.Delete(ctx, envCtx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
 		}
 	}
 
 	// Requeue the reconcile loop if there are still resources pending deletion
-	if pendingDpResourcesDeletion {
+	if pendingDeletion {
 		logger.Info("environment deletion is still pending as the dependent resource deletion pending.. retrying..")
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}

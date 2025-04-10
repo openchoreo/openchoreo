@@ -26,8 +26,6 @@ import (
 
 // Constants for condition types
 const (
-	// ConditionArtifactResolved represents whether the deployable artifact has been resolved
-	ConditionArtifactResolved controller.ConditionType = "ArtifactResolved"
 	// ConditionReady represents whether the environment is ready
 	ConditionReady controller.ConditionType = "Ready"
 )

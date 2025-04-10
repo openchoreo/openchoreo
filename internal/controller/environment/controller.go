@@ -77,17 +77,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	old := environment.DeepCopy()
 
-	_, err := r.makeEnvironmentContext(ctx, environment)
-	if err != nil {
-		logger.Error(err, "Error creating environment context")
-		r.Recorder.Eventf(environment, corev1.EventTypeWarning, "ContextResolutionFailed",
-			"Context resolution failed: %s", err)
-		if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
-	}
-
 	// examine DeletionTimestamp to determine if object is under deletion and handle finalization
 	if !environment.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing environment")
@@ -128,7 +117,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&choreov1.Environment{}).
 		Named("environment").
 		Watches(
-			&choreov1.Endpoint{},
+			&choreov1.Deployment{},
 			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.Environment](
 				r.Client, controller.GetEnvironment)),
 		).
