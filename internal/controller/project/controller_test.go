@@ -184,7 +184,7 @@ var _ = Describe("Project Controller", func() {
 						},
 					},
 					Spec: apiv1.ProjectSpec{
-						DeploymentPipelineRef: "test-pipeline",
+						DeploymentPipelineRef: "test-deployment-pipeline",
 					},
 				}
 				Expect(k8sClient.Create(ctx, dp)).To(Succeed())
@@ -210,7 +210,7 @@ var _ = Describe("Project Controller", func() {
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(project.Name).To(Equal(projectName))
 			Expect(project.Namespace).To(Equal(orgName))
-			Expect(project.Spec).To(Equal(apiv1.ProjectSpec{DeploymentPipelineRef: "test-pipeline"}))
+			Expect(project.Spec).To(Equal(apiv1.ProjectSpec{DeploymentPipelineRef: "test-deployment-pipeline"}))
 			Expect(project.Spec).NotTo(BeNil())
 		})
 

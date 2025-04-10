@@ -21,6 +21,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,6 +32,8 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/project/integrations/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -70,14 +73,17 @@ func (r *Reconciler) finalize(ctx context.Context, old, project *choreov1.Projec
 	}
 
 	// Perform cleanup logic for deployment tracks
-	artifactsDeleted, err := r.deleteComponentsAndWait(ctx, project)
+	artifactsDeleted, err := r.deleteChildAndLinkedResources(ctx, project)
 	if err != nil {
-		logger.Error(err, "Failed to delete components")
-		return ctrl.Result{}, err
+		logger.Error(err, "Failed to delete child resources")
+		// If there was an error deleting the child resources, we should not remove the finalizer
+		return ctrl.Result{RequeueAfter: time.Second * 5}, err
 	}
+
+	// If deletion is still in progress, check in next cycle
 	if !artifactsDeleted {
-		logger.Info("Components are still being deleted", "name", project.Name)
-		return ctrl.Result{}, nil
+		logger.Info("Child resources are still being deleted", "name", project.Name)
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// Remove the finalizer once cleanup is done
@@ -91,10 +97,40 @@ func (r *Reconciler) finalize(ctx context.Context, old, project *choreov1.Projec
 	return ctrl.Result{}, nil
 }
 
+func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project *choreov1.Project) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+
+	// Clean up components
+	componentsDeleted, err := r.deleteComponentsAndWait(ctx, project)
+	if err != nil {
+		logger.Error(err, "Failed to delete components")
+		return false, err
+	}
+	if !componentsDeleted {
+		logger.Info("Components are still being deleted", "name", project.Name)
+		return false, nil
+	}
+
+	// At this point all control plane resource from components downwards should be deleted
+	// Also all dataplane resources from deployments in the project should be deleted
+	// Now we can delete the dataplane namespaces
+	dataplaneDeleted, err := r.deleteDataplaneResourcesAndWait(ctx, project)
+	if err != nil {
+		logger.Error(err, "Failed to delete dataplane resources")
+		return false, err
+	}
+	if !dataplaneDeleted {
+		logger.Info("Dataplane resources are still being deleted", "name", project.Name)
+		return false, nil
+	}
+
+	logger.Info("All dependent resources are deleted")
+	return true, nil
+}
+
 // deleteComponentsAndWait cleans up any resources that are dependent on this Project
 func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
-	logger.Info("Cleaning up dependent resources")
 
 	// Find all Components owned by this Project using the project label
 	componentsList := &choreov1.ComponentList{}
@@ -154,4 +190,55 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *chore
 
 	logger.Info("All components are deleted")
 	return true, nil
+}
+
+// deleteDataplaneResourcesAndWait cleans up any resources that are dependent on this Project
+func (r *Reconciler) deleteDataplaneResourcesAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+
+	// Create the project context for external resource deletions
+	// This will include the deployment pipeline and the environments
+	projectCtx, err := r.makeProjectContext(ctx, project)
+	if err != nil {
+		return false, fmt.Errorf("failed to construct project context for finalization: %w", err)
+	}
+
+	// Delete dataplane resources
+	resourceHandlers := r.makeExternalResourceHandlers()
+	pendingDeletion := false
+
+	for _, resourceHandler := range resourceHandlers {
+		// Check if the namespaces are still being deleted
+		exists, err := resourceHandler.GetCurrentState(ctx, projectCtx)
+		if err != nil {
+			return false, fmt.Errorf("failed to check existence of external resource %s: %w", resourceHandler.Name(), err)
+		}
+
+		if exists == nil {
+			continue
+		}
+
+		pendingDeletion = true
+		// Trigger deletion of the resource as it still exists
+		if err := resourceHandler.Delete(ctx, projectCtx); err != nil {
+			return false, fmt.Errorf("failed to delete external resource %s: %w", resourceHandler.Name(), err)
+		}
+	}
+
+	// Requeue the reconcile loop if there are still resources pending deletion
+	if pendingDeletion {
+		logger.Info("endpoint deletion is still pending as the dependent resource deletion pending.. retrying..")
+		return false, nil
+	}
+
+	logger.Info("All dataplane resources are deleted")
+	return true, nil
+}
+
+func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.ProjectContext] {
+	var handlers []dataplane.ResourceHandler[dataplane.ProjectContext]
+
+	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(r.Client))
+
+	return handlers
 }

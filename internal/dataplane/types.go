@@ -48,3 +48,11 @@ type EndpointContext struct {
 	Environment     *choreov1.Environment
 	Endpoint        *choreov1.Endpoint
 }
+
+// ProjectContext is a struct that holds the all necessary data required for the resource handlers to perform their operations.
+type ProjectContext struct {
+	DeploymentPipeline *choreov1.DeploymentPipeline
+	Project            *choreov1.Project
+	EnvironmentNames   []string
+	NamespaceNames     []string
+}
