@@ -51,7 +51,9 @@ func (h *namespacesHandler) IsRequired(envCtx *dataplane.EnvironmentContext) boo
 }
 
 func (h *namespacesHandler) GetCurrentState(ctx context.Context, envCtx *dataplane.EnvironmentContext) (interface{}, error) {
-	// this should list the set of namespaces which has the label of the environment-name: <name>
+	// this should list the namespaces which has the following labels:
+	//	environment-name: <environment_name>
+	//	organization-name: <organization_name>
 	namespaceList := &corev1.NamespaceList{}
 	labelSelector := client.MatchingLabels{
 		k8s.LabelKeyEnvironmentName:  envCtx.Environment.Name,
@@ -78,17 +80,21 @@ func (h *namespacesHandler) Update(ctx context.Context, envCtx *dataplane.Enviro
 }
 
 func (h *namespacesHandler) Delete(ctx context.Context, envCtx *dataplane.EnvironmentContext) error {
-	// this should delete the set of namespaces which has the label of the environment-name: <name>
+	// this should delete the namespaces which has the following labels:
+	//	environment-name: <environment_name>
+	//	organization-name: <organization_name>
 	namespaceList := &corev1.NamespaceList{}
 	labelSelector := client.MatchingLabels{
-		k8s.LabelKeyEnvironmentName: envCtx.Environment.Name,
+		k8s.LabelKeyEnvironmentName:  envCtx.Environment.Name,
+		k8s.LabelKeyOrganizationName: envCtx.Environment.Namespace,
 	}
 
 	if err := h.kubernetesClient.List(ctx, namespaceList, labelSelector); err != nil {
-		if k8sapierrors.IsNotFound(err) {
-			return nil
-		}
 		return fmt.Errorf("error listing namespaces: %w", err)
+	}
+
+	if len(namespaceList.Items) == 0 {
+		return nil
 	}
 
 	// Deleting each namespace

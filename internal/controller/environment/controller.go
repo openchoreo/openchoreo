@@ -128,7 +128,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&choreov1.Environment{}).
 		Named("environment").
 		Watches(
-			&choreov1.Endpoint{},
+			&choreov1.Deployment{},
 			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.Environment](
 				r.Client, controller.GetEnvironment)),
 		).
