@@ -121,7 +121,7 @@ These abstractions provide the following benefits for businesses to build & oper
 In this section, we explain how the OpenChoreo abstractions for platform engineering, code & team organization, software architecture, software engineering and operations are mapping to Kubernetes abstractions and a set of CNCF and other tools that are used to ensure the higher level abstractions are properly maintained.
 
 <div align="left">
-  <img src="./docs/images/openchoreo-diagram-v1.webp" alt="OpenChoreo Architecture" width="800"/>
+  <img src="./docs/images/openchoreo-diagram-v1-with-borders.png" alt="OpenChoreo Architecture" width="800"/>
 </div>
 </br>
 
