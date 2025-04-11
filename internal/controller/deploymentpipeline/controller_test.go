@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/openchoreo/openchoreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	env "github.com/openchoreo/openchoreo/internal/controller/environment"
@@ -48,7 +48,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 	orgNamespacedName := types.NamespacedName{
 		Name: orgName,
 	}
-	organization := &apiv1.Organization{
+	organization := &choreov1.Organization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: orgName,
 		},
@@ -70,7 +70,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 			Namespace: orgName,
 		}
 
-		dataplane := &apiv1.DataPlane{
+		dataplane := &choreov1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
 				Namespace: orgName,
@@ -91,7 +91,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 			Name:      envName,
 		}
 
-		environment := &apiv1.Environment{
+		environment := &choreov1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envName,
 				Namespace: orgName,
@@ -102,6 +102,13 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Environment",
 					controller.AnnotationKeyDescription: "Test Environment Description",
+				},
+			},
+			Spec: choreov1.EnvironmentSpec{
+				DataPlaneRef: dpName,
+				IsProduction: false,
+				Gateway: choreov1.GatewayConfig{
+					DNSPrefix: envName,
 				},
 			},
 		}
@@ -129,13 +136,13 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 		Name:      pipelineName,
 	}
 
-	pipeline := &apiv1.DeploymentPipeline{}
+	pipeline := &choreov1.DeploymentPipeline{}
 
 	It("should successfully create and reconcile deployment pipeline resource", func() {
 		By("creating a custom resource for the Kind DeploymentPipeline", func() {
 			err := k8sClient.Get(ctx, pipelineNamespacedName, pipeline)
 			if err != nil && errors.IsNotFound(err) {
-				dp := &apiv1.DeploymentPipeline{
+				dp := &choreov1.DeploymentPipeline{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pipelineName,
 						Namespace: orgName,
@@ -148,11 +155,11 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 							controller.AnnotationKeyDescription: "Test Deployment pipeline Description",
 						},
 					},
-					Spec: apiv1.DeploymentPipelineSpec{
-						PromotionPaths: []apiv1.PromotionPath{
+					Spec: choreov1.DeploymentPipelineSpec{
+						PromotionPaths: []choreov1.PromotionPath{
 							{
 								SourceEnvironmentRef:  "test-env",
-								TargetEnvironmentRefs: make([]apiv1.TargetEnvironmentRef, 0),
+								TargetEnvironmentRefs: make([]choreov1.TargetEnvironmentRef, 0),
 							},
 						},
 					},
@@ -175,7 +182,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 		})
 
 		By("Checking the deploymentPipeline resource", func() {
-			deploymentPipeline := &apiv1.DeploymentPipeline{}
+			deploymentPipeline := &choreov1.DeploymentPipeline{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, pipelineNamespacedName, deploymentPipeline)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
