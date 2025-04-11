@@ -15,7 +15,7 @@ spec:
   type: Service
   source:
     containerRegistry:
-      imageName: ghcr.io/choreo-idp/samples/greeter-service
+      imageName: ghcr.io/openchoreo/samples/greeter-service
 ---
 ## Sample DeploymentTrack kind (Namespaced)
 apiVersion: core.choreo.dev/v1

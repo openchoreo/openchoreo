@@ -166,7 +166,7 @@ spec:
   type: ScheduledTask
   source:
     containerRegistry:
-      imageName: ghcr.io/choreo-idp/samples/github-issue-reporter
+      imageName: ghcr.io/openchoreo/samples/github-issue-reporter
 
 ---
 apiVersion: core.choreo.dev/v1

@@ -30,7 +30,7 @@ spec:
   type: WebApplication
   source:
     containerRegistry:
-      imageName: ghcr.io/choreo-idp/samples/reading-list-webapp
+      imageName: ghcr.io/openchoreo/samples/reading-list-webapp
 ---
 ## Deployment Track Definition
 apiVersion: core.choreo.dev/v1

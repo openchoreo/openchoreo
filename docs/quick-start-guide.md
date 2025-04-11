@@ -23,7 +23,7 @@ docker run --rm -it --name choreo-quick-idp \
 -v tf-state:/app/terraform \
 --network bridge \
 -p 8443:8443 \
-ghcr.io/choreo-idp/quick-start:v0.1.0
+ghcr.io/openchoreo/quick-start:v0.1.0
 
 ```
 
