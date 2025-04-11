@@ -114,13 +114,13 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 	// At this point all control plane resource from components downwards should be deleted
 	// Also all dataplane resources from deployments in the project should be deleted
 	// Now we can delete the dataplane namespaces
-	dataplaneDeleted, err := r.deleteDataplaneResourcesAndWait(ctx, project)
+	externalResourcesDeleted, err := r.deleteExternalResourcesAndWait(ctx, project)
 	if err != nil {
-		logger.Error(err, "Failed to delete dataplane resources")
+		logger.Error(err, "Failed to delete external resources")
 		return false, err
 	}
-	if !dataplaneDeleted {
-		logger.Info("Dataplane resources are still being deleted", "name", project.Name)
+	if !externalResourcesDeleted {
+		logger.Info("External resources are still being deleted", "name", project.Name)
 		return false, nil
 	}
 
@@ -192,8 +192,8 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *chore
 	return true, nil
 }
 
-// deleteDataplaneResourcesAndWait cleans up any resources that are dependent on this Project
-func (r *Reconciler) deleteDataplaneResourcesAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
+// deleteExternalResourcesAndWait cleans up any resources that are dependent on this Project
+func (r *Reconciler) deleteExternalResourcesAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Create the project context for external resource deletions

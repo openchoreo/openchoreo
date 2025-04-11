@@ -26,7 +26,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 type namespaceHandler struct {
@@ -99,4 +102,22 @@ func (h *namespaceHandler) Delete(ctx context.Context, deployCtx *dataplane.Proj
 		return nil
 	}
 	return nil
+}
+
+// MakeNamespaceNames generates Kubernetes namespace names for each environment in the project
+// NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
+func MakeNamespaceNames(environmentNames []string, project choreov1.Project) []string {
+	namespaceNames := make([]string, 0, len(environmentNames))
+
+	organizationName := controller.GetOrganizationName(&project)
+	projectName := controller.GetName(&project)
+	for _, env := range environmentNames {
+		environmentName := env
+		// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
+		namespaceName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
+			"dp", organizationName, projectName, environmentName)
+		namespaceNames = append(namespaceNames, namespaceName)
+	}
+
+	return namespaceNames
 }

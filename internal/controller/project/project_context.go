@@ -26,9 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
-	"github.com/openchoreo/openchoreo/internal/controller"
+	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/project/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func (r *Reconciler) makeProjectContext(ctx context.Context, project *choreov1.Project) (*dataplane.ProjectContext, error) {
@@ -37,22 +36,22 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *choreov1.P
 		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
 	}
 
-	environmentNames := r.findEnvironmentNamesFromDeploymentPipeline(&deploymentPipeline)
+	environmentNames := r.findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline)
 	if len(environmentNames) == 0 {
 		return nil, fmt.Errorf("no environments found for deployment pipeline %s", project.Spec.DeploymentPipelineRef)
 	}
 
-	namespaceNames := r.makeNamespaceNames(environmentNames, *project)
+	namespaceNames := k8sintegrations.MakeNamespaceNames(environmentNames, *project)
 
 	return &dataplane.ProjectContext{
-		DeploymentPipeline: &deploymentPipeline,
+		DeploymentPipeline: deploymentPipeline,
 		EnvironmentNames:   environmentNames,
 		Project:            project,
 		NamespaceNames:     namespaceNames,
 	}, nil
 }
 
-func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *choreov1.Project) (choreov1.DeploymentPipeline, error) {
+func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *choreov1.Project) (*choreov1.DeploymentPipeline, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Get deployment pipeline
@@ -66,10 +65,10 @@ func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *choreo
 		logger.Error(err, "Failed to get deployment pipeline",
 			"pipelineRef", project.Spec.DeploymentPipelineRef,
 			"namespace", project.Namespace)
-		return choreov1.DeploymentPipeline{}, err
+		return &choreov1.DeploymentPipeline{}, err
 	}
 
-	return deploymentPipeline, nil
+	return &deploymentPipeline, nil
 }
 
 func (r *Reconciler) findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline *choreov1.DeploymentPipeline) []string {
@@ -94,21 +93,4 @@ func (r *Reconciler) findEnvironmentNamesFromDeploymentPipeline(deploymentPipeli
 	}
 
 	return environments
-}
-
-// NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
-func (r *Reconciler) makeNamespaceNames(environmentNames []string, project choreov1.Project) []string {
-	namespaceNames := make([]string, 0, len(environmentNames))
-
-	organizationName := controller.GetOrganizationName(&project)
-	projectName := controller.GetName(&project)
-	for _, env := range environmentNames {
-		environmentName := env
-		// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
-		namespaceName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
-			"dp", organizationName, projectName, environmentName)
-		namespaceNames = append(namespaceNames, namespaceName)
-	}
-
-	return namespaceNames
 }
