@@ -177,7 +177,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 		},
 		Container: &corev1.Container{
-			Image: "ghcr.io/choreo-idp/podman-runner:v1.0",
+			Image: "ghcr.io/openchoreo/podman-runner:v1.0",
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: ptr.Bool(true),
 			},
@@ -208,7 +208,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 		},
 		Container: &corev1.Container{
-			Image: "ghcr.io/choreo-idp/podman-runner:v1.0",
+			Image: "ghcr.io/openchoreo/podman-runner:v1.0",
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: ptr.Bool(true),
 			},
@@ -436,11 +436,11 @@ func makeBallerinaBuildScript(imageName, path string) string {
 	return fmt.Sprintf(`
 %s
 
-/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/choreo-idp/buildpack/ballerina:18 \
+/usr/local/bin/pack build %s-{{inputs.parameters.git-revision}} --builder=ghcr.io/openchoreo/buildpack/ballerina:18 \
 --docker-host=inherit --path=/mnt/vol/source%s --volume "/mnt/vol":/app/generated-artifacts:rw --pull-policy if-not-present
 
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
-		makeBuilderCacheScript("ghcr.io/choreo-idp/buildpack/ballerina:18", "/shared/podman/cache/ballerina-builder.tar"),
+		makeBuilderCacheScript("ghcr.io/openchoreo/buildpack/ballerina:18", "/shared/podman/cache/ballerina-builder.tar"),
 		imageName, path, imageName)
 }
 

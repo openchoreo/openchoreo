@@ -1,7 +1,7 @@
 # Read the version from the VERSION file
 RELEASE_VERSION ?= $(shell cat VERSION)
 # Default image repository to use for building/pushing images
-IMG_REPO ?= ghcr.io/choreo-idp/controller
+IMG_REPO ?= ghcr.io/openchoreo/controller
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMG_REPO):v$(RELEASE_VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -124,7 +124,7 @@ docker-push-latest: ## Push docker image with the manager with the latest tag.
 # - have enabled BuildKit. More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 # - be able to push the image to your registry (i.e. if you do not set a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
@@ -354,7 +354,7 @@ CHART_PATH_CILIUM ?= install/helm/cilium
 CHART_PATH_CHOREO ?= install/helm/choreo
 CHART_PACKAGE_CILIUM ?= cilium-$(RELEASE_VERSION).tgz
 CHART_PACKAGE_CHOREO ?= choreo-$(RELEASE_VERSION).tgz
-HELM_REPO ?= oci://ghcr.io/choreo-idp/helm-charts
+HELM_REPO ?= oci://ghcr.io/openchoreo/helm-charts
 
 .PHONY: helm-dependency-build
 helm-dependency-build:
@@ -401,8 +401,8 @@ prepare-release:
 #-----------------------------------------------------------------------------
 # quick-start build & push targets
 #-----------------------------------------------------------------------------
-IMAGE_NAME=ghcr.io/choreo-idp/quick-start:v$(RELEASE_VERSION)
-IMAGE_NAME_LATEST=ghcr.io/choreo-idp/quick-start:latest
+IMAGE_NAME=ghcr.io/openchoreo/quick-start:v$(RELEASE_VERSION)
+IMAGE_NAME_LATEST=ghcr.io/openchoreo/quick-start:latest
 DOCKER_PATH=install/quick-start
 SAMPLE_SOURCE=samples/web-applications/container-image/react-starter.yaml
 

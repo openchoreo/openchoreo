@@ -53,7 +53,7 @@ curl -sL https://raw.githubusercontent.com/choreo-idp/choreo/main/install/kind/k
 You can easily install Cilium into your cluster using the helm chart provided by us. This chart installs Cilium with minimal configurations required for OpenChoreo.
 Run the following command to install Cilium:
 ```shell
-helm install cilium oci://ghcr.io/choreo-idp/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
+helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium  --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
 [//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
@@ -77,7 +77,7 @@ You can install OpenChoreo on any Kubernetes cluster that has Cilium installed. 
 Use the following helm command to install OpenChoreo into your cluster.
 
 ```shell
-helm install choreo oci://ghcr.io/choreo-idp/helm-charts/choreo \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo \
 --version 0.1.0 --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 

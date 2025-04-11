@@ -46,6 +46,6 @@ jobs:
         with:
           file: install/quick-start/Dockerfile
           push: true
-          tags: ghcr.io/choreo-idp/quick-start:v${{ env.VERSION }}, ghcr.io/choreo-idp/quick-start:latest
+          tags: ghcr.io/openchoreo/quick-start:v${{ env.VERSION }}, ghcr.io/openchoreo/quick-start:latest
           platforms: linux/amd64,linux/arm64
           context: .

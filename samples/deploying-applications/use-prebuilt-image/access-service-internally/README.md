@@ -23,8 +23,8 @@ This sample deploys:
 - Kubernetes cluster with Choreo installed
 - The `choreoctl` CLI tool installed
 - Docker images:
-  - `ghcr.io/choreo-idp/samples/reading-list-service`
-  - `ghcr.io/choreo-idp/samples/reading-list-webapp`
+  - `ghcr.io/openchoreo/samples/reading-list-service`
+  - `ghcr.io/openchoreo/samples/reading-list-webapp`
 
 ## Understand the project structure
 

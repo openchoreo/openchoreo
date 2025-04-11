@@ -24,7 +24,7 @@ if [ -z "$KIND_CLUSTER_NAME" ]; then
 fi
 
 images=(
-  "ghcr.io/choreo-idp/controller:latest"
+  "ghcr.io/openchoreo/controller:latest"
   "quay.io/cilium/operator-generic:v1.15.10"
   "quay.io/cilium/cilium:v1.15.10"
   "quay.io/argoproj/argocli:v3.6.2"
