@@ -150,7 +150,7 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
 			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
 			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
-			labels.LabelKeyDeploymentTrackName: deploymentTrack.Name,
+			labels.LabelKeyDeploymentTrackName: controller.GetName(deploymentTrack),
 		},
 	}
 
@@ -215,7 +215,7 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
 			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
 			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
-			labels.LabelKeyDeploymentTrackName: deploymentTrack.Name,
+			labels.LabelKeyDeploymentTrackName: controller.GetName(deploymentTrack),
 		},
 	}
 
@@ -283,7 +283,7 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTra
 			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deploymentTrack),
 			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
 			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
-			labels.LabelKeyDeploymentTrackName: deploymentTrack.Name,
+			labels.LabelKeyDeploymentTrackName: controller.GetName(deploymentTrack),
 		},
 	}
 

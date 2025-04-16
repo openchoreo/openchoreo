@@ -145,11 +145,11 @@ func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels{
-			labels.LabelKeyDeploymentName:      deployment.Name,
-			labels.LabelKeyOrganizationName:    deployment.Labels[labels.LabelKeyOrganizationName],
-			labels.LabelKeyProjectName:         deployment.Labels[labels.LabelKeyProjectName],
-			labels.LabelKeyComponentName:       deployment.Labels[labels.LabelKeyComponentName],
-			labels.LabelKeyDeploymentTrackName: deployment.Labels[labels.LabelKeyDeploymentTrackName],
+			labels.LabelKeyOrganizationName:    controller.GetOrganizationName(deployment),
+			labels.LabelKeyProjectName:         controller.GetProjectName(deployment),
+			labels.LabelKeyComponentName:       controller.GetComponentName(deployment),
+			labels.LabelKeyDeploymentTrackName: controller.GetDeploymentTrackName(deployment),
+			labels.LabelKeyDeploymentName:      controller.GetName(deployment),
 		},
 	}
 

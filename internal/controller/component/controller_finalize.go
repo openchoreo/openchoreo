@@ -103,7 +103,7 @@ func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, componen
 		client.MatchingLabels{
 			labels.LabelKeyOrganizationName: controller.GetOrganizationName(component),
 			labels.LabelKeyProjectName:      controller.GetProjectName(component),
-			labels.LabelKeyComponentName:    component.Name,
+			labels.LabelKeyComponentName:    controller.GetName(component),
 		},
 	}
 

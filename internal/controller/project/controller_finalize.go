@@ -138,7 +138,7 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *chore
 		client.InNamespace(project.Namespace),
 		client.MatchingLabels{
 			labels.LabelKeyOrganizationName: controller.GetOrganizationName(project),
-			labels.LabelKeyProjectName:      project.Name,
+			labels.LabelKeyProjectName:      controller.GetName(project),
 		},
 	}
 
