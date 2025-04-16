@@ -321,17 +321,28 @@ func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
 }
 
 func isBuildWorkflowRunning(build *choreov1.Build) bool {
-	conditions := []controller.ConditionType{
+	stepConditions := []controller.ConditionType{
 		ConditionCloneStepSucceeded,
 		ConditionBuildStepSucceeded,
 		ConditionPushStepSucceeded,
 	}
-	for _, conditionType := range conditions {
+
+	for _, conditionType := range stepConditions {
 		condition := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
-		if condition.Reason == string(ReasonStepQueued) || condition.Reason == string(ReasonStepInProgress) {
+		if condition == nil {
+			continue
+		}
+
+		switch condition.Reason {
+		case string(ReasonStepFailed):
+			// A failed step means the workflow is not running
+			return false
+		case string(ReasonStepQueued), string(ReasonStepInProgress):
+			// At least one step is still running
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -342,7 +353,7 @@ func (r *Reconciler) handleRequeueAfterBuild(
 ) (ctrl.Result, error) {
 	// Check if the build step is running and has not yet succeeded.
 	stepInfo, isFound := argointegrations.GetStepByTemplateName(workflow.Status.Nodes, integrations.BuildStep)
-	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded)) == nil {
+	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded)).Reason == string(ReasonStepInProgress) {
 		if argointegrations.GetStepPhase(stepInfo.Phase) == integrations.Running {
 			// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
 			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
