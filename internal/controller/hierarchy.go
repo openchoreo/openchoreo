@@ -206,7 +206,6 @@ func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Obje
 			labels.LabelKeyProjectName:         GetProjectName(obj),
 			labels.LabelKeyComponentName:       GetComponentName(obj),
 			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyBuildName:           GetBuildName(obj),
 		},
 	}
 
