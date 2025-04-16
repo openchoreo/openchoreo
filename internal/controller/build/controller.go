@@ -338,12 +338,17 @@ func isBuildWorkflowRunning(build *choreov1.Build) bool {
 			// A failed step means the workflow is not running
 			return false
 		case string(ReasonStepQueued), string(ReasonStepInProgress):
-			// At least one step is still running
+			// At least one step is running/scheduled to run
 			return true
 		}
 	}
 
 	return false
+}
+
+func isBuildStepRunning(build *choreov1.Build) bool {
+	condition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded))
+	return condition != nil && condition.Reason == string(ReasonStepInProgress)
 }
 
 // handleRequeueAfterBuild manages the requeue process after a build step.
@@ -352,12 +357,9 @@ func (r *Reconciler) handleRequeueAfterBuild(
 	ctx context.Context, old, build *choreov1.Build, workflow *argoproj.Workflow,
 ) (ctrl.Result, error) {
 	// Check if the build step is running and has not yet succeeded.
-	stepInfo, isFound := argointegrations.GetStepByTemplateName(workflow.Status.Nodes, integrations.BuildStep)
-	if isFound && meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded)).Reason == string(ReasonStepInProgress) {
-		if argointegrations.GetStepPhase(stepInfo.Phase) == integrations.Running {
-			// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
-			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
-		}
+	if isBuildStepRunning(build) {
+		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
+		return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
 	}
 	// Default requeue without a delay if the build step is not there or already succeeded.
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
