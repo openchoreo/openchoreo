@@ -139,7 +139,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
 
 		if requeue {
-			return r.handleRequeueAfterBuild(ctx, oldBuild, build, existingWorkflow)
+			return r.handleRequeueAfterBuild(ctx, oldBuild, build)
 		}
 
 		// When ci workflow is completed, it is required to update conditions
@@ -352,10 +352,7 @@ func isBuildStepRunning(build *choreov1.Build) bool {
 }
 
 // handleRequeueAfterBuild manages the requeue process after a build step.
-// This function is specific to Argo Workflows.
-func (r *Reconciler) handleRequeueAfterBuild(
-	ctx context.Context, old, build *choreov1.Build, workflow *argoproj.Workflow,
-) (ctrl.Result, error) {
+func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *choreov1.Build) (ctrl.Result, error) {
 	// Check if the build step is running and has not yet succeeded.
 	if isBuildStepRunning(build) {
 		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
