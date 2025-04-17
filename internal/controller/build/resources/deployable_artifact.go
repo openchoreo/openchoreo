@@ -86,7 +86,8 @@ func AddComponentSpecificConfigs(buildCtx *integrations.BuildContext, deployable
 		// TODO: Currently, there is no straightforward way to configure the Nginx port in Google Buildpacks.
 		//       The default port used by the buildpack is 8080.
 		//       We need to find a way to change this configuration.
-		if buildCtx.Build.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackPHP {
+		if buildPackConfig := buildCtx.Build.Spec.BuildConfiguration.Buildpack; buildPackConfig != nil &&
+			buildPackConfig.Name == choreov1.BuildpackPHP {
 			webAppPort = 8080
 		}
 		deployableArtifact.Spec.Configuration = &choreov1.Configuration{
