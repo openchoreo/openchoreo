@@ -28,6 +28,16 @@ jobs:
           echo "RELEASE_TAG=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
           echo "RELEASE_TAG_WITHOUT_V=$(echo ${GITHUB_REF##*/v})" >> $GITHUB_ENV
 
+      - name: Set Latest Flag
+        run: |
+          git fetch --tags
+          latest_tag=$(git tag -l | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ "$latest_tag" == "${RELEASE_TAG}" ]; then
+                echo "LATEST=true" >> $GITHUB_ENV
+            else
+                echo "LATEST=false" >> $GITHUB_ENV
+            fi
+
       - name: Validate VERSION file
         run: |
           VERSION=$(cat VERSION)
@@ -49,6 +59,11 @@ jobs:
         run: |
           docker buildx imagetools create -t ghcr.io/openchoreo/controller:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/controller:${{ env.GIT_SHA_SHORT }}
           docker buildx imagetools create -t ghcr.io/openchoreo/quick-start:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/quick-start:${{ env.GIT_SHA_SHORT }}
+          
+          if [ "${{ env.LATEST }}" == "true" ]; then
+              docker buildx imagetools create -t ghcr.io/openchoreo/controller:latest ghcr.io/openchoreo/controller:${{ env.RELEASE_TAG }}
+              docker buildx imagetools create -t ghcr.io/openchoreo/quick-start:latest ghcr.io/openchoreo/quick-start:${{ env.RELEASE_TAG }}
+          fi
 
       - name: Download choreoctl artifact from the build workflow
         uses: dawidd6/action-download-artifact@v2
