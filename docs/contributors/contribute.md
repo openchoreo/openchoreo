@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Go version v1.23.0+
+- Go version v1.24.0+
 - Docker version 23.0+
 - Make version 3.81+
 - Kubernetes cluster with version v1.30.0+

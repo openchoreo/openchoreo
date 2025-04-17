@@ -33,7 +33,7 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     ```shell
     helm version
     ```
-3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.23.5.
+3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32
    To verify the installation:
 
     ```shell
@@ -105,7 +105,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 
 ### _Prerequisites_
 
-1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.23.5.
+1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.24
 2. Make sure to clone the repository into your local machine.
    ```shell
    git clone https://github.com/openchoreo/openchoreo.git
