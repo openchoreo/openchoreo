@@ -21,16 +21,16 @@ package kubernetes
 import (
 	"encoding/base64"
 	"fmt"
-	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sync"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"github.com/openchoreo/openchoreo/internal/labels"

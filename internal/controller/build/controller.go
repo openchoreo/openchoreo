@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -46,6 +45,7 @@ import (
 	sourcegithub "github.com/openchoreo/openchoreo/internal/controller/build/integrations/source/github"
 	"github.com/openchoreo/openchoreo/internal/controller/build/resources"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
