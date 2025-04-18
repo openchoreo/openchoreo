@@ -1,0 +1,18 @@
+dependencies:
+- name: vault
+  repository: https://helm.releases.hashicorp.com
+  version: 0.29.1
+- name: secrets-store-csi-driver
+  repository: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
+  version: 1.4.0
+- name: gateway-helm
+  repository: oci://registry-1.docker.io/envoyproxy
+  version: 1.2.3
+- name: cert-manager
+  repository: https://charts.jetstack.io
+  version: v1.16.2
+- name: argo-workflows
+  repository: https://argoproj.github.io/argo-helm
+  version: 0.45.2
+digest: sha256:6ad8b563a12d6b8bd879f8e03756ce5d3e45ffb619475c01b3d4973a593651c8
+generated: "2025-04-17T18:29:15.129083+05:30"
