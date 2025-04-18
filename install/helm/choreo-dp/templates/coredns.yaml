@@ -1,0 +1,85 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: apply-coredns-configmap
+  namespace: default
+spec:
+  template:
+    spec:
+      serviceAccountName: coredns-apply-sa
+      containers:
+        - name: kubectl
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cat <<EOF | kubectl apply -f -
+              apiVersion: v1
+              data:
+                Corefile: |
+                  .:53 {
+                      errors
+                      health {
+                          lameduck 5s
+                      }
+                      ready
+
+                      rewrite name regex (.+\.)?choreoapis\.internal choreo-internal-gateway.choreo-system.svc.cluster.local
+
+                      kubernetes cluster.local in-addr.arpa ip6.arpa {
+                          pods insecure
+                          fallthrough in-addr.arpa ip6.arpa
+                          ttl 30
+                      }
+                      prometheus :9153
+                      forward . /etc/resolv.conf {
+                          max_concurrent 1000
+                      }
+                      cache 30 {
+                          disable success cluster.local
+                          disable denial cluster.local
+                      }
+                      loop
+                      reload
+                      loadbalance
+                  }
+              kind: ConfigMap
+              metadata:
+                name: coredns
+                namespace: kube-system
+              EOF
+      restartPolicy: Never
+  backoffLimit: 4
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coredns-apply-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: coredns-configmap-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+    resourceNames: ["coredns"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: coredns-apply-binding
+subjects:
+  - kind: ServiceAccount
+    name: coredns-apply-sa
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: coredns-configmap-role
+  apiGroup: rbac.authorization.k8s.io

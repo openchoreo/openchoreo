@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-wait-sa
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "3"
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-wait-role
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "4"
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-wait-rolebinding
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: vault-wait-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: vault-wait-role
+  apiGroup: rbac.authorization.k8s.io

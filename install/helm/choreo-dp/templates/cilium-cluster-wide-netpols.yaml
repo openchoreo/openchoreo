@@ -1,0 +1,67 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+ name: allow-kube-dns-and-kubelet
+spec:
+ endpointSelector:
+   matchLabels:
+     belong-to: user-workloads
+ egress:
+   - toEndpoints:
+       - matchLabels:
+           k8s-app: kube-dns
+           k8s:io.kubernetes.pod.namespace: kube-system
+     toPorts:
+       - ports:
+           - port: '53'
+             protocol: UDP
+ ingress:
+   - fromEntities:
+       - host
+       - remote-node
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-world
+spec:
+  endpointSelector:
+    matchLabels:
+      belong-to: user-workloads
+  egress:
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-user-apps-to-internal-gateway
+spec:
+  endpointSelector:
+    matchLabels:
+      belong-to: user-workloads
+  egress:
+    - toEndpoints:
+       - matchLabels:
+          gateway.envoyproxy.io/owning-gateway-name: gateway-internal
+          gateway.envoyproxy.io/owning-gateway-namespace: {{ .Release.Namespace }}
+  ingress:
+    - fromEndpoints:
+       - matchLabels:
+          gateway.envoyproxy.io/owning-gateway-name: gateway-internal
+          gateway.envoyproxy.io/owning-gateway-namespace: {{ .Release.Namespace }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-user-apps-to-external-gateway
+spec:
+  endpointSelector:
+    matchLabels:
+      belong-to: user-workloads
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        gateway.envoyproxy.io/owning-gateway-name: gateway-external
+        gateway.envoyproxy.io/owning-gateway-namespace: {{ .Release.Namespace }}
+
