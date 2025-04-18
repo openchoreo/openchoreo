@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wait-for-vault-ready
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "12"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-wait-sa
+      containers:
+        - name: wait-for-ready
+          image: {{ .Values.waitJob.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for vault to be ready..."
+              kubectl wait --namespace {{ .Release.Namespace }} \
+              --for=condition=Ready pods \
+              -l app.kubernetes.io/name=vault,app.kubernetes.io/instance=choreo-dp \
+              --timeout=900s
+      restartPolicy: Never
+  backoffLimit: 5

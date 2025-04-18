@@ -1,0 +1,29 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "choreo-cp.fullname" . }}-mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "choreo-cp.fullname" . }}-serving-cert
+  labels:
+  {{- include "choreo-cp.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: '{{ include "choreo-cp.fullname" . }}-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-core-choreo-dev-v1-project
+  failurePolicy: Fail
+  name: mproject-v1.kb.io
+  rules:
+  - apiGroups:
+    - core.choreo.dev
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - projects
+  sideEffects: None
