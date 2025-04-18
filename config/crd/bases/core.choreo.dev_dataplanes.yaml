@@ -58,34 +58,37 @@ spec:
               kubernetesCluster:
                 description: KubernetesCluster specifies the target cluster configuration
                 properties:
-                  connectionConfigRef:
-                    description: Reference to the connection configuration for the
-                      cluster
-                    type: string
-                  featureFlags:
-                    description: FeatureFlags specifies enabled/disabled features
+                  credentials:
+                    description: Credentials contains the authentication details for
+                      accessing the Kubernetes API server.
                     properties:
-                      cilium:
-                        description: Enable/disable Cilium networking
-                        type: boolean
-                      gatewayType:
-                        description: GatewayType specifies the type of gateway to
-                          be used (e.g., envoy)
+                      apiServerURL:
+                        description: APIServerURL is the URL of the Kubernetes API
+                          server.
                         type: string
-                      scaleToZero:
-                        description: Enable/disable scale to zero functionality
-                        type: boolean
+                      caCert:
+                        description: CACert is the base64-encoded CA certificate used
+                          to verify the server's certificate.
+                        type: string
+                      clientCert:
+                        description: ClientCert is the base64-encoded client certificate
+                          used for authentication.
+                        type: string
+                      clientKey:
+                        description: ClientKey is the base64-encoded private key corresponding
+                          to the client certificate.
+                        type: string
                     required:
-                    - cilium
-                    - gatewayType
-                    - scaleToZero
+                    - apiServerURL
+                    - caCert
+                    - clientCert
+                    - clientKey
                     type: object
                   name:
                     description: Name of the Kubernetes cluster
                     type: string
                 required:
-                - connectionConfigRef
-                - featureFlags
+                - credentials
                 - name
                 type: object
             required:

@@ -1,0 +1,184 @@
+# =======================================================
+# DO NOT MODIFY THIS FILE - THIS IS A GENERATED FILE
+# Instead, make your changes in choreo.values.yaml
+# =======================================================
+
+controllerManager:
+  manager:
+    args:
+    - --metrics-bind-address=:8443
+    - --leader-elect
+    - --health-probe-bind-address=:8081
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    image:
+      repository: ghcr.io/openchoreo/controller
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+  podSecurityContext:
+    runAsNonRoot: true
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+kubernetesClusterDomain: cluster.local
+metricsService:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  type: ClusterIP
+webhookService:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  type: ClusterIP
+waitJob:
+  image: bitnami/kubectl:latest
+metricsServer:
+  enabled: false
+  kubeletInsecureTlsEnabled: true
+# customizing the vault configurations
+vault:
+  server:
+    # -- Resource limits and requests for the vault server
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+    dev:
+      enabled: true
+      devRootToken: "root"
+      logLevel: "info"
+    # Add readiness probe configuration
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+      initialDelaySeconds: 5
+      timeoutSeconds: 10  # Increase from default
+      periodSeconds: 10
+      failureThreshold: 3
+  injector:
+    enabled: false
+    # -- Resource limits and requests for the vault injector
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+# customizing the secrets-store-csi-driver configurations
+secrets-store-csi-driver:
+  syncSecret:
+    enabled: true
+  enableSecretRotation: true
+  vaultCsiProvider:
+    enabled: true
+# customizing the registry configurations
+registry:
+  # -- Resource limits and requests for the registry
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 100m
+    requests:
+      memory: 128Mi
+      cpu: 50m
+  service:
+    # -- NodePort for the registry service
+    nodePort: 30003
+  # -- Persistent volume storage for the registry
+  storage:
+    size: 2Gi
+# customizing the envoy gateway configurations
+gateway-helm:
+  config:
+    envoyGateway:
+      rateLimit:
+        backend:
+          type: Redis
+          redis:
+            url: redis.choreo-system.svc.cluster.local:6379
+  # -- Resource limits and requests for the gateway
+  deployment:
+    envoyGateway:
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+# customizing the cert-manager configurations
+certmanager:
+  enabled: true
+  crds:
+    enabled: true
+  # -- Resource limits and requests for the cert-manager controller
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  cainjector:
+    # -- Resource limits and requests for the cert-manager cainjector
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+  webhook:
+    # -- Resource limits and requests for the cert-manager webhook
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+# customizing the argo workflows configurations
+argo-workflows:
+  controller:
+    # -- Resource limits and requests for the argo workflows controller
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 50m
+      requests:
+        memory: 32Mi
+        cpu: 25m
+  server:
+    # -- Resource limits and requests for the argo workflows server
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 50m
+      requests:
+        memory: 32Mi
+        cpu: 25m
+  crds:
+    keep: false
+  workflow:
+    serviceAccount:
+      create: true
+  workflowNamespaces:
+    - argo-build

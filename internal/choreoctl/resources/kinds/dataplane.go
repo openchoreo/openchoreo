@@ -158,12 +158,12 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 		},
 		Spec: choreov1.DataPlaneSpec{
 			KubernetesCluster: choreov1.KubernetesClusterSpec{
-				Name:                params.KubernetesClusterName,
-				ConnectionConfigRef: params.ConnectionConfigRef,
-				FeatureFlags: choreov1.FeatureFlagsSpec{
-					Cilium:      params.EnableCilium,
-					ScaleToZero: params.EnableScaleToZero,
-					GatewayType: params.GatewayType,
+				Name: params.KubernetesClusterName,
+				Credentials: choreov1.APIServerCredentials{
+					APIServerURL: params.APIServerURL,
+					CACert:       params.CACert,
+					ClientCert:   params.ClientCert,
+					ClientKey:    params.ClientKey,
 				},
 			},
 			Gateway: choreov1.GatewaySpec{

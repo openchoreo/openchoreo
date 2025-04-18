@@ -1,0 +1,17 @@
+{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
+apiVersion: core.choreo.dev/v1
+kind: Project
+metadata:
+  name: {{ .Values.choreoDefaultValues.DefaultProject.name }}
+  namespace: {{ .Values.choreoDefaultValues.DefaultProject.namespace }}
+  annotations:
+    core.choreo.dev/display-name: {{ .Values.choreoDefaultValues.DefaultProject.displayName }}
+    core.choreo.dev/description: {{ .Values.choreoDefaultValues.DefaultProject.description }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "11"
+  labels:
+    core.choreo.dev/organization: {{ .Values.choreoDefaultValues.DefaultProject.organization }}
+    core.choreo.dev/name: {{ .Values.choreoDefaultValues.DefaultProject.name }}
+spec:
+  deploymentPipelineRef: {{ .Values.choreoDefaultValues.deploymentPipeline.name }}
+{{ end }}
