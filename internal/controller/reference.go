@@ -39,7 +39,7 @@ func GetDataplaneOfEnv(ctx context.Context, c client.Client, env *choreov1.Envir
 	}
 
 	if err := c.List(ctx, dataplaneList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
+		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
 	}
 
 	if len(dataplaneList.Items) > 0 {
