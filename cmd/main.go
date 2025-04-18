@@ -192,6 +192,7 @@ func main() {
 	}
 	if err = (&build.Reconciler{
 		Client:       mgr.GetClient(),
+		DpClientMgr:  dpClientMgr,
 		Scheme:       mgr.GetScheme(),
 		GithubClient: github.NewClient(nil),
 	}).SetupWithManager(mgr); err != nil {

@@ -21,6 +21,8 @@ package kubernetes
 import (
 	"encoding/base64"
 	"fmt"
+	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sync"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -83,8 +85,10 @@ func (m *KubeClientManager) GetClient(key string, creds choreov1.APIServerCreden
 	// Register API schemes
 	_ = scheme.AddToScheme(scheme.Scheme)
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
+	_ = gwapiv1.Install(scheme.Scheme)
 	_ = egv1a1.AddToScheme(scheme.Scheme)
 	_ = csisecretv1.Install(scheme.Scheme)
+	_ = argo.AddToScheme(scheme.Scheme)
 
 	// Create the client with the scheme
 	cl, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme})
@@ -106,6 +110,7 @@ func GetDPClient(dpClientMgr *KubeClientManager, dataplane *choreov1.DataPlane) 
 	dpClient, err := dpClientMgr.GetClient(makeDataplaneKey(dataplane), dataplane.Spec.KubernetesCluster.Credentials)
 	if err != nil {
 		// Return an error if client creation fails
+		fmt.Println(err)
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
 
