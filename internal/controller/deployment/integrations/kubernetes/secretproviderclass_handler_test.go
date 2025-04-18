@@ -88,7 +88,7 @@ var _ = Describe("makeSecretProviderClasses", func() {
 			By("checking the Parameters")
 			Expect(spec.Parameters).To(BeComparableTo(map[string]string{
 				"roleName":     "choreo-secret-reader-role",
-				"vaultAddress": "http://choreo-vault:8200",
+				"vaultAddress": "http://choreo-dp-vault:8200",
 				"objects":      "- objectName: password\n  secretPath: secret/test/redis/password\n  secretKey: value\n",
 			}))
 
@@ -116,7 +116,7 @@ var _ = Describe("makeSecretProviderClasses", func() {
 			By("checking the Parameters")
 			Expect(spec.Parameters).To(BeComparableTo(map[string]string{
 				"roleName":     "choreo-secret-reader-role",
-				"vaultAddress": "http://choreo-vault:8200",
+				"vaultAddress": "http://choreo-dp-vault:8200",
 				"objects":      "- objectName: password\n  secretPath: secret/test/mysql/password\n  secretKey: value\n",
 			}))
 
@@ -173,7 +173,7 @@ var _ = Describe("makeSecretProviderClasses", func() {
 			By("checking the Parameters")
 			Expect(spec.Parameters).To(BeComparableTo(map[string]string{
 				"roleName":     "choreo-secret-reader-role",
-				"vaultAddress": "http://choreo-vault:8200",
+				"vaultAddress": "http://choreo-dp-vault:8200",
 				"objects":      "- objectName: client-secret\n  secretPath: secret/test/salesforce/client-secret\n  secretKey: value\n",
 			}))
 
