@@ -1,22 +1,21 @@
 # OpenChoreo Installation
 
-This guide walks you through installing OpenChoreo on a single Kubernetes cluster. 
-You'll start by creating a compatible Kubernetes cluster with Cilium, install OpenChoreo using Helm, and set up the choreoctl CLI.
+This guide walks you through the installation and setup of OpenChoreo on a multi-cluster Kubernetes environment. 
+The process involves creating and configuring two Kubernetes clusters: one for the **Control Plane** and another for the **DataPlane**. 
+After configuring the clusters, you will install OpenChoreo using Helm, verify the installation, and install the choreoctl CLI tool to manage OpenChoreo components.
 
-Additionally, the guide provides options to expose the OpenChoreo external gateway service to your host machine, enabling seamless access to the components you create.
-
-By the end of this guide, you'll have a fully functional OpenChoreo deployment running on your Kubernetes cluster.
+By the end of this guide, you'll have a fully functional OpenChoreo deployment running on a multi-cluster setup.
 
 
-## Create Compatible Kubernetes Cluster
+## Create Compatible Kubernetes Clusters
 
-Compatible kubernetes cluster should have cilium installed.
+You need two Kubernetes clusters: one for the Control Plane and one for the Data Plane. The Data Plane cluster should have Cilium installed for compatibility with OpenChoreo.
 
-If you don't have a compatible kubernetes cluster, you can create one of following in your local machine and start testing.
+If you don’t have compatible Kubernetes clusters yet, you can create them using the following guide on your local machine.
 
 ### Kind
 
-In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) cluster and install Cilium into that for making it compatible with OpenChoreo.
+In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
 
 #### _Prerequisites_
 
@@ -32,28 +31,34 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     ```shell
     helm version
     ```
-3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32
+3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.23.5.
    To verify the installation:
 
     ```shell
     kubectl version --client
     ```
 
-#### Creat a Kind Cluster
+#### Create Kind Clusters
 
-Run the following command to create your kind cluster ([kind config](../install/kind/kind-config.yaml)).
+Create your Kind cluster for the **Control Plane** ([kind config](../install/kind/multi-cluster-setup/kind-config-cp.yaml)):
 
 ```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-cp.yaml | kind create cluster --config=-
+```
+
+Next, create your Kind cluster for the **Data Plane** ([kind config](../install/kind/multi-cluster-setup/kind-config-dp.yaml)):
+
+```shell
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-dp.yaml | kind create cluster --config=-
 ```
 
 #### Install Cilium
 
 Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To do so, use the Helm chart provided for a minimal Cilium configuration.
 
-Run the following command to install Cilium:
+Run the following command to install Cilium in the **DataPlane cluster**:
 ```shell
-helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --namespace "choreo-system" --create-namespace --timeout 30m
+helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
 [//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
@@ -69,38 +74,42 @@ helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --namespace "cho
 
 ## Install OpenChoreo
 
-OpenChoreo can be installed on any Kubernetes cluster using the official Helm charts provided by the project.
+Now you can proceed to install OpenChoreo on both the Control Plane and Data Plane clusters using Helm.
 
-> [!NOTE]
-> The choreo-dp Helm chart requires Cilium to be installed in the cluster before installation.
+1. Install OpenChoreo Control Plane
 
-
-1. Install OpenChoreo using Helm
-
-Run the following two Helm commands to install OpenChoreo into your cluster:
+Install the Control Plane using Helm:
 
 ```shell
 helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-cp \
---kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
+--kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
+
+2. Install OpenChoreo DataPlane
+
+Install the Data Plane using Helm:
 
 ```shell
 helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dp \
---kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
---set certmanager.enabled=false --set certmanager.crds.enabled=false
+--kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
-2. Verify the Installation
+3. Verify the Installation
 
 Once OpenChoreo is installed, you can verify the installation status using the provided script ([script](../install/check-status.sh)).
 
-Run the verification script:
+- I. Run the verification script:
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh | bash
 ```
 
-Press enter for "Is this a multi-cluster setup? (y/n):" to proceed with components status for single cluster setup.
+- II. Follow the prompts:
+  - "Is this a multi-cluster setup? (y/n):" Enter `y` to proceed with multi-cluster status check.
+  - "Enter DataPlane Kubernetes context (default: kind-choreo-dp):" Press `Enter` if you are using the cluster created earlier, or provide your context.
+  - "Enter Control Plane Kubernetes context (default: kind-choreo-cp):" Press `Enter` if you are using the cluster created earlier, or provide your context.
+
+The script will display the current status of OpenChoreo components across both clusters.
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
 
@@ -116,8 +125,10 @@ Run the following command:
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh | bash
 ```
-- Follow the prompt:
-   -  "Is this a multi-cluster setup? (y/n):" Press `Enter` to proceed.
+
+- Follow the prompts:
+  -  "Is this a multi-cluster setup? (y/n):" Enter `y` to proceed with a multi-cluster setup.
+  -  "Enter DataPlane Kubernetes context (default: kind-choreo-dp):" Press `Enter` to use the default Kubernetes context for the DataPlane cluster created earlier.
 
 ## Install the choreoctl
 
@@ -127,7 +138,7 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ad
 
 ### _Prerequisites_
 
-1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.24
+1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.23.5.
 2. Make sure to clone the repository into your local machine.
    ```shell
    git clone https://github.com/openchoreo/openchoreo.git
