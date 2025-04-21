@@ -79,124 +79,165 @@ func (m dataPlaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.state {
 	case dpStateOrgSelect:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.OrgCursor >= len(m.Organizations) {
-				m.errorMsg = "Invalid organization selection"
-				return m, nil
-			}
-			m.state = dpStateNameInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.OrgCursor = interactive.ProcessListCursor(keyMsg, m.OrgCursor, len(m.Organizations))
-
+		return m.updateOrgSelect(keyMsg)
 	case dpStateNameInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if err := validation.ValidateName("dataplane", m.name); err != nil {
-				m.errorMsg = err.Error()
-				return m, nil
-			}
-			m.state = dpStateGatewayTypeInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.name, _ = interactive.EditTextInputField(keyMsg, m.name, len(m.name))
-
+		return m.updateNameInput(keyMsg)
 	case dpStateGatewayTypeInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.gatewayType == "" {
-				m.gatewayType = "envoy"
-			}
-			m.state = dpStatePublicVirtualHostInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.errorMsg = ""
-		m.gatewayType, _ = interactive.EditTextInputField(keyMsg, m.gatewayType, len(m.gatewayType))
-
+		return m.updateGatewayTypeInput(keyMsg)
 	case dpStatePublicVirtualHostInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.publicVirtualHost == "" {
-				m.publicVirtualHost = "choreoapis.local"
-			}
-			m.state = dpStateOrgVirtualHostInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.publicVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.publicVirtualHost, len(m.publicVirtualHost))
-
+		return m.updatePublicVirtualHostInput(keyMsg)
 	case dpStateOrgVirtualHostInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.orgVirtualHost == "" {
-				m.orgVirtualHost = "internal.choreoapis.local"
-			}
-			m.state = dpStateClusterNameInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.orgVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.orgVirtualHost, len(m.orgVirtualHost))
-
+		return m.updateOrgVirtualHostInput(keyMsg)
 	case dpStateClusterNameInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.kubernetesClusterName == "" {
-				m.kubernetesClusterName = "choreo-dataplane"
-			}
-			m.state = dpStateAPIServerURLInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.kubernetesClusterName, _ = interactive.EditTextInputField(keyMsg, m.kubernetesClusterName, len(m.kubernetesClusterName))
-
+		return m.updateClusterNameInput(keyMsg)
 	case dpStateAPIServerURLInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.apiServerURL == "" {
-				m.errorMsg = "API Server URL cannot be empty"
-				return m, nil
-			}
-			m.state = dpStateCACertInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.apiServerURL, _ = interactive.EditTextInputField(keyMsg, m.apiServerURL, len(m.apiServerURL))
-
+		return m.updateAPIServerURLInput(keyMsg)
 	case dpStateCACertInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.caCert == "" {
-				m.errorMsg = "CA Certificate cannot be empty"
-				return m, nil
-			}
-			m.state = dpStateClientCertInput
-			m.errorMsg = ""
-			return m, nil
-		}
-		m.caCert, _ = interactive.EditTextInputField(keyMsg, m.caCert, len(m.caCert))
-
+		return m.updateCACertInput(keyMsg)
 	case dpStateClientCertInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.clientCert == "" {
-				m.errorMsg = "Client Certificate cannot be empty"
-				return m, nil
-			}
-			m.state = dpStateClientKeyInput
-			m.errorMsg = ""
+		return m.updateClientCertInput(keyMsg)
+	case dpStateClientKeyInput:
+		return m.updateClientKeyInput(keyMsg)
+	default:
+		return m, nil
+	}
+}
+
+func (m dataPlaneModel) updateOrgSelect(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.OrgCursor >= len(m.Organizations) {
+			m.errorMsg = "Invalid organization selection"
 			return m, nil
 		}
-		m.clientCert, _ = interactive.EditTextInputField(keyMsg, m.clientCert, len(m.clientCert))
-
-	case dpStateClientKeyInput:
-		if interactive.IsEnterKey(keyMsg) {
-			if m.clientKey == "" {
-				m.errorMsg = "Client Key cannot be empty"
-				return m, nil
-			}
-			m.selected = true
-			return m, tea.Quit
-		}
-		m.clientKey, _ = interactive.EditTextInputField(keyMsg, m.clientKey, len(m.clientKey))
+		m.state = dpStateNameInput
+		m.errorMsg = ""
+		return m, nil
 	}
+	m.errorMsg = ""
+	m.OrgCursor = interactive.ProcessListCursor(keyMsg, m.OrgCursor, len(m.Organizations))
+	return m, nil
+}
 
+func (m dataPlaneModel) updateNameInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if err := validation.ValidateName("dataplane", m.name); err != nil {
+			m.errorMsg = err.Error()
+			return m, nil
+		}
+		m.state = dpStateGatewayTypeInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.errorMsg = ""
+	m.name, _ = interactive.EditTextInputField(keyMsg, m.name, len(m.name))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateGatewayTypeInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.gatewayType == "" {
+			m.gatewayType = "envoy"
+		}
+		m.state = dpStatePublicVirtualHostInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.errorMsg = ""
+	m.gatewayType, _ = interactive.EditTextInputField(keyMsg, m.gatewayType, len(m.gatewayType))
+	return m, nil
+}
+
+func (m dataPlaneModel) updatePublicVirtualHostInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.publicVirtualHost == "" {
+			m.publicVirtualHost = "choreoapis.local"
+		}
+		m.state = dpStateOrgVirtualHostInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.publicVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.publicVirtualHost, len(m.publicVirtualHost))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateOrgVirtualHostInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.orgVirtualHost == "" {
+			m.orgVirtualHost = "internal.choreoapis.local"
+		}
+		m.state = dpStateClusterNameInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.orgVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.orgVirtualHost, len(m.orgVirtualHost))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateClusterNameInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.kubernetesClusterName == "" {
+			m.kubernetesClusterName = "choreo-dataplane"
+		}
+		m.state = dpStateAPIServerURLInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.kubernetesClusterName, _ = interactive.EditTextInputField(keyMsg, m.kubernetesClusterName, len(m.kubernetesClusterName))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateAPIServerURLInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.apiServerURL == "" {
+			m.errorMsg = "API Server URL cannot be empty"
+			return m, nil
+		}
+		m.state = dpStateCACertInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.apiServerURL, _ = interactive.EditTextInputField(keyMsg, m.apiServerURL, len(m.apiServerURL))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateCACertInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.caCert == "" {
+			m.errorMsg = "CA Certificate cannot be empty"
+			return m, nil
+		}
+		m.state = dpStateClientCertInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.caCert, _ = interactive.EditTextInputField(keyMsg, m.caCert, len(m.caCert))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateClientCertInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.clientCert == "" {
+			m.errorMsg = "Client Certificate cannot be empty"
+			return m, nil
+		}
+		m.state = dpStateClientKeyInput
+		m.errorMsg = ""
+		return m, nil
+	}
+	m.clientCert, _ = interactive.EditTextInputField(keyMsg, m.clientCert, len(m.clientCert))
+	return m, nil
+}
+
+func (m dataPlaneModel) updateClientKeyInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if interactive.IsEnterKey(keyMsg) {
+		if m.clientKey == "" {
+			m.errorMsg = "Client Key cannot be empty"
+			return m, nil
+		}
+		m.selected = true
+		return m, tea.Quit
+	}
+	m.clientKey, _ = interactive.EditTextInputField(keyMsg, m.clientKey, len(m.clientKey))
 	return m, nil
 }
 

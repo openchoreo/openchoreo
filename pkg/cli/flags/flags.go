@@ -217,7 +217,7 @@ var (
 		Usage: "Organization virtual host for the gateway",
 	}
 
-	ApiServerUrl = Flag{
+	APIServerURL = Flag{
 		Name:  "api-server-url",
 		Usage: "The URL of the Kubernetes API server for the data plane",
 	}
