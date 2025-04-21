@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# color codes for console formatting
+# Color codes
 RED="\033[0;31m"
 GREEN="\033[0;32m"
 DARK_YELLOW="\033[0;33m"
@@ -8,25 +8,31 @@ RESET="\033[0m"
 
 NAMESPACE="choreo-system"
 
-# High level components
+# Component lists
 components=("cilium" "vault" "argo" "cert_manager" "choreo_controller" "choreo_image_registry" "envoy_gateway" "redis" "external_gateway" "internal_gateway")
+components_cp=("cert_manager" "choreo_controller")
+components_dp=("cilium" "vault" "argo" "cert_manager" "choreo_image_registry" "envoy_gateway" "redis" "external_gateway" "internal_gateway")
 
-# Unique label per each component
+# Labels
 cilium_deps=("app.kubernetes.io/name=cilium-agent" "app.kubernetes.io/name=cilium-operator")
 vault_deps=("app.kubernetes.io/name=vault")
 argo_deps=("app.kubernetes.io/name=argo-workflows-server" "app.kubernetes.io/name=argo-workflows-workflow-controller")
 cert_manager_deps=("app.kubernetes.io/name=certmanager" "app.kubernetes.io/name=cainjector" "app.kubernetes.io/name=webhook")
-choreo_controller_deps=("app.kubernetes.io/name=choreo")
+choreo_controller_deps=("app.kubernetes.io/name=choreo-cp")
 choreo_image_registry_deps=("app=registry")
 redis_deps=("app=redis")
 envoy_gateway_deps=("app.kubernetes.io/name=gateway-helm")
 external_gateway_deps=("gateway.envoyproxy.io/owning-gateway-name=gateway-external")
 internal_gateway_deps=("gateway.envoyproxy.io/owning-gateway-name=gateway-internal")
 
-check_status() {
-    local label=$1
+# Global
+overall_status="ready"
 
-    pod_status=$(kubectl get pods -n "$NAMESPACE" -l "$label" \
+check_status() {
+    local label="$1"
+    local context="$2"
+
+    pod_status=$(kubectl --context="$context" get pods -n "$NAMESPACE" -l "$label" \
         -o jsonpath="{.items[*].status.conditions[?(@.type=='Ready')].status}" 2>/dev/null)
 
     if [[ -z "$pod_status" ]]; then
@@ -44,13 +50,14 @@ check_status() {
 }
 
 get_component_status() {
-    local component=$1
+    local component="$1"
+    local context="$2"
     local worst_status="ready"
 
     eval "deps=(\"\${${component}_deps[@]}\")"
 
     for workload in "${deps[@]}"; do
-        status=$(check_status "$workload")
+        status=$(check_status "$workload" "$context")
 
         if [[ "$status" == "not started" ]]; then
             worst_status="not started"
@@ -64,49 +71,72 @@ get_component_status() {
     echo "$worst_status"
 }
 
-overall_status="ready"
+print_component_status() {
+    local comp_list_name="$1"
+    local header="$2"
+    local context="$3"
 
-echo -e "\nChoreo Installation Status:\n"
-printf "\n%-25s %-15s\n" "Component" "Status"
-printf "%-25s %-15s\n" "------------------------" "---------------"
+    eval "comp_list=(\"\${${comp_list_name}[@]}\")"
 
-for component in "${components[@]}"; do
-    status=$(get_component_status "$component")
+    echo -e "\n$header"
+    printf "\n%-25s %-15s\n" "Component" "Status"
+    printf "%-25s %-15s\n" "------------------------" "---------------"
 
-    case "$status" in
-        "ready")
-            icon="✅"
-            color=$GREEN
-            ;;
-        "pending")
-            icon="🕑"
-            color=$DARK_YELLOW
-            overall_status="not ready"
-            ;;
-        "not started")
-            icon="❌"
-            color=$RED
-            overall_status="not ready"
-            ;;
-        "unknown")
-            icon="⚠"
-            color=$RED
-            overall_status="not ready"
-            ;;
-        *)
-            icon="❓"
-            color=$RED
-            overall_status="not ready"
-            ;;
-    esac
+    for component in "${comp_list[@]}"; do
+        status=$(get_component_status "$component" "$context")
 
-    printf "%-25s %b\n" "$component" "${color}${icon} $status${RESET}"
-done
+        case "$status" in
+            "ready")
+                color=$GREEN
+                ;;
+            "pending")
+                color=$DARK_YELLOW
+                overall_status="not ready"
+                ;;
+            "not started")
+                color=$RED
+                overall_status="not ready"
+                ;;
+            "unknown")
+                color=$RED
+                overall_status="not ready"
+                ;;
+            *)
+                color=$RED
+                overall_status="not ready"
+                ;;
+        esac
 
-if [[ "$overall_status" == "ready" ]]; then
-    echo -e "\nOverall Status: ${GREEN}✅ READY${RESET}"
-    echo -e "${GREEN}🎉 Choreo has been successfully installed and is ready to use! 🚀${RESET}"
+        printf "%-25s %b\n" "$component" "${color}${status} ${icon}${RESET}"
+    done
+}
+
+# --------------------------
+# Main
+# --------------------------
+
+read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
+echo -e "\nChoreo Installation Status"
+
+if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
+    read -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " dataplane_context
+    dataplane_context=${dataplane_context:-"kind-choreo-dp"}
+
+    read -p "Enter Control Plane Kubernetes context (default: kind-choreo-cp): " control_plane_context
+    control_plane_context=${control_plane_context:-"kind-choreo-cp"}
+
+    print_component_status "components_cp" "Control Plane Components" "$control_plane_context"
+    print_component_status "components_dp" "Data Plane Components" "$dataplane_context"
 else
-    echo -e "\nOverall Status: ${RED}❌ NOT READY${RESET}"
-    echo -e "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again. 🕑${RESET}"
+    cluster_context="kind-choreo"
+    print_component_status "components" "Single Cluster Components" "$cluster_context"
+fi
+
+# Overall
+if [[ "$overall_status" == "ready" ]]; then
+    echo -e "\nOverall Status: ${GREEN}READY${RESET}"
+    echo -e "${GREEN}🎉 Choreo has been successfully installed and is ready to use! ${RESET}"
+else
+    echo -e "\nOverall Status: ${RED}NOT READY${RESET}"
+    echo -e "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again. ${RESET}"
 fi
