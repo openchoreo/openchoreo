@@ -88,6 +88,44 @@ var _ = Describe("makePodSpec", func() {
 		})
 	})
 
+	Context("when the deployable artifact has direct file mounts", func() {
+		BeforeEach(func() {
+			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
+				Application: &choreov1.Application{
+					FileMounts: []choreov1.FileMount{
+						{
+							MountPath: "/app/config.json",
+							Value:     "{\"key\":\"value\"}",
+						},
+					},
+				},
+			}
+		})
+
+		It("should create a PodSpec with correct file volume and a mount", func() {
+			By("checking the volumes")
+			Expect(podSpec.Volumes).To(HaveLen(1))
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("filemount-4ea60343"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-filemount-4ea60343-a80bc9b2",
+						},
+					},
+				}),
+			})))
+
+			By("checking the volume mounts")
+			Expect(podSpec.Containers).To(HaveLen(1))
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("filemount-4ea60343"),
+				"MountPath": Equal("/app/config.json"),
+				"SubPath":   Equal("content"),
+			})))
+		})
+	})
+
 	Context("when the deployable artifact has environment variables mapped from configuration groups", func() {
 		BeforeEach(func() {
 			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{

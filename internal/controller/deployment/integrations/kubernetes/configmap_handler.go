@@ -162,6 +162,7 @@ func (h *configMapHandler) Delete(ctx context.Context, deployCtx *dataplane.Depl
 
 func makeConfigMaps(deployCtx *dataplane.DeploymentContext) []*corev1.ConfigMap {
 	configMaps := make([]*corev1.ConfigMap, 0)
+	// Create desired ConfigMaps for each configuration group
 	for _, cg := range deployCtx.ConfigurationGroups {
 		cgConfigs := cg.Spec.Configurations
 		if len(cgConfigs) == 0 {
@@ -192,6 +193,32 @@ func makeConfigMaps(deployCtx *dataplane.DeploymentContext) []*corev1.ConfigMap 
 		cm.Data = cmData
 		configMaps = append(configMaps, cm)
 	}
+
+	// Check if there are any direct file mounts in the deployable artifact
+	// and create desired ConfigMaps for each file mount
+	if deployCtx.DeployableArtifact.Spec.Configuration != nil &&
+		deployCtx.DeployableArtifact.Spec.Configuration.Application != nil {
+		for _, fileMount := range deployCtx.DeployableArtifact.Spec.Configuration.Application.FileMounts {
+			if fileMount.MountPath == "" {
+				continue
+			}
+			if fileMount.Value != "" {
+				cm := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      makeDirectFileMountConfigMapName(deployCtx, &fileMount),
+						Namespace: makeNamespaceName(deployCtx),
+						Labels:    makeWorkloadLabels(deployCtx),
+					},
+					// TODO: Handle binary data
+					Data: map[string]string{
+						fileContentConfigMapKey: fileMount.Value,
+					},
+				}
+				configMaps = append(configMaps, cm)
+			}
+		}
+	}
+
 	return configMaps
 }
 
@@ -202,4 +229,13 @@ func makeConfigMapName(deployCtx *dataplane.DeploymentContext, cg *choreov1.Conf
 	configGroupName := cg.Name
 	// Limit the name to 253 characters to comply with the K8s name length limit for ConfigMaps
 	return dpkubernetes.GenerateK8sName(componentName, deploymentTrackName, configGroupName)
+}
+
+// makeDirectFileMountConfigMapName creates a name for the ConfigMap that is used for the direct file mounts.
+// Format: <component-name>-<deployment-track-name>-<direct-file-mount-volume-name>
+func makeDirectFileMountConfigMapName(deployCtx *dataplane.DeploymentContext, fileMount *choreov1.FileMount) string {
+	// TODO: Ideally, this should be choreo name instead of kubernetes name
+	componentName := deployCtx.Component.Name
+	deploymentTrackName := deployCtx.DeploymentTrack.Name
+	return dpkubernetes.GenerateK8sName(componentName, deploymentTrackName, makeDirectFileMountVolumeName(fileMount))
 }

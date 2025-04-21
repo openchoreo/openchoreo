@@ -19,6 +19,8 @@
 package kubernetes
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,14 +32,29 @@ import (
 	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
+const (
+	fileContentConfigMapKey = "content"
+)
+
 func makePodSpec(deployCtx *dataplane.DeploymentContext) *corev1.PodSpec {
 	ps := &corev1.PodSpec{}
-	ps.Containers = []corev1.Container{*makeMainContainer(deployCtx)}
 	ps.RestartPolicy = getRestartPolicy(deployCtx)
 
-	// Add the secret volumes for the secret storage CSI driver
-	secretCSIVolumes, _ := makeSecretCSIVolumes(deployCtx)
+	// Create the main container
+	mainContainer := makeMainContainer(deployCtx)
+
+	// Add file volumes and mounts
+	fileVolumes, fileMounts := makeFileVolumes(deployCtx)
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, fileMounts...)
+	ps.Volumes = append(ps.Volumes, fileVolumes...)
+
+	// Add the secret volumes and mounts for the secret storage CSI driver
+	secretCSIVolumes, secretCSIMounts := makeSecretCSIVolumes(deployCtx)
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, secretCSIMounts...)
 	ps.Volumes = append(ps.Volumes, secretCSIVolumes...)
+
+	ps.Containers = []corev1.Container{*mainContainer}
+
 	return ps
 }
 
@@ -48,10 +65,6 @@ func makeMainContainer(deployCtx *dataplane.DeploymentContext) *corev1.Container
 	}
 
 	c.Env = makeEnvironmentVariables(deployCtx)
-
-	// Add the secret volumes mounts for the secret storage CSI driver
-	_, secretCSIMounts := makeSecretCSIVolumes(deployCtx)
-	c.VolumeMounts = append(c.VolumeMounts, secretCSIMounts...)
 
 	artifactConfig := deployCtx.DeployableArtifact.Spec.Configuration
 	if artifactConfig != nil {
@@ -127,6 +140,49 @@ func makeEnvironmentVariables(deployCtx *dataplane.DeploymentContext) []corev1.E
 	return k8sEnvVars
 }
 
+func makeFileVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
+	volumes := make([]corev1.Volume, 0)
+	mounts := make([]corev1.VolumeMount, 0)
+
+	if deployCtx.DeployableArtifact.Spec.Configuration == nil ||
+		deployCtx.DeployableArtifact.Spec.Configuration.Application == nil {
+		return volumes, mounts
+	}
+
+	// Build the volumes and mounts from the direct values.
+	// Example file mounts with direct values:
+	// fileMounts:
+	//   - mountPath: /etc/config/test.properties
+	//     value: |
+	//        key1=value1
+	//        key2=value2
+	fileMounts := deployCtx.DeployableArtifact.Spec.Configuration.Application.FileMounts
+	for _, fileMount := range fileMounts {
+		if fileMount.MountPath == "" {
+			continue
+		}
+		if fileMount.Value != "" {
+			volumeName := makeDirectFileMountVolumeName(&fileMount)
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      volumeName,
+				MountPath: fileMount.MountPath,
+				SubPath:   fileContentConfigMapKey,
+			})
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: makeDirectFileMountConfigMapName(deployCtx, &fileMount),
+						},
+					},
+				},
+			})
+		}
+	}
+	return volumes, mounts
+}
+
 // makeSecretCSIVolumes creates the secret volumes and mounts for the secret storage CSI driver.
 func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
 	volumes := make([]corev1.Volume, 0)
@@ -170,4 +226,13 @@ func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPoli
 		return corev1.RestartPolicyNever
 	}
 	return corev1.RestartPolicyAlways
+}
+
+// makeDirectFileMountVolumeName generates a unique name for the file mount volume for a given FileMount spec
+// The name will be in the format: filemount-<hash-of-the-mount-path>
+func makeDirectFileMountVolumeName(fileMount *choreov1.FileMount) string {
+	hashLength := 8
+	hashBytes := sha256.Sum256([]byte(fileMount.MountPath))
+	hash := hex.EncodeToString(hashBytes[:])[:hashLength]
+	return fmt.Sprintf("filemount-%s", hash)
 }

@@ -133,4 +133,26 @@ var _ = Describe("makeConfigMaps", func() {
 		})
 	})
 
+	Context("for a direct file mount", func() {
+		BeforeEach(func() {
+			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
+				Application: &choreov1.Application{
+					FileMounts: []choreov1.FileMount{
+						{
+							MountPath: "/app/config.json",
+							Value:     "{\"key\":\"value\"}",
+						},
+					},
+				},
+			}
+		})
+
+		It("should create a ConfigMap with correct data", func() {
+			data := configMaps[0].Data
+			Expect(data).To(BeComparableTo(map[string]string{
+				"content": "{\"key\":\"value\"}",
+			}))
+		})
+	})
+
 })
