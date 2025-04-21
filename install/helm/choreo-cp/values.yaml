@@ -58,17 +58,6 @@ choreoDefaultValues:
     name: default-dataplane
     namespace: default-org
     organization: default-org
-    displayName: Default Data Plane
-    description: Local development data plane
-    kubernetesCluster:
-      name: kind-cluster-1
-      connectionConfigRef: kind-cluster-1-connection-config
-      featureFlags:
-        cilium: true
-        scaleToZero: true
-        gatewayType: envoy
-    externalGatewayVirtualHost: choreoapis.localhost
-    internalGatewayVirtualHost: choreoapis.internal
   Environments:
     - name: development
       displayName: Development
@@ -119,30 +108,6 @@ waitJob:
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
-argo-workflows:
-  controller:
-    resources:
-      limits:
-        memory: 64Mi
-        cpu: 50m
-      requests:
-        memory: 32Mi
-        cpu: 25m
-  server:
-    resources:
-      limits:
-        memory: 64Mi
-        cpu: 50m
-      requests:
-        memory: 32Mi
-        cpu: 25m
-  crds:
-    keep: false
-  workflow:
-    serviceAccount:
-      create: true
-  workflowNamespaces:
-    - argo-build
 certmanager:
   enabled: true
   crds:
