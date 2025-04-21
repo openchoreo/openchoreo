@@ -217,6 +217,26 @@ var (
 		Usage: "Organization virtual host for the gateway",
 	}
 
+	ApiServerUrl = Flag{
+		Name:  "api-server-url",
+		Usage: "The URL of the Kubernetes API server for the data plane",
+	}
+
+	CaCert = Flag{
+		Name:  "ca-cert",
+		Usage: "The CA certificate used to verify the API server's identity",
+	}
+
+	ClientCert = Flag{
+		Name:  "client-cert",
+		Usage: "The client certificate for authenticating to the API server",
+	}
+
+	ClientKey = Flag{
+		Name:  "client-key",
+		Usage: "The private key corresponding to the client certificate",
+	}
+
 	EndpointType = Flag{
 		Name:  "type",
 		Usage: "Type of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)",
