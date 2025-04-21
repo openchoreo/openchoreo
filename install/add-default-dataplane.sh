@@ -1,24 +1,29 @@
 #!/bin/bash
 
-# Optional: set to your custom kubeconfig path
+# Color codes
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+DARK_YELLOW="\033[0;33m"
+RESET="\033[0m"
+
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
-echo "🚀 Setting up Choreo DataPlane"
+echo "Setting up Choreo DataPlane \n"
 
 # Ask if this is a multi-cluster setup
 read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
 
 if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
   # Prompt user for the source context (where the remote cluster credentials are from)
-  read -p "Enter DataPlane Kubernetes context (e.g., kind-choreo)/Leave the context empty to use current: " INPUT_CONTEXT
-  CONTEXT=${INPUT_CONTEXT:-$(kubectl config current-context)}
+  read -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " INPUT_CONTEXT
+  CONTEXT=${INPUT_CONTEXT:-"kind-choreo-dp"}
   TARGET_CONTEXT="kind-choreo-cp"
-  echo "🔄 Using credentials from '$CONTEXT' to be applied to '$TARGET_CONTEXT'"
+  echo "\nUsing credentials from '$CONTEXT' to be applied to '$TARGET_CONTEXT'"
 else
   # Default to current context for both credentials and target
   CONTEXT=$(kubectl config current-context)
   TARGET_CONTEXT=$CONTEXT
-  echo "🔄 Single-cluster mode. Using current context '$CONTEXT' for default DataPlane"
+  echo "\nSingle-cluster mode. Using current context '$CONTEXT' for default DataPlane"
 fi
 
 # Extract info from chosen context
@@ -48,8 +53,9 @@ if [ -z "$CLIENT_KEY" ]; then
 fi
 
 # Apply the DataPlane manifest in the target context
-echo "📦 Applying DataPlane to context: $TARGET_CONTEXT"
-kubectl --context="$TARGET_CONTEXT" apply -f - <<EOF
+echo "\nApplying DataPlane to context: $TARGET_CONTEXT"
+
+if kubectl --context="$TARGET_CONTEXT" apply -f - <<EOF
 apiVersion: core.choreo.dev/v1
 kind: DataPlane
 metadata:
@@ -73,5 +79,9 @@ spec:
       clientCert: $CLIENT_CERT
       clientKey: $CLIENT_KEY
 EOF
-
-echo "✅  DataPlane applied successfully!"
+then
+    echo "\n${GREEN}DataPlane applied successfully!${RESET}"
+else
+    echo "\n${RED}Failed to apply DataPlane manifest to context: $TARGET_CONTEXT${RESET}"
+    exit 1
+fi
