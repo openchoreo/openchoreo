@@ -8,6 +8,10 @@ choreoDefaultValues:
     name: default-org
     displayName: Default Organization
     description: Getting started with your first organization
+  dataPlane:
+    name: default-dataplane
+    namespace: default-org
+    organization: default-org
   Environments:
     - name: development
       displayName: Development
