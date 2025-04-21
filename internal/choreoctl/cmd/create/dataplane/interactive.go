@@ -36,16 +36,26 @@ const (
 	dpStateGatewayTypeInput
 	dpStatePublicVirtualHostInput
 	dpStateOrgVirtualHostInput
+	dpStateClusterNameInput
+	dpStateAPIServerURLInput
+	dpStateCACertInput
+	dpStateClientCertInput
+	dpStateClientKeyInput
 )
 
 type dataPlaneModel struct {
 	interactive.BaseModel // Reuse organization (and optionally project) selection
 
 	// DataPlane-specific fields.
-	name              string
-	gatewayType       string
-	publicVirtualHost string
-	orgVirtualHost    string
+	name                  string
+	gatewayType           string
+	publicVirtualHost     string
+	orgVirtualHost        string
+	kubernetesClusterName string
+	apiServerURL          string
+	caCert                string
+	clientCert            string
+	clientKey             string
 
 	selected bool
 	errorMsg string
@@ -122,10 +132,69 @@ func (m dataPlaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.orgVirtualHost == "" {
 				m.orgVirtualHost = "internal.choreoapis.local"
 			}
+			m.state = dpStateClusterNameInput
+			m.errorMsg = ""
+			return m, nil
+		}
+		m.orgVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.orgVirtualHost, len(m.orgVirtualHost))
+
+	case dpStateClusterNameInput:
+		if interactive.IsEnterKey(keyMsg) {
+			if m.kubernetesClusterName == "" {
+				m.kubernetesClusterName = "choreo-dataplane"
+			}
+			m.state = dpStateAPIServerURLInput
+			m.errorMsg = ""
+			return m, nil
+		}
+		m.kubernetesClusterName, _ = interactive.EditTextInputField(keyMsg, m.kubernetesClusterName, len(m.kubernetesClusterName))
+
+	case dpStateAPIServerURLInput:
+		if interactive.IsEnterKey(keyMsg) {
+			if m.apiServerURL == "" {
+				m.errorMsg = "API Server URL cannot be empty"
+				return m, nil
+			}
+			m.state = dpStateCACertInput
+			m.errorMsg = ""
+			return m, nil
+		}
+		m.apiServerURL, _ = interactive.EditTextInputField(keyMsg, m.apiServerURL, len(m.apiServerURL))
+
+	case dpStateCACertInput:
+		if interactive.IsEnterKey(keyMsg) {
+			if m.caCert == "" {
+				m.errorMsg = "CA Certificate cannot be empty"
+				return m, nil
+			}
+			m.state = dpStateClientCertInput
+			m.errorMsg = ""
+			return m, nil
+		}
+		m.caCert, _ = interactive.EditTextInputField(keyMsg, m.caCert, len(m.caCert))
+
+	case dpStateClientCertInput:
+		if interactive.IsEnterKey(keyMsg) {
+			if m.clientCert == "" {
+				m.errorMsg = "Client Certificate cannot be empty"
+				return m, nil
+			}
+			m.state = dpStateClientKeyInput
+			m.errorMsg = ""
+			return m, nil
+		}
+		m.clientCert, _ = interactive.EditTextInputField(keyMsg, m.clientCert, len(m.clientCert))
+
+	case dpStateClientKeyInput:
+		if interactive.IsEnterKey(keyMsg) {
+			if m.clientKey == "" {
+				m.errorMsg = "Client Key cannot be empty"
+				return m, nil
+			}
 			m.selected = true
 			return m, tea.Quit
 		}
-		m.orgVirtualHost, _ = interactive.EditTextInputField(keyMsg, m.orgVirtualHost, len(m.orgVirtualHost))
+		m.clientKey, _ = interactive.EditTextInputField(keyMsg, m.clientKey, len(m.clientKey))
 	}
 
 	return m, nil
@@ -148,6 +217,16 @@ func (m dataPlaneModel) View() string {
 	case dpStateOrgVirtualHostInput:
 		view = interactive.RenderInputPrompt("Enter organization virtual host:",
 			"internal.choreoapis.local", m.orgVirtualHost, m.errorMsg)
+	case dpStateClusterNameInput:
+		view = interactive.RenderInputPrompt("Enter DataPlane Cluster Name:", "choreo-dataplane", m.kubernetesClusterName, m.errorMsg)
+	case dpStateAPIServerURLInput:
+		view = interactive.RenderInputPrompt("Enter Kubernetes API server URL:", "", m.apiServerURL, m.errorMsg)
+	case dpStateCACertInput:
+		view = interactive.RenderInputPrompt("Enter CA certificate:", "", m.caCert, m.errorMsg)
+	case dpStateClientCertInput:
+		view = interactive.RenderInputPrompt("Enter client certificate:", "", m.clientCert, m.errorMsg)
+	case dpStateClientKeyInput:
+		view = interactive.RenderInputPrompt("Enter client key:", "", m.clientKey, m.errorMsg)
 	default:
 		view = ""
 	}
@@ -176,6 +255,26 @@ func (m dataPlaneModel) RenderProgress() string {
 
 	if m.orgVirtualHost != "" {
 		progress.WriteString(fmt.Sprintf("- organization virtual host: %s\n", m.orgVirtualHost))
+	}
+
+	if m.kubernetesClusterName != "" {
+		progress.WriteString(fmt.Sprintf("- dataplane cluster name: %s\n", m.kubernetesClusterName))
+	}
+
+	if m.apiServerURL != "" {
+		progress.WriteString(fmt.Sprintf("- api server url: %s\n", m.apiServerURL))
+	}
+
+	if m.caCert != "" {
+		progress.WriteString("- ca cert: [provided]\n")
+	}
+
+	if m.clientCert != "" {
+		progress.WriteString("- client cert: [provided]\n")
+	}
+
+	if m.clientKey != "" {
+		progress.WriteString("- client key: [provided]\n")
 	}
 
 	return progress.String() + "\n"
@@ -212,11 +311,15 @@ func createDataPlaneInteractive(config constants.CRDConfig) error {
 	return createDataPlane(api.CreateDataPlaneParams{
 		Name:                    m.name,
 		Organization:            m.Organizations[m.OrgCursor],
-		KubernetesClusterName:   "kind-cluster-1",
+		KubernetesClusterName:   m.kubernetesClusterName,
 		EnableCilium:            true,
 		EnableScaleToZero:       true,
 		GatewayType:             m.gatewayType,
 		PublicVirtualHost:       m.publicVirtualHost,
 		OrganizationVirtualHost: m.orgVirtualHost,
+		APIServerURL:            m.apiServerURL,
+		CACert:                  m.caCert,
+		ClientCert:              m.clientCert,
+		ClientKey:               m.clientKey,
 	}, config)
 }
