@@ -97,3 +97,11 @@ type DataPlaneList struct {
 func init() {
 	SchemeBuilder.Register(&DataPlane{}, &DataPlaneList{})
 }
+
+func (d *DataPlane) GetConditions() []metav1.Condition {
+	return d.Status.Conditions
+}
+
+func (d *DataPlane) SetConditions(conditions []metav1.Condition) {
+	d.Status.Conditions = conditions
+}
