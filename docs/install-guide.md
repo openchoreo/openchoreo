@@ -39,9 +39,9 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     kubectl version --client
     ```
 
-#### Creat a Kind Cluster
+#### Create a Kind Cluster
 
-Run the following command to create your kind cluster ([kind config](../install/kind/kind-config.yaml)).
+Run the following command to create your kind cluster using ([kind config](../install/kind/kind-config.yaml)).
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
@@ -192,7 +192,7 @@ Run the following command to uninstall `choreoctl`:
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
-## Exposing the OpenChoreo Gateway
+## Expose the OpenChoreo Gateway
 
 To fully experience the end-to-end functionality of the OpenChoreo components you create, it's essential to expose the OpenChoreo external gateway service to your host machine. This ensures seamless access to your deployed components.
 
