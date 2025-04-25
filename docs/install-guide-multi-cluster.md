@@ -40,13 +40,13 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
 
 #### Create Kind Clusters
 
-Create your Kind cluster for the **Control Plane** ([kind config](../install/kind/multi-cluster-setup/kind-config-cp.yaml)):
+Create your Kind cluster for the **Control Plane** using ([kind config](../install/kind/multi-cluster-setup/kind-config-cp.yaml)):
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-cp.yaml | kind create cluster --config=-
 ```
 
-Next, create your Kind cluster for the **Data Plane** ([kind config](../install/kind/multi-cluster-setup/kind-config-dp.yaml)):
+Next, create your Kind cluster for the **Data Plane** using ([kind config](../install/kind/multi-cluster-setup/kind-config-dp.yaml)):
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-dp.yaml | kind create cluster --config=-
@@ -203,9 +203,12 @@ Run the following command to uninstall `choreoctl`:
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
-## Exposing the OpenChoreo Gateway
+## Expose the OpenChoreo Gateway
 
-To fully experience the end-to-end functionality of the OpenChoreo components you create, it's essential to expose the OpenChoreo external gateway service to your host machine. This ensures seamless access to your deployed components.
+To enable end-to-end access to the OpenChoreo components you deploy, you need to expose the external gateway service of the Data Plane cluster to your host machine. This allows you to interact with your deployed services seamlessly from outside the cluster.
+
+> [!NOTE]
+> In contrast to a single-cluster setup, the Data Plane here runs in a separate cluster. To expose deployments within this cluster, we route traffic through the external gateway service which is in the DatPlane.
 
 ### Kind
 
@@ -216,7 +219,7 @@ Once you successfully [installed OpenChoreo](#install-openchoreo) into your clus
 You can see the service using the following command.
 
 ```shell
-kubectl get svc choreo-external-gateway -n choreo-system
+kubectl --context=kind-choreo-dp get svc choreo-external-gateway -n choreo-system
 ```
 
 You will see an output similar to the following:
@@ -226,7 +229,7 @@ NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)   
 choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
 ```
 
-You have two options to expose the choreo-external-gateway service to your host machine.
+You have two options to expose the DataPlane choreo-external-gateway service to your host machine.
 
 1. Option 1: Use [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) to expose the service.
 2. Option 2: port-forward from your host machine to choreo-external-gateway service.
@@ -247,13 +250,13 @@ sudo $(which cloud-provider-kind)
 Then you could find the load balancer IP for your external-gateway service as follows.
 
 ```shell
-kubectl get svc -n choreo-system | grep choreo-external-gateway
+kubectl --context=kind-choreo-dp get svc -n choreo-system | grep choreo-external-gateway
 ```
 
 ```shell
 # to find the LoadBalancer-IP
 # <name> should be replaced with the service name found in the previous step.
-$ kubectl get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+$ kubectl --context=kind-choreo-dp get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
 Then you can use this IP address to access the components you create in OpenChoreo via the external gateway.
@@ -263,7 +266,7 @@ Then you can use this IP address to access the components you create in OpenChor
 Run the following command to do port-forwarding from your host machine to the `choreo-external-gateway` service.
 
 ```shell
-kubectl port-forward svc/choreo-external-gateway -n choreo-system 443:443
+kubectl --context=kind-choreo-dp port-forward svc/choreo-external-gateway -n choreo-system 443:443
 ```
 
 > [!TIP]
