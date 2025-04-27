@@ -54,7 +54,7 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ki
 
 #### Install Cilium
 
-Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To do so, use the Helm chart provided for a minimal Cilium configuration.
+Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To do so, use the Helm chart provided with the minimal Cilium configuration.
 
 Run the following command to install Cilium in the **DataPlane cluster**:
 ```shell
