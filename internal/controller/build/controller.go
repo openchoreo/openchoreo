@@ -215,22 +215,19 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	}, nil
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, build *choreov1.Build) (*client.Client, error) {
-	// Retrieve the dataplane associated with the environment
+func (r *Reconciler) getDPClient(ctx context.Context, build *choreov1.Build) (client.Client, error) {
 	dataplaneRes, err := getDataplane(ctx, r.Client, build)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
 		return nil, fmt.Errorf("failed to get default dataplane %s: %w", "default-dataplane", err)
 	}
 
-	// Get the DP client using the credentials from the dataplane
 	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
 	if err != nil {
 		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
 
-	// Return the DP client
 	return dpClient, nil
 }
 
@@ -257,13 +254,13 @@ func getDataplane(ctx context.Context, c client.Client, build *choreov1.Build) (
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // create the build namespace and other resources required for argo workflows.
-func (r *Reconciler) makeExternalResourceHandlers(dpClient *client.Client) []dataplane.ResourceHandler[integrations.BuildContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []dataplane.ResourceHandler[integrations.BuildContext] {
 	var handlers []dataplane.ResourceHandler[integrations.BuildContext]
 
-	handlers = append(handlers, kubernetes.NewNamespaceHandler(*dpClient))
-	handlers = append(handlers, argointegrations.NewServiceAccountHandler(*dpClient))
-	handlers = append(handlers, argointegrations.NewRoleHandler(*dpClient))
-	handlers = append(handlers, argointegrations.NewRoleBindingHandler(*dpClient))
+	handlers = append(handlers, kubernetes.NewNamespaceHandler(dpClient))
+	handlers = append(handlers, argointegrations.NewServiceAccountHandler(dpClient))
+	handlers = append(handlers, argointegrations.NewRoleHandler(dpClient))
+	handlers = append(handlers, argointegrations.NewRoleBindingHandler(dpClient))
 
 	return handlers
 }
@@ -318,9 +315,9 @@ func (r *Reconciler) reconcileExternalResources(
 	return nil
 }
 
-func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, dpClient *client.Client) (*argoproj.Workflow, error) {
+func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, dpClient client.Client) (*argoproj.Workflow, error) {
 	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
-	workflowHandler := argointegrations.NewWorkflowHandler(*dpClient)
+	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
 	existingWorkflow, err := workflowHandler.GetCurrentState(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error retrieving current state of the workflow resource")

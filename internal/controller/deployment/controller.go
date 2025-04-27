@@ -188,38 +188,34 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // bring the external resources to the desired state.
-func (r *Reconciler) makeExternalResourceHandlers(dpClient *client.Client) []dataplane.ResourceHandler[dataplane.DeploymentContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []dataplane.ResourceHandler[dataplane.DeploymentContext] {
 	var handlers []dataplane.ResourceHandler[dataplane.DeploymentContext]
 
 	// IMPORTANT: The order of the handlers is important when reconciling the resources.
 	// For example, the namespace handler should be reconciled before creating resources that depend on the namespace.
-	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewSecretProviderClassHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewCronJobHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(*dpClient))
-	handlers = append(handlers, k8sintegrations.NewServiceHandler(*dpClient))
+	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewCiliumNetworkPolicyHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewConfigMapHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewSecretProviderClassHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewCronJobHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewDeploymentHandler(dpClient))
+	handlers = append(handlers, k8sintegrations.NewServiceHandler(dpClient))
 
 	return handlers
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (*client.Client, error) {
-	// Retrieve the dataplane associated with the environment
+func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
 	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	// Get the DP client using the credentials from the dataplane
 	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
 	if err != nil {
-		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
 
-	// Return the DP client
 	return dpClient, nil
 }
 
