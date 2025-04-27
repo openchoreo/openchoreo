@@ -176,7 +176,7 @@ func (m dataPlaneModel) updateOrgVirtualHostInput(keyMsg tea.KeyMsg) (tea.Model,
 func (m dataPlaneModel) updateClusterNameInput(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if interactive.IsEnterKey(keyMsg) {
 		if m.kubernetesClusterName == "" {
-			m.kubernetesClusterName = "choreo-dataplane"
+			m.kubernetesClusterName = "kind-choreo-dp"
 		}
 		m.state = dpStateAPIServerURLInput
 		m.errorMsg = ""
@@ -259,7 +259,7 @@ func (m dataPlaneModel) View() string {
 		view = interactive.RenderInputPrompt("Enter organization virtual host:",
 			"internal.choreoapis.local", m.orgVirtualHost, m.errorMsg)
 	case dpStateClusterNameInput:
-		view = interactive.RenderInputPrompt("Enter DataPlane Cluster Name:", "choreo-dataplane", m.kubernetesClusterName, m.errorMsg)
+		view = interactive.RenderInputPrompt("Enter DataPlane Cluster Name:", "kind-choreo-dp", m.kubernetesClusterName, m.errorMsg)
 	case dpStateAPIServerURLInput:
 		view = interactive.RenderInputPrompt("Enter Kubernetes API server URL:", "", m.apiServerURL, m.errorMsg)
 	case dpStateCACertInput:
