@@ -92,7 +92,13 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 		return ctrl.Result{}, nil
 	}
 
-	resourceHandlers := r.makeExternalResourceHandlers()
+	dpClient, err := r.getDPClient(ctx, envCtx.Environment)
+	if err != nil {
+		logger.Error(err, "Error getting DP client")
+		return ctrl.Result{}, err
+	}
+
+	resourceHandlers := r.makeExternalResourceHandlers(dpClient)
 	pendingDeletion := false
 
 	for _, resourceHandler := range resourceHandlers {
