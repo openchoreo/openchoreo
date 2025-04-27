@@ -20,6 +20,7 @@ package environment
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,13 +36,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/environment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Environment object
 type Reconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	DpClientMgr *dpKubernetes.KubeClientManager
+	Scheme      *runtime.Scheme
+	Recorder    record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -124,11 +127,27 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.EnvironmentContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []dataplane.ResourceHandler[dataplane.EnvironmentContext] {
 	// Environments only has k8s namespaces as external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EnvironmentContext]{
-		k8sintegrations.NewNamespacesHandler(r.Client),
+		k8sintegrations.NewNamespacesHandler(dpClient),
 	}
 
 	return resourceHandlers
+}
+
+func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
+	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	if err != nil {
+		// Return an error if dataplane retrieval fails
+		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
+	}
+
+	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	if err != nil {
+		// Return an error if client creation fails
+		return nil, fmt.Errorf("failed to get DP client: %w", err)
+	}
+
+	return dpClient, nil
 }
