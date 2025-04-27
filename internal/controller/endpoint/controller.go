@@ -133,13 +133,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeExternalResourceHandlers(dpClient *client.Client) []dataplane.ResourceHandler[dataplane.EndpointContext] {
+func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []dataplane.ResourceHandler[dataplane.EndpointContext] {
 	// Define the resource handlers for the external resources
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
-		k8sintegrations.NewHTTPRouteHandler(*dpClient, visibility.NewPublicVisibilityStrategy()),
-		k8sintegrations.NewHTTPRouteHandler(*dpClient, visibility.NewOrganizationVisibilityStrategy()),
-		k8sintegrations.NewSecurityPolicyHandler(*dpClient, visibility.NewPublicVisibilityStrategy()),
-		k8sintegrations.NewSecurityPolicyHandler(*dpClient, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteHandler(dpClient, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteHandler(dpClient, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(dpClient, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewSecurityPolicyHandler(dpClient, visibility.NewOrganizationVisibilityStrategy()),
 	}
 
 	return resourceHandlers
@@ -216,7 +216,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (*client.Client, error) {
+func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
 	// Retrieve the dataplane associated with the environment
 	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {

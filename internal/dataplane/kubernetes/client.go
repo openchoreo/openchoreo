@@ -105,15 +105,14 @@ func makeDataplaneKey(dataplane *choreov1.DataPlane) string {
 	return fmt.Sprintf("%s/%s", dataplane.Labels[labels.LabelKeyOrganizationName], dataplane.Labels[labels.LabelKeyName])
 }
 
-func GetDPClient(dpClientMgr *KubeClientManager, dataplane *choreov1.DataPlane) (*client.Client, error) {
+func GetDPClient(dpClientMgr *KubeClientManager, dataplane *choreov1.DataPlane) (client.Client, error) {
 	// Get the DP client using the credentials from the dataplane kind
 	dpClient, err := dpClientMgr.GetClient(makeDataplaneKey(dataplane), dataplane.Spec.KubernetesCluster.Credentials)
 	if err != nil {
 		// Return an error if client creation fails
-		fmt.Println(err)
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
 
 	// Return the DP client
-	return &dpClient, nil
+	return dpClient, nil
 }
