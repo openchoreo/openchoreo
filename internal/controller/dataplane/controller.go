@@ -131,7 +131,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			// handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeployableArtifact](
 			// 	r.Client, controller.GetDeployableArtifact)),
 			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Environment, *choreov1.DataPlane](
-				r.Client, controller.GetDataPPlane)),
+				r.Client, controller.GetDataPlane)),
 		).
 		Complete(r)
 }

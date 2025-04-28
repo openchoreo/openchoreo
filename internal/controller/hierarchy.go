@@ -361,9 +361,9 @@ func GetDeployment(ctx context.Context, c client.Client, obj client.Object) (*ch
 	)
 }
 
-// GetDataPlane retrieves the DataPlane object for the given Environment.
+// GetDataPlaneByEnvironment retrieves the DataPlane object for the given Environment.
 // It uses the DataPlaneRef field in the Environment to find the DataPlane object.
-func GetDataPlane(ctx context.Context, c client.Client, env *choreov1.Environment) (*choreov1.DataPlane, error) {
+func GetDataPlaneByEnvironment(ctx context.Context, c client.Client, env *choreov1.Environment) (*choreov1.DataPlane, error) {
 	dataPlane := &choreov1.DataPlane{}
 	key := client.ObjectKey{Namespace: env.Namespace, Name: env.Spec.DataPlaneRef}
 
@@ -379,7 +379,7 @@ func GetDataPlane(ctx context.Context, c client.Client, env *choreov1.Environmen
 	return dataPlane, nil
 }
 
-func GetDataPPlane(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DataPlane, error) {
+func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DataPlane, error) {
 	dataPlaneList := &choreov1.DataPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),

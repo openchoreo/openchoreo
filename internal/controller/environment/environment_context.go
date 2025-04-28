@@ -28,7 +28,7 @@ import (
 )
 
 func (r *Reconciler) makeEnvironmentContext(ctx context.Context, environment *choreov1.Environment) (*dataplane.EnvironmentContext, error) {
-	dataPlane, err := controller.GetDataPlane(ctx, r.Client, environment)
+	dataPlane, err := controller.GetDataPlaneByEnvironment(ctx, r.Client, environment)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the dataplane: %w", err)
 	}
