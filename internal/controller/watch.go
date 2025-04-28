@@ -33,7 +33,6 @@ func HierarchyWatchHandler[From client.Object, To client.Object](
 	hierarchyFunc HierarchyFunc[To],
 ) func(ctx context.Context, obj client.Object) []reconcile.Request {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-
 		fromObj, ok := obj.(From)
 		if !ok {
 			return nil
