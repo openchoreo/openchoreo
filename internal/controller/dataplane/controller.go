@@ -73,17 +73,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Handle the deletion of the build
 	if !dataPlane.DeletionTimestamp.IsZero() {
-		logger.Info("Finalizing deployable artifact")
+		logger.Info("Finalizing dataplane")
 		return r.finalize(ctx, old, dataPlane)
 	}
 
-	// Ensure the finalizer is added to the deployable artifact
+	// Ensure the finalizer is added to the dataplane
 	if finalizerAdded, err := r.ensureFinalizer(ctx, dataPlane); err != nil || finalizerAdded {
 		return ctrl.Result{}, err
 	}
 
 	// Handle create
-	// Ignore reconcile if the DeployableArtifact is already available since this is a one-time createß
+	// Ignore reconcile if the Dataplane is already available since this is a one-time create
 	if r.shouldIgnoreReconcile(dataPlane) {
 		return ctrl.Result{}, nil
 	}
@@ -102,7 +102,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+dataPlane.Name)
+	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", dataPlane.Name))
 
 	return ctrl.Result{}, nil
 }
@@ -128,8 +128,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for Environment changes to reconcile the dataplane
 		Watches(
 			&choreov1.Environment{},
-			// handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeployableArtifact](
-			// 	r.Client, controller.GetDeployableArtifact)),
 			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Environment, *choreov1.DataPlane](
 				r.Client, controller.GetDataPlane)),
 		).

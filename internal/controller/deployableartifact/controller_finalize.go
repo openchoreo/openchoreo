@@ -34,13 +34,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-const (
-	// DeployableArtifactCleanupFinalizer is the finalizer that is used to clean up deployable artifact resources.
-	DeployableArtifactCleanupFinalizer = "core.choreo.dev/deployableartifact-cleanup"
-
-	// deployableArtifactRefIndexKey is the index key for the deployable artifact reference
-	deployableArtifactRefIndexKey = ".Spec.deploymentArtifactRef"
-)
+// DeployableArtifactCleanupFinalizer is the finalizer that is used to clean up deployable artifact resources.
+const DeployableArtifactCleanupFinalizer = "core.choreo.dev/deployableartifact-cleanup"
 
 // ensureFinalizer ensures that the finalizer is added to the deployable artifact.
 // The first return value indicates whether the finalizer was added to the deployable artifact.
@@ -162,22 +157,4 @@ func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deployableArt
 
 	logger.Info("All deployments are deleted")
 	return true, nil
-}
-
-// setupDeployableArtifactRefIndex creates a field index for the deployable artifact reference in the deployments.
-func (r *Reconciler) setupDeployableArtifactRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(
-		ctx,
-		&choreov1.Deployment{},
-		deployableArtifactRefIndexKey,
-		func(obj client.Object) []string {
-			// Convert the object to the appropriate type
-			deployment, ok := obj.(*choreov1.Deployment)
-			if !ok {
-				return nil
-			}
-			// Return the value of the deploymentArtifactRef field
-			return []string{deployment.Spec.DeploymentArtifactRef}
-		},
-	)
 }

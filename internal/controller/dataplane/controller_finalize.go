@@ -34,13 +34,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-const (
-	// DataPlaneCleanupFinalizer is the finalizer that is used to clean up dataplane resources.
-	DataPlaneCleanupFinalizer = "core.choreo.dev/dataplane-cleanup"
-
-	// dataplaneRefIndexKey is the index key for the dataplane reference
-	dataplaneRefIndexKey = ".Spec.dataPlaneRef"
-)
+// DataPlaneCleanupFinalizer is the finalizer that is used to clean up dataplane resources.
+const DataPlaneCleanupFinalizer = "core.choreo.dev/dataplane-cleanup"
 
 // ensureFinalizer ensures that the finalizer is added to the dataplane.
 // The first return value indicates whether the finalizer was added to the dataplane.
@@ -97,7 +92,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *choreov1.Data
 
 // deleteEnvironmnetsAndWait deletes referenced deployments and waits for them to be fully deleted
 func (r *Reconciler) deleteEnvironmnetsAndWait(ctx context.Context, dataPlane *choreov1.DataPlane) (bool, error) {
-	logger := log.FromContext(ctx).WithValues("deployableArtifact", dataPlane.Name)
+	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
 	logger.Info("Cleaning up environments")
 
 	// Find all Environments referred to by this Dataplane
@@ -158,22 +153,4 @@ func (r *Reconciler) deleteEnvironmnetsAndWait(ctx context.Context, dataPlane *c
 
 	logger.Info("All environments are deleted")
 	return true, nil
-}
-
-// setupDataPlaneRefIndex creates a field index for the dataplane reference in the environmentsß.
-func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(
-		ctx,
-		&choreov1.Environment{},
-		dataplaneRefIndexKey,
-		func(obj client.Object) []string {
-			// Convert the object to the appropriate type
-			environment, ok := obj.(*choreov1.Environment)
-			if !ok {
-				return nil
-			}
-			// Return the value of the dataPlaneRef field
-			return []string{environment.Spec.DataPlaneRef}
-		},
-	)
 }
