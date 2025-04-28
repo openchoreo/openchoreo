@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -34,7 +33,6 @@ func HierarchyWatchHandler[From client.Object, To client.Object](
 	hierarchyFunc HierarchyFunc[To],
 ) func(ctx context.Context, obj client.Object) []reconcile.Request {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		logger := log.FromContext(ctx)
 
 		fromObj, ok := obj.(From)
 		if !ok {
@@ -43,7 +41,6 @@ func HierarchyWatchHandler[From client.Object, To client.Object](
 
 		toObj, err := hierarchyFunc(ctx, c, fromObj)
 		if err != nil {
-			logger.Error(err, "failed to resolve target object", "source", fromObj)
 			return nil
 		}
 
