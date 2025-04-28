@@ -100,14 +100,14 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 
-	// Clean up builds
-	buildsDeleted, err := r.deleteBuildsAndWait(ctx, deploymentTrack)
+	// Clean up deployments
+	deploymentsDeleted, err := r.deleteDeploymentsAndWait(ctx, deploymentTrack)
 	if err != nil {
-		logger.Error(err, "Failed to delete builds")
+		logger.Error(err, "Failed to delete deployments")
 		return false, err
 	}
-	if !buildsDeleted {
-		logger.Info("Builds are still being deleted", "name", deploymentTrack.Name)
+	if !deploymentsDeleted {
+		logger.Info("Deployments are still being deleted", "name", deploymentTrack.Name)
 		return false, nil
 	}
 
@@ -122,14 +122,14 @@ func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *
 		return false, nil
 	}
 
-	// Clean up deployments
-	deploymentsDeleted, err := r.deleteDeploymentsAndWait(ctx, deploymentTrack)
+	// Clean up builds
+	buildsDeleted, err := r.deleteBuildsAndWait(ctx, deploymentTrack)
 	if err != nil {
-		logger.Error(err, "Failed to delete deployments")
+		logger.Error(err, "Failed to delete builds")
 		return false, err
 	}
-	if !deploymentsDeleted {
-		logger.Info("Deployments are still being deleted", "name", deploymentTrack.Name)
+	if !buildsDeleted {
+		logger.Info("Builds are still being deleted", "name", deploymentTrack.Name)
 		return false, nil
 	}
 
