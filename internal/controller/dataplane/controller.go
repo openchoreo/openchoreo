@@ -20,6 +20,7 @@ package dataplane
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
@@ -69,8 +71,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the old DataPlane object
 	old := dataPlane.DeepCopy()
 
-	previousCondition := meta.FindStatusCondition(dataPlane.Status.Conditions, controller.TypeAvailable)
-	isNewResource := previousCondition == nil
+	// Handle the deletion of the build
+	if !dataPlane.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing deployable artifact")
+		return r.finalize(ctx, old, dataPlane)
+	}
+
+	// Ensure the finalizer is added to the deployable artifact
+	if finalizerAdded, err := r.ensureFinalizer(ctx, dataPlane); err != nil || finalizerAdded {
+		return ctrl.Result{}, err
+	}
+
+	// Handle create
+	// Ignore reconcile if the DeployableArtifact is already available since this is a one-time createß
+	if r.shouldIgnoreReconcile(dataPlane) {
+		return ctrl.Result{}, nil
+	}
 
 	// Set the observed generation
 	dataPlane.Status.ObservedGeneration = dataPlane.Generation
@@ -86,11 +102,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if isNewResource {
-		r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+dataPlane.Name)
-	}
+	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+dataPlane.Name)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) shouldIgnoreReconcile(dataPlane *choreov1.DataPlane) bool {
+	return meta.FindStatusCondition(dataPlane.Status.Conditions, string(controller.TypeAvailable)) != nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -99,8 +117,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("dataplane-controller")
 	}
 
+	// Set up the index for the environment reference
+	if err := r.setupDataPlaneRefIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("failed to setup dataPlane reference index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.DataPlane{}).
 		Named("dataplane").
+		// Watch for Environment changes to reconcile the dataplane
+		Watches(
+			&choreov1.Environment{},
+			// handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeployableArtifact](
+			// 	r.Client, controller.GetDeployableArtifact)),
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Environment, *choreov1.DataPlane](
+				r.Client, controller.GetDataPPlane)),
+		).
 		Complete(r)
 }

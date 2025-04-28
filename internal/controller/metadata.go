@@ -66,6 +66,11 @@ func GetEnvironmentName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyEnvironmentName)
 }
 
+// GetDataPlaneName returns the data plane name that the object belongs to.
+func GetDataPlaneName(obj client.Object) string {
+	return getLabelValueOrEmpty(obj, labels.LabelKeyDataPlaneName)
+}
+
 // GetName returns the name of the object. This is specific to the Choreo, and it is not the Kubernetes object name.
 func GetName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyName)
