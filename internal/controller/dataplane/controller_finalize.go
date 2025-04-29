@@ -69,12 +69,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *choreov1.Data
 	}
 
 	// Perform cleanup logic for referenced environments
-	artifactsDeleted, err := r.deleteEnvironmnetsAndWait(ctx, dataPlane)
+	environmentsDeleted, err := r.deleteEnvironmentsAndWait(ctx, dataPlane)
 	if err != nil {
 		logger.Error(err, "Failed to delete environments")
 		return ctrl.Result{}, err
 	}
-	if !artifactsDeleted {
+	if !environmentsDeleted {
 		logger.Info("Environments are still being deleted", "name", dataPlane.Name)
 		return ctrl.Result{}, nil
 	}
@@ -90,8 +90,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *choreov1.Data
 	return ctrl.Result{}, nil
 }
 
-// deleteEnvironmnetsAndWait deletes referenced deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteEnvironmnetsAndWait(ctx context.Context, dataPlane *choreov1.DataPlane) (bool, error) {
+// deleteEnvironmentsAndWait deletes referenced deployments and waits for them to be fully deleted
+func (r *Reconciler) deleteEnvironmentsAndWait(ctx context.Context, dataPlane *choreov1.DataPlane) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
 	logger.Info("Cleaning up environments")
 
