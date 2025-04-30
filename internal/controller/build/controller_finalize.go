@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -72,8 +73,15 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 	}
 
+	dpClient, err := r.getDPClient(ctx, build)
+	if err != nil {
+		logger := log.FromContext(ctx)
+		logger.Error(err, "Error getting DP client for finalizing")
+		return ctrl.Result{}, err
+	}
+
 	// Delete Workflow resource
-	if err := r.deleteWorkflow(ctx, build); err != nil {
+	if err := deleteWorkflow(ctx, build, dpClient); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return ctrl.Result{}, fmt.Errorf("failed to delete workflow resource: %w", err)
 		}
@@ -102,9 +110,9 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 }
 
 // deleteWorkflow deletes the workflow resource.
-func (r *Reconciler) deleteWorkflow(ctx context.Context, build *choreov1.Build) error {
+func deleteWorkflow(ctx context.Context, build *choreov1.Build, dpClient client.Client) error {
 	buildCtx := &integrations.BuildContext{Build: build}
-	workflowHandler := argointegrations.NewWorkflowHandler(r.Client)
+	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
 	return workflowHandler.Delete(ctx, buildCtx)
 }
 
