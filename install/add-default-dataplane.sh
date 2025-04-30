@@ -6,6 +6,10 @@ GREEN="\033[0;32m"
 DARK_YELLOW="\033[0;33m"
 RESET="\033[0m"
 
+DEFAULT_CONTEXT = "kind-choreo-dp"
+DEFAULT_TARGET_CONTEXT = "kind-choreo-cp"
+SERVER_URL = "https://choreo-dp-control-plane:6443"
+
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
 echo "Setting up Choreo DataPlane \n"
@@ -15,9 +19,9 @@ read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
 
 if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
   # Prompt user for the source context (where the remote cluster credentials are from)
-  read -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " INPUT_CONTEXT
-  CONTEXT=${INPUT_CONTEXT:-"kind-choreo-dp"}
-  TARGET_CONTEXT="kind-choreo-cp"
+  read -p "Enter DataPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
+  CONTEXT=${INPUT_CONTEXT:-DEFAULT_CONTEXT}
+  TARGET_CONTEXT=DEFAULT_TARGET_CONTEXT
   echo "\nUsing credentials from '$CONTEXT' to be applied to '$TARGET_CONTEXT'"
 else
   # Default to current context for both credentials and target
@@ -29,7 +33,6 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
-SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
 
 # Try to get base64-encoded values directly
 CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}")
