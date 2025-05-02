@@ -58,6 +58,7 @@ import (
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
+	// +kubebuilder:scaffold:imports
 )
 
 var (

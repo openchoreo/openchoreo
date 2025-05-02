@@ -18,9 +18,9 @@ If you don't have a compatible kubernetes cluster, you can create one of followi
 
 In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) cluster and install Cilium into that for making it compatible with OpenChoreo.
 
-#### _Prerequisites_
+#### Prerequisites
 
-1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.25.0+.
+1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.27.0+.
    To verify the installation:
     ```shell
     kind version
@@ -32,7 +32,7 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     ```shell
     helm version
     ```
-3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32
+3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32.0.
    To verify the installation:
 
     ```shell
@@ -80,12 +80,12 @@ OpenChoreo can be installed on any Kubernetes cluster using the official Helm ch
 Run the following two Helm commands to install OpenChoreo into your cluster:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-cp \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
 --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dp \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
 --kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
 --set certmanager.enabled=false --set certmanager.crds.enabled=false
 ```
@@ -117,7 +117,8 @@ Run the following command:
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh | bash
 ```
 - Follow the prompt:
-   -  "Is this a multi-cluster setup? (y/n):" Press `Enter` to proceed.
+   -  'Is this a multi-cluster setup? (y/n):' - Press `Enter` to proceed.
+   -  'Enter DataPlane kind name (default: default-dataplane):' - Press `Enter` to proceed.
 
 ## Install the choreoctl
 

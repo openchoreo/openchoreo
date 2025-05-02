@@ -17,9 +17,9 @@ If you don’t have compatible Kubernetes clusters yet, you can create them usin
 
 In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
 
-#### _Prerequisites_
+#### Prerequisites
 
-1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.25.0+.
+1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.27.0+.
    To verify the installation:
     ```shell
     kind version
@@ -31,7 +31,7 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     ```shell
     helm version
     ```
-3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.23.5.
+3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32.0.
    To verify the installation:
 
     ```shell
@@ -51,6 +51,13 @@ Next, create your Kind cluster for the **Data Plane** using ([kind config](../in
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-dp.yaml | kind create cluster --config=-
 ```
+
+> [!NOTE]
+> This setup assigns a specific label to one node in the Data Plane cluster to schedule Argo Workflows.
+> If you're creating Data Plane clusters manually, ensure that only one node is labeled with:
+> `core.choreo.dev/noderole: workflow-runner`.
+> Additionally, create a DataPlane kind named `default-dataplane` pointing to this labeled cluster, which will serve 
+> as the default target cluster for Argo Workflows until support is added for running them on any Data Plane.
 
 #### Install Cilium
 
@@ -81,7 +88,7 @@ Now you can proceed to install OpenChoreo on both the Control Plane and Data Pla
 Install the Control Plane using Helm:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-cp \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
 --kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
@@ -90,7 +97,7 @@ helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-cp \
 Install the Data Plane using Helm:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dp \
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
 --kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
@@ -105,9 +112,9 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ch
 ```
 
 - II. Follow the prompts:
-  - "Is this a multi-cluster setup? (y/n):" Enter `y` to proceed with multi-cluster status check.
-  - "Enter DataPlane Kubernetes context (default: kind-choreo-dp):" Press `Enter` if you are using the cluster created earlier, or provide your context.
-  - "Enter Control Plane Kubernetes context (default: kind-choreo-cp):" Press `Enter` if you are using the cluster created earlier, or provide your context.
+  - 'Is this a multi-cluster setup? (y/n):' - Enter `y` to proceed with multi-cluster status check.
+  - 'Enter DataPlane kubernetes context (default: kind-choreo-dp):' - Press `Enter` if you are using the cluster created earlier, or provide your context.
+  - 'Enter Control Plane kubernetes context (default: kind-choreo-cp):' - Press `Enter` if you are using the cluster created earlier, or provide your context.
 
 The script will display the current status of OpenChoreo components across both clusters.
 
@@ -127,8 +134,13 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ad
 ```
 
 - Follow the prompts:
-  -  "Is this a multi-cluster setup? (y/n):" Enter `y` to proceed with a multi-cluster setup.
-  -  "Enter DataPlane Kubernetes context (default: kind-choreo-dp):" Press `Enter` to use the default Kubernetes context for the DataPlane cluster created earlier.
+  -  'Is this a multi-cluster setup? (y/n):' - Enter `y` to proceed with a multi-cluster setup.
+  -  'Enter DataPlane kubernetes context (default: kind-choreo-dp):' - Press `Enter` to use the default Kubernetes context for the DataPlane cluster created earlier.
+  -  'Enter DataPlane kind name (default: default-dataplane):' - Press `Enter` to proceed.
+
+> [!NOTE]
+> If you're using a cluster that was not created with Kind, you'll need to manually gather the API server 
+> credentials and create the DataPlane kind yourself.
 
 ## Install the choreoctl
 
