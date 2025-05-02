@@ -16,11 +16,6 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
-
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
 # Prometheus and CertManager are installed by default; skip with:
