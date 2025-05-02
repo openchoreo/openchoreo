@@ -34,6 +34,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -130,7 +131,7 @@ func getBuildLogs(params api.LogParams) error {
 	pods := &corev1.PodList{}
 	if err := k8sClient.List(context.Background(), pods,
 		client.InNamespace(buildNamespace),
-		client.MatchingLabels{"workflow": buildK8sName}); err != nil {
+		client.MatchingLabels{"workflow": dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildK8sName)}); err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
