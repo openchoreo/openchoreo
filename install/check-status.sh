@@ -119,10 +119,10 @@ read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
 echo -e "\nChoreo Installation Status"
 
 if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
-    read -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " dataplane_context
+    read -p "Enter DataPlane kubernetes context (default: kind-choreo-dp): " dataplane_context
     dataplane_context=${dataplane_context:-"kind-choreo-dp"}
 
-    read -p "Enter Control Plane Kubernetes context (default: kind-choreo-cp): " control_plane_context
+    read -p "Enter Control Plane kubernetes context (default: kind-choreo-cp): " control_plane_context
     control_plane_context=${control_plane_context:-"kind-choreo-cp"}
 
     print_component_status "components_cp" "Control Plane Components" "$control_plane_context"
