@@ -30,6 +30,7 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/ptr"
 )
@@ -71,11 +72,11 @@ echo -n "abcdef12" > /tmp/git-revision.txt`,
 
 		It("should generate a valid clone step template", func() {
 			buildCtx = newDockerBasedBuildCtx(buildCtx)
-			template := makeCloneStep(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL)
+			template := makeCloneStep(buildCtx, buildCtx.Component.Spec.Source.GitRepository.URL)
 
 			Expect(template.Name).To(Equal(string(integrations.CloneStep)))
 			Expect(template.Metadata.Labels).To(HaveKeyWithValue("step", string(integrations.CloneStep)))
-			Expect(template.Metadata.Labels).To(HaveKeyWithValue("workflow", "test-build"))
+			Expect(template.Metadata.Labels).To(HaveKeyWithValue("workflow", dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildCtx.Build.Name)))
 			Expect(template.Container).NotTo(BeNil())
 			Expect(template.Container.Image).To(Equal("alpine/git"))
 			Expect(template.Container.Command).To(Equal([]string{"sh", "-c"}))
@@ -407,7 +408,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 		It("should generate the correct image push script", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
 			expectedScript := generatePushImageScript(imageName())
-			pushStep := makePushStep(buildCtx.Build)
+			pushStep := makePushStep(buildCtx)
 			Expect(pushStep.Name).To(Equal(string(integrations.PushStep)))
 			Expect(pushStep.Inputs.Parameters).To(HaveLen(1))
 			Expect(pushStep.Inputs.Parameters[0].Name).To(Equal("git-revision"))
@@ -442,7 +443,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 
 		It("should generate the correct Workflow spec", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
-			workflowSpec := makeWorkflowSpec(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL)
+			workflowSpec := makeWorkflowSpec(buildCtx, buildCtx.Component.Spec.Source.GitRepository.URL)
 
 			Expect(workflowSpec.ServiceAccountName).To(Equal("workflow-sa"))
 			Expect(workflowSpec.Entrypoint).To(Equal("build-workflow"))

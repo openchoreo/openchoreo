@@ -44,12 +44,12 @@ func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 				dpkubernetes.LabelKeyManagedBy: dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
-		Spec: makeWorkflowSpec(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL),
+		Spec: makeWorkflowSpec(buildCtx, buildCtx.Component.Spec.Source.GitRepository.URL),
 	}
 	return &workflow
 }
 
-func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSpec {
+func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj.WorkflowSpec {
 	hostPathType := corev1.HostPathDirectoryOrCreate
 	return argoproj.WorkflowSpec{
 		ServiceAccountName: makeServiceAccountName(),
@@ -97,9 +97,9 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 					},
 				},
 			},
-			makeCloneStep(buildObj, repo),
-			makeBuildStep(buildObj),
-			makePushStep(buildObj),
+			makeCloneStep(buildCtx, repo),
+			makeBuildStep(buildCtx),
+			makePushStep(buildCtx),
 		},
 		VolumeClaimTemplates: makePersistentVolumeClaim(),
 		Affinity:             makeNodeAffinity(),
@@ -121,13 +121,13 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 	}
 }
 
-func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
+func makeCloneStep(buildCtx *integrations.BuildContext, repo string) argoproj.Template {
 	branch := ""
 	gitRevision := ""
-	if buildObj.Spec.Branch != "" {
-		branch = buildObj.Spec.Branch
-	} else if buildObj.Spec.GitRevision != "" {
-		gitRevision = buildObj.Spec.GitRevision[:8]
+	if buildCtx.Build.Spec.Branch != "" {
+		branch = buildCtx.Build.Spec.Branch
+	} else if buildCtx.Build.Spec.GitRevision != "" {
+		gitRevision = buildCtx.Build.Spec.GitRevision[:8]
 	} else {
 		branch = "main"
 	}
@@ -136,7 +136,7 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
 				"step":     string(integrations.CloneStep),
-				"workflow": buildObj.ObjectMeta.Name,
+				"workflow": makeWorkflowName(buildCtx),
 			},
 		},
 		Container: &corev1.Container{
@@ -160,7 +160,7 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 	}
 }
 
-func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
+func makeBuildStep(buildCtx *integrations.BuildContext) argoproj.Template {
 	return argoproj.Template{
 		Name: string(integrations.BuildStep),
 		Inputs: argoproj.Inputs{
@@ -173,7 +173,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
 				"step":     string(integrations.BuildStep),
-				"workflow": buildObj.ObjectMeta.Name,
+				"workflow": buildCtx.Build.ObjectMeta.Name,
 			},
 		},
 		Container: &corev1.Container{
@@ -182,7 +182,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 				Privileged: ptr.Bool(true),
 			},
 			Command: []string{"sh", "-c"},
-			Args:    generateBuildArgs(buildObj, ci.ConstructImageNameWithTag(buildObj)),
+			Args:    generateBuildArgs(buildCtx.Build, ci.ConstructImageNameWithTag(buildCtx.Build)),
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},
 				{Name: "podman-cache", MountPath: "/shared/podman/cache"},
@@ -191,7 +191,7 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 	}
 }
 
-func makePushStep(buildObj *choreov1.Build) argoproj.Template {
+func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
 	return argoproj.Template{
 		Name: string(integrations.PushStep),
 		Inputs: argoproj.Inputs{
@@ -204,7 +204,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
 				"step":     string(integrations.PushStep),
-				"workflow": buildObj.ObjectMeta.Name,
+				"workflow": buildCtx.Build.ObjectMeta.Name,
 			},
 		},
 		Container: &corev1.Container{
@@ -214,7 +214,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(ci.ConstructImageNameWithTag(buildObj)),
+				generatePushImageScript(ci.ConstructImageNameWithTag(buildCtx.Build)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "workspace", MountPath: "/mnt/vol"},
