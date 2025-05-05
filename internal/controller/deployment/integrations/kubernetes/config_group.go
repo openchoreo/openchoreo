@@ -19,6 +19,7 @@
 package kubernetes
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -73,30 +74,24 @@ func sanitizeEnvVarKey(key string) string {
 	return newKey
 }
 
-// mappedConfig stores the filtered configuration values (plain text and secret) that are mapped
-// in the deployable artifact to a single configuration group.
-type mappedConfig struct {
-	PlainConfigs  []plainConfig
-	SecretConfigs []secretConfig
+// mappedEnvVarConfig stores the filtered configuration values (plain text and secret) that are mapped
+// to the environment variables in the deployable artifact for a single configuration group.
+type mappedEnvVarConfig struct {
+	PlainConfigs  []envVarConfig
+	SecretConfigs []envVarConfig
 }
 
-// plainConfig stores an individual plain text configuration value
-// that is mapped in the deployable artifact to a configuration group.
-type plainConfig struct {
+// envVarConfig stores an individual plain text configuration value
+// mapped in the deployable artifact to a configuration group.
+type envVarConfig struct {
 	EnvVarKey      string
 	ConfigGroupKey string
 }
 
-// secretConfig stores an individual secret configuration value
-// that is mapped in the deployable artifact to a configuration group.
-type secretConfig struct {
-	EnvVarKey      string
-	ConfigGroupKey string
-}
-
-// newMappedConfig creates a new mappedConfig instance for the given configuration group.
-func newMappedConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) *mappedConfig {
-	// Create a mapping of key to env specific value for fast lookup
+// newMappedEnvVarConfig creates a new mappedEnvVarConfig instance for the given configuration group that maps
+// the configuration group keys to the environment variables keys.
+func newMappedEnvVarConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) *mappedEnvVarConfig {
+	// Create a mapping of a key to env specific value for fast lookup
 	// The map value can be nil if the configuration value is not found for the environment
 	cgKeyValueMapping := make(map[string]*choreov1.ConfigurationValue)
 	for _, cgConfig := range cg.Spec.Configurations {
@@ -106,8 +101,8 @@ func newMappedConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.Config
 
 	appCfg := deployCtx.DeployableArtifact.Spec.Configuration.Application
 
-	plainConfigs := make([]plainConfig, 0)
-	secretConfigs := make([]secretConfig, 0)
+	plainConfigs := make([]envVarConfig, 0)
+	secretConfigs := make([]envVarConfig, 0)
 
 	// Find individual configuration group key mappings in the Env section
 	// Example Configuration group mapping:
@@ -141,13 +136,13 @@ func newMappedConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.Config
 		}
 
 		if cgValue.Value != "" {
-			p := plainConfig{
+			p := envVarConfig{
 				EnvVarKey:      ev.Key,
 				ConfigGroupKey: cgRef.Key,
 			}
 			plainConfigs = append(plainConfigs, p)
 		} else if cgValue.VaultKey != "" {
-			s := secretConfig{
+			s := envVarConfig{
 				EnvVarKey:      ev.Key,
 				ConfigGroupKey: cgRef.Key,
 			}
@@ -174,13 +169,13 @@ func newMappedConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.Config
 				continue
 			}
 			if value.Value != "" {
-				p := plainConfig{
+				p := envVarConfig{
 					EnvVarKey:      sanitizeEnvVarKey(key),
 					ConfigGroupKey: key,
 				}
 				plainConfigs = append(plainConfigs, p)
 			} else if value.VaultKey != "" {
-				s := secretConfig{
+				s := envVarConfig{
 					EnvVarKey:      sanitizeEnvVarKey(key),
 					ConfigGroupKey: key,
 				}
@@ -189,7 +184,166 @@ func newMappedConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.Config
 		}
 	}
 
-	return &mappedConfig{
+	return &mappedEnvVarConfig{
+		PlainConfigs:  plainConfigs,
+		SecretConfigs: secretConfigs,
+	}
+}
+
+var invalidFileNameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]`) // keep ASCII letters, digits, dot, dash, underscore
+
+// sanitizeFileName converts an arbitrary string into a filename that is
+// • legal on Linux/Unix filesystems
+// • portable across most other OSes
+// • no longer than 255 bytes (ext4 / POSIX‐max component length)
+func sanitizeFileName(name string) string {
+	if name == "" {
+		return "file"
+	}
+
+	// 1. Replace path separators up-front so the regex doesn’t leave them intact.
+	name = strings.ReplaceAll(name, "/", "_")
+
+	// 2. Replace anything outside our allow-list with an underscore.
+	safe := invalidFileNameChars.ReplaceAllString(name, "_")
+
+	// 3. Collapse runs of consecutive underscores produced by replacements.
+	safe = strings.ReplaceAll(safe, "__", "_")
+	for strings.Contains(safe, "__") { // quick iterative collapse
+		safe = strings.ReplaceAll(safe, "__", "_")
+	}
+
+	// 4. Disallow bare “.” or “..” (current / parent dir).
+	if safe == "." || safe == ".." {
+		safe = "_" + safe
+	}
+
+	// 5. Ensure we didn’t end up with an empty string.
+	if len(safe) == 0 {
+		safe = "file"
+	}
+
+	// 6. Truncate to 255 bytes (UTF-8 safe because regex kept only single-byte runes).
+	if len(safe) > 255 {
+		safe = safe[:255]
+	}
+
+	return safe
+}
+
+// mappedFileMountConfig stores the filtered configuration values (plain text and secret) that are mapped
+// to the file paths in the deployable artifact for a single configuration group.
+type mappedFileMountConfig struct {
+	PlainConfigs  []fileMountConfig
+	SecretConfigs []fileMountConfig
+}
+
+// fileMountConfig stores an individual secret configuration value
+// mapped in the deployable artifact to a configuration group.
+type fileMountConfig struct {
+	MountPath      string
+	ConfigGroupKey string
+}
+
+// newMappedFileMountConfig creates a new mappedFileMountConfig instance for the given configuration group that maps
+// the configuration group keys to the file mount paths.
+func newMappedFileMountConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) *mappedFileMountConfig {
+	// Create a mapping of a key to env specific value for fast lookup
+	// The map value can be nil if the configuration value is not found for the environment
+	cgKeyValueMapping := make(map[string]*choreov1.ConfigurationValue)
+	for _, cgConfig := range cg.Spec.Configurations {
+		cgKeyValueMapping[cgConfig.Key] = findConfigGroupValueForEnv(cgConfig.Values,
+			cg.Spec.EnvironmentGroups, deployCtx.Environment)
+	}
+
+	appCfg := deployCtx.DeployableArtifact.Spec.Configuration.Application
+
+	plainConfigs := make([]fileMountConfig, 0)
+	secretConfigs := make([]fileMountConfig, 0)
+
+	// Find individual configuration group key mappings in the FileMount section
+	// Example Configuration group mapping:
+	// fileMounts:
+	//   - mountPath: /etc/certificates/ca.crt
+	//	   valueFrom:
+	//	     configurationGroupRef:
+	//		   name: app-cert-config
+	//		   key: ca-cert
+	for _, fm := range appCfg.FileMounts {
+		if fm.MountPath == "" {
+			continue
+		}
+		if fm.ValueFrom == nil {
+			continue
+		}
+		if fm.ValueFrom.ConfigurationGroupRef == nil {
+			continue
+		}
+		if fm.ValueFrom.ConfigurationGroupRef.Name != controller.GetName(cg) {
+			continue
+		}
+		cgRef := fm.ValueFrom.ConfigurationGroupRef
+		// Find the matching configuration value for the key if it exists
+		cgValue, ok := cgKeyValueMapping[cgRef.Key]
+		if !ok || cgValue == nil {
+			// This can happen in following cases:
+			// 1. Deployable artifact is trying to map a configuration key that does not exist in the configuration group.
+			// 2. Configuration value is not set for the environment in the configuration group.
+			continue
+		}
+
+		if cgValue.Value != "" {
+			p := fileMountConfig{
+				MountPath:      fm.MountPath,
+				ConfigGroupKey: cgRef.Key,
+			}
+			plainConfigs = append(plainConfigs, p)
+		} else if cgValue.VaultKey != "" {
+			s := fileMountConfig{
+				MountPath:      fm.MountPath,
+				ConfigGroupKey: cgRef.Key,
+			}
+			secretConfigs = append(secretConfigs, s)
+		}
+	}
+
+	// Find bulk configuration group mappings in the FileMountsFrom section
+	// Example Configuration group injection:
+	// fileMountsFrom:
+	//   - configurationGroupRef:
+	//       mountPath: /etc/certificates
+	//       name: app-config
+	for _, evf := range appCfg.FileMountsFrom {
+		if evf.ConfigurationGroupRef == nil {
+			continue
+		}
+		if evf.ConfigurationGroupRef.Name != controller.GetName(cg) {
+			continue
+		}
+		// Add all the keys from the configuration group
+		for key, value := range cgKeyValueMapping {
+			// Value is not set for the environment in the configuration group
+			if value == nil {
+				continue
+			}
+			mountPath := filepath.Clean(filepath.Join(evf.ConfigurationGroupRef.MountPath, sanitizeFileName(key)))
+			if value.Value != "" {
+				p := fileMountConfig{
+					MountPath:      mountPath,
+					ConfigGroupKey: key,
+				}
+				plainConfigs = append(plainConfigs, p)
+			} else if value.VaultKey != "" {
+				s := fileMountConfig{
+					MountPath:      mountPath,
+					ConfigGroupKey: key,
+				}
+				secretConfigs = append(secretConfigs, s)
+			}
+		}
+	}
+
+	return &mappedFileMountConfig{
 		PlainConfigs:  plainConfigs,
 		SecretConfigs: secretConfigs,
 	}

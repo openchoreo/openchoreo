@@ -102,7 +102,7 @@ func makeEnvironmentVariables(deployCtx *dataplane.DeploymentContext) []corev1.E
 
 	// Build the container environment variables from the configuration groups.
 	for _, cg := range deployCtx.ConfigurationGroups {
-		mappedCfg := newMappedConfig(deployCtx, cg)
+		mappedCfg := newMappedEnvVarConfig(deployCtx, cg)
 
 		// Add plain configuration values to the environment variables
 		configMapName := makeConfigMapName(deployCtx, cg)
@@ -180,6 +180,65 @@ func makeFileVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, [
 			})
 		}
 	}
+
+	// Build the container file mounts from the configuration groups.
+	for _, cg := range deployCtx.ConfigurationGroups {
+		mappedCfg := newMappedFileMountConfig(deployCtx, cg)
+
+		if len(mappedCfg.PlainConfigs) > 0 {
+			// Add plain configuration values to the file mounts
+			cgName := controller.GetName(cg)
+			configMapName := makeConfigMapName(deployCtx, cg)
+			volumeName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxVolumeNameLength, cgName, "cm")
+
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configMapName,
+						},
+					},
+				},
+			})
+
+			for _, pc := range mappedCfg.PlainConfigs {
+				mounts = append(mounts, corev1.VolumeMount{
+					Name:      volumeName,
+					MountPath: pc.MountPath,
+					SubPath:   pc.ConfigGroupKey,
+				})
+			}
+		}
+
+		// Add secret configuration values to the file mounts
+		if len(mappedCfg.SecretConfigs) > 0 {
+			cgName := controller.GetName(cg)
+			secretName := makeSecretProviderClassName(deployCtx, cg)
+			volumeName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxVolumeNameLength, cgName, "csi")
+
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.Bool(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": secretName,
+						},
+					},
+				},
+			})
+
+			for _, sc := range mappedCfg.SecretConfigs {
+				mounts = append(mounts, corev1.VolumeMount{
+					Name:      volumeName,
+					MountPath: sc.MountPath,
+					SubPath:   sc.ConfigGroupKey,
+				})
+			}
+		}
+	}
 	return volumes, mounts
 }
 
@@ -189,7 +248,7 @@ func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volu
 	mounts := make([]corev1.VolumeMount, 0)
 
 	for _, cg := range deployCtx.ConfigurationGroups {
-		mappedCfg := newMappedConfig(deployCtx, cg)
+		mappedCfg := newMappedEnvVarConfig(deployCtx, cg)
 		// If there are no secrets in the mapped configuration group, skip creating the secret volumes and mounts
 		if len(mappedCfg.SecretConfigs) == 0 {
 			continue
@@ -197,7 +256,7 @@ func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volu
 
 		cgName := controller.GetName(cg)
 		secretName := makeSecretProviderClassName(deployCtx, cg)
-		volumeName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxVolumeNameLength, cgName)
+		volumeName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxVolumeNameLength, cgName, "csi-env")
 
 		volumes = append(volumes, corev1.Volume{
 			Name: volumeName,

@@ -26,6 +26,7 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("makePodSpec", func() {
@@ -256,6 +257,171 @@ var _ = Describe("makePodSpec", func() {
 		})
 	})
 
+	Context("when the deployable artifact has file mounts mapped from configuration groups", func() {
+		BeforeEach(func() {
+			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
+				Application: &choreov1.Application{
+					FileMounts: []choreov1.FileMount{
+						{
+							MountPath: "/config/redis-host",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "redis-config-group",
+									Key:  "host",
+								},
+							},
+						},
+						{
+							MountPath: "/config/redis-port",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "redis-config-group",
+									Key:  "port",
+								},
+							},
+						},
+						{
+							MountPath: "/config/redis-password",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "redis-config-group",
+									Key:  "password",
+								},
+							},
+						},
+						{
+							MountPath: "/config/mysql-host",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "mysql-config-group",
+									Key:  "host",
+								},
+							},
+						},
+						{
+							MountPath: "/config/mysql-port",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "mysql-config-group",
+									Key:  "port",
+								},
+							},
+						},
+						{
+							MountPath: "/config/mysql-password",
+							ValueFrom: &choreov1.FileMountValueFrom{
+								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+									Name: "mysql-config-group",
+									Key:  "password",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+				newTestRedisConfigurationGroup(),
+				newTestMysqlConfigurationGroup(),
+			}
+		})
+
+		It("should create a PodSpec with correct volume mounts", func() {
+			By("checking the volume count")
+			Expect(podSpec.Volumes).To(HaveLen(4))
+
+			By("checking the volumes")
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("redis-config-group-cm-2551b38a"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+					},
+				}),
+			})))
+
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("redis-config-group-csi-5fdf4f87"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.Bool(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+					},
+				}),
+			})))
+
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("mysql-config-group-cm-6e0397eb"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-mysql-config-group-e7d2f2be",
+						},
+					},
+				}),
+			})))
+
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("mysql-config-group-csi-c00642f6"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.Bool(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": "my-component-my-main-track-mysql-config-group-e7d2f2be",
+						},
+					},
+				}),
+			})))
+
+			By("checking the volume mounts")
+			Expect(podSpec.Containers).To(HaveLen(1))
+			Expect(podSpec.Containers[0].VolumeMounts).To(HaveLen(6))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-cm-2551b38a"),
+				"MountPath": Equal("/config/redis-host"),
+				"SubPath":   Equal("host"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-cm-2551b38a"),
+				"MountPath": Equal("/config/redis-port"),
+				"SubPath":   Equal("port"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-csi-5fdf4f87"),
+				"MountPath": Equal("/config/redis-password"),
+				"SubPath":   Equal("password"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("mysql-config-group-cm-6e0397eb"),
+				"MountPath": Equal("/config/mysql-host"),
+				"SubPath":   Equal("host"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("mysql-config-group-cm-6e0397eb"),
+				"MountPath": Equal("/config/mysql-port"),
+				"SubPath":   Equal("port"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("mysql-config-group-csi-c00642f6"),
+				"MountPath": Equal("/config/mysql-password"),
+				"SubPath":   Equal("password"),
+			})))
+
+		})
+	})
+
 	// Bulk mapping means that the entire configuration group is mapped to the environment variables
 	// without specifying the individual keys. The generator must sanitize the keys.
 	// Example Configuration group injection:
@@ -327,6 +493,87 @@ var _ = Describe("makePodSpec", func() {
 						Key: "password",
 					},
 				}),
+			})))
+		})
+	})
+
+	// Bulk mapping means that the entire configuration group is mapped as file mounts
+	// without specifying the individual keys. The generator must sanitize the keys.
+	// Example Configuration group injection:
+	// fileMountsFrom:
+	//   - configurationGroupRef:
+	//       name: redis-config
+	//		 mountPath: /redis-config
+	Context("when the deployable artifact has file mount bulk mapping from a configuration group", func() {
+		BeforeEach(func() {
+			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
+				Application: &choreov1.Application{
+					FileMountsFrom: []choreov1.FileMountsFromSource{
+						{
+							ConfigurationGroupRef: &choreov1.ConfigurationGroupMountRef{
+								Name:      "redis-config-group",
+								MountPath: "/config",
+							},
+						},
+					},
+				},
+			}
+
+			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+				newTestRedisConfigurationGroup(),
+				newTestMysqlConfigurationGroup(),
+			}
+		})
+
+		It("should create a PodSpec with correct volume mounts", func() {
+			By("checking the volume count")
+			Expect(podSpec.Volumes).To(HaveLen(2))
+
+			By("checking the volumes")
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("redis-config-group-cm-2551b38a"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+					},
+				}),
+			})))
+
+			Expect(podSpec.Volumes).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("redis-config-group-csi-5fdf4f87"),
+				"VolumeSource": BeComparableTo(corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
+						Driver:   "secrets-store.csi.k8s.io",
+						ReadOnly: ptr.Bool(true),
+						VolumeAttributes: map[string]string{
+							"secretProviderClass": "my-component-my-main-track-redis-config-group-b8ef9df9",
+						},
+					},
+				}),
+			})))
+
+			By("checking the volume mounts")
+			Expect(podSpec.Containers).To(HaveLen(1))
+			Expect(podSpec.Containers[0].VolumeMounts).To(HaveLen(3))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-cm-2551b38a"),
+				"MountPath": Equal("/config/host"),
+				"SubPath":   Equal("host"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-cm-2551b38a"),
+				"MountPath": Equal("/config/port"),
+				"SubPath":   Equal("port"),
+			})))
+
+			Expect(podSpec.Containers[0].VolumeMounts).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":      Equal("redis-config-group-csi-5fdf4f87"),
+				"MountPath": Equal("/config/password"),
+				"SubPath":   Equal("password"),
 			})))
 		})
 	})
