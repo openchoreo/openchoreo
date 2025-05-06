@@ -335,3 +335,9 @@ type GetDeploymentPipelineParams struct {
 	Organization string
 	OutputFormat string
 }
+
+type GetConfigurationGroupParams struct {
+	Name         string
+	Organization string
+	OutputFormat string
+}

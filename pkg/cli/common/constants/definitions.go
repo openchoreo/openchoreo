@@ -501,6 +501,21 @@ If no organization is specified, you will be prompted to select one interactivel
   choreoctl get deploymentpipeline --organization acme-corp -o yaml`,
 	}
 
+	ListConfigurationGroup = Command{
+		Use:     "configurationgroup [name]",
+		Aliases: []string{"cg", "configurationgroup"},
+		Short:   "List configuration groups",
+		Long:    `List all configuration groups or a specific configuration group in an organization.`,
+		Example: `  # List all configuration groups
+  choreoctl get configurationgroup --organization acme-corp
+
+  # List a specific configuration group
+  choreoctl get configurationgroup config-group-1 --organization acme-corp
+
+  # Output configuration group details in YAML format
+  choreoctl get configurationgroup --organization acme-corp -o yaml`,
+	}
+
 	// ------------------------------------------------------------------------
 	// Config Command Definitions
 	// ------------------------------------------------------------------------

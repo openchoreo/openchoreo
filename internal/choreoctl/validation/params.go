@@ -54,6 +54,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateApplyParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
+	case ResourceConfigurationGroup:
+		return validateConfigurationGroupParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -400,6 +402,20 @@ func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) e
 
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeploymentPipeline, fields)
+			}
+		}
+	}
+	return nil
+}
+
+func validateConfigurationGroupParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdGet {
+		if p, ok := params.(api.GetConfigurationGroupParams); ok {
+			fields := map[string]string{
+				"organization": p.Organization,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, ResourceConfigurationGroup, fields)
 			}
 		}
 	}

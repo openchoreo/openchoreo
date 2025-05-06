@@ -50,6 +50,7 @@ const (
 	ResourceLogs               ResourceType = "logs"
 	ResourceApply              ResourceType = "apply"
 	ResourceDeploymentPipeline ResourceType = "deploymentpipeline"
+	ResourceConfigurationGroup ResourceType = "configurationgroup"
 )
 
 // checkRequiredFields verifies if all required fields are populated

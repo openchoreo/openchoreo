@@ -37,6 +37,7 @@ type CommandImplementationInterface interface {
 	EndpointAPI
 	ConfigContextAPI
 	DeploymentPipelineAPI
+	ConfigurationGroupAPI
 }
 
 // OrganizationAPI defines organization-related operations
@@ -128,4 +129,8 @@ type ConfigContextAPI interface {
 type DeploymentPipelineAPI interface {
 	CreateDeploymentPipeline(params CreateDeploymentPipelineParams) error
 	GetDeploymentPipeline(params GetDeploymentPipelineParams) error
+}
+
+type ConfigurationGroupAPI interface {
+	GetConfigurationGroup(params GetConfigurationGroupParams) error
 }

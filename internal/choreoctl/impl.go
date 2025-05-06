@@ -34,6 +34,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/delete"
 	getbuild "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/build"
 	getcomponent "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/component"
+	getconfigurationgroup "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/configurationgroup"
 	getdataplane "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/dataplane"
 	getdeployartifcat "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deployableartifact"
 	getdeploy "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deployment"
@@ -230,4 +231,9 @@ func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
 func (c *CommandImplementation) GetDeploymentPipeline(params api.GetDeploymentPipelineParams) error {
 	pipelineImpl := getdeploymentpipeline.NewGetDeploymentPipelineImpl(constants.DeploymentPipelineV1Config)
 	return pipelineImpl.GetDeploymentPipeline(params)
+}
+
+func (c *CommandImplementation) GetConfigurationGroup(params api.GetConfigurationGroupParams) error {
+	configurationGroupImpl := getconfigurationgroup.NewGetConfigurationGroupImpl(constants.ConfigurationGroupV1Config)
+	return configurationGroupImpl.GetConfigurationGroup(params)
 }

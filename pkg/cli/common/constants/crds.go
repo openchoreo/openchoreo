@@ -116,8 +116,13 @@ var (
 		Kind:    "Environment",
 	}
 	DeploymentPipelineV1Config = CRDConfig{
-		Group:   "core.choreo.dev",
+		Group:   ChoreoGroup,
 		Version: "v1",
 		Kind:    "DeploymentPipeline",
+	}
+	ConfigurationGroupV1Config = CRDConfig{
+		Group:   ChoreoGroup,
+		Version: "v1",
+		Kind:    "ConfigurationGroup",
 	}
 )

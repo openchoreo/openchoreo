@@ -268,5 +268,24 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	deploymentPipelineCmd.Args = cobra.MaximumNArgs(1)
 	listCmd.AddCommand(deploymentPipelineCmd)
 
+	// Configuration groups command
+	configurationGroupsCmd := (&builder.CommandBuilder{
+		Command: constants.ListConfigurationGroup,
+		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		RunE: func(fg *builder.FlagGetter) error {
+			name := ""
+			if len(fg.GetArgs()) > 0 {
+				name = fg.GetArgs()[0]
+			}
+			return impl.GetConfigurationGroup(api.GetConfigurationGroupParams{
+				Name:         name,
+				Organization: fg.GetString(flags.Organization),
+				OutputFormat: fg.GetString(flags.Output),
+			})
+		},
+	}).Build()
+	configurationGroupsCmd.Args = cobra.MaximumNArgs(1)
+	listCmd.AddCommand(configurationGroupsCmd)
+
 	return listCmd
 }
