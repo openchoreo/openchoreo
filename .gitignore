@@ -1,24 +1,54 @@
-# Compiled class file
-*.class
+# macOS
+.DS_Store
 
-# Log file
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# BlueJ files
-*.ctxt
+# Coverage directory generated when running tests with coverage
+coverage
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Dependencies
+node_modules/
 
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+# Yarn files
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# Node version directives
+.nvmrc
+
+# dotenv environment variables file
+.env
+.env.test
+
+# Build output
+dist
+dist-types
+
+# Temporary change files created by Vim
+*.swp
+
+# MkDocs build output
+site
+
+# Local configuration files
+*.local.yaml
+
+# Sensitive credentials
+*-credentials.yaml
+
+# vscode database functionality support files
+*.session.sql
+
+# E2E test reports
+e2e-test-report/
