@@ -71,7 +71,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Keep a copy of the old DataPlane object
 	old := dataPlane.DeepCopy()
 
-	// Handle the deletion of the build
+	// Handle the deletion of the dataplane
 	if !dataPlane.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing dataplane")
 		return r.finalize(ctx, old, dataPlane)
@@ -128,8 +128,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for Environment changes to reconcile the dataplane
 		Watches(
 			&choreov1.Environment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Environment, *choreov1.DataPlane](
-				r.Client, controller.GetDataPlane)),
+			handler.EnqueueRequestsFromMapFunc(r.GetDataPlaneForEnvironment),
 		).
 		Complete(r)
 }
