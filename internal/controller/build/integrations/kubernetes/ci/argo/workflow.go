@@ -127,7 +127,10 @@ func makeCloneStep(buildObj *choreov1.Build, repo string) argoproj.Template {
 	if buildObj.Spec.Branch != "" {
 		branch = buildObj.Spec.Branch
 	} else if buildObj.Spec.GitRevision != "" {
-		gitRevision = buildObj.Spec.GitRevision[:8]
+		gitRevision = buildObj.Spec.GitRevision
+		if len(buildObj.Spec.GitRevision) > 8 {
+			gitRevision = buildObj.Spec.GitRevision[:8]
+		}
 	} else {
 		branch = "main"
 	}
