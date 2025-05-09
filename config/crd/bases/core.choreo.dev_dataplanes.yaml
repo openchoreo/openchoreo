@@ -91,9 +91,35 @@ spec:
                 - credentials
                 - name
                 type: object
+              registry:
+                description: Registry holds configuration for authenticating to container
+                  registries used by this DataPlane.
+                properties:
+                  imagePushSecrets:
+                    description: ImagePushSecrets holds references to secrets and
+                      their associated registry prefixes.
+                    items:
+                      description: ImagePushSecret defines a secret used for pushing
+                        images, along with the registry prefix it applies to.
+                      properties:
+                        name:
+                          description: Name is the name of the Kubernetes Secret containing
+                            registry credentials.
+                          type: string
+                        prefix:
+                          description: Prefix specifies the registry domain this secret
+                            applies to (e.g., ghcr.io).
+                          type: string
+                      required:
+                      - name
+                      - prefix
+                      type: object
+                    type: array
+                type: object
             required:
             - gateway
             - kubernetesCluster
+            - registry
             type: object
           status:
             description: DataPlaneStatus defines the observed state of DataPlane.

@@ -38,11 +38,27 @@ type GatewaySpec struct {
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 }
 
+// Registry contains the list of secrets used to authenticate against container registries.
+type Registry struct {
+	// ImagePushSecrets holds references to secrets and their associated registry prefixes.
+	ImagePushSecrets []ImagePushSecret `json:"imagePushSecrets,omitempty"`
+}
+
+// ImagePushSecret defines a secret used for pushing images, along with the registry prefix it applies to.
+type ImagePushSecret struct {
+	// Name is the name of the Kubernetes Secret containing registry credentials.
+	Name string `json:"name"`
+	// Prefix specifies the registry domain this secret applies to (e.g., ghcr.io).
+	Prefix string `json:"prefix"`
+}
+
 // DataPlaneSpec defines the desired state of DataPlane.
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// Registry holds configuration for authenticating to container registries used by this DataPlane.
+	Registry Registry `json:"registry"`
 	// KubernetesCluster specifies the target cluster configuration
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
 	// Gateway specifies the gateway configuration
