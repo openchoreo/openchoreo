@@ -148,7 +148,7 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ad
 
 `choreoctl` is the command-line interface for OpenChoreo. With that, you can seamlessly interact with OpenChoreo and manage your resources.
 
-### _Prerequisites_
+### Prerequisites
 
 1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.23.5.
 2. Make sure to clone the repository into your local machine.

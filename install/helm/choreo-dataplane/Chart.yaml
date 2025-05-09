@@ -1,6 +1,6 @@
 apiVersion: v2
-name: choreo-cp
-description: A Helm chart for openChoreo Control Plane
+name: choreo-dp
+description: A Helm chart for openChoreo dataplane
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
@@ -13,15 +13,29 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.2.0
+version: 0.0.0-latest-dev
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
-appVersion: "v0.2.0"
+appVersion: "latest-dev"
 dependencies:
+  - name: vault
+    version: 0.29.1
+    repository: "https://helm.releases.hashicorp.com"
+    condition: vault.enabled
+  - name: secrets-store-csi-driver
+    repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
+    version: "1.4.0"
+    condition: secrets-store-csi-driver.enabled
+  - name: gateway-helm
+    repository: "oci://registry-1.docker.io/envoyproxy"
+    version: 1.2.3
   - name: cert-manager
     repository: https://charts.jetstack.io
     condition: certmanager.enabled
     alias: certmanager
     version: "v1.16.2"
+  - name: argo-workflows
+    repository: "https://argoproj.github.io/argo-helm"
+    version: 0.45.2
