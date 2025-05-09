@@ -127,7 +127,10 @@ func makeCloneStep(buildCtx *integrations.BuildContext, repo string) argoproj.Te
 	if buildCtx.Build.Spec.Branch != "" {
 		branch = buildCtx.Build.Spec.Branch
 	} else if buildCtx.Build.Spec.GitRevision != "" {
-		gitRevision = buildCtx.Build.Spec.GitRevision[:8]
+		gitRevision = buildCtx.Build.Spec.GitRevision
+		if len(buildCtx.Build.Spec.GitRevision) > 8 {
+			gitRevision = buildCtx.Build.Spec.GitRevision[:8]
+		}
 	} else {
 		branch = "main"
 	}
