@@ -266,7 +266,10 @@ type CreateDataPlaneParams struct {
 	DisplayName             string
 	Description             string
 	KubernetesClusterName   string
-	ConnectionConfigRef     string
+	APIServerURL            string
+	CACert                  string
+	ClientCert              string
+	ClientKey               string
 	EnableCilium            bool
 	EnableScaleToZero       bool
 	GatewayType             string

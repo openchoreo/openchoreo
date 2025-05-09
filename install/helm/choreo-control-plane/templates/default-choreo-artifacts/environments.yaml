@@ -1,0 +1,23 @@
+{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
+{{- range .Values.choreoDefaultValues.Environments }}
+---
+apiVersion: core.choreo.dev/v1
+kind: Environment
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  annotations:
+    core.choreo.dev/display-name: {{ .displayName }}
+    core.choreo.dev/description: {{ .displayName }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "9"
+  labels:
+    core.choreo.dev/organization: {{ .organization }}
+    core.choreo.dev/name: {{ .name }}
+spec:
+  dataPlaneRef: {{ $.Values.choreoDefaultValues.dataPlane.name }}
+  isProduction: {{ .isCritical }}
+  gateway:
+    dnsPrefix: {{ .dnsPrefix }}
+{{- end }}
+{{ end }}

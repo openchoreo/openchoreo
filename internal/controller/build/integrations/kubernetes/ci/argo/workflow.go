@@ -245,9 +245,9 @@ func makeNodeAffinity() *corev1.Affinity {
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
-								Key:      "kubernetes.io/hostname",
+								Key:      "core.choreo.dev/noderole",
 								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"choreo-worker"},
+								Values:   []string{"workflow-runner"},
 							},
 						},
 					},

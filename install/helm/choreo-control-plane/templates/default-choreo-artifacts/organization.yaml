@@ -1,0 +1,25 @@
+{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
+---
+# creating the namespace before creating the organization to avoid the issue
+# of helm installation failure as the organization reconcile delay due to controller startup
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "7"
+  name: {{ .Values.choreoDefaultValues.organization.name }}
+---
+apiVersion: core.choreo.dev/v1
+kind: Organization
+metadata:
+  annotations:
+    core.choreo.dev/display-name: {{ .Values.choreoDefaultValues.organization.displayName }}
+    core.choreo.dev/description: {{ .Values.choreoDefaultValues.organization.description }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "7"
+  labels:
+    core.choreo.dev/name: {{ .Values.choreoDefaultValues.organization.name }}
+  name: {{ .Values.choreoDefaultValues.organization.name }}
+spec:
+{{ end }}

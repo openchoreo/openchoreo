@@ -1,8 +1,7 @@
 # OpenChoreo Installation
 
-This guide provides step-by-step instructions to install and set up OpenChoreo on a Kubernetes cluster.
-
-It begins with creating a compatible Kubernetes cluster with Cilium installed, followed by installing OpenChoreo using Helm and verifying the installation. Next, it covers installing the choreoctl CLI tool, which is required to manage OpenChoreo.
+This guide walks you through installing OpenChoreo on a single Kubernetes cluster. 
+You'll start by creating a compatible Kubernetes cluster with Cilium, install OpenChoreo using Helm, and set up the choreoctl CLI.
 
 Additionally, the guide provides options to expose the OpenChoreo external gateway service to your host machine, enabling seamless access to the components you create.
 
@@ -19,9 +18,9 @@ If you don't have a compatible kubernetes cluster, you can create one of followi
 
 In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) cluster and install Cilium into that for making it compatible with OpenChoreo.
 
-#### _Prerequisites_
+#### Prerequisites
 
-1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.25.0+.
+1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.27.0+.
    To verify the installation:
     ```shell
     kind version
@@ -33,16 +32,16 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
     ```shell
     helm version
     ```
-3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32
+3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32.0.
    To verify the installation:
 
     ```shell
     kubectl version --client
     ```
 
-#### Steps for creating the kind cluster
+#### Create a Kind Cluster
 
-Run the following command to create your kind cluster with the configurations provided in our [kind config](../install/kind/kind-config.yaml) file.
+Run the following command to create your kind cluster using ([kind config](../install/kind/kind-config.yaml)).
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
@@ -50,7 +49,8 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ki
 
 #### Install Cilium
 
-You can easily install Cilium into your cluster using the helm chart provided by us. This chart installs Cilium with minimal configurations required for OpenChoreo.
+Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To do so, use the Helm chart provided with the minimal Cilium configuration.
+
 Run the following command to install Cilium:
 ```shell
 helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --namespace "choreo-system" --create-namespace --timeout 30m
@@ -69,33 +69,56 @@ helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --namespace "cho
 
 ## Install OpenChoreo
 
-You can install OpenChoreo on any Kubernetes cluster that has Cilium installed. The main installation method of OpenChoreo is by using the Helm charts provided by us.
+OpenChoreo can be installed on any Kubernetes cluster using the official Helm charts provided by the project.
+
+> [!NOTE]
+> The choreo-dp Helm chart requires Cilium to be installed in the cluster before installation.
 
 
 1. Install OpenChoreo using Helm
 
-Use the following helm command to install OpenChoreo into your cluster.
+Run the following two Helm commands to install OpenChoreo into your cluster:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo \
---namespace "choreo-system" --create-namespace --timeout 30m
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
+--kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
-2. Verifying the Installation
+```shell
+helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
+--kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
+--set certmanager.enabled=false --set certmanager.crds.enabled=false
+```
 
-We already provided a [script](../install/check-status.sh) to verify the installation status.
+2. Verify the Installation
 
-Run the following command to verify the installation status:
+Once OpenChoreo is installed, you can verify the installation status using the provided script ([script](../install/check-status.sh)).
+
+Run the verification script:
 
 ```shell
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh | bash
 ```
+
+Press enter for "Is this a multi-cluster setup? (y/n):" to proceed with components status for single cluster setup.
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
 
 > [!TIP]
 > Refer to "Exposing the OpenChoreo Gateway" section to learn how to access the components you create in OpenChoreo via the external gateway.
 
+## Add Default DataPlane
+
+OpenChoreo requires a DataPlane to deploy and manage its resources. You can add the default DataPlane by running the script provided in the repository ([script](../install/add-default-dataplane.sh)).
+
+Run the following command:
+
+```shell
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh | bash
+```
+- Follow the prompt:
+   -  'Is this a multi-cluster setup? (y/n):' - Press `Enter` to proceed.
+   -  'Enter DataPlane kind name (default: default-dataplane):' - Press `Enter` to proceed.
 
 ## Install the choreoctl
 
@@ -103,7 +126,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 
 `choreoctl` is the command-line interface for OpenChoreo. With that, you can seamlessly interact with OpenChoreo and manage your resources.
 
-### _Prerequisites_
+### Prerequisites
 
 1. Make sure you have installed [Go](https://golang.org/doc/install), version 1.24
 2. Make sure to clone the repository into your local machine.
@@ -170,7 +193,7 @@ Run the following command to uninstall `choreoctl`:
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
-## Exposing the OpenChoreo Gateway
+## Expose the OpenChoreo Gateway
 
 To fully experience the end-to-end functionality of the OpenChoreo components you create, it's essential to expose the OpenChoreo external gateway service to your host machine. This ensures seamless access to your deployed components.
 

@@ -225,13 +225,16 @@ func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Comm
 func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := append(getMetadataFlags(),
 		flags.KubernetesClusterName,
-		flags.ConnectionConfigRef,
 		flags.EnableCilium,
 		flags.EnableScaleToZero,
 		flags.GatewayType,
 		flags.PublicVirtualHost,
 		flags.OrgVirtualHost,
 		flags.Organization,
+		flags.APIServerURL,
+		flags.CaCert,
+		flags.ClientCert,
+		flags.ClientKey,
 	)
 	return (&builder.CommandBuilder{
 		Command: constants.CreateDataPlane,
@@ -241,13 +244,16 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				Name:                    fg.GetString(flags.Name),
 				Organization:            fg.GetString(flags.Organization),
 				KubernetesClusterName:   fg.GetString(flags.KubernetesClusterName),
-				ConnectionConfigRef:     fg.GetString(flags.ConnectionConfigRef),
 				EnableCilium:            fg.GetBool(flags.EnableCilium),
 				EnableScaleToZero:       fg.GetBool(flags.EnableScaleToZero),
 				GatewayType:             fg.GetString(flags.GatewayType),
 				PublicVirtualHost:       fg.GetString(flags.PublicVirtualHost),
 				OrganizationVirtualHost: fg.GetString(flags.OrgVirtualHost),
 				Interactive:             fg.GetBool(flags.Interactive),
+				APIServerURL:            fg.GetString(flags.APIServerURL),
+				CACert:                  fg.GetString(flags.CaCert),
+				ClientCert:              fg.GetString(flags.ClientCert),
+				ClientKey:               fg.GetString(flags.ClientKey),
 			})
 		},
 	}).Build()

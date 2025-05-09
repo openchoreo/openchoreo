@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "choreo-cp.fullname" . }}-component-viewer-role
+  labels:
+  {{- include "choreo-cp.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - components
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - components/status
+  verbs:
+  - get
