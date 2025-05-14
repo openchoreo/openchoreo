@@ -39,6 +39,7 @@
     "@backstage/plugin-techdocs-react": "^1.2.16",
     "@backstage/plugin-user-settings": "^0.8.21",
     "@backstage/theme": "^0.6.5",
+    "@internal/plugin-choreo": "workspace:^",
     "@material-ui/core": "^4.12.2",
     "@material-ui/icons": "^4.9.1",
     "react": "^18.0.2",
