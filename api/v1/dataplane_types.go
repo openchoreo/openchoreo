@@ -40,6 +40,8 @@ type GatewaySpec struct {
 
 // Registry contains the list of secrets used to authenticate against container registries.
 type Registry struct {
+	// Unauthenticated lists registry domains that do not require authentication (e.g., public registries).
+	Unauthenticated []string `json:"unauthenticated,omitempty"`
 	// ImagePushSecrets holds references to secrets and their associated registry prefixes.
 	ImagePushSecrets []ImagePushSecret `json:"imagePushSecrets,omitempty"`
 }
