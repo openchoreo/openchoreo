@@ -7031,6 +7031,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@internal/plugin-catalog-backend-module-choreo-provider@workspace:^, @internal/plugin-catalog-backend-module-choreo-provider@workspace:plugins/catalog-backend-module-choreo-provider":
+  version: 0.0.0-use.local
+  resolution: "@internal/plugin-catalog-backend-module-choreo-provider@workspace:plugins/catalog-backend-module-choreo-provider"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.3.0"
+    "@backstage/backend-test-utils": "npm:^1.3.1"
+    "@backstage/cli": "npm:^0.32.0"
+  languageName: unknown
+  linkType: soft
+
 "@internal/plugin-choreo-backend@workspace:^, @internal/plugin-choreo-backend@workspace:plugins/choreo-backend":
   version: 0.0.0-use.local
   resolution: "@internal/plugin-choreo-backend@workspace:plugins/choreo-backend"
@@ -15242,6 +15252,7 @@ __metadata:
     "@backstage/plugin-search-backend-module-techdocs": "npm:^0.4.1"
     "@backstage/plugin-search-backend-node": "npm:^1.3.10"
     "@backstage/plugin-techdocs-backend": "npm:^2.0.1"
+    "@internal/plugin-catalog-backend-module-choreo-provider": "workspace:^"
     "@internal/plugin-choreo-backend": "workspace:^"
     app: "link:../app"
     better-sqlite3: "npm:^9.0.0"
