@@ -182,6 +182,88 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.DeploymentPipeline) ([]*choreov1.Environment, error) {
+	envNamesSet := make(map[string]struct{})
+
+	for _, path := range dp.Spec.PromotionPaths {
+		envNamesSet[path.SourceEnvironmentRef] = struct{}{}
+		for _, target := range path.TargetEnvironmentRefs {
+			envNamesSet[target.Name] = struct{}{}
+		}
+	}
+
+	var envs []*choreov1.Environment
+	for name := range envNamesSet {
+		env, err := controller.GetEnvironmentByName(ctx, r.Client, dp, name)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, env)
+	}
+
+	return envs, nil
+}
+
+func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.Environment) ([]*choreov1.DataPlane, error) {
+	uniqueRefs := make(map[string]*choreov1.Environment)
+
+	for _, env := range envs {
+		if env == nil || env.Spec.DataPlaneRef == "" {
+			continue
+		}
+		uniqueRefs[env.Spec.DataPlaneRef] = env
+	}
+
+	var dataplanes []*choreov1.DataPlane
+	for _, env := range uniqueRefs {
+		dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get DataPlane for environment %q: %w", env.Name, err)
+		}
+		dataplanes = append(dataplanes, dp)
+	}
+
+	return dataplanes, nil
+}
+
+func getRegistriesForPush(dataplanes []*choreov1.DataPlane) (map[string]string, []string) {
+	registriesWithSecrets := make(map[string]string)
+	noAuthRegistriesSet := make(map[string]struct{})
+
+	for _, dp := range dataplanes {
+		pushSecrets := dp.Spec.Registry.ImagePushSecrets
+		noAuthRegistries := dp.Spec.Registry.Unauthenticated
+
+		for _, pushSecret := range pushSecrets {
+			registriesWithSecrets[pushSecret.Name] = pushSecret.Prefix
+		}
+
+		for _, registryPrefix := range noAuthRegistries {
+			noAuthRegistriesSet[registryPrefix] = struct{}{}
+		}
+	}
+
+	noAuthRegistriesList := make([]string, 0, len(noAuthRegistriesSet))
+	for registry := range noAuthRegistriesSet {
+		noAuthRegistriesList = append(noAuthRegistriesList, registry)
+	}
+
+	return registriesWithSecrets, noAuthRegistriesList
+}
+
+func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {
+	var imagePushSecrets []choreov1.ImagePushSecret
+
+	for name, prefix := range registriesWithSecrets {
+		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{
+			Name:   name,
+			Prefix: prefix,
+		})
+	}
+
+	return imagePushSecrets
+}
+
 func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*integrations.BuildContext, error) {
 	// makeBuildContext creates a build context for the given build by retrieving the
 	// parent objects that this build is required to continue its work.
@@ -193,7 +275,31 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
 	}
+
+	project, err := controller.GetProject(ctx, r.Client, build)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
+	}
+	deploymentPipeline, err := controller.GetDeploymentPipeline(ctx, r.Client, build, project.Spec.DeploymentPipelineRef)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
+	}
+	envs, err := r.retrieveEnvsOfPipeline(ctx, deploymentPipeline)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the environments of the pipeline: %w", err)
+	}
+	dataplanes, err := r.retrieveDataplanes(ctx, envs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the dataplanes: %w", err)
+	}
+	registriesWithSecrets, registries := getRegistriesForPush(dataplanes)
+	imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
+
 	return &integrations.BuildContext{
+		Registry: &choreov1.Registry{
+			ImagePushSecrets: imagePushSecrets,
+			Unauthenticated:  registries,
+		},
 		Component:       component,
 		DeploymentTrack: deploymentTrack,
 		Build:           build,
