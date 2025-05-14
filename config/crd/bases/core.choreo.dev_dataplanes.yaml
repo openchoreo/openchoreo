@@ -115,6 +115,12 @@ spec:
                       - prefix
                       type: object
                     type: array
+                  unauthenticated:
+                    description: Unauthenticated lists registry domains that do not
+                      require authentication (e.g., public registries).
+                    items:
+                      type: string
+                    type: array
                 type: object
             required:
             - gateway
