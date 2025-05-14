@@ -21,6 +21,7 @@ package argo
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -44,13 +45,35 @@ func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 				dpkubernetes.LabelKeyManagedBy: dpkubernetes.LabelBuildControllerCreated,
 			},
 		},
-		Spec: makeWorkflowSpec(buildCtx.Build, buildCtx.Component.Spec.Source.GitRepository.URL),
+		Spec: makeWorkflowSpec(buildCtx, buildCtx.Component.Spec.Source.GitRepository.URL),
 	}
 	return &workflow
 }
 
-func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSpec {
+func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj.WorkflowSpec {
 	hostPathType := corev1.HostPathDirectoryOrCreate
+	var volumes []corev1.Volume
+
+	volumes = append(volumes, corev1.Volume{
+		Name: "podman-cache",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/shared/podman/cache",
+				Type: &hostPathType,
+			},
+		},
+	})
+
+	for _, secret := range buildCtx.Registry.ImagePushSecrets {
+		volumes = append(volumes, corev1.Volume{
+			Name: secret.Name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secret.Name,
+				},
+			},
+		})
+	}
 	return argoproj.WorkflowSpec{
 		ServiceAccountName: makeServiceAccountName(),
 		Entrypoint:         "build-workflow",
@@ -97,23 +120,13 @@ func makeWorkflowSpec(buildObj *choreov1.Build, repo string) argoproj.WorkflowSp
 					},
 				},
 			},
-			makeCloneStep(buildObj, repo),
-			makeBuildStep(buildObj),
-			makePushStep(buildObj),
+			makeCloneStep(buildCtx.Build, repo),
+			makeBuildStep(buildCtx.Build),
+			makePushStep(buildCtx),
 		},
 		VolumeClaimTemplates: makePersistentVolumeClaim(),
 		Affinity:             makeNodeAffinity(),
-		Volumes: []corev1.Volume{
-			{
-				Name: "podman-cache",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{
-						Path: "/shared/podman/cache",
-						Type: &hostPathType,
-					},
-				},
-			},
-		},
+		Volumes:              volumes,
 		TTLStrategy: &argoproj.TTLStrategy{
 			SecondsAfterFailure: ptr.Int32(3600),
 			SecondsAfterSuccess: ptr.Int32(3600),
@@ -191,7 +204,21 @@ func makeBuildStep(buildObj *choreov1.Build) argoproj.Template {
 	}
 }
 
-func makePushStep(buildObj *choreov1.Build) argoproj.Template {
+func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "workspace",
+			MountPath: "/mnt/vol",
+		},
+	}
+	for _, secret := range buildCtx.Registry.ImagePushSecrets {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      secret.Name,
+			MountPath: "/usr/src/app/.docker/" + secret.Name + ".json",
+			SubPath:   ".dockerconfigjson",
+			ReadOnly:  true,
+		})
+	}
 	return argoproj.Template{
 		Name: string(integrations.PushStep),
 		Inputs: argoproj.Inputs{
@@ -204,7 +231,7 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 		Metadata: argoproj.Metadata{
 			Labels: map[string]string{
 				"step":     string(integrations.PushStep),
-				"workflow": buildObj.ObjectMeta.Name,
+				"workflow": buildCtx.Build.ObjectMeta.Name,
 			},
 		},
 		Container: &corev1.Container{
@@ -214,11 +241,9 @@ func makePushStep(buildObj *choreov1.Build) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(ci.ConstructImageNameWithTag(buildObj)),
+				generatePushImageScript(buildCtx, ci.ConstructImageNameWithTag(buildCtx.Build)),
 			},
-			VolumeMounts: []corev1.VolumeMount{
-				{Name: "workspace", MountPath: "/mnt/vol"},
-			},
+			VolumeMounts: volumeMounts,
 		},
 		Outputs: argoproj.Outputs{
 			Parameters: []argoproj.Parameter{
@@ -360,7 +385,35 @@ EOF`
 	return []string{baseScript + buildScript}
 }
 
-func generatePushImageScript(imageName string) string {
+func generatePushImageScript(buildCtx *integrations.BuildContext, imageName string) string {
+	var tagCommands []string
+	var pushCommands []string
+
+	for _, prefix := range buildCtx.Registry.Unauthenticated {
+		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, prefix, imageName)
+		tagCommands = append(tagCommands, tag)
+
+		var push string
+		if prefix == "registry.choreo-system:5000" {
+			push = fmt.Sprintf("podman push --tls-verify=false %s/%s-$GIT_REVISION", prefix, imageName)
+		} else {
+			push = fmt.Sprintf("podman push %s/%s-$GIT_REVISION", prefix, imageName)
+		}
+		pushCommands = append(pushCommands, push)
+	}
+
+	for _, secret := range buildCtx.Registry.ImagePushSecrets {
+		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, secret.Prefix, imageName)
+		tagCommands = append(tagCommands, tag)
+
+		push := fmt.Sprintf("podman push %s/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json", secret.Prefix, imageName, secret.Name)
+		pushCommands = append(pushCommands, push)
+	}
+
+	// Join tag and push commands for script execution
+	tagList := strings.Join(tagCommands, "\n")
+	pushList := strings.Join(pushCommands, "\n")
+
 	return fmt.Sprintf(`set -e
 GIT_REVISION={{inputs.parameters.git-revision}}
 mkdir -p /etc/containers
@@ -374,11 +427,14 @@ mount_program = "/usr/bin/fuse-overlayfs"
 EOF
 
 podman load -i /mnt/vol/app-image.tar
-podman tag %s-$GIT_REVISION registry.choreo-system:5000/%s-$GIT_REVISION
-podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
 
-podman rmi %s-$GIT_REVISION -f
-echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName, imageName, imageName, imageName, imageName)
+# Tag images
+%s
+
+# Push images
+%s
+
+echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, tagList, pushList, imageName)
 }
 
 func makeDockerfileBuildScript(build *choreov1.Build, imageName string) string {
