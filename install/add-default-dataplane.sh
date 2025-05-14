@@ -83,6 +83,9 @@ metadata:
   name: $DATAPLANE_KIND_NAME
   namespace: default-org
 spec:
+  registry:
+    unauthenticated:
+      - registry.choreo-system:5000
   gateway:
     organizationVirtualHost: choreoapis.internal
     publicVirtualHost: choreoapis.localhost
