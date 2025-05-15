@@ -15,27 +15,31 @@ KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
 echo "Setting up Choreo DataPlane \n"
 
-# Ask if this is a multi-cluster setup
-read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
+SINGLE_CLUSTER=false
 
-if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
-  # Prompt user for the source context (where the remote cluster credentials are from)
-  read -p "Enter DataPlane kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
+# Detect if running in single-cluster mode via env var
+if [[ "$1" == "--single-cluster" ]]; then
+  SINGLE_CLUSTER=true
+fi
+
+if [[ "$SINGLE_CLUSTER" == "true" ]]; then
+  CONTEXT=$(kubectl config current-context)
+  TARGET_CONTEXT=$CONTEXT
+  DATAPLANE_KIND_NAME=$DEFAULT_DATAPLANE_KIND_NAME
+  SERVER_URL="https://choreo-control-plane:6443"
+  echo "Running in single-cluster mode using context '$CONTEXT'"
+else
+  read -p "Enter DataPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
   CONTEXT=${INPUT_CONTEXT:-$DEFAULT_CONTEXT}
   TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
+
   echo "\nUsing Kubernetes context '$CONTEXT' as DataPlane."
   NODE_NAME=${CONTEXT#kind-}
   SERVER_URL="https://$NODE_NAME-control-plane:6443"
-else
-  # Default to current context for both credentials and target
-  CONTEXT=$(kubectl config current-context)
-  TARGET_CONTEXT=$CONTEXT
-  echo "\nSingle-cluster mode. Using current context '$CONTEXT' as default DataPlane"
-  SERVER_URL="https://choreo-control-plane:6443"
-fi
 
-read -p "Enter DataPlane kind name (default: $DEFAULT_DATAPLANE_KIND_NAME): " INPUT_DATAPLANE_NAME
-DATAPLANE_KIND_NAME=${INPUT_DATAPLANE_NAME:-$DEFAULT_DATAPLANE_KIND_NAME}
+  read -p "Enter DataPlane kind name (default: $DEFAULT_DATAPLANE_KIND_NAME): " INPUT_DATAPLANE_NAME
+  DATAPLANE_KIND_NAME=${INPUT_DATAPLANE_NAME:-$DEFAULT_DATAPLANE_KIND_NAME}
+fi
 
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")

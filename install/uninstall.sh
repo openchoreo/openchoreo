@@ -14,11 +14,13 @@ uninstall_helm_release() {
   }
 }
 
-uninstall_helm_release "choreo" "choreo-system"
+uninstall_helm_release "choreo-cp" "choreo-system"
+
+uninstall_helm_release "choreo-dp" "choreo-system"
 
 uninstall_helm_release "cilium" "choreo-system"
 
-echo "Both Helm releases have been uninstalled successfully!"
+echo "All Helm releases have been uninstalled successfully!"
 
 # Clean up the choreo-system namespace
 kubectl delete namespace choreo-system
