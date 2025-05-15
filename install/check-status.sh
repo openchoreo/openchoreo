@@ -78,7 +78,7 @@ print_component_status() {
 
     eval "comp_list=(\"\${${comp_list_name}[@]}\")"
 
-    echo -e "\n$header"
+    echo "\n$header"
     printf "\n%-25s %-15s\n" "Component" "Status"
     printf "%-25s %-15s\n" "------------------------" "---------------"
 
@@ -115,10 +115,19 @@ print_component_status() {
 # Main
 # --------------------------
 
-read -p "Is this a multi-cluster setup? (y/n): " IS_MULTI_CLUSTER
-echo -e "\nChoreo Installation Status"
+SINGLE_CLUSTER=false
+# Detect if running in single-cluster mode via env var
+if [[ "$1" == "--single-cluster" ]]; then
+  SINGLE_CLUSTER=true
+fi
 
-if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
+if [[ "$SINGLE_CLUSTER" == "true" ]]; then
+    cluster_context=$(kubectl config current-context)
+    echo "Choreo Installation Status: Single-Cluster Mode"
+    echo "Using current context - "$cluster_context""
+    print_component_status "components" "Single Cluster Components" "$cluster_context"
+else
+    echo "Choreo Installation Status: Multi-Cluster Mode"
     read -p "Enter DataPlane kubernetes context (default: kind-choreo-dp): " dataplane_context
     dataplane_context=${dataplane_context:-"kind-choreo-dp"}
 
@@ -127,16 +136,13 @@ if [[ "$IS_MULTI_CLUSTER" =~ ^[Yy]$ ]]; then
 
     print_component_status "components_cp" "Control Plane Components" "$control_plane_context"
     print_component_status "components_dp" "Data Plane Components" "$dataplane_context"
-else
-    cluster_context="kind-choreo"
-    print_component_status "components" "Single Cluster Components" "$cluster_context"
 fi
 
 # Overall
 if [[ "$overall_status" == "ready" ]]; then
-    echo -e "\nOverall Status: ${GREEN}READY${RESET}"
-    echo -e "${GREEN}🎉 Choreo has been successfully installed and is ready to use! ${RESET}"
+    echo "\nOverall Status: ${GREEN}READY${RESET}"
+    echo "${GREEN}🎉 Choreo has been successfully installed and is ready to use! ${RESET}"
 else
-    echo -e "\nOverall Status: ${RED}NOT READY${RESET}"
-    echo -e "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again. ${RESET}"
+    echo "\nOverall Status: ${RED}NOT READY${RESET}"
+    echo "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again. ${RESET}"
 fi
