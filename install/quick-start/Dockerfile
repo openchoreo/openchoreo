@@ -40,6 +40,8 @@ COPY install/quick-start /app
 
 COPY install/check-status.sh /app/check-status.sh
 
+COPY install/add-default-dataplane.sh /app/add-default-dataplane.sh
+
 COPY samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml /app/react-starter.yaml
 
 COPY samples/ /app/samples
