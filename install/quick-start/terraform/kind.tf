@@ -9,6 +9,9 @@ resource "kind_cluster" "kind_choreo" {
     }
     node {
       role =  "worker"
+      labels {
+          core.choreo.dev/noderole = "workflow-runner"
+      }
       extra_mounts {
         host_path = "/tmp/kind-shared"
         container_path = "/mnt/shared"
