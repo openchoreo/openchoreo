@@ -7,6 +7,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//==============================================================================
+// Constants and Finalizers
+//==============================================================================
+
 const (
 	// EndpointDeletionFinalizer should be added as a finalizer to the
 	// Endpoint whenever an endpoint is created. It should be cleared
@@ -14,35 +18,51 @@ const (
 	EndpointDeletionFinalizer = "core.choreo.dev/endpoint-deletion"
 )
 
-// EndpointServiceSpec defines the configuration of the upstream service
-type EndpointServiceSpec struct {
-	// URL of the upstream service
-	URL string `json:"url,omitempty"`
+//==============================================================================
+// Backend Reference Types
+//==============================================================================
 
+type BackendRefType string
+
+const (
+	// BackendRefTypeComponentRef indicates the backend reference is a component reference
+	BackendRefTypeComponentRef BackendRefType = "componentRef"
+	// BackendRefTypeTarget indicates the backend reference is a target URL
+	BackendRefTypeTarget BackendRefType = "target"
+)
+
+// BackendRef defines the reference to the upstream service
+type BackendRef struct {
 	// Base path of the upstream service
 	// +optional
-	BasePath string `json:"basePath,omitempty"`
-
-	// Port of the upstream service
+	BasePath string `json:"basePath"`
+	// type of the upstream service
 	// +required
-	Port int32 `json:"port"`
+	// +kubebuilder:validation:Enum=componentRef;target
+	Type         BackendRefType `json:"type"`
+	ComponentRef *ComponentRef  `json:"componentRef,omitempty"`
+	Target       *Target        `json:"target,omitempty"`
 }
 
-// EndpointSchemaSpec defines the schema configuration of the endpoint
-type EndpointSchemaSpec struct {
-	// File path of the schema relative to the component source code
-	FilePath string `json:"filePath,omitempty"`
-
-	// Inline content of the schema
-	Content string `json:"content,omitempty"`
+// ComponentRef defines the component reference for the upstream service
+type ComponentRef struct {
+	Port int `json:"port"`
 }
+
+// Target defines the target service URL for the upstream service. This is used for proxies
+type Target struct {
+	// URL of the upstream service
+	URL string `json:"url"`
+}
+
+//==============================================================================
+// API Settings Configuration
+//==============================================================================
 
 // EndpointAPISettingsSpec defines configuration parameters for managed endpoints
 type EndpointAPISettingsSpec struct {
-	SecuritySchemes     []SecurityScheme  `json:"securitySchemes,omitempty"`
 	AuthorizationHeader string            `json:"authorizationHeader,omitempty"`
 	BackendJWT          *BackendJWTConfig `json:"backendJwt,omitempty"`
-	OperationPolicies   []OperationPolicy `json:"operationPolicies,omitempty"`
 	CORS                *CORSConfig       `json:"cors,omitempty"`
 	RateLimit           *RateLimitConfig  `json:"rateLimit,omitempty"`
 }
@@ -78,11 +98,9 @@ type RateLimitConfig struct {
 	Tier string `json:"tier"`
 }
 
-type SecurityScheme string
-
-const (
-	Oauth SecurityScheme = "oauth"
-)
+//==============================================================================
+// Endpoint Types and Core Structures
+//==============================================================================
 
 // EndpointType defines the different API technologies supported by the endpoint
 type EndpointType string
@@ -107,22 +125,18 @@ type EndpointSpec struct {
 	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
 	Type EndpointType `json:"type"`
 
-	// Configuration of the upstream service
+	// BackendRef is the reference to the backend service
 	// +required
-	Service EndpointServiceSpec `json:"service"`
-
-	// Schema of the endpoint if available
-	// +optional
-	Schema *EndpointSchemaSpec `json:"schema,omitempty"`
+	BackendRef BackendRef `json:"backendRef"`
 
 	// Network visibility levels that the endpoint is exposed
 	// +optional
 	NetworkVisibilities *NetworkVisibility `json:"networkVisibilities,omitempty"`
-
-	// Configuration parameters related to the managed endpoint
-	// +optional
-	APISettings *EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
 }
+
+//==============================================================================
+// Network Visibility Configuration
+//==============================================================================
 
 // NetworkVisibility defines the exposure configuration for different network levels of an Endpoint.
 // It allows specifying visibility and security settings separately for organizational and public access.
@@ -141,14 +155,213 @@ type VisibilityConfig struct {
 	// +required
 	Enable bool `json:"enable"`
 	// +optional
-	APISettings *EndpointAPISettingsSpec `json:"apiSettings,omitempty"`
+	Policies []Policy `json:"policies,omitempty"`
 }
+
+//==============================================================================
+// API-M Policy Configuration
+//==============================================================================
+
+// Policy defines an API management policy for an endpoint
+type Policy struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Type string `json:"type"`
+	// +optional
+	// enabled if not specified
+	Enabled *bool `json:"enabled,omitempty"`
+	// +required
+	*PolicySpec `json:"policySpec"`
+}
+
+// PolicySpec defines the configuration for different types of policies
+type PolicySpec struct {
+	// +optional
+	APIKeyAuth *APIKeyAuthPolicySpec `json:"apiKeyAuth,omitempty"`
+	// +optional
+	BasicAuth *BasicAuthPolicySpec `json:"basicAuth,omitempty"`
+	// +optional
+	OAuth2 *OAuth2PolicySpec `json:"oauth2,omitempty"`
+	// +optional
+	RateLimit *RateLimitPolicySpec `json:"rateLimit,omitempty"`
+	// +optional
+	CORS *CORSPolicySpec `json:"cors,omitempty"`
+	// +optional
+	MediationPolicies *[]MediationPolicy `json:"mediationPolicies,omitempty"`
+	// ToDo: Add more policy types as needed
+}
+
+//==============================================================================
+// API-Key auth Policy Configuration
+//==============================================================================
+
+type APIKeyAuthPolicySpec struct {
+	KeySource  KeySourceDefinition `json:"keySource" yaml:"keySource"`
+	SecretRefs []string            `json:"secretRefs" yaml:"secretRefs"`
+}
+
+type KeySourceDefinition struct {
+	Header           string `json:"header" yaml:"header"`
+	HeaderAuthScheme string `json:"headerAuthScheme,omitempty" yaml:"headerAuthScheme,omitempty"`
+}
+
+//==============================================================================
+// Basic auth Policy Configuration
+//==============================================================================
+
+type BasicAuthPolicySpec struct {
+	Users            []BasicAuthUser `json:"users" yaml:"users"`
+	Header           string          `json:"header" yaml:"header"`
+	HeaderAuthScheme string          `json:"headerAuthScheme" yaml:"headerAuthScheme"`
+}
+
+type BasicAuthUser struct {
+	Username           string `json:"username" yaml:"username"`
+	PasswordFromSecret string `json:"passwordFromSecret" yaml:"passwordFromSecret"`
+}
+
+//==============================================================================
+// OAuth2 Policy Configuration
+//==============================================================================
+
+// OAuth2PolicySpec defines the configuration for OAuth2 policies
+type OAuth2PolicySpec struct {
+	// +required
+	JWT JWT `json:"jwt" yaml:"jwt"`
+}
+
+type JWT struct {
+	// +optional
+	Claims *[]JWTClaim `json:"claims" yaml:"claims"`
+	// +required
+	Authorization AuthzSpec `json:"authorization" yaml:"authorization"`
+}
+
+type AuthzSpec struct {
+	// +required
+	// +kubebuilder:validation:Enum=REST;GRPC;GraphQL
+	APIType string `json:"apiType" yaml:"apiType"` // REST, GRPC, GraphQL
+	// +optional
+	Rest *REST `json:"rest" yaml:"rest"`
+	// +optional
+	GRPC *GRPC `json:"grpc" yaml:"grpc"`
+	// +optional
+	GraphQL *GraphQL `json:"graphql" yaml:"graphql"`
+}
+
+type JWTClaim struct {
+	// +required
+	Key string `json:"key" yaml:"key"`
+	// +required
+	Values []string `json:"values" yaml:"values"`
+}
+
+type ClaimToHeader struct {
+	Name   string `json:"name" yaml:"name"`
+	Header string `json:"header" yaml:"header"`
+}
+
+//==============================================================================
+// API Type-Specific Operations
+//==============================================================================
+
+type REST struct {
+	ClaimsToHeaders *[]ClaimToHeader `json:"claimsToHeaders" yaml:"claimsToHeaders"`
+	Operations      *[]RESTOperation `json:"operations" yaml:"operations"`
+}
+
+type GRPC struct {
+	ClaimsToHeaders *[]ClaimToHeader `json:"claimsToHeaders" yaml:"claimsToHeaders"`
+	Operations      *[]GRPCOperation `json:"operations" yaml:"operations"`
+}
+
+type GraphQL struct {
+	ClaimsToHeaders *[]ClaimToHeader    `json:"claimsToHeaders" yaml:"claimsToHeaders"`
+	Operations      *[]GraphQLOperation `json:"operations" yaml:"operations"`
+}
+
+type RESTOperation struct {
+	Target string   `json:"target" yaml:"target"`
+	Method string   `json:"method" yaml:"method"`
+	Scopes []string `json:"scopes" yaml:"scopes"`
+}
+
+type GRPCOperation struct {
+	Name    string              `json:"name" yaml:"name"`
+	Methods []GRPCMethodDetails `json:"methods" yaml:"methods"`
+}
+
+type GRPCMethodDetails struct {
+	Name   string   `json:"name" yaml:"name"`
+	Scopes []string `json:"scopes" yaml:"scopes"`
+}
+
+type GraphQLOperation struct {
+	Type   string   `json:"type" yaml:"type"` // query, mutation, subscription
+	Name   string   `json:"name" yaml:"name"`
+	Scopes []string `json:"scopes" yaml:"scopes"`
+}
+
+//==============================================================================
+// CORS Policies
+//==============================================================================
+
+type CORSPolicySpec struct {
+	AllowOrigins     []string `json:"allowOrigins" yaml:"allowOrigins"`
+	AllowMethods     []string `json:"allowMethods" yaml:"allowMethods"`
+	AllowHeaders     []string `json:"allowHeaders" yaml:"allowHeaders"`
+	ExposeHeaders    []string `json:"exposeHeaders" yaml:"exposeHeaders"`
+	MaxAge           int      `json:"maxAge" yaml:"maxAge"`
+	AllowCredentials bool     `json:"allowCredentials" yaml:"allowCredentials"`
+}
+
+//==============================================================================
+// Rate Limiting Policies
+//==============================================================================
+
+type RateLimitPolicySpec struct {
+	APILevel       APILevelRLSpec       `json:"apiLevel" yaml:"apiLevel"`
+	OperationLevel OperationLevelRLSpec `json:"operationLevel" yaml:"operationLevel"`
+}
+
+type APILevelRLSpec struct {
+	TimeUnit     string `json:"timeUnit" yaml:"timeUnit"`
+	RequestLimit int    `json:"requestLimit" yaml:"requestLimit"`
+}
+
+type OperationLevelRLSpec struct {
+	REST *[]RestRLOperation `json:"rest" yaml:"rest"`
+}
+
+type RestRLOperation struct {
+	Target       string `json:"target" yaml:"target"`
+	Method       string `json:"method" yaml:"method"`
+	TimeUnit     string `json:"timeUnit" yaml:"timeUnit"`
+	RequestLimit int    `json:"requestLimit" yaml:"requestLimit"`
+}
+
+//==============================================================================
+// Mediation Policies Configuration
+//==============================================================================
+
+type MediationPolicy struct {
+	// ToDO: Finalize the mediation policy spec
+}
+
+//==============================================================================
+// Endpoint Status
+//==============================================================================
 
 // EndpointStatus defines the observed state of Endpoint
 type EndpointStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	Address    string             `json:"address,omitempty"`
 }
+
+//==============================================================================
+// Endpoint and EndpointList Resources
+//==============================================================================
 
 // Endpoint is the Schema for the endpoints API
 // +kubebuilder:object:root=true
