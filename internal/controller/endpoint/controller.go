@@ -155,8 +155,8 @@ func (r *Reconciler) reconcileExternalResources(
 			logger.Error(err, "Error retrieving current state of the external resource")
 			return err
 		}
-		exists := currentState != nil
-		if !exists {
+
+		if currentState == nil {
 			// Create the external resource if it does not exist
 			if err := resourceHandler.Create(ctx, epCtx); err != nil {
 				logger.Error(err, "Error creating external resource")
