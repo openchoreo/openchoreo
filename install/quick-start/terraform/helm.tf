@@ -8,8 +8,8 @@ resource "helm_release" "cilium" {
   depends_on = [kind_cluster.kind_choreo, null_resource.connect_container_to_kind_network]
 }
 
-resource "helm_release" "choreo-dataplane" {
-  name             = "choreo-dataplane"
+resource "helm_release" "choreo-dp" {
+  name             = "choreo-dp"
   namespace        = var.namespace
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
@@ -27,8 +27,8 @@ resource "helm_release" "choreo-dataplane" {
   }
 }
 
-resource "helm_release" "choreo-control-plane" {
-  name             = "choreo-control-plane"
+resource "helm_release" "choreo-cp" {
+  name             = "choreo-cp"
   namespace        = var.namespace
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"

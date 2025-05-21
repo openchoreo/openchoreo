@@ -30,7 +30,7 @@ fi
 
 echo "Setting up a port-forwarding proxy from 8443 to the gateway NodePort..."
 # Run socat with the retrieved NodePort
-socat TCP-LISTEN:8443,fork TCP:choreo-worker:$NODEPORT &
+socat TCP-LISTEN:8443,fork TCP:choreo-quick-start-worker:$NODEPORT &
 
 # enable choreoctl auto-completion
 if [ -f /state/kube/config-internal.yaml ]; then

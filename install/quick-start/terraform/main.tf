@@ -13,7 +13,7 @@ resource "null_resource" "connect_container_to_kind_network" {
 
 resource "terraform_data" "export_kubeconfig" {
   provisioner "local-exec" {
-    command = "kind export kubeconfig --internal -n choreo --kubeconfig ${var.kubeconfig}"
+    command = "kind export kubeconfig --internal -n choreo-quick-start --kubeconfig ${var.kubeconfig}"
   }
   depends_on = [kind_cluster.kind_choreo]
 }

@@ -1,6 +1,6 @@
 resource "kind_cluster" "kind_choreo" {
-  name = "choreo"
-  node_image = "kindest/node:v1.32.2"
+  name = "choreo-quick-start"
+  node_image = "kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027"
   kind_config  {
     kind = "Cluster"
     api_version = "kind.x-k8s.io/v1alpha4"
@@ -9,8 +9,8 @@ resource "kind_cluster" "kind_choreo" {
     }
     node {
       role =  "worker"
-      labels {
-          core.choreo.dev/noderole = "workflow-runner"
+      labels = {
+          "core.choreo.dev/noderole" = "workflow-runner"
       }
       extra_mounts {
         host_path = "/tmp/kind-shared"
