@@ -154,7 +154,20 @@ Whether you’re fixing a bug, improving documentation, or suggesting new featur
 We’re excited to have you onboard!
 
 ## Roadmap
-Explore the OpenChoreo roadmap, including completed milestones and upcoming plans, in our **[Roadmap]( https://github.com/orgs/openchoreo/projects/1)**.
+
+We maintain an OpenChoreo Roadmap as a GitHub project board to share what we’re building and when we expect to deliver it.
+
+The roadmap is organized by calendar quarters, and each column represents a set of features or enhancements planned for that period. 
+This allows contributors, adopters, and maintainers to understand what’s coming up and what’s already being worked on.
+
+### How It Works
+
+- **Quarterly columns**: Group features by when we aim to deliver them (e.g., 2025 Q2 – Apr–Jun).
+- **Future column**: Tracks ideas or initiatives we intend to explore but haven’t scheduled yet.
+- Each card links to a GitHub issue with context and discussion.
+- We continuously update the roadmap as priorities evolve, and completed features may remain in their quarter for historical visibility.
+
+[OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/4/views/2)
 
 ## License
 OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.
