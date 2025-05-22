@@ -78,7 +78,7 @@ print_component_status() {
 
     eval "comp_list=(\"\${${comp_list_name}[@]}\")"
 
-    echo "\n$header"
+    echo -e "\n$header"
     printf "\n%-25s %-15s\n" "Component" "Status"
     printf "%-25s %-15s\n" "------------------------" "---------------"
 
@@ -89,15 +89,7 @@ print_component_status() {
             "ready")
                 color=$GREEN
                 ;;
-            "pending")
-                color=$DARK_YELLOW
-                overall_status="not ready"
-                ;;
-            "not started")
-                color=$RED
-                overall_status="not ready"
-                ;;
-            "unknown")
+            "pending" | "not started" | "unknown")
                 color=$RED
                 overall_status="not ready"
                 ;;
@@ -107,7 +99,7 @@ print_component_status() {
                 ;;
         esac
 
-        printf "%-25s %b\n" "$component" "${color}${status} ${icon}${RESET}"
+        printf "%-25s %b\n" "$component" "${color}${status}${RESET}"
     done
 }
 
@@ -116,33 +108,32 @@ print_component_status() {
 # --------------------------
 
 SINGLE_CLUSTER=false
-# Detect if running in single-cluster mode via env var
 if [[ "$1" == "--single-cluster" ]]; then
-  SINGLE_CLUSTER=true
+    SINGLE_CLUSTER=true
 fi
 
 if [[ "$SINGLE_CLUSTER" == "true" ]]; then
     cluster_context=$(kubectl config current-context)
     echo "Choreo Installation Status: Single-Cluster Mode"
-    echo "Using current context - "$cluster_context""
+    echo "Using current context: $cluster_context"
     print_component_status "components" "Single Cluster Components" "$cluster_context"
 else
     echo "Choreo Installation Status: Multi-Cluster Mode"
-    read -p "Enter DataPlane kubernetes context (default: kind-choreo-dp): " dataplane_context
+    read -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " dataplane_context
     dataplane_context=${dataplane_context:-"kind-choreo-dp"}
 
-    read -p "Enter Control Plane kubernetes context (default: kind-choreo-cp): " control_plane_context
+    read -p "Enter Control Plane Kubernetes context (default: kind-choreo-cp): " control_plane_context
     control_plane_context=${control_plane_context:-"kind-choreo-cp"}
 
-    print_component_status "components_cp" "Control Plane Components" "$control_plane_context"
-    print_component_status "components_dp" "Data Plane Components" "$dataplane_context"
+    print_component_status "components_cp" "🧠Control Plane Components" "$control_plane_context"
+    print_component_status "components_dp" "🖥️Data Plane Components" "$dataplane_context"
 fi
 
-# Overall
+# Final Overall Status
 if [[ "$overall_status" == "ready" ]]; then
-    echo "\nOverall Status: ${GREEN}READY${RESET}"
-    echo "${GREEN}🎉 Choreo has been successfully installed and is ready to use! ${RESET}"
+    echo -e "\nOverall Status: ${GREEN}READY${RESET}"
+    echo -e "${GREEN}🎉 Choreo has been successfully installed and is ready to use!${RESET}"
 else
-    echo "\nOverall Status: ${RED}NOT READY${RESET}"
-    echo "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again. ${RESET}"
+    echo -e "\nOverall Status: ${RED}NOT READY${RESET}"
+    echo -e "${DARK_YELLOW}⚠ Some components are still initializing. Please wait a few minutes and try again.${RESET}"
 fi

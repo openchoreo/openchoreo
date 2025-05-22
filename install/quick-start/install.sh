@@ -40,9 +40,9 @@ if [ -f /state/kube/config-internal.yaml ]; then
   echo "source /usr/local/bin/choreoctl-completion" >> /etc/profile
 fi
 
-sh ./check-status.sh --single-cluster
+bash ./check-status.sh --single-cluster
 
 # add default dataplane
-sh ./add-default-dataplane.sh --single-cluster
+bash ./add-default-dataplane.sh --single-cluster
 
 exec /bin/bash -l

@@ -97,7 +97,7 @@ Now you can proceed to install OpenChoreo on both the Control Plane and Data Pla
 Install the Control Plane using Helm:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
+helm install choreo-cp oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
 --kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
@@ -106,7 +106,7 @@ helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
 Install the Data Plane using Helm:
 
 ```shell
-helm install choreo oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
+helm install choreo-dp oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
 --kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
 ```
 
