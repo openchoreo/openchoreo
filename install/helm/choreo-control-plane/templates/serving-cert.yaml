@@ -1,18 +1,19 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-serving-cert
+  name: {{ include "choreo-control-plane.fullname" . }}-serving-cert
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "2"
   labels:
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 spec:
   dnsNames:
-  - '{{ include "choreo-cp.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
-  - '{{ include "choreo-cp.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{
-    .Values.kubernetesClusterDomain }}'
+  - '{{ include "choreo-control-plane.fullname" . }}-webhook-service.{{ .Release.Namespace
+    }}.svc'
+  - '{{ include "choreo-control-plane.fullname" . }}-webhook-service.{{ .Release.Namespace
+    }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer
-    name: '{{ include "choreo-cp.fullname" . }}-selfsigned-issuer'
+    name: '{{ include "choreo-control-plane.fullname" . }}-selfsigned-issuer'
   secretName: webhook-server-cert

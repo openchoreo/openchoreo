@@ -1,11 +1,11 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-selfsigned-issuer
+  name: {{ include "choreo-control-plane.fullname" . }}-selfsigned-issuer
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
   labels:
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 spec:
   selfSigned: {}

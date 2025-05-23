@@ -6,7 +6,7 @@ metadata:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
     labels:
-    {{- include "choreo-dp.labels" . | nindent 4 }}
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
 spec:
   selfSigned: {}
 ---
@@ -19,7 +19,7 @@ metadata:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "2"
     labels:
-    {{- include "choreo-dp.labels" . | nindent 4 }}
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
 spec:
   secretName: envoy-gateway-tls-secret
   issuerRef:

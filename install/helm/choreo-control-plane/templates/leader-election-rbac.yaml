@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-leader-election-role
+  name: {{ include "choreo-control-plane.fullname" . }}-leader-election-role
   labels:
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -40,14 +40,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-leader-election-rolebinding
+  name: {{ include "choreo-control-plane.fullname" . }}-leader-election-rolebinding
   labels:
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: '{{ include "choreo-cp.fullname" . }}-leader-election-role'
+  name: '{{ include "choreo-control-plane.fullname" . }}-leader-election-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "choreo-cp.fullname" . }}-controller-manager'
+  name: '{{ include "choreo-control-plane.fullname" . }}-controller-manager'
   namespace: '{{ .Release.Namespace }}'

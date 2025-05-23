@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-endpoint-admin-role
+  name: {{ include "choreo-control-plane.fullname" . }}-endpoint-admin-role
   labels:
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - core.choreo.dev

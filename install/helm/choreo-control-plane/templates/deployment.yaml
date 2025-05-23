@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "choreo-cp.fullname" . }}-controller-manager
+  name: {{ include "choreo-control-plane.fullname" . }}-controller-manager
   labels:
     control-plane: controller-manager
-  {{- include "choreo-cp.labels" . | nindent 4 }}
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
   selector:
     matchLabels:
       control-plane: controller-manager
-    {{- include "choreo-cp.selectorLabels" . | nindent 6 }}
+    {{- include "choreo-control-plane.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
         control-plane: controller-manager
-      {{- include "choreo-cp.selectorLabels" . | nindent 8 }}
+      {{- include "choreo-control-plane.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
@@ -56,7 +56,7 @@ spec:
           readOnly: true
       securityContext: {{- toYaml .Values.controllerManager.podSecurityContext | nindent
         8 }}
-      serviceAccountName: {{ include "choreo-cp.fullname" . }}-controller-manager
+      serviceAccountName: {{ include "choreo-control-plane.fullname" . }}-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
