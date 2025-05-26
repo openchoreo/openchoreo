@@ -1,9 +1,5 @@
-/*
- * Copyright OpenChoreo Authors
- * SPDX-License-Identifier: Apache-2.0
- * The full text of the Apache license is available in the LICENSE file at
- * the root of the repo.
- */
+// Copyright OpenChoreo Authors 2025
+// SPDX-License-Identifier: Apache-2.0
 
 // Package v1 contains API Schema definitions for the core v1 API group.
 // +kubebuilder:object:generate=true
