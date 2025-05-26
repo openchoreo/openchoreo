@@ -48,10 +48,13 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
    ```
    This may take around 5-15 minutes to complete depending on the internet bandwidth.
 
+> [!NOTE]
+> This command installs both the control plane and data plane components in the same cluster.
+
 4. Once completed, you can verify the deployment by running:
 
    ```sh
-   ./install/check-status.sh
+   ./install/check-status.sh --single-cluster
    ```
 
 > [!IMPORTANT]
