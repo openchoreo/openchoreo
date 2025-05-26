@@ -15,11 +15,11 @@ KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
 echo -e "\nSetting up Choreo DataPlane\n"
 
-SINGLE_CLUSTER=false
+SINGLE_CLUSTER=true
 
 # Detect if running in single-cluster mode via env var
-if [[ "$1" == "--single-cluster" ]]; then
-  SINGLE_CLUSTER=true
+if [[ "$1" == "--multi-cluster" ]]; then
+  SINGLE_CLUSTER=false
 fi
 
 if [[ "$SINGLE_CLUSTER" == "true" ]]; then

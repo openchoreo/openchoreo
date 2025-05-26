@@ -107,9 +107,9 @@ print_component_status() {
 # Main
 # --------------------------
 
-SINGLE_CLUSTER=false
-if [[ "$1" == "--single-cluster" ]]; then
-    SINGLE_CLUSTER=true
+SINGLE_CLUSTER=true
+if [[ "$1" == "--multi-cluster" ]]; then
+    SINGLE_CLUSTER=false
 fi
 
 if [[ "$SINGLE_CLUSTER" == "true" ]]; then
