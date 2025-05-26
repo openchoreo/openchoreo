@@ -1,4 +1,4 @@
-// Copyright OpenChoreo Authors 2025
+// Copyright 2025 OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package api

@@ -1,4 +1,4 @@
-// Copyright OpenChoreo Authors 2025
+// Copyright 2025 OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package types contains resource type definitions for the Kubernetes integration that are derived from the
