@@ -1,21 +1,21 @@
 # OpenChoreo Installation
 
 This guide walks you through the installation and setup of OpenChoreo on a multi-cluster Kubernetes environment. 
-The process involves creating and configuring two Kubernetes clusters: one for the **Control Plane** and another for the **DataPlane**. 
-After configuring the clusters, you will install OpenChoreo using Helm, verify the installation, and install the choreoctl CLI tool to manage OpenChoreo components.
+The process involves creating and configuring two Kubernetes clusters: one for the **Control Plane** and another for the **Data Plane**. 
+After configuring the clusters, you will install OpenChoreo using Helm, verify the installation, and install the `choreoctl` CLI tool to manage OpenChoreo components.
 
 By the end of this guide, you'll have a fully functional OpenChoreo deployment running on a multi-cluster setup.
 
 
 ## Create Compatible Kubernetes Clusters
 
-You need two Kubernetes clusters: one for the Control Plane and one for the Data Plane. The Data Plane cluster should have Cilium installed for compatibility with OpenChoreo.
+You need two Kubernetes clusters: one for the Control Plane and one for the Data Plane. The Data Plane cluster should have Cilium installed to be compatible with OpenChoreo.
 
 If you don’t have compatible Kubernetes clusters yet, you can create them using the following guide on your local machine.
 
 ### Kind
 
-In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
+In this section, you'll learn how to set up two [kind](https://kind.sigs.k8s.io/) clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
 
 #### Prerequisites
 
@@ -118,9 +118,6 @@ bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/ins
 The script will display the current status of OpenChoreo components across both clusters.
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
-
-> [!TIP]
-> Refer to "Exposing the OpenChoreo Gateway" section to learn how to access the components you create in OpenChoreo via the external gateway.
 
 ## Add Default DataPlane
 

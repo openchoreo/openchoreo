@@ -3,11 +3,9 @@
 This guide walks you through installing and setting up OpenChoreo on a single Kubernetes cluster using kind. 
 The *Control Plane* and *Data Plane* components will run on the same cluster. This is ideal for local development or trying out OpenChoreo quickly.
 
-You'll start by creating a compatible Kubernetes cluster with Cilium, install OpenChoreo using CP and DP Helm charts, and set up the choreoctl CLI.
+You'll start by creating a compatible Kubernetes cluster with Cilium as the CNI. Then, install OpenChoreo using the Control Plane (CP) and Data Plane (DP) Helm charts, and configure the `choreoctl` CLI tool..
 
-Additionally, the guide provides options to expose the OpenChoreo external gateway service to your host machine, enabling seamless access to the components you create.
-
-If you don't have a compatible kubernetes cluster, you can create one of following in your local machine and start testing.
+Additionally, the guide provides options to expose the OpenChoreo external gateway service to your host machine, enabling seamless access to the components deploy in OpenChoreo.
 
 ### Kind
 
