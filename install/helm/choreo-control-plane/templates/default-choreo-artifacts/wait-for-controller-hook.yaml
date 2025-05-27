@@ -22,7 +22,7 @@ spec:
               echo "Waiting for choreo controller to be ready..."
               kubectl wait --namespace {{ .Release.Namespace }} \
               --for=condition=Ready pod \
-              -l app.kubernetes.io/name=choreo-cp,control-plane=controller-manager \
+              -l app.kubernetes.io/name=choreo-control-plane,control-plane=controller-manager \
               --timeout=900s
       restartPolicy: Never
   backoffLimit: 5

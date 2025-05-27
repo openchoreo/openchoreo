@@ -41,7 +41,7 @@ dev-deploy: ## Deploy the Choreo developer version to a Kind cluster configured 
 	helm upgrade --install choreo-control-plane $(HELM_CHARTS_OUTPUT_DIR)/choreo-control-plane-$(HELM_CHART_VERSION).tgz \
     	--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
 	helm upgrade --install choreo-dataplane $(HELM_CHARTS_OUTPUT_DIR)/choreo-dataplane-$(HELM_CHART_VERSION).tgz \
-		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
+		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m --set certmanager.enabled=false --set certmanager.crds.enabled=false
 
 .PHONY: dev-undeploy
 dev-undeploy: ## Undeploy the Choreo developer version from a Kind cluster configured in ~/.kube/config

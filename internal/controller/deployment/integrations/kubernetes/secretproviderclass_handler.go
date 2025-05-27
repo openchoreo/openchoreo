@@ -38,7 +38,7 @@ const (
 	// TODO: Make this configurable
 	hashicorpVaultProvider = "vault"
 	hashicorpVaultRoleName = "choreo-secret-reader-role"
-	hashicorpVaultAddress  = "http://choreo-dp-vault:8200"
+	hashicorpVaultAddress  = "http://choreo-dataplane-vault:8200"
 )
 
 type secretProviderClassHandler struct {

@@ -23,7 +23,7 @@ spec:
         - -c
         - |          
           # Set environment variables
-          export VAULT_ADDR=http://choreo-dp-vault.{{ .Release.Namespace }}.svc:8200
+          export VAULT_ADDR=http://choreo-dataplane-vault.{{ .Release.Namespace }}.svc:8200
           export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
           
           # Enable Kubernetes authentication
