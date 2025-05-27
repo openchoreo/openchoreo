@@ -54,13 +54,20 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
 4. Once completed, you can verify the deployment by running:
 
    ```sh
-   ./install/check-status.sh --single-cluster
+   ./install/check-status.sh
    ```
 
 > [!IMPORTANT]
 > The KinD cluster will already have the manager running and if you need to run the manager locally, you need to scale down the existing manager deployment first. 
 You can do this by running: `kubectl -n choreo-system scale deployment choreo-controller-manager --replicas=0`
 
+5. Add default DataPlane to the cluster:
+
+    OpenChoreo requires a DataPlane to deploy and manage its resources.
+
+   ```sh
+   bash ./install/add-default-dataplane.sh
+   ```
 
 ### Building and Running the Binaries
 
