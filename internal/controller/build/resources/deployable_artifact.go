@@ -84,9 +84,12 @@ func AddComponentSpecificConfigs(buildCtx *integrations.BuildContext, deployable
 					},
 					Spec: choreov1.EndpointSpec{
 						Type: "HTTP",
-						Service: choreov1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
 							BasePath: "/",
-							Port:     webAppPort,
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: int(webAppPort),
+							},
 						},
 					},
 				},
