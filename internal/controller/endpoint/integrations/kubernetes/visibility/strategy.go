@@ -70,11 +70,8 @@ func (s *PublicVisibilityStrategy) IsSecurityPolicyRequired(epCtx *dataplane.End
 		return false
 	}
 
-	// Get endpoint with overridden API settings
-	ep := OverrideAPISettings(epCtx, s.gatewayType)
-
 	// Check if OAuth security scheme is configured
-	return hasOAuthSecurityScheme(ep)
+	return hasOAuthSecurityScheme(epCtx, s.gatewayType)
 }
 
 type OrganizationVisibilityStrategy struct {
@@ -103,50 +100,55 @@ func (s *OrganizationVisibilityStrategy) IsSecurityPolicyRequired(epCtx *datapla
 		return false
 	}
 
-	// Get endpoint with overridden API settings
-	ep := OverrideAPISettings(epCtx, s.gatewayType)
-
 	// Check if OAuth security scheme is configured
-	return hasOAuthSecurityScheme(ep)
+	return hasOAuthSecurityScheme(epCtx, s.gatewayType)
 }
 
 // hasOAuthSecurityScheme checks if the endpoint has OAuth configured as a security scheme
-func hasOAuthSecurityScheme(ep *choreov1.Endpoint) bool {
-	if ep.Spec.APISettings == nil || ep.Spec.APISettings.SecuritySchemes == nil {
+func hasOAuthSecurityScheme(epCtx *dataplane.EndpointContext, gwType GatewayType) bool {
+	ep := epCtx.Endpoint
+	if ep.Spec.NetworkVisibilities == nil {
 		return false
 	}
 
-	for _, scheme := range ep.Spec.APISettings.SecuritySchemes {
-		if scheme == choreov1.Oauth {
-			return true
+	switch gwType {
+	case GatewayExternal:
+		if ep.Spec.NetworkVisibilities.Public == nil ||
+			!ep.Spec.NetworkVisibilities.Public.Enable ||
+			ep.Spec.NetworkVisibilities.Public.Policies == nil ||
+			len(ep.Spec.NetworkVisibilities.Public.Policies) == 0 {
+			return false
 		}
+		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
+			if policy.PolicySpec != nil && policy.Type == "oauth2" {
+				if policy.PolicySpec.OAuth2 != nil &&
+					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
+					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
+					len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
+					return true
+				}
+			}
+		}
+		return false
+	case GatewayInternal:
+		if ep.Spec.NetworkVisibilities.Organization == nil ||
+			!ep.Spec.NetworkVisibilities.Organization.Enable ||
+			ep.Spec.NetworkVisibilities.Organization.Policies == nil ||
+			len(ep.Spec.NetworkVisibilities.Organization.Policies) == 0 {
+			return false
+		}
+		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
+			if policy.PolicySpec != nil && policy.Type == "oauth2" {
+				if policy.PolicySpec.OAuth2 != nil &&
+					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
+					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
+					len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
+					return true
+				}
+			}
+		}
+		return false
 	}
 
 	return false
-}
-
-// OverrideAPISettings applies visibility-specific API settings to the endpoint based on the gateway type.
-// For web applications or endpoints without network visibilities, it returns the original endpoint unchanged.
-// Otherwise, it applies the API settings from either the public or organization visibility configuration.
-func OverrideAPISettings(epCtx *dataplane.EndpointContext, gwType GatewayType) *choreov1.Endpoint {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication ||
-		epCtx.Endpoint.Spec.NetworkVisibilities == nil {
-		return epCtx.Endpoint
-	}
-
-	ep := epCtx.Endpoint.DeepCopy()
-	visibilities := ep.Spec.NetworkVisibilities
-
-	switch gwType {
-	case GatewayExternal:
-		if visibilities.Public != nil && visibilities.Public.APISettings != nil {
-			ep.Spec.APISettings = visibilities.Public.APISettings
-		}
-	case GatewayInternal:
-		if visibilities.Organization != nil && visibilities.Organization.APISettings != nil {
-			ep.Spec.APISettings = visibilities.Organization.APISettings
-		}
-	}
-
-	return ep
 }
