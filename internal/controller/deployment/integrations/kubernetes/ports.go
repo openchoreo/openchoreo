@@ -51,11 +51,11 @@ func makeUniquePorts[T any](
 	// Example: Two REST endpoints with the same port but different base path.
 	// Note the same port can be used for different protocols like TCP and UDP.
 	for _, endpointTemplate := range endpointTemplates {
-		key := generatePortKey(endpointTemplate.Spec.Service.Port, endpointTemplate.Spec.Type)
+		key := generatePortKey(int32(endpointTemplate.Spec.BackendRef.ComponentRef.Port), endpointTemplate.Spec.Type)
 		if _, ok := uniquePorts[key]; !ok {
 			uniquePorts[key] = struct{}{}
 			protocol := toK8SProtocol(endpointTemplate.Spec.Type)
-			port := endpointTemplate.Spec.Service.Port
+			port := int32(endpointTemplate.Spec.BackendRef.ComponentRef.Port)
 			name := makePortNameFromEndpointTemplate(port, protocol)
 			result = append(result, createPort(name, port, protocol))
 		}
