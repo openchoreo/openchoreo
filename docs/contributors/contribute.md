@@ -57,16 +57,23 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
    ./install/check-status.sh
    ```
 
-> [!IMPORTANT]
-> The KinD cluster will already have the manager running and if you need to run the manager locally, you need to scale down the existing manager deployment first. 
-You can do this by running: `kubectl -n choreo-system scale deployment choreo-controller-manager --replicas=0`
-
 5. Add default DataPlane to the cluster:
 
     OpenChoreo requires a DataPlane to deploy and manage its resources.
 
    ```sh
    bash ./install/add-default-dataplane.sh
+   ```
+
+6. Run controller manager locally (for development):
+    
+   To run the controller manager locally during development:
+
+   - Scale down the existing manager deployment first. You can do this by running: `kubectl -n choreo-system scale deployment choreo-controller-manager --replicas=0`
+   - Run the following command to configure DataPlane resource:
+   
+   ```sh
+   kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-choreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
    ```
 
 ### Building and Running the Binaries
