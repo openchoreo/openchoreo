@@ -69,9 +69,13 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
     
    To run the controller manager locally during development:
 
-   - Scale down the existing manager deployment first. You can do this by running: `kubectl -n choreo-system scale deployment choreo-controller-manager --replicas=0`
-   - Run the following command to configure DataPlane resource:
+   - First, scale down the existing manager deployment. You can do this by running: 
+   `kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0`
+   ```sh
+   kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0
+   ```
    
+   - Then, run the following command to configure DataPlane resource:
    ```sh
    kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-choreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
    ```
