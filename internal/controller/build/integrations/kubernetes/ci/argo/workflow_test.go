@@ -385,14 +385,14 @@ podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
 podman rmi %s-$GIT_REVISION -f
 echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName(), imageName())
 
-			generatedScript := generatePushImageScript(imageName())
+			generatedScript := generatePushImageScript(buildCtx, imageName())
 
 			Expect(generatedScript).To(Equal(expectedScript))
 		})
 
 		It("should generate the correct image push script", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
-			expectedScript := generatePushImageScript(imageName())
+			expectedScript := generatePushImageScript(buildCtx, imageName())
 			pushStep := makePushStep(buildCtx)
 			Expect(pushStep.Name).To(Equal(string(integrations.PushStep)))
 			Expect(pushStep.Inputs.Parameters).To(HaveLen(1))

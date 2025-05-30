@@ -192,7 +192,7 @@ func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.De
 		}
 	}
 
-	var envs []*choreov1.Environment
+	envs := make([]*choreov1.Environment, 0, len(envNamesSet))
 	for name := range envNamesSet {
 		env, err := controller.GetEnvironmentByName(ctx, r.Client, dp, name)
 		if err != nil {
@@ -214,7 +214,7 @@ func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.En
 		uniqueRefs[env.Spec.DataPlaneRef] = env
 	}
 
-	var dataplanes []*choreov1.DataPlane
+	dataplanes := make([]*choreov1.DataPlane, 0, len(uniqueRefs))
 	for _, env := range uniqueRefs {
 		dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 		if err != nil {
@@ -252,7 +252,7 @@ func getRegistriesForPush(dataplanes []*choreov1.DataPlane) (map[string]string, 
 }
 
 func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {
-	var imagePushSecrets []choreov1.ImagePushSecret
+	imagePushSecrets := make([]choreov1.ImagePushSecret, 0, len(registriesWithSecrets))
 
 	for name, prefix := range registriesWithSecrets {
 		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{

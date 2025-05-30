@@ -37,7 +37,7 @@ func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 
 func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj.WorkflowSpec {
 	hostPathType := corev1.HostPathDirectoryOrCreate
-	var volumes []corev1.Volume
+	volumes := make([]corev1.Volume, 0, len(buildCtx.Registry.ImagePushSecrets))
 
 	volumes = append(volumes, corev1.Volume{
 		Name: "podman-cache",
@@ -374,8 +374,9 @@ EOF`
 }
 
 func generatePushImageScript(buildCtx *integrations.BuildContext, imageName string) string {
-	var tagCommands []string
-	var pushCommands []string
+	numOfRegistries := len(buildCtx.Registry.ImagePushSecrets) + len(buildCtx.Registry.Unauthenticated)
+	tagCommands := make([]string, 0, numOfRegistries)
+	pushCommands := make([]string, 0, numOfRegistries)
 
 	for _, prefix := range buildCtx.Registry.Unauthenticated {
 		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, prefix, imageName)
