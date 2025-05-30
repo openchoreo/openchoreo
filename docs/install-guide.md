@@ -131,7 +131,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 From the root level of the repo, run:
 
 ```shell
-make choreoctl-release
+make go.build
 ```
 
 Once this is completed, it will have a `dist` directory created in the project root directory.
