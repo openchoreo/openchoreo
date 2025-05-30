@@ -296,7 +296,7 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
 
 	return &integrations.BuildContext{
-		Registry: &choreov1.Registry{
+		Registry: choreov1.Registry{
 			ImagePushSecrets: imagePushSecrets,
 			Unauthenticated:  registries,
 		},

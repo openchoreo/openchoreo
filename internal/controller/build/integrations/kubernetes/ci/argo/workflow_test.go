@@ -379,11 +379,49 @@ mount_program = "/usr/bin/fuse-overlayfs"
 EOF
 
 podman load -i /mnt/vol/app-image.tar
+
+# Tag images
 podman tag %s-$GIT_REVISION registry.choreo-system:5000/%s-$GIT_REVISION
+
+# Push images
 podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
 
-podman rmi %s-$GIT_REVISION -f
-echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName(), imageName())
+echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName())
+
+			generatedScript := generatePushImageScript(buildCtx, imageName())
+
+			Expect(generatedScript).To(Equal(expectedScript))
+		})
+
+		It("should generate the correct image push script for multiple registries", func() {
+			buildCtx = newBuildContextWithRegistries(buildCtx)
+			expectedScript := fmt.Sprintf(`set -e
+GIT_REVISION={{inputs.parameters.git-revision}}
+mkdir -p /etc/containers
+cat <<EOF > /etc/containers/storage.conf
+[storage]
+driver = "overlay"
+runroot = "/run/containers/storage"
+graphroot = "/var/lib/containers/storage"
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"
+EOF
+
+podman load -i /mnt/vol/app-image.tar
+
+# Tag images
+podman tag %s-$GIT_REVISION registry.choreo-system:5000/%s-$GIT_REVISION
+podman tag %s-$GIT_REVISION docker.io/test-org/%s-$GIT_REVISION
+podman tag %s-$GIT_REVISION ghcr.io/test-org/%s-$GIT_REVISION
+
+# Push images
+podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
+podman push docker.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json
+podman push ghcr.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json
+
+echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName(), imageName(),
+				imageName(), imageName(), imageName(), buildCtx.Registry.ImagePushSecrets[0].Name, imageName(),
+				buildCtx.Registry.ImagePushSecrets[1].Name, imageName())
 
 			generatedScript := generatePushImageScript(buildCtx, imageName())
 

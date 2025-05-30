@@ -377,7 +377,6 @@ func generatePushImageScript(buildCtx *integrations.BuildContext, imageName stri
 	numOfRegistries := len(buildCtx.Registry.ImagePushSecrets) + len(buildCtx.Registry.Unauthenticated)
 	tagCommands := make([]string, 0, numOfRegistries)
 	pushCommands := make([]string, 0, numOfRegistries)
-
 	for _, prefix := range buildCtx.Registry.Unauthenticated {
 		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, prefix, imageName)
 		tagCommands = append(tagCommands, tag)
