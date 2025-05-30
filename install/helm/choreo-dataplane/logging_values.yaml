@@ -1,0 +1,126 @@
+# Default values for opensearch-logging
+# This is a YAML-formatted file.
+
+opensearch:
+  enabled: true
+  image:
+    repository: opensearchproject/opensearch
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    httpPort: 9200
+    transportPort: 9300
+  
+  config:
+    clusterName: opensearch-cluster
+    discoveryType: single-node
+    javaOpts: "-Xms512m -Xmx512m"
+    memoryLock: false
+    disableSecurity: true
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+  
+  replicas: 1
+
+opensearchDashboard:
+  enabled: true
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: NodePort
+    port: 5601
+  
+  config:
+    # This will be templated to use the correct service name
+    opensearchHosts: '["http://{{ include "opensearch-logging.fullname" . }}-opensearch:9200"]'
+    disableSecurity: true
+  
+  replicas: 1
+
+fluentBit:
+  enabled: true
+  image:
+    repository: fluent/fluent-bit
+    tag: "2.1.10"
+    pullPolicy: IfNotPresent
+  
+  config:
+    service:
+      flush: 1
+      logLevel: info
+      daemon: off
+    
+    input:
+      name: tail
+      tag: "kube.*"
+      path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
+      excludePath: "/var/log/containers/*opensearch*_*.log,/var/log/containers/*opensearch-dashboard*_*.log,/var/log/containers/*fluentbit*_*.log"
+      parser: docker
+      db: "/var/log/flb_kube.db"
+      memBufLimit: "5MB"
+      skipLongLines: true
+      refreshInterval: 10
+    
+    filter:
+      name: kubernetes
+      match: "kube.*"
+      kubeURL: "https://kubernetes.default.svc:443"
+      kubeCAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      kubeTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      kubeTagPrefix: "kube.var.log.containers."
+      mergeLog: true
+      mergeLogKey: "log_processed"
+      k8sLoggingParser: true
+      k8sLoggingExclude: false
+    
+    output:
+      name: opensearch
+      match: "kube.*"
+      host: opensearch
+      port: 9200
+      index: kubernetes_cluster
+      type: flb_type
+      logstashFormat: true
+      logstashPrefix: kubernetes
+      timeKey: "@timestamp"
+      traceError: true
+      httpUser: admin
+      httpPasswd: admin
+      tls: false
+      tlsVerify: false
+      suppressTypeName: true
+    
+    parser:
+      name: docker
+      format: json
+      timeKey: time
+      timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
+      timeKeep: true
+  
+  rbac:
+    create: true
+    serviceAccountName: fluent-bit
+  
+  hostPaths:
+    varLog: /var/log
+    dockerContainers: /var/lib/docker/containers
+
+nameOverride: ""
+fullnameOverride: ""

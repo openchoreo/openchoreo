@@ -1,0 +1,87 @@
+{{- if .Values.opensearch.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-opensearch
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  ports:
+  - port: {{ .Values.opensearch.service.httpPort }}
+    name: http
+    targetPort: http
+  - port: {{ .Values.opensearch.service.transportPort }}
+    name: transport
+    targetPort: transport
+  selector:
+    {{- include "choreo-dataplane.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+  type: {{ .Values.opensearch.service.type }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-opensearch
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  serviceName: {{ include "choreo-dataplane.fullname" . }}-opensearch
+  replicas: {{ .Values.opensearch.replicas }}
+  selector:
+    matchLabels:
+      {{- include "choreo-dataplane.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch
+  template:
+    metadata:
+      labels:
+        {{- include "choreo-dataplane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opensearch
+    spec:
+      containers:
+      - name: opensearch
+        image: "{{ .Values.opensearch.image.repository }}:{{ .Values.opensearch.image.tag }}"
+        imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+        env:
+        - name: cluster.name
+          value: {{ .Values.opensearch.config.clusterName }}
+        - name: node.name
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: discovery.type
+          value: {{ .Values.opensearch.config.discoveryType }}
+        - name: OPENSEARCH_JAVA_OPTS
+          value: {{ .Values.opensearch.config.javaOpts | quote }}
+        - name: bootstrap.memory_lock
+          value: {{ .Values.opensearch.config.memoryLock | quote }}
+        - name: DISABLE_SECURITY_PLUGIN
+          value: {{ .Values.opensearch.config.disableSecurity | quote }}
+        ports:
+        - containerPort: {{ .Values.opensearch.service.httpPort }}
+          name: http
+        - containerPort: {{ .Values.opensearch.service.transportPort }}
+          name: transport
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/opensearch/data
+        resources:
+          {{- toYaml .Values.opensearch.resources | nindent 10 }}
+  {{- if .Values.opensearch.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: 
+        - {{ .Values.opensearch.persistence.accessMode }}
+      {{- if .Values.opensearch.persistence.storageClass }}
+      storageClassName: {{ .Values.opensearch.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.opensearch.persistence.size }}
+  {{- end }}
+{{- end }}

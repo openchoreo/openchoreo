@@ -1,0 +1,152 @@
+{{- if .Values.fluentBit.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-config
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         {{ .Values.fluentBit.config.service.flush }}
+        Log_Level     {{ .Values.fluentBit.config.service.logLevel }}
+        Daemon        {{ .Values.fluentBit.config.service.daemon }}
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              {{ .Values.fluentBit.config.input.name }}
+        Tag               {{ .Values.fluentBit.config.input.tag }}
+        Path              {{ .Values.fluentBit.config.input.path }}
+        Exclude_Path      {{ .Values.fluentBit.config.input.excludePath }}
+        Parser            {{ .Values.fluentBit.config.input.parser }}
+        DB                {{ .Values.fluentBit.config.input.db }}
+        Mem_Buf_Limit     {{ .Values.fluentBit.config.input.memBufLimit }}
+        Skip_Long_Lines   {{ if .Values.fluentBit.config.input.skipLongLines }}On{{ else }}Off{{ end }}
+        Refresh_Interval  {{ .Values.fluentBit.config.input.refreshInterval }}
+
+    [FILTER]
+        Name                {{ .Values.fluentBit.config.filter.name }}
+        Match               {{ .Values.fluentBit.config.filter.match }}
+        Kube_URL            {{ .Values.fluentBit.config.filter.kubeURL }}
+        Kube_CA_File        {{ .Values.fluentBit.config.filter.kubeCAFile }}
+        Kube_Token_File     {{ .Values.fluentBit.config.filter.kubeTokenFile }}
+        Kube_Tag_Prefix     {{ .Values.fluentBit.config.filter.kubeTagPrefix }}
+        K8S-Logging.Parser  {{ if .Values.fluentBit.config.filter.k8sLoggingParser }}On{{ else }}Off{{ end }}
+        K8S-Logging.Exclude {{ if .Values.fluentBit.config.filter.k8sLoggingExclude }}On{{ else }}Off{{ end }}
+
+    [OUTPUT]
+        Name            {{ .Values.fluentBit.config.output.name }}
+        Match           {{ .Values.fluentBit.config.output.match }}
+        Host            {{ include "choreo-dataplane.fullname" . }}-opensearch
+        Port            {{ .Values.fluentBit.config.output.port }}
+        Index           {{ .Values.fluentBit.config.output.index }}
+        Type            {{ .Values.fluentBit.config.output.type }}
+        Logstash_Format {{ if .Values.fluentBit.config.output.logstashFormat }}On{{ else }}Off{{ end }}
+        Logstash_Prefix {{ .Values.fluentBit.config.output.logstashPrefix }}
+        Time_Key        {{ .Values.fluentBit.config.output.timeKey }}
+        Trace_Error     {{ if .Values.fluentBit.config.output.traceError }}On{{ else }}Off{{ end }}
+        HTTP_User       {{ .Values.fluentBit.config.output.httpUser }}
+        HTTP_Passwd     {{ .Values.fluentBit.config.output.httpPasswd }}
+        tls             {{ if .Values.fluentBit.config.output.tls }}On{{ else }}Off{{ end }}
+        tls.verify      {{ if .Values.fluentBit.config.output.tlsVerify }}On{{ else }}Off{{ end }}
+        Suppress_Type_Name {{ if .Values.fluentBit.config.output.suppressTypeName }}On{{ else }}Off{{ end }}
+
+  parsers.conf: |
+    [PARSER]
+        Name   {{ .Values.fluentBit.config.parser.name }}
+        Format {{ .Values.fluentBit.config.parser.format }}
+        Time_Key {{ .Values.fluentBit.config.parser.timeKey }}
+        Time_Format {{ .Values.fluentBit.config.parser.timeFormat }}
+        Time_Keep {{ if .Values.fluentBit.config.parser.timeKeep }}On{{ else }}Off{{ end }}
+---
+{{- if .Values.fluentBit.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.fluentBit.rbac.serviceAccountName }}
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+rules:
+- apiGroups: [""]
+  resources:
+  - namespaces
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.fluentBit.rbac.serviceAccountName }}
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+spec:
+  selector:
+    matchLabels:
+      {{- include "choreo-dataplane.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: fluent-bit
+  template:
+    metadata:
+      labels:
+        {{- include "choreo-dataplane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: fluent-bit
+    spec:
+      serviceAccountName: {{ .Values.fluentBit.rbac.serviceAccountName }}
+      containers:
+      - name: fluent-bit
+        image: "{{ .Values.fluentBit.image.repository }}:{{ .Values.fluentBit.image.tag }}"
+        imagePullPolicy: {{ .Values.fluentBit.image.pullPolicy }}
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      volumes:
+      - name: varlog
+        hostPath:
+          path: {{ .Values.fluentBit.hostPaths.varLog }}
+      - name: varlibdockercontainers
+        hostPath:
+          path: {{ .Values.fluentBit.hostPaths.dockerContainers }}
+      - name: fluent-bit-config
+        configMap:
+          name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-config
+{{- end }}
