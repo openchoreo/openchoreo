@@ -19,6 +19,10 @@ version: 0.0.0-latest-dev
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "latest-dev"
+home: https://opensearch.org/
+sources:
+  - https://github.com/opensearch-project/OpenSearch
+  - https://github.com/fluent/fluent-bit
 dependencies:
   - name: vault
     version: 0.29.1

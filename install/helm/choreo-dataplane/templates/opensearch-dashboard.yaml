@@ -1,0 +1,52 @@
+{{- if .Values.opensearchDashboard.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-opensearch-dashboard
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch-dashboard
+spec:
+  ports:
+  - port: {{ .Values.opensearchDashboard.service.port }}
+    name: http
+    targetPort: http
+  selector:
+    {{- include "choreo-dataplane.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch-dashboard
+  type: {{ .Values.opensearchDashboard.service.type }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "choreo-dataplane.fullname" . }}-opensearch-dashboard
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch-dashboard
+spec:
+  replicas: {{ .Values.opensearchDashboard.replicas }}
+  selector:
+    matchLabels:
+      {{- include "choreo-dataplane.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch-dashboard
+  template:
+    metadata:
+      labels:
+        {{- include "choreo-dataplane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opensearch-dashboard
+    spec:
+      containers:
+      - name: opensearch-dashboard
+        image: "{{ .Values.opensearchDashboard.image.repository }}:{{ .Values.opensearchDashboard.image.tag }}"
+        imagePullPolicy: {{ .Values.opensearchDashboard.image.pullPolicy }}
+        env:
+        - name: OPENSEARCH_HOSTS
+          value: '["http://{{ include "choreo-dataplane.fullname" . }}-opensearch:9200"]'
+        - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+          value: {{ .Values.opensearchDashboard.config.disableSecurity | quote }}
+        ports:
+        - containerPort: {{ .Values.opensearchDashboard.service.port }}
+          name: http
+{{- end }}
