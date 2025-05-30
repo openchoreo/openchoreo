@@ -226,14 +226,14 @@ Once you successfully [installed OpenChoreo](#install-openchoreo) into your clus
 You can see the service using the following command.
 
 ```shell
-kubectl --context=kind-choreo-dp get svc choreo-dataplane-external-gateway -n choreo-system
+kubectl --context=kind-choreo-dp get svc choreo-external-gateway -n choreo-system
 ```
 
 You will see an output similar to the following:
 
 ```text
 NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
-choreo-dataplane-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
+choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
 ```
 
 You have two options to expose the DataPlane choreo-external-gateway service to your host machine.
