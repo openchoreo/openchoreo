@@ -1,4 +1,4 @@
-{{- if .Values.opensearch.enabled | default false }}
+{{- if and .Values.opensearch .Values.opensearch.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -75,8 +75,8 @@ spec:
   - metadata:
       name: data
     spec:
-      accessModes: 
-        - {{ .Values.opensearch.persistence.accessMode }}
+      accessModes:
+      - {{ .Values.opensearch.persistence.accessMode }}
       {{- if .Values.opensearch.persistence.storageClass }}
       storageClassName: {{ .Values.opensearch.persistence.storageClass }}
       {{- end }}
