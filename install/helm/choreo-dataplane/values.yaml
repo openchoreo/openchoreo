@@ -181,7 +181,7 @@ argo-workflows:
 
 # Customizing OpenSearch configurations
 opensearch:
-  enabled: true
+  enabled: false
   image:
     repository: opensearchproject/opensearch
     tag: "2.11.0"
@@ -217,7 +217,7 @@ opensearch:
 
 # Customizing OpenSearch Dashboards configurations
 opensearchDashboard:
-  enabled: true
+  enabled: false
   image:
     repository: opensearchproject/opensearch-dashboards
     tag: "2.11.0"
@@ -236,7 +236,7 @@ opensearchDashboard:
 
 # Customizing Fluent Bit configurations
 fluentBit:
-  enabled: true
+  enabled: false
   image:
     repository: fluent/fluent-bit
     tag: "2.1.10"
