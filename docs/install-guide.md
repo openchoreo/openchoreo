@@ -67,31 +67,25 @@ OpenChoreo can be installed on any Kubernetes cluster using the official Helm ch
 > [!NOTE]
 > Ensure that Cilium is installed in the cluster before proceeding with the Helm chart installation below.
 
-OpenChoreo can be installed on any Kubernetes cluster using the official Helm charts provided by the project.
+1. Install OpenChoreo using Helm. Run the following two Helm commands to install OpenChoreo into your cluster:
 
-1. Install OpenChoreo using Helm
+    ```shell
+    helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
+    --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
+    ```
 
-Run the following two Helm commands to install OpenChoreo into your cluster:
+    ```shell
+    helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
+    --kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
+    --set certmanager.enabled=false --set certmanager.crds.enabled=false
+    ```
 
-```shell
-helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
---kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
-```
+2. Once OpenChoreo is installed, verify the installation status using the provided script ([script](../install/check-status.sh)):
 
-```shell
-helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
---kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m --set certmanager.enabled=false
-```
 
-2. Verify the Installation
-
-Once OpenChoreo is installed, you can verify the installation status using the provided script ([script](../install/check-status.sh)).
-
-Run the verification script:
-
-```shell
-bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh)
-```
+    ```shell
+    bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh)
+    ```
 
 > [!TIP]
 > Refer to "Exposing the OpenChoreo Gateway" section to learn how to access the components you create in OpenChoreo via the external gateway.
