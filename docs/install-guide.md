@@ -141,7 +141,7 @@ Once this is completed, it will have a `dist` directory created in the project r
 Run the following command to install the `choreoctl` CLI into your host machine.
 
 ```shell
-./dist/choreoctl/choreoctl-install.sh
+./install/choreoctl-install.sh
 ````
 
 To verify the installation, run:
