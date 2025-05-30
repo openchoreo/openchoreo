@@ -75,13 +75,13 @@ Run the following two Helm commands to install OpenChoreo into your cluster:
 
 ```shell
 helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
---kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
+--kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m --version 0.0.0-latest-dev
 ```
 
 ```shell
 helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
 --kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
---set certmanager.enabled=false --set certmanager.crds.enabled=false
+--set certmanager.enabled=false --set certmanager.crds.enabled=false --version 0.0.0-latest-dev
 ```
 
 2. Verify the Installation
