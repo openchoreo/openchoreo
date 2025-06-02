@@ -1,4 +1,4 @@
-// Copyright 2025 OpenChoreo Authors
+// Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package v1 contains API Schema definitions for the core v1 API group.
