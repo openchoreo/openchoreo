@@ -80,6 +80,7 @@ metadata:
   labels:
     core.choreo.dev/name: $DATAPLANE_KIND_NAME
     core.choreo.dev/organization: default-org
+    core.choreo.dev/build-plane: "true"
   name: $DATAPLANE_KIND_NAME
   namespace: default-org
 spec:
