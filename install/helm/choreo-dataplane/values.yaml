@@ -44,6 +44,7 @@ waitJob:
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
+
 # customizing the vault configurations
 vault:
   server:
@@ -77,6 +78,7 @@ vault:
       limits:
         memory: 128Mi
         cpu: 100m
+
 # customizing the secrets-store-csi-driver configurations
 secrets-store-csi-driver:
   syncSecret:
@@ -84,6 +86,7 @@ secrets-store-csi-driver:
   enableSecretRotation: true
   vaultCsiProvider:
     enabled: true
+
 # customizing the registry configurations
 registry:
   enabled: true
@@ -101,6 +104,7 @@ registry:
   # -- Persistent volume storage for the registry
   storage:
     size: 2Gi
+
 # customizing the envoy gateway configurations
 gateway-helm:
   config:
@@ -120,6 +124,7 @@ gateway-helm:
         requests:
           cpu: 100m
           memory: 128Mi
+
 # customizing the cert-manager configurations
 certmanager:
   enabled: true
@@ -151,6 +156,7 @@ certmanager:
       limits:
         cpu: 50m
         memory: 64Mi
+
 # customizing the argo workflows configurations
 argo-workflows:
   controller:
@@ -179,9 +185,13 @@ argo-workflows:
   workflowNamespaces:
     - argo-build
 
+# Customizing overall observability configurations
+observability:
+  logging:
+    enabled: false
+
 # Customizing OpenSearch configurations
 opensearch:
-  enabled: false
   image:
     repository: opensearchproject/opensearch
     tag: "2.11.0"
@@ -217,7 +227,6 @@ opensearch:
 
 # Customizing OpenSearch Dashboards configurations
 opensearchDashboard:
-  enabled: false
   image:
     repository: opensearchproject/opensearch-dashboards
     tag: "2.11.0"
@@ -236,7 +245,6 @@ opensearchDashboard:
 
 # Customizing Fluent Bit configurations
 fluentBit:
-  enabled: false
   image:
     repository: fluent/fluent-bit
     tag: "2.1.10"
@@ -252,7 +260,8 @@ fluentBit:
       name: tail
       tag: "kube.*"
       path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
-      excludePath: "/var/log/containers/*opensearch*_*.log,/var/log/containers/*opensearch-dashboard*_*.log,/var/log/containers/*fluentbit*_*.log"
+      #excludePath: "/var/log/containers/*opensearch*_*.log,/var/log/containers/*opensearch-dashboard*_*.log,/var/log/containers/*fluentbit*_*.log"
+      excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
       parser: docker
       db: "/var/log/flb_kube.db"
       memBufLimit: "5MB"
@@ -303,5 +312,3 @@ fluentBit:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
 
-nameOverride: ""
-fullnameOverride: ""

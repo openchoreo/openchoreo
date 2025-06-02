@@ -1,4 +1,4 @@
-{{- if and .Values.opensearch .Values.opensearch.enabled }}
+{{- if .Values.observability.logging.enabled }}
 apiVersion: v1
 kind: Service
 metadata:

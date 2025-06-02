@@ -1,4 +1,4 @@
-{{- if .Values.opensearch.enabled }}
+{{- if .Values.observability.logging.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
