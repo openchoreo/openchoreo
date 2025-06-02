@@ -163,14 +163,7 @@ argo-workflows:
         memory: 32Mi
         cpu: 25m
   server:
-    # -- Resource limits and requests for the argo workflows server
-    resources:
-      limits:
-        memory: 64Mi
-        cpu: 50m
-      requests:
-        memory: 32Mi
-        cpu: 25m
+    enabled: false
   crds:
     keep: false
   workflow:
