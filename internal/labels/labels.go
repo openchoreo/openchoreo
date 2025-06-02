@@ -16,6 +16,7 @@ const (
 	LabelKeyDeployableArtifactName = "core.choreo.dev/deployable-artifact"
 	LabelKeyDeploymentName         = "core.choreo.dev/deployment"
 	LabelKeyDataPlaneName          = "core.choreo.dev/dataplane"
+	LabelKeyBuildPlane             = "core.choreo.dev/build-plane"
 
 	LabelKeyManagedBy = "managed-by"
 

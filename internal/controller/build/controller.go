@@ -105,9 +105,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
 	}
 
-	dpClient, err := r.getDPClient(ctx, buildCtx.Build)
+	dpClient, err := r.getBPClient(ctx, buildCtx.Build)
 	if err != nil {
-		logger.Error(err, "Error getting DP client")
+		logger.Error(err, "Error in getting build plane client")
 		return ctrl.Result{}, err
 	}
 
@@ -306,41 +306,54 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	}, nil
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, build *choreov1.Build) (client.Client, error) {
-	dataplaneRes, err := getDataplane(ctx, r.Client, build)
+func (r *Reconciler) getBPClient(ctx context.Context, build *choreov1.Build) (client.Client, error) {
+	buildplane, err := r.getDataPlaneMarkedAsBuildPlane(ctx, r.Client, build)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
-		return nil, fmt.Errorf("failed to get default dataplane %s: %w", "default-dataplane", err)
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, buildplane)
 	if err != nil {
 		// Return an error if client creation fails
-		return nil, fmt.Errorf("failed to get DP client: %w", err)
+		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
 
 	return dpClient, nil
 }
 
-func getDataplane(ctx context.Context, c client.Client, build *choreov1.Build) (*choreov1.DataPlane, error) {
-	dataplaneList := &choreov1.DataPlaneList{}
+func (r *Reconciler) getDataPlaneMarkedAsBuildPlane(ctx context.Context, c client.Client, build *choreov1.Build) (*choreov1.DataPlane, error) {
+	dataplanes := &choreov1.DataPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(build.GetNamespace()),
 		client.MatchingLabels{
 			labels.LabelKeyOrganizationName: controller.GetOrganizationName(build),
-			labels.LabelKeyName:             "default-dataplane",
 		},
 	}
 
-	if err := c.List(ctx, dataplaneList, listOpts...); err != nil {
+	if err := c.List(ctx, dataplanes, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
 	}
 
-	if len(dataplaneList.Items) > 0 {
-		return &dataplaneList.Items[0], nil
+	var buildPlane *choreov1.DataPlane
+	for i, dp := range dataplanes.Items {
+		if controller.GetBuildPlaneLabelFromDataPlane(&dp) == "true" {
+			if buildPlane != nil {
+				r.recorder.Eventf(build, corev1.EventTypeWarning, "MultipleBuildPlanesFound",
+					"Multiple dataplanes are configured as build plane for organization: %s", build.Labels[labels.LabelKeyOrganizationName])
+				return nil, fmt.Errorf("multiple dataplanes are configured as build planes")
+			}
+			buildPlane = &dataplanes.Items[i]
+		}
 	}
 
-	return nil, fmt.Errorf("failed to find dataplanes")
+	if buildPlane == nil {
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "NoBuildPlaneFound",
+			"No dataplane is configured as build plane for organization: %s", build.Labels[labels.LabelKeyOrganizationName])
+		return nil, fmt.Errorf("no dataplane configured as build plane")
+	}
+
+	return buildPlane, nil
 }
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
