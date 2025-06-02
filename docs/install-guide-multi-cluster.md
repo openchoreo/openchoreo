@@ -89,7 +89,7 @@ Install the Control Plane using Helm:
 
 ```shell
 helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
---kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m
+--kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m --version 0.0.0-latest-dev
 ```
 
  2. Install OpenChoreo DataPlane
@@ -98,8 +98,11 @@ Install the Data Plane using Helm:
 
 ```shell
 helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
---kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
+--kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m --version 0.0.0-latest-dev
 ```
+
+> [!TIP]
+> To install the DataPlane without Argo Workflows, append the following flag: `--set argo-workflows.enabled=false`.
 
 3. Verify the Installation
 
