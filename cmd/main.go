@@ -10,6 +10,16 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
+	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
+	"github.com/openchoreo/openchoreo/internal/controller/workload"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
+
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -60,6 +70,7 @@ func init() {
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -69,6 +80,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableLegacyCRDs bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -80,6 +92,8 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
+		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -162,86 +176,147 @@ func main() {
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
 
-	if err = (&organization.Reconciler{
+	if enableLegacyCRDs {
+		if err = (&organization.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Organization")
+			os.Exit(1)
+		}
+		if err = (&project.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Project")
+			os.Exit(1)
+		}
+		if err = (&build.Reconciler{
+			Client:       mgr.GetClient(),
+			DpClientMgr:  dpClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GithubClient: github.NewClient(nil),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Build")
+			os.Exit(1)
+		}
+		if err = (&environment.Reconciler{
+			Client:      mgr.GetClient(),
+			DpClientMgr: dpClientMgr,
+			Scheme:      mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Environment")
+			os.Exit(1)
+		}
+		if err = (&dataplane.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+			os.Exit(1)
+		}
+		if err = (&deploymentpipeline.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+			os.Exit(1)
+		}
+		if err = (&component.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Component")
+			os.Exit(1)
+		}
+		if err = (&deploymenttrack.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
+			os.Exit(1)
+		}
+		if err = (&deployableartifact.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
+			os.Exit(1)
+		}
+		if err = (&deployment.Reconciler{
+			Client:      mgr.GetClient(),
+			DpClientMgr: dpClientMgr,
+			Scheme:      mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
+			os.Exit(1)
+		}
+		if err = (&endpoint.Reconciler{
+			Client:      mgr.GetClient(),
+			DpClientMgr: dpClientMgr,
+			Scheme:      mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
+			os.Exit(1)
+		}
+	}
+
+	if err = (&componentv2.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Organization")
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentV2")
 		os.Exit(1)
 	}
-	if err = (&project.Reconciler{
+	if err = (&workload.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Project")
+		setupLog.Error(err, "unable to create controller", "controller", "Workload")
 		os.Exit(1)
 	}
-	if err = (&build.Reconciler{
-		Client:       mgr.GetClient(),
-		DpClientMgr:  dpClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GithubClient: github.NewClient(nil),
+	if err = (&workloadclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Build")
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadClass")
 		os.Exit(1)
 	}
-	if err = (&environment.Reconciler{
+	if err = (&workloadrelease.Reconciler{
 		Client:      mgr.GetClient(),
 		DpClientMgr: dpClientMgr,
 		Scheme:      mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Environment")
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadRelease")
 		os.Exit(1)
 	}
-	if err = (&dataplane.Reconciler{
+
+	if err = (&endpointv2.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+		setupLog.Error(err, "unable to create controller", "controller", "EndpointV2")
 		os.Exit(1)
 	}
-	if err = (&deploymentpipeline.Reconciler{
+	if err = (&endpointclass.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+		setupLog.Error(err, "unable to create controller", "controller", "EndpointClass")
 		os.Exit(1)
 	}
-	if err = (&component.Reconciler{
+	if err = (&endpointrelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Component")
+		setupLog.Error(err, "unable to create controller", "controller", "EndpointRelease")
 		os.Exit(1)
 	}
-	if err = (&deploymenttrack.Reconciler{
+	if err = (&gitcommitrequest.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
-		os.Exit(1)
-	}
-	if err = (&deployableartifact.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
-		os.Exit(1)
-	}
-	if err = (&deployment.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
-		os.Exit(1)
-	}
-	if err = (&endpoint.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
+		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
 		os.Exit(1)
 	}
 

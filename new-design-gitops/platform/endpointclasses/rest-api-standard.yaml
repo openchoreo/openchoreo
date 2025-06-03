@@ -1,0 +1,199 @@
+# The EndpointClass is still a work in progress and not finalized yet.
+apiVersion: core.choreo.dev/v1
+kind: EndpointClass
+metadata:
+  name: rest-api-standard
+spec:
+  restPolicy:
+    # Default policies for REST endpoints that apply to all expose levels
+    defaults:
+      # Rate limiting
+      rateLimit:
+        requests: 1000
+        window: 1h
+        burst: 100
+        keyBy: jwt:sub # Accepted: clientIP | header:X-API-Key | jwt:sub
+        skipSuccessfulRequests: false
+        skipFailedRequests: true
+      # Authentication and authorization
+      authentication:
+        type: jwt # Accepted: jwt | apikey | oauth2 | basic
+        jwt:
+          jwks: "https://auth.example.com/.well-known/jwks.json"
+          issuer: "https://auth.example.com"
+          audience: [ "api://default" ]
+        apikey:
+          header: "X-API-Key"
+          queryParam: "api_key"
+        oauth2:
+          tokenUrl: "https://auth.example.com/token"
+          scopes: [ "read", "write" ]
+      # CORS configuration
+      cors:
+        allowOrigins: [ "*" ]
+        allowMethods: [ "GET", "POST", "PUT", "DELETE" ]
+        allowHeaders: [ "Content-Type", "Authorization" ]
+        exposeHeaders: [ ]
+        maxAge: 3600
+      # Security Policies
+      security: # Not finalized yet
+        allowedIPs: [ "10.0.0.0/8", "192.168.0.0/16" ]
+        blockedIPs: [ "192.168.1.100" ]
+        requireTLS: true
+        minTLSVersion: "1.2"
+      # Request and Response Transformations
+      mediation: # Not finalized yet
+        requestTransformations:
+          - type: json
+            action: addFields
+            fields:
+              userAgent: "ReadingListService/1.0"
+              requestId: "{{request.id}}"
+          - type: json
+            action: addHeader
+            headerName: X-Request-ID
+            headerValue: "{{request.id}}"
+          - type: json
+            action: removeHeaders
+            headers: [ "X-Forwarded-For", "X-Real-IP" ]
+        responseTransformations:
+          - type: json
+            action: removeFields
+            fields:
+              password: ""
+
+          - type: xml
+            action: addHeader
+            headerName: X-Processed-By
+            headerValue: ReadingListService
+      # Request and Response Management
+      timeout: 30s
+      retries:
+        attempts: 3
+        backoff: exponential
+        initialInterval: 1s
+        maxInterval: 10s
+      requestSizeLimit: 10MB
+      responseSizeLimit: 50MB
+      # Circuit Breaker?
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 50
+        successThreshold: 10
+        timeout: 60s
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: debug
+          includeRequestBody: true
+          includeResponseBody: true
+      # Conditional Policies that apply based on request conditions
+      conditionalPolicies: # Not finalized yet
+        - condition:
+            method: GET
+            paths: [ "/reading-list" ]
+          policy:
+            rateLimit:
+              requests: 500
+              window: 1h
+              burst: 50
+            authentication:
+              type: jwt
+              jwt:
+                jwks: "https://auth.example.com/.well-known/jwks.json"
+                issuer: "https://auth.example.com"
+                audience: [ "api://default" ]
+            cors:
+              allowOrigins: [ "https://example.com" ]
+              allowMethods: [ "GET", "POST" ]
+              allowHeaders: [ "Content-Type", "Authorization" ]
+              exposeHeaders: [ ]
+              maxAge: 3600
+    # Specific overrides for different expose levels
+    public:
+      # Rate limiting
+      rateLimit:
+        requests: 2000
+        window: 1h
+        burst: 100
+      # Authentication and authorization
+      authentication:
+        type: jwt
+        jwt:
+          jwks: "https://auth.example.com/.well-known/jwks.json"
+          issuer: "https://auth.example.com"
+          audience: [ "api://default" ]
+      # CORS configuration
+      cors:
+        allowOrigins: [ "*" ]
+        allowMethods: [ "GET", "POST", "PUT", "DELETE" ]
+        allowHeaders: [ "Content-Type", "Authorization" ]
+        exposeHeaders: [ ]
+        maxAge: 3600
+      # Security Policies
+      security: # Not finalized yet
+        allowedIPs: [ "10.0.0.0/8", "192.168.0.0/16" ]
+        blockedIPs: [ "192.168.1.100" ]
+        requireTLS: true
+        minTLSVersion: "1.2"
+      # Request and Response Management
+      timeout: 30s
+      retries:
+        attempts: 3
+        backoff: exponential
+        initialInterval: 1s
+        maxInterval: 10s
+      requestSizeLimit: 10MB
+      responseSizeLimit: 50MB
+      # Circuit Breaker?
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 50
+        successThreshold: 10
+        timeout: 60s
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: info
+          includeRequestBody: true
+          includeResponseBody: true
+      conditionalPolicies:
+        - condition:
+            method: GET
+            paths: [ "/reading-list" ]
+          policy:
+            rateLimit:
+              requests: 10000
+              burst: 500
+              window: 1h
+
+    organization:
+      # Authentication and authorization
+      authentication:
+        type: oauth2
+        oauth2:
+          tokenUrl: "https://auth.example.com/token"
+          scopes: [ "read", "write" ]
+      # Request and Response Management
+      timeout: 60s
+      requestSizeLimit: 20MB
+      responseSizeLimit: 100MB
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: debug
+          includeRequestBody: false
+          includeResponseBody: false
+  grpcPolicy: { }

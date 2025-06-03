@@ -1,0 +1,23 @@
+# permissions for end users to view endpointclasses.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: endpointclass-viewer-role
+rules:
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - endpointclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - endpointclasses/status
+  verbs:
+  - get

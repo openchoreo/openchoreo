@@ -1,0 +1,16 @@
+apiVersion: core.choreo.dev/v1
+kind: DeploymentPipeline
+metadata:
+  name: default
+spec:
+  promotionPaths:
+    - sourceEnvironmentRef: development
+      targetEnvironmentRefs:
+        - name: staging
+          requiresApproval: false
+        - name: production
+          isManualApprovalRequired: true
+    - sourceEnvironmentRef: staging
+      targetEnvironmentRefs:
+        - name: production
+          requiresApproval: true

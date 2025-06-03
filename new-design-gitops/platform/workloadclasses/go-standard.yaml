@@ -1,0 +1,58 @@
+apiVersion: core.choreo.dev/v1
+kind: WorkloadClass
+metadata:
+  name: go-service-standard
+spec:
+  service:
+    deploymentTemplate:
+      replicas: 1
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+      template:
+        metadata:
+          labels:
+            reloader.stakater.com/auto: "true"
+        spec:
+          containers:
+            - name: main
+              env:
+                - name: LOG_TYPE
+                  value: "json"
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+            - name: sidecar
+              image: busybox:latest
+              command: [ "/bin/sh", "-c" ]
+              args:
+                - |
+                  echo "Exposing metrics on port 12001";
+                  # Simulate long-running metrics server
+                  while true; do nc -lk -p 12001 -e echo "metrics 1"; done
+              ports:
+                - name: metrics
+                  containerPort: 12001
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              readinessProbe:
+                tcpSocket:
+                  port: metrics
+                initialDelaySeconds: 5
+                periodSeconds: 10
+    serviceTemplate:
+      ports:
+        - name: metrics-http
+          port: 12001
+          targetPort: 12001

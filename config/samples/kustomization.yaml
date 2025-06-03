@@ -15,4 +15,12 @@ resources:
   - core_v1_deployment.yaml
   - core_v1_endpoint.yaml
   - core_v1_configurationgroup.yaml
+  - core_v1_componentv2.yaml
+  - core_v1_workload.yaml
+  - core_v1_workloadclass.yaml
+  - core_v1_workloadrelease.yaml
+  - core_v1_endpointv2.yaml
+  - core_v1_endpointclass.yaml
+  - core_v1_endpointrelease.yaml
+  - core_v1_gitcommitrequest.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

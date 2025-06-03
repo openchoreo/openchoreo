@@ -1,0 +1,242 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: componentv2s.core.choreo.dev
+spec:
+  group: core.choreo.dev
+  names:
+    kind: ComponentV2
+    listKind: ComponentV2List
+    plural: componentv2s
+    singular: componentv2
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: ComponentV2 is the Schema for the componentv2s API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ComponentV2Spec defines the desired state of ComponentV2.
+            properties:
+              owner:
+                description: |-
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                properties:
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - projectName
+                type: object
+              workload:
+                description: WorkloadTemplateSpec defines the desired state of Workload.
+                properties:
+                  args:
+                    items:
+                      type: string
+                    type: array
+                  className:
+                    description: The runtime “class” that provides defaults / templates.
+                    type: string
+                  command:
+                    description: Container entrypoint & args.
+                    items:
+                      type: string
+                    type: array
+                  env:
+                    description: Explicit environment variables.
+                    items:
+                      description: EnvVar represents an environment variable present
+                        in the container.
+                      properties:
+                        key:
+                          description: The environment variable key.
+                          type: string
+                        value:
+                          description: |-
+                            The literal value of the environment variable.
+                            Mutually exclusive with valueFrom.
+                          type: string
+                        valueFrom:
+                          description: |-
+                            Extract the environment variable value from another resource.
+                            Mutually exclusive with value.
+                          properties:
+                            configurationGroupRef:
+                              description: Reference to a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: Reference to a secret resource.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - key
+                      type: object
+                    type: array
+                  envFrom:
+                    description: Bulk import environment variables from references.
+                    items:
+                      description: EnvFromSource allows importing all environment
+                        variables from a source.
+                      properties:
+                        configurationGroupRef:
+                          description: Reference to a configuration group (entire
+                            group).
+                          properties:
+                            name:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        secretRef:
+                          description: Reference to a secret resource (entire secret).
+                          properties:
+                            name:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      type: object
+                    type: array
+                  fileMounts:
+                    description: Single-file mounts.
+                    items:
+                      description: FileMount represents one file mounted from data/inline
+                        content.
+                      properties:
+                        mountPath:
+                          type: string
+                        value:
+                          description: |-
+                            Inline file content.
+                            Mutually exclusive with valueFrom.
+                          type: string
+                        valueFrom:
+                          description: References to an external data source for the
+                            file content.
+                          properties:
+                            configurationGroupRef:
+                              description: ConfigurationGroupKeyRef references a specific
+                                key in a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: SecretKeyRef references a specific key
+                                in a K8s secret.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - mountPath
+                      type: object
+                    type: array
+                  fileMountsFrom:
+                    description: Bulk import file mounts from references.
+                    items:
+                      description: FileMountsFromSource allows importing multiple
+                        files from a source.
+                      properties:
+                        configurationGroupRef:
+                          description: ConfigurationGroupMountRef references a config
+                            group as files in a directory.
+                          properties:
+                            mountPath:
+                              description: Absolute directory path to mount the config
+                                group contents.
+                              type: string
+                            name:
+                              type: string
+                          required:
+                          - mountPath
+                          - name
+                          type: object
+                        secretRef:
+                          description: SecretMountRef references a secret resource
+                            as files in a directory.
+                          properties:
+                            mountPath:
+                              description: Absolute directory path to mount the secret
+                                contents.
+                              type: string
+                            name:
+                              type: string
+                          required:
+                          - mountPath
+                          - name
+                          type: object
+                      type: object
+                    type: array
+                  image:
+                    description: OCI image to run (digest or tag).
+                    type: string
+                  type:
+                    description: WorkloadType defines how the workload is deployed.
+                    type: string
+                required:
+                - className
+                - image
+                - type
+                type: object
+            required:
+            - owner
+            type: object
+          status:
+            description: ComponentV2Status defines the observed state of ComponentV2.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

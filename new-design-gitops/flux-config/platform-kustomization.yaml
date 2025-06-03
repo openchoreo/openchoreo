@@ -1,0 +1,29 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: choreo-gitops
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/acme-corp/choreo-gitops.git
+  ref:
+    branch: main
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: choreo-platform
+  namespace: flux-system
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: choreo-gitops
+  path: "./platform"
+  prune: true
+  targetNamespace: choreo-system
+  healthChecks:
+    - apiVersion: core.choreo.dev/v1
+      kind: WorkloadClass
+      name: go-service-standard

@@ -1,0 +1,86 @@
+apiVersion: core.choreo.dev/v1
+kind: ComponentV2
+metadata:
+  name: reading-list-service
+#  namespace: default-org
+spec:
+  # Defines how to create the artifact
+  #  build:
+  #    className: go-1-22
+  #    repository:
+  #      url: https://github.com/wso2/choreo-samples
+  #      ref:
+  #        #        branch: main
+  #        commit: 4061be9
+  #    path: /go-reading-list-rest-api
+  #    env:
+  #      - name: CGO_ENABLED
+  #        value: "0"
+  owner:
+    projectName: default-project
+
+  # Defines how the component is configured during deployment
+  workload:
+    className: go-service-standard
+    # Defines how to deploy the component
+    type: Service
+    image: ghcr.io/openchoreo/samples/greeter-service:latest
+    command: [ "./go-greeter" ]
+    args: [ "--port", "9090" ]
+    env:
+      - key: LOG_LEVEL
+        value: "info"
+      - key: GITHUB_REPOSITORY
+        valueFrom:
+          configurationGroupRef:
+            name: github
+            key: repository
+      - key: GITHUB_TOKEN
+        valueFrom:
+          configurationGroupRef:
+            name: github
+            key: pat
+    envFrom: [ ]
+    fileMounts: [ ]
+    fileMountsFrom: [ ]
+
+  endpoints:
+    - name: rest-api
+      className: rest-api-standard
+      type: REST
+      rest:
+        backend:
+          port: 9090
+          basePath: /api/v1
+        operations:
+          - method: GET
+            path: /reading-list
+            description: Get all books in the reading list
+            scopes: [ "books:read" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: POST
+            path: /reading-list
+            description: Add a book to the reading list
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: GET
+            path: /reading-list/{id}
+            description: Get a book from the reading list by ID
+            scopes: [ "books:read" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: PUT
+            path: /reading-list/{id}
+            description: Update a book in the reading list by ID
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: DELETE
+            path: /reading-list/{id}
+            description: Delete a book from the reading list by ID
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: DELETE
+            path: /reading-list
+            description: Delete all books from the reading list
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization" ]
+

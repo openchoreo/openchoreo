@@ -1,0 +1,23 @@
+# permissions for end users to view componentv2s.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: componentv2-viewer-role
+rules:
+  - apiGroups:
+      - core.choreo.dev
+    resources:
+      - componentv2s
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - core.choreo.dev
+    resources:
+      - componentv2s/status
+    verbs:
+      - get

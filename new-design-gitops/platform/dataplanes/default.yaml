@@ -1,0 +1,25 @@
+apiVersion: core.choreo.dev/v1
+kind: DataPlane
+metadata:
+  labels:
+    core.choreo.dev/name: default
+    core.choreo.dev/organization: default-org
+  name: default
+  namespace: default
+spec:
+  registry:
+    unauthenticated:
+      - "docker.io"
+      - "ghcr.io"
+      - "quay.io"
+    imagePushSecrets: []
+  kubernetesCluster:
+    name: default-dataplane
+    credentials:
+      apiServerURL: "https://kubernetes.default.svc"
+      caCert: ""
+      clientCert: ""
+      clientKey: ""
+  gateway:
+    publicVirtualHost: "api.choreo.dev"
+    organizationVirtualHost: "api-org.choreo.dev"

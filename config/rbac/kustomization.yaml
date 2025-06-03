@@ -46,17 +46,37 @@ resources:
   - deployment_viewer_role.yaml
   - deployableartifact_editor_role.yaml
   - deployableartifact_viewer_role.yaml
-# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
-# default, aiding admins in cluster management. Those roles are
-# not used by the {{ .ProjectName }} itself. You can comment the following lines
-# if you do not want those helpers be installed with your Project.
+  # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+  # default, aiding admins in cluster management. Those roles are
+  # not used by the {{ .ProjectName }} itself. You can comment the following lines
+  # if you do not want those helpers be installed with your Project.
   - endpoint_admin_role.yaml
   - endpoint_editor_role.yaml
   - endpoint_viewer_role.yaml
 
+  # For each CRD, "Editor" and "Viewer" roles are scaffolded by
+  # default, aiding admins in cluster management. Those roles are
+  # not used by the Project itself. You can comment the following lines
+  # if you do not want those helpers be installed with your Project.
+  - workloadclass_editor_role.yaml
+  - workloadclass_viewer_role.yaml
+  - workload_editor_role.yaml
+  - workload_viewer_role.yaml
+  - componentv2_editor_role.yaml
+  - componentv2_viewer_role.yaml
+  - configurationgroup_editor_role.yaml
+  - configurationgroup_viewer_role.yaml
 # For each CRD, "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
-  - configurationgroup_editor_role.yaml
-  - configurationgroup_viewer_role.yaml
+  - gitcommitrequest_editor_role.yaml
+  - gitcommitrequest_viewer_role.yaml
+  - endpointrelease_editor_role.yaml
+  - endpointrelease_viewer_role.yaml
+  - endpointclass_editor_role.yaml
+  - endpointclass_viewer_role.yaml
+  - endpointv2_editor_role.yaml
+  - endpointv2_viewer_role.yaml
+  - workloadrelease_editor_role.yaml
+  - workloadrelease_viewer_role.yaml

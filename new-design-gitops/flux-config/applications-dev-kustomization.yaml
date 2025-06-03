@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: choreo-applications-dev
+  namespace: flux-system
+spec:
+  interval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: choreo-gitops
+  path: "./applications/projects/default/components/reading-list-service/overlays/dev"
+  prune: true
+  targetNamespace: default
+  dependsOn:
+    - name: choreo-platform
+  healthChecks:
+    - apiVersion: core.choreo.dev/v1
+      kind: Workload
+      name: reading-list-service

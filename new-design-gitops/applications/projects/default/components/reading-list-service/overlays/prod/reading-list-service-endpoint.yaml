@@ -1,0 +1,18 @@
+apiVersion: core.choreo.dev/v1
+kind: EndpointV2
+metadata:
+  name: reading-list-service-api
+  namespace: default
+  annotations:
+    choreo.dev/generated-by: componentv2-controller
+    choreo.dev/component: reading-list-service
+spec:
+  classRef: rest-api-standard
+  environment: production
+  workloadRef: reading-list-service
+  port: 8080
+  path: "/api/v1"
+  expose:
+    - project
+    - organization
+    - public  # Production also exposes publicly

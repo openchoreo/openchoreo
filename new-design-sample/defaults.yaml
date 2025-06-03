@@ -1,0 +1,303 @@
+apiVersion: core.choreo.dev/v1
+kind: DataPlane
+metadata:
+  annotations:
+    core.choreo.dev/description: DataPlane "default-dataplane" was created through
+      the script.
+    core.choreo.dev/display-name: DataPlane "default-dataplane"
+  labels:
+    core.choreo.dev/name: default-dataplane
+    core.choreo.dev/organization: default-org
+  name: default
+  namespace: default
+spec:
+  gateway:
+    organizationVirtualHost: choreoapis.internal
+    publicVirtualHost: choreoapis.localhost
+  registry: { }
+  kubernetesCluster:
+    credentials:
+      apiServerURL: https://127.0.0.1:49775
+      caCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJTlVKcmRBUk9VeDh3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRBMk1ERXdPVEE1TXpSYUZ3MHpOVEExTXpBd09URTBNelJhTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUUN3T1I5MUFxYllnemUySXVydS91bENwd1ZoL2sySHovTEx6azhJejl3VW90OFh2Tk9QNG9YZ2VaV0EKRURsbDRlSFFiTjFleTNtcWxlMUkxNHE0S0RsN0JQUTFsWk5wZjUzL1c2OUdxajBoWXVIcWNqdStBdzlNMXY2YgpEaFA5NjVjMko0UWI1RHFJMlc5YlM2aW0yQ2tIK0NuWm05S0JRMlFpNGd0QVVtUEcwcHBFZlFSVVQwTkFFWWNYClhwSzNIMWZzYnN2T3RTZit1VThwc3hpNXVDaHdSL3ZKNGUxWWRuZGhZTDh6Q3NIMCt0bGFBeWt0UG1QdVVaK3gKZkJBdkVOYUdIaDRNU1dzU0ptbjh1K01kS216MUNrdWZSSW9XbWk2MDZRQ2pKVUhMa3VWbUNTaXBLTUd4d2thVwpPdndVenBvZndHdUNtMXBYK0ZDcVRPN1pob3BIQWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJRZzFlajdOUXpUSUgrT21qcjJSd0kzd2RSZWxUQVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQTJJMXRBMEFWLwptRjVuYVI5d1FlSkxtbk9YZlhHRStVZ2ZCTE1jY2hnemdSUmEwMU96ZzVoM0Z2QlF5WGtrY2pESUprUml0WThiCnRWZ0FXZ09McDJBNHRzV0N1MUVNeHNJeVJpVS9PdlJ6Ym5QMTh5YnVmaFlKSmNPOEtOOFdVVTVLZmhlUk9DUlIKQzh4NnE1TVpKTFhaVnVBb1hqUWZBSGNTdkU5YzZiN05XNE5uVktDc0k1ek9nWVJaSVVua2VJQlhqbkpSSVo4cwpMYWZRQzJNV1RRbmpHR1NUU21YV3lGMTczRStyMzBOU2xWQU9Tc1ZIa2pZWnRQS2V1TWluVlBFWXM1OXViWWgyCld0b0FRN3hUcGhSMEdvU3RVbXNvamloOWF0NTNvS1Jkc0Q0RGFQaE0yWTdPNGZSWWs3QzFMejJURWVQaURpVFAKcUxSZlc5UUk1Z2hyCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+      clientCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURLVENDQWhHZ0F3SUJBZ0lJVGd1RUtaZFloOTR3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TlRBMk1ERXdPVEE1TXpSYUZ3MHlOakEyTURFd09URTBNelJhTUR3eApIekFkQmdOVkJBb1RGbXQxWW1WaFpHMDZZMngxYzNSbGNpMWhaRzFwYm5NeEdUQVhCZ05WQkFNVEVHdDFZbVZ5CmJtVjBaWE10WVdSdGFXNHdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEY2NkcnAKcE9SWVBjNG1BSGg4YUloVnRuSURuV2VZZlhDL3N5TUlJR1F2aVZybUptamgyS2RKamZKME1ETjlraGNwaTBzUgpSNzc5RE5pYVMzNHZFVTV5aGl3U093MzJZMmhGVzJOUEpZMHU1TlBqb1ZHd2FDb1VsNFEzODhrdEduMk1ocVp6CmJhQUxybHFwc0xUU2F5K0paMXpTUFlLdS85aHl6MnNjc0xKQnJDNFhUdU9zZThDdmxGVU5rTzZzOGwwT0kxSFYKUG8yUUhmU3ZlRW9QanQ1cHdSNUJZdmJIQklDcWxGaytFdGlIOTI3WnZHcEJmRDN2bEN1Z3UydXBRRHRXU0p4VAo1UUdCRWxpUm1WNnhPY0F1UnNOSjZKejE0eklTYUtiYXR3VTRFTXFSZ1JYSUdMRDhreFRNUEtZVTNSTFV5emJSCjR5MGRlNy9tZDlkaVNhZGJBZ01CQUFHalZqQlVNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WSFNVRUREQUsKQmdnckJnRUZCUWNEQWpBTUJnTlZIUk1CQWY4RUFqQUFNQjhHQTFVZEl3UVlNQmFBRkNEVjZQczFETk1nZjQ2YQpPdlpIQWpmQjFGNlZNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUI2RmRBS3RYb0docmhMMm9kR3BmMm5IVnVLCnp0WTlhSlpuSWdIVHJLWU91WHRQaTF0VFpJak1yb2dYSHJmemVTUGljTEtFcjk2RW0wUWxPN2kxdUMxTUgzcnIKbVIrS203N3RQY011eHZEeGxRdFh5YWd4bzJVNXkyKzNyZlVxSmROTHNJY2FudEkxSVNJU29MT09obGY5UjNHdQpObGo3N3JkM0s1dy9MODNqS3gwZExicWEwNnRJQWZzSm9vYUJrKzlhRnJncFhPTmNGVTRsSTNhMWIzN29wYkQxCjNNV2hxWTR5WjNlUWZkTGd5aVVnMVREdWE1WjlQVWdqVFpzZjVjczk5VFpEMkhOVms4TnliWUxwOW9LMU9qR0MKWkYzQWYxZGJjUWIxVThoS0NjQUtxUlcwYW1rOUthb043Skl2YXZ5RWRKRk1xa2JRUG9LeEt5YUd6R0VDCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+      clientKey: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBM0hIYTZhVGtXRDNPSmdCNGZHaUlWYlp5QTUxbm1IMXd2N01qQ0NCa0w0bGE1aVpvCjRkaW5TWTN5ZERBemZaSVhLWXRMRVVlKy9Rellta3QrTHhGT2NvWXNFanNOOW1Ob1JWdGpUeVdOTHVUVDQ2RlIKc0dncUZKZUVOL1BKTFJwOWpJYW1jMjJnQzY1YXFiQzAwbXN2aVdkYzBqMkNydi9ZY3M5ckhMQ3lRYXd1RjA3agpySHZBcjVSVkRaRHVyUEpkRGlOUjFUNk5rQjMwcjNoS0Q0N2VhY0VlUVdMMnh3U0FxcFJaUGhMWWgvZHUyYnhxClFYdzk3NVFyb0x0cnFVQTdWa2ljVStVQmdSSllrWmxlc1RuQUxrYkRTZWljOWVNeUVtaW0ycmNGT0JES2tZRVYKeUJpdy9KTVV6RHltRk4wUzFNczIwZU10SFh1LzVuZlhZa21uV3dJREFRQUJBb0lCQUQzdWpyNE5ZVW1aTTQxaApuSGYzTmpZK1o1RzBheUpnTzRqZjN2dXRmZmdNOHNpdUNkRkplTllsVnZSbGhsSEU5VlRxbVZCbGc3YThJUzVYCi96OWg4VlFqZGNZNWFSYkxuc085aFF6N1U4clU1dUtRczg2SHRTckwxbzJSby9kVDllbkErb3A3UmZlQ0tGNTgKRXBEN0pBUEtVajJPb21SZjVJTjgybTdaQlh1RlNuZmJOVEhNUGxidXhIQXdyN1NzNUFYaTNwWG02eTI5UFdWLwpBbUNGdlJFNExQWmhvbk5HbFBQdG90YThLa3I5YnB2dVVZeFl5Y0ZBd1IxV1NYNXdhWGwxZGdINGU4ZnZMZ1ZuCjdNRWd4eExZZW9KL0ZhR2N4cWtXYjZhVlQ1aWIycXhXR1JLTnFoYW91ZjRuSDFsS3N0akY3YTY2dkluRDl3akcKMVYxNEQ2RUNnWUVBNTduRlBMSGpFMm10N2RYdnRWVUo3dUVyY0RGTU94K3VNTThJS2xhOTJ3UitpL1N5elFiRQppVTlQZVEweTFIZ0JHckw3NXdtVlVsWkRrV2hLNWdCcjhNZDE0UmlDR1lFNWgxMGE1ai9IdmNPMkxYWGpnN1lZCktUVDQ3M3FkQytUR2s3QUFlR1Njc3c4Y2xJM1VvVU1KbmJ0OHpJU1lYL012MjIyOGNvS1lsdVVDZ1lFQTg0bVAKN0JoeE1BbVkwK2UvN09pQVFJZ3htcW51b3VnQlJMTmlLb1NYYmI5bGFZMmNoT1NOZmR0Q3g0eEVEZmxHVm5maAorUWdLTlFvRGJpVENoQ1hUeXJuKzlCUlBNYUVKU1g1OTRtQjJFUXhwelZqZE9HSm9pUHBsbzdxVFBlMitMdnNUCk11QUdvaWduZGpGZ2J5YkhWTXNaZllrdlNDQUFJZXEzK01DVklUOENnWUExd1RlTEMrMFVYTWlYU3JDdnpRbGYKMitZNndZVGdsa25QVXNlZklyNHFKNUcvbjhVMm9LSkpCQmY0aWVKSHZZcnNDYWM4QWxJY1pweUlCN3lRUEhyTgp3VWVNTHlaSENsNHhFNTBnMnB6WVhhVk9TSEc5NVNrWHJnMHRhTEV6eUI5MHRUaDJ0VWhRbFduWTRFbjZHdFlKClBDd0lPWjRyYS91bkdIN0Z4WnZtTFFLQmdRRGV4YTMyYk9GVTdPSjByS0IrcUt0dzNHUnJzeGhNd21jdW5keWwKUWdaMjZNWnVpSkJ0YTlnV0VYU0Ryc1l0OWlFbVJhRmF1TVVGZ1hSajA1SnZhVjdVS2RHVEdlVGJaQkJudnlLTgo2bWoxN1dIMjZsdnFFUExJb2l4Sldna0lkQ290TlpSNVRENGxKUS83Nk96cW9CRmtlaWlHRWZCRFRLcHlYQkFQCnByS0Q1d0tCZ1FEbnN0MnltK2ErKzgvakVJYTdZTjZZMHlncDMxeDVFU2NJTjMxWG9jVDYrVjV5NW9KSkZwWEsKY2F4VVY0VjZOQllkeVV1Z0Q1SjRRWDRtbUwvUkdDblU3VU9qVEszL1NQMXRDRWZRbFFuZDVEL2Jsd0lLdXV6ZQpGcjZBMTN3cXhYUzVnbko4LzlTRUEzSUpoSGc0REV0VktMSHhrZDNILzdROXpnaG1DQnRibFE9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+    name: kind-choreo
+---
+apiVersion: core.choreo.dev/v1
+kind: Environment
+metadata:
+  annotations:
+    core.choreo.dev/description: Development
+    core.choreo.dev/display-name: Development
+  labels:
+    core.choreo.dev/name: development
+    core.choreo.dev/organization: default-org
+  name: development
+  namespace: default
+spec:
+  dataPlaneRef: default
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: ""
+---
+apiVersion: core.choreo.dev/v1
+kind: WorkloadClass
+metadata:
+  name: go-service-standard
+spec:
+  service:
+    deploymentTemplate:
+      replicas: 1
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+      template:
+        metadata:
+          labels:
+            reloader.stakater.com/auto: "true"
+        spec:
+          containers:
+            - name: main
+              env:
+                - name: LOG_TYPE
+                  value: "json"
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+            - name: sidecar
+              image: busybox:latest
+              command: [ "/bin/sh", "-c" ]
+              args:
+                - |
+                  echo "Exposing metrics on port 12001";
+                  # Simulate long-running metrics server
+                  while true; do nc -lk -p 12001 -e echo "metrics 1"; done
+              ports:
+                - name: metrics
+                  containerPort: 12001
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              readinessProbe:
+                tcpSocket:
+                  port: metrics
+                initialDelaySeconds: 5
+                periodSeconds: 10
+    serviceTemplate:
+      ports:
+        - name: metrics-http
+          port: 12001
+          targetPort: 12001
+
+---
+# The EndpointClass is still a work in progress and not finalized yet.
+apiVersion: core.choreo.dev/v1
+kind: EndpointClass
+metadata:
+  name: rest-api-standard
+spec:
+  restPolicy:
+    # Default policies for REST endpoints that apply to all expose levels
+    defaults:
+      # Rate limiting
+      rateLimit:
+        requests: 1000
+        window: 1h
+        burst: 100
+        keyBy: jwt:sub # Accepted: clientIP | header:X-API-Key | jwt:sub
+        skipSuccessfulRequests: false
+        skipFailedRequests: true
+      # Authentication and authorization
+      authentication:
+        type: jwt # Accepted: jwt | apikey | oauth2 | basic
+        jwt:
+          jwks: "https://auth.example.com/.well-known/jwks.json"
+          issuer: "https://auth.example.com"
+          audience: [ "api://default" ]
+        apikey:
+          header: "X-API-Key"
+          queryParam: "api_key"
+        oauth2:
+          tokenUrl: "https://auth.example.com/token"
+          scopes: [ "read", "write" ]
+      # CORS configuration
+      cors:
+        allowOrigins: [ "*" ]
+        allowMethods: [ "GET", "POST", "PUT", "DELETE" ]
+        allowHeaders: [ "Content-Type", "Authorization" ]
+        exposeHeaders: [ ]
+        maxAge: 3600
+      # Security Policies
+      security: # Not finalized yet
+        allowedIPs: [ "10.0.0.0/8", "192.168.0.0/16" ]
+        blockedIPs: [ "192.168.1.100" ]
+        requireTLS: true
+        minTLSVersion: "1.2"
+      # Request and Response Transformations
+      mediation: # Not finalized yet
+        requestTransformations:
+          - type: json
+            action: addFields
+            fields:
+              userAgent: "ReadingListService/1.0"
+              requestId: "{{request.id}}"
+          - type: json
+            action: addHeader
+            headerName: X-Request-ID
+            headerValue: "{{request.id}}"
+          - type: json
+            action: removeHeaders
+            headers: [ "X-Forwarded-For", "X-Real-IP" ]
+        responseTransformations:
+          - type: json
+            action: removeFields
+            fields:
+              password: ""
+
+          - type: xml
+            action: addHeader
+            headerName: X-Processed-By
+            headerValue: ReadingListService
+      # Request and Response Management
+      timeout: 30s
+      retries:
+        attempts: 3
+        backoff: exponential
+        initialInterval: 1s
+        maxInterval: 10s
+      requestSizeLimit: 10MB
+      responseSizeLimit: 50MB
+      # Circuit Breaker?
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 50
+        successThreshold: 10
+        timeout: 60s
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: debug
+          includeRequestBody: true
+          includeResponseBody: true
+      # Conditional Policies that apply based on request conditions
+      conditionalPolicies: # Not finalized yet
+        - condition:
+            method: GET
+            paths: [ "/reading-list" ]
+          policy:
+            rateLimit:
+              requests: 500
+              window: 1h
+              burst: 50
+            authentication:
+              type: jwt
+              jwt:
+                jwks: "https://auth.example.com/.well-known/jwks.json"
+                issuer: "https://auth.example.com"
+                audience: [ "api://default" ]
+            cors:
+              allowOrigins: [ "https://example.com" ]
+              allowMethods: [ "GET", "POST" ]
+              allowHeaders: [ "Content-Type", "Authorization" ]
+              exposeHeaders: [ ]
+              maxAge: 3600
+    # Specific overrides for different expose levels
+    public:
+      # Rate limiting
+      rateLimit:
+        requests: 2000
+        window: 1h
+        burst: 100
+      # Authentication and authorization
+      authentication:
+        type: jwt
+        jwt:
+          jwks: "https://auth.example.com/.well-known/jwks.json"
+          issuer: "https://auth.example.com"
+          audience: [ "api://default" ]
+      # CORS configuration
+      cors:
+        allowOrigins: [ "*" ]
+        allowMethods: [ "GET", "POST", "PUT", "DELETE" ]
+        allowHeaders: [ "Content-Type", "Authorization" ]
+        exposeHeaders: [ ]
+        maxAge: 3600
+      # Security Policies
+      security: # Not finalized yet
+        allowedIPs: [ "10.0.0.0/8", "192.168.0.0/16" ]
+        blockedIPs: [ "192.168.1.100" ]
+        requireTLS: true
+        minTLSVersion: "1.2"
+      # Request and Response Management
+      timeout: 30s
+      retries:
+        attempts: 3
+        backoff: exponential
+        initialInterval: 1s
+        maxInterval: 10s
+      requestSizeLimit: 10MB
+      responseSizeLimit: 50MB
+      # Circuit Breaker?
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 50
+        successThreshold: 10
+        timeout: 60s
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: info
+          includeRequestBody: true
+          includeResponseBody: true
+      conditionalPolicies:
+        - condition:
+            method: GET
+            paths: [ "/reading-list" ]
+          policy:
+            rateLimit:
+              requests: 10000
+              burst: 500
+              window: 1h
+
+    organization:
+      # Authentication and authorization
+      authentication:
+        type: oauth2
+        oauth2:
+          tokenUrl: "https://auth.example.com/token"
+          scopes: [ "read", "write" ]
+      # Request and Response Management
+      timeout: 60s
+      requestSizeLimit: 20MB
+      responseSizeLimit: 100MB
+      # Monitoring and Logging
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: debug
+          includeRequestBody: false
+          includeResponseBody: false
+  grpcPolicy: { }

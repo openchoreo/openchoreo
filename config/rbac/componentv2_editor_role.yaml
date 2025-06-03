@@ -1,0 +1,27 @@
+# permissions for end users to edit componentv2s.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: componentv2-editor-role
+rules:
+  - apiGroups:
+      - core.choreo.dev
+    resources:
+      - componentv2s
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - core.choreo.dev
+    resources:
+      - componentv2s/status
+    verbs:
+      - get

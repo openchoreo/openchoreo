@@ -1,0 +1,18 @@
+apiVersion: core.choreo.dev/v1
+kind: Environment
+metadata:
+  annotations:
+    core.choreo.dev/description: Development
+    core.choreo.dev/display-name: Development
+  labels:
+    core.choreo.dev/name: development
+    core.choreo.dev/organization: default-org
+  name: development
+  namespace: default
+spec:
+  dataPlaneRef: default
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: ""

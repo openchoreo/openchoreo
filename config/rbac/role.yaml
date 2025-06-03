@@ -92,15 +92,23 @@ rules:
   resources:
   - builds
   - components
+  - componentv2s
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
   - deployments
   - deploymenttracks
+  - endpointclasses
+  - endpointreleases
   - endpoints
+  - endpointv2s
   - environments
+  - gitcommitrequests
   - organizations
   - projects
+  - workloadclasses
+  - workloadreleases
+  - workloads
   verbs:
   - create
   - delete
@@ -114,15 +122,23 @@ rules:
   resources:
   - builds/finalizers
   - components/finalizers
+  - componentv2s/finalizers
   - dataplanes/finalizers
   - deployableartifacts/finalizers
   - deploymentpipelines/finalizers
   - deployments/finalizers
   - deploymenttracks/finalizers
+  - endpointclasses/finalizers
+  - endpointreleases/finalizers
   - endpoints/finalizers
+  - endpointv2s/finalizers
   - environments/finalizers
+  - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - workloadclasses/finalizers
+  - workloadreleases/finalizers
+  - workloads/finalizers
   verbs:
   - update
 - apiGroups:
@@ -130,15 +146,23 @@ rules:
   resources:
   - builds/status
   - components/status
+  - componentv2s/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
   - deployments/status
   - deploymenttracks/status
+  - endpointclasses/status
+  - endpointreleases/status
   - endpoints/status
+  - endpointv2s/status
   - environments/status
+  - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - workloadclasses/status
+  - workloadreleases/status
+  - workloads/status
   verbs:
   - get
   - patch

@@ -1,0 +1,21 @@
+apiVersion: core.choreo.dev/v1
+kind: Workload
+metadata:
+  name: reading-list-service
+  namespace: default
+  annotations:
+    choreo.dev/generated-by: componentv2-controller
+    choreo.dev/component: reading-list-service
+spec:
+  classRef: go-service-standard
+  environment: development
+  image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+  replicas: 1  # Override for dev environment
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: reading-list-db-credentials
+          key: url
+    - name: LOG_LEVEL
+      value: "debug"  # Dev-specific config
