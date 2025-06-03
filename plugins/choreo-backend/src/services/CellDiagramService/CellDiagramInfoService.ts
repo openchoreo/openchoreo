@@ -1,7 +1,7 @@
 import {
   BackstageCredentials,
   LoggerService,
-} from '@backstage/backend-plugin-api/*';
+} from '@backstage/backend-plugin-api';
 
 import { KubernetesBuilder } from '@backstage/plugin-kubernetes-backend';
 import { Config } from '@backstage/config';
@@ -14,7 +14,7 @@ import {
   ObjectToFetch,
   FetchResponseWrapper,
 } from '@backstage/plugin-kubernetes-node';
-import { Project, Component } from 'choreo-cell-diagram';
+import { Project, Component } from '@wso2/cell-diagram';
 import { cellChoreoWorkflowTypes, CellDiagramService } from '../../types';
 import {
   CHOREO_LABELS,
