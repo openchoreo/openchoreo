@@ -260,7 +260,6 @@ fluentBit:
       name: tail
       tag: "kube.*"
       path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
-      #excludePath: "/var/log/containers/*opensearch*_*.log,/var/log/containers/*opensearch-dashboard*_*.log,/var/log/containers/*fluentbit*_*.log"
       excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
       parser: docker
       db: "/var/log/flb_kube.db"
