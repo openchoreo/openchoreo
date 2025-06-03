@@ -14,7 +14,7 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/ptr"
+	"k8s.io/utils/ptr"
 )
 
 // HTTPRoutes renders the HTTPRoute resources for the given endpoint context.
@@ -83,7 +83,7 @@ func makeHTTPRouteSpec(rCtx *Context, operation choreov1.RESTEndpointOperation, 
 			ParentRefs: []gwapiv1.ParentReference{
 				{
 					Name:      gwapiv1.ObjectName(gatewayNameForExposeLevel(exposeLevel)),
-					Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")), // Change NS based on where envoy gateway is deployed
+					Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")), // Change NS based on where envoy gateway is deployed
 				},
 			},
 		},
@@ -94,7 +94,7 @@ func makeHTTPRouteSpec(rCtx *Context, operation choreov1.RESTEndpointOperation, 
 					{
 						Path: &gwapiv1.HTTPPathMatch{
 							Type:  &pathType,
-							Value: ptr.String(endpointPath),
+							Value: ptr.To(endpointPath),
 						},
 					},
 				},
@@ -104,7 +104,7 @@ func makeHTTPRouteSpec(rCtx *Context, operation choreov1.RESTEndpointOperation, 
 						URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
 							Path: &gwapiv1.HTTPPathModifier{
 								Type:               gwapiv1.PrefixMatchHTTPPathModifier,
-								ReplacePrefixMatch: ptr.String(basePath),
+								ReplacePrefixMatch: ptr.To(basePath),
 							},
 						},
 					},
