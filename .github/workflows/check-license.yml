@@ -16,9 +16,7 @@ jobs:
 
       - name: Install license-eye
         run: |
-          curl -sSfL https://raw.githubusercontent.com/apache/skywalking-eyes/main/scripts/install.sh | bash
-          echo "$HOME/.license-eye/bin" >> "$GITHUB_PATH"
-          chmod +x "$HOME/.license-eye/bin/license-eye"
+          go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
           sed -i "s/Copyright [0-9]\{4\}/Copyright $(date +%Y)/" .licenserc.yaml
           cat .licenserc.yaml
 
