@@ -259,3 +259,9 @@ kubectl --context=kind-choreo port-forward svc/choreo-external-gateway -n choreo
 > You may need to add entries to `/etc/hosts` to access components through the external gateway, as it relies on the hostname for request routing.
 > For example, if your endpoint URL is `https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost`, and your load balancer IP is `172.19.0.4` you need to add the following entry to your /etc/hosts file.
 > `172.19.0.4 default-org-default-project-hello-world-ea384b50-development.choreoapps.localhost`
+
+## Optional: Observe logs in the OpenChoreo setup
+
+Once you have setup OpenChoreo and deployed applications, you could use the observability logs feature or OpenChoreo to explore the setup. 
+
+You can follow the [Observability Logs guide](observability-logging.md) for this purpose.
