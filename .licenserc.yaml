@@ -2,22 +2,14 @@ header:
   license:
     name: OpenChoreo
     content: |
-      Copyright 2025 The OpenChoreo Authors
+      Copyright {{YEAR}} The OpenChoreo Authors
       SPDX-License-Identifier: Apache-2.0
 
   paths:
     - '**/*.go'
 
   paths-ignore:
-    - 'internal/dataplane/kubernetes/argoproj.io/'
-    - 'internal/dataplane/kubernetes/cilium.io/'
-    - 'internal/dataplane/kubernetes/secretstorecsi/'
+    - 'internal/dataplane/kubernetes/types/'
 
   comment: on-failure
-  license-location-threshold: 80
-
-  language:
-    Go:
-      extensions:
-        - ".go"
-      comment_style_id: DoubleSlash
+  license-location-threshold: 20

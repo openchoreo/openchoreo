@@ -16,21 +16,22 @@ jobs:
 
       - name: Install license-eye
         run: |
-          go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
-          sed -i "s/Copyright [0-9]\{4\}/Copyright $(date +%Y)/" .licenserc.yaml
+          make install-license-eye
+          make update-license-year
           cat .licenserc.yaml
 
       - name: Run license header check
         run: |
           echo "Running license header check..."
           license-eye header check || {
+            echo "/n"
             echo "❌ License header check failed."
-            echo ""
+            echo "/n"
             echo "Please add the following header to the top of each Go file:"
-            echo ""
+            echo "/n"
             echo "// Copyright $(date +%Y) The OpenChoreo Authors"
             echo "// SPDX-License-Identifier: Apache-2.0"
-            echo ""
-            echo "Run \`license-eye header fix\` locally to fix."
+            echo "/n"
+            echo "Run \`make license-fix\` locally to fix."
             exit 1
           }
