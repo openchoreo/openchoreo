@@ -109,3 +109,17 @@ choreo-system choreo-dataplane-opensearch-dashboard-xxxxx-xxxxx
  5. On the "Create Index Pattern" page, create an indexing pattern as `kubernetes*` and click on "Next Step" button. Select `@timestamp` from the drop down and click on the "Create Index Pattern" button below.
 
  6. You will be taken back to the home page - Click on "Discover" again. This will load all the logs onto the dashboard. 
+
+ 7. Alternatively, to create the index pattern programatically you can run the following curl command after the port forward
+ ```
+ curl -X POST "http://localhost:5601/api/saved_objects/index-pattern" \
+  -H "Content-Type: application/json" \
+  -H "osd-xsrf: true" \
+  -u "admin:admin" \
+  -d '{
+    "attributes": {
+      "title": "kubernetes*",
+      "timeFieldName": "@timestamp"
+    }
+  }'
+ ```
