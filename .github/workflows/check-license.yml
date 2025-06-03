@@ -2,8 +2,6 @@ name: License Header Check
 
 on:
   pull_request:
-    branches:
-      - '**'
 
 jobs:
   license-check:
@@ -37,4 +35,3 @@ jobs:
             echo "Run \`license-eye header fix\` locally to fix."
             exit 1
           }
-          
