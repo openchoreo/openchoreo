@@ -1,0 +1,40 @@
+name: License Header Check
+
+on:
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Install license-eye
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/apache/skywalking-eyes/main/scripts/install.sh | bash
+          echo "$HOME/.license-eye/bin" >> "$GITHUB_PATH"
+          chmod +x "$HOME/.license-eye/bin/license-eye"
+          sed -i "s/Copyright [0-9]\{4\}/Copyright $(date +%Y)/" .licenserc.yaml
+          cat .licenserc.yaml
+
+      - name: Run license header check
+        run: |
+          echo "Running license header check..."
+          license-eye header check || {
+            echo "❌ License header check failed."
+            echo ""
+            echo "Please add the following header to the top of each Go file:"
+            echo ""
+            echo "// Copyright $(date +%Y) The OpenChoreo Authors"
+            echo "// SPDX-License-Identifier: Apache-2.0"
+            echo ""
+            echo "Run \`license-eye header fix\` locally to fix."
+            exit 1
+          }
+          

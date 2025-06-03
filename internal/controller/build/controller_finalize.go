@@ -1,6 +1,3 @@
-// Copyright 2025 The OpenChoreo Authors
-// SPDX-License-Identifier: Apache-2.0
-
 package build
 
 import (
@@ -58,7 +55,7 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 	}
 
-	dpClient, err := r.getDPClient(ctx, build)
+	dpClient, err := r.getBPClient(ctx, build)
 	if err != nil {
 		logger := log.FromContext(ctx)
 		logger.Error(err, "Error getting DP client for finalizing")
