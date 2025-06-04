@@ -282,10 +282,31 @@ type GraphQL struct {
 }
 
 type RESTOperation struct {
-	Target string   `json:"target" yaml:"target"`
-	Method string   `json:"method" yaml:"method"`
-	Scopes []string `json:"scopes" yaml:"scopes"`
+	Target string     `json:"target" yaml:"target"`
+	Method HTTPMethod `json:"method" yaml:"method"`
+	Scopes []string   `json:"scopes" yaml:"scopes"`
 }
+
+// HTTPMethod describes how to select a HTTP route by matching the HTTP
+// method as defined by
+// [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
+// [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
+// The value is expected in upper case.
+//
+// +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
+type HTTPMethod string
+
+const (
+	HTTPMethodGet     HTTPMethod = "GET"
+	HTTPMethodHead    HTTPMethod = "HEAD"
+	HTTPMethodPost    HTTPMethod = "POST"
+	HTTPMethodPut     HTTPMethod = "PUT"
+	HTTPMethodDelete  HTTPMethod = "DELETE"
+	HTTPMethodConnect HTTPMethod = "CONNECT"
+	HTTPMethodOptions HTTPMethod = "OPTIONS"
+	HTTPMethodTrace   HTTPMethod = "TRACE"
+	HTTPMethodPatch   HTTPMethod = "PATCH"
+)
 
 type GRPCOperation struct {
 	Name    string              `json:"name" yaml:"name"`
