@@ -11,7 +11,7 @@ metadata:
 spec: {}
 ---
 
-## Sample DataPlane kind (Namespaced)
+## Sample DataPlane kind (Namespaced) - add cluster credentials before applyin g
 apiVersion: core.choreo.dev/v1
 kind: DataPlane
 metadata:
@@ -21,19 +21,23 @@ metadata:
     core.choreo.dev/display-name: Local Data Plane
     core.choreo.dev/description: Data plane in Kind cluster
   labels:
-    core.choreo.dev/organization: acme
+    core.choreo.dev/build-plane: "true"
     core.choreo.dev/name: dp-local
+    core.choreo.dev/organization: acme
 spec:
-  kubernetesCluster:
-    name: kind-cluster-1
-    connectionConfigRef: kind-cluster-1-connection-config
-    featureFlags:
-      cilium: true
-      scaleToZero: true
-      gatewayType: envoy
   gateway:
-    publicVirtualHost: choreoapis.local
-    organizationVirtualHost: internal.choreoapis.local
+    organizationVirtualHost: choreoapis.internal
+    publicVirtualHost: choreoapis.localhost
+  kubernetesCluster:
+    credentials:
+      apiServerURL: https://127.0.0.1:63321
+      caCert: xxx
+      clientCert: xxx
+      clientKey: xxx
+    name: kind-choreo
+  registry:
+    unauthenticated:
+      - registry.choreo-system:5000
 ---
 
 ## Sample DeploymentPipeline kind (Namespaced)
