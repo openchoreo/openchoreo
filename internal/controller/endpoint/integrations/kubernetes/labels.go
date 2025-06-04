@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
@@ -22,9 +23,10 @@ func makeLabels(epCtx *dataplane.EndpointContext) map[string]string {
 	}
 }
 
-func makeWorkloadLabels(epCtx *dataplane.EndpointContext) map[string]string {
+func makeWorkloadLabels(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) map[string]string {
 	labels := makeLabels(epCtx)
 	labels[dpkubernetes.LabelKeyComponentType] = string(epCtx.Component.Spec.Type)
+	labels[dpkubernetes.LabelKeyVisibility] = string(gwType)
 	return labels
 }
 
