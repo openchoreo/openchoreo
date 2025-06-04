@@ -59,16 +59,15 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 	}
 
 	bpClient, err := r.getBPClient(ctx, build)
+	logger := log.FromContext(ctx)
 	if err != nil {
-		logger := log.FromContext(ctx)
 		logger.Error(err, "Error getting build plane client for finalizing")
-		return ctrl.Result{}, err
-	}
-
-	// Delete Workflow resource
-	if err := deleteWorkflow(ctx, build, bpClient); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return ctrl.Result{}, fmt.Errorf("failed to delete workflow resource: %w", err)
+	} else {
+		// Delete Workflow resource if build plane exists
+		if err := deleteWorkflow(ctx, build, bpClient); err != nil {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "Failed to delete workflow resource")
+			}
 		}
 	}
 
