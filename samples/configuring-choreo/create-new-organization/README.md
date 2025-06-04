@@ -24,7 +24,7 @@ organization.core.choreo.dev/acme created
 If you want to create the organization along with all the necessary resources, use the following command:
 
 > [!NOTE]
-> Make sure to add the cluster credentials into dataplane kind before applying
+> Make sure to add the cluster credentials into dataplane kind before applying.
 
 ```bash
 choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/configuring-choreo/create-new-organization/complete-organization.yaml

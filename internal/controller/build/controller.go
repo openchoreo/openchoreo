@@ -323,37 +323,32 @@ func (r *Reconciler) getBPClient(ctx context.Context, build *choreov1.Build) (cl
 }
 
 func (r *Reconciler) getDataPlaneMarkedAsBuildPlane(ctx context.Context, c client.Client, build *choreov1.Build) (*choreov1.DataPlane, error) {
-	dataplanes := &choreov1.DataPlaneList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(build.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName: controller.GetOrganizationName(build),
-		},
+	orgName := controller.GetOrganizationName(build)
+	labelSelector := client.MatchingLabels{
+		labels.LabelKeyOrganizationName: orgName,
+		labels.LabelKeyBuildPlane:       "true",
 	}
 
-	if err := c.List(ctx, dataplanes, listOpts...); err != nil {
+	var dataPlaneList choreov1.DataPlaneList
+	if err := c.List(ctx, &dataPlaneList, client.InNamespace(build.GetNamespace()), labelSelector); err != nil {
 		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
 	}
 
-	var buildPlane *choreov1.DataPlane
-	for i, dp := range dataplanes.Items {
-		if controller.GetBuildPlaneLabelFromDataPlane(&dp) == "true" {
-			if buildPlane != nil {
-				r.recorder.Eventf(build, corev1.EventTypeWarning, "MultipleBuildPlanesFound",
-					"Multiple dataplanes are configured as build plane for organization: %s", build.Labels[labels.LabelKeyOrganizationName])
-				return nil, fmt.Errorf("multiple dataplanes are configured as build planes")
-			}
-			buildPlane = &dataplanes.Items[i]
-		}
-	}
-
-	if buildPlane == nil {
+	count := len(dataPlaneList.Items)
+	switch {
+	case count == 0:
 		r.recorder.Eventf(build, corev1.EventTypeWarning, "NoBuildPlaneFound",
-			"No dataplane is configured as build plane for organization: %s", build.Labels[labels.LabelKeyOrganizationName])
-		return nil, fmt.Errorf("no dataplane configured as build plane")
-	}
+			"No dataplane is configured as build plane for organization: %s", orgName)
+		return nil, fmt.Errorf("no dataplane configured as build plane for organization: %s", orgName)
 
-	return buildPlane, nil
+	case count > 1:
+		r.recorder.Eventf(build, corev1.EventTypeWarning, "MultipleBuildPlanesFound",
+			"Multiple dataplanes are configured as build planes for organization: %s", orgName)
+		return nil, fmt.Errorf("multiple dataplanes configured as build planes for organization: %s", orgName)
+
+	default:
+		return &dataPlaneList.Items[0], nil
+	}
 }
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to

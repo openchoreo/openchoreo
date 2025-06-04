@@ -56,11 +56,6 @@ func GetDataPlaneName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyDataPlaneName)
 }
 
-// GetBuildPlaneLabelFromDataPlane returns the build plane label from the data plane.
-func GetBuildPlaneLabelFromDataPlane(obj client.Object) string {
-	return getLabelValueOrEmpty(obj, labels.LabelKeyBuildPlane)
-}
-
 // GetName returns the name of the object. This is specific to the Choreo, and it is not the Kubernetes object name.
 func GetName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyName)

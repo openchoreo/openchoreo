@@ -11,7 +11,7 @@ metadata:
 spec: {}
 ---
 
-## Sample DataPlane kind (Namespaced) - add cluster credentials before applyin g
+## Sample DataPlane kind (Namespaced) - add cluster credentials before applying
 apiVersion: core.choreo.dev/v1
 kind: DataPlane
 metadata:
