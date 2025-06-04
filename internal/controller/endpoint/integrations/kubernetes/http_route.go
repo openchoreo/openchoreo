@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -109,7 +111,7 @@ func (h *httpRoutesHandler) Update(ctx context.Context, epCtx *dataplane.Endpoin
 			updatedHTTPRoute.Spec = newHTTPRoute.Spec
 			updatedHTTPRoute.Labels = newHTTPRoute.Labels
 
-			if err := h.client.Update(ctx, newHTTPRoute); err != nil {
+			if err := h.client.Update(ctx, updatedHTTPRoute); err != nil {
 				return fmt.Errorf("error while updating HTTPRoute %s: %w", newHTTPRoute.Name, err)
 			}
 		}
@@ -131,7 +133,7 @@ func (h *httpRoutesHandler) Update(ctx context.Context, epCtx *dataplane.Endpoin
 
 func (h *httpRoutesHandler) Delete(ctx context.Context, epCtx *dataplane.EndpointContext) error {
 	namespace := makeNamespaceName(epCtx)
-	labels := makeWorkloadLabels(epCtx)
+	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
 	deleteAllOption := []client.DeleteAllOfOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
@@ -149,6 +151,15 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 	out := make([]*gwapiv1.HTTPRoute, 0)
 
 	policies := extractPoliciesFromCtx(epCtx, gwType)
+
+	// Create wildcard HTTPRoute as by default we have to expose everything
+	httpRoute := makeWildcardHTTPRoute(epCtx, gwType)
+	out = append(out, httpRoute)
+
+	// Check if we should only create the wildcard HTTPRoute
+	if shouldOnlyCreateWildCardHTTPRoute(epCtx, gwType, policies) {
+		return out
+	}
 
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
@@ -173,11 +184,60 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 	return out
 }
 
-// makeHTTPRouteForOperation creates an HTTPRoute for a specific REST operation
-func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, RESTOperation *choreov1.RESTOperation,
-	gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
-	pathType := gwapiv1.PathMatchPathPrefix
+// shouldOnlyCreateWildCardHTTPRoute checks if we should only create the wildcard HTTPRoute
+func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
+	gwType visibility.GatewayType, policies []choreov1.Policy) bool {
+
+	if epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+		return true
+	}
+
+	if gwType == visibility.GatewayExternal {
+		if epCtx.Endpoint.Spec.NetworkVisibilities.Public == nil ||
+			!epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable {
+			return true
+		}
+	}
+
+	if gwType == visibility.GatewayInternal {
+		if epCtx.Endpoint.Spec.NetworkVisibilities.Organization == nil ||
+			!epCtx.Endpoint.Spec.NetworkVisibilities.Organization.Enable {
+			return true
+		}
+	}
+
+	if policies == nil || len(policies) == 0 {
+		return true
+	}
+
+	// Check if any of the policies have OAuth2 configured
+	for _, policy := range policies {
+		if policy.PolicySpec != nil && policy.Type == "oauth2" {
+			if !*policy.Enabled {
+				return true
+			}
+			if policy.PolicySpec.OAuth2 != nil &&
+				policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
+				policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
+				len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
+				// OAuth2 is configured, no need for wildcard route
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// makeWildcardHTTPRoute creates a wildcard HTTPRoute for the endpoint
+// This route will match all requests wih the path prefix of the endpoint's base path
+// For example, if the endpoint's base path is "/api/v1/reading-list",
+// it will match all requests with "/<environment>/<component>/api/v1/reading-list/*"
+//
+// if need to apply any policies for specific path, this can be overridden with specific HTTPRoutes
+func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
 	hostname := makeHostname(epCtx, gwType)
+	pathType := gwapiv1.PathMatchPathPrefix
 	port := gwapiv1.PortNumber(epCtx.Endpoint.Spec.BackendRef.ComponentRef.Port)
 	prefix := makePathPrefix(epCtx)
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
@@ -185,19 +245,18 @@ func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, RESTOperation *
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, basePath))
 	}
-
 	return &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      makeHTTPRouteName(epCtx, gwType, RESTOperation.Method, RESTOperation.Target),
+			Name:      makeHTTPRouteName(epCtx, gwType),
 			Namespace: makeNamespaceName(epCtx),
-			Labels:    makeWorkloadLabels(epCtx),
+			Labels:    makeWorkloadLabels(epCtx, gwType),
 		},
 		Spec: gwapiv1.HTTPRouteSpec{
 			CommonRouteSpec: gwapiv1.CommonRouteSpec{
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(gwType),
-						Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")), // Change NS based on where envoy gateway is deployed
+						Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")),
 					},
 				},
 			},
@@ -239,6 +298,76 @@ func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, RESTOperation *
 	}
 }
 
+// makeHTTPRouteForOperation creates an HTTPRoute for a specific REST operation
+func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, RESTOperation *choreov1.RESTOperation,
+	gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
+	pathType := gwapiv1.PathMatchRegularExpression
+	method := RESTOperation.Method
+	hostname := makeHostname(epCtx, gwType)
+	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(RESTOperation.Method), RESTOperation.Target)
+	port := gwapiv1.PortNumber(epCtx.Endpoint.Spec.BackendRef.ComponentRef.Port)
+	prefix := makePathPrefix(epCtx)
+	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
+	endpointPath := path.Join(basePath, RESTOperation.Target)
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+		endpointPath = path.Clean(path.Join(prefix, endpointPath))
+	}
+
+	regexEpPath := GenerateRegexWithCaptureGroup(basePath, RESTOperation.Target, endpointPath)
+
+	return &gwapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: makeNamespaceName(epCtx),
+			Labels:    makeWorkloadLabels(epCtx, gwType),
+		},
+		Spec: gwapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
+					{
+						Name:      gwapiv1.ObjectName(gwType),
+						Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")),
+					},
+				},
+			},
+			Hostnames: []gwapiv1.Hostname{hostname},
+			Rules: []gwapiv1.HTTPRouteRule{
+				{
+					Matches: []gwapiv1.HTTPRouteMatch{
+						{
+							Path: &gwapiv1.HTTPPathMatch{
+								Type:  &pathType,
+								Value: &regexEpPath,
+							},
+							Method: (*gwapiv1.HTTPMethod)(&method),
+						},
+					},
+					Filters: []gwapiv1.HTTPRouteFilter{
+						{
+							Type: gwapiv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwapiv1.LocalObjectReference{
+								Group: "gateway.envoyproxy.io",
+								Kind:  "HTTPRouteFilter",
+								Name:  gwapiv1.ObjectName(name),
+							},
+						},
+					},
+					BackendRefs: []gwapiv1.HTTPBackendRef{
+						{
+							BackendRef: gwapiv1.BackendRef{
+								BackendObjectReference: gwapiv1.BackendObjectReference{
+									Name: gwapiv1.ObjectName(makeServiceName(epCtx)),
+									Port: &port,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func extractPoliciesFromCtx(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) []choreov1.Policy {
 	if epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return nil
@@ -260,4 +389,54 @@ func extractPoliciesFromCtx(epCtx *dataplane.EndpointContext, gwType visibility.
 	default:
 		return nil
 	}
+}
+
+// GenerateRegexWithCaptureGroup generates a regex pattern that captures the basePath + operation part
+// Parameters:
+//   - basePath: the base path to match (e.g., "/api/v1/reading-list")
+//   - operation: the operation path with parameters (e.g., "/books/{id}")
+//   - pathMatch: the full path to match against (e.g., "/default-project/reading-list-service/api/v1/reading-list/books/{id}")
+//
+// Returns a regex with a capture group around the basePath + operation portion
+func GenerateRegexWithCaptureGroup(basePath, operation, pathMatch string) string {
+	// Combine basePath and operation to get the full path we want to capture
+	captureablePath := basePath + operation
+
+	// Find where the capturable path starts in the full pathMatch
+	captureStartIndex := strings.Index(pathMatch, captureablePath)
+	if captureStartIndex == -1 {
+		// If basePath is not found, return a simple regex
+		return "^" + regexp.QuoteMeta(pathMatch) + "$"
+	}
+
+	// Split the pathMatch into prefix and the part we want to capture
+	prefix := pathMatch[:captureStartIndex]
+	captureablePart := pathMatch[captureStartIndex:]
+
+	// Convert parameters in the capturable part to regex patterns
+	paramPattern := regexp.MustCompile(`\{[^}]+\}`)
+	captureableWithRegex := paramPattern.ReplaceAllString(captureablePart, "[^/]+")
+
+	// Escape the prefix (the part before basePath)
+	escapedPrefix := regexp.QuoteMeta(prefix)
+
+	// Escape the capturable part (but we already handled parameters)
+	// We need to escape everything except our [^/]+ patterns
+	escapedCapturable := escapeExceptPatterns(captureableWithRegex)
+
+	// Build the final regex with capture group
+	return fmt.Sprintf("^%s(%s)$", escapedPrefix, escapedCapturable)
+}
+
+// escapeExceptPatterns escapes regex special characters but preserves [^/]+ patterns
+func escapeExceptPatterns(input string) string {
+	// First, replace [^/]+ with a placeholder
+	placeholder := "REGEX_PATTERN_PLACEHOLDER"
+	temp := strings.ReplaceAll(input, "[^/]+", placeholder)
+
+	// Escape the rest
+	escaped := regexp.QuoteMeta(temp)
+
+	// Restore the regex patterns
+	return strings.ReplaceAll(escaped, placeholder, "[^/]+")
 }
