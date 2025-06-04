@@ -6,11 +6,11 @@ package endpoint
 import (
 	"context"
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -123,6 +123,8 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 	resourceHandlers := []dataplane.ResourceHandler[dataplane.EndpointContext]{
 		k8sintegrations.NewHTTPRouteHandler(dpClient, visibility.NewPublicVisibilityStrategy()),
 		k8sintegrations.NewHTTPRouteHandler(dpClient, visibility.NewOrganizationVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteFiltersHandler(dpClient, visibility.NewPublicVisibilityStrategy()),
+		k8sintegrations.NewHTTPRouteFiltersHandler(dpClient, visibility.NewOrganizationVisibilityStrategy()),
 		k8sintegrations.NewSecurityPolicyHandler(dpClient, visibility.NewPublicVisibilityStrategy()),
 		k8sintegrations.NewSecurityPolicyHandler(dpClient, visibility.NewOrganizationVisibilityStrategy()),
 	}
@@ -156,7 +158,7 @@ func (r *Reconciler) reconcileExternalResources(
 			return err
 		}
 
-		if currentState == nil {
+		if currentState == nil || reflect.ValueOf(currentState).IsNil() {
 			// Create the external resource if it does not exist
 			if err := resourceHandler.Create(ctx, epCtx); err != nil {
 				logger.Error(err, "Error creating external resource")

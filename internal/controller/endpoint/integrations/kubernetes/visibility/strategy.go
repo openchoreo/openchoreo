@@ -31,6 +31,7 @@ const (
 
 type VisibilityStrategy interface {
 	IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool
+	IsHTTPRouteFilterRequired(epCtx *dataplane.EndpointContext) bool
 	IsSecurityPolicyRequired(epCtx *dataplane.EndpointContext) bool
 	GetGatewayType() GatewayType
 }
@@ -62,6 +63,14 @@ func (s *PublicVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.Endpoint
 		epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable
 }
 
+func (s *PublicVisibilityStrategy) IsHTTPRouteFilterRequired(epCtx *dataplane.EndpointContext) bool {
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+		return false
+	}
+	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
+		epCtx.Endpoint.Spec.NetworkVisibilities.Public.Enable
+}
+
 func (s *PublicVisibilityStrategy) IsSecurityPolicyRequired(epCtx *dataplane.EndpointContext) bool {
 	// Check if public visibility is enabled
 	if epCtx.Endpoint.Spec.NetworkVisibilities == nil ||
@@ -85,6 +94,14 @@ func NewOrganizationVisibilityStrategy() *OrganizationVisibilityStrategy {
 }
 
 func (s *OrganizationVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
+	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+		return false // Disable organization visibility for webapp
+	}
+	return epCtx.Endpoint.Spec.NetworkVisibilities.Organization != nil &&
+		epCtx.Endpoint.Spec.NetworkVisibilities.Organization.Enable
+}
+
+func (s *OrganizationVisibilityStrategy) IsHTTPRouteFilterRequired(epCtx *dataplane.EndpointContext) bool {
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return false // Disable organization visibility for webapp
 	}
