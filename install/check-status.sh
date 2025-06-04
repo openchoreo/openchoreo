@@ -125,8 +125,8 @@ else
     read -p "Enter Control Plane Kubernetes context (default: kind-choreo-cp): " control_plane_context
     control_plane_context=${control_plane_context:-"kind-choreo-cp"}
 
-    print_component_status "components_cp" "🧠Control Plane Components" "$control_plane_context"
-    print_component_status "components_dp" "🖥️Data Plane Components" "$dataplane_context"
+    print_component_status "components_cp" "Control Plane Components" "$control_plane_context"
+    print_component_status "components_dp" "Data Plane Components" "$dataplane_context"
 fi
 
 # Final Overall Status
