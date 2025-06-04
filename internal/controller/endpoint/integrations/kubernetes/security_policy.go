@@ -129,7 +129,7 @@ func NewSecurityPolicyHandler(client client.Client, visibility visibility.Visibi
 
 func (h *SecurityPoliciesHandler) Delete(ctx context.Context, epCtx *dataplane.EndpointContext) error {
 	namespace := makeNamespaceName(epCtx)
-	labels := makeWorkloadLabels(epCtx)
+	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
 	deleteAllOption := []client.DeleteAllOfOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
@@ -175,13 +175,21 @@ func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, RESTOperat
 	gwType visibility.GatewayType) *egv1a1.SecurityPolicy {
 
 	// Using the same name as HTTPRoute for consistency
-	name := makeHTTPRouteName(epCtx, gwType, RESTOperation.Method, RESTOperation.Target)
+	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(RESTOperation.Method), RESTOperation.Target)
+	actionDeny := egv1a1.AuthorizationActionDeny
+	actionAllow := egv1a1.AuthorizationActionAllow
+
+	// Convert RESTOperation.Scopes to []egv1a1.JWTScope
+	jwtScopes := make([]egv1a1.JWTScope, len(RESTOperation.Scopes))
+	for i, scope := range RESTOperation.Scopes {
+		jwtScopes[i] = egv1a1.JWTScope(scope)
+	}
 
 	return &egv1a1.SecurityPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: makeNamespaceName(epCtx),
-			Labels:    makeWorkloadLabels(epCtx),
+			Labels:    makeWorkloadLabels(epCtx, gwType),
 		},
 		Spec: egv1a1.SecurityPolicySpec{
 			JWT: &egv1a1.JWT{
@@ -204,6 +212,20 @@ func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, RESTOperat
 						},
 					},
 				},
+			},
+			Authorization: &egv1a1.Authorization{
+				Rules: []egv1a1.AuthorizationRule{
+					{
+						Principal: egv1a1.Principal{
+							JWT: &egv1a1.JWTPrincipal{
+								Provider: "default",
+								Scopes:   jwtScopes,
+							},
+						},
+						Action: actionAllow,
+					},
+				},
+				DefaultAction: &actionDeny,
 			},
 		},
 	}
