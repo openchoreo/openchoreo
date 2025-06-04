@@ -4,34 +4,10 @@ OpenChoreo provides observability for both developers and platform engineers. Th
 
 ## Setting up Observability Logging
 
- Observability logs is provided through a combination of fluentbit and open search in the data plane. The option of setting up observability is set to false by default. If you need to setup observability in your data plane you can do either step below.
- 
- 1. If the data plane helm has not been installed yet:
-```
-helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-            --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m \
-            --set certmanager.enabled=false --set certmanager.crds.enabled=false \
-            --set observability.logging.enabled=true
-```
-2. If the data plane helm has already been installed:
-```
-helm upgrade choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-            --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m \
-            --set certmanager.enabled=false --set certmanager.crds.enabled=false \
-            --set observability.logging.enabled=true
-```
+ Observability logs are provided through a combination of fluentbit and open search in the data plane. The option of setting up observability is set to false by default. If you need to setup observability in your data plane you can execute the following command.
 
-Alternatively, if you already have checked out the openchoreo repository you can modify the 
-`/openchoreo/github/sk/choreo/install/helm/choreo-dataplane/values.yaml` file as follows 
 ```
-# Customizing overall observability configurations
-observability:
-  logging:
-    enabled: true
-```
-and run the following command
-```
-helm install choreo-dataplane . choreo-dataplane \
+helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
             --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m \
             --set certmanager.enabled=false --set certmanager.crds.enabled=false \
             --set observability.logging.enabled=true
