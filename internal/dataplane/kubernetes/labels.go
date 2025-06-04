@@ -18,6 +18,7 @@ const (
 	LabelKeyManagedBy           = "managed-by"
 	LabelKeyBelongTo            = "belong-to"
 	LabelKeyComponentType       = "component-type"
+	LabelKeyVisibility          = "gateway-visibility"
 
 	LabelValueManagedBy = "choreo-deployment-controller"
 	LabelValueBelongTo  = "user-workloads"
