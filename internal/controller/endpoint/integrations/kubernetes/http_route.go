@@ -399,30 +399,38 @@ func extractPoliciesFromCtx(epCtx *dataplane.EndpointContext, gwType visibility.
 //
 // Returns a regex with a capture group around the basePath + operation portion
 func GenerateRegexWithCaptureGroup(basePath, operation, pathMatch string) string {
+	// Define a regex pattern to match parameters in the operation
+	paramPattern := regexp.MustCompile(`\{[^}]+\}`)
+
 	// Combine basePath and operation to get the full path we want to capture
-	captureablePath := basePath + operation
+	capturablePath := basePath + operation
+
+	// Remove leading double slashes of the capturable path
+	capturablePath = regexp.MustCompile(`^//+`).ReplaceAllString(capturablePath, "/")
+
+	// Remove trailing double slashes of the capturable path
+	capturablePath = regexp.MustCompile(`//+$`).ReplaceAllString(capturablePath, "/")
 
 	// Find where the capturable path starts in the full pathMatch
-	captureStartIndex := strings.Index(pathMatch, captureablePath)
+	captureStartIndex := strings.Index(pathMatch, capturablePath)
 	if captureStartIndex == -1 {
 		// If basePath is not found, return a simple regex
-		return "^" + regexp.QuoteMeta(pathMatch) + "$"
+		return "^" + escapeExceptPatterns(paramPattern.ReplaceAllString(pathMatch, "[^/]+")) + "$"
 	}
 
 	// Split the pathMatch into prefix and the part we want to capture
 	prefix := pathMatch[:captureStartIndex]
-	captureablePart := pathMatch[captureStartIndex:]
+	capturablePart := pathMatch[captureStartIndex:]
 
 	// Convert parameters in the capturable part to regex patterns
-	paramPattern := regexp.MustCompile(`\{[^}]+\}`)
-	captureableWithRegex := paramPattern.ReplaceAllString(captureablePart, "[^/]+")
+	capturableWithRegex := paramPattern.ReplaceAllString(capturablePart, "[^/]+")
 
 	// Escape the prefix (the part before basePath)
 	escapedPrefix := regexp.QuoteMeta(prefix)
 
 	// Escape the capturable part (but we already handled parameters)
 	// We need to escape everything except our [^/]+ patterns
-	escapedCapturable := escapeExceptPatterns(captureableWithRegex)
+	escapedCapturable := escapeExceptPatterns(capturableWithRegex)
 
 	// Build the final regex with capture group
 	return fmt.Sprintf("^%s(%s)$", escapedPrefix, escapedCapturable)
