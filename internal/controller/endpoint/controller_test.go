@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 var _ = Describe("Endpoint Controller", func() {
@@ -26,22 +26,25 @@ var _ = Describe("Endpoint Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		endpoint := &corev1.Endpoint{}
+		endpoint := &choreov1.Endpoint{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Endpoint")
 			err := k8sClient.Get(ctx, typeNamespacedName, endpoint)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.Endpoint{
+				resource := &choreov1.Endpoint{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					Spec: corev1.EndpointSpec{
+					Spec: choreov1.EndpointSpec{
 						Type: "HTTP",
-						Service: corev1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
+							Type:     choreov1.BackendRefTypeComponentRef,
 							BasePath: "/",
-							Port:     80,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 80,
+							},
 						},
 					},
 				}
@@ -51,7 +54,7 @@ var _ = Describe("Endpoint Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.Endpoint{}
+			resource := &choreov1.Endpoint{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
