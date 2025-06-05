@@ -20,7 +20,8 @@ helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/cho
 
 2. In a multicluster setup
 
-> ⚠️ **Important:** This multi-cluster setup (Control plane + Dataplane with FluentBit/OpenSearch) requires minimum 4 CPU and 8GB memory for stable cluster operation.
+> [!IMPORTANT]  
+> This multi-cluster setup (Control plane + Dataplane with FluentBit/OpenSearch) requires minimum 4 CPU and 8GB memory for stable cluster operation.
 ```
 helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
             --kube-context kind-choreo-dp \
