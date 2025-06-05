@@ -262,8 +262,9 @@ fluentBit:
       path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
       excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
       parser: docker
+      inotifyWatcher: false
       db: "/var/log/flb_kube.db"
-      memBufLimit: "5MB"
+      memBufLimit: "256MB"
       skipLongLines: true
       refreshInterval: 10
     

@@ -21,6 +21,7 @@ data:
         Path              {{ .Values.fluentBit.config.input.path }}
         Exclude_Path      {{ .Values.fluentBit.config.input.excludePath }}
         Parser            {{ .Values.fluentBit.config.input.parser }}
+        Inotify_Watcher   {{ if .Values.fluentBit.config.input.inotifyWatcher }}On{{ else }}Off{{ end }}
         DB                {{ .Values.fluentBit.config.input.db }}
         Mem_Buf_Limit     {{ .Values.fluentBit.config.input.memBufLimit }}
         Skip_Long_Lines   {{ if .Values.fluentBit.config.input.skipLongLines }}On{{ else }}Off{{ end }}

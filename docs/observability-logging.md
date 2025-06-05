@@ -4,50 +4,70 @@ OpenChoreo provides observability for both developers and platform engineers. Th
 
 ## Setting up Observability Logging
 
- Observability logs are provided through a combination of fluentbit and open search in the data plane. The option of setting up observability is set to false by default. If you need to setup observability in your data plane you can execute the following command.
+ Observability logs are provided through a combination of fluentbit and open search in the data plane. The option of setting up observability is set to false by default. If you need to setup observability in your data plane you can execute the following command based on the type of setup you have chosen.
 
+1. In a single cluster setup
 ```
 helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-            --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m \
-            --set certmanager.enabled=false --set certmanager.crds.enabled=false \
-            --set observability.logging.enabled=true
+            --kube-context kind-choreo \
+            --namespace "choreo-system" --create-namespace 
+            --set certmanager.enabled=false \
+            --set certmanager.crds.enabled=false \
+            --set observability.logging.enabled=true \
+            --version 0.0.0-latest \
+            --timeout 30m
+```
+
+2. In a multicluster setup
+
+> ⚠️ **Important:** This multi-cluster setup (Control plane + Dataplane with FluentBit/OpenSearch) requires minimum 4 CPU and 8GB memory for stable cluster operation.
+```
+helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
+            --kube-context kind-choreo-dp \
+            --namespace "choreo-system" --create-namespace \
+            --set observability.logging.enabled=true \
+            --version 0.0.0-latest \
+            --timeout 30m
 ```
 
 ## Configuring Observability Logging feature 
 By default all logs in the following namespaces are collected and routed to the dashboard.
 
-- choreo-system - this will capture all operanation components of the choreo dataplane
+- choreo-system - this will capture all operational components of the choreo dataplane
 
 - dp* - this will capture all application logs of components deployed in choreo
 
 The configurations for this is in the template files under 
 
- - `/openchoreo/github/sk/choreo/install/helm/choreo-dataplane/templates` 
+ - `<your_local_openchoreo_repo>/install/helm/choreo-dataplane/templates`,
+  
 and the values for these templates can be found at 
- - `/openchoreo/github/sk/choreo/install/helm/choreo-dataplane/values.yaml`
+ - `<your_local_openchoreo_repo>/install/helm/choreo-dataplane/values.yaml`
 
 ### Some configurations that could be fine tuned are;
 
-  - Specifying what to include and exclude when collecting 
-By default all logs in namespaces "choreo-system" and "dp-*". Opensearch and Fluent-bit logs are excluded.
+  - Specifying what to include and exclude when collecting logs
 
->      input:
->     ...
->     path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
->     excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
->     ...
+    By default all logs in namespaces "choreo-system" and "dp-*". Opensearch and Fluent-bit logs are excluded.
+
+    >     input:
+    >     ...
+    >     path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
+    >     excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
+    >     ...
  - Specifying where to forward the collected logs to
- In the default setup all logs are forwarded to the opensearch node
+ 
+    In the default setup all logs are forwarded to the opensearch node
 
->      output:
->     name: opensearch
->     match: "kube.*"
->     host: opensearch
->     port: 9200
->     ...
+    >     output:
+    >     name: opensearch
+    >     match: "kube.*"
+    >     host: opensearch
+    >     port: 9200
+    >     ...
 
  - Add additional filters for Fluent-bit under the fluent-bit section as a filter in the values file.
- >      filter:
+
 
  ## Verification of Observability Logging setup
 Once the dataplane helm chart has been installed you can verify whether the necessary componenets are up and running with the following command. 
