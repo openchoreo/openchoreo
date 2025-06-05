@@ -262,6 +262,6 @@ kubectl --context=kind-choreo port-forward svc/choreo-external-gateway -n choreo
 
 ## Optional: Observe logs in the OpenChoreo setup
 
-Once you have setup OpenChoreo and deployed applications, you could use the observability logs feature or OpenChoreo to explore the setup. 
+Once you have setup OpenChoreo, you could use the observability logs feature in OpenChoreo to explore the setup. 
 
 You can follow the [Observability Logs guide](observability-logging.md) for this purpose.
