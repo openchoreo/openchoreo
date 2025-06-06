@@ -29,7 +29,7 @@ install_helm_chart "$SCRIPT_DIR/helm/choreo-control-plane" "choreo-cp" "choreo-s
 
 # Install Choreo Data Plane (disable Cert Manager since it's already installed by the control plane)
 install_helm_chart "$SCRIPT_DIR/helm/choreo-dataplane" "choreo-dp" "choreo-system" \
-  "--set certmanager.enabled=false --set certmanager.crds.enabled=false"
+  "--set certmanager.enabled=false"
 
 echo "Helm charts have been installed successfully!"
 echo "Please note: the full installation process may take several minutes to complete."

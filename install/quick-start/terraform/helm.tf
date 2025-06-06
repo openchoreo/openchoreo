@@ -8,12 +8,12 @@ resource "helm_release" "cilium" {
   depends_on = [kind_cluster.kind_choreo, null_resource.connect_container_to_kind_network]
 }
 
-resource "helm_release" "choreo-dp" {
-  name             = "choreo-dp"
+resource "helm_release" "choreo-dataplane" {
+  name             = "choreo-dataplane"
   namespace        = var.namespace
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
-  chart           = "choreo-dp"
+  chart           = "choreo-dataplane"
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -27,12 +27,12 @@ resource "helm_release" "choreo-dp" {
   }
 }
 
-resource "helm_release" "choreo-cp" {
-  name             = "choreo-cp"
+resource "helm_release" "choreo-control-plane" {
+  name             = "choreo-control-plane"
   namespace        = var.namespace
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
-  chart           = "choreo-cp"
+  chart           = "choreo-control-plane"
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
