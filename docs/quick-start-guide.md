@@ -41,24 +41,34 @@ To begin the installation, run:
 
 Once the installation is complete, you will see the following confirmation message:
 ```text
-Choreo Installation Status:
+Choreo Installation Status: Single-Cluster Mode
+Using current context: kind-choreo-quick-start
 
-Component                 Status
+Single Cluster Components
+
+Component                 Status         
 ------------------------  ---------------
-cilium                    ✅ ready
-vault                     ✅ ready
-argo                      ✅ ready
-cert_manager              ✅ ready
-choreo_controller         ✅ ready
-choreo_image_registry     ✅ ready
-envoy_gateway             ✅ ready
-redis                     ✅ ready
-external_gateway          ✅ ready
-internal_gateway          ✅ ready
+cilium                    ready
+vault                     ready
+argo                      ready
+cert_manager              ready
+choreo_controller         ready
+choreo_image_registry     ready
+envoy_gateway             ready
+redis                     ready
+external_gateway          ready
+internal_gateway          ready
 
-Overall Status: ✅ READY
+Overall Status: READY
 🎉 Choreo has been successfully installed and is ready to use!
 ```
+
+> [!NOTE]
+> If you see any components are still in the `pending` state, you can check the status again in few minutes. 
+> Run the following command to check the installation status of components
+> ```shell
+> ./check-status.sh
+> ```
 
 #### Deploying a Web Application with OpenChoreo
 
