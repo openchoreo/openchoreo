@@ -12,7 +12,6 @@ helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/cho
             --kube-context kind-choreo \
             --namespace "choreo-system" --create-namespace 
             --set certmanager.enabled=false \
-            --set certmanager.crds.enabled=false \
             --set observability.logging.enabled=true \
             --version 0.0.0-latest \
             --timeout 30m
