@@ -30,7 +30,7 @@ jobs:
 
       - name: Set Latest Flag
         run: |
-          git fetch --tags
+          git fetch --tags --force
           latest_tag=$(git tag -l | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
             if [ "$latest_tag" == "${RELEASE_TAG}" ]; then
                 echo "LATEST=true" >> $GITHUB_ENV
