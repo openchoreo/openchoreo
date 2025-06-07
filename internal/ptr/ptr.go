@@ -27,3 +27,8 @@ func Int32(i int32) *int32 {
 func Int64(i int64) *int64 {
 	return &i
 }
+
+// Ptr returns a pointer to the given value of type T.
+func Ptr[T any](v T) *T {
+	return &v
+}

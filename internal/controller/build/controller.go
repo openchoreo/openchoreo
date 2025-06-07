@@ -692,24 +692,22 @@ func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrati
 }
 
 func createEndpointTemplate(endpoint source.Endpoint) choreov1.EndpointTemplate {
+	basePath := endpoint.Service.BasePath
+	if basePath == "" {
+		basePath = "/"
+	}
 	return choreov1.EndpointTemplate{
 		Spec: choreov1.EndpointSpec{
 			Type:                endpoint.Type,
 			NetworkVisibilities: parseNetworkVisibilities(endpoint.NetworkVisibilities),
-			Service:             createServiceSpec(endpoint.Service),
+			BackendRef: choreov1.BackendRef{
+				BasePath: basePath,
+				Type:     choreov1.BackendRefTypeComponentRef,
+				ComponentRef: &choreov1.ComponentRef{
+					Port: int(endpoint.Service.Port),
+				},
+			},
 		},
-	}
-}
-
-func createServiceSpec(service source.Service) choreov1.EndpointServiceSpec {
-	basePath := service.BasePath
-	if basePath == "" {
-		basePath = "/"
-	}
-
-	return choreov1.EndpointServiceSpec{
-		Port:     service.Port,
-		BasePath: basePath,
 	}
 }
 
