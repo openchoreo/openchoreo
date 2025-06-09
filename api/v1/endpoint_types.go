@@ -162,12 +162,25 @@ type VisibilityConfig struct {
 // API-M Policy Configuration
 //==============================================================================
 
+// PolicyType defines the type of API management policy
+type PolicyType string
+
+const (
+	Oauth2PolicyType     PolicyType = "oauth2"
+	APIKeyAuthPolicyType PolicyType = "api-key"
+	BasicAuthPolicyType  PolicyType = "basic-auth"
+	RateLimitPolicyType  PolicyType = "rate-limit"
+	CORSPolicyType       PolicyType = "cors"
+	MediationPolicyType  PolicyType = "mediation"
+	// ToDo: Add more policy types as needed
+)
+
 // Policy defines an API management policy for an endpoint
 type Policy struct {
 	// +required
 	Name string `json:"name"`
 	// +required
-	Type string `json:"type"`
+	Type PolicyType `json:"type"`
 	// +optional
 	// enabled if not specified
 	Enabled *bool `json:"enabled,omitempty"`
@@ -238,10 +251,18 @@ type JWT struct {
 	Authorization AuthzSpec `json:"authorization" yaml:"authorization"`
 }
 
+type APIType string
+
+const (
+	APITypeREST    APIType = "REST"
+	APITypeGRPC    APIType = "GRPC"
+	APITypeGraphQL APIType = "GraphQL"
+)
+
 type AuthzSpec struct {
 	// +required
 	// +kubebuilder:validation:Enum=REST;GRPC;GraphQL
-	APIType string `json:"apiType" yaml:"apiType"` // REST, GRPC, GraphQL
+	APIType APIType `json:"apiType" yaml:"apiType"` // REST, GRPC, GraphQL
 	// +optional
 	Rest *REST `json:"rest" yaml:"rest"`
 	// +optional
