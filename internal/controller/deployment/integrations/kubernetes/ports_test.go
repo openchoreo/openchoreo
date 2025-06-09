@@ -35,9 +35,12 @@ var _ = Describe("makeUniquePorts", func() {
 			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
 							BasePath: "/customer",
-							Port:     8080,
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeREST,
 					},
@@ -51,18 +54,24 @@ var _ = Describe("makeUniquePorts", func() {
 			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
 							BasePath: "/customer",
-							Port:     8080,
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeREST,
 					},
 				},
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
 							BasePath: "/order",
-							Port:     8080,
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeREST,
 					},
@@ -76,16 +85,22 @@ var _ = Describe("makeUniquePorts", func() {
 			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
-							Port: 8080,
+						BackendRef: choreov1.BackendRef{
+							Type: choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeTCP,
 					},
 				},
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
-							Port: 8080,
+						BackendRef: choreov1.BackendRef{
+							Type: choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeUDP,
 					},
@@ -100,26 +115,36 @@ var _ = Describe("makeUniquePorts", func() {
 			[]choreov1.EndpointTemplate{
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
+						BackendRef: choreov1.BackendRef{
 							BasePath: "/customer",
-							Port:     8080,
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8080,
+							},
 						},
 						Type: choreov1.EndpointTypeREST,
 					},
 				},
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
-							BasePath: "/graphql",
-							Port:     8081,
+						BackendRef: choreov1.BackendRef{
+							BasePath: "/customer",
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8081,
+							},
 						},
 						Type: choreov1.EndpointTypeGraphQL,
 					},
 				},
 				{
 					Spec: choreov1.EndpointSpec{
-						Service: choreov1.EndpointServiceSpec{
-							Port: 8082,
+						BackendRef: choreov1.BackendRef{
+							BasePath: "/customer",
+							Type:     choreov1.BackendRefTypeComponentRef,
+							ComponentRef: &choreov1.ComponentRef{
+								Port: 8082,
+							},
 						},
 						Type: choreov1.EndpointTypeGRPC,
 					},

@@ -72,13 +72,39 @@ var _ = Describe("Visibility Strategy", func() {
 				},
 				Endpoint: &choreov1.Endpoint{
 					Spec: choreov1.EndpointSpec{
-						APISettings: &choreov1.EndpointAPISettingsSpec{
-							SecuritySchemes: []choreov1.SecurityScheme{choreov1.Oauth},
+						NetworkVisibilities: &choreov1.NetworkVisibility{
+							Public: &choreov1.VisibilityConfig{
+								Enable: true,
+								Policies: []choreov1.Policy{
+									{
+										Name: "oauth2-policy",
+										Type: choreov1.Oauth2PolicyType,
+										PolicySpec: &choreov1.PolicySpec{
+											OAuth2: &choreov1.OAuth2PolicySpec{
+												JWT: choreov1.JWT{
+													Authorization: choreov1.AuthzSpec{
+														APIType: choreov1.APITypeREST,
+														Rest: &choreov1.REST{
+															Operations: &[]choreov1.RESTOperation{
+																{
+																	Method: "GET",
+																	Target: "/api/v1/users",
+																	Scopes: []string{"read:users"},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
 			}
-			Expect(publicStrategy.IsSecurityPolicyRequired(epCtx)).To(Not(BeTrue()))
+			Expect(publicStrategy.IsSecurityPolicyRequired(epCtx)).To(BeTrue())
 		})
 	})
 

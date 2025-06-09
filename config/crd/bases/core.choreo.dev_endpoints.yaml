@@ -57,6 +57,7 @@ spec:
                       the upstream service
                     properties:
                       port:
+                        format: int32
                         type: integer
                     required:
                     - port

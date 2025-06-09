@@ -88,7 +88,7 @@ func AddComponentSpecificConfigs(buildCtx *integrations.BuildContext, deployable
 							BasePath: "/",
 							Type:     choreov1.BackendRefTypeComponentRef,
 							ComponentRef: &choreov1.ComponentRef{
-								Port: int(webAppPort),
+								Port: webAppPort,
 							},
 						},
 					},

@@ -48,7 +48,7 @@ func (h *httpRoutesHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
 func (h *httpRoutesHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
 	httpRoutes := MakeHTTPRoutes(epCtx, h.visibility.GetGatewayType())
-	var out []*gwapiv1.HTTPRoute
+	out := []*gwapiv1.HTTPRoute{}
 	for _, httpRoute := range httpRoutes {
 		name := httpRoute.Name
 		r := &gwapiv1.HTTPRoute{}
@@ -163,7 +163,7 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != "oauth2" {
+		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
 			continue
 		}
 
@@ -187,7 +187,6 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 // shouldOnlyCreateWildCardHTTPRoute checks if we should only create the wildcard HTTPRoute
 func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 	gwType visibility.GatewayType, policies []choreov1.Policy) bool {
-
 	if epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return true
 	}
@@ -206,13 +205,13 @@ func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 		}
 	}
 
-	if policies == nil || len(policies) == 0 {
+	if len(policies) == 0 {
 		return true
 	}
 
 	// Check if any of the policies have OAuth2 configured
 	for _, policy := range policies {
-		if policy.PolicySpec != nil && policy.Type == "oauth2" {
+		if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
 			if !*policy.Enabled {
 				return true
 			}
@@ -230,7 +229,7 @@ func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 }
 
 // makeWildcardHTTPRoute creates a wildcard HTTPRoute for the endpoint
-// This route will match all requests wih the path prefix of the endpoint's base path
+// This route will match all requests with the path prefix of the endpoint's base path
 // For example, if the endpoint's base path is "/api/v1/reading-list",
 // it will match all requests with "/<environment>/<component>/api/v1/reading-list/*"
 //
@@ -299,21 +298,21 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 }
 
 // makeHTTPRouteForOperation creates an HTTPRoute for a specific REST operation
-func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, RESTOperation *choreov1.RESTOperation,
+func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *choreov1.RESTOperation,
 	gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
 	pathType := gwapiv1.PathMatchRegularExpression
-	method := RESTOperation.Method
+	method := restOperation.Method
 	hostname := makeHostname(epCtx, gwType)
-	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(RESTOperation.Method), RESTOperation.Target)
+	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(restOperation.Method), restOperation.Target)
 	port := gwapiv1.PortNumber(epCtx.Endpoint.Spec.BackendRef.ComponentRef.Port)
 	prefix := makePathPrefix(epCtx)
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
-	endpointPath := path.Join(basePath, RESTOperation.Target)
+	endpointPath := path.Join(basePath, restOperation.Target)
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, endpointPath))
 	}
 
-	regexEpPath := GenerateRegexWithCaptureGroup(basePath, RESTOperation.Target, endpointPath)
+	regexEpPath := GenerateRegexWithCaptureGroup(basePath, restOperation.Target, endpointPath)
 
 	return &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-cmp/cmp"
@@ -17,6 +16,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
@@ -39,7 +39,7 @@ func (h *SecurityPoliciesHandler) IsRequired(ctx *dataplane.EndpointContext) boo
 func (h *SecurityPoliciesHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
 	securityPolicies := MakeSecurityPolicies(epCtx, h.visibility.GetGatewayType())
-	var out []*egv1a1.SecurityPolicy
+	out := []*egv1a1.SecurityPolicy{}
 
 	for _, policy := range securityPolicies {
 		name := policy.Name
@@ -150,7 +150,7 @@ func MakeSecurityPolicies(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != "oauth2" {
+		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
 			continue
 		}
 
@@ -171,17 +171,16 @@ func MakeSecurityPolicies(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	return out
 }
 
-func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, RESTOperation *choreov1.RESTOperation,
+func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, restOperation *choreov1.RESTOperation,
 	gwType visibility.GatewayType) *egv1a1.SecurityPolicy {
-
 	// Using the same name as HTTPRoute for consistency
-	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(RESTOperation.Method), RESTOperation.Target)
+	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(restOperation.Method), restOperation.Target)
 	actionDeny := egv1a1.AuthorizationActionDeny
 	actionAllow := egv1a1.AuthorizationActionAllow
 
 	// Convert RESTOperation.Scopes to []egv1a1.JWTScope
-	jwtScopes := make([]egv1a1.JWTScope, len(RESTOperation.Scopes))
-	for i, scope := range RESTOperation.Scopes {
+	jwtScopes := make([]egv1a1.JWTScope, len(restOperation.Scopes))
+	for i, scope := range restOperation.Scopes {
 		jwtScopes[i] = egv1a1.JWTScope(scope)
 	}
 
