@@ -949,6 +949,8 @@ spec:
                                                 type: object
                                             type: object
                                           type:
+                                            description: PolicyType defines the type
+                                              of API management policy
                                             type: string
                                         required:
                                         - name
@@ -1261,6 +1263,8 @@ spec:
                                                 type: object
                                             type: object
                                           type:
+                                            description: PolicyType defines the type
+                                              of API management policy
                                             type: string
                                         required:
                                         - name
