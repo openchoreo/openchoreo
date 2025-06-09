@@ -30,7 +30,7 @@ jobs:
 
       - name: Set Latest Flag
         run: |
-          git fetch --tags
+          git fetch --tags --force
           latest_tag=$(git tag -l | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
             if [ "$latest_tag" == "${RELEASE_TAG}" ]; then
                 echo "LATEST=true" >> $GITHUB_ENV
@@ -75,7 +75,7 @@ jobs:
           path: bin/dist
 
       - name: Set executable permissions
-        run: |          
+        run: |
           chmod +x bin/dist/linux/amd64/choreoctl
           chmod +x bin/dist/linux/arm64/choreoctl
           chmod +x bin/dist/darwin/amd64/choreoctl
@@ -102,4 +102,3 @@ jobs:
             bin/dist/darwin/arm64/choreoctl_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
             bin/dist/windows/amd64/choreoctl_${{ env.RELEASE_TAG }}_windows_amd64.zip
             bin/dist/windows/arm64/choreoctl_${{ env.RELEASE_TAG }}_windows_arm64.zip
-
