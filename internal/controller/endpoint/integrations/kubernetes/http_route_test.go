@@ -43,8 +43,11 @@ var _ = Describe("HTTPRoute Handler", func() {
 					expectedRoute, exists := expectedRoutesMap[route.ObjectMeta.Name]
 					Expect(exists).To(BeTrue(), "HTTPRoute %s not found in expected routes", route.ObjectMeta.Name)
 
+					// compare the name and namespace of the generated route with the expected one
+					Expect(route.ObjectMeta.Name).To(Equal(expectedRoute.ObjectMeta.Name), "HTTPRoute name mismatch")
+					Expect(route.ObjectMeta.Namespace).To(Equal(expectedRoute.ObjectMeta.Namespace), "HTTPRoute namespace mismatch")
 					// Compare the spec of the generated route with the expected one
-					Expect(route.Spec).To(Equal(expectedRoute.Spec))
+					Expect(route.Spec).To(Equal(expectedRoute.Spec), "HTTPRoute spec mismatch for %s", route.ObjectMeta.Name)
 				}
 			},
 
@@ -297,6 +300,292 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "webapp-component-basic-test-track-ba810c70",
+													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+
+			Entry("for service component with public visibility and has oauth2 scopes",
+				createTestEndpointContext(
+					&choreov1.Endpoint{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-endpoint",
+							Labels: map[string]string{
+								labels.LabelKeyName: "test-endpoint",
+							},
+						},
+						Spec: choreov1.EndpointSpec{
+							Type: "REST",
+							BackendRef: choreov1.BackendRef{
+								Type:     choreov1.BackendRefTypeComponentRef,
+								BasePath: "/api/v1/reading-list",
+								ComponentRef: &choreov1.ComponentRef{
+									Port: 8080,
+								},
+							},
+							NetworkVisibilities: &choreov1.NetworkVisibility{
+								Public: &choreov1.VisibilityConfig{
+									Enable: true,
+									Policies: []choreov1.Policy{
+										{
+											Name:    "oauth2-scope-policy",
+											Type:    choreov1.Oauth2PolicyType,
+											Enabled: ptr.Bool(true),
+											PolicySpec: &choreov1.PolicySpec{
+												OAuth2: &choreov1.OAuth2PolicySpec{
+													JWT: choreov1.JWT{
+														Claims: &[]choreov1.JWTClaim{
+															{
+																Key: "aud",
+																Values: []string{
+																	"choreoapis.localhost",
+																	"internal.choreoapis.localhost",
+																},
+															},
+														},
+														Authorization: choreov1.AuthzSpec{
+															APIType: choreov1.APITypeREST,
+															Rest: &choreov1.REST{
+																Operations: &[]choreov1.RESTOperation{
+																	{
+																		Target: "/books",
+																		Method: choreov1.HTTPMethodGet,
+																		Scopes: []string{"read:books:all"},
+																	},
+																	{
+																		Target: "/books",
+																		Method: choreov1.HTTPMethodPost,
+																		Scopes: []string{"write:books"},
+																	},
+																	{
+																		Target: "/books/{id}",
+																		Method: choreov1.HTTPMethodGet,
+																		Scopes: []string{"read:books"},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					"reading-list-service",
+					"dev",
+					choreov1.ComponentTypeService,
+				),
+				visibility.GatewayExternal,
+				[]*gatewayv1.HTTPRoute{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "gateway-external-test-endpoint-2870b170",
+							Namespace: "dp-default-org-test-project-test-env-a545d497",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							CommonRouteSpec: gatewayv1.CommonRouteSpec{
+								ParentRefs: []gatewayv1.ParentReference{
+									{
+										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Name:      "gateway-external",
+									},
+								},
+							},
+							Hostnames: []gatewayv1.Hostname{
+								"dev.choreoapis.localhost",
+							},
+							Rules: []gatewayv1.HTTPRouteRule{
+								{
+									Matches: []gatewayv1.HTTPRouteMatch{
+										{
+											Path: &gatewayv1.HTTPPathMatch{
+												Type:  ptr.Ptr(gatewayv1.PathMatchPathPrefix),
+												Value: ptr.String("/test-project/reading-list-service/api/v1/reading-list"),
+											},
+										},
+									},
+									Filters: []gatewayv1.HTTPRouteFilter{
+										{
+											Type: gatewayv1.HTTPRouteFilterURLRewrite,
+											URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
+												Path: &gatewayv1.HTTPPathModifier{
+													Type:               gatewayv1.PrefixMatchHTTPPathModifier,
+													ReplacePrefixMatch: ptr.String("/api/v1/reading-list"),
+												},
+											},
+										},
+									},
+									BackendRefs: []gatewayv1.HTTPBackendRef{
+										{
+											BackendRef: gatewayv1.BackendRef{
+												BackendObjectReference: gatewayv1.BackendObjectReference{
+													Name: "reading-list-service-test-track-2f72bb50",
+													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "gateway-external-test-endpoint-get-books-3dd70940",
+							Namespace: "dp-default-org-test-project-test-env-a545d497",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							CommonRouteSpec: gatewayv1.CommonRouteSpec{
+								ParentRefs: []gatewayv1.ParentReference{
+									{
+										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Name:      "gateway-external",
+									},
+								},
+							},
+							Hostnames: []gatewayv1.Hostname{
+								"dev.choreoapis.localhost",
+							},
+							Rules: []gatewayv1.HTTPRouteRule{
+								{
+									Matches: []gatewayv1.HTTPRouteMatch{
+										{
+											Path: &gatewayv1.HTTPPathMatch{
+												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
+											},
+											Method: ptr.Ptr(gatewayv1.HTTPMethodGet),
+										},
+									},
+									Filters: []gatewayv1.HTTPRouteFilter{
+										{
+											Type: gatewayv1.HTTPRouteFilterExtensionRef,
+											ExtensionRef: &gatewayv1.LocalObjectReference{
+												Group: "gateway.envoyproxy.io",
+												Kind:  "HTTPRouteFilter",
+												Name:  "gateway-external-test-endpoint-get-books-3dd70940",
+											},
+										},
+									},
+									BackendRefs: []gatewayv1.HTTPBackendRef{
+										{
+											BackendRef: gatewayv1.BackendRef{
+												BackendObjectReference: gatewayv1.BackendObjectReference{
+													Name: "reading-list-service-test-track-2f72bb50",
+													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "gateway-external-test-endpoint-post-books-5a07271d",
+							Namespace: "dp-default-org-test-project-test-env-a545d497",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							CommonRouteSpec: gatewayv1.CommonRouteSpec{
+								ParentRefs: []gatewayv1.ParentReference{
+									{
+										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Name:      "gateway-external",
+									},
+								},
+							},
+							Hostnames: []gatewayv1.Hostname{
+								"dev.choreoapis.localhost",
+							},
+							Rules: []gatewayv1.HTTPRouteRule{
+								{
+									Matches: []gatewayv1.HTTPRouteMatch{
+										{
+											Path: &gatewayv1.HTTPPathMatch{
+												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
+											},
+											Method: ptr.Ptr(gatewayv1.HTTPMethodPost),
+										},
+									},
+									Filters: []gatewayv1.HTTPRouteFilter{
+										{
+											Type: gatewayv1.HTTPRouteFilterExtensionRef,
+											ExtensionRef: &gatewayv1.LocalObjectReference{
+												Group: "gateway.envoyproxy.io",
+												Kind:  "HTTPRouteFilter",
+												Name:  "gateway-external-test-endpoint-post-books-5a07271d",
+											},
+										},
+									},
+									BackendRefs: []gatewayv1.HTTPBackendRef{
+										{
+											BackendRef: gatewayv1.BackendRef{
+												BackendObjectReference: gatewayv1.BackendObjectReference{
+													Name: "reading-list-service-test-track-2f72bb50",
+													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "gateway-external-test-endpoint-get-books--id-946b0081",
+							Namespace: "dp-default-org-test-project-test-env-a545d497",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							CommonRouteSpec: gatewayv1.CommonRouteSpec{
+								ParentRefs: []gatewayv1.ParentReference{
+									{
+										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Name:      "gateway-external",
+									},
+								},
+							},
+							Hostnames: []gatewayv1.Hostname{
+								"dev.choreoapis.localhost",
+							},
+							Rules: []gatewayv1.HTTPRouteRule{
+								{
+									Matches: []gatewayv1.HTTPRouteMatch{
+										{
+											Path: &gatewayv1.HTTPPathMatch{
+												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books/[^/]+)$"),
+											},
+											Method: ptr.Ptr(gatewayv1.HTTPMethodGet),
+										},
+									},
+									Filters: []gatewayv1.HTTPRouteFilter{
+										{
+											Type: gatewayv1.HTTPRouteFilterExtensionRef,
+											ExtensionRef: &gatewayv1.LocalObjectReference{
+												Group: "gateway.envoyproxy.io",
+												Kind:  "HTTPRouteFilter",
+												Name:  "gateway-external-test-endpoint-get-books--id-946b0081",
+											},
+										},
+									},
+									BackendRefs: []gatewayv1.HTTPBackendRef{
+										{
+											BackendRef: gatewayv1.BackendRef{
+												BackendObjectReference: gatewayv1.BackendObjectReference{
+													Name: "reading-list-service-test-track-2f72bb50",
 													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
 												},
 											},
