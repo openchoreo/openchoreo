@@ -71,7 +71,7 @@ var _ = Describe("Deployable Artifact Creation", func() {
 			Expect(deployableArtifact.Spec.Configuration).NotTo(BeNil())
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates).To(HaveLen(1))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(choreov1.EndpointTypeHTTP))
-			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Service.Port).To(BeEquivalentTo(80))
+			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.ComponentRef.Port).To(BeEquivalentTo(80))
 		})
 
 		It("should add scheduled task configuration for task components", func() {
@@ -91,8 +91,8 @@ var _ = Describe("Deployable Artifact Creation", func() {
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates).To(HaveLen(1))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].ObjectMeta.Name).To(Equal("webapp"))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(choreov1.EndpointTypeHTTP))
-			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Service.BasePath).To(Equal("/"))
-			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Service.Port).To(BeEquivalentTo(80))
+			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.BasePath).To(Equal("/"))
+			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.ComponentRef.Port).To(BeEquivalentTo(80))
 		})
 	})
 })

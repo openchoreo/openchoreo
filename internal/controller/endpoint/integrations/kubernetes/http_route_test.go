@@ -4,18 +4,19 @@
 package kubernetes
 
 import (
+	"regexp"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/ptr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"regexp"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 func TestHTTPRoutesHandler(t *testing.T) {
@@ -602,7 +603,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 })
 
 // Helper function to create test endpoint context
-func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDnsPrefix string,
+func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDNSPrefix string,
 	componentType choreov1.ComponentType) *dataplane.EndpointContext {
 	return &dataplane.EndpointContext{
 		Endpoint: endpoint,
@@ -627,7 +628,7 @@ func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDn
 			},
 			Spec: choreov1.EnvironmentSpec{
 				Gateway: choreov1.GatewayConfig{
-					DNSPrefix: envDnsPrefix,
+					DNSPrefix: envDNSPrefix,
 				},
 			},
 		},
@@ -756,8 +757,8 @@ var _ = Describe("Test GenerateRegexWithCaptureGroup", func() {
 
 		It("should handle basePath with only slash", func() {
 			basePath := "/"
-			operation := "/{id}"
-			pathMatch := "/service/api/{id}"
+			operation := "/{id1}"
+			pathMatch := "/service/api/{id1}"
 			expectedRegex := `^/service/api(/[^/]+)$`
 
 			result := GenerateRegexWithCaptureGroup(basePath, operation, pathMatch)

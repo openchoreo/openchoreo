@@ -130,9 +130,13 @@ func newTestEndpoints() *[]choreov1.EndpointTemplate {
 			},
 			Spec: choreov1.EndpointSpec{
 				Type: "HTTP",
-				Service: choreov1.EndpointServiceSpec{
+				BackendRef: choreov1.BackendRef{
 					BasePath: "/api/v1",
-					Port:     80,
+					Type:     choreov1.BackendRefTypeComponentRef,
+					ComponentRef: &choreov1.ComponentRef{
+						Port: 80,
+					},
+					Target: nil,
 				},
 			},
 		},

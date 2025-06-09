@@ -7,15 +7,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
+
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-cmp/cmp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"path"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type httpRouteFiltersHandler struct {
@@ -43,7 +45,7 @@ func (h httpRouteFiltersHandler) IsRequired(epCtx *dataplane.EndpointContext) bo
 func (h httpRouteFiltersHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
 	httpRouteFilters := MakeHTTPRouteFilters(epCtx, h.visibility.GetGatewayType())
-	var out []*egv1a1.HTTPRouteFilter
+	out := []*egv1a1.HTTPRouteFilter{}
 	for _, filter := range httpRouteFilters {
 		name := filter.Name
 		f := &egv1a1.HTTPRouteFilter{}
@@ -148,7 +150,7 @@ func MakeHTTPRouteFilters(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	policies := extractPoliciesFromCtx(epCtx, gwType)
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != "oauth2" {
+		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
 			continue
 		}
 
@@ -169,19 +171,19 @@ func MakeHTTPRouteFilters(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	return out
 }
 
-func makeHTTPRouteFilterForOperation(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType, RESTOperation *choreov1.RESTOperation) *egv1a1.HTTPRouteFilter {
+func makeHTTPRouteFilterForOperation(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType, restOperation *choreov1.RESTOperation) *egv1a1.HTTPRouteFilter {
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
 	prefix := makePathPrefix(epCtx)
-	endpointPath := path.Join(basePath, RESTOperation.Target)
+	endpointPath := path.Join(basePath, restOperation.Target)
 
 	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, endpointPath))
 	}
-	pattern := GenerateRegexWithCaptureGroup(basePath, RESTOperation.Target, endpointPath)
+	pattern := GenerateRegexWithCaptureGroup(basePath, restOperation.Target, endpointPath)
 
 	filter := &egv1a1.HTTPRouteFilter{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      makeHTTPRouteNameForOperation(epCtx, gwType, string(RESTOperation.Method), RESTOperation.Target),
+			Name:      makeHTTPRouteNameForOperation(epCtx, gwType, string(restOperation.Method), restOperation.Target),
 			Namespace: makeNamespaceName(epCtx),
 			Labels:    makeWorkloadLabels(epCtx, gwType),
 		},

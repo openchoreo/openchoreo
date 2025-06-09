@@ -137,7 +137,7 @@ func hasOAuthSecurityScheme(epCtx *dataplane.EndpointContext, gwType GatewayType
 			return false
 		}
 		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
-			if policy.PolicySpec != nil && policy.Type == "oauth2" {
+			if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
 				if policy.PolicySpec.OAuth2 != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
@@ -155,7 +155,7 @@ func hasOAuthSecurityScheme(epCtx *dataplane.EndpointContext, gwType GatewayType
 			return false
 		}
 		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
-			if policy.PolicySpec != nil && policy.Type == "oauth2" {
+			if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
 				if policy.PolicySpec.OAuth2 != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&

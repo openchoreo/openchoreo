@@ -83,9 +83,12 @@ var _ = Describe("makeDeployment", func() {
 						},
 						Spec: choreov1.EndpointSpec{
 							Type: choreov1.EndpointTypeREST,
-							Service: choreov1.EndpointServiceSpec{
+							BackendRef: choreov1.BackendRef{
 								BasePath: "/test",
-								Port:     8080,
+								Type:     choreov1.BackendRefTypeComponentRef,
+								ComponentRef: &choreov1.ComponentRef{
+									Port: 8080,
+								},
 							},
 							NetworkVisibilities: &choreov1.NetworkVisibility{
 								Public: &choreov1.VisibilityConfig{
@@ -100,8 +103,12 @@ var _ = Describe("makeDeployment", func() {
 						},
 						Spec: choreov1.EndpointSpec{
 							Type: choreov1.EndpointTypeUDP,
-							Service: choreov1.EndpointServiceSpec{
-								Port: 8080,
+							BackendRef: choreov1.BackendRef{
+								BasePath: "/test",
+								Type:     choreov1.BackendRefTypeComponentRef,
+								ComponentRef: &choreov1.ComponentRef{
+									Port: 8080,
+								},
 							},
 							NetworkVisibilities: &choreov1.NetworkVisibility{
 								Public: &choreov1.VisibilityConfig{

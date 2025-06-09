@@ -620,6 +620,7 @@ spec:
                                     reference for the upstream service
                                   properties:
                                     port:
+                                      format: int32
                                       type: integer
                                   required:
                                   - port

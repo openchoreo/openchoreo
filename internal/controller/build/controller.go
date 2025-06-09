@@ -704,7 +704,7 @@ func createEndpointTemplate(endpoint source.Endpoint) choreov1.EndpointTemplate 
 				BasePath: basePath,
 				Type:     choreov1.BackendRefTypeComponentRef,
 				ComponentRef: &choreov1.ComponentRef{
-					Port: int(endpoint.Service.Port),
+					Port: endpoint.Service.Port,
 				},
 			},
 		},
