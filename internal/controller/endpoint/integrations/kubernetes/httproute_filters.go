@@ -44,18 +44,17 @@ func (h httpRouteFiltersHandler) IsRequired(epCtx *dataplane.EndpointContext) bo
 
 func (h httpRouteFiltersHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
-	httpRouteFilters := MakeHTTPRouteFilters(epCtx, h.visibility.GetGatewayType())
-	out := []*egv1a1.HTTPRouteFilter{}
-	for _, filter := range httpRouteFilters {
-		name := filter.Name
-		f := &egv1a1.HTTPRouteFilter{}
-		err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, f)
-		if apierrors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		out = append(out, f)
+	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
+
+	listOption := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
+	}
+
+	out := &egv1a1.HTTPRouteFilterList{}
+	err := h.client.List(ctx, out, listOption...)
+	if err != nil {
+		return nil, fmt.Errorf("error while listing HTTPRouteFilters: %w", err)
 	}
 	return out, nil
 }
@@ -71,7 +70,8 @@ func (h httpRouteFiltersHandler) Create(ctx context.Context, epCtx *dataplane.En
 }
 
 func (h httpRouteFiltersHandler) Update(ctx context.Context, epCtx *dataplane.EndpointContext, currentState interface{}) error {
-	currentHTTPRouteFilters, ok := currentState.([]*egv1a1.HTTPRouteFilter)
+	currentHTTPRouteFiltersList, ok := currentState.(*egv1a1.HTTPRouteFilterList)
+	currentHTTPRouteFilters := currentHTTPRouteFiltersList.Items
 	if !ok {
 		return errors.New("failed to cast current state to the list of HTTPRouteFilters")
 	}
@@ -80,8 +80,8 @@ func (h httpRouteFiltersHandler) Update(ctx context.Context, epCtx *dataplane.En
 
 	// Create a map of current HTTP routes by name for easier lookup
 	currentHTTPRouteFiltersMap := make(map[string]*egv1a1.HTTPRouteFilter)
-	for _, route := range currentHTTPRouteFilters {
-		currentHTTPRouteFiltersMap[route.Name] = route
+	for _, rf := range currentHTTPRouteFilters {
+		currentHTTPRouteFiltersMap[rf.Name] = &rf
 	}
 
 	// Create a map of desired HTTP route filters by name for easier lookup

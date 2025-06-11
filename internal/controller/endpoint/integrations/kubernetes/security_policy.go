@@ -38,19 +38,17 @@ func (h *SecurityPoliciesHandler) IsRequired(ctx *dataplane.EndpointContext) boo
 
 func (h *SecurityPoliciesHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
-	securityPolicies := MakeSecurityPolicies(epCtx, h.visibility.GetGatewayType())
-	out := []*egv1a1.SecurityPolicy{}
+	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
 
-	for _, policy := range securityPolicies {
-		name := policy.Name
-		p := &egv1a1.SecurityPolicy{}
-		err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, p)
-		if apierrors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		out = append(out, p)
+	listOption := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
+	}
+
+	out := &egv1a1.SecurityPolicyList{}
+	err := h.client.List(ctx, out, listOption...)
+	if err != nil {
+		return nil, fmt.Errorf("error while listing SecurityPolicies: %w", err)
 	}
 	return out, nil
 }
@@ -66,7 +64,8 @@ func (h *SecurityPoliciesHandler) Create(ctx context.Context, epCtx *dataplane.E
 }
 
 func (h *SecurityPoliciesHandler) Update(ctx context.Context, epCtx *dataplane.EndpointContext, currentState interface{}) error {
-	currentSecurityPolicies, ok := currentState.([]*egv1a1.SecurityPolicy)
+	currentSecurityPoliciesList, ok := currentState.(*egv1a1.SecurityPolicyList)
+	currentSecurityPolicies := currentSecurityPoliciesList.Items
 	if !ok {
 		return errors.New("failed to cast current state to the list of SecurityPolicies")
 	}
@@ -76,7 +75,7 @@ func (h *SecurityPoliciesHandler) Update(ctx context.Context, epCtx *dataplane.E
 	// Create a map of current SecurityPolicies for an easier lookup
 	currentSecurityPolicyMap := make(map[string]*egv1a1.SecurityPolicy)
 	for _, currentPolicy := range currentSecurityPolicies {
-		currentSecurityPolicyMap[currentPolicy.Name] = currentPolicy
+		currentSecurityPolicyMap[currentPolicy.Name] = &currentPolicy
 	}
 
 	// Create a map of desired SecurityPolicies for an easier lookup
