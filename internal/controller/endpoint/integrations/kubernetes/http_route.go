@@ -47,18 +47,17 @@ func (h *httpRoutesHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
 
 func (h *httpRoutesHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
-	httpRoutes := MakeHTTPRoutes(epCtx, h.visibility.GetGatewayType())
-	out := []*gwapiv1.HTTPRoute{}
-	for _, httpRoute := range httpRoutes {
-		name := httpRoute.Name
-		r := &gwapiv1.HTTPRoute{}
-		err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, r)
-		if apierrors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		out = append(out, r)
+	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
+
+	listOption := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
+	}
+
+	out := &gwapiv1.HTTPRouteList{}
+	err := h.client.List(ctx, out, listOption...)
+	if err != nil {
+		return nil, fmt.Errorf("error while listing HTTPRoutes: %w", err)
 	}
 	return out, nil
 }
@@ -74,7 +73,8 @@ func (h *httpRoutesHandler) Create(ctx context.Context, epCtx *dataplane.Endpoin
 }
 
 func (h *httpRoutesHandler) Update(ctx context.Context, epCtx *dataplane.EndpointContext, currentState interface{}) error {
-	currentHTTPRoutes, ok := currentState.([]*gwapiv1.HTTPRoute)
+	currentHTTPRoutesList, ok := currentState.(*gwapiv1.HTTPRouteList)
+	currentHTTPRoutes := currentHTTPRoutesList.Items
 	if !ok {
 		return errors.New("failed to cast current state to the list of HTTPRoutes")
 	}
@@ -84,7 +84,7 @@ func (h *httpRoutesHandler) Update(ctx context.Context, epCtx *dataplane.Endpoin
 	// Create a map of current HTTP routes by name for easier lookup
 	currentHTTPRoutesMap := make(map[string]*gwapiv1.HTTPRoute)
 	for _, route := range currentHTTPRoutes {
-		currentHTTPRoutesMap[route.Name] = route
+		currentHTTPRoutesMap[route.Name] = &route
 	}
 
 	// Create a map of desired HTTP routes by name for easier lookup
