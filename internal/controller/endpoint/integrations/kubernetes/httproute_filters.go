@@ -39,7 +39,7 @@ func (h httpRouteFiltersHandler) Name() string {
 }
 
 func (h httpRouteFiltersHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
-	return h.visibility.IsHTTPRouteRequired(epCtx)
+	return h.visibility.IsHTTPRouteFilterRequired(epCtx)
 }
 
 func (h httpRouteFiltersHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
@@ -129,7 +129,7 @@ func (h httpRouteFiltersHandler) Update(ctx context.Context, epCtx *dataplane.En
 }
 
 func (h httpRouteFiltersHandler) Delete(ctx context.Context, epCtx *dataplane.EndpointContext) error {
-	namespace := epCtx.DataPlane.GetNamespace()
+	namespace := makeNamespaceName(epCtx)
 	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
 	deleteAllOption := []client.DeleteAllOfOption{
 		client.InNamespace(namespace),

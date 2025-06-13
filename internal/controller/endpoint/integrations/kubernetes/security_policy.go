@@ -92,6 +92,7 @@ func (h *SecurityPoliciesHandler) Update(ctx context.Context, epCtx *dataplane.E
 			if err := h.client.Create(ctx, newSecurityPolicy); err != nil {
 				return fmt.Errorf("error while creating SecurityPolicy %s: %w", newSecurityPolicy.Name, err)
 			}
+			continue
 		}
 
 		// Check if the current SecurityPolicy needs to be updated

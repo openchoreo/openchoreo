@@ -211,17 +211,14 @@ func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 
 	// Check if any of the policies have OAuth2 configured
 	for _, policy := range policies {
-		if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
-			if !*policy.Enabled {
-				return true
-			}
-			if policy.PolicySpec.OAuth2 != nil &&
-				policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
-				policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
-				len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
-				// OAuth2 is configured, no need for wildcard route
-				return false
-			}
+		if policy.PolicySpec != nil &&
+			policy.Type == choreov1.Oauth2PolicyType &&
+			policy.PolicySpec.OAuth2 != nil &&
+			policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
+			policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
+			len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
+			// OAuth2 is configured, no need for wildcard route
+			return false
 		}
 	}
 
