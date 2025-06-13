@@ -6,10 +6,12 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -60,6 +62,7 @@ func init() {
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -200,6 +203,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
 		os.Exit(1)
 	}
+	if err := (&buildplane.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
+		os.Exit(1)
+	}
 	if err = (&deploymentpipeline.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -256,6 +266,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

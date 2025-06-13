@@ -69,4 +69,13 @@ resources:
   kind: ConfigurationGroup
   path: github.com/openchoreo/openchoreo/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: BuildPlane
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
 version: "3"
