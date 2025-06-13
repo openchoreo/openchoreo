@@ -90,6 +90,7 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - buildplanes
   - builds
   - components
   - dataplanes
@@ -112,6 +113,7 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - buildplanes/finalizers
   - builds/finalizers
   - components/finalizers
   - dataplanes/finalizers
@@ -128,6 +130,7 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - buildplanes/status
   - builds/status
   - components/status
   - dataplanes/status
