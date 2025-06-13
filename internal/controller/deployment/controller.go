@@ -6,6 +6,8 @@ package deployment
 import (
 	"context"
 	"fmt"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,15 +23,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Deployment object
 type Reconciler struct {
 	client.Client
-	DpClientMgr *dpKubernetes.KubeClientManager
-	Scheme      *runtime.Scheme
-	recorder    record.EventRecorder
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme       *runtime.Scheme
+	recorder     record.EventRecorder
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -134,6 +135,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.recorder = mgr.GetEventRecorderFor("deployment-controller")
 	}
 
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
+	}
+
 	// Set up the index for the deployment artifact reference
 	if err := r.setupDeploymentArtifactRefIndex(context.Background(), mgr); err != nil {
 		return fmt.Errorf("failed to setup deployment artifact reference index: %w", err)
@@ -190,15 +195,18 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 }
 
 func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
-	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	dpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, dp.Labels[labels.LabelKeyOrganizationName],
+		dp.Labels[labels.LabelKeyOrganizationName], dp.Spec.KubernetesCluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get DP client: %w", err)
+		logger := log.FromContext(ctx)
+		logger.Error(err, "Failed to get build plane client")
+		return nil, err
 	}
 
 	return dpClient, nil
