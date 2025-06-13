@@ -8,7 +8,7 @@ import (
 )
 
 type BuildContext struct {
-	Registry        choreov1.Registry
+	BuildPlane      *choreov1.BuildPlane
 	Component       *choreov1.Component
 	DeploymentTrack *choreov1.DeploymentTrack
 	Build           *choreov1.Build
