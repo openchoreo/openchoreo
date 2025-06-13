@@ -35,9 +35,25 @@ func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
 	return &workflow
 }
 
+func retrieveRegistries(bp choreov1.BuildPlane) ([]choreov1.Registry, []choreov1.Registry) {
+	var (
+		auth   []choreov1.Registry
+		unauth []choreov1.Registry
+	)
+	for _, r := range bp.Spec.Registries {
+		if r.SecretRef != "" {
+			auth = append(auth, r)
+		} else {
+			unauth = append(unauth, r)
+		}
+	}
+	return auth, unauth
+}
+
 func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj.WorkflowSpec {
 	hostPathType := corev1.HostPathDirectoryOrCreate
-	volumes := make([]corev1.Volume, 0, len(buildCtx.Registry.ImagePushSecrets))
+	authRegistries, _ := retrieveRegistries(*buildCtx.BuildPlane)
+	volumes := make([]corev1.Volume, 0, len(authRegistries))
 
 	volumes = append(volumes, corev1.Volume{
 		Name: "podman-cache",
@@ -49,12 +65,12 @@ func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj
 		},
 	})
 
-	for _, secret := range buildCtx.Registry.ImagePushSecrets {
+	for _, reg := range authRegistries {
 		volumes = append(volumes, corev1.Volume{
-			Name: secret.Name,
+			Name: reg.SecretRef,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secret.Name,
+					SecretName: reg.SecretRef,
 				},
 			},
 		})
@@ -193,16 +209,17 @@ func makeBuildStep(buildCtx *integrations.BuildContext) argoproj.Template {
 }
 
 func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
+	authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "workspace",
 			MountPath: "/mnt/vol",
 		},
 	}
-	for _, secret := range buildCtx.Registry.ImagePushSecrets {
+	for _, reg := range authRegistries {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      secret.Name,
-			MountPath: "/usr/src/app/.docker/" + secret.Name + ".json",
+			Name:      reg.SecretRef,
+			MountPath: "/usr/src/app/.docker/" + reg.SecretRef + ".json",
 			SubPath:   ".dockerconfigjson",
 			ReadOnly:  true,
 		})
@@ -229,7 +246,7 @@ func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(buildCtx, ci.ConstructImageNameWithTag(buildCtx.Build)),
+				generatePushImageScript(buildCtx, ci.ConstructImageNameWithTag(buildCtx.Build), authRegistries, unauthRegistries),
 			},
 			VolumeMounts: volumeMounts,
 		},
@@ -373,28 +390,28 @@ EOF`
 	return []string{baseScript + buildScript}
 }
 
-func generatePushImageScript(buildCtx *integrations.BuildContext, imageName string) string {
-	numOfRegistries := len(buildCtx.Registry.ImagePushSecrets) + len(buildCtx.Registry.Unauthenticated)
+func generatePushImageScript(buildCtx *integrations.BuildContext, imageName string, authRegistries []choreov1.Registry, unauthRegistries []choreov1.Registry) string {
+	numOfRegistries := len(authRegistries) + len(unauthRegistries)
 	tagCommands := make([]string, 0, numOfRegistries)
 	pushCommands := make([]string, 0, numOfRegistries)
-	for _, prefix := range buildCtx.Registry.Unauthenticated {
-		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, prefix, imageName)
+	for _, reg := range unauthRegistries {
+		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, reg.Prefix, imageName)
 		tagCommands = append(tagCommands, tag)
 
 		var push string
-		if prefix == "registry.choreo-system:5000" {
-			push = fmt.Sprintf("podman push --tls-verify=false %s/%s-$GIT_REVISION", prefix, imageName)
+		if reg.Prefix == "registry.choreo-system:5000" {
+			push = fmt.Sprintf("podman push --tls-verify=false %s/%s-$GIT_REVISION", reg.Prefix, imageName)
 		} else {
-			push = fmt.Sprintf("podman push %s/%s-$GIT_REVISION", prefix, imageName)
+			push = fmt.Sprintf("podman push %s/%s-$GIT_REVISION", reg.Prefix, imageName)
 		}
 		pushCommands = append(pushCommands, push)
 	}
 
-	for _, secret := range buildCtx.Registry.ImagePushSecrets {
-		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, secret.Prefix, imageName)
+	for _, reg := range authRegistries {
+		tag := fmt.Sprintf("podman tag %s-$GIT_REVISION %s/%s-$GIT_REVISION", imageName, reg.Prefix, imageName)
 		tagCommands = append(tagCommands, tag)
 
-		push := fmt.Sprintf("podman push %s/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json", secret.Prefix, imageName, secret.Name)
+		push := fmt.Sprintf("podman push %s/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json", reg.Prefix, imageName, reg.SecretRef)
 		pushCommands = append(pushCommands, push)
 	}
 
