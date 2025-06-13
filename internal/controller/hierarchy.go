@@ -385,3 +385,25 @@ func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*cho
 		objWithName(&choreov1.Organization{}, GetOrganizationName(obj)),
 	)
 }
+
+func GetBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*choreov1.BuildPlane, error) {
+	buildPlaneList := &choreov1.BuildPlaneList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(obj.GetNamespace()),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: GetOrganizationName(obj),
+		},
+	}
+
+	if err := c.List(ctx, buildPlaneList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list build planes: %w", err)
+	}
+
+	if len(buildPlaneList.Items) > 0 {
+		return &buildPlaneList.Items[0], nil
+	}
+
+	return nil, NewHierarchyNotFoundError(obj, objWithName(&choreov1.BuildPlane{}, GetName(obj)),
+		objWithName(&choreov1.Organization{}, GetOrganizationName(obj)),
+	)
+}

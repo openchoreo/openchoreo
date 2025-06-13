@@ -4,6 +4,7 @@
 package environment
 
 import (
+	dpKubernetes "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +20,6 @@ import (
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	org "github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
