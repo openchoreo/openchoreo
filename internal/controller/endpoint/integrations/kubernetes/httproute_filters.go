@@ -156,6 +156,7 @@ func MakeHTTPRouteFilters(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 
 		// Skip if OAuth2 config is missing or JWT operations are not configured
 		if policy.PolicySpec.OAuth2 == nil ||
+			policy.PolicySpec.OAuth2.JWT.Authorization.Rest == nil ||
 			policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations == nil {
 			continue
 		}
