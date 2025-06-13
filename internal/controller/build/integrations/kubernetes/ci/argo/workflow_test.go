@@ -12,12 +12,12 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("Argo Workflow Generation", func() {
@@ -498,8 +498,8 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			Expect(podmanCacheVolume.VolumeSource.HostPath.Path).To(Equal("/shared/podman/cache"))
 
 			Expect(workflowSpec.TTLStrategy).NotTo(BeNil())
-			Expect(workflowSpec.TTLStrategy.SecondsAfterFailure).To(Equal(ptr.Int32(3600)))
-			Expect(workflowSpec.TTLStrategy.SecondsAfterSuccess).To(Equal(ptr.Int32(3600)))
+			Expect(workflowSpec.TTLStrategy.SecondsAfterFailure).To(Equal(ptr.To(int32(3600))))
+			Expect(workflowSpec.TTLStrategy.SecondsAfterSuccess).To(Equal(ptr.To(int32(3600))))
 		})
 
 		It("should generate the workflow in correct namespace", func() {

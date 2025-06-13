@@ -14,13 +14,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 type httpRoutesHandler struct {
@@ -252,7 +252,7 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(gwType),
-						Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")),
+						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
 					},
 				},
 			},
@@ -263,7 +263,7 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 						{
 							Path: &gwapiv1.HTTPPathMatch{
 								Type:  &pathType,
-								Value: ptr.String(endpointPath),
+								Value: ptr.To(endpointPath),
 							},
 						},
 					},
@@ -273,7 +273,7 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 							URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
 								Path: &gwapiv1.HTTPPathModifier{
 									Type:               gwapiv1.PrefixMatchHTTPPathModifier,
-									ReplacePrefixMatch: ptr.String(basePath),
+									ReplacePrefixMatch: ptr.To(basePath),
 								},
 							},
 						},
@@ -322,7 +322,7 @@ func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(gwType),
-						Namespace: (*gwapiv1.Namespace)(ptr.String("choreo-system")),
+						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
 					},
 				},
 			},

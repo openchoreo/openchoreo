@@ -10,13 +10,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 func TestHTTPRoutesHandler(t *testing.T) {
@@ -93,7 +93,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -106,8 +106,8 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchPathPrefix),
-												Value: ptr.String("/test-project/service-component-basic"),
+												Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+												Value: ptr.To("/test-project/service-component-basic"),
 											},
 										},
 									},
@@ -117,7 +117,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
 												Path: &gatewayv1.HTTPPathModifier{
 													Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-													ReplacePrefixMatch: ptr.String("/"),
+													ReplacePrefixMatch: ptr.To("/"),
 												},
 											},
 										},
@@ -127,7 +127,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "service-component-basic-test-track-1b4959e7",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -180,7 +180,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-internal",
 									},
 								},
@@ -193,8 +193,8 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchPathPrefix),
-												Value: ptr.String("/test-project/service-component-basic"),
+												Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+												Value: ptr.To("/test-project/service-component-basic"),
 											},
 										},
 									},
@@ -204,7 +204,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
 												Path: &gatewayv1.HTTPPathModifier{
 													Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-													ReplacePrefixMatch: ptr.String("/"),
+													ReplacePrefixMatch: ptr.To("/"),
 												},
 											},
 										},
@@ -214,7 +214,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "service-component-basic-test-track-1b4959e7",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -267,7 +267,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -280,8 +280,8 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchPathPrefix),
-												Value: ptr.String("/"),
+												Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+												Value: ptr.To("/"),
 											},
 										},
 									},
@@ -291,7 +291,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
 												Path: &gatewayv1.HTTPPathModifier{
 													Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-													ReplacePrefixMatch: ptr.String("/"),
+													ReplacePrefixMatch: ptr.To("/"),
 												},
 											},
 										},
@@ -301,7 +301,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "webapp-component-basic-test-track-ba810c70",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -396,7 +396,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -409,8 +409,8 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchPathPrefix),
-												Value: ptr.String("/test-project/reading-list-service/api/v1/reading-list"),
+												Type:  ptr.To(gatewayv1.PathMatchPathPrefix),
+												Value: ptr.To("/test-project/reading-list-service/api/v1/reading-list"),
 											},
 										},
 									},
@@ -420,7 +420,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											URLRewrite: &gatewayv1.HTTPURLRewriteFilter{
 												Path: &gatewayv1.HTTPPathModifier{
 													Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-													ReplacePrefixMatch: ptr.String("/api/v1/reading-list"),
+													ReplacePrefixMatch: ptr.To("/api/v1/reading-list"),
 												},
 											},
 										},
@@ -430,7 +430,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "reading-list-service-test-track-2f72bb50",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -448,7 +448,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -461,10 +461,10 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
-												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
+												Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.To("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
 											},
-											Method: ptr.Ptr(gatewayv1.HTTPMethodGet),
+											Method: ptr.To(gatewayv1.HTTPMethodGet),
 										},
 									},
 									Filters: []gatewayv1.HTTPRouteFilter{
@@ -482,7 +482,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "reading-list-service-test-track-2f72bb50",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -500,7 +500,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -513,10 +513,10 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
-												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
+												Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.To("^/test-project/reading-list-service(/api/v1/reading-list/books)$"),
 											},
-											Method: ptr.Ptr(gatewayv1.HTTPMethodPost),
+											Method: ptr.To(gatewayv1.HTTPMethodPost),
 										},
 									},
 									Filters: []gatewayv1.HTTPRouteFilter{
@@ -534,7 +534,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "reading-list-service-test-track-2f72bb50",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},
@@ -552,7 +552,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 							CommonRouteSpec: gatewayv1.CommonRouteSpec{
 								ParentRefs: []gatewayv1.ParentReference{
 									{
-										Namespace: (*gatewayv1.Namespace)(ptr.String("choreo-system")),
+										Namespace: (*gatewayv1.Namespace)(ptr.To("choreo-system")),
 										Name:      "gateway-external",
 									},
 								},
@@ -565,10 +565,10 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Matches: []gatewayv1.HTTPRouteMatch{
 										{
 											Path: &gatewayv1.HTTPPathMatch{
-												Type:  ptr.Ptr(gatewayv1.PathMatchRegularExpression),
-												Value: ptr.String("^/test-project/reading-list-service(/api/v1/reading-list/books/[^/]+)$"),
+												Type:  ptr.To(gatewayv1.PathMatchRegularExpression),
+												Value: ptr.To("^/test-project/reading-list-service(/api/v1/reading-list/books/[^/]+)$"),
 											},
-											Method: ptr.Ptr(gatewayv1.HTTPMethodGet),
+											Method: ptr.To(gatewayv1.HTTPMethodGet),
 										},
 									},
 									Filters: []gatewayv1.HTTPRouteFilter{
@@ -586,7 +586,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 											BackendRef: gatewayv1.BackendRef{
 												BackendObjectReference: gatewayv1.BackendObjectReference{
 													Name: "reading-list-service-test-track-2f72bb50",
-													Port: (*gatewayv1.PortNumber)(ptr.Int32(8080)),
+													Port: (*gatewayv1.PortNumber)(ptr.To(int32(8080))),
 												},
 											},
 										},

@@ -13,12 +13,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 type cronJobHandler struct {
@@ -123,19 +123,19 @@ func makeCronJobSpec(deployCtx *dataplane.DeploymentContext) batchv1.CronJobSpec
 			},
 			Spec: batchv1.JobSpec{
 				// TODO: These are free tire values from Choreo v2. Make these configurable that are coming from the deployment context
-				ActiveDeadlineSeconds: ptr.Int64(300),
-				BackoffLimit:          ptr.Int32(4),
+				ActiveDeadlineSeconds: ptr.To(int64(300)),
+				BackoffLimit:          ptr.To(int32(4)),
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: makeWorkloadLabels(deployCtx),
 					},
 					Spec: *makePodSpec(deployCtx),
 				},
-				TTLSecondsAfterFinished: ptr.Int32(360),
+				TTLSecondsAfterFinished: ptr.To(int32(360)),
 			},
 		},
-		Suspend:  ptr.Bool(false),
-		TimeZone: ptr.String("Etc/UTC"),
+		Suspend:  ptr.To(false),
+		TimeZone: ptr.To("Etc/UTC"),
 	}
 	var taskSpec *choreov1.TaskConfig
 	if deployCtx.DeployableArtifact.Spec.Configuration != nil &&
@@ -147,13 +147,13 @@ func makeCronJobSpec(deployCtx *dataplane.DeploymentContext) batchv1.CronJobSpec
 	}
 
 	if taskSpec.Disabled {
-		cronJobSpec.Suspend = ptr.Bool(true)
+		cronJobSpec.Suspend = ptr.To(true)
 	}
 
 	if taskSpec.Schedule != nil {
 		cronJobSpec.Schedule = taskSpec.Schedule.Cron
 		if taskSpec.Schedule.Timezone != "" {
-			cronJobSpec.TimeZone = ptr.String(taskSpec.Schedule.Timezone)
+			cronJobSpec.TimeZone = ptr.To(taskSpec.Schedule.Timezone)
 		}
 	}
 	return cronJobSpec
