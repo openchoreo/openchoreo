@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
@@ -18,7 +19,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes/ci"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 func makeArgoWorkflow(buildCtx *integrations.BuildContext) *argoproj.Workflow {
@@ -80,7 +80,7 @@ func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj
 									Parameters: []argoproj.Parameter{
 										{
 											Name:  "git-revision",
-											Value: ptr.String("{{steps.clone-step.outputs.parameters.git-revision}}"),
+											Value: ptr.To("{{steps.clone-step.outputs.parameters.git-revision}}"),
 										},
 									},
 								},
@@ -96,7 +96,7 @@ func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj
 									Parameters: []argoproj.Parameter{
 										{
 											Name:  "git-revision",
-											Value: ptr.String("{{steps.clone-step.outputs.parameters.git-revision}}"),
+											Value: ptr.To("{{steps.clone-step.outputs.parameters.git-revision}}"),
 										},
 									},
 								},
@@ -113,8 +113,8 @@ func makeWorkflowSpec(buildCtx *integrations.BuildContext, repo string) argoproj
 		Affinity:             makeNodeAffinity(),
 		Volumes:              volumes,
 		TTLStrategy: &argoproj.TTLStrategy{
-			SecondsAfterFailure: ptr.Int32(3600),
-			SecondsAfterSuccess: ptr.Int32(3600),
+			SecondsAfterFailure: ptr.To(int32(3600)),
+			SecondsAfterSuccess: ptr.To(int32(3600)),
 		},
 	}
 }
@@ -180,7 +180,7 @@ func makeBuildStep(buildCtx *integrations.BuildContext) argoproj.Template {
 		Container: &corev1.Container{
 			Image: "ghcr.io/openchoreo/podman-runner:v1.0",
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: ptr.Bool(true),
+				Privileged: ptr.To(true),
 			},
 			Command: []string{"sh", "-c"},
 			Args:    generateBuildArgs(buildCtx.Build, ci.ConstructImageNameWithTag(buildCtx.Build)),
@@ -225,7 +225,7 @@ func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
 		Container: &corev1.Container{
 			Image: "ghcr.io/openchoreo/podman-runner:v1.0",
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: ptr.Bool(true),
+				Privileged: ptr.To(true),
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{

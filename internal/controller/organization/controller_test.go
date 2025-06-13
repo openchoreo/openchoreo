@@ -15,12 +15,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	apiv1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Context("Organization Controller", func() {
@@ -208,8 +208,8 @@ var _ = Context("Organization Controller", func() {
 				APIVersion:         "core.choreo.dev/v1",
 				UID:                uuidOfOrgResource,
 				Name:               orgName,
-				Controller:         ptr.Bool(true),
-				BlockOwnerDeletion: ptr.Bool(true),
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
 			}
 			Expect(err).NotTo(HaveOccurred())
 			Expect(namespace.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))

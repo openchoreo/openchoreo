@@ -9,12 +9,12 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 const (
@@ -207,7 +207,7 @@ func makeFileVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, [
 				VolumeSource: corev1.VolumeSource{
 					CSI: &corev1.CSIVolumeSource{
 						Driver:   "secrets-store.csi.k8s.io",
-						ReadOnly: ptr.Bool(true),
+						ReadOnly: ptr.To(true),
 						VolumeAttributes: map[string]string{
 							"secretProviderClass": secretName,
 						},
@@ -248,7 +248,7 @@ func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volu
 			VolumeSource: corev1.VolumeSource{
 				CSI: &corev1.CSIVolumeSource{
 					Driver:   "secrets-store.csi.k8s.io",
-					ReadOnly: ptr.Bool(true),
+					ReadOnly: ptr.To(true),
 					VolumeAttributes: map[string]string{
 						"secretProviderClass": secretName,
 					},

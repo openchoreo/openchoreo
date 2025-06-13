@@ -7,10 +7,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/utils/ptr"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("makeCronJob", func() {
@@ -72,18 +72,18 @@ var _ = Describe("makeCronJob", func() {
 			Expect(cronJob.Spec.ConcurrencyPolicy).To(Equal(batchv1.ForbidConcurrent))
 
 			By("checking the timezone")
-			Expect(cronJob.Spec.TimeZone).To(Equal(ptr.String("Etc/UTC")))
+			Expect(cronJob.Spec.TimeZone).To(Equal(ptr.To("Etc/UTC")))
 		})
 
 		It("should create a CronJob with correct Job template", func() {
 			By("checking the ActiveDeadlineSeconds")
-			Expect(cronJob.Spec.JobTemplate.Spec.ActiveDeadlineSeconds).To(Equal(ptr.Int64(300)))
+			Expect(cronJob.Spec.JobTemplate.Spec.ActiveDeadlineSeconds).To(Equal(ptr.To(int64(300))))
 
 			By("checking the BackoffLimit")
-			Expect(cronJob.Spec.JobTemplate.Spec.BackoffLimit).To(Equal(ptr.Int32(4)))
+			Expect(cronJob.Spec.JobTemplate.Spec.BackoffLimit).To(Equal(ptr.To(int32(4))))
 
 			By("checking the TTLSecondsAfterFinished")
-			Expect(cronJob.Spec.JobTemplate.Spec.TTLSecondsAfterFinished).To(Equal(ptr.Int32(360)))
+			Expect(cronJob.Spec.JobTemplate.Spec.TTLSecondsAfterFinished).To(Equal(ptr.To(int32(360))))
 		})
 
 		It("should create a CronJob with a correct container", func() {
@@ -118,11 +118,11 @@ var _ = Describe("makeCronJob", func() {
 		})
 
 		It("should create a CronJob with correct timezone", func() {
-			Expect(cronJob.Spec.TimeZone).To(Equal(ptr.String("Asia/Colombo")))
+			Expect(cronJob.Spec.TimeZone).To(Equal(ptr.To("Asia/Colombo")))
 		})
 
 		It("should create a CronJob with correct Suspend value", func() {
-			Expect(cronJob.Spec.Suspend).To(Equal(ptr.Bool(true)))
+			Expect(cronJob.Spec.Suspend).To(Equal(ptr.To(true)))
 		})
 	})
 })

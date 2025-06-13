@@ -8,10 +8,10 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	"github.com/openchoreo/openchoreo/internal/ptr"
 )
 
 var _ = Describe("makePodSpec", func() {
@@ -332,7 +332,7 @@ var _ = Describe("makePodSpec", func() {
 				"VolumeSource": BeComparableTo(corev1.VolumeSource{
 					CSI: &corev1.CSIVolumeSource{
 						Driver:   "secrets-store.csi.k8s.io",
-						ReadOnly: ptr.Bool(true),
+						ReadOnly: ptr.To(true),
 						VolumeAttributes: map[string]string{
 							"secretProviderClass": "my-component-my-main-track-redis-config-group-b8ef9df9",
 						},
@@ -356,7 +356,7 @@ var _ = Describe("makePodSpec", func() {
 				"VolumeSource": BeComparableTo(corev1.VolumeSource{
 					CSI: &corev1.CSIVolumeSource{
 						Driver:   "secrets-store.csi.k8s.io",
-						ReadOnly: ptr.Bool(true),
+						ReadOnly: ptr.To(true),
 						VolumeAttributes: map[string]string{
 							"secretProviderClass": "my-component-my-main-track-mysql-config-group-e7d2f2be",
 						},
@@ -531,7 +531,7 @@ var _ = Describe("makePodSpec", func() {
 				"VolumeSource": BeComparableTo(corev1.VolumeSource{
 					CSI: &corev1.CSIVolumeSource{
 						Driver:   "secrets-store.csi.k8s.io",
-						ReadOnly: ptr.Bool(true),
+						ReadOnly: ptr.To(true),
 						VolumeAttributes: map[string]string{
 							"secretProviderClass": "my-component-my-main-track-redis-config-group-b8ef9df9",
 						},
