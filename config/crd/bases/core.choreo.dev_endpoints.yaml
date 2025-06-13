@@ -95,9 +95,6 @@ spec:
                           description: Policy defines an API management policy for
                             an endpoint
                           properties:
-                            enabled:
-                              description: enabled if not specified
-                              type: boolean
                             name:
                               type: string
                             policySpec:
@@ -463,9 +460,6 @@ spec:
                           description: Policy defines an API management policy for
                             an endpoint
                           properties:
-                            enabled:
-                              description: enabled if not specified
-                              type: boolean
                             name:
                               type: string
                             policySpec:

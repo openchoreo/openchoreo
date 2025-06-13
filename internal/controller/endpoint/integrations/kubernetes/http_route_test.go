@@ -336,9 +336,8 @@ var _ = Describe("HTTPRoute Handler", func() {
 									Enable: true,
 									Policies: []choreov1.Policy{
 										{
-											Name:    "oauth2-scope-policy",
-											Type:    choreov1.Oauth2PolicyType,
-											Enabled: ptr.Bool(true),
+											Name: "oauth2-scope-policy",
+											Type: choreov1.Oauth2PolicyType,
 											PolicySpec: &choreov1.PolicySpec{
 												OAuth2: &choreov1.OAuth2PolicySpec{
 													JWT: choreov1.JWT{

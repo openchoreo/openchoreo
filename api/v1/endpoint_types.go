@@ -181,9 +181,6 @@ type Policy struct {
 	Name string `json:"name"`
 	// +required
 	Type PolicyType `json:"type"`
-	// +optional
-	// enabled if not specified
-	Enabled *bool `json:"enabled,omitempty"`
 	// +required
 	*PolicySpec `json:"policySpec"`
 }
