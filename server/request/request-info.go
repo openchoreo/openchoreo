@@ -8,7 +8,7 @@ import (
 )
 
 type Param struct {
-	present bool // Whether available in the context
+	Present bool // Whether available in the context
 	Value   string
 }
 
@@ -53,10 +53,10 @@ func NewRequestInfo(req *http.Request) (*RequestInfo, error) {
 	}
 
 	params := map[ResourceType]Param{
-		ProjectType:     {present: false, Value: ""},
-		ComponentType:   {present: false, Value: ""},
-		DeploymentType:  {present: false, Value: ""},
-		EnvironmentType: {present: false, Value: ""},
+		ProjectType:     {Present: false, Value: ""},
+		ComponentType:   {Present: false, Value: ""},
+		DeploymentType:  {Present: false, Value: ""},
+		EnvironmentType: {Present: false, Value: ""},
 	}
 
 	// Parse the hierarchical structure
@@ -70,7 +70,7 @@ func NewRequestInfo(req *http.Request) (*RequestInfo, error) {
 		}
 		value := splitPath[i+1]
 		params[resType] = Param{
-			present: true,
+			Present: true,
 			Value:   value,
 		}
 	}

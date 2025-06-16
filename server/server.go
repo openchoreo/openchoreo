@@ -6,20 +6,25 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
+
+	"k8s.io/utils/env"
 
 	"github.com/openchoreo/openchoreo/server/middleware"
+	"github.com/openchoreo/openchoreo/server/pkg/logging"
 	"github.com/openchoreo/openchoreo/server/request"
-	"k8s.io/utils/env"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	labelTemplate = "core.choreo.dev"
 )
 
 type resourceHandler struct {
-	client client.Client
-	proxy  *httputil.ReverseProxy
+	proxy *httputil.ReverseProxy
 }
 
 func createReverseProxy() *httputil.ReverseProxy {
-	target, _ := url.Parse("https://localhost:40321")
+	target, _ := url.Parse("https://localhost:58336")
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	token := env.GetString("AUTH_TOKEN", "")
 
@@ -46,32 +51,40 @@ func createReverseProxy() *httputil.ReverseProxy {
 			requested, err := request.ParseResourceType(splitPath[len(splitPath)-2])
 			if err != nil {
 				// Add error log
-				fmt.Errorf("Failed to parse resource type: %v", err)
+				fmt.Errorf("Failed to parse resource type: %w", err)
 				return
 			}
 			requestedResource = requested
 		}
 
-		// How do we handle get operations?
 		// Add label selectors later
-		switch requestedResource {
-		case request.ProjectType:
-			// Get organization from token
-			newPath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/projects/%s", requestInfo.Params[request.ProjectType].Value)
-			req.URL.Path = newPath
-		case request.ComponentType:
-			newPath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/components/%s",
-				requestInfo.Params[request.ComponentType].Value)
-			req.URL.Path = newPath
-		case request.DeploymentType:
-			newPath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/deployments/%s",
-				requestInfo.Params[request.DeploymentType].Value)
-			req.URL.Path = newPath
-		}
+		// Get organization from token
+		basePath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/%s/%s", string(requestedResource),
+			requestInfo.Params[requestedResource].Value)
+		req.URL.Path = basePath
+		req.URL.RawQuery = addLabelSelectors(requestInfo)
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
 	return proxy
+}
+
+func addLabelSelectors(info *request.RequestInfo) string {
+	if len(info.Params) == 0 {
+		return ""
+	}
+
+	var labels []string
+	for resource, pair := range info.Params {
+		if pair.Present {
+			labels = append(labels, fmt.Sprintf("core.choreo.dev/%s=%s", strings.TrimSuffix(string(resource), "s"), pair.Value))
+		}
+	}
+
+	if len(labels) > 0 {
+		return fmt.Sprint("labelSelector=" + url.QueryEscape(strings.Join(labels, ",")))
+	}
+	return ""
 }
 
 func newResourceHandler() *resourceHandler {
@@ -84,10 +97,15 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.proxy.ServeHTTP(w, r)
 }
 
-// Returns a new Choreo api server
+// NewServer returns a new Choreo api server
 func NewServer() {
+	logger := logging.NewLogger()
+	logger.Info("starting server")
 	newMux := http.NewServeMux()
-	chain := middleware.WithRequestInfo(newResourceHandler())
-	newMux.Handle("/api/v1/", chain)
+	var h http.Handler = newResourceHandler()
+	h = middleware.WithRequestInfo(h)
+	h = middleware.WithLogging(h, logger)
+	h = middleware.WithTracing(h)
+	newMux.Handle("/api/v1/", h)
 	http.ListenAndServe(":8080", newMux)
 }
