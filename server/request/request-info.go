@@ -1,3 +1,6 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package request
 
 import (
@@ -14,7 +17,7 @@ type Param struct {
 
 type RequestInfo struct {
 	// Hierarchy information about the request
-	Params map[ResourceType]Param
+	Params map[ResourceType]string
 }
 
 type ResourceType string // Resource type of the request
@@ -52,12 +55,7 @@ func NewRequestInfo(req *http.Request) (*RequestInfo, error) {
 		return nil, err
 	}
 
-	params := map[ResourceType]Param{
-		ProjectType:     {Present: false, Value: ""},
-		ComponentType:   {Present: false, Value: ""},
-		DeploymentType:  {Present: false, Value: ""},
-		EnvironmentType: {Present: false, Value: ""},
-	}
+	params := map[ResourceType]string{}
 
 	// Parse the hierarchical structure
 	for i := 2; i < len(splitPath); i += 2 {
@@ -69,10 +67,7 @@ func NewRequestInfo(req *http.Request) (*RequestInfo, error) {
 			return nil, err
 		}
 		value := splitPath[i+1]
-		params[resType] = Param{
-			Present: true,
-			Value:   value,
-		}
+		params[resType] = value
 	}
 	return &RequestInfo{
 		Params: params,

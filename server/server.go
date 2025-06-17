@@ -1,3 +1,6 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package server
 
 import (
@@ -6,18 +9,22 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
-
-	"k8s.io/utils/env"
 
 	"github.com/openchoreo/openchoreo/server/middleware"
 	"github.com/openchoreo/openchoreo/server/pkg/logging"
 	"github.com/openchoreo/openchoreo/server/request"
+	"k8s.io/utils/env"
 )
 
 const (
 	labelTemplate = "core.choreo.dev"
 )
+
+type ServerOptions struct {
+	Port int
+}
 
 type resourceHandler struct {
 	proxy *httputil.ReverseProxy
@@ -60,7 +67,7 @@ func createReverseProxy() *httputil.ReverseProxy {
 		// Add label selectors later
 		// Get organization from token
 		basePath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/%s/%s", string(requestedResource),
-			requestInfo.Params[requestedResource].Value)
+			requestInfo.Params[requestedResource])
 		req.URL.Path = basePath
 		req.URL.RawQuery = addLabelSelectors(requestInfo)
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -69,15 +76,16 @@ func createReverseProxy() *httputil.ReverseProxy {
 	return proxy
 }
 
+// addLabelSelectors adds labelSelector queryparam with labels extracted from the request
 func addLabelSelectors(info *request.RequestInfo) string {
 	if len(info.Params) == 0 {
 		return ""
 	}
 
 	var labels []string
-	for resource, pair := range info.Params {
-		if pair.Present {
-			labels = append(labels, fmt.Sprintf("core.choreo.dev/%s=%s", strings.TrimSuffix(string(resource), "s"), pair.Value))
+	for resource, value := range info.Params {
+		if value != "" {
+			labels = append(labels, fmt.Sprintf("core.choreo.dev/%s=%s", strings.TrimSuffix(string(resource), "s"), value))
 		}
 	}
 
@@ -97,15 +105,16 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.proxy.ServeHTTP(w, r)
 }
 
-// NewServer returns a new Choreo api server
-func NewServer() {
-	logger := logging.NewLogger()
-	logger.Info("starting server")
+// NewServer returns a new Choreo api server instance that can be started by the caller
+func NewServer(logger *logging.Logger, serverOptions ServerOptions) *http.Server {
 	newMux := http.NewServeMux()
 	var h http.Handler = newResourceHandler()
 	h = middleware.WithRequestInfo(h)
 	h = middleware.WithLogging(h, logger)
 	h = middleware.WithTracing(h)
 	newMux.Handle("/api/v1/", h)
-	http.ListenAndServe(":8080", newMux)
+	return &http.Server{
+		Addr:    "0.0.0.0:" + strconv.Itoa(serverOptions.Port),
+		Handler: newMux,
+	}
 }
