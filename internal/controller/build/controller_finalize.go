@@ -47,7 +47,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build)
 
 // finalize cleans up data plane resources associated with the build before deletion.
 // It is invoked when the build resource has the cleanup finalizer.
-func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Build) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Build, buildContext *integrations.BuildContext) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(build, CleanUpFinalizer) {
 		return ctrl.Result{}, nil
 	}
@@ -58,7 +58,7 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 	}
 
-	bpClient, err := r.getBPClient(ctx, build)
+	bpClient, err := r.getBPClient(ctx, buildContext)
 	logger := log.FromContext(ctx)
 	if err != nil {
 		logger.Error(err, "Error getting build plane client for finalizing")
