@@ -21,28 +21,7 @@ type ComponentV2Spec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	Owner ComponentOwner `json:"owner"`
 
-	Workload WorkloadTemplateSpec `json:"workload,omitempty"`
-
-	Endpoints []ComponentEndpointSpec `json:"endpoints,omitempty"`
-}
-
-type ComponentEndpointSpec struct {
-	Name         string                 `json:"name"`
-	ClassName    string                 `json:"className"`
-	Type         EndpointType           `json:"type"`
-	RESTEndpoint *ComponentRESTEndpoint `json:"rest,omitempty"`
-}
-
-type ComponentRESTEndpoint struct {
-	Backend    ComponentHTTPBackend    `json:"backend,omitempty"`
-	Operations []RESTEndpointOperation `json:"operations,omitempty"`
-}
-
-type ComponentHTTPBackend struct {
-	Port     int32  `json:"port"`
-	BasePath string `json:"basePath,omitempty"`
-
-	// Other backend configurations can be added here. E.g., Retry policies, timeouts, etc.
+	Type ComponentType `json:"type"`
 }
 
 // ComponentV2Status defines the observed state of ComponentV2.

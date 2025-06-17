@@ -22,6 +22,7 @@ resources:
   - bases/core.choreo.dev_endpointclasses.yaml
   - bases/core.choreo.dev_endpointreleases.yaml
   - bases/core.choreo.dev_gitcommitrequests.yaml
+  - bases/core.choreo.dev_workloadbindings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

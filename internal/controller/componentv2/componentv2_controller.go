@@ -61,14 +61,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	//_ = comp.DeepCopy()
-
-	if res, err := r.reconcileWorkload(ctx, comp); err != nil || res.Requeue {
-		return res, err
-	}
-
-	if res, err := r.reconcileEndpoints(ctx, comp); err != nil || res.Requeue {
-		return res, err
-	}
+	//
+	//if res, err := r.reconcileWorkload(ctx, comp); err != nil || res.Requeue {
+	//	return res, err
+	//}
+	//
+	//if res, err := r.reconcileEndpoints(ctx, comp); err != nil || res.Requeue {
+	//	return res, err
+	//}
 	return ctrl.Result{}, nil
 }
 
@@ -90,7 +90,7 @@ func (r *Reconciler) reconcileWorkload(ctx context.Context, comp *choreov1.Compo
 		workload := r.makeWorkload(comp)
 		gitCommitReq := &choreov1.GitCommitRequest{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeWorkloadGitCommitRequestName(comp, workload.Spec.EnvironmentName),
+				//Name:      makeWorkloadGitCommitRequestName(comp, workload.Spec.EnvironmentName),
 				Namespace: comp.Namespace,
 			},
 		}
@@ -148,8 +148,8 @@ func (r *Reconciler) makeWorkload(comp *choreov1.ComponentV2) *choreov1.Workload
 				ProjectName:   comp.Spec.Owner.ProjectName,
 				ComponentName: comp.Name,
 			},
-			EnvironmentName:      "development",
-			WorkloadTemplateSpec: comp.Spec.Workload,
+			//EnvironmentName:      "development",
+			//WorkloadTemplateSpec: comp.Spec.Workload,
 		},
 	}
 }
@@ -162,7 +162,7 @@ func (r *Reconciler) makeGitCommitRequestForWorkload(comp *choreov1.ComponentV2,
 		workloadYAML = fmt.Sprintf("# Error generating YAML: %v", err)
 	}
 
-	envName := workload.Spec.EnvironmentName
+	envName := "development" // TODO: Replace with actual environment name from component spec or context
 	filePath := fmt.Sprintf("applications/projects/%s/components/%s/overlays/%s/workload.yaml",
 		comp.Spec.Owner.ProjectName, comp.Name, envName)
 	message := fmt.Sprintf("Update workload for component %s in %s environment", comp.Name, envName)

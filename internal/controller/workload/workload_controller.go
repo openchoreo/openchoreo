@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
-	"github.com/openchoreo/openchoreo/internal/controller/workload/render"
 )
 
 // Reconciler reconciles a Workload object
@@ -28,6 +27,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloadbindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -53,41 +53,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Find the associated WorkloadClass
-	workloadClassName := workload.Spec.WorkloadTemplateSpec.ClassName
-	workloadClass := &choreov1.WorkloadClass{}
-	if err := r.Get(ctx, client.ObjectKey{
-		Namespace: workload.Namespace,
-		Name:      workloadClassName,
-	}, workloadClass); err != nil {
-		logger.Error(err, "Failed to get WorkloadClass", "workloadClassName", workloadClassName)
-		return ctrl.Result{}, err
-	}
+	//workloadClassName := workload.Spec.WorkloadTemplateSpec.ClassName
+	//workloadClass := &choreov1.WorkloadClass{}
+	//if err := r.Get(ctx, client.ObjectKey{
+	//	Namespace: workload.Namespace,
+	//	Name:      workloadClassName,
+	//}, workloadClass); err != nil {
+	//	logger.Error(err, "Failed to get WorkloadClass", "workloadClassName", workloadClassName)
+	//	return ctrl.Result{}, err
+	//}
 
 	// TODO: Improve this to only list endpoints that are relevant to this workload
 	// Find associated EndpointV2 resources for this workload
-	var endpoints []choreov1.EndpointV2
-	endpointList := &choreov1.EndpointV2List{}
-	if err := r.List(ctx, endpointList, client.InNamespace(workload.Namespace)); err != nil {
-		logger.Error(err, "Failed to list EndpointV2 resources")
-		return ctrl.Result{}, err
-	}
+	//var endpoints []choreov1.EndpointV2
+	//endpointList := &choreov1.EndpointV2List{}
+	//if err := r.List(ctx, endpointList, client.InNamespace(workload.Namespace)); err != nil {
+	//	logger.Error(err, "Failed to list EndpointV2 resources")
+	//	return ctrl.Result{}, err
+	//}
 
 	// Filter endpoints that belong to this workload's component
-	for _, endpoint := range endpointList.Items {
-		if endpoint.Spec.Owner.ProjectName == workload.Spec.Owner.ProjectName &&
-			endpoint.Spec.Owner.ComponentName == workload.Spec.Owner.ComponentName &&
-			endpoint.Spec.EnvironmentName == workload.Spec.EnvironmentName {
-			endpoints = append(endpoints, endpoint)
-		}
-	}
+	//for _, endpoint := range endpointList.Items {
+	//	if endpoint.Spec.Owner.ProjectName == workload.Spec.Owner.ProjectName &&
+	//		endpoint.Spec.Owner.ComponentName == workload.Spec.Owner.ComponentName &&
+	//		endpoint.Spec.EnvironmentName == workload.Spec.EnvironmentName {
+	//		endpoints = append(endpoints, endpoint)
+	//	}
+	//}
 
-	rCtx := &render.Context{
-		Workload:      workload,
-		WorkloadClass: workloadClass,
-		Endpoints:     endpoints,
-	}
-
-	if res, err := r.reconcileWorkloadRelease(ctx, rCtx); err != nil || res.Requeue {
+	if res, err := r.reconcileWorkloadBinding(ctx, workload); err != nil || res.Requeue {
 		return res, err
 	}
 
@@ -95,66 +89,43 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileWorkloadRelease reconciles the WorkloadRelease associated with the Workload.
-func (r *Reconciler) reconcileWorkloadRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
+func (r *Reconciler) reconcileWorkloadBinding(ctx context.Context, workload *choreov1.Workload) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	workloadRelease := &choreov1.WorkloadRelease{
+	workloadBinding := &choreov1.WorkloadBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rCtx.Workload.Name,
-			Namespace: rCtx.Workload.Namespace,
+			Name:      workload.Name,
+			Namespace: workload.Namespace,
 		},
 	}
-
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, workloadRelease, func() error {
-		workloadRelease.Spec = r.makeWorkloadRelease(rCtx).Spec
-		if len(rCtx.Errors()) > 0 {
-			err := rCtx.Error()
-			return err
-		}
-		return controllerutil.SetControllerReference(rCtx.Workload, workloadRelease, r.Scheme)
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, workloadBinding, func() error {
+		workloadBinding.Spec = r.makeWorkloadBinding(workload).Spec
+		return controllerutil.SetControllerReference(workload, workloadBinding, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile WorkloadRelease", "WorkloadRelease", workloadRelease.Name)
+		logger.Error(err, "Failed to reconcile Workload", "Workload", workload.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled WorkloadRelease", "WorkloadRelease", workloadRelease.Name, "Operation", op)
-		return ctrl.Result{}, nil // TODO: Requeue = true
+		logger.Info("Successfully reconciled Workload", "Workload", workload.Name, "Operation", op)
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeWorkloadRelease(rCtx *render.Context) *choreov1.WorkloadRelease {
-	wr := &choreov1.WorkloadRelease{
+func (r *Reconciler) makeWorkloadBinding(workload *choreov1.Workload) *choreov1.WorkloadBinding {
+	wb := &choreov1.WorkloadBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rCtx.Workload.Name,
-			Namespace: rCtx.Workload.Namespace,
+			Name:      workload.Name,
+			Namespace: workload.Namespace,
 		},
-		Spec: choreov1.WorkloadReleaseSpec{
-			Owner: choreov1.WorkloadReleaseOwner{
-				ProjectName:   rCtx.Workload.Spec.Owner.ProjectName,
-				ComponentName: rCtx.Workload.Name,
-			},
-			EnvironmentName: rCtx.Workload.Spec.EnvironmentName,
-			Type:            rCtx.Workload.Spec.Type,
+		Spec: choreov1.WorkloadBindingSpec{
+			EnvironmentName: "development",
+			WorkloadSpec:    workload.Spec,
 		},
 	}
-
-	var resources []choreov1.Resource
-
-	// Add Deployment resource
-	if res := render.Deployment(rCtx); res != nil {
-		resources = append(resources, *res)
-	}
-
-	// Add Service resource
-	if res := render.Service(rCtx); res != nil {
-		resources = append(resources, *res)
-	}
-
-	wr.Spec.Resources = resources
-	return wr
+	return wb
 }
 
 // SetupWithManager sets up the controller with the Manager.

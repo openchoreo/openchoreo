@@ -18,102 +18,134 @@ spec:
   #        value: "0"
   owner:
     projectName: default-project
+  type: Service
 
   # Defines how the component is configured during deployment
-  workload:
-    className: go-service-standard
-    # Defines how to deploy the component
-    type: Service
-    image: ghcr.io/openchoreo/samples/greeter-service:latest
-    command: [ "./go-greeter" ]
-    args: [ "--port", "9090" ]
-    env:
-      - key: LOG_LEVEL
-        value: "info"
-      - key: GITHUB_REPOSITORY
-        valueFrom:
-          configurationGroupRef:
-            name: github
-            key: repository
-      - key: GITHUB_TOKEN
-        valueFrom:
-          configurationGroupRef:
-            name: github
-            key: pat
-    envFrom: [ ]
-    fileMounts: [ ]
-    fileMountsFrom: [ ]
+#  workload:
+#    className: go-service-standard
+#    # Defines how to deploy the component
+#    type: Service
+#    image: ghcr.io/openchoreo/samples/greeter-service:latest
+#    command: [ "./go-greeter" ]
+#    args: [ "--port", "9090" ]
+#    env:
+#      - key: LOG_LEVEL
+#        value: "info"
+#      - key: GITHUB_REPOSITORY
+#        valueFrom:
+#          configurationGroupRef:
+#            name: github
+#            key: repository
+#      - key: GITHUB_TOKEN
+#        valueFrom:
+#          configurationGroupRef:
+#            name: github
+#            key: pat
+#    envFrom: [ ]
+#    fileMounts: [ ]
+#    fileMountsFrom: [ ]
 
-  endpoints:
-    - name: rest-api
-#      className: rest-api-standard
-      type: REST
-      rest:
-        backend:
-          port: 9090
-          basePath: /api/v1
-        operations:
-          - method: GET
-            path: /reading-list
-            description: Get all books in the reading list
-            scopes: [ "books:read" ]
-            exposeLevels: [ "Organization", "Public" ]
-          - method: POST
-            path: /reading-list
-            description: Add a book to the reading list
-            scopes: [ "books:write" ]
-            exposeLevels: [ "Organization", "Public" ]
-          - method: GET
-            path: /reading-list/{id}
-            description: Get a book from the reading list by ID
-            scopes: [ "books:read" ]
-            exposeLevels: [ "Organization", "Public" ]
-          - method: PUT
-            path: /reading-list/{id}
-            description: Update a book in the reading list by ID
-            scopes: [ "books:write" ]
-            exposeLevels: [ "Organization", "Public" ]
-          - method: DELETE
-            path: /reading-list/{id}
-            description: Delete a book from the reading list by ID
-            scopes: [ "books:write" ]
-            exposeLevels: [ "Organization", "Public" ]
-          - method: DELETE
-            path: /reading-list
-            description: Delete all books from the reading list
-            scopes: [ "books:write" ]
-            exposeLevels: [ "Organization" ]
-      grpc: { }  # Placeholder for gRPC configuration if needed
+#  endpoints:
+#    - name: rest-api
+#      #      className: rest-api-standard
+#      type: REST
+#      rest:
+#        backend:
+#          port: 9090
+#          basePath: /api/v1
+#        operations:
+#          - method: GET
+#            path: /reading-list
+#            description: Get all books in the reading list
+#            scopes: [ "books:read" ]
+#            exposeLevels: [ "Organization", "Public" ]
+#          - method: POST
+#            path: /reading-list
+#            description: Add a book to the reading list
+#            scopes: [ "books:write" ]
+#            exposeLevels: [ "Organization", "Public" ]
+#          - method: GET
+#            path: /reading-list/{id}
+#            description: Get a book from the reading list by ID
+#            scopes: [ "books:read" ]
+#            exposeLevels: [ "Organization", "Public" ]
+#          - method: PUT
+#            path: /reading-list/{id}
+#            description: Update a book in the reading list by ID
+#            scopes: [ "books:write" ]
+#            exposeLevels: [ "Organization", "Public" ]
+#          - method: DELETE
+#            path: /reading-list/{id}
+#            description: Delete a book from the reading list by ID
+#            scopes: [ "books:write" ]
+#            exposeLevels: [ "Organization", "Public" ]
+#          - method: DELETE
+#            path: /reading-list
+#            description: Delete all books from the reading list
+#            scopes: [ "books:write" ]
+#            exposeLevels: [ "Organization" ]
+#      grpc: { }  # Placeholder for gRPC configuration if needed
 
-# Defines how the component consume platform resources and other components
-  connections:
-    databases:
-      - name: orders-db            # logical handle developers use in code
-        ref:                       # claim → actual Postgres instance
-          kind: DatabaseClaim
-          name: postgres-gold
-        inject:                    # ⇦ mapping block
-          as: env                  # env | file | both (default = env)
-          prefix: ORDERS_DB_       # override default prefix (optional)
-          filesPath: /etc/bindings/orders-db   # if you choose file mount
-          vars:                    # optional explicit map (see §3.b)
-            url: DATABASE_URL
-            username: DB_USER
-            password: DB_PASSWORD
-    caches: []
-    messageBrokers: []
-
-
-
-
-
-
-
-
-#      grpc: { }
-#      tcp: { }
+  # Defines how the component consume platform resources and other components
+#  connections:
+#    databases:
+#      - name: orders-db            # logical handle developers use in code
+#        ref: # claim → actual Postgres instance
+#          kind: DatabaseClaim
+#          name: postgres-gold
+#        inject: # ⇦ mapping block
+#          as: env                  # env | file | both (default = env)
+#          prefix: ORDERS_DB_       # override default prefix (optional)
+#          filesPath: /etc/bindings/orders-db   # if you choose file mount
+#          vars: # optional explicit map (see §3.b)
+#            url: DATABASE_URL
+#            username: DB_USER
+#            password: DB_PASSWORD
+#    caches: [ ]
+#    messageBrokers: [ ]
 
 ---
+
+apiVersion: core.choreo.dev/v1
+kind: Workload
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  className: go-service-standard
+  type: Service
+  containers:
+    main:
+      image: ghcr.io/openchoreo/samples/greeter-service:latest
+      command:
+        - ./go-greeter
+      args:
+        - --port
+        - "9090"
+      env:
+        - key: LOG_LEVEL
+          value: info
+        - key: GITHUB_REPOSITORY
+          valueFrom:
+            configurationGroupRef:
+              key: repository
+              name: github
+        - key: GITHUB_TOKEN
+          valueFrom:
+            configurationGroupRef:
+              key: pat
+              name: github
+  endpoints:
+    rest-api:
+      protocol: TCP
+      port: 9090
+  connections: { } # How does this look like?
+
+
+
+
 
 # Defines how the component consume platform resources and other components
 #  connections:
@@ -135,5 +167,3 @@ spec:
 
 # Defines how the component exposes its functionality
 #  apis: { }
-
-

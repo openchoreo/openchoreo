@@ -15,7 +15,7 @@ import (
 // Deployment creates a complete Deployment resource for the new Resources array
 func Deployment(rCtx *Context) *choreov1.Resource {
 	var base appsv1.DeploymentSpec
-	wlType := rCtx.Workload.Spec.Type
+	wlType := rCtx.WorkloadBinding.Spec.WorkloadSpec.Type
 	switch wlType {
 	case choreov1.WorkloadTypeService:
 		base = rCtx.WorkloadClass.Spec.ServiceWorkload.DeploymentTemplate
@@ -66,13 +66,13 @@ func makeWorkloadDeploymentSpec(rCtx *Context) appsv1.DeploymentSpec {
 }
 
 func makeDeploymentName(rCtx *Context) string {
-	return dpkubernetes.GenerateK8sName(rCtx.Workload.Name)
+	return dpkubernetes.GenerateK8sName(rCtx.WorkloadBinding.Name)
 }
 
 func makeNamespaceName(rCtx *Context) string {
-	organizationName := rCtx.Workload.Namespace // Namespace is the organization name
-	projectName := rCtx.Workload.Spec.Owner.ProjectName
-	environmentName := rCtx.Workload.Spec.EnvironmentName
+	organizationName := rCtx.WorkloadBinding.Namespace // Namespace is the organization name
+	projectName := rCtx.WorkloadBinding.Spec.WorkloadSpec.Owner.ProjectName
+	environmentName := rCtx.WorkloadBinding.Spec.EnvironmentName
 	// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
 		"dp", organizationName, projectName, environmentName)
@@ -80,5 +80,5 @@ func makeNamespaceName(rCtx *Context) string {
 
 // TODO: Find a better way to generate resource IDs
 func makeDeploymentResourceId(rCtx *Context) string {
-	return rCtx.Workload.Name + "-deployment"
+	return rCtx.WorkloadBinding.Name + "-deployment"
 }

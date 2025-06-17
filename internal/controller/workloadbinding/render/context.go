@@ -10,9 +10,9 @@ import (
 )
 
 type Context struct {
-	Workload      *choreov1.Workload
-	WorkloadClass *choreov1.WorkloadClass
-	Endpoints     []choreov1.EndpointV2
+	WorkloadBinding *choreov1.WorkloadBinding
+	WorkloadClass   *choreov1.WorkloadClass
+	Endpoints       []choreov1.EndpointV2
 
 	// Stores the errors encountered during rendering.
 	errs []error

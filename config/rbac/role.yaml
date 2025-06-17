@@ -106,6 +106,7 @@ rules:
   - gitcommitrequests
   - organizations
   - projects
+  - workloadbindings
   - workloadclasses
   - workloadreleases
   - workloads
@@ -136,6 +137,7 @@ rules:
   - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - workloadbindings/finalizers
   - workloadclasses/finalizers
   - workloadreleases/finalizers
   - workloads/finalizers
@@ -160,6 +162,7 @@ rules:
   - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - workloadbindings/status
   - workloadclasses/status
   - workloadreleases/status
   - workloads/status

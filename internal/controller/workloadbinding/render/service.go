@@ -15,7 +15,7 @@ import (
 // Service creates a complete Service resource for the new Resources array
 func Service(rCtx *Context) *choreov1.Resource {
 	var base corev1.ServiceSpec
-	wlType := rCtx.Workload.Spec.Type
+	wlType := rCtx.WorkloadBinding.Spec.WorkloadSpec.Type
 	switch wlType {
 	case choreov1.WorkloadTypeService:
 		base = rCtx.WorkloadClass.Spec.ServiceWorkload.ServiceTemplate
@@ -65,9 +65,9 @@ func makeWorkloadServiceSpec(rCtx *Context) corev1.ServiceSpec {
 }
 
 func makeServiceName(rCtx *Context) string {
-	return dpkubernetes.GenerateK8sName(rCtx.Workload.Name)
+	return dpkubernetes.GenerateK8sName(rCtx.WorkloadBinding.Name)
 }
 
 func makeServiceResourceId(rCtx *Context) string {
-	return rCtx.Workload.Name + "-service"
+	return rCtx.WorkloadBinding.Name + "-service"
 }

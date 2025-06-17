@@ -10,6 +10,38 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// Container represents a single container in the workload.
+type Container struct {
+	// OCI image to run (digest or tag).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Image string `json:"image"`
+
+	// Container entrypoint & args.
+	// +optional
+	Command []string `json:"command,omitempty"`
+	// +optional
+	Args []string `json:"args,omitempty"`
+
+	// Explicit environment variables.
+	// +optional
+	Env []EnvVar `json:"env,omitempty"`
+}
+
+// WorkloadEndpoint represents a simple network endpoint for basic exposure.
+type WorkloadEndpoint struct {
+	// Network protocol (TCP, UDP, etc.).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Protocol string `json:"protocol"`
+
+	// Port number for the endpoint.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -20,28 +52,20 @@ type WorkloadTemplateSpec struct {
 
 	Type WorkloadType `json:"type"`
 
-	// OCI image to run (digest or tag).
-	Image string `json:"image"`
-
-	// Container entrypoint & args.
-	Command []string `json:"command,omitempty"`
-	Args    []string `json:"args,omitempty"`
-
-	// Explicit environment variables.
+	// Containers define the container specifications for this workload.
+	// The key is the container name, and the value is the container specification.
 	// +optional
-	Env []EnvVar `json:"env,omitempty"`
+	Containers map[string]Container `json:"containers,omitempty"`
 
-	// Bulk import environment variables from references.
+	// Endpoints define simple network endpoints for basic port exposure.
+	// The key is the endpoint name, and the value is the endpoint specification.
 	// +optional
-	EnvFrom []EnvFromSource `json:"envFrom,omitempty"`
+	Endpoints map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
 
-	// Single-file mounts.
+	// Connections define how this workload connects to external resources.
+	// This is a placeholder for future connection management capabilities.
 	// +optional
-	FileMounts []FileMount `json:"fileMounts,omitempty"`
-
-	// Bulk import file mounts from references.
-	// +optional
-	FileMountsFrom []FileMountsFromSource `json:"fileMountsFrom,omitempty"`
+	Connections map[string]string `json:"connections,omitempty"`
 }
 
 type WorkloadOwner struct {
@@ -54,8 +78,6 @@ type WorkloadOwner struct {
 type WorkloadSpec struct {
 	Owner WorkloadOwner `json:"owner"`
 
-	// +kubebuilder:validation:MinLength=1
-	EnvironmentName string `json:"environmentName"`
 	// Inline *all* the template fields so they appear at top level.
 	WorkloadTemplateSpec `json:",inline"`
 }

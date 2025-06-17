@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
 
@@ -268,6 +269,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ComponentV2")
 		os.Exit(1)
 	}
+	if err = (&workloadclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadClass")
+		os.Exit(1)
+	}
 	if err = (&workload.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -275,11 +283,11 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Workload")
 		os.Exit(1)
 	}
-	if err = (&workloadclass.Reconciler{
+	if err = (&workloadbinding.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WorkloadClass")
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadBinding")
 		os.Exit(1)
 	}
 	if err = (&workloadrelease.Reconciler{
