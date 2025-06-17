@@ -85,8 +85,7 @@ metadata:
   namespace: default-org
 spec:
   registry:
-    unauthenticated:
-      - registry.choreo-system:5000
+    prefix: registry.choreo-system:5000
   gateway:
     organizationVirtualHost: choreoapis.internal
     publicVirtualHost: choreoapis.localhost

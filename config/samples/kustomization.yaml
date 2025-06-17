@@ -15,5 +15,5 @@ resources:
   - core_v1_deployment.yaml
   - core_v1_endpoint.yaml
   - core_v1_configurationgroup.yaml
-- core_v1_buildplane.yaml
+  - core_v1_buildplane.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

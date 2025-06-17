@@ -113,23 +113,6 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
-  - buildplanes/finalizers
-  - builds/finalizers
-  - components/finalizers
-  - dataplanes/finalizers
-  - deployableartifacts/finalizers
-  - deploymentpipelines/finalizers
-  - deployments/finalizers
-  - deploymenttracks/finalizers
-  - endpoints/finalizers
-  - environments/finalizers
-  - organizations/finalizers
-  - projects/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - core.choreo.dev
-  resources:
   - buildplanes/status
   - builds/status
   - components/status
@@ -145,6 +128,22 @@ rules:
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - builds/finalizers
+  - components/finalizers
+  - dataplanes/finalizers
+  - deployableartifacts/finalizers
+  - deploymentpipelines/finalizers
+  - deployments/finalizers
+  - deploymenttracks/finalizers
+  - endpoints/finalizers
+  - environments/finalizers
+  - organizations/finalizers
+  - projects/finalizers
+  verbs:
   - update
 - apiGroups:
   - core.choreo.dev
