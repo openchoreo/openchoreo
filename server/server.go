@@ -4,13 +4,17 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/openchoreo/openchoreo/server/middleware"
 	"github.com/openchoreo/openchoreo/server/pkg/logging"
@@ -22,12 +26,40 @@ const (
 	labelTemplate = "core.choreo.dev"
 )
 
-type ServerOptions struct {
-	Port int
-}
-
 type resourceHandler struct {
 	proxy *httputil.ReverseProxy
+}
+
+type Server struct {
+	srv    *http.Server
+	port   int
+	logger *logging.Logger
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		s.logger.Info("Starting server on :" + strconv.Itoa(s.port))
+		if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.logger.Error("Server error", "error", err)
+		}
+	}()
+
+	<-ctx.Done()
+	s.logger.Info("Received shutdown signal, gracefully shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var err error
+	if err = s.Shutdown(shutdownCtx); err != nil {
+		s.logger.Error("Error during server shutdown", "error", err)
+	} else {
+		s.logger.Info("Server gracefully shut down")
+	}
+	return err
 }
 
 func createReverseProxy() *httputil.ReverseProxy {
@@ -105,16 +137,33 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.proxy.ServeHTTP(w, r)
 }
 
-// NewServer returns a new Choreo api server instance that can be started by the caller
-func NewServer(logger *logging.Logger, serverOptions ServerOptions) *http.Server {
+// NewServer returns a new Choreo api server instance
+func New(logger *logging.Logger, opts ...Option) *Server {
 	newMux := http.NewServeMux()
 	var h http.Handler = newResourceHandler()
 	h = middleware.WithRequestInfo(h)
 	h = middleware.WithLogging(h, logger)
 	h = middleware.WithTracing(h)
 	newMux.Handle("/api/v1/", h)
-	return &http.Server{
-		Addr:    "0.0.0.0:" + strconv.Itoa(serverOptions.Port),
+
+	srv := &Server{
+		port:   8080,
+		logger: logger,
+	}
+
+	for _, opt := range opts {
+		opt(srv)
+	}
+
+	srv.srv = &http.Server{
+		Addr:    "0.0.0.0:" + strconv.Itoa(srv.port),
 		Handler: newMux,
 	}
+
+	return srv
+}
+
+// Shutdown gracefully shuts down the server
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
 }
