@@ -6,18 +6,17 @@ package kubernetes
 import (
 	"encoding/base64"
 	"fmt"
-	"sync"
-
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sync"
+
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // KubeMultiClientManager maintains a cache of Kubernetes clients keyed by a unique identifier.
@@ -31,6 +30,16 @@ func NewManager() *KubeMultiClientManager {
 	return &KubeMultiClientManager{
 		clients: make(map[string]client.Client),
 	}
+}
+
+func init() {
+	_ = scheme.AddToScheme(scheme.Scheme)
+	_ = choreov1.AddToScheme(scheme.Scheme)
+	_ = ciliumv2.AddToScheme(scheme.Scheme)
+	_ = gwapiv1.Install(scheme.Scheme)
+	_ = egv1a1.AddToScheme(scheme.Scheme)
+	_ = csisecretv1.Install(scheme.Scheme)
+	_ = argo.AddToScheme(scheme.Scheme)
 }
 
 // GetClient returns an existing Kubernetes client or creates one using the provided credentials.
@@ -66,14 +75,6 @@ func (m *KubeMultiClientManager) GetClient(key string, creds choreov1.APIServerC
 			KeyData:  clientKey,
 		},
 	}
-
-	// Register necessary schemes
-	_ = scheme.AddToScheme(scheme.Scheme)
-	_ = ciliumv2.AddToScheme(scheme.Scheme)
-	_ = gwapiv1.Install(scheme.Scheme)
-	_ = egv1a1.AddToScheme(scheme.Scheme)
-	_ = csisecretv1.Install(scheme.Scheme)
-	_ = argo.AddToScheme(scheme.Scheme)
 
 	// Create the new client
 	cl, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme})
