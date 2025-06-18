@@ -45,7 +45,8 @@ Enabling builds to run on any specified cluster gives users greater control over
 
 ## Non-Goals
 
-- No current non-goals.
+- Multi-BuildPlane scheduling and prioritization logic are deferred to a future phase.
+- This proposal does not contain image pull logic; it focuses solely on build execution and image pushing.
 
 ---
 
@@ -60,18 +61,14 @@ Enabling builds to run on any specified cluster gives users greater control over
 
 ## Design
 
-The `BuildPlane` is a dedicated environment for executing CI workflows such as:
-
-- Building container images
-- Running unit/integration tests
-- Publishing build artifacts
+A `BuildPlane` represents an execution environment for build-related workloads (e.g., building container images, running tests, publishing artifacts). It is backed by a Kubernetes cluster and integrated via Argo Workflows.
 
 It operates via Argo Workflows within its own Kubernetes cluster, separate from both the Control Plane and Data Plane. Each `BuildPlane` is registered using a `BuildPlane` CR, which contains the connection details needed by the Control Plane to delegate build executions.
 
 **Key Benefit**:  
 Resource isolation: build workloads do not compete with runtime workloads for cluster resources.
 
-> **Note**: A DataPlane can also serve as a BuildPlane in certain configurations.
+> **Note**: A DataPlane cluster can act as a BuildPlane if explicitly configured.
 
 ---
 
@@ -79,14 +76,15 @@ Resource isolation: build workloads do not compete with runtime workloads for cl
 
 1. Each Component is linked to a single `BuildPlane`.
 2. An organization may have multiple `BuildPlanes`, but must define one as the default.
-    - Projects or future sub-organization features can override this default.
-3. All container registries listed in the `BuildPlane` are used for image pushing — even if not all are linked to the current component.
+   - Future enhancements (e.g., project-level overrides) can customize this default.
+3. All container registries listed in the `BuildPlane` are used for image pushing.
+   - Even if not all registries are linked to the component being built.
 
-> **Initial Limitation**: Only one `BuildPlane` per organization will be supported at launch. Multi-`BuildPlane` support will be added in future phases.
+> **Initial Limitation**: Only one BuildPlane per organization is supported in the initial implementation. Multi-BuildPlane feature will be introduced in future phases.
 
 ---
 
-### CRDs
+### CRDs Definitions
 
 #### BuildPlane
 
@@ -94,21 +92,21 @@ Resource isolation: build workloads do not compete with runtime workloads for cl
 apiVersion: core.choreo.dev
 kind: BuildPlane
 metadata:
-  name: example-buildplane
+   name: example-buildplane
 spec:
-  # References to ContainerRegistry CRs used for image push operations
-  registries:
-    - prefix: docker.io/namespace
-      secretRef: docker-push-secret
-    - prefix: ghcr.io/namespace
-      secretRef: ghcr-push-secret
-  kubernetesCluster:
-    name: test-cluster
-    credentials:
-      apiServerUrl: https://api.example-cluster
-      caCert: <base64-ca-cert>
-      clientCert: <base64-client-cert>
-      clientKey: <base64-client-key>
+   # References to ContainerRegistry CRs used for image push operations
+   registries:
+      - prefix: docker.io/namespace
+        secretRef: docker-push-secret
+      - prefix: ghcr.io/namespace
+        secretRef: ghcr-push-secret
+   kubernetesCluster:
+      name: test-cluster
+      credentials:
+         apiServerUrl: https://api.example-cluster
+         caCert: <base64-ca-cert>
+         clientCert: <base64-client-cert>
+         clientKey: <base64-client-key>
 ```
 
 #### DataPlane
@@ -117,17 +115,17 @@ spec:
 apiVersion: core.choreo.dev
 kind: DataPlane
 metadata:
-  name: example-dataplane
+   name: example-dataplane
 spec:
-  # Reference to ContainerRegistry CR used for pulling images
-  registry:
-    prefix: docker.io/namespace
-    secretRef: dockerhub-pull-secret
-  kubernetesCluster:
-    name: test-cluster
-    credentials:
-      apiServerUrl: https://api.example-cluster
-      caCert: <base64-ca-cert>
-      clientCert: <base64-client-cert>
-      clientKey: <base64-client-key>
+   # Reference to ContainerRegistry CR used for pulling images
+   registry:
+      prefix: docker.io/namespace
+      secretRef: dockerhub-pull-secret
+   kubernetesCluster:
+      name: test-cluster
+      credentials:
+         apiServerUrl: https://api.example-cluster
+         caCert: <base64-ca-cert>
+         clientCert: <base64-client-cert>
+         clientKey: <base64-client-key>
 ```
