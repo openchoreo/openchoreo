@@ -29,12 +29,6 @@ func imageName() string {
 func newTestBuildContext() *integrations.BuildContext {
 	buildCtx := &integrations.BuildContext{}
 
-	buildCtx.Registry = choreov1.Registry{
-		Unauthenticated: []string{
-			"registry.choreo-system:5000",
-		},
-	}
-
 	buildCtx.Component = &choreov1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-component",
@@ -133,19 +127,35 @@ func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integration
 	return buildCtx
 }
 
-func newBuildContextWithRegistries(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.Registry = choreov1.Registry{
-		Unauthenticated: []string{
-			"registry.choreo-system:5000",
-		},
-		ImagePushSecrets: []choreov1.ImagePushSecret{
-			{
-				Name:   "dev-dockerhub-push-secret",
-				Prefix: "docker.io/test-org",
+func newBuildContextWithBuildPlane(buildCtx *integrations.BuildContext) *integrations.BuildContext {
+	buildCtx.BuildPlane = &choreov1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-buildplane",
+			Namespace: "test-organization",
+			Labels: map[string]string{
+				labels.LabelKeyOrganizationName: "test-organization",
+				labels.LabelKeyName:             "test-buildplane",
 			},
-			{
-				Name:   "prod-ghcr-push-secret",
-				Prefix: "ghcr.io/test-org",
+		},
+		Spec: choreov1.BuildPlaneSpec{
+			Registries: []choreov1.Registry{
+				{
+					Prefix:    "docker.io/test-org",
+					SecretRef: "dev-dockerhub-push-secret",
+				},
+				{
+					Prefix:    "ghcr.io/test-org",
+					SecretRef: "dev-ghcr-push-secret",
+				},
+			},
+			KubernetesCluster: choreov1.KubernetesClusterSpec{
+				Name: "test-buildplane",
+				Credentials: choreov1.APIServerCredentials{
+					APIServerURL: "https://choreo-build-plane:6443",
+					CACert:       "xxx",
+					ClientCert:   "xxx",
+					ClientKey:    "xxx",
+				},
 			},
 		},
 	}

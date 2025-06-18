@@ -4,7 +4,6 @@
 package environment
 
 import (
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,8 +34,6 @@ var _ = Describe("Environment Controller", func() {
 			Name: orgName,
 		},
 	}
-
-	dpClientMgr := dpKubernetes.NewManager()
 
 	BeforeEach(func() {
 		By("Creating and reconciling organization resource", func() {
@@ -119,10 +116,9 @@ var _ = Describe("Environment Controller", func() {
 
 		By("Reconciling the environment resource", func() {
 			envReconciler := &Reconciler{
-				Client:      k8sClient,
-				DpClientMgr: dpClientMgr,
-				Scheme:      k8sClient.Scheme(),
-				Recorder:    record.NewFakeRecorder(100),
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(100),
 			}
 			result, err := envReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: envNamespacedName,
@@ -149,10 +145,9 @@ var _ = Describe("Environment Controller", func() {
 
 		By("Reconciling the environment resource after deletion - attempt 1 to update status conditions", func() {
 			envReconciler := &Reconciler{
-				Client:      k8sClient,
-				DpClientMgr: dpClientMgr,
-				Scheme:      k8sClient.Scheme(),
-				Recorder:    record.NewFakeRecorder(100),
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(100),
 			}
 			result, err := envReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: envNamespacedName,

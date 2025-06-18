@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
@@ -133,9 +133,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// Process workflow steps
 		isCompleted := r.handleBuildSteps(buildCtx.Build, existingWorkflow.Status.Nodes)
 
-		build2 := &choreov1.Build{}
-		r.Get(ctx, req.NamespacedName, build2)
-
 		// If we still have work in flight, schedule the next reconcile after updating conditions
 		if !isCompleted {
 			return r.handleRequeueAfterBuild(ctx, oldBuild, buildCtx.Build)
@@ -158,8 +155,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 		}
-		build2 := &choreov1.Build{}
-		r.Get(ctx, req.NamespacedName, build2)
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
 		r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)

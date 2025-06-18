@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/labels"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,11 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Endpoint object
