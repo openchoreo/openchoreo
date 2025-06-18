@@ -47,15 +47,15 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build)
 
 // finalize cleans up data plane resources associated with the build before deletion.
 // It is invoked when the build resource has the cleanup finalizer.
-func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Build, buildContext *integrations.BuildContext) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(build, CleanUpFinalizer) {
+func (r *Reconciler) finalize(ctx context.Context, oldBuild *choreov1.Build, buildContext *integrations.BuildContext) (ctrl.Result, error) {
+	if !controllerutil.ContainsFinalizer(buildContext.Build, CleanUpFinalizer) {
 		return ctrl.Result{}, nil
 	}
 
 	// Mark the build condition as finalizing and return so that the component will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&build.Status.Conditions, NewBuildFinalizingCondition(build.Generation)) {
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+	if meta.SetStatusCondition(&buildContext.Build.Status.Conditions, NewBuildFinalizingCondition(buildContext.Build.Generation)) {
+		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildContext.Build)
 	}
 
 	bpClient, err := r.getBPClient(ctx, buildContext)
@@ -64,7 +64,7 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 		logger.Error(err, "Error getting build plane client for finalizing")
 	} else {
 		// Delete Workflow resource if build plane exists
-		if err := deleteWorkflow(ctx, build, bpClient); err != nil {
+		if err := deleteWorkflow(ctx, buildContext.Build, bpClient); err != nil {
 			if !apierrors.IsNotFound(err) {
 				logger.Error(err, "Failed to delete workflow resource")
 			}
@@ -72,20 +72,20 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 	}
 
 	// Delete DeployableArtifact if it exists
-	if meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
-		err := r.deleteDeployableArtifact(ctx, build)
+	if meta.IsStatusConditionPresentAndEqual(buildContext.Build.Status.Conditions, string(ConditionDeployableArtifactCreated), metav1.ConditionTrue) {
+		err := r.deleteDeployableArtifact(ctx, buildContext.Build)
 		if err != nil {
-			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildContext.Build)
 		}
-		if meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactReferencesRemaining)) != nil {
-			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+		if meta.FindStatusCondition(buildContext.Build.Status.Conditions, string(ConditionDeployableArtifactReferencesRemaining)) != nil {
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildContext.Build)
 		}
 	}
 
 	// Remove the finalizer after successful cleanup
-	if controllerutil.RemoveFinalizer(build, CleanUpFinalizer) {
+	if controllerutil.RemoveFinalizer(buildContext.Build, CleanUpFinalizer) {
 		// Update the resource to reflect finalizer removal
-		if err := r.Update(ctx, build); err != nil {
+		if err := r.Update(ctx, buildContext.Build); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 	}

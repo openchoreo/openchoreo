@@ -87,15 +87,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Handle the deletion of the build
 	if !build.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing build")
-		return r.finalize(ctx, oldBuild, build, buildCtx)
+		return r.finalize(ctx, oldBuild, buildCtx)
 	}
 
 	// Ensure the finalizer is added to the build
-	if finalizerAdded, err := r.ensureFinalizer(ctx, build); err != nil || finalizerAdded {
+	if finalizerAdded, err := r.ensureFinalizer(ctx, buildCtx.Build); err != nil || finalizerAdded {
 		return ctrl.Result{}, err
 	}
 
-	if shouldIgnoreReconcile(build) {
+	if shouldIgnoreReconcile(buildCtx.Build) {
 		return ctrl.Result{}, nil
 	}
 
@@ -129,45 +129,51 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if isBuildWorkflowRunning(build) {
-		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
+	if isBuildWorkflowRunning(buildCtx.Build) {
+		// Process workflow steps
+		isCompleted := r.handleBuildSteps(buildCtx.Build, existingWorkflow.Status.Nodes)
 
-		if requeue {
-			return r.handleRequeueAfterBuild(ctx, oldBuild, build)
+		build2 := &choreov1.Build{}
+		r.Get(ctx, req.NamespacedName, build2)
+
+		// If we still have work in flight, schedule the next reconcile after updating conditions
+		if !isCompleted {
+			return r.handleRequeueAfterBuild(ctx, oldBuild, buildCtx.Build)
 		}
 
-		// When ci workflow is completed, it is required to update conditions
-		if oldBuild.Status.ImageStatus.Image != buildCtx.Build.Status.ImageStatus.Image ||
-			controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
-			if err := r.Status().Update(ctx, build); err != nil {
-				logger.Error(err, "Failed to update build status")
-				return ctrl.Result{}, err
-			}
+		// Push any status changes back to the API
+		if err := r.updateBuildStatus(ctx, logger, oldBuild, buildCtx.Build); err != nil {
+			return ctrl.Result{}, err
 		}
+
+		// No further workflow progress needed, requeue once to allow next phase
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if shouldCreateDeployableArtifact(buildCtx.Build) {
 		requeue, err := r.createDeployableArtifact(ctx, buildCtx)
 		if requeue {
-			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 		}
 		if err != nil {
-			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 		}
+		build2 := &choreov1.Build{}
+		r.Get(ctx, req.NamespacedName, build2)
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
 		r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 	}
 
 	requeue, err := r.handleAutoDeployment(ctx, buildCtx)
 	if requeue {
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 	} else if err != nil {
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildFailedCondition(buildCtx.Build.Generation))
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 	}
 	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildCompletedCondition(buildCtx.Build.Generation))
-	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -185,6 +191,23 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("build").
 		Owns(&choreov1.DeployableArtifact{}).
 		Complete(r)
+}
+
+// updateBuildStatus centralizes Status().Update logic
+func (r *Reconciler) updateBuildStatus(
+	ctx context.Context,
+	logger logr.Logger,
+	old, build *choreov1.Build,
+) error {
+	imgChanged := old.Status.ImageStatus.Image != build.Status.ImageStatus.Image
+
+	if imgChanged {
+		if err := r.Status().Update(ctx, build); err != nil {
+			logger.Error(err, "Failed to update build status")
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*integrations.BuildContext, error) {
@@ -397,7 +420,6 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 		switch argointegrations.GetStepPhase(stepInfo.Phase) {
 		case integrations.Running:
 			markStepInProgress(build, step.conditionType)
-			return true
 		case integrations.Succeeded:
 			markStepSucceeded(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
@@ -409,17 +431,15 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 				} else {
 					build.Status.ImageStatus.Image = image
 				}
-				return false
+				return true
 			}
-			return true
 		case integrations.Failed:
 			markStepFailed(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
 			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFailedCondition(build.Generation))
-			return false
 		}
 	}
-	return true
+	return false
 }
 
 func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *integrations.BuildContext) (bool, error) {
