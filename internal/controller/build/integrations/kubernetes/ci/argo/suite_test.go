@@ -74,6 +74,33 @@ func newTestBuildContext() *integrations.BuildContext {
 		},
 	}
 
+	buildCtx.BuildPlane = &choreov1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-buildplane",
+			Namespace: "test-organization",
+			Labels: map[string]string{
+				labels.LabelKeyOrganizationName: "test-organization",
+				labels.LabelKeyName:             "test-buildplane",
+			},
+		},
+		Spec: choreov1.BuildPlaneSpec{
+			Registries: []choreov1.Registry{
+				{
+					Prefix: "registry.choreo-system:5000",
+				},
+			},
+			KubernetesCluster: choreov1.KubernetesClusterSpec{
+				Name: "test-buildplane",
+				Credentials: choreov1.APIServerCredentials{
+					APIServerURL: "https://choreo-build-plane:6443",
+					CACert:       "xxx",
+					ClientCert:   "xxx",
+					ClientKey:    "xxx",
+				},
+			},
+		},
+	}
+
 	return buildCtx
 }
 
@@ -127,7 +154,7 @@ func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integration
 	return buildCtx
 }
 
-func newBuildContextWithBuildPlane(buildCtx *integrations.BuildContext) *integrations.BuildContext {
+func newBuildContextWithRegistries(buildCtx *integrations.BuildContext) *integrations.BuildContext {
 	buildCtx.BuildPlane = &choreov1.BuildPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-buildplane",
@@ -139,6 +166,9 @@ func newBuildContextWithBuildPlane(buildCtx *integrations.BuildContext) *integra
 		},
 		Spec: choreov1.BuildPlaneSpec{
 			Registries: []choreov1.Registry{
+				{
+					Prefix: "registry.choreo-system:5000",
+				},
 				{
 					Prefix:    "docker.io/test-org",
 					SecretRef: "dev-dockerhub-push-secret",

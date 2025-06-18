@@ -395,7 +395,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 		})
 
 		It("should generate the correct image push script for multiple registries", func() {
-			buildCtx = newBuildContextWithBuildPlane(buildCtx)
+			buildCtx = newBuildContextWithRegistries(buildCtx)
 			expectedScript := fmt.Sprintf(`set -e
 GIT_REVISION={{inputs.parameters.git-revision}}
 mkdir -p /etc/containers
@@ -421,8 +421,8 @@ podman push docker.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/
 podman push ghcr.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json
 
 echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName(), imageName(),
-				imageName(), imageName(), imageName(), buildCtx.BuildPlane.Spec.Registries[0].SecretRef, imageName(),
-				buildCtx.BuildPlane.Spec.Registries[1].SecretRef, imageName())
+				imageName(), imageName(), imageName(), buildCtx.BuildPlane.Spec.Registries[1].SecretRef, imageName(),
+				buildCtx.BuildPlane.Spec.Registries[2].SecretRef, imageName())
 			authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
 			generatedScript := generatePushImageScript(imageName(), authRegistries, unauthRegistries)
 
@@ -431,6 +431,8 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 
 		It("should generate the correct image push script", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
+			// Ensure BuildPlane is initialized
+			buildCtx = newBuildContextWithRegistries(buildCtx)
 			authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
 			expectedScript := generatePushImageScript(imageName(), authRegistries, unauthRegistries)
 			pushStep := makePushStep(buildCtx)
@@ -446,7 +448,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			Expect(pushStep.Container.Command).To(Equal([]string{"sh", "-c"}))
 			Expect(pushStep.Container.Args).To(Equal([]string{expectedScript}))
 
-			Expect(pushStep.Container.VolumeMounts).To(HaveLen(1))
+			Expect(pushStep.Container.VolumeMounts).To(HaveLen(3))
 			Expect(pushStep.Container.VolumeMounts[0].Name).To(Equal("workspace"))
 			Expect(pushStep.Container.VolumeMounts[0].MountPath).To(Equal("/mnt/vol"))
 
@@ -468,6 +470,8 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 
 		It("should generate the correct Workflow spec", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
+			// Ensure BuildPlane is initialized
+			buildCtx = newBuildContextWithRegistries(buildCtx)
 			workflowSpec := makeWorkflowSpec(buildCtx, buildCtx.Component.Spec.Source.GitRepository.URL)
 
 			Expect(workflowSpec.ServiceAccountName).To(Equal("workflow-sa"))
@@ -494,7 +498,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			Expect(workflowSpec.VolumeClaimTemplates[0].ObjectMeta.Name).To(Equal("workspace"))
 			Expect(workflowSpec.VolumeClaimTemplates[0].Spec.Resources.Requests).To(HaveKeyWithValue(corev1.ResourceStorage, resource.MustParse("2Gi")))
 
-			Expect(workflowSpec.Volumes).To(HaveLen(1))
+			Expect(workflowSpec.Volumes).To(HaveLen(3))
 			podmanCacheVolume := workflowSpec.Volumes[0]
 			Expect(podmanCacheVolume.Name).To(Equal("podman-cache"))
 			Expect(podmanCacheVolume.VolumeSource.HostPath.Path).To(Equal("/shared/podman/cache"))
@@ -506,6 +510,8 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 
 		It("should generate the workflow in correct namespace", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
+			// Ensure BuildPlane is initialized
+			buildCtx = newBuildContextWithRegistries(buildCtx)
 			workflow := makeArgoWorkflow(buildCtx)
 
 			Expect(workflow.ObjectMeta.Name).To(Equal(buildCtx.Build.Name + "-c9f6181a"))
@@ -515,6 +521,8 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 		It("should limit workflow name to 63 characters", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
 			buildCtx.Build.Name = "test-build-name-having-113-characters-test-build-name-having-113-characters-test-build-name-having-113-characters"
+			// Ensure BuildPlane is initialized
+			buildCtx = newBuildContextWithRegistries(buildCtx)
 			workflow := makeArgoWorkflow(buildCtx)
 
 			Expect(workflow.ObjectMeta.Name).To(Equal(buildCtx.Build.Name[:54] + "-41c7560f"))
