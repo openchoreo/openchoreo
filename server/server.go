@@ -19,7 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/server/middleware"
 	"github.com/openchoreo/openchoreo/server/pkg/logging"
 	"github.com/openchoreo/openchoreo/server/request"
-	"k8s.io/utils/env"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -31,9 +31,10 @@ type resourceHandler struct {
 }
 
 type Server struct {
-	srv    *http.Server
-	port   int
-	logger *logging.Logger
+	srv        *http.Server
+	port       int
+	logger     *logging.Logger
+	kubeConfig *rest.Config
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -62,10 +63,10 @@ func (s *Server) Run(ctx context.Context) error {
 	return err
 }
 
-func createReverseProxy() *httputil.ReverseProxy {
-	target, _ := url.Parse("https://localhost:58336")
+func createReverseProxy(kubeConfig *rest.Config) *httputil.ReverseProxy {
+	target, _ := url.Parse(kubeConfig.APIPath)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	token := env.GetString("AUTH_TOKEN", "")
+	token := kubeConfig.BearerToken
 
 	// Configure TLS to skip verification
 	proxy.Transport = &http.Transport{
@@ -95,13 +96,21 @@ func createReverseProxy() *httputil.ReverseProxy {
 			}
 			requestedResource = requested
 		}
+		switch req.Method {
+		case http.MethodGet:
+			// Get organization from token
+			basePath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/%s/%s", string(requestedResource),
+				requestInfo.Params[requestedResource])
+			req.URL.Path = basePath
+			req.URL.RawQuery = addLabelSelectors(requestInfo)
+		case http.MethodPost:
+			// Duplicate for now
+			basePath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/%s/%s", string(requestedResource),
+				requestInfo.Params[requestedResource])
+			req.URL.Path = basePath
+			req.URL.RawQuery = addLabelSelectors(requestInfo)
+		}
 
-		// Add label selectors later
-		// Get organization from token
-		basePath := fmt.Sprintf("/apis/core.choreo.dev/v1/namespaces/default-org/%s/%s", string(requestedResource),
-			requestInfo.Params[requestedResource])
-		req.URL.Path = basePath
-		req.URL.RawQuery = addLabelSelectors(requestInfo)
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
@@ -127,9 +136,9 @@ func addLabelSelectors(info *request.RequestInfo) string {
 	return ""
 }
 
-func newResourceHandler() *resourceHandler {
+func newResourceHandler(kubeConfig *rest.Config) *resourceHandler {
 	return &resourceHandler{
-		proxy: createReverseProxy(),
+		proxy: createReverseProxy(kubeConfig),
 	}
 }
 
@@ -137,23 +146,20 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.proxy.ServeHTTP(w, r)
 }
 
-// NewServer returns a new Choreo api server instance
-func New(logger *logging.Logger, opts ...Option) *Server {
+// New returns a new Choreo api server instance
+func New(logger *logging.Logger, port int, kubeConfig *rest.Config) *Server {
+	srv := &Server{
+		port:       port,
+		logger:     logger,
+		kubeConfig: kubeConfig,
+	}
+
 	newMux := http.NewServeMux()
-	var h http.Handler = newResourceHandler()
+	var h http.Handler = newResourceHandler(srv.kubeConfig)
 	h = middleware.WithRequestInfo(h)
 	h = middleware.WithLogging(h, logger)
 	h = middleware.WithTracing(h)
 	newMux.Handle("/api/v1/", h)
-
-	srv := &Server{
-		port:   8080,
-		logger: logger,
-	}
-
-	for _, opt := range opts {
-		opt(srv)
-	}
 
 	srv.srv = &http.Server{
 		Addr:    "0.0.0.0:" + strconv.Itoa(srv.port),
