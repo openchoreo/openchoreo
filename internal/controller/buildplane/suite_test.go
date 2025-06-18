@@ -50,14 +50,23 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
+	crdPath := filepath.Join("..", "..", "config", "crd", "bases")
+	if _, err := os.Stat(crdPath); os.IsNotExist(err) {
+		Skip("CRD directory does not exist: " + crdPath)
+	}
+
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{crdPath},
 		ErrorIfCRDPathMissing: true,
 	}
 
 	// Retrieve the first found binary directory to allow running tests from IDEs
-	if getFirstFoundEnvTestBinaryDir() != "" {
-		testEnv.BinaryAssetsDirectory = getFirstFoundEnvTestBinaryDir()
+	binDir := getFirstFoundEnvTestBinaryDir()
+	if binDir != "" {
+		if _, err := os.Stat(binDir); os.IsNotExist(err) {
+			Skip("envtest binary directory does not exist: " + binDir)
+		}
+		testEnv.BinaryAssetsDirectory = binDir
 	}
 
 	// cfg is defined in this file globally.
@@ -72,9 +81,13 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	cancel()
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	if cancel != nil {
+		cancel()
+	}
+	if testEnv != nil {
+		err := testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}
 })
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.
