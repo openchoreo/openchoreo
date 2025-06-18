@@ -51,7 +51,7 @@ type Registry struct {
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	
+
 	// Registry contains the configuration required to pull images from a container registry.
 	Registry Registry `json:"registry"`
 	// KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.

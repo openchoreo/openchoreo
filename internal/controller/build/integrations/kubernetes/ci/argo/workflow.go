@@ -246,7 +246,7 @@ func makePushStep(buildCtx *integrations.BuildContext) argoproj.Template {
 			},
 			Command: []string{"sh", "-c"},
 			Args: []string{
-				generatePushImageScript(buildCtx, ci.ConstructImageNameWithTag(buildCtx.Build), authRegistries, unauthRegistries),
+				generatePushImageScript(ci.ConstructImageNameWithTag(buildCtx.Build), authRegistries, unauthRegistries),
 			},
 			VolumeMounts: volumeMounts,
 		},
@@ -390,7 +390,7 @@ EOF`
 	return []string{baseScript + buildScript}
 }
 
-func generatePushImageScript(buildCtx *integrations.BuildContext, imageName string, authRegistries []choreov1.Registry, unauthRegistries []choreov1.Registry) string {
+func generatePushImageScript(imageName string, authRegistries []choreov1.Registry, unauthRegistries []choreov1.Registry) string {
 	numOfRegistries := len(authRegistries) + len(unauthRegistries)
 	tagCommands := make([]string, 0, numOfRegistries)
 	pushCommands := make([]string, 0, numOfRegistries)

@@ -388,13 +388,14 @@ podman push --tls-verify=false registry.choreo-system:5000/%s-$GIT_REVISION
 
 echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName())
 
-			generatedScript := generatePushImageScript(buildCtx, imageName())
+			authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
+			generatedScript := generatePushImageScript(imageName(), authRegistries, unauthRegistries)
 
 			Expect(generatedScript).To(Equal(expectedScript))
 		})
 
 		It("should generate the correct image push script for multiple registries", func() {
-			buildCtx = newBuildContextWithRegistries(buildCtx)
+			buildCtx = newBuildContextWithBuildPlane(buildCtx)
 			expectedScript := fmt.Sprintf(`set -e
 GIT_REVISION={{inputs.parameters.git-revision}}
 mkdir -p /etc/containers
@@ -420,17 +421,18 @@ podman push docker.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/
 podman push ghcr.io/test-org/%s-$GIT_REVISION --authfile=/usr/src/app/.docker/%s.json
 
 echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageName(), imageName(), imageName(),
-				imageName(), imageName(), imageName(), buildCtx.Registry.ImagePushSecrets[0].Name, imageName(),
-				buildCtx.Registry.ImagePushSecrets[1].Name, imageName())
-
-			generatedScript := generatePushImageScript(buildCtx, imageName())
+				imageName(), imageName(), imageName(), buildCtx.BuildPlane.Spec.Registries[0].SecretRef, imageName(),
+				buildCtx.BuildPlane.Spec.Registries[1].SecretRef, imageName())
+			authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
+			generatedScript := generatePushImageScript(imageName(), authRegistries, unauthRegistries)
 
 			Expect(generatedScript).To(Equal(expectedScript))
 		})
 
 		It("should generate the correct image push script", func() {
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
-			expectedScript := generatePushImageScript(buildCtx, imageName())
+			authRegistries, unauthRegistries := retrieveRegistries(*buildCtx.BuildPlane)
+			expectedScript := generatePushImageScript(imageName(), authRegistries, unauthRegistries)
 			pushStep := makePushStep(buildCtx)
 			Expect(pushStep.Name).To(Equal(string(integrations.PushStep)))
 			Expect(pushStep.Inputs.Parameters).To(HaveLen(1))
