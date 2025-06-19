@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
@@ -30,7 +31,6 @@ import (
 	sourcegithub "github.com/openchoreo/openchoreo/internal/controller/build/integrations/source/github"
 	"github.com/openchoreo/openchoreo/internal/controller/build/resources"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -38,7 +38,7 @@ import (
 // Reconciler reconciles a Build object
 type Reconciler struct {
 	client.Client
-	DpClientMgr  *dpKubernetes.KubeClientManager
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
 	Scheme       *runtime.Scheme
 	GithubClient *github.Client
 	recorder     record.EventRecorder
@@ -81,23 +81,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 	}
 
+	// Create a new build context for the build with required hierarchy objects
+	buildCtx, err := r.makeBuildContext(ctx, build)
+
 	// Handle the deletion of the build
 	if !build.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing build")
-		return r.finalize(ctx, oldBuild, build)
+		return r.finalize(ctx, oldBuild, buildCtx)
 	}
 
 	// Ensure the finalizer is added to the build
-	if finalizerAdded, err := r.ensureFinalizer(ctx, build); err != nil || finalizerAdded {
+	if finalizerAdded, err := r.ensureFinalizer(ctx, buildCtx.Build); err != nil || finalizerAdded {
 		return ctrl.Result{}, err
 	}
 
-	if shouldIgnoreReconcile(build) {
+	if shouldIgnoreReconcile(buildCtx.Build) {
 		return ctrl.Result{}, nil
 	}
 
-	// Create a new build context for the build with required hierarchy objects
-	buildCtx, err := r.makeBuildContext(ctx, build)
 	if err != nil {
 		logger.Error(err, "Error creating build context")
 		r.recorder.Eventf(build, corev1.EventTypeWarning, "ContextResolutionFailed",
@@ -105,13 +106,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, controller.IgnoreHierarchyNotFoundError(err)
 	}
 
-	dpClient, err := r.getBPClient(ctx, buildCtx.Build)
+	bpClient, err := r.getBPClient(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error in getting build plane client")
 		return ctrl.Result{}, err
 	}
 
-	externalResourceHandlers := r.makeExternalResourceHandlers(dpClient)
+	externalResourceHandlers := r.makeExternalResourceHandlers(bpClient)
 	if err := r.reconcileExternalResources(ctx, externalResourceHandlers, buildCtx); err != nil {
 		logger.Error(err, "Error reconciling external resources")
 		r.recorder.Eventf(build, corev1.EventTypeWarning, "ExternalResourceReconciliationFailed",
@@ -119,7 +120,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	existingWorkflow, err := r.ensureWorkflow(ctx, buildCtx, dpClient)
+	existingWorkflow, err := r.ensureWorkflow(ctx, buildCtx, bpClient)
 
 	if err != nil {
 		logger.Error(err, "Failed to ensure workflow")
@@ -128,51 +129,56 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if isBuildWorkflowRunning(build) {
-		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
+	if isBuildWorkflowRunning(buildCtx.Build) {
+		// Process workflow steps
+		isCompleted := r.handleBuildSteps(buildCtx.Build, existingWorkflow.Status.Nodes)
 
-		if requeue {
-			return r.handleRequeueAfterBuild(ctx, oldBuild, build)
+		// If we still have work in flight, schedule the next reconcile after updating conditions
+		if !isCompleted {
+			return r.handleRequeueAfterBuild(ctx, oldBuild, buildCtx.Build)
 		}
 
-		// When ci workflow is completed, it is required to update conditions
-		if oldBuild.Status.ImageStatus.Image != buildCtx.Build.Status.ImageStatus.Image ||
-			controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
-			if err := r.Status().Update(ctx, build); err != nil {
-				logger.Error(err, "Failed to update build status")
-				return ctrl.Result{}, err
-			}
+		// Push any status changes back to the API
+		if err := r.updateBuildStatus(ctx, logger, oldBuild, buildCtx.Build); err != nil {
+			return ctrl.Result{}, err
 		}
+
+		// No further workflow progress needed, requeue once to allow next phase
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if shouldCreateDeployableArtifact(buildCtx.Build) {
 		requeue, err := r.createDeployableArtifact(ctx, buildCtx)
 		if requeue {
-			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 		}
 		if err != nil {
-			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 		}
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
 		r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 	}
 
 	requeue, err := r.handleAutoDeployment(ctx, buildCtx)
 	if requeue {
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, buildCtx.Build)
 	} else if err != nil {
 		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildFailedCondition(buildCtx.Build.Generation))
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 	}
 	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildCompletedCondition(buildCtx.Build.Generation))
-	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, buildCtx.Build)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.recorder == nil {
 		r.recorder = mgr.GetEventRecorderFor("build-controller")
+	}
+
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -182,86 +188,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.DeploymentPipeline) ([]*choreov1.Environment, error) {
-	envNamesSet := make(map[string]struct{})
+// updateBuildStatus centralizes Status().Update logic
+func (r *Reconciler) updateBuildStatus(
+	ctx context.Context,
+	logger logr.Logger,
+	old, build *choreov1.Build,
+) error {
+	imgChanged := old.Status.ImageStatus.Image != build.Status.ImageStatus.Image
 
-	for _, path := range dp.Spec.PromotionPaths {
-		envNamesSet[path.SourceEnvironmentRef] = struct{}{}
-		for _, target := range path.TargetEnvironmentRefs {
-			envNamesSet[target.Name] = struct{}{}
+	if imgChanged {
+		if err := r.Status().Update(ctx, build); err != nil {
+			logger.Error(err, "Failed to update build status")
+			return err
 		}
 	}
-
-	envs := make([]*choreov1.Environment, 0, len(envNamesSet))
-	for name := range envNamesSet {
-		env, err := controller.GetEnvironmentByName(ctx, r.Client, dp, name)
-		if err != nil {
-			return nil, err
-		}
-		envs = append(envs, env)
-	}
-
-	return envs, nil
-}
-
-func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.Environment) ([]*choreov1.DataPlane, error) {
-	uniqueRefs := make(map[string]*choreov1.Environment)
-
-	for _, env := range envs {
-		if env == nil || env.Spec.DataPlaneRef == "" {
-			continue
-		}
-		uniqueRefs[env.Spec.DataPlaneRef] = env
-	}
-
-	dataplanes := make([]*choreov1.DataPlane, 0, len(uniqueRefs))
-	for _, env := range uniqueRefs {
-		dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get DataPlane for environment %q: %w", env.Name, err)
-		}
-		dataplanes = append(dataplanes, dp)
-	}
-
-	return dataplanes, nil
-}
-
-func getRegistriesForPush(dataplanes []*choreov1.DataPlane) (map[string]string, []string) {
-	registriesWithSecrets := make(map[string]string)
-	noAuthRegistriesSet := make(map[string]struct{})
-
-	for _, dp := range dataplanes {
-		pushSecrets := dp.Spec.Registry.ImagePushSecrets
-		noAuthRegistries := dp.Spec.Registry.Unauthenticated
-
-		for _, pushSecret := range pushSecrets {
-			registriesWithSecrets[pushSecret.Name] = pushSecret.Prefix
-		}
-
-		for _, registryPrefix := range noAuthRegistries {
-			noAuthRegistriesSet[registryPrefix] = struct{}{}
-		}
-	}
-
-	noAuthRegistriesList := make([]string, 0, len(noAuthRegistriesSet))
-	for registry := range noAuthRegistriesSet {
-		noAuthRegistriesList = append(noAuthRegistriesList, registry)
-	}
-
-	return registriesWithSecrets, noAuthRegistriesList
-}
-
-func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {
-	imagePushSecrets := make([]choreov1.ImagePushSecret, 0, len(registriesWithSecrets))
-
-	for name, prefix := range registriesWithSecrets {
-		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{
-			Name:   name,
-			Prefix: prefix,
-		})
-	}
-
-	return imagePushSecrets
+	return nil
 }
 
 func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*integrations.BuildContext, error) {
@@ -276,90 +217,40 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
 	}
 
-	project, err := controller.GetProject(ctx, r.Client, build)
+	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, build)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
+		return nil, fmt.Errorf("cannot retrieve the build plane: %w", err)
 	}
-	deploymentPipeline, err := controller.GetDeploymentPipeline(ctx, r.Client, build, project.Spec.DeploymentPipelineRef)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
-	}
-	envs, err := r.retrieveEnvsOfPipeline(ctx, deploymentPipeline)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the environments of the pipeline: %w", err)
-	}
-	dataplanes, err := r.retrieveDataplanes(ctx, envs)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the dataplanes: %w", err)
-	}
-	registriesWithSecrets, registries := getRegistriesForPush(dataplanes)
-	imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
 
 	return &integrations.BuildContext{
-		Registry: choreov1.Registry{
-			ImagePushSecrets: imagePushSecrets,
-			Unauthenticated:  registries,
-		},
+		BuildPlane:      buildPlane,
 		Component:       component,
 		DeploymentTrack: deploymentTrack,
 		Build:           build,
 	}, nil
 }
 
-func (r *Reconciler) getBPClient(ctx context.Context, build *choreov1.Build) (client.Client, error) {
-	buildplane, err := r.getDataPlaneMarkedAsBuildPlane(ctx, r.Client, build)
+func (r *Reconciler) getBPClient(ctx context.Context, buildCtx *integrations.BuildContext) (client.Client, error) {
+	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildCtx.BuildPlane.Labels[labels.LabelKeyOrganizationName],
+		buildCtx.BuildPlane.Labels[labels.LabelKeyOrganizationName], buildCtx.BuildPlane.Spec.KubernetesCluster)
 	if err != nil {
-		// Return an error if dataplane retrieval fails
-		return nil, fmt.Errorf("failed to get build plane: %w", err)
-	}
-
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, buildplane)
-	if err != nil {
+		logger := log.FromContext(ctx)
+		logger.Error(err, "Failed to get build plane client")
 		// Return an error if client creation fails
-		return nil, fmt.Errorf("failed to get build plane client: %w", err)
+		return nil, err
 	}
-
-	return dpClient, nil
-}
-
-func (r *Reconciler) getDataPlaneMarkedAsBuildPlane(ctx context.Context, c client.Client, build *choreov1.Build) (*choreov1.DataPlane, error) {
-	orgName := controller.GetOrganizationName(build)
-	labelSelector := client.MatchingLabels{
-		labels.LabelKeyOrganizationName: orgName,
-		labels.LabelKeyBuildPlane:       "true",
-	}
-
-	var dataPlaneList choreov1.DataPlaneList
-	if err := c.List(ctx, &dataPlaneList, client.InNamespace(build.GetNamespace()), labelSelector); err != nil {
-		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
-	}
-
-	count := len(dataPlaneList.Items)
-	switch {
-	case count == 0:
-		r.recorder.Eventf(build, corev1.EventTypeWarning, "NoBuildPlaneFound",
-			"No dataplane is configured as build plane for organization: %s", orgName)
-		return nil, fmt.Errorf("no dataplane configured as build plane for organization: %s", orgName)
-
-	case count > 1:
-		r.recorder.Eventf(build, corev1.EventTypeWarning, "MultipleBuildPlanesFound",
-			"Multiple dataplanes are configured as build planes for organization: %s", orgName)
-		return nil, fmt.Errorf("multiple dataplanes configured as build planes for organization: %s", orgName)
-
-	default:
-		return &dataPlaneList.Items[0], nil
-	}
+	return bpClient, nil
 }
 
 // makeExternalResourceHandlers creates the chain of external resource handlers that are used to
 // create the build namespace and other resources required for argo workflows.
-func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []dataplane.ResourceHandler[integrations.BuildContext] {
+func (r *Reconciler) makeExternalResourceHandlers(bpClient client.Client) []dataplane.ResourceHandler[integrations.BuildContext] {
 	var handlers []dataplane.ResourceHandler[integrations.BuildContext]
 
-	handlers = append(handlers, kubernetes.NewNamespaceHandler(dpClient))
-	handlers = append(handlers, argointegrations.NewServiceAccountHandler(dpClient))
-	handlers = append(handlers, argointegrations.NewRoleHandler(dpClient))
-	handlers = append(handlers, argointegrations.NewRoleBindingHandler(dpClient))
+	handlers = append(handlers, kubernetes.NewNamespaceHandler(bpClient))
+	handlers = append(handlers, argointegrations.NewServiceAccountHandler(bpClient))
+	handlers = append(handlers, argointegrations.NewRoleHandler(bpClient))
+	handlers = append(handlers, argointegrations.NewRoleBindingHandler(bpClient))
 
 	return handlers
 }
@@ -414,9 +305,9 @@ func (r *Reconciler) reconcileExternalResources(
 	return nil
 }
 
-func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, dpClient client.Client) (*argoproj.Workflow, error) {
+func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, bpClient client.Client) (*argoproj.Workflow, error) {
 	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
-	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
+	workflowHandler := argointegrations.NewWorkflowHandler(bpClient)
 	existingWorkflow, err := workflowHandler.GetCurrentState(ctx, buildCtx)
 	if err != nil {
 		logger.Error(err, "Error retrieving current state of the workflow resource")
@@ -524,7 +415,6 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 		switch argointegrations.GetStepPhase(stepInfo.Phase) {
 		case integrations.Running:
 			markStepInProgress(build, step.conditionType)
-			return true
 		case integrations.Succeeded:
 			markStepSucceeded(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
@@ -536,17 +426,15 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 				} else {
 					build.Status.ImageStatus.Image = image
 				}
-				return false
+				return true
 			}
-			return true
 		case integrations.Failed:
 			markStepFailed(build, step.conditionType)
 			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
 			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFailedCondition(build.Generation))
-			return false
 		}
 	}
-	return true
+	return false
 }
 
 func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *integrations.BuildContext) (bool, error) {

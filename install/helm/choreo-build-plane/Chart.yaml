@@ -1,6 +1,6 @@
 apiVersion: v2
-name: choreo-dataplane
-description: A Helm chart for openChoreo dataplane
+name: choreo-build-plane
+description: A Helm chart for openChoreo buildplane
 annotations:
   artifacthub.io/logo: "https://raw.githubusercontent.com/openchoreo/openchoreo/main/docs/images/openchoreo-logo.png"
 # A chart can be either an 'application' or a 'library' chart.
@@ -22,19 +22,6 @@ version: 0.0.0-latest-dev
 # It is recommended to use it with quotes.
 appVersion: "latest-dev"
 dependencies:
-  - name: vault
-    version: 0.29.1
-    repository: "https://helm.releases.hashicorp.com"
-    condition: vault.enabled
-  - name: secrets-store-csi-driver
-    repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
-    version: "1.4.0"
-    condition: secrets-store-csi-driver.enabled
-  - name: gateway-helm
-    repository: "oci://registry-1.docker.io/envoyproxy"
-    version: 1.2.3
-  - name: cert-manager
-    repository: https://charts.jetstack.io
-    condition: certmanager.enabled
-    alias: certmanager
-    version: "v1.16.2"
+  - name: argo-workflows
+    repository: "https://argoproj.github.io/argo-helm"
+    version: 0.45.2

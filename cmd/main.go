@@ -8,8 +8,6 @@ import (
 	"flag"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -27,6 +25,7 @@ import (
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
+	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
@@ -37,13 +36,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -155,9 +152,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize dataPlane client manager
-	dpClientMgr := dpKubernetes.NewManager()
-
 	// -----------------------------------------------------------------------------
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
@@ -178,7 +172,6 @@ func main() {
 	}
 	if err = (&build.Reconciler{
 		Client:       mgr.GetClient(),
-		DpClientMgr:  dpClientMgr,
 		Scheme:       mgr.GetScheme(),
 		GithubClient: github.NewClient(nil),
 	}).SetupWithManager(mgr); err != nil {
@@ -186,9 +179,8 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&environment.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Environment")
 		os.Exit(1)
@@ -198,6 +190,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+		os.Exit(1)
+	}
+	if err := (&buildplane.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
 		os.Exit(1)
 	}
 	if err = (&deploymentpipeline.Reconciler{
@@ -229,17 +228,15 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&deployment.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
 	if err = (&endpoint.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 		os.Exit(1)
@@ -256,6 +253,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -18,18 +18,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/environment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Environment object
 type Reconciler struct {
 	client.Client
-	DpClientMgr *dpKubernetes.KubeClientManager
-	Scheme      *runtime.Scheme
-	Recorder    record.EventRecorder
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme       *runtime.Scheme
+	Recorder     record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -101,6 +102,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("environment-controller")
 	}
 
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.Environment{}).
 		Named("environment").
@@ -122,16 +127,18 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 }
 
 func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
-	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	dpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, dp.Labels[labels.LabelKeyOrganizationName],
+		dp.Labels[labels.LabelKeyOrganizationName], dp.Spec.KubernetesCluster)
 	if err != nil {
-		// Return an error if client creation fails
-		return nil, fmt.Errorf("failed to get DP client: %w", err)
+		logger := log.FromContext(ctx)
+		logger.Error(err, "Failed to get build plane client")
+		return nil, err
 	}
 
 	return dpClient, nil
