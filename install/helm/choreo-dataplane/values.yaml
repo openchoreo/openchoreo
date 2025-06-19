@@ -218,6 +218,9 @@ opensearch:
   
   replicas: 1
 
+kubernetes-replicator:
+  fullnameOverride: kubernetes-replicator
+
 # Customizing OpenSearch Dashboards configurations
 opensearchDashboard:
   image:
