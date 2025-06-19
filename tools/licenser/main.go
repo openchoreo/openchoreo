@@ -14,9 +14,7 @@ import (
 	"time"
 )
 
-/* -------------------------------------------------------------------------- */
-/*                               Flag variables                               */
-/* -------------------------------------------------------------------------- */
+// Flag variables
 
 var (
 	flagCheckOnly = flag.Bool(
@@ -27,7 +25,7 @@ var (
 	flagHolder = flag.String(
 		"c",
 		"",
-		`Copyright holder, e.g. "The OpenChoreo Authors" (required when adding headers)`,
+		`Copyright holder, e.g. "The OpenChoreo Authors"`,
 	)
 	flagLicense = flag.String(
 		"l",
@@ -36,9 +34,7 @@ var (
 	)
 )
 
-/* -------------------------------------------------------------------------- */
-/*                        Header detection / generation                       */
-/* -------------------------------------------------------------------------- */
+//Header detection / generation
 
 var (
 	reCopyright = regexp.MustCompile(`^// Copyright (\d{4}) (.+)$`)
@@ -59,14 +55,12 @@ func shortHeader(year, holder, license string) string {
 	)
 }
 
-/* -------------------------------------------------------------------------- */
-/*                               File helpers                                 */
-/* -------------------------------------------------------------------------- */
+//File helpers
 
 func isGoFile(path string) bool { return filepath.Ext(path) == ".go" }
 
-func hasValidHeader(file, holder, license string) (bool, error) {
-	f, err := os.Open(file)
+func hasValidHeader(path, holder, license string) (bool, error) {
+	f, err := os.Open(path)
 	if err != nil {
 		return false, err
 	}
@@ -76,22 +70,29 @@ func hasValidHeader(file, holder, license string) (bool, error) {
 	var lines []string
 	for scan.Scan() {
 		line := scan.Text()
+
+		// Skip any leading blank lines
 		if strings.TrimSpace(line) == "" && len(lines) == 0 {
-			continue // skip leading blank lines
+			continue
 		}
 		lines = append(lines, line)
-		if len(lines) == 2 {
+
+		// We need three lines: copyright, SPDX, blank
+		if len(lines) == 3 {
 			break
 		}
 	}
 
-	if len(lines) < 2 {
+	// Must have exactly the three expected lines
+	if len(lines) < 3 {
 		return false, nil
 	}
 
 	m1 := reCopyright.FindStringSubmatch(lines[0])
 	m2 := reSPDX.FindStringSubmatch(lines[1])
-	if m1 == nil || m2 == nil {
+	blank := strings.TrimSpace(lines[2]) == ""
+
+	if m1 == nil || m2 == nil || !blank {
 		return false, nil
 	}
 
@@ -106,9 +107,7 @@ func prependHeader(path, header string) error {
 	return os.WriteFile(path, append([]byte(header+"\n\n"), src...), 0o644)
 }
 
-/* -------------------------------------------------------------------------- */
-/*                            Core processing loop                            */
-/* -------------------------------------------------------------------------- */
+//Core processing loop
 
 func process(path, header, holder, license string, fix bool) (changed bool, err error) {
 	ok, err := hasValidHeader(path, holder, license)
@@ -139,27 +138,35 @@ func walk(root, header, holder, license string, fix bool) ([]string, error) {
 	return nonCompliant, err
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                   CLI                                     */
-/* -------------------------------------------------------------------------- */
+// CLI
 
 const usageText = `
-licenser – validate or add short SPDX license headers to source files
+Licenser is a tool to enforce short SPDX license headers in source files.
+
+OVERVIEW
+  licenser verifies that each source file starts with a standard two-line header:
+    // Copyright <YEAR> <HOLDER>
+    // SPDX-License-Identifier: <LICENSE>
 
 USAGE
-  go run ./tools/licenser/main.go [flags] <path/files>
+  go run ./tools/licenser/main.go [flags] <directories or files>
 
 FLAGS
-  -check-only           Report problems but do not rewrite files (default: false)
-  -c, --copyright <str> Copyright holder (required when adding headers)
+  -check-only           Only report non-compliant files; do not modify them (default: false)
+  -c, --copyright <str> Copyright holder 
   -l, --license   <str> License identifier to write: "apache" (default) or "mit"
 
 EXAMPLES
-  # Dry-run: verify headers everywhere under the current directory
+  # Check license compliance in all Go files under the current directory
   go run ./tools/licenser/main.go -check-only -c "The OpenChoreo Authors" .
 
-  # Insert/fix headers in place
+  # Add/fix license headers in place
   go run ./tools/licenser/main.go -c "The OpenChoreo Authors" .
+
+LEARN MORE
+  SPDX License Identifiers: https://spdx.org/licenses/
+
+Note: This tool works with any source file type (e.g., .go, .js, .ts, .py, etc.)
 `
 
 func main() {
@@ -168,7 +175,7 @@ func main() {
 
 	if flag.NArg() == 0 || (*flagHolder == "" && !*flagCheckOnly) {
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	header := shortHeader(fmt.Sprint(time.Now().Year()), *flagHolder, *flagLicense)
