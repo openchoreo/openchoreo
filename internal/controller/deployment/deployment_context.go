@@ -42,6 +42,11 @@ func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *chor
 		return nil, fmt.Errorf("cannot retrieve the environment: %w", err)
 	}
 
+	dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, environment)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the dataplane: %w", err)
+	}
+
 	targetDeployableArtifact, err := r.findDeployableArtifact(ctx, deployment)
 	if err != nil {
 		meta.SetStatusCondition(&deployment.Status.Conditions,
@@ -49,7 +54,7 @@ func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *chor
 		return nil, fmt.Errorf("cannot retrieve the deployable artifact: %w", err)
 	}
 
-	containerImage, err := r.findContainerImage(ctx, component, targetDeployableArtifact, deployment)
+	containerImage, err := r.findContainerImage(ctx, component, targetDeployableArtifact, deployment, dp)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the container image: %w", err)
 	}
@@ -70,6 +75,7 @@ func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *chor
 		Environment:         environment,
 		ConfigurationGroups: configurationGroups,
 		ContainerImage:      containerImage,
+		SecretRef:           dp.Spec.Registry.SecretRef,
 	}, nil
 }
 
@@ -126,7 +132,7 @@ func makeHierarchyLabelsForDeploymentTrack(objMeta metav1.ObjectMeta) map[string
 }
 
 func (r *Reconciler) findContainerImage(ctx context.Context, component *choreov1.Component,
-	deployableArtifact *choreov1.DeployableArtifact, deployment *choreov1.Deployment) (string, error) {
+	deployableArtifact *choreov1.DeployableArtifact, deployment *choreov1.Deployment, dataplane *choreov1.DataPlane) (string, error) {
 	if buildRef := deployableArtifact.Spec.TargetArtifact.FromBuildRef; buildRef != nil {
 		if buildRef.Name != "" {
 			// Find the build that the deployable artifact is referring to
@@ -141,8 +147,10 @@ func (r *Reconciler) findContainerImage(ctx context.Context, component *choreov1
 
 			for _, build := range buildList.Items {
 				if build.Name == buildRef.Name {
-					// TODO: Make local registry configurable and move to build controller
-					return fmt.Sprintf("%s/%s", "localhost:30003", build.Status.ImageStatus.Image), nil
+					if dataplane.Spec.Registry.Prefix == "registry.choreo-system:5000" {
+						return fmt.Sprintf("%s/%s", "localhost:30003", build.Status.ImageStatus.Image), nil
+					}
+					return fmt.Sprintf("%s/%s", dataplane.Spec.Registry.Prefix, build.Status.ImageStatus.Image), nil
 				}
 			}
 			meta.SetStatusCondition(&deployment.Status.Conditions,

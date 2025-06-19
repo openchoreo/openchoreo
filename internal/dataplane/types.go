@@ -21,6 +21,7 @@ type DeploymentContext struct {
 	ConfigurationGroups []*choreov1.ConfigurationGroup
 
 	ContainerImage string
+	SecretRef      string
 }
 
 // EndpointContext is a struct that holds the all necessary data required for the resource handlers to perform their operations.

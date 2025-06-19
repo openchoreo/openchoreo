@@ -28,6 +28,13 @@ func makePodSpec(deployCtx *dataplane.DeploymentContext) *corev1.PodSpec {
 	// Create the main container
 	mainContainer := makeMainContainer(deployCtx)
 
+	// Add image pull secret, if provided
+	if deployCtx.SecretRef != "" {
+		ps.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: deployCtx.SecretRef},
+		}
+	}
+
 	// Add file volumes and mounts
 	fileVolumes, fileMounts := makeFileVolumes(deployCtx)
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, fileMounts...)
