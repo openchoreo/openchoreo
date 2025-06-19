@@ -1,0 +1,23 @@
+# permissions for end users to view apiclasses.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: apiclass-viewer-role
+rules:
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - apiclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - apiclasses/status
+  verbs:
+  - get

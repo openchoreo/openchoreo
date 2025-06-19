@@ -76,7 +76,7 @@ type RESTPolicyWithConditionals struct {
 // RESTPolicyCondition defines conditions for applying conditional policies
 type RESTPolicyCondition struct {
 	// HTTP method to match
-	Method *string `json:"method,omitempty"`
+	Method *HTTPMethod `json:"method,omitempty"`
 	// Paths to match
 	Paths []string `json:"paths,omitempty"`
 }

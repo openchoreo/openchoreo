@@ -24,4 +24,8 @@ resources:
   - core_v1_endpointrelease.yaml
   - core_v1_gitcommitrequest.yaml
   - core_v1_workloadbinding.yaml
+- core_v1_api.yaml
+- core_v1_apiclass.yaml
+- core_v1_apirelease.yaml
+- core_v1_apibinding.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

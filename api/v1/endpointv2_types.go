@@ -37,7 +37,7 @@ type RESTEndpoint struct {
 }
 
 type RESTEndpointOperation struct {
-	Method       string                     `json:"method"`
+	Method       HTTPMethod                 `json:"method"`
 	Path         string                     `json:"path"`
 	Description  string                     `json:"description,omitempty"`
 	Scopes       []string                   `json:"scopes,omitempty"`

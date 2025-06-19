@@ -39,10 +39,67 @@ spec:
           spec:
             description: EndpointV2Spec defines the desired state of EndpointV2.
             properties:
-              foo:
-                description: Foo is an example field of EndpointV2. Edit endpointv2_types.go
-                  to remove/update
+              className:
                 type: string
+              environmentName:
+                minLength: 1
+                type: string
+              owner:
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              rest:
+                properties:
+                  backend:
+                    properties:
+                      basePath:
+                        type: string
+                      port:
+                        format: int32
+                        type: integer
+                    required:
+                    - port
+                    type: object
+                  operations:
+                    items:
+                      properties:
+                        description:
+                          type: string
+                        exposeLevels:
+                          items:
+                            type: string
+                          type: array
+                        method:
+                          type: string
+                        path:
+                          type: string
+                        scopes:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - method
+                      - path
+                      type: object
+                    type: array
+                type: object
+              type:
+                description: EndpointType defines the different API technologies supported
+                  by the endpoint
+                type: string
+            required:
+            - className
+            - environmentName
+            - owner
+            - type
             type: object
           status:
             description: EndpointV2Status defines the observed state of EndpointV2.

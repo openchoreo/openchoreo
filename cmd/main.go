@@ -6,7 +6,13 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"os"
+
+	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
+	"github.com/openchoreo/openchoreo/internal/controller/apirelease"
+
+	"github.com/openchoreo/openchoreo/internal/controller/api"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -338,6 +344,34 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
 			os.Exit(1)
 		}
+	}
+	if err = (&api.APIReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "API")
+		os.Exit(1)
+	}
+	if err = (&apiclass.APIClassReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
+		os.Exit(1)
+	}
+	if err = (&apirelease.APIReleaseReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIRelease")
+		os.Exit(1)
+	}
+	if err = (&apibinding.APIBindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
+		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 

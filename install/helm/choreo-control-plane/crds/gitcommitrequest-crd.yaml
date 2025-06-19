@@ -4,20 +4,20 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: workloadreleases.core.choreo.dev
+  name: gitcommitrequests.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: WorkloadRelease
-    listKind: WorkloadReleaseList
-    plural: workloadreleases
-    singular: workloadrelease
+    kind: GitCommitRequest
+    listKind: GitCommitRequestList
+    plural: gitcommitrequests
+    singular: gitcommitrequest
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: WorkloadRelease is the Schema for the workloadreleases API.
+        description: GitCommitRequest is the Schema for the gitcommitrequests API.
         properties:
           apiVersion:
             description: |-
@@ -37,55 +37,61 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkloadReleaseSpec defines the desired state of WorkloadRelease.
+            description: GitCommitRequestSpec defines the desired state of GitCommitRequest.
             properties:
-              environmentName:
-                minLength: 1
-                type: string
-              owner:
-                properties:
-                  componentName:
-                    minLength: 1
-                    type: string
-                  projectName:
-                    minLength: 1
-                    type: string
-                required:
-                - componentName
-                - projectName
-                type: object
-              resources:
+              authSecretRef:
                 description: |-
-                  Scalable resource template approach (KRO-inspired)
-                  Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
-                  be applied to the data plane.
+                  Reference to a Secret that contains write credentials
+                  data["username"], data["password"] for HTTPS  **or**
+                  data["ssh-privatekey"] for SSH
+                type: string
+              author:
+                description: Author information for the commit
+                properties:
+                  email:
+                    type: string
+                  name:
+                    type: string
+                type: object
+              branch:
+                description: Branch to commit into
+                type: string
+              files:
+                description: Files to create or patch
                 items:
-                  description: Resource defines a Kubernetes resource template that
-                    can be applied to the data plane.
                   properties:
-                    id:
-                      description: Unique identifier for the resource
-                      minLength: 1
+                    content:
                       type: string
-                    object:
-                      description: Object contains the complete Kubernetes resource
-                        definition
-                      x-kubernetes-preserve-unknown-fields: true
+                    patch:
+                      type: string
+                    path:
+                      type: string
                   required:
-                  - id
-                  - object
+                  - path
                   type: object
                 type: array
-              type:
-                description: WorkloadType defines how the workload is deployed.
+              message:
+                description: The commit message
+                type: string
+              repoURL:
+                description: HTTPS or SSH URL of the repo, e.g. https://github.com/org/repo.git
                 type: string
             required:
-            - environmentName
-            - owner
-            - type
+            - files
+            - message
+            - repoURL
             type: object
           status:
-            description: WorkloadReleaseStatus defines the observed state of WorkloadRelease.
+            description: GitCommitRequestStatus defines the observed state of GitCommitRequest.
+            properties:
+              message:
+                type: string
+              observedBranch:
+                type: string
+              observedSHA:
+                type: string
+              phase:
+                type: string
             type: object
         type: object
     served: true

@@ -90,6 +90,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings
+  - apiclasses
+  - apireleases
+  - apis
   - builds
   - components
   - componentv2s
@@ -121,6 +125,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings/finalizers
+  - apiclasses/finalizers
+  - apireleases/finalizers
+  - apis/finalizers
   - builds/finalizers
   - components/finalizers
   - componentv2s/finalizers
@@ -146,6 +154,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings/status
+  - apiclasses/status
+  - apireleases/status
+  - apis/status
   - builds/status
   - components/status
   - componentv2s/status

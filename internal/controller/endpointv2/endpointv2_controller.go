@@ -133,6 +133,20 @@ func (r *Reconciler) makeEndpointRelease(rCtx *render.Context) *choreov1.Endpoin
 				resources = append(resources, *route)
 			}
 		}
+
+		httpRouteFilters := render.HTTPRouteFilters(rCtx)
+		for _, filter := range httpRouteFilters {
+			if filter != nil {
+				resources = append(resources, *filter)
+			}
+		}
+
+		securityPolicies := render.SecurityPolicies(rCtx)
+		for _, policy := range securityPolicies {
+			if policy != nil {
+				resources = append(resources, *policy)
+			}
+		}
 	}
 
 	er.Spec.Resources = resources

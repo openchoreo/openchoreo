@@ -39,10 +39,51 @@ spec:
           spec:
             description: EndpointReleaseSpec defines the desired state of EndpointRelease.
             properties:
-              foo:
-                description: Foo is an example field of EndpointRelease. Edit endpointrelease_types.go
-                  to remove/update
+              environmentName:
+                minLength: 1
                 type: string
+              owner:
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              resources:
+                description: |-
+                  Scalable resource template approach (KRO-inspired)
+                  Supports any Kubernetes resource type including HTTPRoute, Gateway, Ingress, Service, NetworkPolicy, etc. that can
+                  be applied to the data plane for endpoint configuration.
+                items:
+                  description: Resource defines a Kubernetes resource template that
+                    can be applied to the data plane.
+                  properties:
+                    id:
+                      description: Unique identifier for the resource
+                      minLength: 1
+                      type: string
+                    object:
+                      description: Object contains the complete Kubernetes resource
+                        definition
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - object
+                  type: object
+                type: array
+              type:
+                description: EndpointType defines the different API technologies supported
+                  by the endpoint
+                type: string
+            required:
+            - environmentName
+            - owner
+            - type
             type: object
           status:
             description: EndpointReleaseStatus defines the observed state of EndpointRelease.

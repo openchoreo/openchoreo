@@ -1,23 +1,23 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: workloadreleases.core.choreo.dev
+  name: apireleases.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: WorkloadRelease
-    listKind: WorkloadReleaseList
-    plural: workloadreleases
-    singular: workloadrelease
+    kind: APIRelease
+    listKind: APIReleaseList
+    plural: apireleases
+    singular: apirelease
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: WorkloadRelease is the Schema for the workloadreleases API.
+        description: APIRelease is the Schema for the apireleases API.
         properties:
           apiVersion:
             description: |-
@@ -37,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: WorkloadReleaseSpec defines the desired state of WorkloadRelease.
+            description: APIReleaseSpec defines the desired state of APIRelease.
             properties:
               environmentName:
                 minLength: 1
@@ -57,8 +57,8 @@ spec:
               resources:
                 description: |-
                   Scalable resource template approach (KRO-inspired)
-                  Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
-                  be applied to the data plane.
+                  Supports any Kubernetes resource type including HTTPRoute, Gateway, Ingress, Service, NetworkPolicy, etc. that can
+                  be applied to the data plane for API configuration.
                 items:
                   description: Resource defines a Kubernetes resource template that
                     can be applied to the data plane.
@@ -77,7 +77,8 @@ spec:
                   type: object
                 type: array
               type:
-                description: WorkloadType defines how the workload is deployed.
+                description: EndpointType defines the different API technologies supported
+                  by the endpoint
                 type: string
             required:
             - environmentName
@@ -85,7 +86,7 @@ spec:
             - type
             type: object
           status:
-            description: WorkloadReleaseStatus defines the observed state of WorkloadRelease.
+            description: APIReleaseStatus defines the observed state of APIRelease.
             type: object
         type: object
     served: true
