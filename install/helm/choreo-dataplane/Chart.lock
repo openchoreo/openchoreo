@@ -11,8 +11,8 @@ dependencies:
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.16.2
-- name: argo-workflows
-  repository: https://argoproj.github.io/argo-helm
-  version: 0.45.2
-digest: sha256:6ad8b563a12d6b8bd879f8e03756ce5d3e45ffb619475c01b3d4973a593651c8
-generated: "2025-05-27T11:12:37.475192+05:30"
+- name: kubernetes-replicator
+  repository: https://helm.mittwald.de
+  version: 2.11.1
+digest: sha256:0f3b98a141a5eff37a9bcf5ae01ef1dad18dc022f5a8b488f7b6e8a0e73bcf41
+generated: "2025-06-19T10:13:30.246089+05:30"
