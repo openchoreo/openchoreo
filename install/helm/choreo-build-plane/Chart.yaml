@@ -1,6 +1,8 @@
 apiVersion: v2
 name: choreo-build-plane
 description: A Helm chart for openChoreo buildplane
+annotations:
+  artifacthub.io/logo: "https://raw.githubusercontent.com/openchoreo/openchoreo/main/docs/images/openchoreo-logo.png"
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
