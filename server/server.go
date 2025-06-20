@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -63,39 +64,66 @@ func (s *Server) Run(ctx context.Context) error {
 	return err
 }
 
-func createReverseProxy(kubeConfig *rest.Config) *httputil.ReverseProxy {
-	target, _ := url.Parse(kubeConfig.APIPath)
+func createReverseProxy(logger *logging.Logger, kubeConfig *rest.Config) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(kubeConfig.Host)
+	if err != nil {
+		return nil, err
+	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	token := kubeConfig.BearerToken
 
-	// Configure TLS to skip verification
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: kubeConfig.TLSClientConfig.Insecure,
+	}
+
+	if len(kubeConfig.TLSClientConfig.CAData) > 0 {
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(kubeConfig.TLSClientConfig.CAData); !ok {
+			panic(fmt.Errorf("failed to append CA cert from kubeconfig"))
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	// Load client cert for mTLS if present
+	if len(kubeConfig.TLSClientConfig.CertData) > 0 && len(kubeConfig.TLSClientConfig.KeyData) > 0 {
+		cert, err := tls.X509KeyPair(kubeConfig.TLSClientConfig.CertData, kubeConfig.TLSClientConfig.KeyData)
+		if err != nil {
+			panic(fmt.Errorf("failed to load client cert/key from kubeconfig: %w", err))
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
 	proxy.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+		TLSClientConfig: tlsConfig,
 	}
 
 	originalDirector := proxy.Director
+
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
 		requestInfo := req.Context().Value(request.RequestInfoKey{}).(*request.RequestInfo)
 
 		splitPath, err := request.SplitPath(req.URL.Path)
 		if err != nil {
+			logger.Error("Failed to split request path", "error", err, "path", req.URL.Path)
 			return
 		}
+
 		// TODO account for /status or /events endpoints or resource name
 		requestedResource, err := request.ParseResourceType(splitPath[len(splitPath)-1])
 		if err != nil {
 			// If last path element is not a resource type, try the previous one
 			requested, err := request.ParseResourceType(splitPath[len(splitPath)-2])
 			if err != nil {
-				// Add error log
-				fmt.Errorf("Failed to parse resource type: %w", err)
+				logger.Error("Failed to parse resource type",
+					"error", err,
+					"path", req.URL.Path,
+					"attempted_resource", splitPath[len(splitPath)-2])
 				return
 			}
 			requestedResource = requested
 		}
+
 		switch req.Method {
 		case http.MethodGet:
 			// Get organization from token
@@ -109,12 +137,18 @@ func createReverseProxy(kubeConfig *rest.Config) *httputil.ReverseProxy {
 				requestInfo.Params[requestedResource])
 			req.URL.Path = basePath
 			req.URL.RawQuery = addLabelSelectors(requestInfo)
+		default:
+			logger.Error("Unsupported HTTP method",
+				"method", req.Method,
+				"path", req.URL.Path,
+				"resource", requestedResource)
+			return
 		}
 
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
-	return proxy
+	return proxy, nil
 }
 
 // addLabelSelectors adds labelSelector queryparam with labels extracted from the request
@@ -136,16 +170,6 @@ func addLabelSelectors(info *request.RequestInfo) string {
 	return ""
 }
 
-func newResourceHandler(kubeConfig *rest.Config) *resourceHandler {
-	return &resourceHandler{
-		proxy: createReverseProxy(kubeConfig),
-	}
-}
-
-func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.proxy.ServeHTTP(w, r)
-}
-
 // New returns a new Choreo api server instance
 func New(logger *logging.Logger, port int, kubeConfig *rest.Config) *Server {
 	srv := &Server{
@@ -154,8 +178,13 @@ func New(logger *logging.Logger, port int, kubeConfig *rest.Config) *Server {
 		kubeConfig: kubeConfig,
 	}
 
+	proxy, err := createReverseProxy(logger, kubeConfig)
+	if err != nil {
+		logger.Error("Failed to create proxy", err.Error())
+	}
+
 	newMux := http.NewServeMux()
-	var h http.Handler = newResourceHandler(srv.kubeConfig)
+	var h http.Handler = proxy
 	h = middleware.WithRequestInfo(h)
 	h = middleware.WithLogging(h, logger)
 	h = middleware.WithTracing(h)

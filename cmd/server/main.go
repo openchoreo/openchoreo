@@ -6,20 +6,21 @@ package main
 import (
 	"context"
 	"flag"
+	"path/filepath"
 	"time"
 
 	"github.com/openchoreo/openchoreo/server"
 	"github.com/openchoreo/openchoreo/server/pkg/logging"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 )
 
 var shutdownTimeout = 5 * time.Second
 
 var (
-	port    = flag.Int("port", 8080, "port http server runs on")
-	dev     = flag.Bool("dev", false, "use development mode with custom kube config")
-	token   = flag.String("token", "", "bearer token for authentication")
-	apiPath = flag.String("api-path", "", "API path for kubernetes cluster")
+	port = flag.Int("port", 8080, "port http server runs on")
+	dev  = flag.Bool("dev", false, "use development mode with custom kube config")
 )
 
 func main() {
@@ -31,17 +32,25 @@ func main() {
 	var err error
 
 	if *dev {
-		// Use development kube config with flags
-		if *token == "" || *apiPath == "" {
-			logger.Error("Both token and api-path flags are required in dev mode")
-			return
+		// out-cluster config
+		var kubeconfig *string
+		if home := homedir.HomeDir(); home != "" {
+			kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+		} else {
+			kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 		}
-		kubeConfig = createDevKubeConfig(*token, *apiPath)
+		logger.Info(*kubeconfig)
+		// use the current context in kubeconfig
+		kubeConfig, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			logger.Error("Unable to get kubeconfig", err.Error())
+			panic(err.Error())
+		}
 	} else {
 		// Use in-cluster config
 		kubeConfig, err = rest.InClusterConfig()
 		if err != nil {
-			logger.Warn("Couldn't retrieve kube config")
+			logger.Error("Unable to get kubeconfig", err.Error())
 			return
 		}
 	}
@@ -49,11 +58,4 @@ func main() {
 	srv := server.New(logger, *port, kubeConfig)
 
 	srv.Run(context.Background())
-}
-
-func createDevKubeConfig(token, apiPath string) *rest.Config {
-	return &rest.Config{
-		BearerToken: token,
-		APIPath:     apiPath,
-	}
 }
