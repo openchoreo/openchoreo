@@ -30,7 +30,7 @@ var (
 	flagLicense = flag.String(
 		"l",
 		"apache",
-		`License identifier ("apache" or "mit")`,
+		`License identifier ("apache")`,
 	)
 )
 
@@ -38,13 +38,13 @@ var (
 
 var (
 	reCopyright = regexp.MustCompile(`^// Copyright (\d{4}) (.+)$`)
-	reSPDX      = regexp.MustCompile(`^// SPDX-License-Identifier: (Apache-2\.0|MIT)$`)
+	reSPDX      = regexp.MustCompile(`^// SPDX-License-Identifier: (Apache-2\.0)$`)
 )
 
 func licenseID(l string) string {
-	if strings.EqualFold(l, "mit") {
-		return "MIT"
-	}
+	//if strings.EqualFold(l, "mit") {
+	//	return "MIT"
+	//}
 	return "Apache-2.0"
 }
 
@@ -154,7 +154,7 @@ USAGE
 FLAGS
   -check-only           Only report non-compliant files; do not modify them (default: false)
   -c, --copyright <str> Copyright holder 
-  -l, --license   <str> License identifier to write: "apache" (default) or "mit"
+  -l, --license   <str> License identifier to write: "apache" (default)
 
 EXAMPLES
   # Check license compliance in all Go files under the current directory

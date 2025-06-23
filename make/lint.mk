@@ -12,15 +12,14 @@ ALL_GO_FILES := $(shell \
 # Path to your tool (update if different)
 LICENSE_TOOL := go run ./tools/licenser/main.go
 LICENSE_HOLDER := "The OpenChoreo Authors"
-LICENSE_TYPE := "apache"
 
 .PHONY: license-check
 license-check:
-	@CHECK_ONLY=1 $(LICENSE_TOOL) -check-only -c $(LICENSE_HOLDER) -l $(LICENSE_TYPE) $(ALL_GO_FILES)
+	@CHECK_ONLY=1 $(LICENSE_TOOL) -check-only -c $(LICENSE_HOLDER) $(ALL_GO_FILES)
 
 .PHONY: license-fix
 license-fix:
-	@$(LICENSE_TOOL) -c $(LICENSE_HOLDER) -l $(LICENSE_TYPE) $(ALL_GO_FILES)
+	@$(LICENSE_TOOL) -c $(LICENSE_HOLDER) $(ALL_GO_FILES)
 
 .PHONY: lint
 lint: golangci-lint license-check ## Run golangci-lint linter and licenser
