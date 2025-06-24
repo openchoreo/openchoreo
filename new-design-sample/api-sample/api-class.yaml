@@ -1,0 +1,77 @@
+apiVersion: core.choreo.dev/v1
+kind: APIClass
+metadata:
+  name: sample-api-class
+  namespace: default
+spec:
+  restPolicy:
+    defaults:
+      authentication:
+        type: jwt
+        jwt:
+          issuer: "https://auth.example.com"
+          jwks: "https://auth.example.com/.well-known/jwks.json"
+          audience:
+            - "api.example.com"
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 5
+        successThreshold: 2
+        timeout: "30s"
+      cors:
+        allowOrigins:
+          - "https://frontend.example.com"
+        allowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        allowHeaders:
+          - Authorization
+          - Content-Type
+        maxAge: 3600
+      rateLimit:
+        requests: 100
+        window: "1m"
+        burst: 200
+        keyBy: "client.ip"
+      monitoring:
+        logging:
+          enabled: true
+          logLevel: "INFO"
+          includeRequestBody: true
+          includeResponseBody: false
+        metrics:
+          enabled: true
+          detailedMetrics: true
+      conditionalPolicies:
+        - condition:
+            method: GET
+            paths:
+              - "/api/v1/public/*"
+          policy:
+            authentication:
+              type: none
+            rateLimit:
+              requests: 500
+              window: "1m"
+              burst: 1000
+    public:
+      authentication:
+        type: none
+      rateLimit:
+        requests: 50
+        window: "1m"
+        burst: 100
+    organization:
+      authentication:
+        type: oauth2
+        oauth2:
+          tokenUrl: "https://auth.example.com/oauth2/token"
+          scopes:
+            - read
+            - write
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 3
+        successThreshold: 1
+        timeout: "15s"

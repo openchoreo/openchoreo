@@ -1,0 +1,9 @@
+apiVersion: core.choreo.dev/v1
+kind: APIBinding
+metadata:
+  name: sample-api-binding
+  namespace: default
+spec:
+  apiClassName: sample-api-class
+  apiName: sample-api
+  environmentName: Development

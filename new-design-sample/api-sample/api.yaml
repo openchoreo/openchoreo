@@ -1,0 +1,36 @@
+apiVersion: core.choreo.dev/v1
+kind: API
+metadata:
+  name: sample-api
+  namespace: default
+spec:
+  className: sample-api-class
+  environmentName: production
+  owner:
+    projectName: sample-project
+    componentName: sample-component
+  type: REST
+  rest:
+    backend:
+      basePath: "/api/v1"
+      port: 8080
+    operations:
+      - method: GET
+        path: "/users"
+        description: "Retrieve list of users"
+        exposeLevels:
+          - organization
+        scopes:
+          - read
+      - method: POST
+        path: "/users"
+        description: "Create a new user"
+        exposeLevels:
+          - organization
+        scopes:
+          - write
+      - method: GET
+        path: "/public/info"
+        description: "Public information endpoint"
+        exposeLevels:
+          - public
