@@ -39,10 +39,23 @@ spec:
           spec:
             description: APIBindingSpec defines the desired state of APIBinding.
             properties:
-              foo:
-                description: Foo is an example field of APIBinding. Edit apibinding_types.go
-                  to remove/update
+              apiClassName:
+                description: APIClassName specifies the APIClass to use for this binding
+                minLength: 1
                 type: string
+              apiName:
+                description: APIName specifies the API resource to bind
+                minLength: 1
+                type: string
+              environmentName:
+                description: Environment specifies the target environment for this
+                  binding
+                minLength: 1
+                type: string
+            required:
+            - apiClassName
+            - apiName
+            - environmentName
             type: object
           status:
             description: APIBindingStatus defines the observed state of APIBinding.

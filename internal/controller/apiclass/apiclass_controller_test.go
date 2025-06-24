@@ -5,15 +5,13 @@ package apiclass
 
 import (
 	"context"
-	"github.com/openchoreo/openchoreo/internal/controller"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "github.com/openchoreo/openchoreo/api/v1"
 )
@@ -32,7 +30,7 @@ var _ = Describe("APIClass Controller", func() {
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind APIClass")
-			err := controller.k8sClient.Get(ctx, typeNamespacedName, apiclass)
+			err := k8sClient.Get(ctx, typeNamespacedName, apiclass)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &corev1.APIClass{
 					ObjectMeta: metav1.ObjectMeta{
@@ -41,24 +39,24 @@ var _ = Describe("APIClass Controller", func() {
 					},
 					// TODO(user): Specify other spec details if needed.
 				}
-				Expect(controller.k8sClient.Create(ctx, resource)).To(Succeed())
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &corev1.APIClass{}
-			err := controller.k8sClient.Get(ctx, typeNamespacedName, resource)
+			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance APIClass")
-			Expect(controller.k8sClient.Delete(ctx, resource)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &APIClassReconciler{
-				Client: controller.k8sClient,
-				Scheme: controller.k8sClient.Scheme(),
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

@@ -50,7 +50,7 @@ func Service(rCtx *Context) *choreov1.Resource {
 	rawExt.Object = service
 
 	return &choreov1.Resource{
-		ID:     makeServiceResourceId(rCtx),
+		ID:     makeServiceResourceID(rCtx),
 		Object: rawExt,
 	}
 }
@@ -68,6 +68,6 @@ func makeServiceName(rCtx *Context) string {
 	return dpkubernetes.GenerateK8sName(rCtx.WorkloadBinding.Name)
 }
 
-func makeServiceResourceId(rCtx *Context) string {
+func makeServiceResourceID(rCtx *Context) string {
 	return rCtx.WorkloadBinding.Name + "-service"
 }

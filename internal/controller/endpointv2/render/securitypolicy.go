@@ -5,12 +5,14 @@ package render
 
 import (
 	"fmt"
+
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 // SecurityPolicies renders the SecurityPolicy resources for the given endpoint context.
@@ -58,7 +60,7 @@ func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
 		rawExt.Object = httpRouteFilter
 
 		resources = append(resources, &choreov1.Resource{
-			ID:     makeSecurityPolicyResourceId(httpRouteFilter),
+			ID:     makeSecurityPolicyResourceID(httpRouteFilter),
 			Object: rawExt,
 		})
 	}
@@ -78,7 +80,7 @@ func makeSecurityPolicyForRestOperation(rCtx *Context, restOperation choreov1.RE
 		jwtScopes[i] = egv1a1.JWTScope(scope)
 	}
 
-	//mergedEndpointPolicy :=
+	// mergedEndpointPolicy :=
 
 	return &egv1a1.SecurityPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -127,6 +129,6 @@ func makeSecurityPolicyForRestOperation(rCtx *Context, restOperation choreov1.RE
 }
 
 // TODO: Find a better way to generate resource IDs
-func makeSecurityPolicyResourceId(policy *egv1a1.SecurityPolicy) string {
+func makeSecurityPolicyResourceID(policy *egv1a1.SecurityPolicy) string {
 	return policy.Name
 }

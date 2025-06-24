@@ -7,70 +7,233 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"strings"
+
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // HTTPRoutes renders the HTTPRoute resources for the given API context.
-// This is a placeholder implementation that would be expanded when APIBinding spec is defined.
 func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
-	// TODO: Implement actual HTTPRoute generation based on APIBinding specification
-	// This should follow the pattern from endpointv2/render/httproute.go
-
-	// For now, return empty since APIBinding spec is not fully defined
-	// When implemented, this would:
-	// 1. Parse the API specification from APIBinding
-	// 2. Generate HTTPRoute resources for each API operation
-	// 3. Configure security policies and filters
-	// 4. Set up proper hostnames and routing rules
-
-	return nil
+	apiType := rCtx.API.Spec.Type
+	switch apiType {
+	case choreov1.EndpointTypeREST:
+		return makeRESTHTTPRoutes(rCtx)
+	default:
+		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
+		return nil
+	}
 }
 
-// HTTPRouteFilters renders the HTTPRouteFilter resources for security and other policies.
-func HTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
-	// TODO: Implement HTTPRouteFilter generation
-	// This would create filters for:
-	// - Authentication/Authorization
-	// - Rate limiting
-	// - Request/Response transformation
-	// - CORS policies
+func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
+	if rCtx.API.Spec.RESTEndpoint == nil {
+		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
+		return nil
+	}
+	if rCtx.APIClass.Spec.RESTPolicy == nil {
+		rCtx.AddError(fmt.Errorf("REST policy is not defined in the API class"))
+		return nil
+	}
 
-	return nil
+	// Generate HTTPRoute for each expose level and operation
+	httpRoutes := make([]*gwapiv1.HTTPRoute, 0)
+
+	// Process each operation and its expose levels
+	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
+		for _, exposeLevel := range operation.ExposeLevels {
+			if exposeLevel == choreov1.ExposeLevelProject {
+				continue // Skip project level for now
+			}
+			httpRoute := makeHTTPRouteForRestOperation(rCtx, operation, exposeLevel)
+			if httpRoute != nil {
+				httpRoutes = append(httpRoutes, httpRoute)
+			}
+		}
+	}
+
+	resources := make([]*choreov1.Resource, 0, len(httpRoutes))
+
+	for _, httpRoute := range httpRoutes {
+		rawExt := &runtime.RawExtension{}
+		rawExt.Object = httpRoute
+
+		resources = append(resources, &choreov1.Resource{
+			ID:     makeHTTPRouteResourceID(httpRoute),
+			Object: rawExt,
+		})
+	}
+
+	return resources
+}
+
+// HTTPRouteFilters renders the HTTPRouteFilter resources for regex-based path replacement.
+func HTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
+	apiType := rCtx.API.Spec.Type
+	switch apiType {
+	case choreov1.EndpointTypeREST:
+		return makeRESTHTTPRouteFilters(rCtx)
+	default:
+		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
+		return nil
+	}
+}
+
+func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
+	if rCtx.API.Spec.RESTEndpoint == nil {
+		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
+		return nil
+	}
+	if rCtx.APIClass.Spec.RESTPolicy == nil {
+		rCtx.AddError(fmt.Errorf("REST policy is not defined in the API class"))
+		return nil
+	}
+
+	// Generate HTTPRouteFilters for each expose level and operation
+	httpRouteFilters := make([]*egv1a1.HTTPRouteFilter, 0)
+
+	// Process each operation and its expose levels
+	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
+		for _, exposeLevel := range operation.ExposeLevels {
+			if exposeLevel == choreov1.ExposeLevelProject {
+				continue // Skip project level for now
+			}
+			httpRouteFilter := makeHTTPRouteFilterForRestOperation(rCtx, operation, exposeLevel)
+			if httpRouteFilter != nil {
+				httpRouteFilters = append(httpRouteFilters, httpRouteFilter)
+			}
+		}
+	}
+
+	resources := make([]*choreov1.Resource, 0, len(httpRouteFilters))
+
+	for _, httpRouteFilter := range httpRouteFilters {
+		rawExt := &runtime.RawExtension{}
+		rawExt.Object = httpRouteFilter
+
+		resources = append(resources, &choreov1.Resource{
+			ID:     makeHTTPRouteFilterResourceID(httpRouteFilter),
+			Object: rawExt,
+		})
+	}
+
+	return resources
+}
+
+func makeHTTPRouteFilterForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
+	exposeLevel choreov1.RESTOperationExposeLevel) *egv1a1.HTTPRouteFilter {
+	basePath := rCtx.API.Spec.RESTEndpoint.Backend.BasePath
+	endpointPath := path.Join(basePath, restOperation.Path)
+	pattern := GenerateRegexWithCaptureGroup(basePath, restOperation.Path, endpointPath)
+
+	filter := &egv1a1.HTTPRouteFilter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      makeHTTPRouteName(rCtx, restOperation, exposeLevel),
+			Namespace: makeNamespaceName(rCtx),
+			Labels:    makeAPILabels(rCtx),
+		},
+		Spec: egv1a1.HTTPRouteFilterSpec{
+			URLRewrite: &egv1a1.HTTPURLRewriteFilter{
+				Path: &egv1a1.HTTPPathModifier{
+					Type: egv1a1.RegexHTTPPathModifier,
+					ReplaceRegexMatch: &egv1a1.ReplaceRegexMatch{
+						Pattern:      pattern,
+						Substitution: "\\1",
+					},
+				},
+			},
+		},
+	}
+
+	return filter
+}
+
+func makeHTTPRouteFilterResourceID(httpRouteFilter *egv1a1.HTTPRouteFilter) string {
+	return httpRouteFilter.Name
 }
 
 // SecurityPolicies renders the SecurityPolicy resources for the API.
 func SecurityPolicies(rCtx *Context) []*choreov1.Resource {
-	// TODO: Implement SecurityPolicy generation
-	// This would create security policies for:
-	// - JWT validation
-	// - OAuth2 integration
-	// - API key validation
-	// - Network policies
-
-	return nil
+	apiType := rCtx.API.Spec.Type
+	switch apiType {
+	case choreov1.EndpointTypeREST:
+		return makeSecurityPolicies(rCtx)
+	default:
+		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
+		return nil
+	}
 }
 
-// makeHTTPRouteForAPIOperation creates an HTTPRoute for a specific API operation.
-// This is a template function that would be implemented when APIBinding spec is defined.
-func makeHTTPRouteForAPIOperation(rCtx *Context, operation interface{}, exposeLevel string) *gwapiv1.HTTPRoute {
-	// TODO: Implement based on actual API operation structure
-	// This would be similar to makeHTTPRouteForRestOperation in endpointv2/render/httproute.go
+func makeHTTPRouteForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
+	exposeLevel choreov1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
+	pathType := gwapiv1.PathMatchRegularExpression
+	method := restOperation.Method
+	hostname := makeHostname(rCtx, exposeLevel)
+	name := makeHTTPRouteName(rCtx, restOperation, exposeLevel)
+	port := gwapiv1.PortNumber(rCtx.API.Spec.RESTEndpoint.Backend.Port)
+	basePath := rCtx.API.Spec.RESTEndpoint.Backend.BasePath
+	endpointPath := path.Join(basePath, restOperation.Path)
 
-	return nil
-}
+	regexEpPath := GenerateRegexWithCaptureGroup(basePath, restOperation.Path, endpointPath)
 
-// makeAPIHostname generates the hostname for an API based on expose level and environment.
-func makeAPIHostname(rCtx *Context, exposeLevel string) gwapiv1.Hostname {
-	// TODO: Implement hostname generation based on:
-	// - Environment name
-	// - Organization/project context
-	// - Expose level (public, organization, project)
-	// - API gateway configuration
-
-	return gwapiv1.Hostname("api.example.com") // Placeholder
+	return &gwapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: makeNamespaceName(rCtx),
+			Labels:    makeAPILabels(rCtx),
+		},
+		Spec: gwapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
+					{
+						Name:      gwapiv1.ObjectName(getGatewayName(rCtx)),
+						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
+					},
+				},
+			},
+			Hostnames: []gwapiv1.Hostname{hostname},
+			Rules: []gwapiv1.HTTPRouteRule{
+				{
+					Matches: []gwapiv1.HTTPRouteMatch{
+						{
+							Path: &gwapiv1.HTTPPathMatch{
+								Type:  &pathType,
+								Value: &regexEpPath,
+							},
+							Method: (*gwapiv1.HTTPMethod)(&method),
+						},
+					},
+					Filters: []gwapiv1.HTTPRouteFilter{
+						{
+							Type: gwapiv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwapiv1.LocalObjectReference{
+								Group: "gateway.envoyproxy.io",
+								Kind:  "HTTPRouteFilter",
+								Name:  gwapiv1.ObjectName(name),
+							},
+						},
+					},
+					BackendRefs: []gwapiv1.HTTPBackendRef{
+						{
+							BackendRef: gwapiv1.BackendRef{
+								BackendObjectReference: gwapiv1.BackendObjectReference{
+									Name: gwapiv1.ObjectName(makeServiceName(rCtx)),
+									Port: &port,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 // makeAPILabels creates common labels for API-related resources.
@@ -84,13 +247,244 @@ func makeAPILabels(rCtx *Context) map[string]string {
 	}
 }
 
-// generateAPIPathRegex generates regex patterns for API path matching.
-func generateAPIPathRegex(basePath, operationPath string) string {
-	// TODO: Implement path regex generation similar to GenerateRegexWithCaptureGroup
-	// in endpointv2/render/httproute.go
+// makeHostname generates the hostname for an API based on gateway type and expose level
+func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
+	var domain string
+	switch exposeLevel {
+	case choreov1.ExposeLevelOrganization:
+		domain = "choreoapis.internal"
+	default:
+		domain = "choreoapis.localhost"
+	}
+	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", "dev", domain))
+}
 
-	// Placeholder implementation
+func makeHTTPRouteName(rCtx *Context, operation choreov1.RESTEndpointOperation, exposeLevel choreov1.RESTOperationExposeLevel) string {
+	operationStr := fmt.Sprintf("%s-%s", strings.ToLower(string(operation.Method)), strings.TrimPrefix(operation.Path, "/"))
+	return dpkubernetes.GenerateK8sName(rCtx.APIBinding.Name, strings.ToLower(string(exposeLevel)), operationStr)
+}
+
+func makeNamespaceName(rCtx *Context) string {
+	organizationName := rCtx.APIBinding.Namespace // Namespace is the organization name
+	projectName := rCtx.API.Spec.Owner.ProjectName
+	environmentName := rCtx.APIBinding.Spec.EnvironmentName
+	// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
+		"dp", organizationName, projectName, environmentName)
+}
+
+func makeServiceName(rCtx *Context) string {
+	// TODO: figure out how to get the service name from the workload
+	return "choreo-service"
+}
+
+func getGatewayName(rCtx *Context) string {
+	// Default to internal gateway
+	defaultGateway := "gateway-internal"
+
+	// Check if we have a REST endpoint with operations
+	if rCtx.API.Spec.RESTEndpoint == nil || len(rCtx.API.Spec.RESTEndpoint.Operations) == 0 {
+		return defaultGateway
+	}
+
+	// Check for any public expose level operations - if found, use external gateway
+	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
+		for _, exposeLevel := range operation.ExposeLevels {
+			if exposeLevel == choreov1.ExposeLevelPublic {
+				return "gateway-external"
+			}
+		}
+	}
+
+	// If no public operations found, return internal gateway
+	return defaultGateway
+}
+
+func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
+	if rCtx.API.Spec.RESTEndpoint == nil {
+		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
+		return nil
+	}
+	if rCtx.APIClass.Spec.RESTPolicy == nil {
+		rCtx.AddError(fmt.Errorf("REST policy is not defined in the API class"))
+		return nil
+	}
+
+	// Generate SecurityPolicy for each expose level and operation
+	securityPolicies := make([]*egv1a1.SecurityPolicy, 0)
+
+	// Process each operation and its expose levels
+	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
+		for _, exposeLevel := range operation.ExposeLevels {
+			if exposeLevel == choreov1.ExposeLevelProject {
+				continue // Skip project level for now
+			}
+
+			// Get merged policies for this expose level
+			mergedPolicy, err := MergePoliciesForExposeLevel(rCtx.APIClass.Spec.RESTPolicy, exposeLevel)
+			if err != nil {
+				rCtx.AddError(fmt.Errorf("failed to merge policies for expose level %s: %w", exposeLevel, err))
+				continue
+			}
+
+			securityPolicy := makeSecurityPolicyForRestOperation(rCtx, operation, exposeLevel, mergedPolicy)
+			if securityPolicy != nil {
+				securityPolicies = append(securityPolicies, securityPolicy)
+			}
+		}
+	}
+
+	resources := make([]*choreov1.Resource, 0, len(securityPolicies))
+
+	for _, securityPolicy := range securityPolicies {
+		rawExt := &runtime.RawExtension{}
+		rawExt.Object = securityPolicy
+
+		resources = append(resources, &choreov1.Resource{
+			ID:     makeSecurityPolicyResourceID(securityPolicy),
+			Object: rawExt,
+		})
+	}
+
+	return resources
+}
+
+func makeSecurityPolicyForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
+	exposeLevel choreov1.RESTOperationExposeLevel, mergedPolicy *choreov1.RESTPolicyWithConditionals) *egv1a1.SecurityPolicy {
+	name := makeHTTPRouteName(rCtx, restOperation, exposeLevel)
+	actionDeny := egv1a1.AuthorizationActionDeny
+	actionAllow := egv1a1.AuthorizationActionAllow
+
+	// Convert RESTOperation.Scopes to []egv1a1.JWTScope
+	jwtScopes := make([]egv1a1.JWTScope, len(restOperation.Scopes))
+	for i, scope := range restOperation.Scopes {
+		jwtScopes[i] = egv1a1.JWTScope(scope)
+	}
+
+	securityPolicy := &egv1a1.SecurityPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: makeNamespaceName(rCtx),
+			Labels:    makeAPILabels(rCtx),
+		},
+		Spec: egv1a1.SecurityPolicySpec{
+			PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+				TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+					{
+						LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+							Group: gwapiv1.GroupName,
+							Kind:  "HTTPRoute",
+							Name:  gwapiv1a2.ObjectName(name),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Configure authentication if available
+	if mergedPolicy != nil && mergedPolicy.Authentication != nil {
+		if mergedPolicy.Authentication.Type == "jwt" {
+			if mergedPolicy.Authentication.JWT != nil {
+				securityPolicy.Spec.JWT = &egv1a1.JWT{
+					Providers: []egv1a1.JWTProvider{
+						{
+							Name: "default",
+							RemoteJWKS: egv1a1.RemoteJWKS{
+								URI: mergedPolicy.Authentication.JWT.JWKS,
+							},
+							Issuer:    mergedPolicy.Authentication.JWT.Issuer,
+							Audiences: mergedPolicy.Authentication.JWT.Audience,
+						},
+					},
+				}
+
+				// Add authorization if scopes are present
+				if len(jwtScopes) > 0 {
+					securityPolicy.Spec.Authorization = &egv1a1.Authorization{
+						Rules: []egv1a1.AuthorizationRule{
+							{
+								Principal: egv1a1.Principal{
+									JWT: &egv1a1.JWTPrincipal{
+										Provider: "default",
+										Scopes:   jwtScopes,
+									},
+								},
+								Action: actionAllow,
+							},
+						},
+						DefaultAction: &actionDeny,
+					}
+				}
+			}
+		}
+	}
+
+	return securityPolicy
+}
+
+func makeSecurityPolicyResourceID(policy *egv1a1.SecurityPolicy) string {
+	return policy.Name
+}
+
+func makeHTTPRouteResourceID(httpRoute *gwapiv1.HTTPRoute) string {
+	return httpRoute.Name
+}
+
+// GenerateRegexWithCaptureGroup generates a regex pattern that captures the basePath + operation part
+// Parameters:
+//   - basePath: the base path to match (e.g., "/api/v1/reading-list")
+//   - operation: the operation path with parameters (e.g., "/books/{id}")
+//   - pathMatch: the full path to match against (e.g., "/default-project/reading-list-service/api/v1/reading-list/books/{id}")
+//
+// Returns a regex with a capture group around the basePath + operation portion
+func GenerateRegexWithCaptureGroup(basePath, operation, pathMatch string) string {
+	// Define a regex pattern to match parameters in the operation
 	paramPattern := regexp.MustCompile(`\{[^}]+\}`)
-	regexPath := paramPattern.ReplaceAllString(path.Join(basePath, operationPath), "[^/]+")
-	return fmt.Sprintf("^%s$", regexp.QuoteMeta(regexPath))
+
+	// Combine basePath and operation to get the full path we want to capture
+	capturablePath := basePath + operation
+
+	// Remove leading double slashes of the capturable path
+	capturablePath = regexp.MustCompile(`^//+`).ReplaceAllString(capturablePath, "/")
+
+	// Remove trailing double slashes of the capturable path
+	capturablePath = regexp.MustCompile(`//+$`).ReplaceAllString(capturablePath, "/")
+
+	// Find where the capturable path starts in the full pathMatch
+	captureStartIndex := strings.Index(pathMatch, capturablePath)
+	if captureStartIndex == -1 {
+		// If basePath is not found, return a simple regex
+		return "^" + escapeExceptPatterns(paramPattern.ReplaceAllString(pathMatch, "[^/]+")) + "$"
+	}
+
+	// Split the pathMatch into prefix and the part we want to capture
+	prefix := pathMatch[:captureStartIndex]
+	capturablePart := pathMatch[captureStartIndex:]
+
+	// Convert parameters in the capturable part to regex patterns
+	capturableWithRegex := paramPattern.ReplaceAllString(capturablePart, "[^/]+")
+
+	// Escape the prefix (the part before basePath)
+	escapedPrefix := regexp.QuoteMeta(prefix)
+
+	// Escape the capturable part (but we already handled parameters)
+	// We need to escape everything except our [^/]+ patterns
+	escapedCapturable := escapeExceptPatterns(capturableWithRegex)
+
+	// Build the final regex with capture group
+	return fmt.Sprintf("^%s(%s)$", escapedPrefix, escapedCapturable)
+}
+
+// escapeExceptPatterns escapes regex special characters but preserves [^/]+ patterns
+func escapeExceptPatterns(input string) string {
+	// First, replace [^/]+ with a placeholder
+	placeholder := "REGEX_PATTERN_PLACEHOLDER"
+	temp := strings.ReplaceAll(input, "[^/]+", placeholder)
+
+	// Escape the rest
+	escaped := regexp.QuoteMeta(temp)
+
+	// Restore the regex patterns
+	return strings.ReplaceAll(escaped, placeholder, "[^/]+")
 }

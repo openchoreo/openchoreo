@@ -5,16 +5,12 @@ package componentv2
 
 import (
 	"context"
-	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
@@ -60,15 +56,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	//_ = comp.DeepCopy()
-	//
-	//if res, err := r.reconcileWorkload(ctx, comp); err != nil || res.Requeue {
-	//	return res, err
-	//}
-	//
-	//if res, err := r.reconcileEndpoints(ctx, comp); err != nil || res.Requeue {
-	//	return res, err
-	//}
 	return ctrl.Result{}, nil
 }
 
@@ -82,6 +69,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // reconcileWorkload reconciles the workload associated with the ComponentV2.
+/*
 func (r *Reconciler) reconcileWorkload(ctx context.Context, comp *choreov1.ComponentV2) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -90,7 +78,7 @@ func (r *Reconciler) reconcileWorkload(ctx context.Context, comp *choreov1.Compo
 		workload := r.makeWorkload(comp)
 		gitCommitReq := &choreov1.GitCommitRequest{
 			ObjectMeta: metav1.ObjectMeta{
-				//Name:      makeWorkloadGitCommitRequestName(comp, workload.Spec.EnvironmentName),
+				// Name:      makeWorkloadGitCommitRequestName(comp, workload.Spec.EnvironmentName),
 				Namespace: comp.Namespace,
 			},
 		}
@@ -132,11 +120,15 @@ func (r *Reconciler) reconcileWorkload(ctx context.Context, comp *choreov1.Compo
 		return ctrl.Result{}, nil
 	}
 }
+*/
 
+/*
 func makeWorkloadGitCommitRequestName(comp *choreov1.ComponentV2, envName string) string {
 	return fmt.Sprintf("%s-%s-workload", comp.Name, envName)
 }
+*/
 
+/*
 func (r *Reconciler) makeWorkload(comp *choreov1.ComponentV2) *choreov1.Workload {
 	return &choreov1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -148,13 +140,15 @@ func (r *Reconciler) makeWorkload(comp *choreov1.ComponentV2) *choreov1.Workload
 				ProjectName:   comp.Spec.Owner.ProjectName,
 				ComponentName: comp.Name,
 			},
-			//EnvironmentName:      "development",
-			//WorkloadTemplateSpec: comp.Spec.Workload,
+			// EnvironmentName:      "development",
+			// WorkloadTemplateSpec: comp.Spec.Workload,
 		},
 	}
 }
+*/
 
 // makeGitCommitRequestForWorkload creates a GitCommitRequest for the given workload
+/*
 func (r *Reconciler) makeGitCommitRequestForWorkload(comp *choreov1.ComponentV2, workload *choreov1.Workload) *choreov1.GitCommitRequest {
 	workloadYAML, err := r.generateWorkloadYAML(workload)
 	if err != nil {
@@ -182,8 +176,10 @@ func (r *Reconciler) makeGitCommitRequestForWorkload(comp *choreov1.ComponentV2,
 		Spec: r.makeCommitRequestSpec(message, files),
 	}
 }
+*/
 
 // makeCommitRequestSpec creates a GitCommitRequestSpec with the given message and files
+/*
 func (r *Reconciler) makeCommitRequestSpec(message string, files []choreov1.FileEdit) choreov1.GitCommitRequestSpec {
 	return choreov1.GitCommitRequestSpec{
 		RepoURL: "https://github.com/Mirage20/openchoreo-gitops", // TODO: Configure GitOps repository URL
@@ -197,8 +193,10 @@ func (r *Reconciler) makeCommitRequestSpec(message string, files []choreov1.File
 		Files:         files,
 	}
 }
+*/
 
 // generateWorkloadYAML converts a Workload resource to YAML format
+/*
 func (r *Reconciler) generateWorkloadYAML(workload *choreov1.Workload) (string, error) {
 	// Create a clean copy for serialization
 	workloadCopy := workload.DeepCopy()
@@ -225,3 +223,4 @@ func (r *Reconciler) generateWorkloadYAML(workload *choreov1.Workload) (string, 
 
 	return string(yamlBytes), nil
 }
+*/

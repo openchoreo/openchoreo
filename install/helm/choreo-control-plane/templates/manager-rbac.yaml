@@ -91,6 +91,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings
+  - apiclasses
+  - apireleases
+  - apis
   - builds
   - components
   - componentv2s
@@ -107,6 +111,7 @@ rules:
   - gitcommitrequests
   - organizations
   - projects
+  - workloadbindings
   - workloadclasses
   - workloadreleases
   - workloads
@@ -121,6 +126,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings/finalizers
+  - apiclasses/finalizers
+  - apireleases/finalizers
+  - apis/finalizers
   - builds/finalizers
   - components/finalizers
   - componentv2s/finalizers
@@ -137,6 +146,7 @@ rules:
   - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - workloadbindings/finalizers
   - workloadclasses/finalizers
   - workloadreleases/finalizers
   - workloads/finalizers
@@ -145,6 +155,10 @@ rules:
 - apiGroups:
   - core.choreo.dev
   resources:
+  - apibindings/status
+  - apiclasses/status
+  - apireleases/status
+  - apis/status
   - builds/status
   - components/status
   - componentv2s/status
@@ -161,6 +175,7 @@ rules:
   - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - workloadbindings/status
   - workloadclasses/status
   - workloadreleases/status
   - workloads/status

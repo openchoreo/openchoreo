@@ -53,33 +53,33 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Find the associated WorkloadClass
-	//workloadClassName := workload.Spec.WorkloadTemplateSpec.ClassName
-	//workloadClass := &choreov1.WorkloadClass{}
-	//if err := r.Get(ctx, client.ObjectKey{
+	// workloadClassName := workload.Spec.WorkloadTemplateSpec.ClassName
+	// workloadClass := &choreov1.WorkloadClass{}
+	// if err := r.Get(ctx, client.ObjectKey{
 	//	Namespace: workload.Namespace,
 	//	Name:      workloadClassName,
-	//}, workloadClass); err != nil {
+	// }, workloadClass); err != nil {
 	//	logger.Error(err, "Failed to get WorkloadClass", "workloadClassName", workloadClassName)
 	//	return ctrl.Result{}, err
-	//}
+	// }
 
 	// TODO: Improve this to only list endpoints that are relevant to this workload
 	// Find associated EndpointV2 resources for this workload
-	//var endpoints []choreov1.EndpointV2
-	//endpointList := &choreov1.EndpointV2List{}
-	//if err := r.List(ctx, endpointList, client.InNamespace(workload.Namespace)); err != nil {
+	// var endpoints []choreov1.EndpointV2
+	// endpointList := &choreov1.EndpointV2List{}
+	// if err := r.List(ctx, endpointList, client.InNamespace(workload.Namespace)); err != nil {
 	//	logger.Error(err, "Failed to list EndpointV2 resources")
 	//	return ctrl.Result{}, err
-	//}
+	// }
 
 	// Filter endpoints that belong to this workload's component
-	//for _, endpoint := range endpointList.Items {
+	// for _, endpoint := range endpointList.Items {
 	//	if endpoint.Spec.Owner.ProjectName == workload.Spec.Owner.ProjectName &&
 	//		endpoint.Spec.Owner.ComponentName == workload.Spec.Owner.ComponentName &&
 	//		endpoint.Spec.EnvironmentName == workload.Spec.EnvironmentName {
 	//		endpoints = append(endpoints, endpoint)
 	//	}
-	//}
+	// }
 
 	if res, err := r.reconcileWorkloadBinding(ctx, workload); err != nil || res.Requeue {
 		return res, err

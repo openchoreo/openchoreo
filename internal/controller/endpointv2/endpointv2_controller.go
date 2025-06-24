@@ -77,6 +77,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileEndpointRelease reconciles the EndpointRelease associated with the EndpointV2.
+//
+//nolint:unparam
 func (r *Reconciler) reconcileEndpointRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 

@@ -737,10 +737,6 @@ spec:
                                                 - exposeHeaders
                                                 - maxAge
                                                 type: object
-                                              mediationPolicies:
-                                                items:
-                                                  type: object
-                                                type: array
                                               oauth2:
                                                 description: OAuth2PolicySpec defines
                                                   the configuration for OAuth2 policies
@@ -1048,10 +1044,6 @@ spec:
                                                 - exposeHeaders
                                                 - maxAge
                                                 type: object
-                                              mediationPolicies:
-                                                items:
-                                                  type: object
-                                                type: array
                                               oauth2:
                                                 description: OAuth2PolicySpec defines
                                                   the configuration for OAuth2 policies

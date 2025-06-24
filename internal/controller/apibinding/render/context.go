@@ -11,7 +11,8 @@ import (
 
 type Context struct {
 	APIBinding *choreov1.APIBinding
-	APIClass   *choreov1.APIClass // Will be added when APIBinding spec is defined
+	APIClass   *choreov1.APIClass
+	API        *choreov1.API
 
 	// Stores the errors encountered during rendering.
 	errs []error

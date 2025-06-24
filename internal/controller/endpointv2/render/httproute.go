@@ -7,17 +7,24 @@ import (
 	"fmt"
 	"path"
 	"regexp"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
-	"k8s.io/utils/ptr"
 )
+
+/*
+const (
+	choreoAPIsInternalDomain = "choreoapis.internal"
+	gatewayInternalName      = "gateway-internal"
+)
+*/
 
 // HTTPRoutes renders the HTTPRoute resources for the given endpoint context.
 func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
@@ -64,7 +71,7 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 		rawExt.Object = httpRoute
 
 		resources = append(resources, &choreov1.Resource{
-			ID:     makeHTTPRouteResourceId(httpRoute),
+			ID:     makeHTTPRouteResourceID(httpRoute),
 			Object: rawExt,
 		})
 	}
@@ -139,12 +146,12 @@ func makeHTTPRouteForRestOperation(rCtx *Context, restOperation choreov1.RESTEnd
 }
 
 // makeHostname generates the hostname for an endpoint based on gateway type and component type
-func makeHostname(rCtx *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
+func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
 	// ToDO: Handle the case for webapps
-	//if rCtx.Component.Spec.Workload.Type == choreov1.WorkloadTypeWebApplication {
+	// if rCtx.Component.Spec.Workload.Type == choreov1.WorkloadTypeWebApplication {
 	//	return gatewayv1.Hostname(fmt.Sprintf("%s-%s.%s", rCtx.EndpointV2.Spec.Owner.ComponentName,
 	//		rCtx.EndpointV2.Spec.EnvironmentName, "choreoapps.localhost"))
-	//}
+	// }
 	var domain string
 	switch exposeLevel {
 	// ToDo: Find a correct way to get the domain & env prefix for both expose levels
@@ -157,12 +164,14 @@ func makeHostname(rCtx *Context, exposeLevel choreov1.RESTOperationExposeLevel) 
 }
 
 // makePathPrefix returns the URL path prefix based on component type
+/*
 func makePathPrefix(rCtx *Context) string {
-	//if rCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+	// if rCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
 	//	return "/"
-	//}
+	// }
 	return path.Clean(path.Join("/", rCtx.EndpointV2.Spec.Owner.ProjectName, rCtx.EndpointV2.Spec.Owner.ComponentName))
 }
+*/
 
 // GenerateRegexWithCaptureGroup generates a regex pattern that captures the basePath + operation part
 // Parameters:
@@ -222,9 +231,11 @@ func escapeExceptPatterns(input string) string {
 	return strings.ReplaceAll(escaped, placeholder, "[^/]+")
 }
 
+const gatewayInternalName = "gateway-internal"
+
 func getGatewayName(rCtx *Context) string {
 	// Default to internal gateway
-	defaultGateway := "gateway-internal"
+	defaultGateway := gatewayInternalName
 
 	// Check if we have a REST endpoint with operations
 	if rCtx.EndpointV2.Spec.RESTEndpoint == nil || len(rCtx.EndpointV2.Spec.RESTEndpoint.Operations) == 0 {
@@ -249,6 +260,7 @@ func makeServiceName(epCtx *Context) string {
 	return "choreo-service"
 }
 
+/*
 func gatewayNameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) string {
 	switch exposeLevel {
 	case choreov1.ExposeLevelOrganization:
@@ -259,18 +271,19 @@ func gatewayNameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) st
 		return "gateway-internal"
 	}
 }
+*/
 
 // todo: take this from dp
-func hostnameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) string {
-	switch exposeLevel {
-	case choreov1.ExposeLevelOrganization:
-		return "choreoapis.internal" // Internal organization-level hostname
-	case choreov1.ExposeLevelPublic:
-		return "choreoapis.localhost" // Public external hostname
-	default:
-		return "choreoapis.internal" // Default internal hostname
-	}
-}
+//	func hostnameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) string {
+//		switch exposeLevel {
+//		case choreov1.ExposeLevelOrganization:
+//			return "choreoapis.internal" // Internal organization-level hostname
+//		case choreov1.ExposeLevelPublic:
+//			return "choreoapis.localhost" // Public external hostname
+//		default:
+//			return "choreoapis.internal" // Default internal hostname
+//		}
+//	}
 
 func makeHTTPRouteName(rCtx *Context, operation choreov1.RESTEndpointOperation, exposeLevel choreov1.RESTOperationExposeLevel) string {
 	operationStr := fmt.Sprintf("%s-%s", strings.ToLower(string(operation.Method)), strings.TrimPrefix(operation.Path, "/"))
@@ -292,12 +305,12 @@ func makeEndpointLabels(rCtx *Context) map[string]string {
 		dpkubernetes.LabelKeyProjectName:      rCtx.EndpointV2.Spec.Owner.ProjectName,
 		dpkubernetes.LabelKeyEnvironmentName:  rCtx.EndpointV2.Spec.EnvironmentName,
 		dpkubernetes.LabelKeyComponentName:    rCtx.EndpointV2.Spec.Owner.ComponentName,
-		//dpkubernetes.LabelKeyManagedBy:        dpkubernetes.LabelValueManagedBy,
-		//dpkubernetes.LabelKeyBelongTo:         dpkubernetes.LabelValueBelongTo,
+		// dpkubernetes.LabelKeyManagedBy:        dpkubernetes.LabelValueManagedBy,
+		// dpkubernetes.LabelKeyBelongTo:         dpkubernetes.LabelValueBelongTo,
 	}
 }
 
 // TODO: Find a better way to generate resource IDs
-func makeHTTPRouteResourceId(httpRoute *gwapiv1.HTTPRoute) string {
+func makeHTTPRouteResourceID(httpRoute *gwapiv1.HTTPRoute) string {
 	return httpRoute.Name
 }

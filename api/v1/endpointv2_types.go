@@ -27,8 +27,8 @@ type EndpointTemplateSpec struct {
 	ClassName    string        `json:"className"`
 	Type         EndpointType  `json:"type"`
 	RESTEndpoint *RESTEndpoint `json:"rest,omitempty"`
-	//GRPCEndpointSpec GRPCEndpointSpec `json:"grpc,omitempty"`
-	//TCPEndpointSpec  TCPEndpointSpec  `json:"tcp,omitempty"`
+	// GRPCEndpointSpec GRPCEndpointSpec `json:"grpc,omitempty"`
+	// TCPEndpointSpec  TCPEndpointSpec  `json:"tcp,omitempty"`
 }
 
 type RESTEndpoint struct {

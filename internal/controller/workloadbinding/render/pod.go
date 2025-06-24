@@ -16,14 +16,14 @@ func makeWorkloadPodSpec(rCtx *Context) *corev1.PodSpec {
 	mainContainer := makeMainContainer(rCtx)
 
 	// Add file volumes and mounts
-	//fileVolumes, fileMounts := makeFileVolumes(deployCtx)
-	//mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, fileMounts...)
-	//ps.Volumes = append(ps.Volumes, fileVolumes...)
+	// fileVolumes, fileMounts := makeFileVolumes(deployCtx)
+	// mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, fileMounts...)
+	// ps.Volumes = append(ps.Volumes, fileVolumes...)
 
 	// Add the secret volumes and mounts for the secret storage CSI driver
-	//secretCSIVolumes, secretCSIMounts := makeSecretCSIVolumes(deployCtx)
-	//mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, secretCSIMounts...)
-	//ps.Volumes = append(ps.Volumes, secretCSIVolumes...)
+	// secretCSIVolumes, secretCSIMounts := makeSecretCSIVolumes(deployCtx)
+	// mainContainer.VolumeMounts = append(mainContainer.VolumeMounts, secretCSIMounts...)
+	// ps.Volumes = append(ps.Volumes, secretCSIVolumes...)
 
 	ps.Containers = []corev1.Container{*mainContainer}
 
@@ -83,7 +83,7 @@ func makeEnvironmentVariables(rCtx *Context) []corev1.EnvVar {
 }
 
 //
-//func makeFileVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
+// func makeFileVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
 //	volumes := make([]corev1.Volume, 0)
 //	mounts := make([]corev1.VolumeMount, 0)
 //
@@ -183,10 +183,10 @@ func makeEnvironmentVariables(rCtx *Context) []corev1.EnvVar {
 //		}
 //	}
 //	return volumes, mounts
-//}
+// }
 //
-//// makeSecretCSIVolumes creates the secret volumes and mounts for the secret storage CSI driver.
-//func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
+// // makeSecretCSIVolumes creates the secret volumes and mounts for the secret storage CSI driver.
+// func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volume, []corev1.VolumeMount) {
 //	volumes := make([]corev1.Volume, 0)
 //	mounts := make([]corev1.VolumeMount, 0)
 //
@@ -220,21 +220,21 @@ func makeEnvironmentVariables(rCtx *Context) []corev1.EnvVar {
 //	}
 //
 //	return volumes, mounts
-//}
+// }
 //
-//func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPolicy {
+// func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPolicy {
 //	if deployCtx.Component.Spec.Type == choreov1.ComponentTypeScheduledTask ||
 //		deployCtx.Component.Spec.Type == choreov1.ComponentTypeManualTask {
 //		return corev1.RestartPolicyNever
 //	}
 //	return corev1.RestartPolicyAlways
-//}
+// }
 //
-//// makeDirectFileMountVolumeName generates a unique name for the file mount volume for a given FileMount spec
-//// The name will be in the format: filemount-<hash-of-the-mount-path>
-//func makeDirectFileMountVolumeName(fileMount *choreov1.FileMount) string {
+// // makeDirectFileMountVolumeName generates a unique name for the file mount volume for a given FileMount spec
+// // The name will be in the format: filemount-<hash-of-the-mount-path>
+// func makeDirectFileMountVolumeName(fileMount *choreov1.FileMount) string {
 //	hashLength := 8
 //	hashBytes := sha256.Sum256([]byte(fileMount.MountPath))
 //	hash := hex.EncodeToString(hashBytes[:])[:hashLength]
 //	return fmt.Sprintf("filemount-%s", hash)
-//}
+// }

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/evanphx/json-patch/v5"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -79,10 +79,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				Password: string(sec.Data["password"]),
 			}
 		}
-		//else if key, ok := sec.Data["ssh-privatekey"]; ok {
-		//signer, _ := ssh.ParsePrivateKey(key)                  // import "golang.org/x/crypto/ssh"
-		//auth = &gitssh.PublicKeys{User: "git", Signer: signer} // import gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
-		//}
+		// else if key, ok := sec.Data["ssh-privatekey"]; ok {
+		// signer, _ := ssh.ParsePrivateKey(key)                  // import "golang.org/x/crypto/ssh"
+		// auth = &gitssh.PublicKeys{User: "git", Signer: signer} // import gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+		// }
 	}
 
 	// 2. Clone repo to a tmp dir
@@ -147,6 +147,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // helper to set failed status once
+//
+//nolint:unparam
 func (r *Reconciler) fail(ctx context.Context,
 	gcr *choreov1.GitCommitRequest, err error) (ctrl.Result, error) {
 	gcr.Status.Phase = "Failed"
@@ -170,7 +172,7 @@ func applyEdits(root string, edits []choreov1.FileEdit) error {
 			}
 			e.Content = string(mod)
 		}
-		if err := os.WriteFile(abs, []byte(e.Content), 0o644); err != nil {
+		if err := os.WriteFile(abs, []byte(e.Content), 0o600); err != nil {
 			return err
 		}
 	}

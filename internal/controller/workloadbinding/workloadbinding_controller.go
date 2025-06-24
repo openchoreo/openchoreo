@@ -90,6 +90,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileWorkloadRelease reconciles the WorkloadRelease associated with the WorkloadBinding.
+//
+//nolint:unparam
 func (r *Reconciler) reconcileWorkloadRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 

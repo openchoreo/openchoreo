@@ -5,8 +5,10 @@ package apibinding
 
 import (
 	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -26,6 +28,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apiclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=apis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apireleases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -43,14 +46,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: Implement logic to get the associated APIClass
-	// For now, we'll skip this since the APIBinding structure is not fully defined
-	// This would follow the pattern from WorkloadBinding where we get the class
+	// Step 1: Find associated APIClass resource
+	apiClass := &choreov1.APIClass{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      apiBinding.Spec.APIClassName,
+		Namespace: apiBinding.Namespace,
+	}, apiClass); err != nil {
+		logger.Error(err, "Failed to get APIClass", "APIClassName", apiBinding.Spec.APIClassName)
+		return ctrl.Result{}, err
+	}
+
+	// Step 2: Find associated API resource
+	api := &choreov1.API{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      apiBinding.Spec.APIName,
+		Namespace: apiBinding.Namespace,
+	}, api); err != nil {
+		logger.Error(err, "Failed to get API", "APIName", apiBinding.Spec.APIName)
+		return ctrl.Result{}, err
+	}
 
 	// Create render context
 	rCtx := &render.Context{
 		APIBinding: apiBinding,
-		// APIClass will be added when the spec is properly defined
+		APIClass:   apiClass,
+		API:        api,
 	}
 
 	// Reconcile the APIRelease
@@ -62,6 +82,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileAPIRelease reconciles the APIRelease associated with the APIBinding.
+//
+//nolint:unparam
 func (r *Reconciler) reconcileAPIRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -99,18 +121,38 @@ func (r *Reconciler) makeAPIRelease(rCtx *render.Context) *choreov1.APIRelease {
 			Namespace: rCtx.APIBinding.Namespace,
 		},
 		Spec: choreov1.APIReleaseSpec{
-			// TODO: Implement proper spec mapping when APIBinding spec is defined
-			// This would follow the pattern from WorkloadBinding -> WorkloadRelease
+			Owner: choreov1.APIReleaseOwner{
+				ProjectName:   rCtx.API.Spec.Owner.ProjectName,
+				ComponentName: rCtx.API.Spec.Owner.ComponentName,
+			},
+			EnvironmentName: rCtx.APIBinding.Spec.EnvironmentName,
+			Type:            rCtx.API.Spec.Type,
 		},
 	}
 
-	var resources []choreov1.Resource
+	resources := make([]choreov1.Resource, 0)
 
-	// Add gateway resources (HTTPRoute, SecurityPolicy, etc.) following EndpointV2 pattern
-	// This is where we would generate the Gateway API resources based on the API specification
+	// Step 3: Find the RESTAPIPolicy in APIClassSpec
+	// Step 4 & 5: Apply strategic merge for both Public & Organization expose levels
+	// Step 6: Generate HTTPRoute, HTTPRouteFilter and SecurityPolicy for each operation
 
-	// TODO: Implement gateway artifact generation similar to endpointv2/render/httproute.go
-	// For now, we'll leave this empty since the APIBinding spec is not fully defined
+	// Generate HTTPRoute resources
+	httpRoutes := render.HTTPRoutes(rCtx)
+	for _, httpRoute := range httpRoutes {
+		resources = append(resources, *httpRoute)
+	}
+
+	// Generate SecurityPolicy resources
+	securityPolicies := render.SecurityPolicies(rCtx)
+	for _, securityPolicy := range securityPolicies {
+		resources = append(resources, *securityPolicy)
+	}
+
+	// Generate HTTPRouteFilter resources for regex-based path replacement
+	httpRouteFilters := render.HTTPRouteFilters(rCtx)
+	for _, httpRouteFilter := range httpRouteFilters {
+		resources = append(resources, *httpRouteFilter)
+	}
 
 	ar.Spec.Resources = resources
 	return ar

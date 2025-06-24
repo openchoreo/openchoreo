@@ -14,7 +14,7 @@ func makeWorkloadLabels(rCtx *Context) map[string]string {
 		dpkubernetes.LabelKeyEnvironmentName:  rCtx.WorkloadBinding.Spec.EnvironmentName,
 		dpkubernetes.LabelKeyComponentName:    rCtx.WorkloadBinding.Spec.WorkloadSpec.Owner.ComponentName,
 		dpkubernetes.LabelKeyComponentType:    string(rCtx.WorkloadBinding.Spec.WorkloadSpec.Type),
-		//dpkubernetes.LabelKeyManagedBy:        dpkubernetes.LabelValueManagedBy,
-		//dpkubernetes.LabelKeyBelongTo:         dpkubernetes.LabelValueBelongTo,
+		// dpkubernetes.LabelKeyManagedBy:        dpkubernetes.LabelValueManagedBy,
+		// dpkubernetes.LabelKeyBelongTo:         dpkubernetes.LabelValueBelongTo,
 	}
 }

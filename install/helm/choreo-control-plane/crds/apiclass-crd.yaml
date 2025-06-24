@@ -4,20 +4,20 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: endpointclasses.core.choreo.dev
+  name: apiclasses.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: EndpointClass
-    listKind: EndpointClassList
-    plural: endpointclasses
-    singular: endpointclass
+    kind: APIClass
+    listKind: APIClassList
+    plural: apiclasses
+    singular: apiclass
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: EndpointClass is the Schema for the endpointclasses API.
+        description: APIClass is the Schema for the apiclasses API.
         properties:
           apiVersion:
             description: |-
@@ -37,14 +37,14 @@ spec:
           metadata:
             type: object
           spec:
-            description: EndpointClassSpec defines the desired state of EndpointClass.
+            description: APIClassSpec defines the desired state of APIClass.
             properties:
               grpcPolicy:
-                description: GRPCEndpointPolicy defines gRPC-specific endpoint policies
-                  (placeholder for future implementation)
+                description: GRPCAPIPolicy defines gRPC-specific API policies (placeholder
+                  for future implementation)
                 type: object
               restPolicy:
-                description: RESTEndpointPolicy defines REST-specific endpoint policies
+                description: RESTAPIPolicy defines REST-specific API policies
                 properties:
                   defaults:
                     description: Default policies that apply to all expose levels
@@ -1576,7 +1576,7 @@ spec:
                 type: object
             type: object
           status:
-            description: EndpointClassStatus defines the observed state of EndpointClass.
+            description: APIClassStatus defines the observed state of APIClass.
             type: object
         type: object
     served: true

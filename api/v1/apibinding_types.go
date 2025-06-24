@@ -12,11 +12,17 @@ import (
 
 // APIBindingSpec defines the desired state of APIBinding.
 type APIBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// APIClassName specifies the APIClass to use for this binding
+	// +kubebuilder:validation:MinLength=1
+	APIClassName string `json:"apiClassName"`
 
-	// Foo is an example field of APIBinding. Edit apibinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// APIName specifies the API resource to bind
+	// +kubebuilder:validation:MinLength=1
+	APIName string `json:"apiName"`
+
+	// Environment specifies the target environment for this binding
+	// +kubebuilder:validation:MinLength=1
+	EnvironmentName string `json:"environmentName"`
 }
 
 // APIBindingStatus defines the observed state of APIBinding.

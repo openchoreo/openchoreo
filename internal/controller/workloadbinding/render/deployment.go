@@ -50,7 +50,7 @@ func Deployment(rCtx *Context) *choreov1.Resource {
 	rawExt.Object = deployment
 
 	return &choreov1.Resource{
-		ID:     makeDeploymentResourceId(rCtx),
+		ID:     makeDeploymentResourceID(rCtx),
 		Object: rawExt,
 	}
 }
@@ -79,6 +79,6 @@ func makeNamespaceName(rCtx *Context) string {
 }
 
 // TODO: Find a better way to generate resource IDs
-func makeDeploymentResourceId(rCtx *Context) string {
+func makeDeploymentResourceID(rCtx *Context) string {
 	return rCtx.WorkloadBinding.Name + "-deployment"
 }

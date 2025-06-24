@@ -4,20 +4,20 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: componentv2s.core.choreo.dev
+  name: apireleases.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: ComponentV2
-    listKind: ComponentV2List
-    plural: componentv2s
-    singular: componentv2
+    kind: APIRelease
+    listKind: APIReleaseList
+    plural: apireleases
+    singular: apirelease
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: ComponentV2 is the Schema for the componentv2s API.
+        description: APIRelease is the Schema for the apireleases API.
         properties:
           apiVersion:
             description: |-
@@ -37,28 +37,56 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentV2Spec defines the desired state of ComponentV2.
+            description: APIReleaseSpec defines the desired state of APIRelease.
             properties:
+              environmentName:
+                minLength: 1
+                type: string
               owner:
-                description: |-
-                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
                 properties:
+                  componentName:
+                    minLength: 1
+                    type: string
                   projectName:
                     minLength: 1
                     type: string
                 required:
+                - componentName
                 - projectName
                 type: object
+              resources:
+                description: |-
+                  Scalable resource template approach (KRO-inspired)
+                  Supports any Kubernetes resource type including HTTPRoute, Gateway, Ingress, Service, NetworkPolicy, etc. that can
+                  be applied to the data plane for API configuration.
+                items:
+                  description: Resource defines a Kubernetes resource template that
+                    can be applied to the data plane.
+                  properties:
+                    id:
+                      description: Unique identifier for the resource
+                      minLength: 1
+                      type: string
+                    object:
+                      description: Object contains the complete Kubernetes resource
+                        definition
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - object
+                  type: object
+                type: array
               type:
-                description: ComponentType defines how the component is deployed.
+                description: EndpointType defines the different API technologies supported
+                  by the endpoint
                 type: string
             required:
+            - environmentName
             - owner
             - type
             type: object
           status:
-            description: ComponentV2Status defines the observed state of ComponentV2.
+            description: APIReleaseStatus defines the observed state of APIRelease.
             type: object
         type: object
     served: true

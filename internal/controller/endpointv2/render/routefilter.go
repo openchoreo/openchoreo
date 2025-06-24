@@ -5,11 +5,13 @@ package render
 
 import (
 	"fmt"
+	"path"
+
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"path"
+
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 // HTTPRouteFilters renders the HTTPRoute resources for the given endpoint context.
@@ -57,7 +59,7 @@ func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
 		rawExt.Object = httpRouteFilter
 
 		resources = append(resources, &choreov1.Resource{
-			ID:     makeHTTPRouteFilterResourceId(httpRouteFilter),
+			ID:     makeHTTPRouteFilterResourceID(httpRouteFilter),
 			Object: rawExt,
 		})
 	}
@@ -94,6 +96,6 @@ func makeHTTPRouteFilterForRestOperation(rCtx *Context, restOperation choreov1.R
 }
 
 // TODO: Find a better way to generate resource IDs
-func makeHTTPRouteFilterResourceId(httpRouteFilter *egv1a1.HTTPRouteFilter) string {
+func makeHTTPRouteFilterResourceID(httpRouteFilter *egv1a1.HTTPRouteFilter) string {
 	return httpRouteFilter.Name
 }
