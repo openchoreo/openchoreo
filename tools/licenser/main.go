@@ -27,39 +27,30 @@ var (
 		"",
 		`Copyright holder, e.g. "The OpenChoreo Authors"`,
 	)
-	flagLicense = flag.String(
-		"l",
-		"apache",
-		`License identifier ("apache")`,
-	)
 )
 
-//Header detection / generation
+// Constants
+const licenseID = "Apache-2.0"
+
+// Header detection / generation
 
 var (
 	reCopyright = regexp.MustCompile(`^// Copyright (\d{4}) (.+)$`)
 	reSPDX      = regexp.MustCompile(`^// SPDX-License-Identifier: (Apache-2\.0)$`)
 )
 
-func licenseID(l string) string {
-	//if strings.EqualFold(l, "mit") {
-	//	return "MIT"
-	//}
-	return "Apache-2.0"
-}
-
-func shortHeader(year, holder, license string) string {
+func shortHeader(year, holder string) string {
 	return fmt.Sprintf(
 		"// Copyright %s %s\n// SPDX-License-Identifier: %s",
-		year, holder, licenseID(license),
+		year, holder, licenseID,
 	)
 }
 
-//File helpers
+// File helpers
 
 func isGoFile(path string) bool { return filepath.Ext(path) == ".go" }
 
-func hasValidHeader(path, holder, license string) (bool, error) {
+func hasValidHeader(path, holder string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return false, err
@@ -96,7 +87,7 @@ func hasValidHeader(path, holder, license string) (bool, error) {
 		return false, nil
 	}
 
-	return m1[2] == holder && m2[1] == licenseID(license), nil
+	return m1[2] == holder && m2[1] == licenseID, nil
 }
 
 func prependHeader(path, header string) error {
@@ -107,10 +98,10 @@ func prependHeader(path, header string) error {
 	return os.WriteFile(path, append([]byte(header+"\n\n"), src...), 0o644)
 }
 
-//Core processing loop
+// Core processing loop
 
-func process(path, header, holder, license string, fix bool) (changed bool, err error) {
-	ok, err := hasValidHeader(path, holder, license)
+func process(path, header, holder string, fix bool) (changed bool, err error) {
+	ok, err := hasValidHeader(path, holder)
 	if err != nil || ok {
 		return false, err
 	}
@@ -120,13 +111,13 @@ func process(path, header, holder, license string, fix bool) (changed bool, err 
 	return true, prependHeader(path, header)
 }
 
-func walk(root, header, holder, license string, fix bool) ([]string, error) {
+func walk(root, header, holder string, fix bool) ([]string, error) {
 	var nonCompliant []string
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !isGoFile(p) {
 			return err
 		}
-		changed, err := process(p, header, holder, license, fix)
+		changed, err := process(p, header, holder, fix)
 		if err != nil {
 			return err
 		}
@@ -178,16 +169,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	header := shortHeader(fmt.Sprint(time.Now().Year()), *flagHolder, *flagLicense)
+	header := shortHeader(fmt.Sprint(time.Now().Year()), *flagHolder)
 	mode := "CHECK"
 	if !*flagCheckOnly {
 		mode = "FIX"
 	}
-	fmt.Printf("Running in %s mode (%s license)\n", mode, licenseID(*flagLicense))
+	fmt.Printf("Running in %s mode (apache license)\n", mode)
 
 	var offending []string
 	for _, dir := range flag.Args() {
-		files, err := walk(dir, header, *flagHolder, *flagLicense, !*flagCheckOnly)
+		files, err := walk(dir, header, *flagHolder, !*flagCheckOnly)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Error scanning %s: %v\n", dir, err)
 			os.Exit(2)

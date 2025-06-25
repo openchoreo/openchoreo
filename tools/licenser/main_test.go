@@ -23,17 +23,14 @@ var _ = Describe("License Header Checker", func() {
 	var tmpDir string
 	var header string
 
-	const (
-		holder  = "The OpenChoreo Authors"
-		license = "apache"
-	)
+	const holder = "The OpenChoreo Authors"
 
 	BeforeEach(func() {
 		var err error
 		tmpDir, err = os.MkdirTemp("", "license-check-test")
 		Expect(err).NotTo(HaveOccurred())
 
-		header = shortHeader(time.Now().Format("2006"), holder, license)
+		header = shortHeader(time.Now().Format("2006"), holder)
 	})
 
 	AfterEach(func() {
@@ -50,7 +47,7 @@ var _ = Describe("License Header Checker", func() {
 		content := header + "\n\npackage main\n\nfunc main() {}\n"
 		path := writeFile("valid.go", content)
 
-		ok, err := hasValidHeader(path, holder, license)
+		ok, err := hasValidHeader(path, holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
 	})
@@ -58,7 +55,7 @@ var _ = Describe("License Header Checker", func() {
 	It("detects a missing header", func() {
 		path := writeFile("missing.go", "package main\n\nfunc main() {}\n")
 
-		ok, err := hasValidHeader(path, holder, license)
+		ok, err := hasValidHeader(path, holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
 	})
@@ -73,7 +70,7 @@ func main() {}
 `
 		path := writeFile("badholder.go", bad)
 
-		ok, err := hasValidHeader(path, holder, license)
+		ok, err := hasValidHeader(path, holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
 	})
@@ -81,11 +78,11 @@ func main() {}
 	It("adds a header when missing", func() {
 		path := writeFile("add.go", "package main\n\nfunc main() {}\n")
 
-		updated, err := process(path, header, holder, license, true /* fix */)
+		updated, err := process(path, header, holder, true /* fix */)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updated).To(BeTrue())
 
-		ok, err := hasValidHeader(path, holder, license)
+		ok, err := hasValidHeader(path, holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
 	})
@@ -93,11 +90,11 @@ func main() {}
 	It("reports non-compliance in check-only mode", func() {
 		path := writeFile("checkonly.go", "package main\n\nfunc main() {}\n")
 
-		updated, err := process(path, header, holder, license, false /* check only */)
+		updated, err := process(path, header, holder, false /* check only */)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updated).To(BeTrue()) // non-compliant
 
-		ok, err := hasValidHeader(path, holder, license)
+		ok, err := hasValidHeader(path, holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())
 	})
@@ -105,7 +102,7 @@ func main() {}
 	It("walks a directory in check-only mode", func() {
 		writeFile("walk1.go", "package main\n\nfunc main() {}\n")
 
-		files, err := walk(tmpDir, header, holder, license, false /* check only */)
+		files, err := walk(tmpDir, header, holder, false /* check only */)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(files).To(HaveLen(1))
 		Expect(strings.HasSuffix(files[0], "walk1.go")).To(BeTrue())
@@ -114,12 +111,12 @@ func main() {}
 	It("walks a directory and fixes headers", func() {
 		writeFile("walk2.go", "package main\n\nfunc main() {}\n")
 
-		files, err := walk(tmpDir, header, holder, license, true /* fix */)
+		files, err := walk(tmpDir, header, holder, true /* fix */)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(files).To(HaveLen(1))
 		Expect(strings.HasSuffix(files[0], "walk2.go")).To(BeTrue())
 
-		ok, err := hasValidHeader(files[0], holder, license)
+		ok, err := hasValidHeader(files[0], holder)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
 	})
