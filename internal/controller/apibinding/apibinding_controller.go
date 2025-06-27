@@ -30,6 +30,10 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apiclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apireleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=securitypolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=httproutefilters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=backendtrafficpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -152,6 +156,12 @@ func (r *Reconciler) makeAPIRelease(rCtx *render.Context) *choreov1.APIRelease {
 	httpRouteFilters := render.HTTPRouteFilters(rCtx)
 	for _, httpRouteFilter := range httpRouteFilters {
 		resources = append(resources, *httpRouteFilter)
+	}
+
+	// Generate BackendTrafficPolicy resources for rate limiting
+	backendTrafficPolicies := render.BackendTrafficPolicies(rCtx)
+	for _, backendTrafficPolicy := range backendTrafficPolicies {
+		resources = append(resources, *backendTrafficPolicy)
 	}
 
 	ar.Spec.Resources = resources

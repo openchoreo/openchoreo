@@ -193,6 +193,8 @@ rules:
 - apiGroups:
   - gateway.envoyproxy.io
   resources:
+  - backendtrafficpolicies
+  - httproutefilters
   - securitypolicies
   verbs:
   - create
