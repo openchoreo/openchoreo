@@ -36,6 +36,6 @@ dependencies:
     condition: certmanager.enabled
     alias: certmanager
     version: "v1.16.2"
-  - name: argo-workflows
-    repository: "https://argoproj.github.io/argo-helm"
-    version: 0.45.2
+  - name: kubernetes-replicator
+    version: 2.11.1
+    repository: "https://helm.mittwald.de"
