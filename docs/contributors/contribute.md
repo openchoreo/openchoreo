@@ -115,14 +115,36 @@ make test
 ```
 This will run all the unit tests in the project.
 
+### Code Quality and Generation
 
-### Code Generation and Linting
+Before submitting your changes, please ensure that your code is properly linted and any generated code is up-to-date.
 
-Before committing any changes, ensure to run the following commands to generate necessary code and lint the codebase:
+#### Linting
 
- ```sh
- make lint code.gen
- ```
+Run the following command to check for linting issues:
+
+```bash
+make lint
+```
+
+To automatically fix common linting issues, use:
+
+```bash
+make lint-fix
+```
+
+#### Code Generation
+After linting, verify that all generated code is up-to-date by running:
+
+```bash
+make code.gen-check
+```
+
+If there are discrepancies or missing generated files, fix them by running:
+
+```bash
+make code.gen
+```
 
 ### Submitting Changes
 
