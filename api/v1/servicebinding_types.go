@@ -12,11 +12,18 @@ import (
 
 // ServiceBindingSpec defines the desired state of ServiceBinding.
 type ServiceBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Owner defines the component and project that owns this service binding
+	Owner ServiceOwner `json:"owner"`
 
-	// Foo is an example field of ServiceBinding. Edit servicebinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Environment is the target environment for this binding
+	// +kubebuilder:validation:MinLength=1
+	Environment string `json:"environment"`
+	// ClassName is the name of the service class that provides the service-specific deployment configuration.
+	ClassName string `json:"className"`
+
+	WorkloadSpec WorkloadTemplateSpec `json:"workloadSpec"`
+
+	APIs map[string]*ServiceAPI `json:"apis,omitempty"`
 }
 
 // ServiceBindingStatus defines the observed state of ServiceBinding.

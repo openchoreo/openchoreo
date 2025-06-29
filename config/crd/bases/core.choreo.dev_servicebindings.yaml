@@ -39,10 +39,212 @@ spec:
           spec:
             description: ServiceBindingSpec defines the desired state of ServiceBinding.
             properties:
-              foo:
-                description: Foo is an example field of ServiceBinding. Edit servicebinding_types.go
-                  to remove/update
+              apis:
+                additionalProperties:
+                  properties:
+                    className:
+                      type: string
+                    rest:
+                      properties:
+                        backend:
+                          properties:
+                            basePath:
+                              type: string
+                            port:
+                              format: int32
+                              type: integer
+                          required:
+                          - port
+                          type: object
+                        operations:
+                          items:
+                            properties:
+                              description:
+                                type: string
+                              exposeLevels:
+                                items:
+                                  type: string
+                                type: array
+                              method:
+                                description: |-
+                                  HTTPMethod describes how to select a HTTP route by matching the HTTP
+                                  method as defined by
+                                  [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
+                                  [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
+                                  The value is expected in upper case.
+                                enum:
+                                - GET
+                                - HEAD
+                                - POST
+                                - PUT
+                                - DELETE
+                                - CONNECT
+                                - OPTIONS
+                                - TRACE
+                                - PATCH
+                                type: string
+                              path:
+                                type: string
+                              scopes:
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - method
+                            - path
+                            type: object
+                          type: array
+                      type: object
+                    type:
+                      description: EndpointType defines the different API technologies
+                        supported by the endpoint
+                      type: string
+                  required:
+                  - className
+                  - type
+                  type: object
+                type: object
+              className:
+                description: ClassName is the name of the service class that provides
+                  the service-specific deployment configuration.
                 type: string
+              environment:
+                description: Environment is the target environment for this binding
+                minLength: 1
+                type: string
+              owner:
+                description: Owner defines the component and project that owns this
+                  service binding
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              workloadSpec:
+                description: WorkloadTemplateSpec defines the desired state of Workload.
+                properties:
+                  className:
+                    description: The runtime “class” that provides defaults / templates.
+                    type: string
+                  connections:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      Connections define how this workload connects to external resources.
+                      This is a placeholder for future connection management capabilities.
+                    type: object
+                  containers:
+                    additionalProperties:
+                      description: Container represents a single container in the
+                        workload.
+                      properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
+                        command:
+                          description: Container entrypoint & args.
+                          items:
+                            type: string
+                          type: array
+                        env:
+                          description: Explicit environment variables.
+                          items:
+                            description: EnvVar represents an environment variable
+                              present in the container.
+                            properties:
+                              key:
+                                description: The environment variable key.
+                                type: string
+                              value:
+                                description: |-
+                                  The literal value of the environment variable.
+                                  Mutually exclusive with valueFrom.
+                                type: string
+                              valueFrom:
+                                description: |-
+                                  Extract the environment variable value from another resource.
+                                  Mutually exclusive with value.
+                                properties:
+                                  configurationGroupRef:
+                                    description: Reference to a configuration group.
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                  secretRef:
+                                    description: Reference to a secret resource.
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                type: object
+                            required:
+                            - key
+                            type: object
+                          type: array
+                        image:
+                          description: OCI image to run (digest or tag).
+                          minLength: 1
+                          type: string
+                      required:
+                      - image
+                      type: object
+                    description: |-
+                      Containers define the container specifications for this workload.
+                      The key is the container name, and the value is the container specification.
+                    type: object
+                  endpoints:
+                    additionalProperties:
+                      description: WorkloadEndpoint represents a simple network endpoint
+                        for basic exposure.
+                      properties:
+                        port:
+                          description: Port number for the endpoint.
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        protocol:
+                          description: Network protocol (TCP, UDP, etc.).
+                          minLength: 1
+                          type: string
+                      required:
+                      - port
+                      - protocol
+                      type: object
+                    description: |-
+                      Endpoints define simple network endpoints for basic port exposure.
+                      The key is the endpoint name, and the value is the endpoint specification.
+                    type: object
+                  type:
+                    description: WorkloadType defines how the workload is deployed.
+                    type: string
+                required:
+                - className
+                - type
+                type: object
+            required:
+            - className
+            - environment
+            - owner
+            - workloadSpec
             type: object
           status:
             description: ServiceBindingStatus defines the observed state of ServiceBinding.

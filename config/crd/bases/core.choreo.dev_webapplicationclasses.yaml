@@ -40,10 +40,10 @@ spec:
           spec:
             description: WebApplicationClassSpec defines the desired state of WebApplicationClass.
             properties:
-              foo:
-                description: Foo is an example field of WebApplicationClass. Edit
-                  webapplicationclass_types.go to remove/update
-                type: string
+              deploymentTemplate:
+                x-kubernetes-preserve-unknown-fields: true
+              serviceTemplate:
+                x-kubernetes-preserve-unknown-fields: true
             type: object
           status:
             description: WebApplicationClassStatus defines the observed state of WebApplicationClass.

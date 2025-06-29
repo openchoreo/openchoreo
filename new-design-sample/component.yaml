@@ -2,8 +2,10 @@ apiVersion: core.choreo.dev/v1
 kind: ComponentV2
 metadata:
   name: reading-list-service
-#  namespace: default-org
 spec:
+  owner:
+    projectName: default-project
+
   # Defines how to create the artifact
   #  build:
   #    className: go-1-22
@@ -16,96 +18,39 @@ spec:
   #    env:
   #      - name: CGO_ENABLED
   #        value: "0"
-  owner:
-    projectName: default-project
+
+  # Type of the component. Examples: Service, WebApplication, ScheduleTask, ProxyApi
   type: Service
 
-  # Defines how the component is configured during deployment
-#  workload:
-#    className: go-service-standard
-#    # Defines how to deploy the component
-#    type: Service
-#    image: ghcr.io/openchoreo/samples/greeter-service:latest
-#    command: [ "./go-greeter" ]
-#    args: [ "--port", "9090" ]
-#    env:
-#      - key: LOG_LEVEL
-#        value: "info"
-#      - key: GITHUB_REPOSITORY
-#        valueFrom:
-#          configurationGroupRef:
-#            name: github
-#            key: repository
-#      - key: GITHUB_TOKEN
-#        valueFrom:
-#          configurationGroupRef:
-#            name: github
-#            key: pat
-#    envFrom: [ ]
-#    fileMounts: [ ]
-#    fileMountsFrom: [ ]
+  #  settingRef:
+  #    # Reference to the service settings that defines how the component is configured during deployment
+  #    name: reading-list-service-workload
+  #    kind: Service
+  # Mutually exclusive fields that are specific to the component type
 
-#  endpoints:
-#    - name: rest-api
-#      #      className: rest-api-standard
-#      type: REST
-#      rest:
-#        backend:
-#          port: 9090
-#          basePath: /api/v1
-#        operations:
-#          - method: GET
-#            path: /reading-list
-#            description: Get all books in the reading list
-#            scopes: [ "books:read" ]
-#            exposeLevels: [ "Organization", "Public" ]
-#          - method: POST
-#            path: /reading-list
-#            description: Add a book to the reading list
-#            scopes: [ "books:write" ]
-#            exposeLevels: [ "Organization", "Public" ]
-#          - method: GET
-#            path: /reading-list/{id}
-#            description: Get a book from the reading list by ID
-#            scopes: [ "books:read" ]
-#            exposeLevels: [ "Organization", "Public" ]
-#          - method: PUT
-#            path: /reading-list/{id}
-#            description: Update a book in the reading list by ID
-#            scopes: [ "books:write" ]
-#            exposeLevels: [ "Organization", "Public" ]
-#          - method: DELETE
-#            path: /reading-list/{id}
-#            description: Delete a book from the reading list by ID
-#            scopes: [ "books:write" ]
-#            exposeLevels: [ "Organization", "Public" ]
-#          - method: DELETE
-#            path: /reading-list
-#            description: Delete all books from the reading list
-#            scopes: [ "books:write" ]
-#            exposeLevels: [ "Organization" ]
-#      grpc: { }  # Placeholder for gRPC configuration if needed
-
-  # Defines how the component consume platform resources and other components
-#  connections:
-#    databases:
-#      - name: orders-db            # logical handle developers use in code
-#        ref: # claim → actual Postgres instance
-#          kind: DatabaseClaim
-#          name: postgres-gold
-#        inject: # ⇦ mapping block
-#          as: env                  # env | file | both (default = env)
-#          prefix: ORDERS_DB_       # override default prefix (optional)
-#          filesPath: /etc/bindings/orders-db   # if you choose file mount
-#          vars: # optional explicit map (see §3.b)
-#            url: DATABASE_URL
-#            username: DB_USER
-#            password: DB_PASSWORD
-#    caches: [ ]
-#    messageBrokers: [ ]
+  # Defines the workload that deployed as a microservice
+  # Can expose APIs from endpoints and connect to other components and consume platform resources
+  # This will create Service type kind by copying the details from here.
+#  service:
+  #    className: go-service-standard
+  #    workloadName: reading-list-service
+  #    apis: { }
+  # Defines the workload that deployed as a scheduled task
+#  scheduleTask:
+#    className: go-task-standard
+#    workloadName: reading-list-service
+#    cronSchedule: "0 0 * * *"  # Runs every day at midnight
+  # Defines the workload that deployed as a web application
+  #  webApplication:
+  #    className: go-webapp-standard
+  #    workloadName: reading-list-service
+  # Defines a API which just proxies requests to another API (mostly external APIs like Salesforce, Stripe, etc.)
+#  proxyApi: { }
 
 ---
 
+# Defines a workload that specifies the developer contract which describes the source code including
+# what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
 apiVersion: core.choreo.dev/v1
 kind: Workload
 metadata:
@@ -114,8 +59,6 @@ spec:
   owner:
     componentName: reading-list-service
     projectName: default
-  className: go-service-standard
-  type: Service
   containers:
     main:
       image: ghcr.io/openchoreo/samples/greeter-service:latest
@@ -143,27 +86,194 @@ spec:
       port: 9090
   connections: { } # How does this look like?
 
+---
+
+# Service that specify runtime configuration for the component.
+# This can be either managed by the component controller or manually created by the user.
+apiVersion: core.choreo.dev/v1
+kind: Service
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default-project
+  workloadName: reading-list-service
+  className: go-service-standard
+  overrides: { }
+  apis:
+    reading-list: # Should we go with map type or array type?
+      type: REST
+      className: rest-api-standard
+      rest:
+        target:
+          port: 9090
+          basePath: /api/v1
+        operations:
+          - method: GET
+
+---
+# Defines PE level configuration for the service component.
+# Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
+apiVersion: core.choreo.dev/v1
+kind: ServiceClass
+metadata:
+  name: go-service-standard
+spec:
+  deploymentTemplate:
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    template:
+      metadata:
+        labels:
+          reloader.stakater.com/auto: "true"
+      spec:
+        containers:
+          - name: main
+            env:
+              - name: LOG_TYPE
+                value: "json"
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          - name: sidecar
+            image: busybox:latest
+            command: [ "/bin/sh", "-c" ]
+            args:
+              - |
+                echo "Exposing metrics on port 12001";
+                # Simulate long-running metrics server
+                while true; do nc -lk -p 12001 -e echo "metrics 1"; done
+            ports:
+              - name: metrics
+                containerPort: 12001
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            readinessProbe:
+              tcpSocket:
+                port: metrics
+              initialDelaySeconds: 5
+              periodSeconds: 10
+  serviceTemplate:
+    ports:
+      - name: metrics-http
+        port: 12001
+        targetPort: 12001
+
+---
+
+# Environment-specific binding that connects the service to an environment.
+# The Service controller will create/update this binding for the first environment (mostly development),
+# and the user can manually create this for other environments to promote the service.
+# This binding should be self-sufficient to generate all the necessary resources to run the service in the environment. This means,
+# - It should contain a snapshot of the workload that is deployed in the environment.
+# - It should contain the runtime-specific details related to the component type.
+# - It can still refer to the Classes so that class changes can be applied to the runtime.
+# The controller should use the Classes and other spec details to generate the necessary resources in the environment.
+apiVersion: core.choreo.dev/v1
+kind: ServiceBinding
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default-project
+  environment: development
+  workload:
+    className: go-service-standard
+    spec:
+      containers:
+        main:
+          image: ghcr.io/openchoreo/samples/greeter-service:latest
+          command:
+            - ./go-greeter
+          args:
+            - --port
+            - "9090"
+          env:
+            - key: LOG_LEVEL
+              value: info
+            - key: GITHUB_REPOSITORY
+              valueFrom:
+                configurationGroupRef:
+                  key: repository
+                  name: github
+            - key: GITHUB_TOKEN
+              valueFrom:
+                configurationGroupRef:
+                  key: pat
+                  name: github
+      endpoints:
+        rest-api:
+          protocol: TCP
+          port: 9090
+      connections: { } # How does this look like?
+  apis:
+    reading-list: # Should we go with map type or array type?
+      type: REST
+      className: rest-api-standard
+      rest:
+        target:
+          port: 9090
+          basePath: /api/v1
+        operations:
+          - method: GET
+            path: /reading-list
+            description: Get all books in the reading list
+            scopes: [ "books:read" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: POST
+            path: /reading-list
+            description: Add a book to the reading list
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: GET
+            path: /reading-list/{id}
+            description: Get a book from the reading list by ID
+            scopes: [ "books:read" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: PUT
+            path: /reading-list/{id}
+            description: Update a book in the reading list by ID
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: DELETE
+            path: /reading-list/{id}
+            description: Delete a book from the reading list by ID
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization", "Public" ]
+          - method: DELETE
+            path: /reading-list
+            description: Delete all books from the reading list
+            scopes: [ "books:write" ]
+            exposeLevels: [ "Organization" ]
+      grpc: { }  # Placeholder for gRPC configuration if needed
+---
 
 
-
-
-# Defines how the component consume platform resources and other components
-#  connections:
-#    databases:
-#      - name: orders-db            # logical handle developers use in code
-#        ref:                       # claim → actual Postgres instance
-#          kind: DatabaseClaim
-#          name: postgres-gold
-#        inject:                    # ⇦ mapping block
-#          as: env                  # env | file | both (default = env)
-#          prefix: ORDERS_DB_       # override default prefix (optional)
-#          filesPath: /etc/bindings/orders-db   # if you choose file mount
-#          vars:                    # optional explicit map (see §3.b)
-#            url: DATABASE_URL
-#            username: DB_USER
-#            password: DB_PASSWORD
-#    caches: []
-#    messageBrokers: []
-
-# Defines how the component exposes its functionality
-#  apis: { }
+# Scheduled task workload that is created based on the component configuration.
+apiVersion: core.choreo.dev/v1
+kind: ScheduledTask
+metadata:
+  name: reading-list-service-workload
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default-project
+  className: go-task-standard
+  workloadName: reading-list-service-workload
+  override:
+    cronSchedule: "0 0 * * *"  # Runs every day at midnight

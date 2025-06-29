@@ -4,6 +4,8 @@
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,11 +14,12 @@ import (
 
 // ServiceClassSpec defines the desired state of ServiceClass.
 type ServiceClassSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of ServiceClass. Edit serviceclass_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	DeploymentTemplate appsv1.DeploymentSpec `json:"deploymentTemplate,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	ServiceTemplate corev1.ServiceSpec `json:"serviceTemplate,omitempty"`
 }
 
 // ServiceClassStatus defines the observed state of ServiceClass.

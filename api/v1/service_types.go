@@ -15,8 +15,27 @@ type ServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Service. Edit service_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Owner ServiceOwner `json:"owner"`
+
+	// WorkloadName is the name of the workload that this service is referencing.
+	WorkloadName string `json:"workloadName"`
+	// ClassName is the name of the service class that provides the service-specific deployment configuration.
+	ClassName string `json:"className"`
+
+	Overrides map[string]bool `json:"overrides,omitempty"` // TODO: Think about how to structure this
+
+	APIs map[string]*ServiceAPI `json:"apis,omitempty"`
+}
+
+type ServiceOwner struct {
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+	// +kubebuilder:validation:MinLength=1
+	ComponentName string `json:"componentName"`
+}
+
+type ServiceAPI struct {
+	EndpointTemplateSpec `json:",inline"`
 }
 
 // ServiceStatus defines the observed state of Service.
