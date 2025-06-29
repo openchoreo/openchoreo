@@ -47,6 +47,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
+	"github.com/openchoreo/openchoreo/internal/controller/service"
+	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
+	"github.com/openchoreo/openchoreo/internal/controller/servicerelease"
+	"github.com/openchoreo/openchoreo/internal/controller/webapplication"
+	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
+	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
+	"github.com/openchoreo/openchoreo/internal/controller/webapplicationrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
@@ -175,6 +183,7 @@ func setupManager(config Config) (ctrl.Manager, error) {
 	})
 }
 
+// TODO: Fix the kubebuilder scaffolding and error propagation with controller name as the context.
 func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientManager, enableLegacyCRDs bool) error {
 	if enableLegacyCRDs {
 		if err := (&organization.Reconciler{
@@ -301,6 +310,57 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		return err
 	}
 	if err := (&gitcommitrequest.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&service.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&serviceclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&servicebinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&servicerelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&webapplication.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&webapplicationclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&webapplicationbinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&webapplicationrelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

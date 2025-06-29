@@ -110,6 +110,14 @@ rules:
   - gitcommitrequests
   - organizations
   - projects
+  - servicebindings
+  - serviceclasses
+  - servicereleases
+  - services
+  - webapplicationbindings
+  - webapplicationclasses
+  - webapplicationreleases
+  - webapplications
   - workloadbindings
   - workloadclasses
   - workloadreleases
@@ -145,6 +153,14 @@ rules:
   - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - servicebindings/finalizers
+  - serviceclasses/finalizers
+  - servicereleases/finalizers
+  - services/finalizers
+  - webapplicationbindings/finalizers
+  - webapplicationclasses/finalizers
+  - webapplicationreleases/finalizers
+  - webapplications/finalizers
   - workloadbindings/finalizers
   - workloadclasses/finalizers
   - workloadreleases/finalizers
@@ -174,6 +190,14 @@ rules:
   - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - servicebindings/status
+  - serviceclasses/status
+  - servicereleases/status
+  - services/status
+  - webapplicationbindings/status
+  - webapplicationclasses/status
+  - webapplicationreleases/status
+  - webapplications/status
   - workloadbindings/status
   - workloadclasses/status
   - workloadreleases/status

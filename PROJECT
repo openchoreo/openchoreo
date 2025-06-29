@@ -186,4 +186,76 @@ resources:
   kind: WorkloadBinding
   path: github.com/openchoreo/openchoreo/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: Service
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ServiceClass
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ServiceBinding
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ServiceRelease
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: WebApplicationRelease
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: WebApplication
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: WebApplicationClass
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: WebApplicationBinding
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
 version: "3"

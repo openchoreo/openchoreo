@@ -70,6 +70,22 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+  - webapplicationbinding_editor_role.yaml
+  - webapplicationbinding_viewer_role.yaml
+  - webapplicationclass_editor_role.yaml
+  - webapplicationclass_viewer_role.yaml
+  - webapplication_editor_role.yaml
+  - webapplication_viewer_role.yaml
+  - webapplicationrelease_editor_role.yaml
+  - webapplicationrelease_viewer_role.yaml
+  - servicerelease_editor_role.yaml
+  - servicerelease_viewer_role.yaml
+  - servicebinding_editor_role.yaml
+  - servicebinding_viewer_role.yaml
+  - serviceclass_editor_role.yaml
+  - serviceclass_viewer_role.yaml
+  - service_editor_role.yaml
+  - service_viewer_role.yaml
   - apibinding_editor_role.yaml
   - apibinding_viewer_role.yaml
   - apirelease_editor_role.yaml

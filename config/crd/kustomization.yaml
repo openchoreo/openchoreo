@@ -27,6 +27,14 @@ resources:
   - bases/core.choreo.dev_apiclasses.yaml
   - bases/core.choreo.dev_apireleases.yaml
   - bases/core.choreo.dev_apibindings.yaml
+  - bases/core.choreo.dev_services.yaml
+  - bases/core.choreo.dev_serviceclasses.yaml
+  - bases/core.choreo.dev_servicebindings.yaml
+  - bases/core.choreo.dev_servicereleases.yaml
+  - bases/core.choreo.dev_webapplicationreleases.yaml
+  - bases/core.choreo.dev_webapplications.yaml
+  - bases/core.choreo.dev_webapplicationclasses.yaml
+  - bases/core.choreo.dev_webapplicationbindings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

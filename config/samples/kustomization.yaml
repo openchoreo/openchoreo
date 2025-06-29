@@ -28,4 +28,12 @@ resources:
 - core_v1_apiclass.yaml
 - core_v1_apirelease.yaml
 - core_v1_apibinding.yaml
+- core_v1_service.yaml
+- core_v1_serviceclass.yaml
+- core_v1_servicebinding.yaml
+- core_v1_servicerelease.yaml
+- core_v1_webapplicationrelease.yaml
+- core_v1_webapplication.yaml
+- core_v1_webapplicationclass.yaml
+- core_v1_webapplicationbinding.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

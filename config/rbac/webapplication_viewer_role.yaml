@@ -1,0 +1,23 @@
+# permissions for end users to view webapplications.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: webapplication-viewer-role
+rules:
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - webapplications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - webapplications/status
+  verbs:
+  - get
