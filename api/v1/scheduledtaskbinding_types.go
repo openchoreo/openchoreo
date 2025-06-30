@@ -12,11 +12,21 @@ import (
 
 // ScheduledTaskBindingSpec defines the desired state of ScheduledTaskBinding.
 type ScheduledTaskBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Owner defines the component and project that owns this scheduled task binding
+	Owner ScheduledTaskOwner `json:"owner"`
 
-	// Foo is an example field of ScheduledTaskBinding. Edit scheduledtaskbinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Environment is the target environment for this binding
+	// +kubebuilder:validation:MinLength=1
+	Environment string `json:"environment"`
+	
+	// ClassName is the name of the scheduled task class that provides the scheduled task-specific deployment configuration.
+	ClassName string `json:"className"`
+
+	// WorkloadSpec contains the copied workload specification for this environment-specific binding
+	WorkloadSpec WorkloadTemplateSpec `json:"workloadSpec"`
+
+	// Overrides contains scheduled task-specific overrides for this binding
+	Overrides map[string]bool `json:"overrides,omitempty"`
 }
 
 // ScheduledTaskBindingStatus defines the observed state of ScheduledTaskBinding.

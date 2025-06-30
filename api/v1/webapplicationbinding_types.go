@@ -12,11 +12,21 @@ import (
 
 // WebApplicationBindingSpec defines the desired state of WebApplicationBinding.
 type WebApplicationBindingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Owner defines the component and project that owns this web application binding
+	Owner WebApplicationOwner `json:"owner"`
 
-	// Foo is an example field of WebApplicationBinding. Edit webapplicationbinding_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Environment is the target environment for this binding
+	// +kubebuilder:validation:MinLength=1
+	Environment string `json:"environment"`
+	
+	// ClassName is the name of the web application class that provides the web application-specific deployment configuration.
+	ClassName string `json:"className"`
+
+	// WorkloadSpec contains the copied workload specification for this environment-specific binding
+	WorkloadSpec WorkloadTemplateSpec `json:"workloadSpec"`
+
+	// Overrides contains web application-specific overrides for this binding
+	Overrides map[string]bool `json:"overrides,omitempty"`
 }
 
 // WebApplicationBindingStatus defines the observed state of WebApplicationBinding.

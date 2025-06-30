@@ -15,8 +15,21 @@ type ScheduledTaskSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ScheduledTask. Edit scheduledtask_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Owner ScheduledTaskOwner `json:"owner"`
+
+	// WorkloadName is the name of the workload that this scheduled task is referencing.
+	WorkloadName string `json:"workloadName"`
+	// ClassName is the name of the scheduled task class that provides the scheduled task-specific deployment configuration.
+	ClassName string `json:"className"`
+
+	Overrides map[string]bool `json:"overrides,omitempty"` // TODO: Think about how to structure this
+}
+
+type ScheduledTaskOwner struct {
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+	// +kubebuilder:validation:MinLength=1
+	ComponentName string `json:"componentName"`
 }
 
 // ScheduledTaskStatus defines the observed state of ScheduledTask.

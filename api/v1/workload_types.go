@@ -48,9 +48,9 @@ type WorkloadTemplateSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// The runtime “class” that provides defaults / templates.
-	ClassName string `json:"className"`
+	ClassName string `json:"className"` // DEPRECATED: The component-type-specific class will be used instead.
 
-	Type WorkloadType `json:"type"`
+	Type WorkloadType `json:"type"` // DEPRECATED: Use the spec.type in the Component instead.
 
 	// Containers define the container specifications for this workload.
 	// The key is the container name, and the value is the container specification.
