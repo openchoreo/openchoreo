@@ -14,8 +14,8 @@ import (
 	corev1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
-// APIClassReconciler reconciles a APIClass object
-type APIClassReconciler struct {
+// Reconciler reconciles a APIClass object
+type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -33,7 +33,7 @@ type APIClassReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
-func (r *APIClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -42,7 +42,7 @@ func (r *APIClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *APIClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.APIClass{}).
 		Named("apiclass").

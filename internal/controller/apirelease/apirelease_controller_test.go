@@ -54,7 +54,7 @@ var _ = Describe("APIRelease Controller", func() {
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &APIReleaseReconciler{
+			controllerReconciler := &Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

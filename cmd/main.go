@@ -8,6 +8,8 @@ import (
 	"flag"
 	"os"
 
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -24,25 +26,11 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
 	"github.com/openchoreo/openchoreo/internal/controller/apirelease"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskrelease"
-	"github.com/openchoreo/openchoreo/internal/controller/workload"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
@@ -52,10 +40,17 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/service"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
@@ -64,12 +59,17 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/workload"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
+	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -90,28 +90,26 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-type Config struct {
-	MetricsAddr          string
-	EnableLeaderElection bool
-	ProbeAddr            string
-	SecureMetrics        bool
-	EnableHTTP2          bool
-	EnableLegacyCRDs     bool
-}
-
-func parseFlags() Config {
-	var config Config
-	flag.StringVar(&config.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
+// nolint:gocyclo
+func main() {
+	var metricsAddr string
+	var enableLeaderElection bool
+	var probeAddr string
+	var secureMetrics bool
+	var enableHTTP2 bool
+	var enableLegacyCRDs bool
+	var tlsOpts []func(*tls.Config)
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&config.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&config.EnableLeaderElection, "leader-elect", false,
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&config.SecureMetrics, "metrics-secure", true,
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	flag.BoolVar(&config.EnableHTTP2, "enable-http2", false,
+	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&config.EnableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
+	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
 	opts := zap.Options{
 		Development: true,
@@ -120,11 +118,8 @@ func parseFlags() Config {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	return config
-}
 
-func setupManager(config Config) (ctrl.Manager, error) {
-	var tlsOpts []func(*tls.Config)
+	setupLog.Info("starting controller manager", version.GetLogKeyValues()...)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -137,7 +132,7 @@ func setupManager(config Config) (ctrl.Manager, error) {
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	if !config.EnableHTTP2 {
+	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
@@ -150,12 +145,12 @@ func setupManager(config Config) (ctrl.Manager, error) {
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
 	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
-		BindAddress:   config.MetricsAddr,
-		SecureServing: config.SecureMetrics,
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
 		TLSOpts:       tlsOpts,
 	}
 
-	if config.SecureMetrics {
+	if secureMetrics {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
 		// These configurations ensure that only authorized users and service accounts
 		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
@@ -167,12 +162,12 @@ func setupManager(config Config) (ctrl.Manager, error) {
 		// this setup is not recommended for production.
 	}
 
-	return ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: config.ProbeAddr,
-		LeaderElection:         config.EnableLeaderElection,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "43500532.choreo.dev",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -186,142 +181,198 @@ func setupManager(config Config) (ctrl.Manager, error) {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
-}
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
 
-// TODO: Fix the kubebuilder scaffolding and error propagation with controller name as the context.
-func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientManager, enableLegacyCRDs bool) error {
+	// Initialize dataPlane client manager
+	dpClientMgr := dpKubernetes.NewManager()
+
+	// -----------------------------------------------------------------------------
+	// Setup controllers with the controller manager
+	// -----------------------------------------------------------------------------
+
 	if enableLegacyCRDs {
-		if err := (&organization.Reconciler{
+		if err = (&organization.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Organization")
+			os.Exit(1)
 		}
-		if err := (&project.Reconciler{
+		if err = (&project.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Project")
+			os.Exit(1)
 		}
-		if err := (&build.Reconciler{
+		if err = (&build.Reconciler{
 			Client:       mgr.GetClient(),
 			DpClientMgr:  dpClientMgr,
 			Scheme:       mgr.GetScheme(),
 			GithubClient: github.NewClient(nil),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Build")
+			os.Exit(1)
 		}
-		if err := (&environment.Reconciler{
+		if err = (&environment.Reconciler{
 			Client:      mgr.GetClient(),
 			DpClientMgr: dpClientMgr,
 			Scheme:      mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Environment")
+			os.Exit(1)
 		}
-		if err := (&dataplane.Reconciler{
+		if err = (&dataplane.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+			os.Exit(1)
 		}
-		if err := (&deploymentpipeline.Reconciler{
+		if err = (&deploymentpipeline.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+			os.Exit(1)
 		}
-		if err := (&component.Reconciler{
+		if err = (&component.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Component")
+			os.Exit(1)
 		}
-		if err := (&deploymenttrack.Reconciler{
+		if err = (&deploymenttrack.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
+			os.Exit(1)
 		}
-		if err := (&deployableartifact.Reconciler{
+		if err = (&deployableartifact.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
+			os.Exit(1)
 		}
-		if err := (&deployment.Reconciler{
+		if err = (&deployment.Reconciler{
 			Client:      mgr.GetClient(),
 			DpClientMgr: dpClientMgr,
 			Scheme:      mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
+			os.Exit(1)
 		}
-		if err := (&endpoint.Reconciler{
+		if err = (&endpoint.Reconciler{
 			Client:      mgr.GetClient(),
 			DpClientMgr: dpClientMgr,
 			Scheme:      mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
+			os.Exit(1)
 		}
-
 		// PoC controllers that will be removed in the future.
-		if err := (&workloadclass.Reconciler{
+		if err = (&workloadclass.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "WorkloadClass")
+			os.Exit(1)
 		}
-		if err := (&workload.Reconciler{
+		if err = (&workload.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "Workload")
+			os.Exit(1)
 		}
-		if err := (&workloadbinding.Reconciler{
+		if err = (&workloadbinding.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "WorkloadBinding")
+			os.Exit(1)
 		}
-		if err := (&workloadrelease.Reconciler{
+		if err = (&workloadrelease.Reconciler{
 			Client:      mgr.GetClient(),
 			DpClientMgr: dpClientMgr,
 			Scheme:      mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "WorkloadRelease")
+			os.Exit(1)
 		}
-
-		if err := (&endpointv2.Reconciler{
+		if err = (&endpointv2.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "EndpointV2")
+			os.Exit(1)
 		}
-		if err := (&endpointclass.Reconciler{
+		if err = (&endpointclass.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "EndpointClass")
+			os.Exit(1)
 		}
-		if err := (&endpointrelease.Reconciler{
+		if err = (&endpointrelease.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			return err
+			setupLog.Error(err, "unable to create controller", "controller", "EndpointRelease")
+			os.Exit(1)
 		}
 	}
 
-	if err := (&componentv2.Reconciler{
+	if err = (&componentv2.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentV2")
+		os.Exit(1)
 	}
 
-	if err := (&gitcommitrequest.Reconciler{
+	if err = (&gitcommitrequest.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
+		os.Exit(1)
+	}
+
+	// API controllers
+	if err = (&api.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "API")
+		os.Exit(1)
+	}
+	if err = (&apiclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
+		os.Exit(1)
+	}
+	if err = (&apirelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIRelease")
+		os.Exit(1)
+	}
+	if err = (&apibinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
+		os.Exit(1)
 	}
 
 	// Service controllers
@@ -329,25 +380,29 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		os.Exit(1)
 	}
 	if err := (&serviceclass.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceClass")
+		os.Exit(1)
 	}
 	if err := (&servicebinding.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
+		os.Exit(1)
 	}
 	if err := (&servicerelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceRelease")
+		os.Exit(1)
 	}
 
 	// WebApplication controllers
@@ -355,26 +410,29 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplication")
+		os.Exit(1)
 	}
 	if err := (&webapplicationclass.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationClass")
+		os.Exit(1)
 	}
 	if err := (&webapplicationbinding.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
+		os.Exit(1)
 	}
-
 	if err := (&webapplicationrelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationRelease")
+		os.Exit(1)
 	}
 
 	// ScheduledTask controllers
@@ -382,89 +440,44 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
-
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTask")
+		os.Exit(1)
 	}
 	if err := (&scheduledtaskclass.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskClass")
+		os.Exit(1)
 	}
 	if err := (&scheduledtaskbinding.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
+		os.Exit(1)
 	}
 	if err := (&scheduledtaskrelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		return err
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskRelease")
+		os.Exit(1)
 	}
 
-	// API controllers
-	if err := (&api.APIReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&apiclass.APIClassReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&apirelease.APIReleaseReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&apibinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	return nil
-}
+	// +kubebuilder:scaffold:builder
 
-func setupWebhooksAndAPIControllers(mgr ctrl.Manager) error {
+	// -----------------------------------------------------------------------------
+	// Setup webhooks with the controller manager
+	// -----------------------------------------------------------------------------
+
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookcorev1.SetupProjectWebhookWithManager(mgr); err != nil {
-			return err
+		if err = webhookcorev1.SetupProjectWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
+			os.Exit(1)
 		}
 	}
-	return nil
-}
-
-func main() {
-	config := parseFlags()
-
-	setupLog.Info("starting controller manager", version.GetLogKeyValues()...)
-
-	mgr, err := setupManager(config)
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	dpClientMgr := dpKubernetes.NewManager()
-
-	if err := setupControllers(mgr, dpClientMgr, config.EnableLegacyCRDs); err != nil {
-		setupLog.Error(err, "unable to setup controllers")
-		os.Exit(1)
-	}
-
-	if err := setupWebhooksAndAPIControllers(mgr); err != nil {
-		setupLog.Error(err, "unable to setup webhooks and API controllers")
-		os.Exit(1)
-	}
-	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

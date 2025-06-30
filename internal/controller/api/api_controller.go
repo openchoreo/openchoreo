@@ -14,8 +14,8 @@ import (
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
-// APIReconciler reconciles a API object
-type APIReconciler struct {
+// Reconciler reconciles a API object
+type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -33,7 +33,7 @@ type APIReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
-func (r *APIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -42,7 +42,7 @@ func (r *APIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *APIReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.API{}).
 		Named("api").
