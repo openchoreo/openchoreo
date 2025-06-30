@@ -1,23 +1,23 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: webapplicationclasses.core.choreo.dev
+  name: scheduledtaskclasses.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: WebApplicationClass
-    listKind: WebApplicationClassList
-    plural: webapplicationclasses
-    singular: webapplicationclass
+    kind: ScheduledTaskClass
+    listKind: ScheduledTaskClassList
+    plural: scheduledtaskclasses
+    singular: scheduledtaskclass
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: WebApplicationClass is the Schema for the webapplicationclasses
+        description: ScheduledTaskClass is the Schema for the scheduledtaskclasses
           API.
         properties:
           apiVersion:
@@ -38,15 +38,15 @@ spec:
           metadata:
             type: object
           spec:
-            description: WebApplicationClassSpec defines the desired state of WebApplicationClass.
+            description: ScheduledTaskClassSpec defines the desired state of ScheduledTaskClass.
             properties:
-              deploymentTemplate:
-                x-kubernetes-preserve-unknown-fields: true
-              serviceTemplate:
-                x-kubernetes-preserve-unknown-fields: true
+              foo:
+                description: Foo is an example field of ScheduledTaskClass. Edit scheduledtaskclass_types.go
+                  to remove/update
+                type: string
             type: object
           status:
-            description: WebApplicationClassStatus defines the observed state of WebApplicationClass.
+            description: ScheduledTaskClassStatus defines the observed state of ScheduledTaskClass.
             type: object
         type: object
     served: true

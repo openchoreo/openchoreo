@@ -36,4 +36,8 @@ resources:
 - core_v1_webapplication.yaml
 - core_v1_webapplicationclass.yaml
 - core_v1_webapplicationbinding.yaml
+- core_v1_scheduledtask.yaml
+- core_v1_scheduledtaskclass.yaml
+- core_v1_scheduledtaskbinding.yaml
+- core_v1_scheduledtaskrelease.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

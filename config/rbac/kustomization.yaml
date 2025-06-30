@@ -70,6 +70,14 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+  - scheduledtaskrelease_editor_role.yaml
+  - scheduledtaskrelease_viewer_role.yaml
+  - scheduledtaskbinding_editor_role.yaml
+  - scheduledtaskbinding_viewer_role.yaml
+  - scheduledtaskclass_editor_role.yaml
+  - scheduledtaskclass_viewer_role.yaml
+  - scheduledtask_editor_role.yaml
+  - scheduledtask_viewer_role.yaml
   - webapplicationbinding_editor_role.yaml
   - webapplicationbinding_viewer_role.yaml
   - webapplicationclass_editor_role.yaml

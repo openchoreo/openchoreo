@@ -24,13 +24,25 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
 	"github.com/openchoreo/openchoreo/internal/controller/apirelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
+	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/workload"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
+	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	corev1 "github.com/openchoreo/openchoreo/api/v1"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
@@ -40,9 +52,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
@@ -55,10 +64,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationrelease"
-	"github.com/openchoreo/openchoreo/internal/controller/workload"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
@@ -257,6 +262,52 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
+
+		// PoC controllers that will be removed in the future.
+		if err := (&workloadclass.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (&workload.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (&workloadbinding.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (&workloadrelease.Reconciler{
+			Client:      mgr.GetClient(),
+			DpClientMgr: dpClientMgr,
+			Scheme:      mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		if err := (&endpointv2.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (&endpointclass.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (&endpointrelease.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	if err := (&componentv2.Reconciler{
@@ -265,50 +316,7 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
-	if err := (&workloadclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&workload.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&workloadbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&workloadrelease.Reconciler{
-		Client:      mgr.GetClient(),
-		DpClientMgr: dpClientMgr,
-		Scheme:      mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
 
-	if err := (&endpointv2.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&endpointclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (&endpointrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
 	if err := (&gitcommitrequest.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -316,6 +324,7 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		return err
 	}
 
+	// Service controllers
 	if err := (&service.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -341,6 +350,7 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		return err
 	}
 
+	// WebApplication controllers
 	if err := (&webapplication.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -367,16 +377,34 @@ func setupControllers(mgr ctrl.Manager, dpClientMgr *dpKubernetes.KubeClientMana
 		return err
 	}
 
-	return nil
-}
+	// ScheduledTask controllers
+	if err := (&scheduledtask.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
 
-func setupWebhooksAndAPIControllers(mgr ctrl.Manager) error {
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookcorev1.SetupProjectWebhookWithManager(mgr); err != nil {
-			return err
-		}
 	}
+	if err := (&scheduledtaskclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&scheduledtaskbinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := (&scheduledtaskrelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// API controllers
 	if err := (&api.APIReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -401,7 +429,16 @@ func setupWebhooksAndAPIControllers(mgr ctrl.Manager) error {
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
+	return nil
+}
 
+func setupWebhooksAndAPIControllers(mgr ctrl.Manager) error {
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := webhookcorev1.SetupProjectWebhookWithManager(mgr); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

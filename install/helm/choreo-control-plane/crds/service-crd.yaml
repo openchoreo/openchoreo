@@ -39,10 +39,99 @@ spec:
           spec:
             description: ServiceSpec defines the desired state of Service.
             properties:
-              foo:
-                description: Foo is an example field of Service. Edit service_types.go
-                  to remove/update
+              apis:
+                additionalProperties:
+                  properties:
+                    className:
+                      type: string
+                    rest:
+                      properties:
+                        backend:
+                          properties:
+                            basePath:
+                              type: string
+                            port:
+                              format: int32
+                              type: integer
+                          required:
+                          - port
+                          type: object
+                        operations:
+                          items:
+                            properties:
+                              description:
+                                type: string
+                              exposeLevels:
+                                items:
+                                  type: string
+                                type: array
+                              method:
+                                description: |-
+                                  HTTPMethod describes how to select a HTTP route by matching the HTTP
+                                  method as defined by
+                                  [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
+                                  [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
+                                  The value is expected in upper case.
+                                enum:
+                                - GET
+                                - HEAD
+                                - POST
+                                - PUT
+                                - DELETE
+                                - CONNECT
+                                - OPTIONS
+                                - TRACE
+                                - PATCH
+                                type: string
+                              path:
+                                type: string
+                              scopes:
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - method
+                            - path
+                            type: object
+                          type: array
+                      type: object
+                    type:
+                      description: EndpointType defines the different API technologies
+                        supported by the endpoint
+                      type: string
+                  required:
+                  - className
+                  - type
+                  type: object
+                type: object
+              className:
+                description: ClassName is the name of the service class that provides
+                  the service-specific deployment configuration.
                 type: string
+              overrides:
+                additionalProperties:
+                  type: boolean
+                type: object
+              owner:
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              workloadName:
+                description: WorkloadName is the name of the workload that this service
+                  is referencing.
+                type: string
+            required:
+            - className
+            - owner
+            - workloadName
             type: object
           status:
             description: ServiceStatus defines the observed state of Service.

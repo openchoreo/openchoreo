@@ -110,6 +110,10 @@ rules:
   - gitcommitrequests
   - organizations
   - projects
+  - scheduledtaskbindings
+  - scheduledtaskclasses
+  - scheduledtaskreleases
+  - scheduledtasks
   - servicebindings
   - serviceclasses
   - servicereleases
@@ -153,6 +157,10 @@ rules:
   - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - scheduledtaskbindings/finalizers
+  - scheduledtaskclasses/finalizers
+  - scheduledtaskreleases/finalizers
+  - scheduledtasks/finalizers
   - servicebindings/finalizers
   - serviceclasses/finalizers
   - servicereleases/finalizers
@@ -190,6 +198,10 @@ rules:
   - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - scheduledtaskbindings/status
+  - scheduledtaskclasses/status
+  - scheduledtaskreleases/status
+  - scheduledtasks/status
   - servicebindings/status
   - serviceclasses/status
   - servicereleases/status

@@ -39,10 +39,10 @@ spec:
           spec:
             description: ServiceClassSpec defines the desired state of ServiceClass.
             properties:
-              foo:
-                description: Foo is an example field of ServiceClass. Edit serviceclass_types.go
-                  to remove/update
-                type: string
+              deploymentTemplate:
+                x-kubernetes-preserve-unknown-fields: true
+              serviceTemplate:
+                x-kubernetes-preserve-unknown-fields: true
             type: object
           status:
             description: ServiceClassStatus defines the observed state of ServiceClass.

@@ -258,4 +258,40 @@ resources:
   kind: WebApplicationBinding
   path: github.com/openchoreo/openchoreo/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ScheduledTask
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ScheduledTaskClass
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ScheduledTaskBinding
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: choreo.dev
+  group: core
+  kind: ScheduledTaskRelease
+  path: github.com/openchoreo/openchoreo/api/v1
+  version: v1
 version: "3"

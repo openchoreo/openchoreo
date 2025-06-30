@@ -1,0 +1,27 @@
+# permissions for end users to edit scheduledtasks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: scheduledtask-editor-role
+rules:
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - scheduledtasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.choreo.dev
+  resources:
+  - scheduledtasks/status
+  verbs:
+  - get
