@@ -40,10 +40,46 @@ spec:
           spec:
             description: WebApplicationReleaseSpec defines the desired state of WebApplicationRelease.
             properties:
-              foo:
-                description: Foo is an example field of WebApplicationRelease. Edit
-                  webapplicationrelease_types.go to remove/update
+              environmentName:
+                minLength: 1
                 type: string
+              owner:
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              resources:
+                description: |-
+                  Scalable resource template approach (KRO-inspired)
+                  Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
+                  be applied to the data plane.
+                items:
+                  description: Resource defines a Kubernetes resource template that
+                    can be applied to the data plane.
+                  properties:
+                    id:
+                      description: Unique identifier for the resource
+                      minLength: 1
+                      type: string
+                    object:
+                      description: Object contains the complete Kubernetes resource
+                        definition
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - object
+                  type: object
+                type: array
+            required:
+            - environmentName
+            - owner
             type: object
           status:
             description: WebApplicationReleaseStatus defines the observed state of

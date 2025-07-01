@@ -428,8 +428,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&webapplicationrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		DpClientMgr: dpClientMgr,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationRelease")
 		os.Exit(1)
