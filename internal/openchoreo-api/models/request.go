@@ -7,9 +7,9 @@ import (
 // CreateProjectRequest represents the request to create a new project
 type CreateProjectRequest struct {
 	Name               string `json:"name"`
-	RepositoryURL      string `json:"repository_url,omitempty"`
-	RepositoryBranch   string `json:"repository_branch,omitempty"`
-	DeploymentPipeline string `json:"deployment_pipeline,omitempty"`
+	RepositoryURL      string `json:"repositoryUrl,omitempty"`
+	RepositoryBranch   string `json:"repositoryBranch,omitempty"`
+	DeploymentPipeline string `json:"deploymentPipeline,omitempty"`
 }
 
 // CreateComponentRequest represents the request to create a new component
@@ -17,7 +17,7 @@ type CreateComponentRequest struct {
 	Name          string `json:"name"`
 	Description   string `json:"description,omitempty"`
 	Type          string `json:"type"`
-	RepositoryURL string `json:"repository_url"`
+	RepositoryURL string `json:"repositoryUrl"`
 	Branch        string `json:"branch,omitempty"`
 }
 

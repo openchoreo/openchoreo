@@ -13,19 +13,19 @@ type APIResponse[T any] struct {
 // ListResponse represents a paginated list response
 type ListResponse[T any] struct {
 	Items      []T `json:"items"`
-	TotalCount int `json:"total_count"`
+	TotalCount int `json:"totalCount"`
 	Page       int `json:"page"`
-	PageSize   int `json:"page_size"`
+	PageSize   int `json:"pageSize"`
 }
 
 // ProjectResponse represents a project in API responses
 type ProjectResponse struct {
 	Name               string    `json:"name"`
-	OrgName            string    `json:"org_name"`
-	RepositoryURL      string    `json:"repository_url,omitempty"`
-	RepositoryBranch   string    `json:"repository_branch,omitempty"`
-	DeploymentPipeline string    `json:"deployment_pipeline,omitempty"`
-	CreatedAt          time.Time `json:"created_at"`
+	OrgName            string    `json:"orgName"`
+	RepositoryURL      string    `json:"repositoryUrl,omitempty"`
+	RepositoryBranch   string    `json:"repositoryBranch,omitempty"`
+	DeploymentPipeline string    `json:"deploymentOipeline,omitempty"`
+	CreatedAt          time.Time `json:"createdAt"`
 	Status             string    `json:"status,omitempty"`
 }
 
@@ -34,11 +34,11 @@ type ComponentResponse struct {
 	Name          string    `json:"name"`
 	Description   string    `json:"description,omitempty"`
 	Type          string    `json:"type"`
-	ProjectName   string    `json:"project_name"`
-	OrgName       string    `json:"org_name"`
-	RepositoryURL string    `json:"repository_url"`
+	ProjectName   string    `json:"projectName"`
+	OrgName       string    `json:"orgName"`
+	RepositoryURL string    `json:"repositoryUrl"`
 	Branch        string    `json:"branch,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	CreatedAt     time.Time `json:"createdAt"`
 	Status        string    `json:"status,omitempty"`
 }
 
