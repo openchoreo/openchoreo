@@ -4,6 +4,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,8 +33,7 @@ type Container struct {
 type WorkloadEndpoint struct {
 	// Network protocol (TCP, UDP, etc.).
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	Protocol string `json:"protocol"`
+	Protocol corev1.Protocol `json:"protocol"`
 
 	// Port number for the endpoint.
 	// +kubebuilder:validation:Required
@@ -46,11 +46,6 @@ type WorkloadEndpoint struct {
 type WorkloadTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// The runtime “class” that provides defaults / templates.
-	ClassName string `json:"className"` // DEPRECATED: The component-type-specific class will be used instead.
-
-	Type WorkloadType `json:"type"` // DEPRECATED: Use the spec.type in the Component instead.
 
 	// Containers define the container specifications for this workload.
 	// The key is the container name, and the value is the container specification.

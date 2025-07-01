@@ -5,13 +5,18 @@ package servicebinding
 
 import (
 	"context"
+	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	"github.com/openchoreo/openchoreo/internal/controller/servicebinding/render"
 )
 
 // Reconciler reconciles a ServiceBinding object
@@ -23,6 +28,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=serviceclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicereleases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -34,17 +41,114 @@ type Reconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	// Fetch the ServiceBinding instance
+	serviceBinding := &choreov1.ServiceBinding{}
+	if err := r.Get(ctx, req.NamespacedName, serviceBinding); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			logger.Error(err, "Failed to get ServiceBinding")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Fetch the associated ServiceClass
+	serviceClass := &choreov1.ServiceClass{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Namespace: serviceBinding.Namespace,
+		Name:      serviceBinding.Spec.ClassName,
+	}, serviceClass); err != nil {
+		logger.Error(err, "Failed to get ServiceClass", "serviceClassName", serviceBinding.Spec.ClassName)
+		return ctrl.Result{}, err
+	}
+
+	if res, err := r.reconcileServiceRelease(ctx, serviceBinding, serviceClass); err != nil || res.Requeue {
+		return res, err
+	}
 
 	return ctrl.Result{}, nil
 }
 
+// reconcileServiceRelease reconciles the ServiceRelease associated with the ServiceBinding.
+func (r *Reconciler) reconcileServiceRelease(ctx context.Context, serviceBinding *choreov1.ServiceBinding, serviceClass *choreov1.ServiceClass) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	serviceRelease := &choreov1.ServiceRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceBinding.Name,
+			Namespace: serviceBinding.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, serviceRelease, func() error {
+		rCtx := render.Context{
+			ServiceBinding: serviceBinding,
+			ServiceClass:   serviceClass,
+		}
+		serviceRelease.Spec = r.makeServiceRelease(rCtx).Spec
+		if len(rCtx.Errors()) > 0 {
+			err := rCtx.Error()
+			return err
+		}
+		return controllerutil.SetControllerReference(serviceBinding, serviceRelease, r.Scheme)
+	})
+	if err != nil {
+		logger.Error(err, "Failed to reconcile ServiceRelease", "ServiceRelease", serviceRelease.Name)
+		return ctrl.Result{}, err
+	}
+	if op == controllerutil.OperationResultCreated ||
+		op == controllerutil.OperationResultUpdated {
+		logger.Info("Successfully reconciled ServiceRelease", "ServiceRelease", serviceRelease.Name, "Operation", op)
+		return ctrl.Result{}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) makeServiceRelease(rCtx render.Context) *choreov1.ServiceRelease {
+	sr := &choreov1.ServiceRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rCtx.ServiceBinding.Name,
+			Namespace: rCtx.ServiceBinding.Namespace,
+		},
+		Spec: choreov1.ServiceReleaseSpec{
+			Owner: choreov1.ServiceOwner{
+				ProjectName:   rCtx.ServiceBinding.Spec.Owner.ProjectName,
+				ComponentName: rCtx.ServiceBinding.Spec.Owner.ComponentName,
+			},
+			EnvironmentName: rCtx.ServiceBinding.Spec.Environment,
+		},
+	}
+
+	var resources []choreov1.Resource
+
+	// Add Deployment resource
+	if res := render.Deployment(rCtx); res != nil {
+		resources = append(resources, *res)
+	}
+
+	// Add Service resource
+	if res := render.Service(rCtx); res != nil {
+		resources = append(resources, *res)
+	}
+
+	sr.Spec.Resources = resources
+	return sr
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Set up the index for service class reference
+	if err := r.setupServiceClassRefIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("failed to setup service class reference index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.ServiceBinding{}).
+		For(&choreov1.ServiceBinding{}).
+		Watches(
+			&choreov1.ServiceClass{},
+			handler.EnqueueRequestsFromMapFunc(r.listServiceBindingsForServiceClass),
+		).
 		Named("servicebinding").
 		Complete(r)
 }

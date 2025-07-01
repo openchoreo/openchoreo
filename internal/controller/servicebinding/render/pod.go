@@ -9,7 +9,7 @@ import (
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
-func makeWorkloadPodSpec(rCtx *Context) *corev1.PodSpec {
+func makeServicePodSpec(rCtx Context) *corev1.PodSpec {
 	ps := &corev1.PodSpec{}
 
 	// Create the main container
@@ -30,8 +30,8 @@ func makeWorkloadPodSpec(rCtx *Context) *corev1.PodSpec {
 	return ps
 }
 
-func makeMainContainer(rCtx *Context) *corev1.Container {
-	wls := rCtx.WorkloadBinding.Spec.WorkloadSpec
+func makeMainContainer(rCtx Context) *corev1.Container {
+	wls := rCtx.ServiceBinding.Spec.WorkloadSpec
 
 	// Use the first container as the main container
 	// TODO: Fix me later to support multiple containers
@@ -53,16 +53,16 @@ func makeMainContainer(rCtx *Context) *corev1.Container {
 	c.Env = makeEnvironmentVariables(rCtx)
 
 	// Add container ports from endpoints
-	c.Ports = makeContainerPortsFromEndpoints(rCtx.Endpoints)
+	c.Ports = makeContainerPortsFromEndpoints(rCtx.ServiceBinding.Spec.WorkloadSpec.Endpoints)
 
 	return c
 }
 
-func makeEnvironmentVariables(rCtx *Context) []corev1.EnvVar {
+func makeEnvironmentVariables(rCtx Context) []corev1.EnvVar {
 	var k8sEnvVars []corev1.EnvVar
 
 	// Get environment variables from the first container
-	wls := rCtx.WorkloadBinding.Spec.WorkloadSpec
+	wls := rCtx.ServiceBinding.Spec.WorkloadSpec
 	for _, container := range wls.Containers {
 		// Build the container environment variables from the container's env values
 		for _, envVar := range container.Env {

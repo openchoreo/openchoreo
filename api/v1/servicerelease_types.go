@@ -15,8 +15,15 @@ type ServiceReleaseSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ServiceRelease. Edit servicerelease_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Owner ServiceOwner `json:"owner"`
+	// +kubebuilder:validation:MinLength=1
+	EnvironmentName string `json:"environmentName"`
+
+	// Scalable resource template approach (KRO-inspired)
+	// Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
+	// be applied to the data plane.
+	// +kubebuilder:validation:Optional
+	Resources []Resource `json:"resources,omitempty"`
 }
 
 // ServiceReleaseStatus defines the observed state of ServiceRelease.

@@ -38,9 +38,6 @@ spec:
             type: object
           spec:
             properties:
-              className:
-                description: The runtime “class” that provides defaults / templates.
-                type: string
               connections:
                 additionalProperties:
                   type: string
@@ -131,7 +128,6 @@ spec:
                       type: integer
                     protocol:
                       description: Network protocol (TCP, UDP, etc.).
-                      minLength: 1
                       type: string
                   required:
                   - port
@@ -153,13 +149,8 @@ spec:
                 - componentName
                 - projectName
                 type: object
-              type:
-                description: WorkloadType defines how the workload is deployed.
-                type: string
             required:
-            - className
             - owner
-            - type
             type: object
           status:
             description: WorkloadStatus defines the observed state of Workload.

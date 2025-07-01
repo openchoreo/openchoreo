@@ -299,9 +299,8 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&workloadrelease.Reconciler{
-			Client:      mgr.GetClient(),
-			DpClientMgr: dpClientMgr,
-			Scheme:      mgr.GetScheme(),
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WorkloadRelease")
 			os.Exit(1)
@@ -398,8 +397,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&servicerelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		DpClientMgr: dpClientMgr,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceRelease")
 		os.Exit(1)

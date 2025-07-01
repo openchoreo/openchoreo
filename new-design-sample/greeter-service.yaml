@@ -1,0 +1,139 @@
+apiVersion: core.choreo.dev/v1
+kind: ComponentV2
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    projectName: default
+  type: Service
+
+
+---
+
+# Defines a workload that specifies the developer contract which describes the source code including
+# what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
+apiVersion: core.choreo.dev/v1
+kind: Workload
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  containers:
+    main:
+      image: ghcr.io/openchoreo/samples/greeter-service:latest
+      command:
+        - ./go-greeter
+      args:
+        - --port
+        - "9090"
+      env:
+        - key: LOG_LEVEL
+          value: info
+        - key: GITHUB_REPOSITORY
+          valueFrom:
+            configurationGroupRef:
+              key: repository
+              name: github
+        - key: GITHUB_TOKEN
+          valueFrom:
+            configurationGroupRef:
+              key: pat
+              name: github
+  endpoints:
+    rest-api:
+      protocol: TCP
+      port: 9090
+  connections: { } # How does this look like?
+
+---
+
+# Service that specify runtime configuration for the component.
+# This can be either managed by the component controller or manually created by the user.
+apiVersion: core.choreo.dev/v1
+kind: Service
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  workloadName: greeter-service
+  className: go-service-standard
+  overrides: { }
+  apis:
+    greeter-api: # Should we go with map type or array type?
+      type: REST
+      className: rest-api-standard
+      rest:
+        backend:
+          port: 9090
+          basePath: /greeter
+        operations:
+          - method: GET
+            path: /greet
+            description: Get greeting message
+            scopes: [ "greeter:greet" ]
+            exposeLevels: [ "Organization", "Public" ]
+
+---
+# Defines PE level configuration for the service component.
+# Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
+apiVersion: core.choreo.dev/v1
+kind: ServiceClass
+metadata:
+  name: go-service-standard
+spec:
+  deploymentTemplate:
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    template:
+      metadata:
+        labels:
+          reloader.stakater.com/auto: "true"
+      spec:
+        containers:
+          - name: main
+            env:
+              - name: LOG_TYPE
+                value: "json"
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          - name: sidecar
+            image: busybox:latest
+            command: [ "/bin/sh", "-c" ]
+            args:
+              - |
+                echo "Exposing metrics on port 12001";
+                # Simulate long-running metrics server
+                while true; do nc -lk -p 12001 -e echo "metrics 1"; done
+            ports:
+              - name: metrics
+                containerPort: 12001
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            readinessProbe:
+              tcpSocket:
+                port: metrics
+              initialDelaySeconds: 5
+              periodSeconds: 10
+  serviceTemplate:
+    ports:
+      - name: metrics-http
+        port: 12001
+        targetPort: 12001

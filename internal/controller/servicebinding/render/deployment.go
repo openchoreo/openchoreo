@@ -13,20 +13,10 @@ import (
 )
 
 // Deployment creates a complete Deployment resource for the new Resources array
-func Deployment(rCtx *Context) *choreov1.Resource {
-	var base appsv1.DeploymentSpec
-	wlType := rCtx.WorkloadBinding.Spec.WorkloadSpec.Type
-	switch wlType {
-	case choreov1.WorkloadTypeService:
-		base = rCtx.WorkloadClass.Spec.ServiceWorkload.DeploymentTemplate
-	case choreov1.WorkloadTypeWebApplication:
-		base = rCtx.WorkloadClass.Spec.WebApplicationWorkload.DeploymentTemplate
-	default:
-		rCtx.AddError(UnsupportedWorkloadTypeError(wlType))
-		return nil
-	}
+func Deployment(rCtx Context) *choreov1.Resource {
+	base := rCtx.ServiceClass.Spec.DeploymentTemplate
 
-	overlay := makeWorkloadDeploymentSpec(rCtx)
+	overlay := makeServiceDeploymentSpec(rCtx)
 	mergedSpec, err := merge(&base, &overlay)
 	if err != nil {
 		rCtx.AddError(MergeError(err))
@@ -41,7 +31,7 @@ func Deployment(rCtx *Context) *choreov1.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeDeploymentName(rCtx),
 			Namespace: makeNamespaceName(rCtx),
-			Labels:    makeWorkloadLabels(rCtx),
+			Labels:    makeServiceLabels(rCtx),
 		},
 		Spec: *mergedSpec,
 	}
@@ -55,30 +45,30 @@ func Deployment(rCtx *Context) *choreov1.Resource {
 	}
 }
 
-func makeWorkloadDeploymentSpec(rCtx *Context) appsv1.DeploymentSpec {
+func makeServiceDeploymentSpec(rCtx Context) appsv1.DeploymentSpec {
 	ds := appsv1.DeploymentSpec{}
 	ds.Selector = &metav1.LabelSelector{
-		MatchLabels: makeWorkloadLabels(rCtx),
+		MatchLabels: makeServiceLabels(rCtx),
 	}
-	ds.Template.Labels = makeWorkloadLabels(rCtx)
-	ds.Template.Spec = *makeWorkloadPodSpec(rCtx)
+	ds.Template.Labels = makeServiceLabels(rCtx)
+	ds.Template.Spec = *makeServicePodSpec(rCtx)
 	return ds
 }
 
-func makeDeploymentName(rCtx *Context) string {
-	return dpkubernetes.GenerateK8sName(rCtx.WorkloadBinding.Name)
+func makeDeploymentName(rCtx Context) string {
+	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name)
 }
 
-func makeNamespaceName(rCtx *Context) string {
-	organizationName := rCtx.WorkloadBinding.Namespace // Namespace is the organization name
-	projectName := rCtx.WorkloadBinding.Spec.WorkloadSpec.Owner.ProjectName
-	environmentName := rCtx.WorkloadBinding.Spec.EnvironmentName
+func makeNamespaceName(rCtx Context) string {
+	organizationName := rCtx.ServiceBinding.Namespace // Namespace is the organization name
+	projectName := rCtx.ServiceBinding.Spec.Owner.ProjectName
+	environmentName := rCtx.ServiceBinding.Spec.Environment
 	// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
 		"dp", organizationName, projectName, environmentName)
 }
 
 // TODO: Find a better way to generate resource IDs
-func makeDeploymentResourceID(rCtx *Context) string {
-	return rCtx.WorkloadBinding.Name + "-deployment"
+func makeDeploymentResourceID(rCtx Context) string {
+	return rCtx.ServiceBinding.Name + "-deployment"
 }

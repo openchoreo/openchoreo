@@ -13,20 +13,10 @@ import (
 )
 
 // Service creates a complete Service resource for the new Resources array
-func Service(rCtx *Context) *choreov1.Resource {
-	var base corev1.ServiceSpec
-	wlType := rCtx.WorkloadBinding.Spec.WorkloadSpec.Type
-	switch wlType {
-	case choreov1.WorkloadTypeService:
-		base = rCtx.WorkloadClass.Spec.ServiceWorkload.ServiceTemplate
-	case choreov1.WorkloadTypeWebApplication:
-		base = rCtx.WorkloadClass.Spec.WebApplicationWorkload.ServiceTemplate
-	default:
-		rCtx.AddError(UnsupportedWorkloadTypeError(wlType))
-		return nil
-	}
+func Service(rCtx Context) *choreov1.Resource {
+	base := rCtx.ServiceClass.Spec.ServiceTemplate
 
-	overlay := makeWorkloadServiceSpec(rCtx)
+	overlay := makeServiceServiceSpec(rCtx)
 	mergedSpec, err := merge(&base, &overlay)
 	if err != nil {
 		rCtx.AddError(MergeError(err))
@@ -41,7 +31,7 @@ func Service(rCtx *Context) *choreov1.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeServiceName(rCtx),
 			Namespace: makeNamespaceName(rCtx),
-			Labels:    makeWorkloadLabels(rCtx),
+			Labels:    makeServiceLabels(rCtx),
 		},
 		Spec: *mergedSpec,
 	}
@@ -55,19 +45,20 @@ func Service(rCtx *Context) *choreov1.Resource {
 	}
 }
 
-func makeWorkloadServiceSpec(rCtx *Context) corev1.ServiceSpec {
-	ports := makeServicePortsFromEndpoints(rCtx.Endpoints)
+// The ServiceServiceSpec is not a typo
+func makeServiceServiceSpec(rCtx Context) corev1.ServiceSpec {
+	ports := makeServicePortsFromEndpoints(rCtx.ServiceBinding.Spec.WorkloadSpec.Endpoints)
 	return corev1.ServiceSpec{
-		Selector: makeWorkloadLabels(rCtx),
+		Selector: makeServiceLabels(rCtx),
 		Ports:    ports,
 		Type:     corev1.ServiceTypeClusterIP,
 	}
 }
 
-func makeServiceName(rCtx *Context) string {
-	return dpkubernetes.GenerateK8sName(rCtx.WorkloadBinding.Name)
+func makeServiceName(rCtx Context) string {
+	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name)
 }
 
-func makeServiceResourceID(rCtx *Context) string {
-	return rCtx.WorkloadBinding.Name + "-service"
+func makeServiceResourceID(rCtx Context) string {
+	return rCtx.ServiceBinding.Name + "-service"
 }

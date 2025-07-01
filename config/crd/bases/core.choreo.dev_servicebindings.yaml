@@ -129,9 +129,6 @@ spec:
               workloadSpec:
                 description: WorkloadTemplateSpec defines the desired state of Workload.
                 properties:
-                  className:
-                    description: The runtime “class” that provides defaults / templates.
-                    type: string
                   connections:
                     additionalProperties:
                       type: string
@@ -223,7 +220,6 @@ spec:
                           type: integer
                         protocol:
                           description: Network protocol (TCP, UDP, etc.).
-                          minLength: 1
                           type: string
                       required:
                       - port
@@ -233,12 +229,6 @@ spec:
                       Endpoints define simple network endpoints for basic port exposure.
                       The key is the endpoint name, and the value is the endpoint specification.
                     type: object
-                  type:
-                    description: WorkloadType defines how the workload is deployed.
-                    type: string
-                required:
-                - className
-                - type
                 type: object
             required:
             - className
