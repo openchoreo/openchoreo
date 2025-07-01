@@ -135,3 +135,17 @@ certmanager:
       limits:
         cpu: 50m
         memory: 64Mi
+openchoreoApi:
+  enabled: true
+  image: "ghcr.io/openchoreo/openchoreo-api"
+  imagePullPolicy: IfNotPresent
+  tag: "latest-dev"
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+      

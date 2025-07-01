@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "choreo-control-plane.fullname" . }}-openchoreo-api
+  labels:
+    control-plane: controller-manager
+  {{- include "choreo-control-plane.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.openchoreoApi.replicas }}
+  selector:
+    matchLabels:
+      app: openchoreo-api
+  template:
+    metadata:
+      labels:
+        app: openchoreo-api
+    spec:
+      serviceAccountName: {{ include "choreo-control-plane.fullname" . }}-controller-manager
+      containers:
+      - name: openchoreo-api
+        image: "{{ .Values.openchoreoApi.image }}:{{ .Values.openchoreoApi.tag }}"
+        imagePullPolicy: {{ .Values.openchoreoApi.imagePullPolicy }}
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: {{ .Values.openchoreoApi.resources.requests.cpu }}
+            memory: {{ .Values.openchoreoApi.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.openchoreoApi.resources.limits.cpu }}
+            memory: {{ .Values.openchoreoApi.resources.limits.memory }}
