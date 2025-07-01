@@ -1,0 +1,111 @@
+apiVersion: core.choreo.dev/v1
+kind: ComponentV2
+metadata:
+  name: github-issue-reporter
+spec:
+  owner:
+    projectName: default
+  type: ScheduledTask
+
+
+---
+
+# Defines a workload that specifies the developer contract which describes the source code including
+# what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
+apiVersion: core.choreo.dev/v1
+kind: Workload
+metadata:
+  name: github-issue-reporter
+spec:
+  owner:
+    componentName: github-issue-reporter
+    projectName: default
+  containers:
+    main:
+      image: ghcr.io/openchoreo/samples/github-issue-reporter:latest
+      # Scheduled tasks typically don't need specific commands/args unless required
+      args: []
+      env:
+        # GitHub Configuration (hardcoded values)
+        - key: GITHUB_REPOSITORY
+          value: "https://github.com/openchoreo/openchoreo"
+        - key: GITHUB_TOKEN
+          value: "your-github-token-here"
+        # MySQL Configuration (hardcoded values)
+        - key: MYSQL_HOST
+          value: "mysql.internal"
+        - key: MYSQL_PORT
+          value: "3306"
+        - key: MYSQL_USER
+          value: "github-reporter-user"
+        - key: MYSQL_PASSWORD
+          value: "secure-password-here"
+        - key: MYSQL_DATABASE
+          value: "github-issue-reporter"
+        # Email Configuration (hardcoded values)
+        - key: EMAIL_HOST
+          value: "smtp.internal"
+        - key: EMAIL_PORT
+          value: "587"
+        - key: EMAIL_SENDER
+          value: "no-reply@example.com"
+        - key: EMAIL_PASSWORD
+          value: "email-password-here"
+        - key: EMAIL_TO
+          value: "admin@example.com"
+  endpoints: { } # Scheduled tasks typically don't expose endpoints
+  connections: { } # How does this look like?
+
+---
+
+# ScheduledTask that specify runtime configuration for the component.
+# This can be either managed by the component controller or manually created by the user.
+apiVersion: core.choreo.dev/v1
+kind: ScheduledTask
+metadata:
+  name: github-issue-reporter
+spec:
+  owner:
+    componentName: github-issue-reporter
+    projectName: default
+  workloadName: github-issue-reporter
+  className: github-task-standard
+  overrides: { }
+
+---
+# Defines PE level configuration for the scheduled task component.
+apiVersion: core.choreo.dev/v1
+kind: ScheduledTaskClass
+metadata:
+  name: github-task-standard
+spec:
+  cronJobTemplate:
+    # Run every minute for testing (from original sample)
+    schedule: "*/1 * * * *"
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+    concurrencyPolicy: Forbid
+    jobTemplate:
+      spec:
+        backoffLimit: 3
+        activeDeadlineSeconds: 300  # 5 minutes timeout
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/component: scheduled-task
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: main
+                env:
+                  - name: LOG_LEVEL
+                    value: "info"
+                  - name: TASK_TYPE
+                    value: "github-issue-reporter"
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+                  limits:
+                    cpu: 200m
+                    memory: 256Mi

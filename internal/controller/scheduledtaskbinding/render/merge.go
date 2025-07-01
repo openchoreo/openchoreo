@@ -5,7 +5,6 @@ package render
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 )
@@ -37,9 +36,4 @@ func merge[T any](base, overlay *T) (*T, error) {
 		return nil, err
 	}
 	return &merged, nil
-}
-
-// MergeError wraps a merge operation error with additional context
-func MergeError(err error) error {
-	return fmt.Errorf("merge operation failed: %w", err)
 }

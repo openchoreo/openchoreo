@@ -10,8 +10,8 @@ import (
 )
 
 type Context struct {
-	WebApplicationBinding *choreov1.WebApplicationBinding
-	WebApplicationClass   *choreov1.WebApplicationClass
+	ScheduledTaskBinding *choreov1.ScheduledTaskBinding
+	ScheduledTaskClass   *choreov1.ScheduledTaskClass
 
 	// Stores the errors encountered during rendering.
 	errs []error

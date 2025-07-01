@@ -40,10 +40,8 @@ spec:
           spec:
             description: ScheduledTaskClassSpec defines the desired state of ScheduledTaskClass.
             properties:
-              foo:
-                description: Foo is an example field of ScheduledTaskClass. Edit scheduledtaskclass_types.go
-                  to remove/update
-                type: string
+              cronJobTemplate:
+                x-kubernetes-preserve-unknown-fields: true
             type: object
           status:
             description: ScheduledTaskClassStatus defines the observed state of ScheduledTaskClass.

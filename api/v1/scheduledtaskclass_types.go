@@ -4,6 +4,7 @@
 package v1
 
 import (
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,8 +16,9 @@ type ScheduledTaskClassSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ScheduledTaskClass. Edit scheduledtaskclass_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	CronJobTemplate batchv1.CronJobSpec `json:"cronJobTemplate,omitempty"`
 }
 
 // ScheduledTaskClassStatus defines the observed state of ScheduledTaskClass.

@@ -9,7 +9,7 @@ import (
 	choreov1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
-func makeWebApplicationPodSpec(rCtx Context) *corev1.PodSpec {
+func makeScheduledTaskPodSpec(rCtx Context) *corev1.PodSpec {
 	ps := &corev1.PodSpec{}
 
 	// Create the main container
@@ -27,11 +27,14 @@ func makeWebApplicationPodSpec(rCtx Context) *corev1.PodSpec {
 
 	ps.Containers = []corev1.Container{*mainContainer}
 
+	// Scheduled tasks should not restart on failure - they should be retried by CronJob
+	ps.RestartPolicy = corev1.RestartPolicyOnFailure
+
 	return ps
 }
 
 func makeMainContainer(rCtx Context) *corev1.Container {
-	wls := rCtx.WebApplicationBinding.Spec.WorkloadSpec
+	wls := rCtx.ScheduledTaskBinding.Spec.WorkloadSpec
 
 	// Use the first container as the main container
 	// TODO: Fix me later to support multiple containers
@@ -52,8 +55,8 @@ func makeMainContainer(rCtx Context) *corev1.Container {
 
 	c.Env = makeEnvironmentVariables(rCtx)
 
-	// Add container ports from endpoints
-	c.Ports = makeContainerPortsFromEndpoints(rCtx.WebApplicationBinding.Spec.WorkloadSpec.Endpoints)
+	// Scheduled tasks typically don't expose ports, but we'll include them if defined
+	// No container ports needed for scheduled tasks typically
 
 	return c
 }
@@ -62,7 +65,7 @@ func makeEnvironmentVariables(rCtx Context) []corev1.EnvVar {
 	var k8sEnvVars []corev1.EnvVar
 
 	// Get environment variables from the first container
-	wls := rCtx.WebApplicationBinding.Spec.WorkloadSpec
+	wls := rCtx.ScheduledTaskBinding.Spec.WorkloadSpec
 	for _, container := range wls.Containers {
 		// Build the container environment variables from the container's env values
 		for _, envVar := range container.Env {
