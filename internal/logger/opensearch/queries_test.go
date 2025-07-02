@@ -167,14 +167,14 @@ func TestQueryBuilder_GenerateIndices(t *testing.T) {
 			name:      "same day",
 			startTime: "2024-01-01T00:00:00Z",
 			endTime:   "2024-01-01T23:59:59Z",
-			expected:  []string{"container-logs-2024-01-01"},
+			expected:  []string{"container-logs-2024.01.01"},
 			shouldErr: false,
 		},
 		{
 			name:      "multiple days",
 			startTime: "2024-01-01T00:00:00Z",
 			endTime:   "2024-01-03T23:59:59Z",
-			expected:  []string{"container-logs-2024-01-01", "container-logs-2024-01-02", "container-logs-2024-01-03"},
+			expected:  []string{"container-logs-2024.01.01", "container-logs-2024.01.02", "container-logs-2024.01.03"},
 			shouldErr: false,
 		},
 		{

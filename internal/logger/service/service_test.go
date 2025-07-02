@@ -80,8 +80,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 						"log":        "INFO: Application started",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"component_id": "comp-123",
-								"env_id":       "env-456",
+								"component-name":   "comp-123",
+								"environment-name": "env-456",
 							},
 							"namespace_name": "default",
 						},
@@ -93,8 +93,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 						"log":        "ERROR: Something went wrong",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"component_id": "comp-123",
-								"env_id":       "env-456",
+								"component-name":   "comp-123",
+								"environment-name": "env-456",
 							},
 							"namespace_name": "default",
 						},
@@ -188,9 +188,9 @@ func TestLoggingService_GetProjectLogs(t *testing.T) {
 						"log":        "Project log entry",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"project_id":   "proj-123",
-								"component_id": "comp-456",
-								"env_id":       "env-789",
+								"project-name":     "proj-123",
+								"component-name":   "comp-456",
+								"environment-name": "env-789",
 							},
 						},
 					},
@@ -294,10 +294,10 @@ func TestParseLogEntry(t *testing.T) {
 			"log":        "ERROR: Database connection failed",
 			"kubernetes": map[string]interface{}{
 				"labels": map[string]interface{}{
-					"component_id": "api-service",
-					"env_id":       "production",
-					"version":      "v1.2.3",
-					"version_id":   "ver-456",
+					"component-name":   "api-service",
+					"environment-name": "production",
+					"version":          "v1.2.3",
+					"version_id":       "ver-456",
 				},
 				"namespace_name": "default",
 				"pod_id":         "pod-123",
@@ -358,7 +358,7 @@ func TestParseLogEntry(t *testing.T) {
 		t.Errorf("Expected 4 labels, got %d", len(entry.Labels))
 	}
 
-	if entry.Labels["component_id"] != "api-service" {
-		t.Errorf("Expected label component_id 'api-service', got '%s'", entry.Labels["component_id"])
+	if entry.Labels["component-name"] != "api-service" {
+		t.Errorf("Expected label component-name 'api-service', got '%s'", entry.Labels["component-name"])
 	}
 }
