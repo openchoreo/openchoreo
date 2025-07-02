@@ -23,38 +23,101 @@ func NewQueryBuilder(indexPrefix string) *QueryBuilder {
 	}
 }
 
+// addTimeRangeFilter adds time range filter to must conditions
+func addTimeRangeFilter(mustConditions []map[string]interface{}, startTime, endTime string) []map[string]interface{} {
+	if startTime != "" && endTime != "" {
+		timeFilter := map[string]interface{}{
+			"range": map[string]interface{}{
+				"@timestamp": map[string]interface{}{
+					"gte": startTime,
+					"lte": endTime,
+				},
+			},
+		}
+		mustConditions = append(mustConditions, timeFilter)
+	}
+	return mustConditions
+}
+
+// addSearchPhraseFilter adds wildcard search phrase filter to must conditions
+func addSearchPhraseFilter(mustConditions []map[string]interface{}, searchPhrase string) []map[string]interface{} {
+	if searchPhrase != "" {
+		searchFilter := map[string]interface{}{
+			"wildcard": map[string]interface{}{
+				"log": fmt.Sprintf("*%s*", searchPhrase),
+			},
+		}
+		mustConditions = append(mustConditions, searchFilter)
+	}
+	return mustConditions
+}
+
+// addLogLevelFilter adds log level filter to must conditions
+func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []string) []map[string]interface{} {
+	if len(logLevels) > 0 {
+		shouldConditions := []map[string]interface{}{}
+
+		for _, logLevel := range logLevels {
+			// Use match query to find log level in the log content
+			shouldConditions = append(shouldConditions, map[string]interface{}{
+				"match": map[string]interface{}{
+					"log": strings.ToUpper(logLevel),
+				},
+			})
+		}
+
+		if len(shouldConditions) > 0 {
+			logLevelFilter := map[string]interface{}{
+				"bool": map[string]interface{}{
+					"should":               shouldConditions,
+					"minimum_should_match": 1,
+				},
+			}
+			mustConditions = append(mustConditions, logLevelFilter)
+		}
+	}
+	return mustConditions
+}
+
 // BuildComponentLogsQuery builds a query for component logs with wildcard search
 func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"match": map[string]interface{}{
+				labels.OSComponentID: map[string]interface{}{
+					"query":            params.ComponentID,
+					"zero_terms_query": "none",
+				},
+			},
+		},
+		{
+			"match": map[string]interface{}{
+				labels.OSEnvironmentID: map[string]interface{}{
+					"query":            params.EnvironmentID,
+					"zero_terms_query": "none",
+				},
+			},
+		},
+		{
+			"match": map[string]interface{}{
+				"kubernetes.namespace_name": map[string]interface{}{
+					"query":            params.Namespace,
+					"zero_terms_query": "none",
+				},
+			},
+		},
+	}
+
+	// Add common filters
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
+	mustConditions = addLogLevelFilter(mustConditions, params.LogLevels)
+
 	query := map[string]interface{}{
 		"size": params.Limit,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{
-					{
-						"match": map[string]interface{}{
-							labels.OSComponentID: map[string]interface{}{
-								"query":            params.ComponentID,
-								"zero_terms_query": "none",
-							},
-						},
-					},
-					{
-						"match": map[string]interface{}{
-							labels.OSEnvironmentID: map[string]interface{}{
-								"query":            params.EnvironmentID,
-								"zero_terms_query": "none",
-							},
-						},
-					},
-					{
-						"match": map[string]interface{}{
-							"kubernetes.namespace_name": map[string]interface{}{
-								"query":            params.Namespace,
-								"zero_terms_query": "none",
-							},
-						},
-					},
-				},
+				"must": mustConditions,
 			},
 		},
 		"sort": []map[string]interface{}{
@@ -64,31 +127,6 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 				},
 			},
 		},
-	}
-
-	// Add time range filter
-	if params.StartTime != "" && params.EndTime != "" {
-		timeFilter := map[string]interface{}{
-			"range": map[string]interface{}{
-				"@timestamp": map[string]interface{}{
-					"gte": params.StartTime,
-					"lte": params.EndTime,
-				},
-			},
-		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
-			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), timeFilter)
-	}
-
-	// Add search phrase wildcard filter (V2 feature)
-	if params.SearchPhrase != "" {
-		searchFilter := map[string]interface{}{
-			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
-			},
-		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
-			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), searchFilter)
 	}
 
 	// Add version filters as "should" conditions
@@ -128,28 +166,35 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 
 // BuildProjectLogsQuery builds a query for project logs with wildcard search
 func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs []string) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"match": map[string]interface{}{
+				labels.OSProjectID: map[string]interface{}{
+					"query":            params.ProjectID,
+					"zero_terms_query": "none",
+				},
+			},
+		},
+		{
+			"match": map[string]interface{}{
+				labels.OSEnvironmentID: map[string]interface{}{
+					"query":            params.EnvironmentID,
+					"zero_terms_query": "none",
+				},
+			},
+		},
+	}
+
+	// Add common filters
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
+	mustConditions = addLogLevelFilter(mustConditions, params.LogLevels)
+
 	query := map[string]interface{}{
 		"size": params.Limit,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{
-					{
-						"match": map[string]interface{}{
-							labels.OSProjectID: map[string]interface{}{
-								"query":            params.ProjectID,
-								"zero_terms_query": "none",
-							},
-						},
-					},
-					{
-						"match": map[string]interface{}{
-							labels.OSEnvironmentID: map[string]interface{}{
-								"query":            params.EnvironmentID,
-								"zero_terms_query": "none",
-							},
-						},
-					},
-				},
+				"must": mustConditions,
 			},
 		},
 		"sort": []map[string]interface{}{
@@ -159,31 +204,6 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 				},
 			},
 		},
-	}
-
-	// Add time range filter
-	if params.StartTime != "" && params.EndTime != "" {
-		timeFilter := map[string]interface{}{
-			"range": map[string]interface{}{
-				"@timestamp": map[string]interface{}{
-					"gte": params.StartTime,
-					"lte": params.EndTime,
-				},
-			},
-		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
-			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), timeFilter)
-	}
-
-	// Add search phrase wildcard filter (V2 feature)
-	if params.SearchPhrase != "" {
-		searchFilter := map[string]interface{}{
-			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
-			},
-		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
-			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), searchFilter)
 	}
 
 	// Add component ID filters as "should" conditions
@@ -210,36 +230,11 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 
 // BuildGatewayLogsQuery builds a query for gateway logs with wildcard search
 func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[string]interface{} {
-	query := map[string]interface{}{
-		"size": params.Limit,
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{},
-			},
-		},
-		"sort": []map[string]interface{}{
-			{
-				"@timestamp": map[string]interface{}{
-					"order": params.SortOrder,
-				},
-			},
-		},
-	}
-
 	mustConditions := []map[string]interface{}{}
 
-	// Add time range filter
-	if params.StartTime != "" && params.EndTime != "" {
-		timeFilter := map[string]interface{}{
-			"range": map[string]interface{}{
-				"@timestamp": map[string]interface{}{
-					"gte": params.StartTime,
-					"lte": params.EndTime,
-				},
-			},
-		}
-		mustConditions = append(mustConditions, timeFilter)
-	}
+	// Add common filters
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
 
 	// Add organization path filter
 	if params.OrganizationID != "" {
@@ -249,6 +244,22 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 			},
 		}
 		mustConditions = append(mustConditions, orgFilter)
+	}
+
+	query := map[string]interface{}{
+		"size": params.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": params.SortOrder,
+				},
+			},
+		},
 	}
 
 	// Add gateway vhost filters
@@ -305,6 +316,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 					},
 				}
 				mustConditions = append(mustConditions, nestedBool)
+				query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = mustConditions
 				delete(query["query"].(map[string]interface{})["bool"].(map[string]interface{}), "should")
 			} else {
 				query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"] = apiShouldConditions
@@ -312,18 +324,6 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 			}
 		}
 	}
-
-	// Add general search phrase filter (V2 feature)
-	if params.SearchPhrase != "" {
-		searchFilter := map[string]interface{}{
-			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
-			},
-		}
-		mustConditions = append(mustConditions, searchFilter)
-	}
-
-	query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = mustConditions
 
 	return query
 }
@@ -364,22 +364,6 @@ func (qb *QueryBuilder) GenerateIndices(startTime, endTime string) ([]string, er
 
 // BuildOrganizationLogsQuery builds a query for organization logs with wildcard search
 func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels map[string]string) map[string]interface{} {
-	query := map[string]interface{}{
-		"size": params.Limit,
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"must": []map[string]interface{}{},
-			},
-		},
-		"sort": []map[string]interface{}{
-			{
-				"@timestamp": map[string]interface{}{
-					"order": params.SortOrder,
-				},
-			},
-		},
-	}
-
 	mustConditions := []map[string]interface{}{}
 
 	// Add organization filter - this is the key fix!
@@ -421,28 +405,10 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		mustConditions = append(mustConditions, namespaceFilter)
 	}
 
-	// Add time range filter
-	if params.StartTime != "" && params.EndTime != "" {
-		timeFilter := map[string]interface{}{
-			"range": map[string]interface{}{
-				"@timestamp": map[string]interface{}{
-					"gte": params.StartTime,
-					"lte": params.EndTime,
-				},
-			},
-		}
-		mustConditions = append(mustConditions, timeFilter)
-	}
-
-	// Add search phrase wildcard filter
-	if params.SearchPhrase != "" {
-		searchFilter := map[string]interface{}{
-			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
-			},
-		}
-		mustConditions = append(mustConditions, searchFilter)
-	}
+	// Add common filters
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
+	mustConditions = addLogLevelFilter(mustConditions, params.LogLevels)
 
 	// Add pod labels filters
 	for key, value := range podLabels {
@@ -457,7 +423,21 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		mustConditions = append(mustConditions, labelFilter)
 	}
 
-	query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = mustConditions
+	query := map[string]interface{}{
+		"size": params.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": params.SortOrder,
+				},
+			},
+		},
+	}
 
 	return query
 }
