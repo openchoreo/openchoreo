@@ -18,7 +18,11 @@ const (
 	LabelKeyDataPlaneName          = "core.choreo.dev/dataplane"
 	LabelKeyBuildPlane             = "core.choreo.dev/build-plane"
 
-	LabelKeyManagedBy = "managed-by"
+	LabelKeyManagedBy = "core.choreo.dev/managed-by"
+
+	// Release controller specific labels
+	LabelKeyReleaseResourceID = "core.choreo.dev/release-resource-id"
+	LabelKeyReleaseUID        = "core.choreo.dev/release-uid"
 
 	LabelValueManagedBy = "choreo-control-plane"
 )
