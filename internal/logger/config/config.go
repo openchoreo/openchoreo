@@ -85,7 +85,7 @@ func setDefaults() {
 	viper.SetDefault("opensearch.password", "admin")
 	viper.SetDefault("opensearch.timeout", "180s")
 	viper.SetDefault("opensearch.max_retries", 3)
-	viper.SetDefault("opensearch.index_prefix", "container-logs-")
+	viper.SetDefault("opensearch.index_prefix", "kubernetes-")
 	viper.SetDefault("opensearch.index_pattern", "kubernetes-*")
 	viper.SetDefault("opensearch.legacy_pattern", "choreo*")
 

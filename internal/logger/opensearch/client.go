@@ -61,8 +61,9 @@ func (c *Client) Search(ctx context.Context, indices []string, query map[string]
 		zap.Any("query", query))
 		
 	req := opensearchapi.SearchRequest{
-		Index: indices,
-		Body:  buildSearchBody(query),
+		Index:             indices,
+		Body:              buildSearchBody(query),
+		IgnoreUnavailable: opensearchapi.BoolPtr(true),
 	}
 
 	res, err := req.Do(ctx, c.client)

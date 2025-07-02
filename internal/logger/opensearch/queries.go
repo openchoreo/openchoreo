@@ -68,8 +68,8 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 		timeFilter := map[string]interface{}{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gt": params.StartTime,
-					"lt": params.EndTime,
+					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		}
@@ -163,8 +163,8 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 		timeFilter := map[string]interface{}{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gt": params.StartTime,
-					"lt": params.EndTime,
+					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		}
@@ -230,8 +230,8 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 		timeFilter := map[string]interface{}{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gt": params.StartTime,
-					"lt": params.EndTime,
+					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		}
@@ -423,8 +423,8 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		timeFilter := map[string]interface{}{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gt": params.StartTime,
-					"lt": params.EndTime,
+					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		}
