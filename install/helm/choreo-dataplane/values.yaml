@@ -305,3 +305,32 @@ fluentBit:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
 
+# Choreo Logger Service Configuration
+logger:
+  enabled: true
+  replicas: 1
+  
+  image:
+    repository: ghcr.io/openchoreo/logger
+    tag: latest-dev
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  opensearch:
+    address: "http://opensearch-cluster-master:9200"
+    username: admin
+    password: admin
+  
+  logLevel: info
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
