@@ -45,7 +45,7 @@ func newMockLoggingService() *LoggingService {
 	}
 
 	logger := zap.NewNop()
-	
+
 	// Create service with a mock client - we'll replace the client in tests
 	return &LoggingService{
 		queryBuilder: opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),

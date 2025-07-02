@@ -2,9 +2,7 @@ package opensearch
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
 
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
@@ -27,11 +25,9 @@ func NewClient(cfg *config.OpenSearchConfig, logger *zap.Logger) (*Client, error
 		Addresses: []string{cfg.Address},
 		Username:  cfg.Username,
 		Password:  cfg.Password,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // For development only
-			},
-		},
+		// TODO: Add configurable TLS settings with proper certificate verification
+		// Consider adding TLSInsecureSkipVerify config option for development environments
+		// while defaulting to secure certificate verification in production
 	}
 
 	client, err := opensearch.NewClient(opensearchConfig)
@@ -56,10 +52,10 @@ func NewClient(cfg *config.OpenSearchConfig, logger *zap.Logger) (*Client, error
 
 // Search executes a search request against OpenSearch
 func (c *Client) Search(ctx context.Context, indices []string, query map[string]interface{}) (*SearchResponse, error) {
-	c.logger.Debug("Executing search", 
+	c.logger.Debug("Executing search",
 		zap.Strings("indices", indices),
 		zap.Any("query", query))
-		
+
 	req := opensearchapi.SearchRequest{
 		Index:             indices,
 		Body:              buildSearchBody(query),
@@ -74,7 +70,7 @@ func (c *Client) Search(ctx context.Context, indices []string, query map[string]
 	defer res.Body.Close()
 
 	if res.IsError() {
-		c.logger.Error("Search request returned error", 
+		c.logger.Error("Search request returned error",
 			zap.String("status", res.Status()),
 			zap.String("error", res.String()))
 		return nil, fmt.Errorf("search request failed with status: %s", res.Status())
@@ -86,7 +82,7 @@ func (c *Client) Search(ctx context.Context, indices []string, query map[string]
 		return nil, fmt.Errorf("failed to parse search response: %w", err)
 	}
 
-	c.logger.Debug("Search completed", 
+	c.logger.Debug("Search completed",
 		zap.Int("total_hits", response.Hits.Total.Value),
 		zap.Int("returned_hits", len(response.Hits.Hits)))
 
@@ -107,7 +103,7 @@ func (c *Client) GetIndexMapping(ctx context.Context, index string) (*MappingRes
 	defer res.Body.Close()
 
 	if res.IsError() {
-		c.logger.Error("Get mapping request returned error", 
+		c.logger.Error("Get mapping request returned error",
 			zap.String("status", res.Status()),
 			zap.String("error", res.String()))
 		return nil, fmt.Errorf("get mapping request failed with status: %s", res.Status())

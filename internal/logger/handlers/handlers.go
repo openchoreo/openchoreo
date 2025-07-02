@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -11,6 +9,10 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
 	"github.com/openchoreo/openchoreo/internal/logger/service"
+)
+
+const (
+	defaultSortOrder = "desc"
 )
 
 // Handler contains the HTTP handlers for the logging API
@@ -98,7 +100,7 @@ func (h *Handler) GetComponentLogs(c echo.Context) error {
 		req.Limit = 100
 	}
 	if req.SortOrder == "" {
-		req.SortOrder = "desc"
+		req.SortOrder = defaultSortOrder
 	}
 
 	// Build query parameters
@@ -157,7 +159,7 @@ func (h *Handler) GetProjectLogs(c echo.Context) error {
 		req.Limit = 100
 	}
 	if req.SortOrder == "" {
-		req.SortOrder = "desc"
+		req.SortOrder = defaultSortOrder
 	}
 
 	// Build query parameters
@@ -206,7 +208,7 @@ func (h *Handler) GetGatewayLogs(c echo.Context) error {
 		req.Limit = 100
 	}
 	if req.SortOrder == "" {
-		req.SortOrder = "desc"
+		req.SortOrder = defaultSortOrder
 	}
 
 	// Build query parameters
@@ -264,7 +266,7 @@ func (h *Handler) GetOrganizationLogs(c echo.Context) error {
 		req.Limit = 100
 	}
 	if req.SortOrder == "" {
-		req.SortOrder = "desc"
+		req.SortOrder = defaultSortOrder
 	}
 
 	// Build query parameters
@@ -311,36 +313,4 @@ func (h *Handler) Health(c echo.Context) error {
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
 	})
-}
-
-// parseLogLevels parses log levels from query parameter
-func parseLogLevels(levels string) []string {
-	if levels == "" {
-		return nil
-	}
-	return strings.Split(levels, ",")
-}
-
-// parseStringArray parses comma-separated string into array
-func parseStringArray(str string) []string {
-	if str == "" {
-		return nil
-	}
-	result := strings.Split(str, ",")
-	// Trim whitespace
-	for i, s := range result {
-		result[i] = strings.TrimSpace(s)
-	}
-	return result
-}
-
-// parseInt safely parses integer with default value
-func parseInt(str string, defaultValue int) int {
-	if str == "" {
-		return defaultValue
-	}
-	if val, err := strconv.Atoi(str); err == nil {
-		return val
-	}
-	return defaultValue
 }

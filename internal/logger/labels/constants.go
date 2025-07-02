@@ -54,21 +54,21 @@ const (
 	OSWorkflowName     = KubernetesLabelsPrefix + "." + WorkflowName
 )
 
-// Required labels that must be present on all Choreo components for proper log filtering
+// RequiredLabels are the required labels that must be present on all Choreo components for proper log filtering
 var RequiredLabels = []string{
 	ComponentID,
 	EnvironmentID,
 	ProjectID,
 }
 
-// CI/CD related labels used for build and deployment log tracking
+// CICDLabels are the CI/CD related labels used for build and deployment log tracking
 var CICDLabels = []string{
 	PipelineID,
 	RunID,
 	WorkflowName,
 }
 
-// Versioning labels used for deployment tracking and rollback scenarios
+// VersioningLabels are the versioning labels used for deployment tracking and rollback scenarios
 var VersioningLabels = []string{
 	Version,
 	VersionID,

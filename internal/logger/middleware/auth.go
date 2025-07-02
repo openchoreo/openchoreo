@@ -88,7 +88,7 @@ func (a *AuthMiddleware) JWTAuth() echo.MiddlewareFunc {
 
 			// Validate required role
 			if a.config.RequiredRole != "" && !a.hasRole(claims.Roles, a.config.RequiredRole) {
-				a.logger.Warn("Insufficient permissions", 
+				a.logger.Warn("Insufficient permissions",
 					zap.String("user_id", claims.UserID),
 					zap.Strings("user_roles", claims.Roles),
 					zap.String("required_role", a.config.RequiredRole))
@@ -98,7 +98,7 @@ func (a *AuthMiddleware) JWTAuth() echo.MiddlewareFunc {
 			// Store claims in context for use in handlers
 			c.Set("user_claims", claims)
 
-			a.logger.Debug("Authentication successful", 
+			a.logger.Debug("Authentication successful",
 				zap.String("user_id", claims.UserID),
 				zap.String("org_id", claims.OrganizationID))
 
@@ -124,7 +124,7 @@ func (a *AuthMiddleware) AuthorizeComponent() echo.MiddlewareFunc {
 			componentID := c.Param("componentId")
 			if componentID != "" {
 				if !a.hasAccess(claims.ComponentIDs, componentID) {
-					a.logger.Warn("Component access denied", 
+					a.logger.Warn("Component access denied",
 						zap.String("user_id", claims.UserID),
 						zap.String("component_id", componentID),
 						zap.Strings("allowed_components", claims.ComponentIDs))
@@ -154,7 +154,7 @@ func (a *AuthMiddleware) AuthorizeProject() echo.MiddlewareFunc {
 			projectID := c.Param("projectId")
 			if projectID != "" {
 				if !a.hasAccess(claims.ProjectIDs, projectID) {
-					a.logger.Warn("Project access denied", 
+					a.logger.Warn("Project access denied",
 						zap.String("user_id", claims.UserID),
 						zap.String("project_id", projectID),
 						zap.Strings("allowed_projects", claims.ProjectIDs))
@@ -184,7 +184,7 @@ func (a *AuthMiddleware) AuthorizeOrganization() echo.MiddlewareFunc {
 			orgID := c.Param("orgId")
 			if orgID != "" {
 				if claims.OrganizationID != orgID {
-					a.logger.Warn("Organization access denied", 
+					a.logger.Warn("Organization access denied",
 						zap.String("user_id", claims.UserID),
 						zap.String("requested_org", orgID),
 						zap.String("user_org", claims.OrganizationID))

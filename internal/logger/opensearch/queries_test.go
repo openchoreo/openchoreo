@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestQueryBuilder_BuildComponentLogsQueryV2(t *testing.T) {
+func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
 	params := QueryParams{
@@ -20,7 +20,7 @@ func TestQueryBuilder_BuildComponentLogsQueryV2(t *testing.T) {
 		SortOrder:     "desc",
 	}
 
-	query := qb.BuildComponentLogsQueryV2(params)
+	query := qb.BuildComponentLogsQuery(params)
 
 	// Verify query structure
 	if query["size"] != 100 {
@@ -63,7 +63,7 @@ func TestQueryBuilder_BuildComponentLogsQueryV2(t *testing.T) {
 	}
 }
 
-func TestQueryBuilder_BuildProjectLogsQueryV2(t *testing.T) {
+func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
 	params := QueryParams{
@@ -78,7 +78,7 @@ func TestQueryBuilder_BuildProjectLogsQueryV2(t *testing.T) {
 
 	componentIDs := []string{"comp-1", "comp-2", "comp-3"}
 
-	query := qb.BuildProjectLogsQueryV2(params, componentIDs)
+	query := qb.BuildProjectLogsQuery(params, componentIDs)
 
 	// Verify query structure
 	if query["size"] != 50 {
@@ -102,7 +102,7 @@ func TestQueryBuilder_BuildProjectLogsQueryV2(t *testing.T) {
 	}
 }
 
-func TestQueryBuilder_BuildGatewayLogsQueryV2(t *testing.T) {
+func TestQueryBuilder_BuildGatewayLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
 	params := GatewayQueryParams{
@@ -121,7 +121,7 @@ func TestQueryBuilder_BuildGatewayLogsQueryV2(t *testing.T) {
 		GatewayVHosts: []string{"host1.example.com", "host2.example.com"},
 	}
 
-	query := qb.BuildGatewayLogsQueryV2(params)
+	query := qb.BuildGatewayLogsQuery(params)
 
 	// Verify query structure
 	if query["size"] != 200 {

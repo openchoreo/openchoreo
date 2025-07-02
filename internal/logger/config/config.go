@@ -103,17 +103,17 @@ func setDefaults() {
 	// Log level
 	viper.SetDefault("log_level", "info")
 
-	// Environment variable bindings
-	viper.BindEnv("opensearch.address", "OPENSEARCH_ADDRESS")
-	viper.BindEnv("opensearch.username", "OPENSEARCH_USERNAME")
-	viper.BindEnv("opensearch.password", "OPENSEARCH_PASSWORD")
-	viper.BindEnv("opensearch.timeout", "OPENSEARCH_CLIENT_TIMEOUT")
-	viper.BindEnv("opensearch.index_prefix", "OPENSEARCH_INDEX_PREFIX")
-	viper.BindEnv("auth.jwt_secret", "JWT_SECRET")
-	viper.BindEnv("auth.enable_auth", "ENABLE_AUTH")
-	viper.BindEnv("server.port", "PORT")
-	viper.BindEnv("log_level", "LOG_LEVEL")
-	viper.BindEnv("logging.max_log_limit", "MAX_LOG_LIMIT")
+	// Environment variable bindings (optional - defaults are set above)
+	_ = viper.BindEnv("opensearch.address", "OPENSEARCH_ADDRESS")
+	_ = viper.BindEnv("opensearch.username", "OPENSEARCH_USERNAME")
+	_ = viper.BindEnv("opensearch.password", "OPENSEARCH_PASSWORD")
+	_ = viper.BindEnv("opensearch.timeout", "OPENSEARCH_CLIENT_TIMEOUT")
+	_ = viper.BindEnv("opensearch.index_prefix", "OPENSEARCH_INDEX_PREFIX")
+	_ = viper.BindEnv("auth.jwt_secret", "JWT_SECRET")
+	_ = viper.BindEnv("auth.enable_auth", "ENABLE_AUTH")
+	_ = viper.BindEnv("server.port", "PORT")
+	_ = viper.BindEnv("log_level", "LOG_LEVEL")
+	_ = viper.BindEnv("logging.max_log_limit", "MAX_LOG_LIMIT")
 }
 
 func (c *Config) validate() error {

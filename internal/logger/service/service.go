@@ -45,7 +45,7 @@ func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *za
 
 // GetComponentLogs retrieves logs for a specific component using V2 wildcard search
 func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.QueryParams) (*LogResponse, error) {
-	s.logger.Info("Getting component logs", 
+	s.logger.Info("Getting component logs",
 		zap.String("component_id", params.ComponentID),
 		zap.String("environment_id", params.EnvironmentID),
 		zap.String("search_phrase", params.SearchPhrase))
@@ -74,7 +74,7 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 		logs = append(logs, entry)
 	}
 
-	s.logger.Info("Component logs retrieved", 
+	s.logger.Info("Component logs retrieved",
 		zap.Int("count", len(logs)),
 		zap.Int("total", response.Hits.Total.Value))
 
@@ -87,7 +87,7 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 
 // GetProjectLogs retrieves logs for a specific project using V2 wildcard search
 func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (*LogResponse, error) {
-	s.logger.Info("Getting project logs", 
+	s.logger.Info("Getting project logs",
 		zap.String("project_id", params.ProjectID),
 		zap.String("environment_id", params.EnvironmentID),
 		zap.Strings("component_ids", componentIDs),
@@ -117,7 +117,7 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 		logs = append(logs, entry)
 	}
 
-	s.logger.Info("Project logs retrieved", 
+	s.logger.Info("Project logs retrieved",
 		zap.Int("count", len(logs)),
 		zap.Int("total", response.Hits.Total.Value))
 
@@ -130,7 +130,7 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 
 // GetGatewayLogs retrieves gateway logs using V2 wildcard search
 func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (*LogResponse, error) {
-	s.logger.Info("Getting gateway logs", 
+	s.logger.Info("Getting gateway logs",
 		zap.String("organization_id", params.OrganizationID),
 		zap.Strings("gateway_vhosts", params.GatewayVHosts),
 		zap.String("search_phrase", params.SearchPhrase))
@@ -159,7 +159,7 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 		logs = append(logs, entry)
 	}
 
-	s.logger.Info("Gateway logs retrieved", 
+	s.logger.Info("Gateway logs retrieved",
 		zap.Int("count", len(logs)),
 		zap.Int("total", response.Hits.Total.Value))
 
@@ -172,7 +172,7 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 
 // GetOrganizationLogs retrieves logs for an organization with custom filters
 func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (*LogResponse, error) {
-	s.logger.Info("Getting organization logs", 
+	s.logger.Info("Getting organization logs",
 		zap.String("organization_id", params.OrganizationID),
 		zap.String("environment_id", params.EnvironmentID),
 		zap.Any("pod_labels", podLabels),
@@ -202,7 +202,7 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 		logs = append(logs, entry)
 	}
 
-	s.logger.Info("Organization logs retrieved", 
+	s.logger.Info("Organization logs retrieved",
 		zap.Int("count", len(logs)),
 		zap.Int("total", response.Hits.Total.Value))
 
@@ -224,36 +224,5 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	}
 
 	s.logger.Debug("Health check passed")
-	return nil
-}
-
-// validateQueryParams validates common query parameters
-func (s *LoggingService) validateQueryParams(params opensearch.QueryParams) error {
-	if params.Limit <= 0 {
-		params.Limit = s.config.Logging.DefaultLogLimit
-	}
-
-	if params.Limit > s.config.Logging.MaxLogLimit {
-		return fmt.Errorf("limit %d exceeds maximum allowed limit %d", 
-			params.Limit, s.config.Logging.MaxLogLimit)
-	}
-
-	if params.SortOrder != "asc" && params.SortOrder != "desc" {
-		params.SortOrder = "desc" // Default to descending
-	}
-
-	// Validate time format if provided
-	if params.StartTime != "" {
-		if _, err := time.Parse(time.RFC3339, params.StartTime); err != nil {
-			return fmt.Errorf("invalid start_time format: %w", err)
-		}
-	}
-
-	if params.EndTime != "" {
-		if _, err := time.Parse(time.RFC3339, params.EndTime); err != nil {
-			return fmt.Errorf("invalid end_time format: %w", err)
-		}
-	}
-
 	return nil
 }

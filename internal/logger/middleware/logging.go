@@ -24,7 +24,7 @@ func RequestLoggingMiddleware(logger *zap.Logger) echo.MiddlewareFunc {
 
 			// Log the request
 			duration := time.Since(start)
-			
+
 			fields := []zap.Field{
 				zap.String("method", c.Request().Method),
 				zap.String("path", c.Request().URL.Path),

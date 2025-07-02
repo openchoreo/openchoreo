@@ -30,7 +30,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 					{
 						"match": map[string]interface{}{
 							labels.OSComponentID: map[string]interface{}{
-								"query":             params.ComponentID,
+								"query":            params.ComponentID,
 								"zero_terms_query": "none",
 							},
 						},
@@ -38,7 +38,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 					{
 						"match": map[string]interface{}{
 							labels.OSEnvironmentID: map[string]interface{}{
-								"query":             params.EnvironmentID,
+								"query":            params.EnvironmentID,
 								"zero_terms_query": "none",
 							},
 						},
@@ -46,7 +46,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 					{
 						"match": map[string]interface{}{
 							"kubernetes.namespace_name": map[string]interface{}{
-								"query":             params.Namespace,
+								"query":            params.Namespace,
 								"zero_terms_query": "none",
 							},
 						},
@@ -73,7 +73,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 				},
 			},
 		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = 
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
 			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), timeFilter)
 	}
 
@@ -84,36 +84,36 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
 			},
 		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = 
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
 			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), searchFilter)
 	}
 
 	// Add version filters as "should" conditions
 	if len(params.Versions) > 0 || len(params.VersionIDs) > 0 {
 		shouldConditions := []map[string]interface{}{}
-		
+
 		for _, version := range params.Versions {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"match": map[string]interface{}{
 					labels.OSVersion: map[string]interface{}{
-						"query":             version,
+						"query":            version,
 						"zero_terms_query": "none",
 					},
 				},
 			})
 		}
-		
+
 		for _, versionID := range params.VersionIDs {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"match": map[string]interface{}{
 					labels.OSVersionID: map[string]interface{}{
-						"query":             versionID,
+						"query":            versionID,
 						"zero_terms_query": "none",
 					},
 				},
 			})
 		}
-		
+
 		if len(shouldConditions) > 0 {
 			query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"] = shouldConditions
 			query["query"].(map[string]interface{})["bool"].(map[string]interface{})["minimum_should_match"] = 1
@@ -133,7 +133,7 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 					{
 						"match": map[string]interface{}{
 							labels.OSProjectID: map[string]interface{}{
-								"query":             params.ProjectID,
+								"query":            params.ProjectID,
 								"zero_terms_query": "none",
 							},
 						},
@@ -141,7 +141,7 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 					{
 						"match": map[string]interface{}{
 							labels.OSEnvironmentID: map[string]interface{}{
-								"query":             params.EnvironmentID,
+								"query":            params.EnvironmentID,
 								"zero_terms_query": "none",
 							},
 						},
@@ -168,7 +168,7 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 				},
 			},
 		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = 
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
 			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), timeFilter)
 	}
 
@@ -179,25 +179,25 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 				"log": fmt.Sprintf("*%s*", params.SearchPhrase),
 			},
 		}
-		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] = 
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"] =
 			append(query["query"].(map[string]interface{})["bool"].(map[string]interface{})["must"].([]map[string]interface{}), searchFilter)
 	}
 
 	// Add component ID filters as "should" conditions
 	if len(componentIDs) > 0 {
 		shouldConditions := []map[string]interface{}{}
-		
+
 		for _, componentID := range componentIDs {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"match": map[string]interface{}{
 					labels.OSComponentID: map[string]interface{}{
-						"query":             componentID,
+						"query":            componentID,
 						"zero_terms_query": "none",
 					},
 				},
 			})
 		}
-		
+
 		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"] = shouldConditions
 		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["minimum_should_match"] = 1
 	}
@@ -251,15 +251,15 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 	// Add gateway vhost filters
 	if len(params.GatewayVHosts) > 0 {
 		shouldConditions := []map[string]interface{}{}
-		
+
 		for _, vhost := range params.GatewayVHosts {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"wildcard": map[string]interface{}{
-					"log": fmt.Sprintf("*\"gwHost\":\"%s\"*", vhost),
+					"log": fmt.Sprintf("*\"gwHost\":%q*", vhost),
 				},
 			})
 		}
-		
+
 		if len(shouldConditions) > 0 {
 			query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"] = shouldConditions
 			query["query"].(map[string]interface{})["bool"].(map[string]interface{})["minimum_should_match"] = 1
@@ -269,15 +269,15 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 	// Add API ID filters
 	if len(params.APIIDToVersionMap) > 0 {
 		apiShouldConditions := []map[string]interface{}{}
-		
+
 		for apiID := range params.APIIDToVersionMap {
 			apiShouldConditions = append(apiShouldConditions, map[string]interface{}{
 				"wildcard": map[string]interface{}{
-					"log": fmt.Sprintf("*\"apiUuid\":\"%s\"*", apiID),
+					"log": fmt.Sprintf("*\"apiUuid\":%q*", apiID),
 				},
 			})
 		}
-		
+
 		if len(apiShouldConditions) > 0 {
 			// Combine with existing should conditions using nested bool
 			if existing := query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"]; existing != nil {
@@ -384,7 +384,7 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		orgFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				labels.OSOrganizationUUID: map[string]interface{}{
-					"query":             params.OrganizationID,
+					"query":            params.OrganizationID,
 					"zero_terms_query": "none",
 				},
 			},
@@ -397,7 +397,7 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		envFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				labels.OSEnvironmentID: map[string]interface{}{
-					"query":             params.EnvironmentID,
+					"query":            params.EnvironmentID,
 					"zero_terms_query": "none",
 				},
 			},
@@ -410,7 +410,7 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		namespaceFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				"kubernetes.namespace_name": map[string]interface{}{
-					"query":             params.Namespace,
+					"query":            params.Namespace,
 					"zero_terms_query": "none",
 				},
 			},
@@ -446,7 +446,7 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 		labelFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				fmt.Sprintf("kubernetes.labels.%s", key): map[string]interface{}{
-					"query":             value,
+					"query":            value,
 					"zero_terms_query": "none",
 				},
 			},

@@ -42,50 +42,50 @@ type IndexMapping struct {
 
 // FieldMapping represents the mapping for a single field
 type FieldMapping struct {
-	Type   string                     `json:"type"`
-	Fields map[string]FieldMapping    `json:"fields,omitempty"`
+	Type       string                  `json:"type"`
+	Fields     map[string]FieldMapping `json:"fields,omitempty"`
 	Properties map[string]FieldMapping `json:"properties,omitempty"`
 }
 
 // LogEntry represents a parsed log entry from OpenSearch
 type LogEntry struct {
 	Timestamp     time.Time         `json:"timestamp"`
-	Log           string           `json:"log"`
-	LogLevel      string           `json:"log_level"`
-	ComponentID   string           `json:"component_id"`
-	EnvironmentID string           `json:"environment_id"`
-	ProjectID     string           `json:"project_id"`
-	Version       string           `json:"version"`
-	VersionID     string           `json:"version_id"`
-	Namespace     string           `json:"namespace"`
-	PodID         string           `json:"pod_id"`
-	ContainerName string           `json:"container_name"`
+	Log           string            `json:"log"`
+	LogLevel      string            `json:"log_level"`
+	ComponentID   string            `json:"component_id"`
+	EnvironmentID string            `json:"environment_id"`
+	ProjectID     string            `json:"project_id"`
+	Version       string            `json:"version"`
+	VersionID     string            `json:"version_id"`
+	Namespace     string            `json:"namespace"`
+	PodID         string            `json:"pod_id"`
+	ContainerName string            `json:"container_name"`
 	Labels        map[string]string `json:"labels"`
 }
 
 // QueryParams holds common query parameters
 type QueryParams struct {
-	StartTime      string            `json:"start_time"`
-	EndTime        string            `json:"end_time"`
-	SearchPhrase   string            `json:"search_phrase"`
-	LogLevels      []string          `json:"log_levels"`
-	Limit          int               `json:"limit"`
-	SortOrder      string            `json:"sort_order"`
-	ComponentID    string            `json:"component_id,omitempty"`
-	EnvironmentID  string            `json:"environment_id,omitempty"`
-	ProjectID      string            `json:"project_id,omitempty"`
-	OrganizationID string            `json:"organization_id,omitempty"`
-	Namespace      string            `json:"namespace,omitempty"`
-	Versions       []string          `json:"versions,omitempty"`
-	VersionIDs     []string          `json:"version_ids,omitempty"`
+	StartTime      string   `json:"start_time"`
+	EndTime        string   `json:"end_time"`
+	SearchPhrase   string   `json:"search_phrase"`
+	LogLevels      []string `json:"log_levels"`
+	Limit          int      `json:"limit"`
+	SortOrder      string   `json:"sort_order"`
+	ComponentID    string   `json:"component_id,omitempty"`
+	EnvironmentID  string   `json:"environment_id,omitempty"`
+	ProjectID      string   `json:"project_id,omitempty"`
+	OrganizationID string   `json:"organization_id,omitempty"`
+	Namespace      string   `json:"namespace,omitempty"`
+	Versions       []string `json:"versions,omitempty"`
+	VersionIDs     []string `json:"version_ids,omitempty"`
 }
 
 // GatewayQueryParams holds gateway-specific query parameters
 type GatewayQueryParams struct {
 	QueryParams
-	OrganizationID   string            `json:"organization_id"`
+	OrganizationID    string            `json:"organization_id"`
 	APIIDToVersionMap map[string]string `json:"api_id_to_version_map"`
-	GatewayVHosts    []string          `json:"gateway_vhosts"`
+	GatewayVHosts     []string          `json:"gateway_vhosts"`
 }
 
 // buildSearchBody converts a query map to an io.Reader for the search request
@@ -172,9 +172,9 @@ func getStringValue(m map[string]interface{}, key string) string {
 // extractLogLevel extracts log level from log content using common patterns
 func extractLogLevel(log string) string {
 	log = strings.ToUpper(log)
-	
+
 	logLevels := []string{"ERROR", "FATAL", "SEVERE", "WARN", "WARNING", "INFO", "DEBUG"}
-	
+
 	for _, level := range logLevels {
 		if strings.Contains(log, level) {
 			// Normalize WARN/WARNING to WARN
@@ -184,6 +184,6 @@ func extractLogLevel(log string) string {
 			return level
 		}
 	}
-	
+
 	return "INFO" // Default to INFO if no level found
 }

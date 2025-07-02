@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,7 +32,9 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
 	}
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
@@ -64,13 +67,13 @@ func main() {
 	{
 		// Component logs
 		v2.POST("/logs/component/:componentId", handler.GetComponentLogs)
-		
+
 		// Project logs
 		v2.POST("/logs/project/:projectId", handler.GetProjectLogs)
-		
+
 		// Gateway logs
 		v2.POST("/logs/gateway", handler.GetGatewayLogs)
-		
+
 		// Organization logs
 		v2.POST("/logs/org/:orgId", handler.GetOrganizationLogs)
 	}
@@ -79,7 +82,7 @@ func main() {
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.Server.Port)
 		logger.Info("Starting server", zap.String("address", addr))
-		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
