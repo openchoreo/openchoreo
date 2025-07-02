@@ -1,3 +1,6 @@
+// Copyright (c) 2025 openchoreo
+// SPDX-License-Identifier: Apache-2.0
+
 package handlers
 
 import (

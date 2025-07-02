@@ -1,3 +1,6 @@
+// Copyright (c) 2025 openchoreo
+// SPDX-License-Identifier: Apache-2.0
+
 // Package labels provides constant definitions for Kubernetes labels used across the Choreo logging system.
 // This centralizes label definitions to eliminate magic strings and improve maintainability.
 package labels
