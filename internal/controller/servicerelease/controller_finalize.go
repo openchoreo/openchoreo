@@ -67,7 +67,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, serviceRelease *choreov1
 
 	// STEP 3: List all live resources we manage (use empty desired resources since we want to delete everything)
 	var emptyDesiredResources []*unstructured.Unstructured
-	liveResources, err := r.listLiveResources(ctx, dpClient, serviceRelease, emptyDesiredResources)
+	gvks := findAllKnownGVKs(emptyDesiredResources, serviceRelease.Status.Resources)
+	liveResources, err := r.listLiveResourcesByGVKs(ctx, dpClient, serviceRelease, gvks)
 	if err != nil {
 		meta.SetStatusCondition(&serviceRelease.Status.Conditions, NewServiceReleaseCleanupFailedCondition(serviceRelease.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, serviceRelease); updateErr != nil {

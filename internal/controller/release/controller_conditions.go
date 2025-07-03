@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package servicerelease
+package release
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +12,7 @@ import (
 // Constants for condition types
 
 const (
-	// ConditionFinalizing represents whether the ServiceRelease is being finalized
+	// ConditionFinalizing represents whether the Release is being finalized
 	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
 
@@ -27,7 +27,7 @@ const (
 	ReasonCleanupFailed controller.ConditionReason = "CleanupFailed"
 )
 
-func NewServiceReleaseFinalizingCondition(generation int64) metav1.Condition {
+func NewReleaseFinalizingCondition(generation int64) metav1.Condition {
 	return controller.NewCondition(
 		ConditionFinalizing,
 		metav1.ConditionTrue,
@@ -37,7 +37,7 @@ func NewServiceReleaseFinalizingCondition(generation int64) metav1.Condition {
 	)
 }
 
-func NewServiceReleaseCleanupFailedCondition(generation int64, err error) metav1.Condition {
+func NewReleaseCleanupFailedCondition(generation int64, err error) metav1.Condition {
 	return controller.NewCondition(
 		ConditionFinalizing,
 		metav1.ConditionTrue,

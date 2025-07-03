@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package servicerelease
+package release
 
 import (
 	"context"
@@ -23,19 +23,19 @@ import (
 
 const (
 	// Controller name for managed-by label
-	ControllerName = "servicerelease-controller"
+	ControllerName = "release-controller"
 )
 
-// Reconciler reconciles a ServiceRelease object
+// Reconciler reconciles a Release object
 type Reconciler struct {
 	client.Client
 	DpClientMgr *dpKubernetes.KubeClientManager
 	Scheme      *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicereleases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicereleases/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicereleases/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -45,40 +45,40 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// Fetch the ServiceRelease instance
-	serviceRelease := &choreov1.ServiceRelease{}
-	if err := r.Get(ctx, req.NamespacedName, serviceRelease); err != nil {
+	// Fetch the Release instance
+	release := &choreov1.Release{}
+	if err := r.Get(ctx, req.NamespacedName, release); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("ServiceRelease resource not found. Ignoring since it must be deleted.")
+			logger.Info("Release resource not found. Ignoring since it must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get ServiceRelease")
+		logger.Error(err, "Failed to get Release")
 		return ctrl.Result{}, err
 	}
 
-	old := serviceRelease.DeepCopy()
+	old := release.DeepCopy()
 
-	// Handle the deletion of the ServiceRelease
-	if !serviceRelease.DeletionTimestamp.IsZero() {
-		logger.Info("Finalizing ServiceRelease")
-		return r.finalize(ctx, old, serviceRelease)
+	// Handle the deletion of the Release
+	if !release.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing Release")
+		return r.finalize(ctx, old, release)
 	}
 
-	// Ensure the finalizer is added to the ServiceRelease
-	if finalizerAdded, err := r.ensureFinalizer(ctx, serviceRelease); err != nil || finalizerAdded {
+	// Ensure the finalizer is added to the Release
+	if finalizerAdded, err := r.ensureFinalizer(ctx, release); err != nil || finalizerAdded {
 		// Return after adding the finalizer to ensure the finalizer is persisted
 		return ctrl.Result{}, err
 	}
 
 	// Get dataplane client for the environment
-	dpClient, err := r.getDPClient(ctx, serviceRelease.Spec.EnvironmentName)
+	dpClient, err := r.getDPClient(ctx, release.Spec.EnvironmentName)
 	if err != nil {
 		logger.Error(err, "Failed to get dataplane client")
 		return ctrl.Result{}, err
 	}
 
 	// Get desired resources from spec
-	desiredResources, err := r.makeDesiredResources(serviceRelease)
+	desiredResources, err := r.makeDesiredResources(release)
 	if err != nil {
 		logger.Error(err, "Failed to make desired resources")
 		return ctrl.Result{}, err
@@ -94,8 +94,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 2: Discover live resources that we manage in the dataplane
 	// This queries both current resource types (from spec) and previous resource types (from status)
 	// to ensure we find all resources that might need cleanup, preventing resource leaks
-	gvks := findAllKnownGVKs(desiredResources, serviceRelease.Status.Resources)
-	liveResources, err := r.listLiveResourcesByGVKs(ctx, dpClient, serviceRelease, gvks)
+	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources)
+	liveResources, err := r.listLiveResourcesByGVKs(ctx, dpClient, release, gvks)
 	if err != nil {
 		logger.Error(err, "Failed to list live resources from dataplane")
 		return ctrl.Result{}, err
@@ -112,12 +112,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if err := r.updateStatus(ctx, serviceRelease, desiredResources); err != nil {
-		logger.Error(err, "Failed to update ServiceRelease status")
+	if err := r.updateStatus(ctx, release, desiredResources); err != nil {
+		logger.Error(err, "Failed to update Release status")
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully applied ServiceRelease resources to dataplane")
+	logger.Info("Successfully applied Release resources to dataplane")
 	return ctrl.Result{}, nil
 }
 
@@ -158,11 +158,11 @@ func (r *Reconciler) applyResources(ctx context.Context, dpClient client.Client,
 	return nil
 }
 
-// makeDesiredResources creates the desired resources from the ServiceRelease spec
-func (r *Reconciler) makeDesiredResources(serviceRelease *choreov1.ServiceRelease) ([]*unstructured.Unstructured, error) {
+// makeDesiredResources creates the desired resources from the Release spec
+func (r *Reconciler) makeDesiredResources(release *choreov1.Release) ([]*unstructured.Unstructured, error) {
 	var desiredObjects []*unstructured.Unstructured
 
-	for _, resource := range serviceRelease.Spec.Resources {
+	for _, resource := range release.Spec.Resources {
 		// Convert RawExtension to Unstructured
 		obj := &unstructured.Unstructured{}
 		if err := obj.UnmarshalJSON(resource.Object.Raw); err != nil {
@@ -176,7 +176,7 @@ func (r *Reconciler) makeDesiredResources(serviceRelease *choreov1.ServiceReleas
 		}
 		resourceLabels[labels.LabelKeyManagedBy] = ControllerName
 		resourceLabels[labels.LabelKeyReleaseResourceID] = resource.ID
-		resourceLabels[labels.LabelKeyReleaseUID] = string(serviceRelease.UID)
+		resourceLabels[labels.LabelKeyReleaseUID] = string(release.UID)
 
 		obj.SetLabels(resourceLabels)
 
@@ -209,23 +209,23 @@ func (r *Reconciler) makeResourceStatus(resources []*unstructured.Unstructured) 
 	return resourceStatuses
 }
 
-// updateStatus updates the ServiceRelease status with applied resources
-func (r *Reconciler) updateStatus(ctx context.Context, serviceRelease *choreov1.ServiceRelease, appliedResources []*unstructured.Unstructured) error {
+// updateStatus updates the Release status with applied resources
+func (r *Reconciler) updateStatus(ctx context.Context, release *choreov1.Release, appliedResources []*unstructured.Unstructured) error {
 	logger := log.FromContext(ctx)
 
 	// Build resource status from applied resources
 	resourceStatuses := r.makeResourceStatus(appliedResources)
 
 	// Update the status
-	serviceRelease.Status.Resources = resourceStatuses
+	release.Status.Resources = resourceStatuses
 
-	// Update the ServiceRelease status
-	if err := r.Status().Update(ctx, serviceRelease); err != nil {
-		logger.Error(err, "Failed to update ServiceRelease status")
+	// Update the Release status
+	if err := r.Status().Update(ctx, release); err != nil {
+		logger.Error(err, "Failed to update Release status")
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 
-	logger.Info("Successfully updated ServiceRelease status", "resourceCount", len(resourceStatuses))
+	logger.Info("Successfully updated Release status", "resourceCount", len(resourceStatuses))
 	return nil
 }
 
@@ -365,7 +365,6 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		// Third-party CRDs
 		{Group: "cilium.io", Version: "v2", Kind: "CiliumNetworkPolicy"},
 		{Group: "secrets-store.csi.x-k8s.io", Version: "v1", Kind: "SecretProviderClass"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"},
 	}
 	for _, gvk := range wellKnownGVKs {
 		gvkSet[gvk] = true
@@ -375,7 +374,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 }
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
-func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient client.Client, serviceRelease *choreov1.ServiceRelease, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
+func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient client.Client, release *choreov1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
 	logger := log.FromContext(ctx)
 
 	var allLiveResources []*unstructured.Unstructured
@@ -394,7 +393,7 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient clien
 		labelSelector := metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				labels.LabelKeyManagedBy:  ControllerName,
-				labels.LabelKeyReleaseUID: string(serviceRelease.UID),
+				labels.LabelKeyReleaseUID: string(release.UID),
 			},
 		}
 		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
@@ -423,7 +422,7 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient clien
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.ServiceRelease{}).
-		Named("servicerelease").
+		For(&choreov1.Release{}).
+		Named("release").
 		Complete(r)
 }

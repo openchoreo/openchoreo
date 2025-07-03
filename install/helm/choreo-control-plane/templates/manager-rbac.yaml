@@ -111,6 +111,7 @@ rules:
   - gitcommitrequests
   - organizations
   - projects
+  - releases
   - scheduledtaskbindings
   - scheduledtaskclasses
   - scheduledtaskreleases
@@ -158,6 +159,7 @@ rules:
   - gitcommitrequests/finalizers
   - organizations/finalizers
   - projects/finalizers
+  - releases/finalizers
   - scheduledtaskbindings/finalizers
   - scheduledtaskclasses/finalizers
   - scheduledtaskreleases/finalizers
@@ -199,6 +201,7 @@ rules:
   - gitcommitrequests/status
   - organizations/status
   - projects/status
+  - releases/status
   - scheduledtaskbindings/status
   - scheduledtaskclasses/status
   - scheduledtaskreleases/status

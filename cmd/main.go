@@ -8,8 +8,8 @@ import (
 	"flag"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
+	"github.com/openchoreo/openchoreo/internal/controller/release"
+
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -467,6 +467,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&release.Reconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		DpClientMgr: dpClientMgr,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Release")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	// -----------------------------------------------------------------------------

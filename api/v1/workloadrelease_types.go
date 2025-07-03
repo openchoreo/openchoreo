@@ -5,7 +5,6 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -16,18 +15,6 @@ type WorkloadReleaseOwner struct {
 	ProjectName string `json:"projectName"`
 	// +kubebuilder:validation:MinLength=1
 	ComponentName string `json:"componentName"`
-}
-
-// Resource defines a Kubernetes resource template that can be applied to the data plane.
-type Resource struct {
-	// Unique identifier for the resource
-	// +kubebuilder:validation:MinLength=1
-	ID string `json:"id"`
-
-	// Object contains the complete Kubernetes resource definition
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Object *runtime.RawExtension `json:"object"`
 }
 
 // WorkloadReleaseSpec defines the desired state of WorkloadRelease.

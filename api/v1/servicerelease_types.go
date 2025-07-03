@@ -26,39 +26,6 @@ type ServiceReleaseSpec struct {
 	Resources []Resource `json:"resources,omitempty"`
 }
 
-// ResourceStatus tracks a resource that was applied to the data plane.
-type ResourceStatus struct {
-	// ID corresponds to the resource ID in spec.resources
-	// +kubebuilder:validation:MinLength=1
-	ID string `json:"id"`
-
-	// Group is the API group of the resource (e.g., "apps", "batch")
-	// Empty string for core resources
-	// +optional
-	Group string `json:"group,omitempty"`
-
-	// Version is the API version of the resource (e.g., "v1", "v1beta1")
-	// +kubebuilder:validation:MinLength=1
-	Version string `json:"version"`
-
-	// Kind is the type of the resource (e.g., "Deployment", "Service")
-	// +kubebuilder:validation:MinLength=1
-	Kind string `json:"kind"`
-
-	// Name is the name of the resource in the data plane
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-
-	// Namespace is the namespace of the resource in the data plane
-	// Empty for cluster-scoped resources
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-
-	// Conditions represent the latest available observations of the resource state
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
 // ServiceReleaseStatus defines the observed state of ServiceRelease.
 type ServiceReleaseStatus struct {
 	// Resources contain the list of resources that have been successfully applied to the data plane
