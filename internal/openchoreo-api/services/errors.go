@@ -8,14 +8,16 @@ var (
 	ErrProjectNotFound        = errors.New("project not found")
 	ErrComponentAlreadyExists = errors.New("component already exists")
 	ErrComponentNotFound      = errors.New("component not found")
+	ErrOrganizationNotFound   = errors.New("organization not found")
 )
 
 // Error codes for API responses
 const (
-	CodeProjectExists     = "PROJECT_EXISTS"
-	CodeProjectNotFound   = "PROJECT_NOT_FOUND"
-	CodeComponentExists   = "COMPONENT_EXISTS"
-	CodeComponentNotFound = "COMPONENT_NOT_FOUND"
-	CodeInvalidInput      = "INVALID_INPUT"
-	CodeInternalError     = "INTERNAL_ERROR"
+	CodeProjectExists       = "PROJECT_EXISTS"
+	CodeProjectNotFound     = "PROJECT_NOT_FOUND"
+	CodeComponentExists     = "COMPONENT_EXISTS"
+	CodeComponentNotFound   = "COMPONENT_NOT_FOUND"
+	CodeOrganizationNotFound = "ORGANIZATION_NOT_FOUND"
+	CodeInvalidInput        = "INVALID_INPUT"
+	CodeInternalError       = "INTERNAL_ERROR"
 )

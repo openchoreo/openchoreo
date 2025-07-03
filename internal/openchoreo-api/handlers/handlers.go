@@ -33,6 +33,10 @@ func (h *Handler) Routes() http.Handler {
 	// API versioning
 	v1 := "/api/v1"
 
+	// Organization endpoints
+	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
+
 	// Project endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
