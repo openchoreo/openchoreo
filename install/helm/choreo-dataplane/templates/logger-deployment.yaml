@@ -1,4 +1,4 @@
-{{- if .Values.logger.enabled }}
+{{- if .Values.observability.logging.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,7 +45,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ if .Values.logger }}{{ .Values.logger.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
-          value: {{ if .Values.logger.opensearch }}{{ .Values.logger.opensearch.address | default "http://opensearch-cluster-master:9200" | quote }}{{ else }}"http://opensearch-cluster-master:9200"{{ end }}
+          value: "http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
