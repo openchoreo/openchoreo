@@ -9,9 +9,6 @@ metadata:
     app.kubernetes.io/name: choreo-logger
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: logging
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "15"
 spec:
   replicas: {{ .Values.logger.replicas | default 1 }}
   selector:
@@ -31,6 +28,28 @@ spec:
         runAsUser: 65532
         runAsGroup: 65532
         fsGroup: 65532
+      initContainers:
+      - name: wait-for-opensearch
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for OpenSearch to be ready..."
+          OPENSEARCH_URL="http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          echo "Checking OpenSearch at: $OPENSEARCH_URL"
+          until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
+            echo "OpenSearch not ready, waiting 10 seconds..."
+            sleep 10
+          done
+          echo "OpenSearch is ready!"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       containers:
       - name: logger
         image: "{{ if .Values.logger.image }}{{ .Values.logger.image.repository | default "ghcr.io/openchoreo/logger" }}:{{ .Values.logger.image.tag | default "latest-dev" }}{{ else }}ghcr.io/openchoreo/logger:latest-dev{{ end }}"

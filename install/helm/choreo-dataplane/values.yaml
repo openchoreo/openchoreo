@@ -316,7 +316,7 @@ logger:
   image:
     repository: ghcr.io/openchoreo/logger
     tag: latest-dev
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   
   service:
     type: ClusterIP
