@@ -158,6 +158,10 @@ func (s *ProjectService) toProjectResponse(project *choreov1.Project) *models.Pr
 	repositoryURL := project.Annotations["repository-url"]
 	repositoryBranch := project.Annotations["repository-branch"]
 
+	// Extract display name and description from annotations
+	displayName := project.Annotations[controller.AnnotationKeyDisplayName]
+	description := project.Annotations[controller.AnnotationKeyDescription]
+
 	// Get status from conditions
 	status := "Unknown"
 	if len(project.Status.Conditions) > 0 {
@@ -173,6 +177,8 @@ func (s *ProjectService) toProjectResponse(project *choreov1.Project) *models.Pr
 	return &models.ProjectResponse{
 		Name:               project.Name,
 		OrgName:            project.Namespace,
+		DisplayName:        displayName,
+		Description:        description,
 		RepositoryURL:      repositoryURL,
 		RepositoryBranch:   repositoryBranch,
 		DeploymentPipeline: project.Spec.DeploymentPipelineRef,

@@ -22,9 +22,11 @@ type ListResponse[T any] struct {
 type ProjectResponse struct {
 	Name               string    `json:"name"`
 	OrgName            string    `json:"orgName"`
+	DisplayName        string    `json:"displayName,omitempty"`
+	Description        string    `json:"description,omitempty"`
 	RepositoryURL      string    `json:"repositoryUrl,omitempty"`
 	RepositoryBranch   string    `json:"repositoryBranch,omitempty"`
-	DeploymentPipeline string    `json:"deploymentOipeline,omitempty"`
+	DeploymentPipeline string    `json:"deploymentPipeline,omitempty"`
 	CreatedAt          time.Time `json:"createdAt"`
 	Status             string    `json:"status,omitempty"`
 }
@@ -40,6 +42,16 @@ type ComponentResponse struct {
 	Branch        string    `json:"branch,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	Status        string    `json:"status,omitempty"`
+}
+
+// OrganizationResponse represents an organization in API responses
+type OrganizationResponse struct {
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Namespace   string    `json:"namespace,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	Status      string    `json:"status,omitempty"`
 }
 
 // Response helper functions

@@ -7,8 +7,9 @@ import (
 )
 
 type Services struct {
-	ProjectService   *ProjectService
-	ComponentService *ComponentService
+	ProjectService      *ProjectService
+	ComponentService    *ComponentService
+	OrganizationService *OrganizationService
 }
 
 // NewServices creates and initializes all services
@@ -19,8 +20,12 @@ func NewServices(k8sClient client.Client, logger *slog.Logger) *Services {
 	// Create component service (depends on project service)
 	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"))
 
+	// Create organization service
+	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"))
+
 	return &Services{
-		ProjectService:   projectService,
-		ComponentService: componentService,
+		ProjectService:      projectService,
+		ComponentService:    componentService,
+		OrganizationService: organizationService,
 	}
 }
