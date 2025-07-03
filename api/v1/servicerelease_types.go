@@ -64,6 +64,10 @@ type ServiceReleaseStatus struct {
 	// Resources contain the list of resources that have been successfully applied to the data plane
 	// +optional
 	Resources []ResourceStatus `json:"resources,omitempty"`
+
+	// Conditions represent the latest available observations of the ServiceRelease's current state.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -85,6 +89,16 @@ type ServiceReleaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ServiceRelease `json:"items"`
+}
+
+// GetConditions returns the conditions from the status
+func (in *ServiceRelease) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the conditions in the status
+func (in *ServiceRelease) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
 }
 
 func init() {

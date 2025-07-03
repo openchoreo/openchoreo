@@ -60,6 +60,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	old := serviceRelease.DeepCopy()
+
+	// Handle the deletion of the ServiceRelease
+	if !serviceRelease.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing ServiceRelease")
+		return r.finalize(ctx, old, serviceRelease)
+	}
+
+	// Ensure the finalizer is added to the ServiceRelease
+	if finalizerAdded, err := r.ensureFinalizer(ctx, serviceRelease); err != nil || finalizerAdded {
+		// Return after adding the finalizer to ensure the finalizer is persisted
+		return ctrl.Result{}, err
+	}
+
 	// Get dataplane client for the environment
 	dpClient, err := r.getDPClient(ctx, serviceRelease.Spec.EnvironmentName)
 	if err != nil {
@@ -391,8 +405,6 @@ func (r *Reconciler) listLiveResourcesByKnownGVKs(ctx context.Context, dpClient 
 
 	// Query each GVK with our label selector
 	for _, gvk := range gvks {
-		logger.Info("Querying live resources", "gvk", gvk.String())
-
 		// Create unstructured list for this GVK
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(schema.GroupVersionKind{
@@ -425,8 +437,6 @@ func (r *Reconciler) listLiveResourcesByKnownGVKs(ctx context.Context, dpClient 
 		for i := range list.Items {
 			allLiveResources = append(allLiveResources, &list.Items[i])
 		}
-
-		logger.Info("Found live resources", "gvk", gvk.String(), "count", len(list.Items))
 	}
 
 	logger.Info("Total live resources found", "count", len(allLiveResources))
