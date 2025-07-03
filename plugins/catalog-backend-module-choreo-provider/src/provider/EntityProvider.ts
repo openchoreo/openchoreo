@@ -110,13 +110,13 @@ export class ChoreoEntityProvider implements EntityProvider {
       metadata: {
         name: project.metadata.name,
         description: annotations[`${ChoreoPrefix}description`],
-        namespace: project.metadata.namespace,
-        tags: [`cluster:${project.clusterName}`, `kind:${project.kind}`],
+        // namespace: project.metadata.namespace, default-org maps to default namespace in Backstage
+        tags: [`openchoreo`, `${project.kind}`],
         annotations: defaultAnnotations,
         labels: labels,
       },
       spec: {
-        owner: 'choreo',
+        owner: 'guests',
         type: 'service',
       },
     };
@@ -137,15 +137,15 @@ export class ChoreoEntityProvider implements EntityProvider {
         name: component.metadata.name,
         title: annotations[`${ChoreoPrefix}display-name`],
         description: annotations[`${ChoreoPrefix}description`],
-        namespace: component.metadata.namespace,
-        tags: [`cluster:${component.clusterName}`, `kind:${component.kind}`],
+        // namespace: project.metadata.namespace, default-org maps to default namespace in Backstage
+        tags: [`openchoreo`, `${component.kind}`],
         annotations: defaultAnnotations,
         labels: labels,
       },
       spec: {
         type: this.componentTypeMapping(component.spec.type.toLowerCase()),
         lifecycle: 'production',
-        owner: 'default',
+        owner: 'guests',
         system: labels[`${ChoreoPrefix}project`],
         // dependsOn: annotations[`${prefix}/dependsOn`]?.split(','),
         // providesApis: annotations[`${prefix}/providesApis`]?.split(','), //TODO How do we map api relationships

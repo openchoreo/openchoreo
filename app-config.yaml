@@ -1,9 +1,9 @@
 app:
-  title: Scaffolded Backstage App
+  title: OpenChoreo Backstage App
   baseUrl: http://localhost:3000
 
 organization:
-  name: My Company
+  name: OpenChoreo
 
 backend:
   # Used for enabling authentication, secret is shared by all backend plugins
@@ -70,6 +70,10 @@ auth:
 
 scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
+
+openchoreo:
+  baseUrl: http://localhost:8080/api/v1
+  token: ${OPENCHOREO_TOKEN}     # optional for now: for authentication
 
 catalog:
   import:

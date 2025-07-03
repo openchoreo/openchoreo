@@ -1,7 +1,7 @@
 
 
 import { DefaultApiClient } from './api';
-import { ModelsProject, OpenChoreoApiResponse } from './models';
+import { ModelsProject, ModelsOrganization, ModelsComponent, OpenChoreoApiResponse } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 export class OpenChoreoApiClient {
@@ -37,6 +37,58 @@ export class OpenChoreoApiClient {
       return projects;
     } catch (error) {
       this.logger?.error(`Failed to fetch projects for org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async getAllOrganizations(): Promise<ModelsOrganization[]> {
+    this.logger?.info('Fetching all organizations');
+    
+    try {
+      const response = await this.client.organizationsGet(
+        {},
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiResponse<ModelsOrganization> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const organizations = apiResponse.data.items;
+      this.logger?.info(`Successfully fetched ${organizations.length} organizations (total: ${apiResponse.data.totalCount})`);
+      
+      return organizations;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch organizations: ${error}`);
+      throw error;
+    }
+  }
+
+  async getAllComponents(orgName: string, projectName: string): Promise<ModelsComponent[]> {
+    this.logger?.info(`Fetching components for project: ${projectName} in organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.componentsGet(
+        { orgName, projectName },
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiResponse<ModelsComponent> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const components = apiResponse.data.items;
+      this.logger?.info(`Successfully fetched ${components.length} components for project: ${projectName} in org: ${orgName} (total: ${apiResponse.data.totalCount})`);
+      
+      return components;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch components for project ${projectName} in org ${orgName}: ${error}`);
       throw error;
     }
   }

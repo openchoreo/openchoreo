@@ -6,7 +6,7 @@ import { Entity } from '@backstage/catalog-model';
 import { SchedulerServiceTaskRunner } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { createOpenChoreoApiClient, OpenChoreoApiClient, ModelsProject } from '@internal/plugin-openchoreo-api';
+import { createOpenChoreoApiClient, OpenChoreoApiClient, ModelsProject, ModelsOrganization, ModelsComponent } from '@internal/plugin-openchoreo-api';
 
 /**
  * Provides entities from OpenChoreo API
@@ -47,34 +47,97 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     }
 
     try {
-      this.logger.info('Fetching projects from OpenChoreo API');
+      this.logger.info('Fetching organizations and projects from OpenChoreo API');
       
-      // Example: Get projects for a specific organization
-      // In a real implementation, you might want to iterate over multiple orgs
-      // or get this from configuration
-      const orgName = 'default-org'; // This could come from config
-      const projects = await this.client.getAllProjects(orgName);
+      // First, get all organizations
+      const organizations = await this.client.getAllOrganizations();
+      this.logger.info(`Found ${organizations.length} organizations from OpenChoreo`);
 
-      this.logger.info(`Fetched ${projects[0]} projects from OpenChoreo API for organization: ${orgName}`);
-      
-      this.logger.info(`Found ${projects.length} projects from OpenChoreo`);
+      const allEntities: Entity[] = [];
 
-      const entities: Entity[] = projects.map(project => 
-        this.translateProjectToEntity(project, orgName)
+      // Create Domain entities for each organization
+      const domainEntities: Entity[] = organizations.map(org => 
+        this.translateOrganizationToDomain(org)
       );
+      allEntities.push(...domainEntities);
+
+      // Get projects for each organization and create System entities
+      for (const org of organizations) {
+        try {
+          const projects = await this.client.getAllProjects(org.name);
+          this.logger.info(`Found ${projects.length} projects in organization: ${org.name}`);
+
+          const systemEntities: Entity[] = projects.map(project => 
+            this.translateProjectToEntity(project, org.name)
+          );
+          allEntities.push(...systemEntities);
+
+          // Get components for each project and create Component entities
+          for (const project of projects) {
+            try {
+              const components = await this.client.getAllComponents(org.name, project.name);
+              this.logger.info(`Found ${components.length} components in project: ${project.name}`);
+
+              const componentEntities: Entity[] = components.map(component => 
+                this.translateComponentToEntity(component, org.name, project.name)
+              );
+              allEntities.push(...componentEntities);
+            } catch (error) {
+              this.logger.warn(`Failed to fetch components for project ${project.name} in organization ${org.name}: ${error}`);
+            }
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to fetch projects for organization ${org.name}: ${error}`);
+        }
+      }
 
       await this.connection.applyMutation({
         type: 'full',
-        entities: entities.map(entity => ({
+        entities: allEntities.map(entity => ({
           entity,
           locationKey: `provider:${this.getProviderName()}`,
         })),
       });
 
-      this.logger.info(`Successfully processed ${entities.length} entities`);
+      const systemCount = allEntities.filter(e => e.kind === 'System').length;
+      const componentCount = allEntities.filter(e => e.kind === 'Component').length;
+      this.logger.info(`Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components)`);
     } catch (error) {
       this.logger.error(`Failed to run OpenChoreoEntityProvider: ${error}`);
     }
+  }
+
+  /**
+   * Translates a ModelsOrganization from OpenChoreo API to a Backstage Domain entity
+   */
+  private translateOrganizationToDomain(organization: ModelsOrganization): Entity {
+    const domainEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Domain',
+      metadata: {
+        name: organization.name,
+        title: organization.displayName || organization.name,
+        description: organization.description || organization.name,
+        // namespace: 'default',
+        tags: ['openchoreo', 'organization', 'domain'],
+        annotations: {
+          'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
+          'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
+          'openchoreo.io/organization-id': organization.name,
+          'openchoreo.io/namespace': organization.namespace,
+          'openchoreo.io/created-at': organization.createdAt,
+          'openchoreo.io/status': organization.status,
+        },
+        labels: {
+          'openchoreo.io/managed': 'true',
+        },
+      },
+      spec: {
+        owner: 'guests', // This could be configured or mapped from organization metadata
+      },
+    };
+
+    return domainEntity;
   }
 
   /**
@@ -86,9 +149,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
       kind: 'System',
       metadata: {
         name: project.name,
-        title: project.name,
-        description: project.name,
-        namespace: orgName,
+        title: project.displayName || project.name,
+        description: project.description || project.name,
+        // namespace: orgName,
         tags: ['openchoreo', 'project'],
         annotations: {
           'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
@@ -108,5 +171,45 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     };
 
     return systemEntity;
+  }
+
+  /**
+   * Translates a ModelsComponent from OpenChoreo API to a Backstage Component entity
+   */
+  private translateComponentToEntity(component: ModelsComponent, orgName: string, projectName: string): Entity {
+    const componentEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: component.name,
+        title: component.name,
+        description: component.description || component.name,
+        // namespace: orgName,
+        tags: ['openchoreo', 'component', component.type.toLowerCase()],
+        annotations: {
+          'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
+          'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
+          'openchoreo.io/component-id': component.name,
+          'openchoreo.io/component-type': component.type,
+          'openchoreo.io/project': projectName,
+          'openchoreo.io/organization': orgName,
+          'openchoreo.io/created-at': component.createdAt,
+          'openchoreo.io/status': component.status,
+          ...(component.repositoryUrl && { 'backstage.io/source-location': `url:${component.repositoryUrl}` }),
+          ...(component.branch && { 'openchoreo.io/branch': component.branch }),
+        },
+        labels: {
+          'openchoreo.io/managed': 'true',
+        },
+      },
+      spec: {
+        type: component.type.toLowerCase(), // e.g., 'service'
+        lifecycle: component.status.toLowerCase(), // Map status to lifecycle
+        owner: 'guests', // This could be mapped from component metadata
+        system: projectName, // Link to the parent system (project)
+      },
+    };
+
+    return componentEntity;
   }
 }
