@@ -50,11 +50,11 @@ func main() {
 	// Health check endpoint
 	mux.HandleFunc("GET /health", handler.Health)
 
-	// V2 API routes
-	mux.HandleFunc("POST /api/v2/logs/component/{componentId}", handler.GetComponentLogs)
-	mux.HandleFunc("POST /api/v2/logs/project/{projectId}", handler.GetProjectLogs)
-	mux.HandleFunc("POST /api/v2/logs/gateway", handler.GetGatewayLogs)
-	mux.HandleFunc("POST /api/v2/logs/org/{orgId}", handler.GetOrganizationLogs)
+	// API routes
+	mux.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
+	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
+	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
+	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(

@@ -83,7 +83,7 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// GetComponentLogs handles POST /api/v2/logs/component/{componentId}
+// GetComponentLogs handles POST /api/logs/component/{componentId}
 func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	componentID := httputil.GetPathParam(r, "componentId")
 	if componentID == "" {
@@ -145,7 +145,7 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetProjectLogs handles POST /api/v2/logs/project/{projectId}
+// GetProjectLogs handles POST /api/logs/project/{projectId}
 func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	projectID := httputil.GetPathParam(r, "projectId")
 	if projectID == "" {
@@ -206,7 +206,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetGatewayLogs handles POST /api/v2/logs/gateway
+// GetGatewayLogs handles POST /api/logs/gateway
 func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	var req GatewayLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
@@ -257,7 +257,7 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetOrganizationLogs handles POST /api/v2/logs/org/{orgId}
+// GetOrganizationLogs handles POST /api/logs/org/{orgId}
 func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	orgID := httputil.GetPathParam(r, "orgId")
 	if orgID == "" {
