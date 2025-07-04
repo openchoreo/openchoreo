@@ -1,0 +1,98 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: buildplanes.core.choreo.dev
+spec:
+  group: core.choreo.dev
+  names:
+    kind: BuildPlane
+    listKind: BuildPlaneList
+    plural: buildplanes
+    singular: buildplane
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: BuildPlane is the Schema for the buildplanes API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BuildPlaneSpec defines the desired state of BuildPlane.
+            properties:
+              kubernetesCluster:
+                description: KubernetesCluster defines the Kubernetes cluster where
+                  build workloads (e.g., Argo Workflows) will be executed.
+                properties:
+                  credentials:
+                    description: Credentials contains the authentication details for
+                      accessing the Kubernetes API server.
+                    properties:
+                      apiServerURL:
+                        description: APIServerURL is the URL of the Kubernetes API
+                          server.
+                        type: string
+                      caCert:
+                        description: CACert is the base64-encoded CA certificate used
+                          to verify the server's certificate.
+                        type: string
+                      clientCert:
+                        description: ClientCert is the base64-encoded client certificate
+                          used for authentication.
+                        type: string
+                      clientKey:
+                        description: ClientKey is the base64-encoded private key corresponding
+                          to the client certificate.
+                        type: string
+                    required:
+                    - apiServerURL
+                    - caCert
+                    - clientCert
+                    - clientKey
+                    type: object
+                  name:
+                    description: Name of the Kubernetes cluster
+                    type: string
+                required:
+                - credentials
+                - name
+                type: object
+              owner:
+                properties:
+                  organizationName:
+                    minLength: 1
+                    type: string
+                required:
+                - organizationName
+                type: object
+            required:
+            - kubernetesCluster
+            - owner
+            type: object
+          status:
+            description: BuildPlaneStatus defines the observed state of BuildPlane.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
