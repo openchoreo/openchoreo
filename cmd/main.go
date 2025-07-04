@@ -6,10 +6,11 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
+	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
+
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -467,6 +468,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&buildv2.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildV2")
+		os.Exit(1)
+	}
+	if err := (&buildplane.BuildPlaneReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	// -----------------------------------------------------------------------------

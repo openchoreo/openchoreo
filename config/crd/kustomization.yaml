@@ -39,6 +39,8 @@ resources:
   - bases/core.choreo.dev_scheduledtaskclasses.yaml
   - bases/core.choreo.dev_scheduledtaskbindings.yaml
   - bases/core.choreo.dev_scheduledtaskreleases.yaml
+- bases/core.choreo.dev_buildv2s.yaml
+- bases/core.choreo.dev_buildplanes.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

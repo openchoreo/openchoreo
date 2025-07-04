@@ -94,7 +94,9 @@ rules:
   - apiclasses
   - apireleases
   - apis
+  - buildplanes
   - builds
+  - buildv2s
   - components
   - componentv2s
   - dataplanes
@@ -141,7 +143,9 @@ rules:
   - apiclasses/finalizers
   - apireleases/finalizers
   - apis/finalizers
+  - buildplanes/finalizers
   - builds/finalizers
+  - buildv2s/finalizers
   - components/finalizers
   - componentv2s/finalizers
   - dataplanes/finalizers
@@ -182,7 +186,9 @@ rules:
   - apiclasses/status
   - apireleases/status
   - apis/status
+  - buildplanes/status
   - builds/status
+  - buildv2s/status
   - components/status
   - componentv2s/status
   - dataplanes/status

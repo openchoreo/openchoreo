@@ -40,4 +40,6 @@ resources:
 - core_v1_scheduledtaskclass.yaml
 - core_v1_scheduledtaskbinding.yaml
 - core_v1_scheduledtaskrelease.yaml
+- core_v1_buildv2.yaml
+- core_v1_buildplane.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
