@@ -25,6 +25,20 @@ type ReleaseSpec struct {
 	// be applied to the data plane.
 	// +kubebuilder:validation:Optional
 	Resources []Resource `json:"resources,omitempty"`
+
+	// Interval watch interval for the release resources when stable.
+	// Defaults to 5m if not specified.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
+	// +optional
+	Interval *metav1.Duration `json:"interval,omitempty"`
+
+	// ProgressingInterval watch interval for the release resources when transitioning.
+	// Defaults to 10s if not specified.
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
+	// +optional
+	ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release.
@@ -107,9 +121,15 @@ type ResourceStatus struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Conditions represent the latest available observations of the resource state
+	// Status captures the entire .status field of the resource applied to the data plane.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Status *runtime.RawExtension `json:"status,omitempty"`
+
+	// LastObservedTime stores the last time the status was observed
+	// +optional
+	LastObservedTime *metav1.Time `json:"lastObservedTime,omitempty"`
 }
 
 // GetConditions returns the conditions from the status

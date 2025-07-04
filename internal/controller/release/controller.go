@@ -6,6 +6,8 @@ package release
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,13 +114,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if err := r.updateStatus(ctx, release, desiredResources); err != nil {
-		logger.Error(err, "Failed to update Release status")
+	if statusUpdated, err := r.updateStatus(ctx, old, release, desiredResources, liveResources); err != nil || statusUpdated {
+		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("Successfully applied Release resources to dataplane")
-	return ctrl.Result{}, nil
+	// Check if resources are transitioning to determine the appropriate requeue interval:
+	// - Transitioning resources: more frequent requeue to reflect changes quickly
+	// - Stable resources: longer requeue interval to avoid excessive load
+	if r.hasTransitioningResources(release.Status.Resources) {
+		requeueAfter := getProgressingRequeueInterval(release)
+		logger.Info("Resources are transitioning, requeuing with configured interval",
+			"requeueAfter", requeueAfter)
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	requeueAfter := getStableRequeueInterval(release)
+	logger.Info("Successfully applied the Release resources to the dataplane",
+		"requeueAfter", requeueAfter)
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 // getDPClient gets the dataplane client for the specified environment
@@ -184,49 +198,6 @@ func (r *Reconciler) makeDesiredResources(release *choreov1.Release) ([]*unstruc
 	}
 
 	return desiredObjects, nil
-}
-
-// makeResourceStatus converts applied unstructured objects to ResourceStatus entries
-func (r *Reconciler) makeResourceStatus(resources []*unstructured.Unstructured) []choreov1.ResourceStatus {
-	var resourceStatuses []choreov1.ResourceStatus
-
-	for _, obj := range resources {
-		gvk := obj.GroupVersionKind()
-		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
-
-		status := choreov1.ResourceStatus{
-			ID:        resourceID,
-			Group:     gvk.Group,
-			Version:   gvk.Version,
-			Kind:      gvk.Kind,
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-
-		resourceStatuses = append(resourceStatuses, status)
-	}
-
-	return resourceStatuses
-}
-
-// updateStatus updates the Release status with applied resources
-func (r *Reconciler) updateStatus(ctx context.Context, release *choreov1.Release, appliedResources []*unstructured.Unstructured) error {
-	logger := log.FromContext(ctx)
-
-	// Build resource status from applied resources
-	resourceStatuses := r.makeResourceStatus(appliedResources)
-
-	// Update the status
-	release.Status.Resources = resourceStatuses
-
-	// Update the Release status
-	if err := r.Status().Update(ctx, release); err != nil {
-		logger.Error(err, "Failed to update Release status")
-		return fmt.Errorf("failed to update status: %w", err)
-	}
-
-	logger.Info("Successfully updated Release status", "resourceCount", len(resourceStatuses))
-	return nil
 }
 
 // findStaleResources finds resources that were previously managed but are no longer in the desired spec
@@ -415,8 +386,53 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient clien
 		}
 	}
 
-	logger.Info("Total live resources found", "count", len(allLiveResources))
 	return allLiveResources, nil
+}
+
+// getStableRequeueInterval returns the requeue interval for stable resources
+// Returns zero duration if interval is set to 0 (no requeue)
+func getStableRequeueInterval(release *choreov1.Release) time.Duration {
+	// Use configured interval or default to 5m
+	baseInterval := 5 * time.Minute
+	if release.Spec.Interval != nil {
+		baseInterval = release.Spec.Interval.Duration
+		// If set to 0, don't requeue
+		if baseInterval == 0 {
+			return 0
+		}
+	}
+
+	// Add 20% jitter
+	jitterMax := time.Duration(float64(baseInterval) * 0.2)
+	return addJitter(baseInterval, jitterMax)
+}
+
+// getProgressingRequeueInterval returns the requeue interval for transitioning resources
+// Returns zero duration if progressingInterval is set to 0 (no requeue)
+func getProgressingRequeueInterval(release *choreov1.Release) time.Duration {
+	// Use configured progressingInterval or default to 10s
+	baseInterval := 10 * time.Second
+	if release.Spec.ProgressingInterval != nil {
+		baseInterval = release.Spec.ProgressingInterval.Duration
+		// If set to 0, don't requeue
+		if baseInterval == 0 {
+			return 0
+		}
+	}
+
+	// Add 20% jitter
+	jitterMax := time.Duration(float64(baseInterval) * 0.2)
+	return addJitter(baseInterval, jitterMax)
+}
+
+// addJitter adds a random jitter to the base duration to prevent thundering herd
+// For example, addJitter(10*time.Second, 5*time.Second) returns 10-15 seconds
+func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
+	if maxJitter <= 0 {
+		return base
+	}
+	jitter := time.Duration(rand.Intn(int(maxJitter)))
+	return base + jitter
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -78,17 +78,20 @@ graph TD
     I --> J[Delete Stale Resources]
     
     J --> K[Update Release Status]
-    K --> L[Success]
+    K --> L{Resources Transitioning?}
+    L -->|Yes| M[Requeue with ProgressingInterval]
+    L -->|No| N[Requeue with Interval]
     
-    C --> M[Cleanup All Resources]
-    M --> N[Remove Finalizer]
-    N --> O[Release Deleted]
+    C --> O[Cleanup All Resources]
+    O --> P[Remove Finalizer]
+    P --> Q[Release Deleted]
     
     style G fill:#e3f2fd
     style H fill:#f3e5f5
     style I fill:#fff3e0
     style K fill:#e8f5e8
     style C fill:#ffe6e6
+    style L fill:#fff9c4
 ```
 
 **Process Explanation:**
@@ -127,6 +130,14 @@ type ReleaseSpec struct {
     
     // Resources contains the Kubernetes resources to deploy
     Resources []Resource `json:"resources,omitempty"`
+    
+    // Interval is the watch interval for stable resources (defaults to 5m)
+    // Set to 0 to disable requeuing
+    Interval *metav1.Duration `json:"interval,omitempty"`
+    
+    // ProgressingInterval is the watch interval for transitioning resources (defaults to 10s)
+    // Set to 0 to disable requeuing
+    ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 }
 
 type ReleaseOwner struct {
@@ -170,8 +181,11 @@ type ResourceStatus struct {
     Name      string `json:"name"`
     Namespace string `json:"namespace,omitempty"`
     
-    // Conditions track resource-specific status
-    Conditions []metav1.Condition `json:"conditions,omitempty"`
+    // Status captures the entire .status field of the resource applied to the data plane
+    Status *runtime.RawExtension `json:"status,omitempty"`
+    
+    // LastObservedTime stores the last time the status was observed
+    LastObservedTime *metav1.Time `json:"lastObservedTime,omitempty"`
 }
 ```
 
@@ -202,7 +216,24 @@ The Release controller implements a reconciliation process:
 
 ### Status Update
 - Updates Release status with inventory of applied resources
+- Extracts and stores the `.status` field from live resources in the data plane
+- Tracks `LastObservedTime` for each resource, updating only when status changes
 - Maintains complete tracking for future cleanup operations
+
+### Resource Transitioning Detection
+The controller detects transitioning states to adjust reconciliation frequency:
+
+**Transitioning Resources Check:**
+- **Deployments**: Checks unavailable replicas, ready replicas, and updated replicas
+- **StatefulSets**: Checks ready, available, current, and updated replicas
+- **Pods**: Checks for Pending or Unknown phases
+- **Other Resources**: Considered stable (ConfigMaps, Secrets, Services, etc.)
+
+**Reconciliation Intervals:**
+- **Stable Resources**: Uses `interval` field (default 5m) with 20% jitter
+- **Transitioning Resources**: Uses `progressingInterval` field (default 10s) with 20% jitter
+- **Jitter**: Prevents thundering herd by adding random delay to requeue intervals
+- **Disable Requeue**: Set interval to 0 to disable automatic reconciliation
 
 ## Integration with Binding Controllers
 
@@ -304,6 +335,8 @@ spec:
     projectName: my-project
     componentName: my-app
   environmentName: prod
+  interval: 10m  # Check stable resources every 10 minutes
+  progressingInterval: 5s  # Check transitioning resources every 5 seconds
   resources:
     - id: deployment
       object:
@@ -358,8 +391,9 @@ spec:
 ## Implementation Details
 
 ### Controller Location
-- **File**: [`internal/controller/release/controller.go`](../../internal/controller/release/controller.go)
+- **Main Controller**: [`internal/controller/release/controller.go`](../../internal/controller/release/controller.go)
 - **Finalization**: [`internal/controller/release/controller_finalize.go`](../../internal/controller/release/controller_finalize.go)
+- **Status Tracking**: [`internal/controller/release/controller_status.go`](../../internal/controller/release/controller_status.go)
 - **CRD Definition**: [`api/v1/release_types.go`](../../api/v1/release_types.go)
 
 ### Key Dependencies

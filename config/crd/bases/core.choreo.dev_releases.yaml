@@ -42,6 +42,12 @@ spec:
               environmentName:
                 minLength: 1
                 type: string
+              interval:
+                description: |-
+                  Interval watch interval for the release resources when stable.
+                  Defaults to 5m if not specified.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                type: string
               owner:
                 description: ReleaseOwner defines the owner of a Release.
                 properties:
@@ -55,6 +61,12 @@ spec:
                 - componentName
                 - projectName
                 type: object
+              progressingInterval:
+                description: |-
+                  ProgressingInterval watch interval for the release resources when transitioning.
+                  Defaults to 10s if not specified.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                type: string
               resources:
                 description: |-
                   Scalable resource template approach (KRO-inspired)
@@ -149,65 +161,6 @@ spec:
                   description: ResourceStatus tracks a resource that was applied to
                     the data plane.
                   properties:
-                    conditions:
-                      description: Conditions represent the latest available observations
-                        of the resource state
-                      items:
-                        description: Condition contains details for one aspect of
-                          the current state of this API Resource.
-                        properties:
-                          lastTransitionTime:
-                            description: |-
-                              lastTransitionTime is the last time the condition transitioned from one status to another.
-                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                            format: date-time
-                            type: string
-                          message:
-                            description: |-
-                              message is a human readable message indicating details about the transition.
-                              This may be an empty string.
-                            maxLength: 32768
-                            type: string
-                          observedGeneration:
-                            description: |-
-                              observedGeneration represents the .metadata.generation that the condition was set based upon.
-                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                              with respect to the current state of the instance.
-                            format: int64
-                            minimum: 0
-                            type: integer
-                          reason:
-                            description: |-
-                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                              Producers of specific condition types may define expected values and meanings for this field,
-                              and whether the values are considered a guaranteed API.
-                              The value should be a CamelCase string.
-                              This field may not be empty.
-                            maxLength: 1024
-                            minLength: 1
-                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                            type: string
-                          status:
-                            description: status of the condition, one of True, False,
-                              Unknown.
-                            enum:
-                            - "True"
-                            - "False"
-                            - Unknown
-                            type: string
-                          type:
-                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                            maxLength: 316
-                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                            type: string
-                        required:
-                        - lastTransitionTime
-                        - message
-                        - reason
-                        - status
-                        - type
-                        type: object
-                      type: array
                     group:
                       description: |-
                         Group is the API group of the resource (e.g., "apps", "batch")
@@ -222,6 +175,11 @@ spec:
                         "Service")
                       minLength: 1
                       type: string
+                    lastObservedTime:
+                      description: LastObservedTime stores the last time the status
+                        was observed
+                      format: date-time
+                      type: string
                     name:
                       description: Name is the name of the resource in the data plane
                       minLength: 1
@@ -231,6 +189,10 @@ spec:
                         Namespace is the namespace of the resource in the data plane
                         Empty for cluster-scoped resources
                       type: string
+                    status:
+                      description: Status captures the entire .status field of the
+                        resource applied to the data plane.
+                      x-kubernetes-preserve-unknown-fields: true
                     version:
                       description: Version is the API version of the resource (e.g.,
                         "v1", "v1beta1")
