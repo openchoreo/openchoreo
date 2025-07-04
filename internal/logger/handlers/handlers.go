@@ -8,8 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v4"
-
+	"github.com/openchoreo/openchoreo/internal/logger/httputil"
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
 	"github.com/openchoreo/openchoreo/internal/logger/service"
 )
@@ -29,6 +28,13 @@ func NewHandler(service *service.LoggingService, logger *slog.Logger) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,
+	}
+}
+
+// writeJSON writes JSON response and logs any error
+func (h *Handler) writeJSON(w http.ResponseWriter, status int, v interface{}) {
+	if err := httputil.WriteJSON(w, status, v); err != nil {
+		h.logger.Error("Failed to write JSON response", "error", err)
 	}
 }
 
@@ -77,25 +83,27 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// GetComponentLogs handles GET /api/v2/logs/component/:componentId
-func (h *Handler) GetComponentLogs(c echo.Context) error {
-	componentID := c.Param("componentId")
+// GetComponentLogs handles POST /api/v2/logs/component/{componentId}
+func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
+	componentID := httputil.GetPathParam(r, "componentId")
 	if componentID == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "missing_parameter",
 			Code:    "OBS-L-10",
 			Message: "Component ID is required",
 		})
+		return
 	}
 
 	var req ComponentLogsRequest
-	if err := c.Bind(&req); err != nil {
+	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
 			Message: "Invalid request format",
 		})
+		return
 	}
 
 	// Set defaults
@@ -122,39 +130,42 @@ func (h *Handler) GetComponentLogs(c echo.Context) error {
 	}
 
 	// Execute query
-	ctx := c.Request().Context()
+	ctx := r.Context()
 	result, err := h.service.GetComponentLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get component logs", "error", err)
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
 			Message: "Failed to retrieve logs",
 		})
+		return
 	}
 
-	return c.JSON(http.StatusOK, result)
+	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetProjectLogs handles GET /api/v2/logs/project/:projectId
-func (h *Handler) GetProjectLogs(c echo.Context) error {
-	projectID := c.Param("projectId")
+// GetProjectLogs handles POST /api/v2/logs/project/{projectId}
+func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
+	projectID := httputil.GetPathParam(r, "projectId")
 	if projectID == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "missing_parameter",
 			Code:    "OBS-L-10",
 			Message: "Project ID is required",
 		})
+		return
 	}
 
 	var req ProjectLogsRequest
-	if err := c.Bind(&req); err != nil {
+	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
 			Message: "Invalid request format",
 		})
+		return
 	}
 
 	// Set defaults
@@ -180,30 +191,32 @@ func (h *Handler) GetProjectLogs(c echo.Context) error {
 	}
 
 	// Execute query
-	ctx := c.Request().Context()
+	ctx := r.Context()
 	result, err := h.service.GetProjectLogs(ctx, params, req.ComponentIDs)
 	if err != nil {
 		h.logger.Error("Failed to get project logs", "error", err)
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
 			Message: "Failed to retrieve logs",
 		})
+		return
 	}
 
-	return c.JSON(http.StatusOK, result)
+	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetGatewayLogs handles GET /api/v2/logs/gateway
-func (h *Handler) GetGatewayLogs(c echo.Context) error {
+// GetGatewayLogs handles POST /api/v2/logs/gateway
+func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	var req GatewayLogsRequest
-	if err := c.Bind(&req); err != nil {
+	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
 			Message: "Invalid request format",
 		})
+		return
 	}
 
 	// Set defaults
@@ -229,39 +242,42 @@ func (h *Handler) GetGatewayLogs(c echo.Context) error {
 	}
 
 	// Execute query
-	ctx := c.Request().Context()
+	ctx := r.Context()
 	result, err := h.service.GetGatewayLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get gateway logs", "error", err)
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
 			Message: "Failed to retrieve logs",
 		})
+		return
 	}
 
-	return c.JSON(http.StatusOK, result)
+	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetOrganizationLogs handles GET /api/v2/logs/org/:orgId
-func (h *Handler) GetOrganizationLogs(c echo.Context) error {
-	orgID := c.Param("orgId")
+// GetOrganizationLogs handles POST /api/v2/logs/org/{orgId}
+func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
+	orgID := httputil.GetPathParam(r, "orgId")
 	if orgID == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "missing_parameter",
 			Code:    "OBS-L-10",
 			Message: "Organization ID is required",
 		})
+		return
 	}
 
 	var req OrganizationLogsRequest
-	if err := c.Bind(&req); err != nil {
+	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		return c.JSON(http.StatusBadRequest, ErrorResponse{
+		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
 			Message: "Invalid request format",
 		})
+		return
 	}
 
 	// Set defaults
@@ -288,31 +304,33 @@ func (h *Handler) GetOrganizationLogs(c echo.Context) error {
 	}
 
 	// Execute query
-	ctx := c.Request().Context()
+	ctx := r.Context()
 	result, err := h.service.GetOrganizationLogs(ctx, params, req.PodLabels)
 	if err != nil {
 		h.logger.Error("Failed to get organization logs", "error", err)
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
 			Message: "Failed to retrieve logs",
 		})
+		return
 	}
 
-	return c.JSON(http.StatusOK, result)
+	h.writeJSON(w, http.StatusOK, result)
 }
 
 // Health handles GET /health
-func (h *Handler) Health(c echo.Context) error {
-	ctx := c.Request().Context()
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	if err := h.service.HealthCheck(ctx); err != nil {
-		return c.JSON(http.StatusServiceUnavailable, map[string]interface{}{
+		h.writeJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
 			"status": "unhealthy",
 			"error":  err.Error(),
 		})
+		return
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
+	h.writeJSON(w, http.StatusOK, map[string]string{
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
 	})

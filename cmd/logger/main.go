@@ -14,11 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 	"github.com/openchoreo/openchoreo/internal/logger/handlers"
+	"github.com/openchoreo/openchoreo/internal/logger/middleware"
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
 	"github.com/openchoreo/openchoreo/internal/logger/service"
 )
@@ -44,43 +42,40 @@ func main() {
 	loggingService := service.NewLoggingService(osClient, cfg, logger)
 
 	// Initialize HTTP server
-	e := echo.New()
-	e.HideBanner = true
-
-	// Middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
-
-	// Health check endpoint
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "healthy"})
-	})
+	mux := http.NewServeMux()
 
 	// Initialize handlers
 	handler := handlers.NewHandler(loggingService, logger)
 
+	// Health check endpoint
+	mux.HandleFunc("GET /health", handler.Health)
+
 	// V2 API routes
-	v2 := e.Group("/api/v2")
-	{
-		// Component logs
-		v2.POST("/logs/component/:componentId", handler.GetComponentLogs)
+	mux.HandleFunc("POST /api/v2/logs/component/{componentId}", handler.GetComponentLogs)
+	mux.HandleFunc("POST /api/v2/logs/project/{projectId}", handler.GetProjectLogs)
+	mux.HandleFunc("POST /api/v2/logs/gateway", handler.GetGatewayLogs)
+	mux.HandleFunc("POST /api/v2/logs/org/{orgId}", handler.GetOrganizationLogs)
 
-		// Project logs
-		v2.POST("/logs/project/:projectId", handler.GetProjectLogs)
+	// Apply middleware
+	handlerWithMiddleware := middleware.Chain(
+		middleware.Logger(logger),
+		middleware.Recovery(logger),
+		middleware.CORS(),
+	)(mux)
 
-		// Gateway logs
-		v2.POST("/logs/gateway", handler.GetGatewayLogs)
-
-		// Organization logs
-		v2.POST("/logs/org/:orgId", handler.GetOrganizationLogs)
+	// Create HTTP server
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      handlerWithMiddleware,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
 	}
 
 	// Start server
 	go func() {
-		addr := fmt.Sprintf(":%d", cfg.Server.Port)
 		logger.Info("Starting server", "address", addr)
-		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Failed to start server", "error", err)
 			os.Exit(1)
 		}
@@ -95,7 +90,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := e.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
