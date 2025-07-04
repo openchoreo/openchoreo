@@ -40,7 +40,7 @@ data:
     [OUTPUT]
         Name            {{ .Values.fluentBit.config.output.name }}
         Match           {{ .Values.fluentBit.config.output.match }}
-        Host            {{ include "choreo-dataplane.fullname" . }}-opensearch
+        Host            {{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}
         Port            {{ .Values.fluentBit.config.output.port }}
         Index           {{ .Values.fluentBit.config.output.index }}
         Type            {{ .Values.fluentBit.config.output.type }}
