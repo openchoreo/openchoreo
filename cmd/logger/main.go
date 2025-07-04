@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 	"github.com/openchoreo/openchoreo/internal/logger/handlers"
@@ -31,18 +31,13 @@ func main() {
 	}
 
 	// Initialize logger
-	logger, err := initLogger(cfg.LogLevel)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
-	}
-	defer func() {
-		_ = logger.Sync()
-	}()
+	logger := initLogger(cfg.LogLevel)
 
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
 	if err != nil {
-		logger.Fatal("Failed to initialize OpenSearch client", zap.Error(err))
+		logger.Error("Failed to initialize OpenSearch client", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize logging service
@@ -84,9 +79,10 @@ func main() {
 	// Start server
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.Server.Port)
-		logger.Info("Starting server", zap.String("address", addr))
+		logger.Info("Starting server", "address", addr)
 		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("Failed to start server", zap.Error(err))
+			logger.Error("Failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -100,32 +96,40 @@ func main() {
 	defer cancel()
 
 	if err := e.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", zap.Error(err))
+		logger.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
 	logger.Info("Server shutdown complete")
 }
 
-func initLogger(level string) (*zap.Logger, error) {
-	var cfg zap.Config
-	if level == "debug" {
-		cfg = zap.NewDevelopmentConfig()
-	} else {
-		cfg = zap.NewProductionConfig()
-	}
+func initLogger(level string) *slog.Logger {
+	var logLevel slog.Level
 
 	switch level {
 	case "debug":
-		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		logLevel = slog.LevelDebug
 	case "info":
-		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		logLevel = slog.LevelInfo
 	case "warn":
-		cfg.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
+		logLevel = slog.LevelWarn
 	case "error":
-		cfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+		logLevel = slog.LevelError
 	default:
-		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		logLevel = slog.LevelInfo
 	}
 
-	return cfg.Build()
+	opts := &slog.HandlerOptions{
+		Level: logLevel,
+	}
+
+	// Use JSON handler for production, text handler for debug
+	var handler slog.Handler
+	if level == "debug" {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	}
+
+	return slog.New(handler)
 }

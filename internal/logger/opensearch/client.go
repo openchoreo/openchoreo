@@ -6,10 +6,10 @@ package opensearch
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 )
@@ -18,11 +18,11 @@ import (
 type Client struct {
 	client *opensearch.Client
 	config *config.OpenSearchConfig
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // NewClient creates a new OpenSearch client with the provided configuration
-func NewClient(cfg *config.OpenSearchConfig, logger *zap.Logger) (*Client, error) {
+func NewClient(cfg *config.OpenSearchConfig, logger *slog.Logger) (*Client, error) {
 	// Configure OpenSearch client
 	opensearchConfig := opensearch.Config{
 		Addresses: []string{cfg.Address},
@@ -41,9 +41,9 @@ func NewClient(cfg *config.OpenSearchConfig, logger *zap.Logger) (*Client, error
 	// Test connection
 	info, err := client.Info()
 	if err != nil {
-		logger.Warn("Failed to connect to OpenSearch", zap.Error(err))
+		logger.Warn("Failed to connect to OpenSearch", "error", err)
 	} else {
-		logger.Info("Connected to OpenSearch", zap.String("status", info.Status()))
+		logger.Info("Connected to OpenSearch", "status", info.Status())
 	}
 
 	return &Client{
@@ -56,8 +56,8 @@ func NewClient(cfg *config.OpenSearchConfig, logger *zap.Logger) (*Client, error
 // Search executes a search request against OpenSearch
 func (c *Client) Search(ctx context.Context, indices []string, query map[string]interface{}) (*SearchResponse, error) {
 	c.logger.Debug("Executing search",
-		zap.Strings("indices", indices),
-		zap.Any("query", query))
+		"indices", indices,
+		"query", query)
 
 	req := opensearchapi.SearchRequest{
 		Index:             indices,
@@ -67,27 +67,27 @@ func (c *Client) Search(ctx context.Context, indices []string, query map[string]
 
 	res, err := req.Do(ctx, c.client)
 	if err != nil {
-		c.logger.Error("Search request failed", zap.Error(err))
+		c.logger.Error("Search request failed", "error", err)
 		return nil, fmt.Errorf("search request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
 		c.logger.Error("Search request returned error",
-			zap.String("status", res.Status()),
-			zap.String("error", res.String()))
+			"status", res.Status(),
+			"error", res.String())
 		return nil, fmt.Errorf("search request failed with status: %s", res.Status())
 	}
 
 	response, err := parseSearchResponse(res.Body)
 	if err != nil {
-		c.logger.Error("Failed to parse search response", zap.Error(err))
+		c.logger.Error("Failed to parse search response", "error", err)
 		return nil, fmt.Errorf("failed to parse search response: %w", err)
 	}
 
 	c.logger.Debug("Search completed",
-		zap.Int("total_hits", response.Hits.Total.Value),
-		zap.Int("returned_hits", len(response.Hits.Hits)))
+		"total_hits", response.Hits.Total.Value,
+		"returned_hits", len(response.Hits.Hits))
 
 	return response, nil
 }
@@ -100,21 +100,21 @@ func (c *Client) GetIndexMapping(ctx context.Context, index string) (*MappingRes
 
 	res, err := req.Do(ctx, c.client)
 	if err != nil {
-		c.logger.Error("Get mapping request failed", zap.Error(err))
+		c.logger.Error("Get mapping request failed", "error", err)
 		return nil, fmt.Errorf("get mapping request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
 		c.logger.Error("Get mapping request returned error",
-			zap.String("status", res.Status()),
-			zap.String("error", res.String()))
+			"status", res.Status(),
+			"error", res.String())
 		return nil, fmt.Errorf("get mapping request failed with status: %s", res.Status())
 	}
 
 	mapping, err := parseMappingResponse(res.Body)
 	if err != nil {
-		c.logger.Error("Failed to parse mapping response", zap.Error(err))
+		c.logger.Error("Failed to parse mapping response", "error", err)
 		return nil, fmt.Errorf("failed to parse mapping response: %w", err)
 	}
 

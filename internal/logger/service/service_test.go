@@ -5,10 +5,10 @@ package service
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
@@ -47,7 +47,7 @@ func newMockLoggingService() *LoggingService {
 		},
 	}
 
-	logger := zap.NewNop()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create service with a mock client - we'll replace the client in tests
 	return &LoggingService{

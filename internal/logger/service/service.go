@@ -6,9 +6,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
@@ -26,7 +25,7 @@ type LoggingService struct {
 	osClient     OpenSearchClient
 	queryBuilder *opensearch.QueryBuilder
 	config       *config.Config
-	logger       *zap.Logger
+	logger       *slog.Logger
 }
 
 // LogResponse represents the response structure for log queries
@@ -37,7 +36,7 @@ type LogResponse struct {
 }
 
 // NewLoggingService creates a new logging service instance
-func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *zap.Logger) *LoggingService {
+func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *slog.Logger) *LoggingService {
 	return &LoggingService{
 		osClient:     osClient,
 		queryBuilder: opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
@@ -49,14 +48,14 @@ func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *za
 // GetComponentLogs retrieves logs for a specific component using V2 wildcard search
 func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.QueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting component logs",
-		zap.String("component_id", params.ComponentID),
-		zap.String("environment_id", params.EnvironmentID),
-		zap.String("search_phrase", params.SearchPhrase))
+		"component_id", params.ComponentID,
+		"environment_id", params.EnvironmentID,
+		"search_phrase", params.SearchPhrase)
 
 	// Generate indices based on time range
 	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
 	if err != nil {
-		s.logger.Error("Failed to generate indices", zap.Error(err))
+		s.logger.Error("Failed to generate indices", "error", err)
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
@@ -66,7 +65,7 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute component logs search", zap.Error(err))
+		s.logger.Error("Failed to execute component logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -78,8 +77,8 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 	}
 
 	s.logger.Info("Component logs retrieved",
-		zap.Int("count", len(logs)),
-		zap.Int("total", response.Hits.Total.Value))
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
 
 	return &LogResponse{
 		Logs:       logs,
@@ -91,15 +90,15 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 // GetProjectLogs retrieves logs for a specific project using V2 wildcard search
 func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (*LogResponse, error) {
 	s.logger.Info("Getting project logs",
-		zap.String("project_id", params.ProjectID),
-		zap.String("environment_id", params.EnvironmentID),
-		zap.Strings("component_ids", componentIDs),
-		zap.String("search_phrase", params.SearchPhrase))
+		"project_id", params.ProjectID,
+		"environment_id", params.EnvironmentID,
+		"component_ids", componentIDs,
+		"search_phrase", params.SearchPhrase)
 
 	// Generate indices based on time range
 	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
 	if err != nil {
-		s.logger.Error("Failed to generate indices", zap.Error(err))
+		s.logger.Error("Failed to generate indices", "error", err)
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
@@ -109,7 +108,7 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute project logs search", zap.Error(err))
+		s.logger.Error("Failed to execute project logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -121,8 +120,8 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 	}
 
 	s.logger.Info("Project logs retrieved",
-		zap.Int("count", len(logs)),
-		zap.Int("total", response.Hits.Total.Value))
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
 
 	return &LogResponse{
 		Logs:       logs,
@@ -134,14 +133,14 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 // GetGatewayLogs retrieves gateway logs using V2 wildcard search
 func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting gateway logs",
-		zap.String("organization_id", params.OrganizationID),
-		zap.Strings("gateway_vhosts", params.GatewayVHosts),
-		zap.String("search_phrase", params.SearchPhrase))
+		"organization_id", params.OrganizationID,
+		"gateway_vhosts", params.GatewayVHosts,
+		"search_phrase", params.SearchPhrase)
 
 	// Generate indices based on time range
 	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
 	if err != nil {
-		s.logger.Error("Failed to generate indices", zap.Error(err))
+		s.logger.Error("Failed to generate indices", "error", err)
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
@@ -151,7 +150,7 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute gateway logs search", zap.Error(err))
+		s.logger.Error("Failed to execute gateway logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -163,8 +162,8 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 	}
 
 	s.logger.Info("Gateway logs retrieved",
-		zap.Int("count", len(logs)),
-		zap.Int("total", response.Hits.Total.Value))
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
 
 	return &LogResponse{
 		Logs:       logs,
@@ -176,15 +175,15 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 // GetOrganizationLogs retrieves logs for an organization with custom filters
 func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (*LogResponse, error) {
 	s.logger.Info("Getting organization logs",
-		zap.String("organization_id", params.OrganizationID),
-		zap.String("environment_id", params.EnvironmentID),
-		zap.Any("pod_labels", podLabels),
-		zap.String("search_phrase", params.SearchPhrase))
+		"organization_id", params.OrganizationID,
+		"environment_id", params.EnvironmentID,
+		"pod_labels", podLabels,
+		"search_phrase", params.SearchPhrase)
 
 	// Generate indices based on time range
 	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
 	if err != nil {
-		s.logger.Error("Failed to generate indices", zap.Error(err))
+		s.logger.Error("Failed to generate indices", "error", err)
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
@@ -194,7 +193,7 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute organization logs search", zap.Error(err))
+		s.logger.Error("Failed to execute organization logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -206,8 +205,8 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	}
 
 	s.logger.Info("Organization logs retrieved",
-		zap.Int("count", len(logs)),
-		zap.Int("total", response.Hits.Total.Value))
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
 
 	return &LogResponse{
 		Logs:       logs,
@@ -222,7 +221,7 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	defer cancel()
 
 	if err := s.osClient.HealthCheck(ctx); err != nil {
-		s.logger.Error("Health check failed", zap.Error(err))
+		s.logger.Error("Health check failed", "error", err)
 		return fmt.Errorf("opensearch health check failed: %w", err)
 	}
 

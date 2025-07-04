@@ -4,12 +4,12 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/config"
 )
@@ -17,7 +17,7 @@ import (
 // AuthMiddleware provides JWT authentication middleware
 type AuthMiddleware struct {
 	config *config.AuthConfig
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // Claims represents the JWT claims structure
@@ -31,7 +31,7 @@ type Claims struct {
 }
 
 // NewAuthMiddleware creates a new authentication middleware
-func NewAuthMiddleware(config *config.AuthConfig, logger *zap.Logger) *AuthMiddleware {
+func NewAuthMiddleware(config *config.AuthConfig, logger *slog.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		config: config,
 		logger: logger,
@@ -73,7 +73,7 @@ func (a *AuthMiddleware) JWTAuth() echo.MiddlewareFunc {
 			})
 
 			if err != nil {
-				a.logger.Warn("Failed to parse JWT token", zap.Error(err))
+				a.logger.Warn("Failed to parse JWT token", "error", err)
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid token")
 			}
 
@@ -92,9 +92,9 @@ func (a *AuthMiddleware) JWTAuth() echo.MiddlewareFunc {
 			// Validate required role
 			if a.config.RequiredRole != "" && !a.hasRole(claims.Roles, a.config.RequiredRole) {
 				a.logger.Warn("Insufficient permissions",
-					zap.String("user_id", claims.UserID),
-					zap.Strings("user_roles", claims.Roles),
-					zap.String("required_role", a.config.RequiredRole))
+					"user_id", claims.UserID,
+					"user_roles", claims.Roles,
+					"required_role", a.config.RequiredRole)
 				return echo.NewHTTPError(http.StatusForbidden, "Insufficient permissions")
 			}
 
@@ -102,8 +102,8 @@ func (a *AuthMiddleware) JWTAuth() echo.MiddlewareFunc {
 			c.Set("user_claims", claims)
 
 			a.logger.Debug("Authentication successful",
-				zap.String("user_id", claims.UserID),
-				zap.String("org_id", claims.OrganizationID))
+				"user_id", claims.UserID,
+				"org_id", claims.OrganizationID)
 
 			return next(c)
 		}
@@ -128,9 +128,9 @@ func (a *AuthMiddleware) AuthorizeComponent() echo.MiddlewareFunc {
 			if componentID != "" {
 				if !a.hasAccess(claims.ComponentIDs, componentID) {
 					a.logger.Warn("Component access denied",
-						zap.String("user_id", claims.UserID),
-						zap.String("component_id", componentID),
-						zap.Strings("allowed_components", claims.ComponentIDs))
+						"user_id", claims.UserID,
+						"component_id", componentID,
+						"allowed_components", claims.ComponentIDs)
 					return echo.NewHTTPError(http.StatusForbidden, "Access denied to component")
 				}
 			}
@@ -158,9 +158,9 @@ func (a *AuthMiddleware) AuthorizeProject() echo.MiddlewareFunc {
 			if projectID != "" {
 				if !a.hasAccess(claims.ProjectIDs, projectID) {
 					a.logger.Warn("Project access denied",
-						zap.String("user_id", claims.UserID),
-						zap.String("project_id", projectID),
-						zap.Strings("allowed_projects", claims.ProjectIDs))
+						"user_id", claims.UserID,
+						"project_id", projectID,
+						"allowed_projects", claims.ProjectIDs)
 					return echo.NewHTTPError(http.StatusForbidden, "Access denied to project")
 				}
 			}
@@ -188,9 +188,9 @@ func (a *AuthMiddleware) AuthorizeOrganization() echo.MiddlewareFunc {
 			if orgID != "" {
 				if claims.OrganizationID != orgID {
 					a.logger.Warn("Organization access denied",
-						zap.String("user_id", claims.UserID),
-						zap.String("requested_org", orgID),
-						zap.String("user_org", claims.OrganizationID))
+						"user_id", claims.UserID,
+						"requested_org", orgID,
+						"user_org", claims.OrganizationID)
 					return echo.NewHTTPError(http.StatusForbidden, "Access denied to organization")
 				}
 			}

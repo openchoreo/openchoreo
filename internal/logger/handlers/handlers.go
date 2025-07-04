@@ -4,11 +4,11 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
 
 	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
 	"github.com/openchoreo/openchoreo/internal/logger/service"
@@ -21,11 +21,11 @@ const (
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
 	service *service.LoggingService
-	logger  *zap.Logger
+	logger  *slog.Logger
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *zap.Logger) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,
@@ -90,7 +90,7 @@ func (h *Handler) GetComponentLogs(c echo.Context) error {
 
 	var req ComponentLogsRequest
 	if err := c.Bind(&req); err != nil {
-		h.logger.Error("Failed to bind request", zap.Error(err))
+		h.logger.Error("Failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
@@ -125,7 +125,7 @@ func (h *Handler) GetComponentLogs(c echo.Context) error {
 	ctx := c.Request().Context()
 	result, err := h.service.GetComponentLogs(ctx, params)
 	if err != nil {
-		h.logger.Error("Failed to get component logs", zap.Error(err))
+		h.logger.Error("Failed to get component logs", "error", err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
@@ -149,7 +149,7 @@ func (h *Handler) GetProjectLogs(c echo.Context) error {
 
 	var req ProjectLogsRequest
 	if err := c.Bind(&req); err != nil {
-		h.logger.Error("Failed to bind request", zap.Error(err))
+		h.logger.Error("Failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
@@ -183,7 +183,7 @@ func (h *Handler) GetProjectLogs(c echo.Context) error {
 	ctx := c.Request().Context()
 	result, err := h.service.GetProjectLogs(ctx, params, req.ComponentIDs)
 	if err != nil {
-		h.logger.Error("Failed to get project logs", zap.Error(err))
+		h.logger.Error("Failed to get project logs", "error", err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
@@ -198,7 +198,7 @@ func (h *Handler) GetProjectLogs(c echo.Context) error {
 func (h *Handler) GetGatewayLogs(c echo.Context) error {
 	var req GatewayLogsRequest
 	if err := c.Bind(&req); err != nil {
-		h.logger.Error("Failed to bind request", zap.Error(err))
+		h.logger.Error("Failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
@@ -232,7 +232,7 @@ func (h *Handler) GetGatewayLogs(c echo.Context) error {
 	ctx := c.Request().Context()
 	result, err := h.service.GetGatewayLogs(ctx, params)
 	if err != nil {
-		h.logger.Error("Failed to get gateway logs", zap.Error(err))
+		h.logger.Error("Failed to get gateway logs", "error", err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
@@ -256,7 +256,7 @@ func (h *Handler) GetOrganizationLogs(c echo.Context) error {
 
 	var req OrganizationLogsRequest
 	if err := c.Bind(&req); err != nil {
-		h.logger.Error("Failed to bind request", zap.Error(err))
+		h.logger.Error("Failed to bind request", "error", err)
 		return c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "invalid_request",
 			Code:    "OBS-L-12",
@@ -291,7 +291,7 @@ func (h *Handler) GetOrganizationLogs(c echo.Context) error {
 	ctx := c.Request().Context()
 	result, err := h.service.GetOrganizationLogs(ctx, params, req.PodLabels)
 	if err != nil {
-		h.logger.Error("Failed to get organization logs", zap.Error(err))
+		h.logger.Error("Failed to get organization logs", "error", err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "internal_error",
 			Code:    "OBS-L-25",
