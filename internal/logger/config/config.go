@@ -5,65 +5,135 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/v2"
 )
 
 // Config holds all configuration for the logging service
 type Config struct {
-	Server     ServerConfig     `mapstructure:"server"`
-	OpenSearch OpenSearchConfig `mapstructure:"opensearch"`
-	Auth       AuthConfig       `mapstructure:"auth"`
-	Logging    LoggingConfig    `mapstructure:"logging"`
-	LogLevel   string           `mapstructure:"log_level"`
+	Server     ServerConfig     `koanf:"server"`
+	OpenSearch OpenSearchConfig `koanf:"opensearch"`
+	Auth       AuthConfig       `koanf:"auth"`
+	Logging    LoggingConfig    `koanf:"logging"`
+	LogLevel   string           `koanf:"loglevel"`
 }
 
 // ServerConfig holds HTTP server configuration
 type ServerConfig struct {
-	Port            int           `mapstructure:"port"`
-	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
-	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	Port            int           `koanf:"port"`
+	ReadTimeout     time.Duration `koanf:"read.timeout"`
+	WriteTimeout    time.Duration `koanf:"write.timeout"`
+	ShutdownTimeout time.Duration `koanf:"shutdown.timeout"`
 }
 
 // OpenSearchConfig holds OpenSearch connection configuration
 type OpenSearchConfig struct {
-	Address       string        `mapstructure:"address"`
-	Username      string        `mapstructure:"username"`
-	Password      string        `mapstructure:"password"`
-	Timeout       time.Duration `mapstructure:"timeout"`
-	MaxRetries    int           `mapstructure:"max_retries"`
-	IndexPrefix   string        `mapstructure:"index_prefix"`
-	IndexPattern  string        `mapstructure:"index_pattern"`
-	LegacyPattern string        `mapstructure:"legacy_pattern"`
+	Address       string        `koanf:"address"`
+	Username      string        `koanf:"username"`
+	Password      string        `koanf:"password"`
+	Timeout       time.Duration `koanf:"timeout"`
+	MaxRetries    int           `koanf:"max.retries"`
+	IndexPrefix   string        `koanf:"index.prefix"`
+	IndexPattern  string        `koanf:"index.pattern"`
+	LegacyPattern string        `koanf:"legacy.pattern"`
 }
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret    string `mapstructure:"jwt_secret"`
-	EnableAuth   bool   `mapstructure:"enable_auth"`
-	RequiredRole string `mapstructure:"required_role"`
+	JWTSecret    string `koanf:"jwt.secret"`
+	EnableAuth   bool   `koanf:"enable.auth"`
+	RequiredRole string `koanf:"required.role"`
 }
 
 // LoggingConfig holds application logging configuration
 type LoggingConfig struct {
-	MaxLogLimit          int `mapstructure:"max_log_limit"`
-	DefaultLogLimit      int `mapstructure:"default_log_limit"`
-	DefaultBuildLogLimit int `mapstructure:"default_build_log_limit"`
-	MaxLogLinesPerFile   int `mapstructure:"max_log_lines_per_file"`
+	MaxLogLimit          int `koanf:"max.log.limit"`
+	DefaultLogLimit      int `koanf:"default.log.limit"`
+	DefaultBuildLogLimit int `koanf:"default.build.log.limit"`
+	MaxLogLinesPerFile   int `koanf:"max.log.lines.per.file"`
 }
 
 // Load loads configuration from environment variables and defaults
 func Load() (*Config, error) {
-	viper.SetConfigType("env")
-	viper.AutomaticEnv()
+	k := koanf.New(".")
 
-	// Set defaults
-	setDefaults()
+	// Load defaults first
+	if err := k.Load(confmap.Provider(getDefaults(), "."), nil); err != nil {
+		return nil, fmt.Errorf("failed to load defaults: %w", err)
+	}
+
+	// Load environment variables for specific keys we care about
+	envOverrides := make(map[string]interface{})
+
+	// Define environment variable mappings
+	envMappings := map[string]string{
+		"SERVER_PORT":                     "server.port",
+		"SERVER_READ_TIMEOUT":             "server.read.timeout",
+		"SERVER_WRITE_TIMEOUT":            "server.write.timeout",
+		"SERVER_SHUTDOWN_TIMEOUT":         "server.shutdown.timeout",
+		"OPENSEARCH_ADDRESS":              "opensearch.address",
+		"OPENSEARCH_USERNAME":             "opensearch.username",
+		"OPENSEARCH_PASSWORD":             "opensearch.password",
+		"OPENSEARCH_TIMEOUT":              "opensearch.timeout",
+		"OPENSEARCH_MAX_RETRIES":          "opensearch.max.retries",
+		"OPENSEARCH_INDEX_PREFIX":         "opensearch.index.prefix",
+		"OPENSEARCH_INDEX_PATTERN":        "opensearch.index.pattern",
+		"OPENSEARCH_LEGACY_PATTERN":       "opensearch.legacy.pattern",
+		"AUTH_JWT_SECRET":                 "auth.jwt.secret",
+		"AUTH_ENABLE_AUTH":                "auth.enable.auth",
+		"AUTH_REQUIRED_ROLE":              "auth.required.role",
+		"LOGGING_MAX_LOG_LIMIT":           "logging.max.log.limit",
+		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
+		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
+		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
+		"LOG_LEVEL":                       "loglevel",
+		"PORT":                            "server.port",           // Common alias
+		"JWT_SECRET":                      "auth.jwt.secret",       // Common alias
+		"ENABLE_AUTH":                     "auth.enable.auth",      // Common alias
+		"MAX_LOG_LIMIT":                   "logging.max.log.limit", // Common alias
+	}
+
+	// Check for environment variables and map them to nested structure
+	for envKey, configKey := range envMappings {
+		if value := os.Getenv(envKey); value != "" {
+			// Split the config key and create nested structure
+			parts := strings.Split(configKey, ".")
+			if len(parts) == 1 {
+				// Top-level key
+				envOverrides[configKey] = value
+			} else if len(parts) == 2 {
+				// Nested key like "server.port"
+				section := parts[0]
+				key := parts[1]
+				if envOverrides[section] == nil {
+					envOverrides[section] = make(map[string]interface{})
+				}
+				envOverrides[section].(map[string]interface{})[key] = value
+			} else if len(parts) >= 3 {
+				// Handle multi-part keys like "logging.max.log.limit"
+				section := parts[0]
+				key := strings.Join(parts[1:], ".")
+				if envOverrides[section] == nil {
+					envOverrides[section] = make(map[string]interface{})
+				}
+				envOverrides[section].(map[string]interface{})[key] = value
+			}
+		}
+	}
+
+	// Load environment overrides
+	if len(envOverrides) > 0 {
+		if err := k.Load(confmap.Provider(envOverrides, "."), nil); err != nil {
+			return nil, fmt.Errorf("failed to load environment overrides: %w", err)
+		}
+	}
 
 	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
+	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
@@ -75,48 +145,38 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
-func setDefaults() {
-	// Server defaults
-	viper.SetDefault("server.port", 9097)
-	viper.SetDefault("server.read_timeout", "30s")
-	viper.SetDefault("server.write_timeout", "30s")
-	viper.SetDefault("server.shutdown_timeout", "10s")
-
-	// OpenSearch defaults
-	viper.SetDefault("opensearch.address", "http://localhost:9200")
-	viper.SetDefault("opensearch.username", "admin")
-	viper.SetDefault("opensearch.password", "admin")
-	viper.SetDefault("opensearch.timeout", "180s")
-	viper.SetDefault("opensearch.max_retries", 3)
-	viper.SetDefault("opensearch.index_prefix", "kubernetes-")
-	viper.SetDefault("opensearch.index_pattern", "kubernetes-*")
-	viper.SetDefault("opensearch.legacy_pattern", "choreo*")
-
-	// Auth defaults
-	viper.SetDefault("auth.enable_auth", false)
-	viper.SetDefault("auth.jwt_secret", "default-secret")
-	viper.SetDefault("auth.required_role", "user")
-
-	// Logging defaults
-	viper.SetDefault("logging.max_log_limit", 10000)
-	viper.SetDefault("logging.default_log_limit", 100)
-	viper.SetDefault("logging.default_build_log_limit", 3000)
-	viper.SetDefault("logging.max_log_lines_per_file", 600000)
-
-	// Log level
-	viper.SetDefault("log_level", "info")
-
-	// Environment variable bindings (optional - defaults are set above)
-	_ = viper.BindEnv("opensearch.address", "OPENSEARCH_ADDRESS")
-	_ = viper.BindEnv("opensearch.username", "OPENSEARCH_USERNAME")
-	_ = viper.BindEnv("opensearch.password", "OPENSEARCH_PASSWORD")
-	_ = viper.BindEnv("opensearch.timeout", "OPENSEARCH_CLIENT_TIMEOUT")
-	_ = viper.BindEnv("opensearch.index_prefix", "OPENSEARCH_INDEX_PREFIX")
-	_ = viper.BindEnv("auth.jwt_secret", "JWT_SECRET")
-	_ = viper.BindEnv("auth.enable_auth", "ENABLE_AUTH")
-	_ = viper.BindEnv("server.port", "PORT")
-	_ = viper.BindEnv("log_level", "LOG_LEVEL")
-	_ = viper.BindEnv("logging.max_log_limit", "MAX_LOG_LIMIT")
+// getDefaults returns the default configuration values
+func getDefaults() map[string]interface{} {
+	return map[string]interface{}{
+		"server": map[string]interface{}{
+			"port":             9097,
+			"read.timeout":     "30s",
+			"write.timeout":    "30s",
+			"shutdown.timeout": "10s",
+		},
+		"opensearch": map[string]interface{}{
+			"address":        "http://localhost:9200",
+			"username":       "admin",
+			"password":       "admin",
+			"timeout":        "180s",
+			"max.retries":    3,
+			"index.prefix":   "kubernetes-",
+			"index.pattern":  "kubernetes-*",
+			"legacy.pattern": "choreo*",
+		},
+		"auth": map[string]interface{}{
+			"enable.auth":   false,
+			"jwt.secret":    "default-secret",
+			"required.role": "user",
+		},
+		"logging": map[string]interface{}{
+			"max.log.limit":           10000,
+			"default.log.limit":       100,
+			"default.build.log.limit": 3000,
+			"max.log.lines.per.file":  600000,
+		},
+		"loglevel": "info",
+	}
 }
 
 func (c *Config) validate() error {
