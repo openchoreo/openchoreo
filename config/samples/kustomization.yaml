@@ -30,4 +30,6 @@ resources:
   - openchoreo_v1alpha1_webapplicationbinding.yaml
   - openchoreo_v1alpha1_webapplicationclass.yaml
   - openchoreo_v1alpha1_workload.yaml
+  - openchoreo_v1alpha1_buildv2.yaml
+  - openchoreo_v1alpha1_buildplane.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

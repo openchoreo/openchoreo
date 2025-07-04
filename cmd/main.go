@@ -6,7 +6,10 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"os"
+
+	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -402,6 +405,21 @@ func main() {
 		DpClientMgr: dpClientMgr,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
+		os.Exit(1)
+	}
+
+	if err := (&buildv2.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildV2")
+		os.Exit(1)
+	}
+	if err := (&buildplane.BuildPlaneReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
