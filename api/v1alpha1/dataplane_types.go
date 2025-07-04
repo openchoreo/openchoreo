@@ -38,32 +38,25 @@ type GatewaySpec struct {
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 }
 
-// Registry contains the list of secrets used to authenticate against container registries.
+// Registry defines the container registry configuration, including the image prefix and optional authentication credentials.
 type Registry struct {
-	// Unauthenticated lists registry domains that do not require authentication (e.g., public registries).
-	Unauthenticated []string `json:"unauthenticated,omitempty"`
-	// ImagePushSecrets holds references to secrets and their associated registry prefixes.
-	ImagePushSecrets []ImagePushSecret `json:"imagePushSecrets,omitempty"`
-}
-
-// ImagePushSecret defines a secret used for pushing images, along with the registry prefix it applies to.
-type ImagePushSecret struct {
-	// Name is the name of the Kubernetes Secret containing registry credentials.
-	Name string `json:"name"`
-	// Prefix specifies the registry domain this secret applies to (e.g., ghcr.io).
+	// Prefix specifies the registry domain and namespace (e.g., docker.io/namespace) that this configuration applies to.
 	Prefix string `json:"prefix"`
+	// SecretRef is the name of the Kubernetes Secret containing credentials for accessing the registry.
+	// This field is optional and can be omitted for public or unauthenticated registries.
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
-// DataPlaneSpec defines the desired state of DataPlane.
+// DataPlaneSpec defines the desired state of a DataPlane.
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Registry holds configuration for authenticating to container registries used by this DataPlane.
+	// Registry contains the configuration required to pull images from a container registry.
 	Registry Registry `json:"registry"`
-	// KubernetesCluster specifies the target cluster configuration
+	// KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
-	// Gateway specifies the gateway configuration
+	// Gateway specifies the configuration for the API gateway in this DataPlane.
 	Gateway GatewaySpec `json:"gateway"`
 }
 
