@@ -28,7 +28,7 @@ BUILDX_TARGET_PLATFORMS := $(subst $(space),$(comma),$(IMAGE_TARGET_PLATFORMS))
 DOCKER_BUILD_IMAGES := \
 	controller:$(PROJECT_DIR)/Dockerfile:$(PROJECT_DIR) \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
-	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR)
+	logger:$(PROJECT_DIR)/Dockerfile.logger:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 
@@ -68,7 +68,7 @@ docker.build.%:  ## Build a docker image for the current platform. Ex: make dock
 # Set dependent go build target for the docker images that are built for the current platform's architecture
 docker.build.controller: go.build-multiarch.manager
 docker.build.quick-start: go.build-multiarch.choreoctl
-docker.build.openchoreo-api: go.build-multiarch.openchoreo-api
+docker.build.logger: go.build.logger
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)

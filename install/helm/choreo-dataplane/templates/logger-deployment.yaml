@@ -1,0 +1,113 @@
+{{- if .Values.observability.logging.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: choreo-logger
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: choreo-logger
+    app.kubernetes.io/name: choreo-logger
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: logging
+spec:
+  replicas: {{ .Values.logger.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: choreo-logger
+  template:
+    metadata:
+      labels:
+        app: choreo-logger
+        app.kubernetes.io/name: choreo-logger
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: logging
+    spec:
+      serviceAccountName: choreo-logger
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      initContainers:
+      - name: wait-for-opensearch
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for OpenSearch to be ready..."
+          OPENSEARCH_URL="http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          echo "Checking OpenSearch at: $OPENSEARCH_URL"
+          until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
+            echo "OpenSearch not ready, waiting 10 seconds..."
+            sleep 10
+          done
+          echo "OpenSearch is ready!"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      containers:
+      - name: logger
+        image: "{{ if .Values.logger.image }}{{ .Values.logger.image.repository | default "ghcr.io/openchoreo/logger" }}:{{ .Values.logger.image.tag | default "latest-dev" }}{{ else }}ghcr.io/openchoreo/logger:latest-dev{{ end }}"
+        imagePullPolicy: {{ if .Values.logger.image }}{{ .Values.logger.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "8080"
+        - name: LOG_LEVEL
+          value: {{ if .Values.logger }}{{ .Values.logger.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
+        - name: OPENSEARCH_ADDRESS
+          value: "http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: choreo-logger-opensearch
+              key: username
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: choreo-logger-opensearch
+              key: password
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          {{- if .Values.logger.resources }}
+          {{- toYaml .Values.logger.resources | nindent 10 }}
+          {{- else }}
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+{{- end }}

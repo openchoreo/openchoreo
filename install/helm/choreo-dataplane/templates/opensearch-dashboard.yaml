@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-opensearch-dashboard
+  name: {{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
     {{- include "choreo-dataplane.labels" . | nindent 4 }}
@@ -20,7 +20,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-opensearch-dashboard
+  name: {{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
     {{- include "choreo-dataplane.labels" . | nindent 4 }}
@@ -43,7 +43,7 @@ spec:
         imagePullPolicy: {{ .Values.opensearchDashboard.image.pullPolicy }}
         env:
         - name: OPENSEARCH_HOSTS
-          value: '["http://{{ include "choreo-dataplane.fullname" . }}-opensearch:9200"]'
+          value: '["http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"]'
         - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
           value: {{ .Values.opensearchDashboard.config.disableSecurity | quote }}
         ports:
