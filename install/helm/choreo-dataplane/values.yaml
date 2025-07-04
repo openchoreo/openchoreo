@@ -194,6 +194,7 @@ opensearch:
     type: ClusterIP
     httpPort: 9200
     transportPort: 9300
+    nameSuffix: "opensearch"
   
   config:
     clusterName: opensearch-cluster
@@ -201,6 +202,10 @@ opensearch:
     javaOpts: "-Xms512m -Xmx512m"
     memoryLock: false
     disableSecurity: true
+  
+  credentials:
+    username: admin
+    password: admin
   
   resources:
     limits:
@@ -228,10 +233,9 @@ opensearchDashboard:
   service:
     type: NodePort
     port: 5601
+    nameSuffix: "opensearch-dashboard"
   
   config:
-    # This will be templated to use the correct service name
-    opensearchHosts: '["http://{{ include "opensearch-logging.fullname" . }}-opensearch:9200"]'
     disableSecurity: true
   
   replicas: 1
@@ -276,16 +280,16 @@ fluentBit:
     output:
       name: opensearch
       match: "kube.*"
-      host: opensearch
-      port: 9200
+      # host: constructed in fluent-bit template using nameSuffix
+      port: "{{ .Values.opensearch.service.httpPort }}"
       index: kubernetes_cluster
       type: flb_type
       logstashFormat: true
       logstashPrefix: kubernetes
       timeKey: "@timestamp"
       traceError: true
-      httpUser: admin
-      httpPasswd: admin
+      httpUser: "{{ .Values.opensearch.credentials.username }}"
+      httpPasswd: "{{ .Values.opensearch.credentials.password }}"
       tls: false
       tlsVerify: false
       suppressTypeName: true
@@ -304,4 +308,34 @@ fluentBit:
   hostPaths:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
+
+# Choreo Logger Service Configuration
+logger:
+  replicas: 1
+  
+  image:
+    repository: ghcr.io/openchoreo/logger
+    tag: latest-dev
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  opensearch:
+    # References the OpenSearch configuration above
+    # address: constructed in logger-deployment.yaml template
+    username: "{{ .Values.opensearch.credentials.username }}"
+    password: "{{ .Values.opensearch.credentials.password }}"
+  
+  logLevel: info
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
 
