@@ -8,8 +8,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/openchoreo/openchoreo/internal/controller/release"
-
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-github/v69/github"
@@ -45,6 +43,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
+	"github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"

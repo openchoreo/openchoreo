@@ -4,7 +4,7 @@ The Release CRD serves as the deployment resource for all component types in Ope
 
 ## Purpose
 
-The Release controller is responsible for deploying finalized Kubernetes resources to data plane clusters. It provides full resource lifecycle management, including creation, updates, tracking, and cleanup of resources across in data plane clusters.
+The Release controller is responsible for deploying finalized Kubernetes resources to data plane clusters. It provides full resource lifecycle management, including creation, updates, tracking, and cleanup of resources across data plane clusters.
 
 ## Architecture Flow
 
@@ -71,38 +71,42 @@ graph TD
     
     D --> E[Get DataPlane Client]
     E --> F[Convert Resources to Objects]
-    F --> G[Apply Resources to Data Plane]
+    F --> G[Ensure Namespaces Exist]
+    G --> H[Apply Resources to Data Plane]
     
-    G --> H[Discover Live Resources]
-    H --> I[Find Stale Resources]
-    I --> J[Delete Stale Resources]
+    H --> I[Discover Live Resources]
+    I --> J[Find Stale Resources]
+    J --> K[Delete Stale Resources]
     
-    J --> K[Update Release Status]
-    K --> L{Resources Transitioning?}
-    L -->|Yes| M[Requeue with ProgressingInterval]
-    L -->|No| N[Requeue with Interval]
+    K --> L[Update Release Status]
+    L --> M{Resources Transitioning?}
+    M -->|Yes| N[Requeue with ProgressingInterval]
+    M -->|No| O[Requeue with Interval]
     
-    C --> O[Cleanup All Resources]
-    O --> P[Remove Finalizer]
-    P --> Q[Release Deleted]
+    C --> P[Cleanup All Resources]
+    P --> Q[Remove Finalizer]
+    Q --> R[Release Deleted]
     
-    style G fill:#e3f2fd
-    style H fill:#f3e5f5
-    style I fill:#fff3e0
-    style K fill:#e8f5e8
+    style G fill:#e1f5fe
+    style H fill:#e3f2fd
+    style I fill:#f3e5f5
+    style J fill:#fff3e0
+    style L fill:#e8f5e8
     style C fill:#ffe6e6
-    style L fill:#fff9c4
+    style M fill:#fff9c4
 ```
 
 **Process Explanation:**
 
-1. **Resource Application**: When a Release resource is created or updated, the controller converts the raw resource definitions into Kubernetes objects, adds tracking labels for ownership and lifecycle management, and applies them to the target data plane cluster using server-side apply.
+1. **Namespace Pre-creation**: Before applying any resources, the controller identifies all namespaces referenced by the resources and ensures they exist in the data plane. This prevents deployment failures due to missing namespaces.
 
-2. **Live Resource Discovery**: The controller queries the data plane to discover all resources currently managed by this Release. It uses GroupVersionKind (GVK) discovery to find resources across different API groups, ensuring complete inventory tracking.
+2. **Resource Application**: The controller converts the raw resource definitions into Kubernetes objects, adds tracking labels for ownership and lifecycle management, and applies them to the target data plane cluster using server-side apply.
 
-3. **Stale Resource Cleanup**: The controller identifies any resources that exist in the data plane but are no longer present in the current Release specification. These orphaned resources are safely deleted to prevent resource accumulation and drift.
+3. **Live Resource Discovery**: The controller queries the data plane to discover all resources currently managed by this Release. It uses GroupVersionKind (GVK) discovery to find resources across different API groups, ensuring complete inventory tracking.
 
-4. **Status Update**: Finally, the controller updates the Release status with a complete inventory of all applied resources, maintaining accurate tracking information for future reconciliation cycles and providing visibility into the deployment state.
+4. **Stale Resource Cleanup**: The controller identifies any resources that exist in the data plane but are no longer present in the current Release specification. These orphaned resources are safely deleted to prevent resource accumulation and drift.
+
+5. **Status Update**: Finally, the controller updates the Release status with a complete inventory of all applied resources, maintaining accurate tracking information for future reconciliation cycles and providing visibility into the deployment state.
 
 ## Key Features
 
@@ -115,6 +119,11 @@ graph TD
 - **Inventory Tracking**: Maintains complete resource inventory in status for lifecycle management
 - **Stale Resource Cleanup**: Prevents resource accumulation by cleaning up orphaned resources
 - **Label-based Ownership**: Consistent resource tracking across reconciliations
+
+### Namespace Management
+- **Automatic Creation**: Pre-creates namespaces before applying resources to prevent deployment failures
+- **Create-Only Pattern**: Namespaces are created but never deleted by the release controller
+- **Audit Labels**: Tracks which release created each namespace for operational visibility
 
 ## CRD Structure
 
@@ -199,6 +208,8 @@ The Release controller implements a reconciliation process:
   - `core.choreo.dev/managed-by`: "release-controller"
   - `core.choreo.dev/release-resource-id`: Resource ID from spec
   - `core.choreo.dev/release-uid`: Release UID for ownership tracking
+  - `core.choreo.dev/release-name`: Name of the Release that manages the resource
+  - `core.choreo.dev/release-namespace`: Namespace of the Release that manages the resource
 - Applies resources to data plane using server-side apply
 
 ### Live Resource Discovery
@@ -213,6 +224,17 @@ The Release controller implements a reconciliation process:
 - Identifies resources that exist in data plane but not in current spec
 - Implements Flux-style inventory cleanup to prevent resource accumulation
 - Deletes orphaned resources (e.g., ConfigMaps removed from spec)
+
+### Namespace Pre-creation
+- Identifies all namespaces referenced by resources before deployment
+- Create namespaces with tracking labels:
+  - `core.choreo.dev/created-by`: "release-controller" (audit trail)
+  - `core.choreo.dev/release-name`: Name of the creating Release
+  - `core.choreo.dev/release-namespace`: Namespace of the creating Release
+  - `core.choreo.dev/release-uid`: UID of the creating Release
+  - `core.choreo.dev/environment`: Target environment name
+  - `core.choreo.dev/project`: Project name from the Release owner
+- Create-only: namespaces are never deleted by release controller
 
 ### Status Update
 - Updates Release status with inventory of applied resources
@@ -406,3 +428,5 @@ spec:
 - **Manager Labels**: `core.choreo.dev/managed-by=release-controller`
 - **Resource ID Labels**: `core.choreo.dev/release-resource-id`
 - **Release UID Labels**: `core.choreo.dev/release-uid`
+- **Release Name Labels**: `core.choreo.dev/release-name`
+- **Release Namespace Labels**: `core.choreo.dev/release-namespace`
