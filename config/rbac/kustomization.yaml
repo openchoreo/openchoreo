@@ -72,8 +72,6 @@ resources:
 # if you do not want those helpers be installed with your Project.
   - release_editor_role.yaml
   - release_viewer_role.yaml
-  - scheduledtaskrelease_editor_role.yaml
-  - scheduledtaskrelease_viewer_role.yaml
   - scheduledtaskbinding_editor_role.yaml
   - scheduledtaskbinding_viewer_role.yaml
   - scheduledtaskclass_editor_role.yaml
@@ -86,10 +84,6 @@ resources:
   - webapplicationclass_viewer_role.yaml
   - webapplication_editor_role.yaml
   - webapplication_viewer_role.yaml
-  - webapplicationrelease_editor_role.yaml
-  - webapplicationrelease_viewer_role.yaml
-  - servicerelease_editor_role.yaml
-  - servicerelease_viewer_role.yaml
   - servicebinding_editor_role.yaml
   - servicebinding_viewer_role.yaml
   - serviceclass_editor_role.yaml
@@ -98,8 +92,6 @@ resources:
   - service_viewer_role.yaml
   - apibinding_editor_role.yaml
   - apibinding_viewer_role.yaml
-  - apirelease_editor_role.yaml
-  - apirelease_viewer_role.yaml
   - apiclass_editor_role.yaml
   - apiclass_viewer_role.yaml
   - api_editor_role.yaml

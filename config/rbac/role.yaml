@@ -92,7 +92,6 @@ rules:
   resources:
   - apibindings
   - apiclasses
-  - apireleases
   - apis
   - builds
   - components
@@ -113,15 +112,12 @@ rules:
   - releases
   - scheduledtaskbindings
   - scheduledtaskclasses
-  - scheduledtaskreleases
   - scheduledtasks
   - servicebindings
   - serviceclasses
-  - servicereleases
   - services
   - webapplicationbindings
   - webapplicationclasses
-  - webapplicationreleases
   - webapplications
   - workloadbindings
   - workloadclasses
@@ -140,7 +136,6 @@ rules:
   resources:
   - apibindings/finalizers
   - apiclasses/finalizers
-  - apireleases/finalizers
   - apis/finalizers
   - builds/finalizers
   - components/finalizers
@@ -161,15 +156,12 @@ rules:
   - releases/finalizers
   - scheduledtaskbindings/finalizers
   - scheduledtaskclasses/finalizers
-  - scheduledtaskreleases/finalizers
   - scheduledtasks/finalizers
   - servicebindings/finalizers
   - serviceclasses/finalizers
-  - servicereleases/finalizers
   - services/finalizers
   - webapplicationbindings/finalizers
   - webapplicationclasses/finalizers
-  - webapplicationreleases/finalizers
   - webapplications/finalizers
   - workloadbindings/finalizers
   - workloadclasses/finalizers
@@ -182,7 +174,6 @@ rules:
   resources:
   - apibindings/status
   - apiclasses/status
-  - apireleases/status
   - apis/status
   - builds/status
   - components/status
@@ -203,15 +194,12 @@ rules:
   - releases/status
   - scheduledtaskbindings/status
   - scheduledtaskclasses/status
-  - scheduledtaskreleases/status
   - scheduledtasks/status
   - servicebindings/status
   - serviceclasses/status
-  - servicereleases/status
   - services/status
   - webapplicationbindings/status
   - webapplicationclasses/status
-  - webapplicationreleases/status
   - webapplications/status
   - workloadbindings/status
   - workloadclasses/status

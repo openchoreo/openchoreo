@@ -30,7 +30,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
-	"github.com/openchoreo/openchoreo/internal/controller/apirelease"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
@@ -50,15 +49,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/service"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
-	"github.com/openchoreo/openchoreo/internal/controller/servicerelease"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplication"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplicationrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
@@ -359,13 +355,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
 		os.Exit(1)
 	}
-	if err = (&apirelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIRelease")
-		os.Exit(1)
-	}
 	if err = (&apibinding.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -396,14 +385,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
 		os.Exit(1)
 	}
-	if err := (&servicerelease.Reconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		DpClientMgr: dpClientMgr,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceRelease")
-		os.Exit(1)
-	}
 
 	// WebApplication controllers
 	if err := (&webapplication.Reconciler{
@@ -427,14 +408,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
 		os.Exit(1)
 	}
-	if err := (&webapplicationrelease.Reconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		DpClientMgr: dpClientMgr,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationRelease")
-		os.Exit(1)
-	}
 
 	// ScheduledTask controllers
 	if err := (&scheduledtask.Reconciler{
@@ -456,14 +429,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskrelease.Reconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		DpClientMgr: dpClientMgr,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskRelease")
 		os.Exit(1)
 	}
 
