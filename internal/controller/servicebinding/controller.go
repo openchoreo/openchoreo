@@ -29,7 +29,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=serviceclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicereleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -63,56 +63,56 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if res, err := r.reconcileServiceRelease(ctx, serviceBinding, serviceClass); err != nil || res.Requeue {
+	if res, err := r.reconcileRelease(ctx, serviceBinding, serviceClass); err != nil || res.Requeue {
 		return res, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// reconcileServiceRelease reconciles the ServiceRelease associated with the ServiceBinding.
-func (r *Reconciler) reconcileServiceRelease(ctx context.Context, serviceBinding *choreov1.ServiceBinding, serviceClass *choreov1.ServiceClass) (ctrl.Result, error) {
+// reconcileRelease reconciles the Release associated with the ServiceBinding.
+func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *choreov1.ServiceBinding, serviceClass *choreov1.ServiceClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	serviceRelease := &choreov1.ServiceRelease{
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceBinding.Name,
 			Namespace: serviceBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, serviceRelease, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		rCtx := render.Context{
 			ServiceBinding: serviceBinding,
 			ServiceClass:   serviceClass,
 		}
-		serviceRelease.Spec = r.makeServiceRelease(rCtx).Spec
+		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
 		}
-		return controllerutil.SetControllerReference(serviceBinding, serviceRelease, r.Scheme)
+		return controllerutil.SetControllerReference(serviceBinding, release, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile ServiceRelease", "ServiceRelease", serviceRelease.Name)
+		logger.Error(err, "Failed to reconcile Release", "Release", release.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled ServiceRelease", "ServiceRelease", serviceRelease.Name, "Operation", op)
+		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeServiceRelease(rCtx render.Context) *choreov1.ServiceRelease {
-	sr := &choreov1.ServiceRelease{
+func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.ServiceBinding.Name,
 			Namespace: rCtx.ServiceBinding.Namespace,
 		},
-		Spec: choreov1.ServiceReleaseSpec{
-			Owner: choreov1.ServiceOwner{
+		Spec: choreov1.ReleaseSpec{
+			Owner: choreov1.ReleaseOwner{
 				ProjectName:   rCtx.ServiceBinding.Spec.Owner.ProjectName,
 				ComponentName: rCtx.ServiceBinding.Spec.Owner.ComponentName,
 			},
@@ -132,8 +132,8 @@ func (r *Reconciler) makeServiceRelease(rCtx render.Context) *choreov1.ServiceRe
 		resources = append(resources, *res)
 	}
 
-	sr.Spec.Resources = resources
-	return sr
+	release.Spec.Resources = resources
+	return release
 }
 
 // SetupWithManager sets up the controller with the Manager.

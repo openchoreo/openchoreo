@@ -29,7 +29,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apiclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=apis,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apireleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=securitypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=httproutefilters,verbs=get;list;watch;create;update;patch;delete
@@ -77,60 +77,59 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		API:        api,
 	}
 
-	// Reconcile the APIRelease
-	if res, err := r.reconcileAPIRelease(ctx, rCtx); err != nil || res.Requeue {
+	// Reconcile the Release
+	if res, err := r.reconcileRelease(ctx, rCtx); err != nil || res.Requeue {
 		return res, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// reconcileAPIRelease reconciles the APIRelease associated with the APIBinding.
+// reconcileRelease reconciles the Release associated with the APIBinding.
 //
 //nolint:unparam
-func (r *Reconciler) reconcileAPIRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	apiRelease := &choreov1.APIRelease{
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.APIBinding.Name,
 			Namespace: rCtx.APIBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, apiRelease, func() error {
-		apiRelease.Spec = r.makeAPIRelease(rCtx).Spec
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
+		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
 		}
-		return controllerutil.SetControllerReference(rCtx.APIBinding, apiRelease, r.Scheme)
+		return controllerutil.SetControllerReference(rCtx.APIBinding, release, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile APIRelease", "APIRelease", apiRelease.Name)
+		logger.Error(err, "Failed to reconcile Release", "Release", release.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled APIRelease", "APIRelease", apiRelease.Name, "Operation", op)
+		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeAPIRelease(rCtx *render.Context) *choreov1.APIRelease {
-	ar := &choreov1.APIRelease{
+func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.APIBinding.Name,
 			Namespace: rCtx.APIBinding.Namespace,
 		},
-		Spec: choreov1.APIReleaseSpec{
-			Owner: choreov1.APIReleaseOwner{
+		Spec: choreov1.ReleaseSpec{
+			Owner: choreov1.ReleaseOwner{
 				ProjectName:   rCtx.API.Spec.Owner.ProjectName,
 				ComponentName: rCtx.API.Spec.Owner.ComponentName,
 			},
 			EnvironmentName: rCtx.APIBinding.Spec.EnvironmentName,
-			Type:            rCtx.API.Spec.Type,
 		},
 	}
 
@@ -164,8 +163,8 @@ func (r *Reconciler) makeAPIRelease(rCtx *render.Context) *choreov1.APIRelease {
 		resources = append(resources, *backendTrafficPolicy)
 	}
 
-	ar.Spec.Resources = resources
-	return ar
+	release.Spec.Resources = resources
+	return release
 }
 
 // SetupWithManager sets up the controller with the Manager.

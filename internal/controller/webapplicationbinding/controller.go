@@ -29,7 +29,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -56,56 +56,56 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if res, err := r.reconcileWebApplicationRelease(ctx, webApplicationBinding, webApplicationClass); err != nil || res.Requeue {
+	if res, err := r.reconcileRelease(ctx, webApplicationBinding, webApplicationClass); err != nil || res.Requeue {
 		return res, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// reconcileWebApplicationRelease reconciles the WebApplicationRelease associated with the WebApplicationBinding.
-func (r *Reconciler) reconcileWebApplicationRelease(ctx context.Context, webApplicationBinding *choreov1.WebApplicationBinding, webApplicationClass *choreov1.WebApplicationClass) (ctrl.Result, error) {
+// reconcileRelease reconciles the Release associated with the WebApplicationBinding.
+func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding *choreov1.WebApplicationBinding, webApplicationClass *choreov1.WebApplicationClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	webApplicationRelease := &choreov1.WebApplicationRelease{
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      webApplicationBinding.Name,
 			Namespace: webApplicationBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, webApplicationRelease, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		rCtx := render.Context{
 			WebApplicationBinding: webApplicationBinding,
 			WebApplicationClass:   webApplicationClass,
 		}
-		webApplicationRelease.Spec = r.makeWebApplicationRelease(rCtx).Spec
+		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
 		}
-		return controllerutil.SetControllerReference(webApplicationBinding, webApplicationRelease, r.Scheme)
+		return controllerutil.SetControllerReference(webApplicationBinding, release, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile WebApplicationRelease", "WebApplicationRelease", webApplicationRelease.Name)
+		logger.Error(err, "Failed to reconcile Release", "Release", release.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled WebApplicationRelease", "WebApplicationRelease", webApplicationRelease.Name, "Operation", op)
+		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeWebApplicationRelease(rCtx render.Context) *choreov1.WebApplicationRelease {
-	war := &choreov1.WebApplicationRelease{
+func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.WebApplicationBinding.Name,
 			Namespace: rCtx.WebApplicationBinding.Namespace,
 		},
-		Spec: choreov1.WebApplicationReleaseSpec{
-			Owner: choreov1.WebApplicationOwner{
+		Spec: choreov1.ReleaseSpec{
+			Owner: choreov1.ReleaseOwner{
 				ProjectName:   rCtx.WebApplicationBinding.Spec.Owner.ProjectName,
 				ComponentName: rCtx.WebApplicationBinding.Spec.Owner.ComponentName,
 			},
@@ -125,8 +125,8 @@ func (r *Reconciler) makeWebApplicationRelease(rCtx render.Context) *choreov1.We
 		resources = append(resources, *res)
 	}
 
-	war.Spec.Resources = resources
-	return war
+	release.Spec.Resources = resources
+	return release
 }
 
 // SetupWithManager sets up the controller with the Manager.

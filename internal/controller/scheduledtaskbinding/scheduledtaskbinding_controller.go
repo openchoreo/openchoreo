@@ -29,7 +29,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtaskbindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtaskbindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtaskclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtaskreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -56,56 +56,56 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if res, err := r.reconcileScheduledTaskRelease(ctx, scheduledTaskBinding, scheduledTaskClass); err != nil || res.Requeue {
+	if res, err := r.reconcileRelease(ctx, scheduledTaskBinding, scheduledTaskClass); err != nil || res.Requeue {
 		return res, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// reconcileScheduledTaskRelease reconciles the ScheduledTaskRelease associated with the ScheduledTaskBinding.
-func (r *Reconciler) reconcileScheduledTaskRelease(ctx context.Context, scheduledTaskBinding *choreov1.ScheduledTaskBinding, scheduledTaskClass *choreov1.ScheduledTaskClass) (ctrl.Result, error) {
+// reconcileRelease reconciles the Release associated with the ScheduledTaskBinding.
+func (r *Reconciler) reconcileRelease(ctx context.Context, scheduledTaskBinding *choreov1.ScheduledTaskBinding, scheduledTaskClass *choreov1.ScheduledTaskClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	scheduledTaskRelease := &choreov1.ScheduledTaskRelease{
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scheduledTaskBinding.Name,
 			Namespace: scheduledTaskBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, scheduledTaskRelease, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		rCtx := render.Context{
 			ScheduledTaskBinding: scheduledTaskBinding,
 			ScheduledTaskClass:   scheduledTaskClass,
 		}
-		scheduledTaskRelease.Spec = r.makeScheduledTaskRelease(rCtx).Spec
+		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
 		}
-		return controllerutil.SetControllerReference(scheduledTaskBinding, scheduledTaskRelease, r.Scheme)
+		return controllerutil.SetControllerReference(scheduledTaskBinding, release, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile ScheduledTaskRelease", "ScheduledTaskRelease", scheduledTaskRelease.Name)
+		logger.Error(err, "Failed to reconcile Release", "Release", release.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled ScheduledTaskRelease", "ScheduledTaskRelease", scheduledTaskRelease.Name, "Operation", op)
+		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeScheduledTaskRelease(rCtx render.Context) *choreov1.ScheduledTaskRelease {
-	str := &choreov1.ScheduledTaskRelease{
+func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.ScheduledTaskBinding.Name,
 			Namespace: rCtx.ScheduledTaskBinding.Namespace,
 		},
-		Spec: choreov1.ScheduledTaskReleaseSpec{
-			Owner: choreov1.ScheduledTaskOwner{
+		Spec: choreov1.ReleaseSpec{
+			Owner: choreov1.ReleaseOwner{
 				ProjectName:   rCtx.ScheduledTaskBinding.Spec.Owner.ProjectName,
 				ComponentName: rCtx.ScheduledTaskBinding.Spec.Owner.ComponentName,
 			},
@@ -120,8 +120,8 @@ func (r *Reconciler) makeScheduledTaskRelease(rCtx render.Context) *choreov1.Sch
 		resources = append(resources, *res)
 	}
 
-	str.Spec.Resources = resources
-	return str
+	release.Spec.Resources = resources
+	return release
 }
 
 // SetupWithManager sets up the controller with the Manager.
