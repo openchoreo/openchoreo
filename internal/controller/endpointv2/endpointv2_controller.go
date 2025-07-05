@@ -29,7 +29,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -68,60 +68,61 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		EndpointClass: endpointClass,
 	}
 
-	// Reconcile the EndpointRelease
-	if res, err := r.reconcileEndpointRelease(ctx, rCtx); err != nil || res.Requeue {
+	// NOTE: EndpointV2 is deprecated and replaced by API endpoints
+	// Reconcile the Release (using unified Release controller)
+	if res, err := r.reconcileRelease(ctx, rCtx); err != nil || res.Requeue {
 		return res, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-// reconcileEndpointRelease reconciles the EndpointRelease associated with the EndpointV2.
+// reconcileRelease reconciles the Release associated with the EndpointV2.
+// NOTE: EndpointV2 is deprecated - this should be migrated to use API endpoints
 //
 //nolint:unparam
-func (r *Reconciler) reconcileEndpointRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	endpointRelease := &choreov1.EndpointRelease{
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.EndpointV2.Name,
 			Namespace: rCtx.EndpointV2.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, endpointRelease, func() error {
-		endpointRelease.Spec = r.makeEndpointRelease(rCtx).Spec
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
+		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
 		}
-		return controllerutil.SetControllerReference(rCtx.EndpointV2, endpointRelease, r.Scheme)
+		return controllerutil.SetControllerReference(rCtx.EndpointV2, release, r.Scheme)
 	})
 	if err != nil {
-		logger.Error(err, "Failed to reconcile EndpointRelease", "EndpointRelease", endpointRelease.Name)
+		logger.Error(err, "Failed to reconcile Release", "Release", release.Name)
 		return ctrl.Result{}, err
 	}
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
-		logger.Info("Successfully reconciled EndpointRelease", "EndpointRelease", endpointRelease.Name, "Operation", op)
+		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeEndpointRelease(rCtx *render.Context) *choreov1.EndpointRelease {
-	er := &choreov1.EndpointRelease{
+func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
+	release := &choreov1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.EndpointV2.Name,
 			Namespace: rCtx.EndpointV2.Namespace,
 		},
-		Spec: choreov1.EndpointReleaseSpec{
-			Owner: choreov1.EndpointReleaseOwner{
+		Spec: choreov1.ReleaseSpec{
+			Owner: choreov1.ReleaseOwner{
 				ProjectName:   rCtx.EndpointV2.Spec.Owner.ProjectName,
 				ComponentName: rCtx.EndpointV2.Spec.Owner.ComponentName,
 			},
 			EnvironmentName: rCtx.EndpointV2.Spec.EnvironmentName,
-			Type:            rCtx.EndpointV2.Spec.Type,
 		},
 	}
 
@@ -151,8 +152,8 @@ func (r *Reconciler) makeEndpointRelease(rCtx *render.Context) *choreov1.Endpoin
 		}
 	}
 
-	er.Spec.Resources = resources
-	return er
+	release.Spec.Resources = resources
+	return release
 }
 
 // SetupWithManager sets up the controller with the Manager.

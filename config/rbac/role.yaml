@@ -102,7 +102,6 @@ rules:
   - deployments
   - deploymenttracks
   - endpointclasses
-  - endpointreleases
   - endpoints
   - endpointv2s
   - environments
@@ -121,7 +120,6 @@ rules:
   - webapplications
   - workloadbindings
   - workloadclasses
-  - workloadreleases
   - workloads
   verbs:
   - create
@@ -146,7 +144,6 @@ rules:
   - deployments/finalizers
   - deploymenttracks/finalizers
   - endpointclasses/finalizers
-  - endpointreleases/finalizers
   - endpoints/finalizers
   - endpointv2s/finalizers
   - environments/finalizers
@@ -165,7 +162,6 @@ rules:
   - webapplications/finalizers
   - workloadbindings/finalizers
   - workloadclasses/finalizers
-  - workloadreleases/finalizers
   - workloads/finalizers
   verbs:
   - update
@@ -184,7 +180,6 @@ rules:
   - deployments/status
   - deploymenttracks/status
   - endpointclasses/status
-  - endpointreleases/status
   - endpoints/status
   - endpointv2s/status
   - environments/status
@@ -203,7 +198,6 @@ rules:
   - webapplications/status
   - workloadbindings/status
   - workloadclasses/status
-  - workloadreleases/status
   - workloads/status
   verbs:
   - get

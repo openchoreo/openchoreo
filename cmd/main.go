@@ -40,7 +40,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
@@ -58,7 +57,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadrelease"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
@@ -294,13 +292,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "WorkloadBinding")
 			os.Exit(1)
 		}
-		if err = (&workloadrelease.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "WorkloadRelease")
-			os.Exit(1)
-		}
 		if err = (&endpointv2.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
@@ -313,13 +304,6 @@ func main() {
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "EndpointClass")
-			os.Exit(1)
-		}
-		if err = (&endpointrelease.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "EndpointRelease")
 			os.Exit(1)
 		}
 	}
