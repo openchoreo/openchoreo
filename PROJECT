@@ -93,15 +93,6 @@ resources:
   controller: true
   domain: choreo.dev
   group: core
-  kind: WorkloadClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: choreo.dev
-  group: core
   kind: EndpointV2
   path: github.com/openchoreo/openchoreo/api/v1
   version: v1
@@ -148,15 +139,6 @@ resources:
   domain: choreo.dev
   group: core
   kind: APIBinding
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: choreo.dev
-  group: core
-  kind: WorkloadBinding
   path: github.com/openchoreo/openchoreo/api/v1
   version: v1
 - api:

@@ -55,8 +55,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/workloadclass"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
@@ -270,26 +268,11 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 			os.Exit(1)
 		}
-		// PoC controllers that will be removed in the future.
-		if err = (&workloadclass.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "WorkloadClass")
-			os.Exit(1)
-		}
 		if err = (&workload.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Workload")
-			os.Exit(1)
-		}
-		if err = (&workloadbinding.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "WorkloadBinding")
 			os.Exit(1)
 		}
 		if err = (&endpointv2.Reconciler{

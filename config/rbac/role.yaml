@@ -118,8 +118,6 @@ rules:
   - webapplicationbindings
   - webapplicationclasses
   - webapplications
-  - workloadbindings
-  - workloadclasses
   - workloads
   verbs:
   - create
@@ -160,8 +158,6 @@ rules:
   - webapplicationbindings/finalizers
   - webapplicationclasses/finalizers
   - webapplications/finalizers
-  - workloadbindings/finalizers
-  - workloadclasses/finalizers
   - workloads/finalizers
   verbs:
   - update
@@ -196,8 +192,6 @@ rules:
   - webapplicationbindings/status
   - webapplicationclasses/status
   - webapplications/status
-  - workloadbindings/status
-  - workloadclasses/status
   - workloads/status
   verbs:
   - get

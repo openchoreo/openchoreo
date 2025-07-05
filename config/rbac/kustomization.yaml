@@ -58,8 +58,6 @@ resources:
   # default, aiding admins in cluster management. Those roles are
   # not used by the Project itself. You can comment the following lines
   # if you do not want those helpers be installed with your Project.
-  - workloadclass_editor_role.yaml
-  - workloadclass_viewer_role.yaml
   - workload_editor_role.yaml
   - workload_viewer_role.yaml
   - componentv2_editor_role.yaml
@@ -96,8 +94,6 @@ resources:
   - apiclass_viewer_role.yaml
   - api_editor_role.yaml
   - api_viewer_role.yaml
-  - workloadbinding_editor_role.yaml
-  - workloadbinding_viewer_role.yaml
   - gitcommitrequest_editor_role.yaml
   - gitcommitrequest_viewer_role.yaml
   - endpointclass_editor_role.yaml
