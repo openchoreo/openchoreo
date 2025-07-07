@@ -120,7 +120,9 @@ rules:
   - apibindings
   - apiclasses
   - apis
+  - buildplanes
   - builds
+  - buildv2s
   - components
   - componentv2s
   - dataplanes
@@ -160,7 +162,9 @@ rules:
   - apibindings/finalizers
   - apiclasses/finalizers
   - apis/finalizers
+  - buildplanes/finalizers
   - builds/finalizers
+  - buildv2s/finalizers
   - components/finalizers
   - componentv2s/finalizers
   - dataplanes/finalizers
@@ -194,7 +198,9 @@ rules:
   - apibindings/status
   - apiclasses/status
   - apis/status
+  - buildplanes/status
   - builds/status
+  - buildv2s/status
   - components/status
   - componentv2s/status
   - dataplanes/status

@@ -1,0 +1,176 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: default-argo-docker-build-template
+  namespace: choreo-system
+spec:
+  entrypoint: build-workflow
+  serviceAccountName: workflow-sa
+  arguments:
+    parameters:
+      - name: branch
+        value: main
+  templates:
+    - name: build-workflow
+      steps:
+        - - name: clone-step
+            template: clone-step
+        - - arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
+            name: build-step
+            template: build-step
+        - - arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
+            name: push-step
+            template: push-step
+    - name: clone-step
+      outputs:
+        parameters:
+          - name: git-revision
+            valueFrom:
+              path: /tmp/git-revision.txt
+      container:
+        args:
+          - |-
+            set -e
+
+            BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
+            REPO="{{ "{{" }}workflow.parameters.git-repo{{ "}}" }}"
+            COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
+
+            if [[ -n "$COMMIT" ]]; then
+                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                git config --global advice.detachedHead false
+                git fetch --depth 1 origin "$COMMIT"
+                git checkout "$COMMIT"
+                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+            else
+                git clone --single-branch --branch $BRANCH --depth 1 "$repo" /mnt/vol/source
+                cd /mnt/vol/source
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
+            fi
+        command:
+          - sh
+          - -c
+        image: alpine/git
+        name: ""
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+    - name: build-step
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        args:
+          - |-
+            set -e
+
+            WORKDIR=/mnt/vol/source
+            BUILDER="{{ "{{" }}workflow.parameters.builder-image{{ "}}" }}"
+            RUN_IMG="{{ "{{" }}workflow.parameters.run-image{{ "}}" }}"
+            IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
+            DOCKER_CONTEXT="{{ "{{" }}workflow.parameters.docker-context{{ "}}" }}"
+            DOCKERFILE_PATH="{{ "{{" }}workflow.parameters.dockerfile-path{{ "}}" }}"
+
+            #####################################################################
+            # 1.  Podman daemon + storage.conf
+            #####################################################################
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            #####################################################################
+            # 2.  Docker Build
+            #####################################################################
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $WORKDIR/$DOCKER_CONTEXT
+            podman save -o /mnt/vol/app-image.tar $IMAGE
+        command:
+          - sh
+          - -c
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /shared/podman/cache
+            name: podman-cache
+    - name: push-step
+      inputs:
+        parameters:
+          - name: git-revision
+      outputs:
+        parameters:
+          - name: image
+            valueFrom:
+              path: /tmp/image.txt
+      container:
+        args:
+          - |-
+            set -e
+            GIT_REVISION={{ "{{" }}inputs.parameters.git-revision{{ "}}" }}
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman load -i /mnt/vol/app-image.tar
+            podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+            podman push --tls-verify=false registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+
+            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+        command:
+          - sh
+          - -c
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: core.choreo.dev/noderole
+                operator: In
+                values:
+                  - workflow-runner
+  ttlStrategy:
+    secondsAfterFailure: 3600
+    secondsAfterSuccess: 3600
+  volumeClaimTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+  volumes:
+    - hostPath:
+        path: /shared/podman/cache
+        type: DirectoryOrCreate
+      name: podman-cache

@@ -1,0 +1,233 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: default-argo-buildpack-build-template
+  namespace: choreo-system
+spec:
+  entrypoint: build-workflow
+  serviceAccountName: workflow-sa
+  arguments:
+    parameters:
+      - name: branch
+        value: main
+      - name: builder-image
+        value: gcr.io/buildpacks/builder:google-22
+      - name: run-image
+        value: gcr.io/buildpacks/google-22/run:latest
+  templates:
+    - name: build-workflow
+      steps:
+        - - name: clone-step
+            template: clone-step
+        - - arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
+            name: build-step
+            template: build-step
+        - - arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
+            name: push-step
+            template: push-step
+    - name: clone-step
+      outputs:
+        parameters:
+          - name: git-revision
+            valueFrom:
+              path: /tmp/git-revision.txt
+      container:
+        args:
+          - |-
+            set -e
+
+            BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
+            REPO="{{ "{{" }}workflow.parameters.git-repo{{ "}}" }}"
+            COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
+
+            if [[ -n "$COMMIT" ]]; then
+                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                git config --global advice.detachedHead false
+                git fetch --depth 1 origin "$COMMIT"
+                git checkout "$COMMIT"
+                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+            else
+                git clone --single-branch --branch $BRANCH --depth 1 "$repo" /mnt/vol/source
+                cd /mnt/vol/source
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
+            fi
+        command:
+          - sh
+          - -c
+        image: alpine/git
+        name: ""
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+    - name: build-step
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        args:
+          - |-
+            set -e
+
+            WORKDIR=/mnt/vol/source
+            BUILDER="{{ "{{" }}workflow.parameters.builder-image{{ "}}" }}"
+            RUN_IMG="{{ "{{" }}workflow.parameters.run-image{{ "}}" }}"
+            CACHE_DIR=/shared/podman/cache
+            IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
+            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
+            LANG="{{ "{{" }}workflow.parameters.language{{ "}}" }}"
+            LANG_VER="{{ "{{" }}workflow.parameters.language-version{{ "}}" }}"
+
+            #####################################################################
+            # 1.  Podman daemon + storage.conf
+            #####################################################################
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman system service --time=0 &
+            until podman info --format '{{ "{{" }}.Host.RemoteSocket.Exists{{ "}}" }}' 2>/dev/null | grep -q true; do sleep 1; done
+
+            #####################################################################
+            # 2.  Ensure builder / run images in host-path cache
+            #####################################################################
+            ensure_cached () {
+              local image=$1 tar=$2
+              if [[ ! -f "$tar" ]]; then
+                podman pull "$image"
+                podman save -o "$tar" "$image"
+              else
+                podman load -i "$tar" 2>/dev/null || {
+                  podman pull "$image"
+                  podman save -o "$tar" "$image"
+                }
+              fi
+            }
+            ensure_cached "$BUILDER" "$CACHE_DIR/google-builder.tar"
+            ensure_cached "$RUN_IMG" "$CACHE_DIR/google-run.tar"
+
+            #####################################################################
+            # 3.  Language-specific PACK env flag
+            #####################################################################
+            case "$LANG" in
+              go)     VERSION="--env GOOGLE_GO_VERSION=$LANG_VER" ;;
+              nodejs) VERSION="--env GOOGLE_NODEJS_VERSION=$LANG_VER" ;;
+              python) VERSION="--env GOOGLE_PYTHON_VERSION=$LANG_VER" ;;
+              php)
+                apk add --no-cache jq
+                COMPOSER="$APP_PATH/composer.json"
+                if [[ -f $COMPOSER ]]; then
+                  if jq -e '.require' "$COMPOSER" >/dev/null; then
+                    jq ".require[\"php\"] = \"$LANG_VER\"" "$COMPOSER" > "$COMPOSER.tmp" && mv "$COMPOSER.tmp" "$COMPOSER"
+                  else
+                    echo "{\"require\": {\"php\": \"$LANG_VER\"}}" > "$COMPOSER"
+                  fi
+                else
+                  echo "{\"require\": {\"php\": \"$LANG_VER\"}}" > "$COMPOSER"
+                fi
+                VERSION="" ;;                                 # composer edit already forces version
+              *)
+                VERSION="--env GOOGLE_RUNTIME_VERSION=$LANG_VER" ;;
+            esac
+
+            #####################################################################
+            # 4.  Build with pack & save image TAR
+            #####################################################################
+            /usr/local/bin/pack build "$IMAGE"               \
+              --builder "$BUILDER"                           \
+              --docker-host inherit                          \
+              --path "$WORKDIR/$APP_PATH"                    \
+              --pull-policy if-not-present                   \
+              $VERSION
+
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        command:
+          - sh
+          - -c
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /shared/podman/cache
+            name: podman-cache
+    - name: push-step
+      inputs:
+        parameters:
+          - name: git-revision
+      outputs:
+        parameters:
+          - name: image
+            valueFrom:
+              path: /tmp/image.txt
+      container:
+        args:
+          - |-
+            set -e
+            GIT_REVISION={{ "{{" }}inputs.parameters.git-revision{{ "}}" }}
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman load -i /mnt/vol/app-image.tar
+            podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+            podman push --tls-verify=false registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+
+            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+        command:
+          - sh
+          - -c
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: core.choreo.dev/noderole
+                operator: In
+                values:
+                  - workflow-runner
+  ttlStrategy:
+    secondsAfterFailure: 3600
+    secondsAfterSuccess: 3600
+  volumeClaimTemplates:
+    - metadata:
+        creationTimestamp: null
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+  volumes:
+    - hostPath:
+        path: /shared/podman/cache
+        type: DirectoryOrCreate
+      name: podman-cache
