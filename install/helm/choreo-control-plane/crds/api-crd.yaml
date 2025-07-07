@@ -68,6 +68,10 @@ spec:
                     required:
                     - port
                     type: object
+                  exposeLevels:
+                    items:
+                      type: string
+                    type: array
                   operations:
                     items:
                       properties:

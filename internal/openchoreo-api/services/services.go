@@ -1,9 +1,8 @@
 package services
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"golang.org/x/exp/slog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Services struct {

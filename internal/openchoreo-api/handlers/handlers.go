@@ -3,9 +3,10 @@ package handlers
 import (
 	"net/http"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-	"golang.org/x/exp/slog"
 )
 
 // Handler holds the services and provides HTTP handlers

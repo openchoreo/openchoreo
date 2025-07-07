@@ -12,7 +12,7 @@ import (
 type Context struct {
 	ServiceBinding *choreov1.ServiceBinding
 	ServiceClass   *choreov1.ServiceClass
-
+	APIClass       *choreov1.APIClass
 	// Stores the errors encountered during rendering.
 	errs []error
 }

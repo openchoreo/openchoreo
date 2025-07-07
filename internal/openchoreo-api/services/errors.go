@@ -13,11 +13,11 @@ var (
 
 // Error codes for API responses
 const (
-	CodeProjectExists       = "PROJECT_EXISTS"
-	CodeProjectNotFound     = "PROJECT_NOT_FOUND"
-	CodeComponentExists     = "COMPONENT_EXISTS"
-	CodeComponentNotFound   = "COMPONENT_NOT_FOUND"
+	CodeProjectExists        = "PROJECT_EXISTS"
+	CodeProjectNotFound      = "PROJECT_NOT_FOUND"
+	CodeComponentExists      = "COMPONENT_EXISTS"
+	CodeComponentNotFound    = "COMPONENT_NOT_FOUND"
 	CodeOrganizationNotFound = "ORGANIZATION_NOT_FOUND"
-	CodeInvalidInput        = "INVALID_INPUT"
-	CodeInternalError       = "INTERNAL_ERROR"
+	CodeInvalidInput         = "INVALID_INPUT"
+	CodeInternalError        = "INTERNAL_ERROR"
 )

@@ -32,8 +32,9 @@ type EndpointTemplateSpec struct {
 }
 
 type RESTEndpoint struct {
-	Backend    HTTPBackend             `json:"backend,omitempty"`
-	Operations []RESTEndpointOperation `json:"operations,omitempty"`
+	Backend      HTTPBackend                `json:"backend,omitempty"`
+	ExposeLevels []RESTOperationExposeLevel `json:"exposeLevels,omitempty"`
+	Operations   []RESTEndpointOperation    `json:"operations,omitempty"`
 }
 
 type RESTEndpointOperation struct {

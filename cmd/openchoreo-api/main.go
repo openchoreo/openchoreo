@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/exp/slog"
+
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-
-	"golang.org/x/exp/slog"
 )
 
 var (

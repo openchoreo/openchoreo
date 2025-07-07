@@ -18,7 +18,7 @@ type ScheduledTaskBindingSpec struct {
 	// Environment is the target environment for this binding
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
-	
+
 	// ClassName is the name of the scheduled task class that provides the scheduled task-specific deployment configuration.
 	ClassName string `json:"className"`
 

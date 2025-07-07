@@ -3855,6 +3855,11 @@ func (in *RESTConditionalPolicy) DeepCopy() *RESTConditionalPolicy {
 func (in *RESTEndpoint) DeepCopyInto(out *RESTEndpoint) {
 	*out = *in
 	out.Backend = in.Backend
+	if in.ExposeLevels != nil {
+		in, out := &in.ExposeLevels, &out.ExposeLevels
+		*out = make([]RESTOperationExposeLevel, len(*in))
+		copy(*out, *in)
+	}
 	if in.Operations != nil {
 		in, out := &in.Operations, &out.Operations
 		*out = make([]RESTEndpointOperation, len(*in))

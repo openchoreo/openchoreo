@@ -125,6 +125,13 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
 		resources = append(resources, *res)
 	}
 
+	// Add HTTPRoute resources (to act as ingress)
+	if res := render.HTTPRoutes(rCtx); res != nil {
+		for _, httpRoute := range res {
+			resources = append(resources, *httpRoute)
+		}
+	}
+
 	release.Spec.Resources = resources
 	return release
 }

@@ -12,6 +12,8 @@ import (
 type Context struct {
 	WebApplicationBinding *choreov1.WebApplicationBinding
 	WebApplicationClass   *choreov1.WebApplicationClass
+	Component             *choreov1.ComponentV2
+	Environment           *choreov1.Environment
 
 	// Stores the errors encountered during rendering.
 	errs []error

@@ -81,7 +81,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Rele
 				if err == nil {
 					resourceStatus = &runtime.RawExtension{Raw: statusBytes}
 				} else {
-					// Log marshalling error but continue
+					// Log marshaling error but continue
 					logger.Error(err, "Failed to marshal resource status",
 						"resourceID", resourceID,
 						"gvk", gvk.String(),

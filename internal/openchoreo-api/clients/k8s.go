@@ -3,10 +3,11 @@ package k8s
 import (
 	"fmt"
 
-	choreoapiv1 "github.com/openchoreo/openchoreo/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	choreoapiv1 "github.com/openchoreo/openchoreo/api/v1"
 )
 
 func NewK8sClient() (client.Client, error) {

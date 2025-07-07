@@ -18,7 +18,7 @@ type WebApplicationBindingSpec struct {
 	// Environment is the target environment for this binding
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
-	
+
 	// ClassName is the name of the web application class that provides the web application-specific deployment configuration.
 	ClassName string `json:"className"`
 
