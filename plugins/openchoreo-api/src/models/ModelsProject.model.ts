@@ -19,9 +19,9 @@ export interface ModelsProject {
    */
   description: string;
   /**
-   * Reference to the deployment pipeline (note: API returns "deploymentOipeline" with typo)
+   * Reference to the deployment pipeline (note: API returns "deploymentPipeline" with typo)
    */
-  deploymentOipeline?: string;
+  deploymentPipeline?: string;
   /**
    * Date when the project was created (ISO 8601 format)
    */
