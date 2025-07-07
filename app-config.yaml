@@ -74,6 +74,9 @@ scaffolder:
 openchoreo:
   baseUrl: http://localhost:8080/api/v1
   token: ${OPENCHOREO_TOKEN}     # optional for now: for authentication
+  schedule:
+    frequency: 30    # seconds between runs (default: 30)
+    timeout: 120     # seconds for timeout (default: 120)
 
 catalog:
   import:
