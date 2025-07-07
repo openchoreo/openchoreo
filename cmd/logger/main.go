@@ -22,14 +22,23 @@ import (
 )
 
 func main() {
+	// Create bootstrap logger for early initialization
+	bootstrapLogger := createBootstrapLogger()
+
 	// Initialize configuration
 	cfg, err := config.Load()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to load configuration: %v", err))
+		bootstrapLogger.Error("Failed to load configuration",
+			"error", err,
+			"component", "logger-service",
+			"phase", "initialization",
+		)
+		os.Exit(1)
 	}
 
-	// Initialize logger
+	// Initialize logger with proper configuration
 	logger := initLogger(cfg.LogLevel)
+	logger.Info("Configuration loaded successfully", "log_level", cfg.LogLevel)
 
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
@@ -126,5 +135,16 @@ func initLogger(level string) *slog.Logger {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	}
 
+	return slog.New(handler)
+}
+
+// createBootstrapLogger creates a minimal logger for early initialization
+func createBootstrapLogger() *slog.Logger {
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}
+
+	// Use JSON handler for structured logging
+	handler := slog.NewJSONHandler(os.Stderr, opts)
 	return slog.New(handler)
 }
