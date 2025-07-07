@@ -31,7 +31,7 @@ const (
 	OrganizationUUID = "organization-name"
 
 	// PipelineID identifies the CI/CD pipeline that deployed the component
-	PipelineID = "pipeline_id"
+	PipelineID = "pipeline-id"
 
 	// RunID identifies the specific execution run of a pipeline
 	RunID = "run_id"

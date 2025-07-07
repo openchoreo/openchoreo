@@ -60,26 +60,6 @@ func Recovery(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// CORS returns a middleware that adds CORS headers
-func CORS() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Set CORS headers
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-			// Handle preflight requests
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // Chain applies multiple middleware functions in order
 func Chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {

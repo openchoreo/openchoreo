@@ -54,41 +54,41 @@ type FieldMapping struct {
 type LogEntry struct {
 	Timestamp     time.Time         `json:"timestamp"`
 	Log           string            `json:"log"`
-	LogLevel      string            `json:"log_level"`
-	ComponentID   string            `json:"component_id"`
-	EnvironmentID string            `json:"environment_id"`
-	ProjectID     string            `json:"project_id"`
+	LogLevel      string            `json:"logLevel"`
+	ComponentID   string            `json:"componentId"`
+	EnvironmentID string            `json:"environmentId"`
+	ProjectID     string            `json:"projectId"`
 	Version       string            `json:"version"`
-	VersionID     string            `json:"version_id"`
+	VersionID     string            `json:"versionId"`
 	Namespace     string            `json:"namespace"`
-	PodID         string            `json:"pod_id"`
-	ContainerName string            `json:"container_name"`
+	PodID         string            `json:"podId"`
+	ContainerName string            `json:"containerName"`
 	Labels        map[string]string `json:"labels"`
 }
 
 // QueryParams holds common query parameters
 type QueryParams struct {
-	StartTime      string   `json:"start_time"`
-	EndTime        string   `json:"end_time"`
-	SearchPhrase   string   `json:"search_phrase"`
-	LogLevels      []string `json:"log_levels"`
+	StartTime      string   `json:"startTime"`
+	EndTime        string   `json:"endTime"`
+	SearchPhrase   string   `json:"searchPhrase"`
+	LogLevels      []string `json:"logLevels"`
 	Limit          int      `json:"limit"`
-	SortOrder      string   `json:"sort_order"`
-	ComponentID    string   `json:"component_id,omitempty"`
-	EnvironmentID  string   `json:"environment_id,omitempty"`
-	ProjectID      string   `json:"project_id,omitempty"`
-	OrganizationID string   `json:"organization_id,omitempty"`
+	SortOrder      string   `json:"sortOrder"`
+	ComponentID    string   `json:"componentId,omitempty"`
+	EnvironmentID  string   `json:"environmentId,omitempty"`
+	ProjectID      string   `json:"projectId,omitempty"`
+	OrganizationID string   `json:"organizationId,omitempty"`
 	Namespace      string   `json:"namespace,omitempty"`
 	Versions       []string `json:"versions,omitempty"`
-	VersionIDs     []string `json:"version_ids,omitempty"`
+	VersionIDs     []string `json:"versionIds,omitempty"`
 }
 
 // GatewayQueryParams holds gateway-specific query parameters
 type GatewayQueryParams struct {
 	QueryParams
-	OrganizationID    string            `json:"organization_id"`
-	APIIDToVersionMap map[string]string `json:"api_id_to_version_map"`
-	GatewayVHosts     []string          `json:"gateway_vhosts"`
+	OrganizationID    string            `json:"organizationId"`
+	APIIDToVersionMap map[string]string `json:"apiIdToVersionMap"`
+	GatewayVHosts     []string          `json:"gatewayVHosts"`
 }
 
 // buildSearchBody converts a query map to an io.Reader for the search request

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -43,8 +44,7 @@ func main() {
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
 	if err != nil {
-		logger.Error("Failed to initialize OpenSearch client", "error", err)
-		os.Exit(1)
+		log.Fatalf("Failed to initialize OpenSearch client: %v", err)
 	}
 
 	// Initialize logging service
@@ -69,7 +69,6 @@ func main() {
 	handlerWithMiddleware := middleware.Chain(
 		middleware.Logger(logger),
 		middleware.Recovery(logger),
-		middleware.CORS(),
 	)(mux)
 
 	// Create HTTP server
@@ -85,23 +84,23 @@ func main() {
 	go func() {
 		logger.Info("Starting server", "address", addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("Failed to start server", "error", err)
-			os.Exit(1)
+			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-	<-quit
+	// Graceful shutdown using signal context
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Wait for interrupt signal
+	<-ctx.Done()
 
 	logger.Info("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
-		logger.Error("Server forced to shutdown", "error", err)
-		os.Exit(1)
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
 	logger.Info("Server shutdown complete")

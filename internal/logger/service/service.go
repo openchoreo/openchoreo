@@ -31,8 +31,8 @@ type LoggingService struct {
 // LogResponse represents the response structure for log queries
 type LogResponse struct {
 	Logs       []opensearch.LogEntry `json:"logs"`
-	TotalCount int                   `json:"total_count"`
-	Took       int                   `json:"took_ms"`
+	TotalCount int                   `json:"totalCount"`
+	Took       int                   `json:"tookMs"`
 }
 
 // NewLoggingService creates a new logging service instance

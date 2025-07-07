@@ -17,6 +17,26 @@ const (
 	defaultSortOrder = "desc"
 )
 
+// Error codes and messages
+const (
+	// Error types
+	ErrorTypeMissingParameter = "missingParameter"
+	ErrorTypeInvalidRequest   = "invalidRequest"
+	ErrorTypeInternalError    = "internalError"
+
+	// Error codes
+	ErrorCodeMissingParameter = "OBS-L-10"
+	ErrorCodeInvalidRequest   = "OBS-L-12"
+	ErrorCodeInternalError    = "OBS-L-25"
+
+	// Error messages
+	ErrorMsgComponentIDRequired    = "Component ID is required"
+	ErrorMsgProjectIDRequired      = "Project ID is required"
+	ErrorMsgOrganizationIDRequired = "Organization ID is required"
+	ErrorMsgInvalidRequestFormat   = "Invalid request format"
+	ErrorMsgFailedToRetrieveLogs   = "Failed to retrieve logs"
+)
+
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
 	service *service.LoggingService
@@ -38,42 +58,51 @@ func (h *Handler) writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	}
 }
 
+// writeErrorResponse writes a standardized error response
+func (h *Handler) writeErrorResponse(w http.ResponseWriter, status int, errorType, code, message string) {
+	h.writeJSON(w, status, ErrorResponse{
+		Error:   errorType,
+		Code:    code,
+		Message: message,
+	})
+}
+
 // ComponentLogsRequest represents the request body for component logs
 type ComponentLogsRequest struct {
-	StartTime     string   `json:"start_time" validate:"required"`
-	EndTime       string   `json:"end_time" validate:"required"`
-	EnvironmentID string   `json:"environment_id" validate:"required"`
+	StartTime     string   `json:"startTime" validate:"required"`
+	EndTime       string   `json:"endTime" validate:"required"`
+	EnvironmentID string   `json:"environmentId" validate:"required"`
 	Namespace     string   `json:"namespace" validate:"required"`
-	SearchPhrase  string   `json:"search_phrase,omitempty"`
-	LogLevels     []string `json:"log_levels,omitempty"`
+	SearchPhrase  string   `json:"searchPhrase,omitempty"`
+	LogLevels     []string `json:"logLevels,omitempty"`
 	Versions      []string `json:"versions,omitempty"`
-	VersionIDs    []string `json:"version_ids,omitempty"`
+	VersionIDs    []string `json:"versionIds,omitempty"`
 	Limit         int      `json:"limit,omitempty"`
-	SortOrder     string   `json:"sort_order,omitempty"`
+	SortOrder     string   `json:"sortOrder,omitempty"`
 }
 
 // ProjectLogsRequest represents the request body for project logs
 type ProjectLogsRequest struct {
 	ComponentLogsRequest
-	ComponentIDs []string `json:"component_ids,omitempty"`
+	ComponentIDs []string `json:"componentIds,omitempty"`
 }
 
 // GatewayLogsRequest represents the request body for gateway logs
 type GatewayLogsRequest struct {
-	StartTime         string            `json:"start_time" validate:"required"`
-	EndTime           string            `json:"end_time" validate:"required"`
-	OrganizationID    string            `json:"organization_id" validate:"required"`
-	SearchPhrase      string            `json:"search_phrase,omitempty"`
-	APIIDToVersionMap map[string]string `json:"api_id_to_version_map,omitempty"`
-	GatewayVHosts     []string          `json:"gateway_vhosts,omitempty"`
+	StartTime         string            `json:"startTime" validate:"required"`
+	EndTime           string            `json:"endTime" validate:"required"`
+	OrganizationID    string            `json:"organizationId" validate:"required"`
+	SearchPhrase      string            `json:"searchPhrase,omitempty"`
+	APIIDToVersionMap map[string]string `json:"apiIdToVersionMap,omitempty"`
+	GatewayVHosts     []string          `json:"gatewayVHosts,omitempty"`
 	Limit             int               `json:"limit,omitempty"`
-	SortOrder         string            `json:"sort_order,omitempty"`
+	SortOrder         string            `json:"sortOrder,omitempty"`
 }
 
 // OrganizationLogsRequest represents the request body for organization logs
 type OrganizationLogsRequest struct {
 	ComponentLogsRequest
-	PodLabels map[string]string `json:"pod_labels,omitempty"`
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // ErrorResponse represents an error response
@@ -87,22 +116,14 @@ type ErrorResponse struct {
 func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	componentID := httputil.GetPathParam(r, "componentId")
 	if componentID == "" {
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "missing_parameter",
-			Code:    "OBS-L-10",
-			Message: "Component ID is required",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgComponentIDRequired)
 		return
 	}
 
 	var req ComponentLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "invalid_request",
-			Code:    "OBS-L-12",
-			Message: "Invalid request format",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
 		return
 	}
 
@@ -134,11 +155,7 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetComponentLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get component logs", "error", err)
-		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-			Error:   "internal_error",
-			Code:    "OBS-L-25",
-			Message: "Failed to retrieve logs",
-		})
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}
 
@@ -149,22 +166,14 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	projectID := httputil.GetPathParam(r, "projectId")
 	if projectID == "" {
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "missing_parameter",
-			Code:    "OBS-L-10",
-			Message: "Project ID is required",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgProjectIDRequired)
 		return
 	}
 
 	var req ProjectLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "invalid_request",
-			Code:    "OBS-L-12",
-			Message: "Invalid request format",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
 		return
 	}
 
@@ -195,11 +204,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetProjectLogs(ctx, params, req.ComponentIDs)
 	if err != nil {
 		h.logger.Error("Failed to get project logs", "error", err)
-		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-			Error:   "internal_error",
-			Code:    "OBS-L-25",
-			Message: "Failed to retrieve logs",
-		})
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}
 
@@ -211,11 +216,7 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	var req GatewayLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "invalid_request",
-			Code:    "OBS-L-12",
-			Message: "Invalid request format",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
 		return
 	}
 
@@ -246,11 +247,7 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetGatewayLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get gateway logs", "error", err)
-		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-			Error:   "internal_error",
-			Code:    "OBS-L-25",
-			Message: "Failed to retrieve logs",
-		})
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}
 
@@ -261,22 +258,14 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	orgID := httputil.GetPathParam(r, "orgId")
 	if orgID == "" {
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "missing_parameter",
-			Code:    "OBS-L-10",
-			Message: "Organization ID is required",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgOrganizationIDRequired)
 		return
 	}
 
 	var req OrganizationLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
-		h.writeJSON(w, http.StatusBadRequest, ErrorResponse{
-			Error:   "invalid_request",
-			Code:    "OBS-L-12",
-			Message: "Invalid request format",
-		})
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
 		return
 	}
 
@@ -308,11 +297,7 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetOrganizationLogs(ctx, params, req.PodLabels)
 	if err != nil {
 		h.logger.Error("Failed to get organization logs", "error", err)
-		h.writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-			Error:   "internal_error",
-			Code:    "OBS-L-25",
-			Message: "Failed to retrieve logs",
-		})
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}
 

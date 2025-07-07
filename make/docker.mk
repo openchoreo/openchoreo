@@ -68,7 +68,8 @@ docker.build.%:  ## Build a docker image for the current platform. Ex: make dock
 # Set dependent go build target for the docker images that are built for the current platform's architecture
 docker.build.controller: go.build-multiarch.manager
 docker.build.quick-start: go.build-multiarch.choreoctl
-docker.build.logger: go.build.logger
+docker.build.openchoreo-api: go.build-multiarch.openchoreo-api
+docker.build.logger: go.build-multiarch.logger
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)
