@@ -14,7 +14,7 @@ GO_TARGET_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows
 GO_BUILD_BINARIES := \
 	manager:$(PROJECT_DIR)/cmd/main.go \
 	choreoctl:$(PROJECT_DIR)/cmd/choreoctl/main.go \
-	logger:$(PROJECT_DIR)/cmd/logger/main.go
+	observer:$(PROJECT_DIR)/cmd/observer/main.go
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
 

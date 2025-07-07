@@ -9,8 +9,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/config"
-	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
 // OpenSearchClient interface for testing

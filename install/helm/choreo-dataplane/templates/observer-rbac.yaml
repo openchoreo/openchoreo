@@ -1,0 +1,48 @@
+{{- if .Values.observability.logging.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: choreo-observer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: choreo-observer
+    app.kubernetes.io/name: choreo-observer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: observability
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: choreo-observer-opensearch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: choreo-observer
+    app.kubernetes.io/name: choreo-observer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: observability
+type: Opaque
+data:
+  username: {{ if .Values.observer.opensearch }}{{ .Values.observer.opensearch.username | default "admin" | b64enc }}{{ else }}{{ "admin" | b64enc }}{{ end }}
+  password: {{ if .Values.observer.opensearch }}{{ .Values.observer.opensearch.password | default "admin" | b64enc }}{{ else }}{{ "admin" | b64enc }}{{ end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: choreo-observer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: choreo-observer
+    app.kubernetes.io/name: choreo-observer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: observability
+spec:
+  type: {{ if .Values.observer.service }}{{ .Values.observer.service.type | default "ClusterIP" }}{{ else }}ClusterIP{{ end }}
+  ports:
+  - port: {{ if .Values.observer.service }}{{ .Values.observer.service.port | default 8080 }}{{ else }}8080{{ end }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: choreo-observer
+{{- end }}

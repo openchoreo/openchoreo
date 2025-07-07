@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 )
 
 // SearchResponse represents the response from an OpenSearch search query

@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/config"
-	"github.com/openchoreo/openchoreo/internal/logger/handlers"
-	"github.com/openchoreo/openchoreo/internal/logger/middleware"
-	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
-	"github.com/openchoreo/openchoreo/internal/logger/service"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/middleware"
+	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
 func main() {
@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		bootstrapLogger.Error("Failed to load configuration",
 			"error", err,
-			"component", "logger-service",
+			"component", "observer-service",
 			"phase", "initialization",
 		)
 		os.Exit(1)

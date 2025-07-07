@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/httputil"
-	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
-	"github.com/openchoreo/openchoreo/internal/logger/service"
+	"github.com/openchoreo/openchoreo/internal/observer/httputil"
+	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
 const (

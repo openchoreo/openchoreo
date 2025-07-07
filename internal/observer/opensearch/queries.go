@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 )
 
 // QueryBuilder provides methods to build OpenSearch queries

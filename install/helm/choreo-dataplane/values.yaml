@@ -309,12 +309,12 @@ fluentBit:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
 
-# Choreo Logger Service Configuration
-logger:
+# Choreo Observer Service Configuration
+observer:
   replicas: 1
   
   image:
-    repository: ghcr.io/openchoreo/logger
+    repository: ghcr.io/openchoreo/observer
     tag: latest-dev
     pullPolicy: IfNotPresent
   
@@ -324,7 +324,7 @@ logger:
   
   opensearch:
     # References the OpenSearch configuration above
-    # address: constructed in logger-deployment.yaml template
+    # address: constructed in observer-deployment.yaml template
     username: "{{ .Values.opensearch.credentials.username }}"
     password: "{{ .Values.opensearch.credentials.password }}"
   

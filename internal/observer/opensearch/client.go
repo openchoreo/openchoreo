@@ -11,7 +11,7 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 
-	"github.com/openchoreo/openchoreo/internal/logger/config"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
 // Client wraps the OpenSearch client with logging and configuration

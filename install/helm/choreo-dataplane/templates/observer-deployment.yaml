@@ -2,27 +2,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: choreo-logger
+  name: choreo-observer
   namespace: {{ .Release.Namespace }}
   labels:
-    app: choreo-logger
-    app.kubernetes.io/name: choreo-logger
+    app: choreo-observer
+    app.kubernetes.io/name: choreo-observer
     app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: logging
+    app.kubernetes.io/component: observability
 spec:
-  replicas: {{ .Values.logger.replicas | default 1 }}
+  replicas: {{ .Values.observer.replicas | default 1 }}
   selector:
     matchLabels:
-      app: choreo-logger
+      app: choreo-observer
   template:
     metadata:
       labels:
-        app: choreo-logger
-        app.kubernetes.io/name: choreo-logger
+        app: choreo-observer
+        app.kubernetes.io/name: choreo-observer
         app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: logging
+        app.kubernetes.io/component: observability
     spec:
-      serviceAccountName: choreo-logger
+      serviceAccountName: choreo-observer
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -51,9 +51,9 @@ spec:
             drop:
             - ALL
       containers:
-      - name: logger
-        image: "{{ if .Values.logger.image }}{{ .Values.logger.image.repository | default "ghcr.io/openchoreo/logger" }}:{{ .Values.logger.image.tag | default "latest-dev" }}{{ else }}ghcr.io/openchoreo/logger:latest-dev{{ end }}"
-        imagePullPolicy: {{ if .Values.logger.image }}{{ .Values.logger.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
+      - name: observer
+        image: "{{ if .Values.observer.image }}{{ .Values.observer.image.repository | default "ghcr.io/openchoreo/observer" }}:{{ .Values.observer.image.tag | default "latest-dev" }}{{ else }}ghcr.io/openchoreo/observer:latest-dev{{ end }}"
+        imagePullPolicy: {{ if .Values.observer.image }}{{ .Values.observer.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
         ports:
         - name: http
           containerPort: 8080
@@ -62,18 +62,18 @@ spec:
         - name: PORT
           value: "8080"
         - name: LOG_LEVEL
-          value: {{ if .Values.logger }}{{ .Values.logger.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
+          value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
           value: "http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
-              name: choreo-logger-opensearch
+              name: choreo-observer-opensearch
               key: username
         - name: OPENSEARCH_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: choreo-logger-opensearch
+              name: choreo-observer-opensearch
               key: password
         livenessProbe:
           httpGet:
@@ -92,8 +92,8 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
         resources:
-          {{- if .Values.logger.resources }}
-          {{- toYaml .Values.logger.resources | nindent 10 }}
+          {{- if .Values.observer.resources }}
+          {{- toYaml .Values.observer.resources | nindent 10 }}
           {{- else }}
           limits:
             cpu: 500m

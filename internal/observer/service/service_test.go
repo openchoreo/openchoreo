@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/logger/config"
-	"github.com/openchoreo/openchoreo/internal/logger/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
 // MockOpenSearchClient implements a mock OpenSearch client for testing
