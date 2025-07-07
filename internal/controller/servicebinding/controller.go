@@ -100,7 +100,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *chore
 	if op == controllerutil.OperationResultCreated ||
 		op == controllerutil.OperationResultUpdated {
 		logger.Info("Successfully reconciled Release", "Release", release.Name, "Operation", op)
-		return ctrl.Result{}, nil
+		// TODO: Update ServiceBinding status and requeue for further processing
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }

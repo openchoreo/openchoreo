@@ -36,6 +36,9 @@ type Reconciler struct {
 	Scheme      *runtime.Scheme
 }
 
+// TODO: Optimize to apply resource only if spec has changed
+// TODO: Add events and conditions
+
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/finalizers,verbs=update
@@ -182,7 +185,7 @@ func (r *Reconciler) applyResources(ctx context.Context, dpClient client.Client,
 
 // makeDesiredResources creates the desired resources from the Release spec
 func (r *Reconciler) makeDesiredResources(release *choreov1.Release) ([]*unstructured.Unstructured, error) {
-	var desiredObjects []*unstructured.Unstructured
+	desiredObjects := make([]*unstructured.Unstructured, 0, len(release.Spec.Resources))
 
 	for _, resource := range release.Spec.Resources {
 		// Convert RawExtension to Unstructured
@@ -366,7 +369,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 	}
 
 	// Convert set to slice for iteration
-	var gvks []schema.GroupVersionKind
+	gvks := make([]schema.GroupVersionKind, 0, len(gvkSet))
 	for gvk := range gvkSet {
 		gvks = append(gvks, gvk)
 	}
@@ -511,7 +514,7 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 	if maxJitter <= 0 {
 		return base
 	}
-	jitter := time.Duration(rand.Intn(int(maxJitter)))
+	jitter := time.Duration(rand.Intn(int(maxJitter))) //nolint:gosec // Non-cryptographic randomness is acceptable for jitter
 	return base + jitter
 }
 

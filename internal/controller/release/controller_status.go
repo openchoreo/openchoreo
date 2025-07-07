@@ -63,7 +63,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Rele
 		oldResourceMap[oldResource.ID] = oldResource
 	}
 
-	var resourceStatuses []choreov1.ResourceStatus
+	resourceStatuses := make([]choreov1.ResourceStatus, 0, len(desiredResources))
 
 	for _, desiredObj := range desiredResources {
 		gvk := desiredObj.GroupVersionKind()
