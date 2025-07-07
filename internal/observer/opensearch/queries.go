@@ -98,14 +98,19 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 				},
 			},
 		},
-		{
+	}
+
+	// Add namespace filter only if specified
+	if params.Namespace != "" {
+		namespaceFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				"kubernetes.namespace_name": map[string]interface{}{
 					"query":            params.Namespace,
 					"zero_terms_query": "none",
 				},
 			},
-		},
+		}
+		mustConditions = append(mustConditions, namespaceFilter)
 	}
 
 	// Add common filters
