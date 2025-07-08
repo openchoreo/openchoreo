@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
+  name: {{ include "choreo-observability.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "choreo-observability.labels" . | nindent 4 }}
     app.kubernetes.io/component: opensearch-dashboard
 spec:
   ports:
@@ -13,28 +13,28 @@ spec:
     name: http
     targetPort: http
   selector:
-    {{- include "choreo-dataplane.selectorLabels" . | nindent 4 }}
+    {{- include "choreo-observability.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: opensearch-dashboard
   type: {{ .Values.opensearchDashboard.service.type }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
+  name: {{ include "choreo-observability.fullname" . }}-{{ .Values.opensearchDashboard.service.nameSuffix }}
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "choreo-observability.labels" . | nindent 4 }}
     app.kubernetes.io/component: opensearch-dashboard
 spec:
   replicas: {{ .Values.opensearchDashboard.replicas }}
   selector:
     matchLabels:
-      {{- include "choreo-dataplane.selectorLabels" . | nindent 6 }}
+      {{- include "choreo-observability.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: opensearch-dashboard
   template:
     metadata:
       labels:
-        {{- include "choreo-dataplane.selectorLabels" . | nindent 8 }}
+        {{- include "choreo-observability.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: opensearch-dashboard
     spec:
       containers:
@@ -43,7 +43,7 @@ spec:
         imagePullPolicy: {{ .Values.opensearchDashboard.image.pullPolicy }}
         env:
         - name: OPENSEARCH_HOSTS
-          value: '["http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"]'
+          value: '["http://{{ include "choreo-observability.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"]'
         - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
           value: {{ .Values.opensearchDashboard.config.disableSecurity | quote }}
         ports:

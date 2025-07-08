@@ -182,6 +182,13 @@ argo-workflows:
 observability:
   logging:
     enabled: false
+    publishers:
+      fluentbit:
+        enabled: true
+      vector:
+        enabled: false
+      promtail:
+        enabled: false
 
 # Customizing OpenSearch configurations
 opensearch:
@@ -220,23 +227,6 @@ opensearch:
     storageClass: ""
     accessMode: ReadWriteOnce
     size: 5Gi
-  
-  replicas: 1
-
-# Customizing OpenSearch Dashboards configurations
-opensearchDashboard:
-  image:
-    repository: opensearchproject/opensearch-dashboards
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
-  
-  service:
-    type: NodePort
-    port: 5601
-    nameSuffix: "opensearch-dashboard"
-  
-  config:
-    disableSecurity: true
   
   replicas: 1
 
@@ -309,33 +299,5 @@ fluentBit:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
 
-# Choreo Observer Service Configuration
-observer:
-  replicas: 1
-  
-  image:
-    repository: ghcr.io/openchoreo/observer
-    tag: latest-dev
-    pullPolicy: IfNotPresent
-  
-  service:
-    type: ClusterIP
-    port: 8080
-  
-  opensearch:
-    # References the OpenSearch configuration above
-    # address: constructed in observer-deployment.yaml template
-    username: "{{ .Values.opensearch.credentials.username }}"
-    password: "{{ .Values.opensearch.credentials.password }}"
-  
-  logLevel: info
-  
-  resources:
-    limits:
-      cpu: 500m
-      memory: 256Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
 
 

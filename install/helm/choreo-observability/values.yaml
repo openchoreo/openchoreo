@@ -1,0 +1,143 @@
+# customizing the envoy gateway configurations
+gateway-helm:
+  enabled: true
+  config:
+    envoyGateway:
+      rateLimit:
+        backend:
+          type: Redis
+          redis:
+            url: redis.choreo-observability.svc.cluster.local:6379
+  # -- Resource limits and requests for the gateway
+  deployment:
+    envoyGateway:
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+
+# customizing the cert-manager configurations
+certmanager:
+  enabled: true
+  crds:
+    enabled: true
+  # -- Resource limits and requests for the cert-manager controller
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  cainjector:
+    # -- Resource limits and requests for the cert-manager cainjector
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+  webhook:
+    # -- Resource limits and requests for the cert-manager webhook
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+# Customizing overall observability configurations
+observability:
+  logging:
+    enabled: true
+
+# Customizing OpenSearch configurations
+opensearch:
+  image:
+    repository: opensearchproject/opensearch
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    httpPort: 9200
+    transportPort: 9300
+    nameSuffix: "opensearch"
+  
+  config:
+    clusterName: opensearch-cluster
+    discoveryType: single-node
+    javaOpts: "-Xms512m -Xmx512m"
+    memoryLock: false
+    disableSecurity: true
+  
+  credentials:
+    username: admin
+    password: admin
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+  
+  replicas: 1
+
+# Customizing OpenSearch Dashboards configurations
+opensearchDashboard:
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: NodePort
+    port: 5601
+    nameSuffix: "opensearch-dashboard"
+  
+  config:
+    disableSecurity: true
+  
+  replicas: 1
+
+# Choreo Observer Service Configuration
+observer:
+  replicas: 1
+  
+  image:
+    repository: ghcr.io/openchoreo/observer
+    tag: latest-dev
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  opensearch:
+    # References the OpenSearch configuration above
+    # address: constructed in observer-deployment.yaml template
+    username: "{{ .Values.opensearch.credentials.username }}"
+    password: "{{ .Values.opensearch.credentials.password }}"
+  
+  logLevel: info
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi

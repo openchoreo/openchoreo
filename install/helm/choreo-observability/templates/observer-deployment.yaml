@@ -36,7 +36,7 @@ spec:
         - -c
         - |
           echo "Waiting for OpenSearch to be ready..."
-          OPENSEARCH_URL="http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          OPENSEARCH_URL="http://{{ include "choreo-observability.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
           echo "Checking OpenSearch at: $OPENSEARCH_URL"
           until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready, waiting 10 seconds..."
@@ -64,7 +64,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
-          value: "http://{{ include "choreo-dataplane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          value: "http://{{ include "choreo-observability.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
