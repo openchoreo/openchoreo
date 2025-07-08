@@ -23,5 +23,5 @@ const (
 	LabelValueManagedBy = "choreo-deployment-controller"
 	LabelValueBelongTo  = "user-workloads"
 
-	LabelBuildControllerCreated = "choreo-build-controller"
+	LabelBuildControllerCreated = "openchoreo-build-controller"
 )
