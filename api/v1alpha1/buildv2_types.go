@@ -71,8 +71,21 @@ type BuildV2Spec struct {
 
 // BuildV2Status defines the observed state of BuildV2.
 type BuildV2Status struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions represent the latest available observations of the build's current state
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ImageStatus contains information about the built image
+	ImageStatus Image `json:"imageStatus,omitempty"`
+}
+
+// GetConditions returns the conditions slice
+func (b *BuildV2) GetConditions() []metav1.Condition {
+	return b.Status.Conditions
+}
+
+// SetConditions sets the conditions slice
+func (b *BuildV2) SetConditions(conditions []metav1.Condition) {
+	b.Status.Conditions = conditions
 }
 
 // +kubebuilder:object:root=true
