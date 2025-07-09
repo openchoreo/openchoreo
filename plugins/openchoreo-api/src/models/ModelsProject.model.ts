@@ -30,12 +30,4 @@ export interface ModelsProject {
    * Current status of the project
    */
   status: string;
-  /**
-   * Git branch to deploy from
-   */
-  repositoryBranch?: string;
-  /**
-   * Git repository URL
-   */
-  repositoryUrl?: string;
 }

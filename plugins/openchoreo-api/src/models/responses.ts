@@ -23,7 +23,7 @@ export interface PaginatedData<T> {
 }
 
 /**
- * Standard OpenChoreo API response wrapper
+ * Standard OpenChoreo API response wrapper for paginated data
  * @public
  */
 export interface OpenChoreoApiResponse<T> {
@@ -32,7 +32,22 @@ export interface OpenChoreoApiResponse<T> {
 }
 
 /**
- * Response type for projects endpoints
+ * OpenChoreo API response wrapper for single object responses
  * @public
  */
-export type ProjectsResponse = TypedResponse<OpenChoreoApiResponse<any>>;
+export interface OpenChoreoApiSingleResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+/**
+ * Response type for projects GET endpoints (paginated)
+ * @public
+ */
+export type ProjectsGetResponse = TypedResponse<OpenChoreoApiResponse<any>>;
+
+/**
+ * Response type for projects POST endpoints (single object)
+ * @public
+ */
+export type ProjectsPostResponse = TypedResponse<OpenChoreoApiSingleResponse<any>>;

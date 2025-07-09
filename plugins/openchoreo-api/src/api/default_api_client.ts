@@ -1,7 +1,7 @@
 import { FetchApi } from '../types/fetch';
 import crossFetch from 'cross-fetch';
 import * as parser from 'uri-template';
-import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, TypedResponse, OpenChoreoApiResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
+import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, ProjectsPostRequest, TypedResponse, OpenChoreoApiResponse, OpenChoreoApiSingleResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
 
 
 /**
@@ -49,7 +49,7 @@ export class DefaultApiClient {
    * List all organizations
    */
   public async organizationsGet(
-    request: OrganizationsGetRequest,
+    _request: OrganizationsGetRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsOrganization>>> {
     const uri = `/orgs`;
@@ -87,7 +87,7 @@ export class DefaultApiClient {
     });
   }
 
-  /**
+    /**
    * Retrieves all Component CRs from a project
    * List all components of a project
    */
@@ -109,6 +109,37 @@ export class DefaultApiClient {
         ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
       },
       method: 'GET',
+    });
+  }
+
+  /**
+   * Creates a new project in the specified organization
+   * Create a new project
+   */
+  public async projectsPost(
+    request: ProjectsPostRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsProject>>> {
+    const uriTemplate = `/orgs/{orgName}/projects`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+    });
+
+    const body = {
+      name: request.name,
+      ...(request.displayName && { displayName: request.displayName }),
+      ...(request.description && { description: request.description }),
+      ...(request.deploymentPipeline && { deploymentPipeline: request.deploymentPipeline }),
+    };
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   }
 }

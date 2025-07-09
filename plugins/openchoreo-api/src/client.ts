@@ -1,7 +1,5 @@
-
-
 import { DefaultApiClient } from './api';
-import { ModelsProject, ModelsOrganization, ModelsComponent, OpenChoreoApiResponse } from './models';
+import { ModelsProject, ModelsOrganization, ModelsComponent, OpenChoreoApiResponse, OpenChoreoApiSingleResponse } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
 export class OpenChoreoApiClient {
@@ -89,6 +87,46 @@ export class OpenChoreoApiClient {
       return components;
     } catch (error) {
       this.logger?.error(`Failed to fetch components for project ${projectName} in org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async createProject(
+    orgName: string,
+    projectData: {
+      name: string;
+      displayName?: string;
+      description?: string;
+      deploymentPipeline?: string;
+    }
+  ): Promise<ModelsProject> {
+    this.logger?.info(`Creating project: ${projectData.name} in organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.projectsPost(
+        {
+          orgName,
+          name: projectData.name,
+          displayName: projectData.displayName,
+          description: projectData.description,
+          deploymentPipeline: projectData.deploymentPipeline,
+        },
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsProject> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const project = apiResponse.data;
+      this.logger?.info(`Successfully created project: ${project.name} in org: ${orgName}`);
+      
+      return project;
+    } catch (error) {
+      this.logger?.error(`Failed to create project ${projectData.name} in org ${orgName}: ${error}`);
       throw error;
     }
   }

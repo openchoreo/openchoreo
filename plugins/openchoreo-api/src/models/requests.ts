@@ -47,6 +47,18 @@ export type ComponentGetRequest = {
 };
 
 /**
+ * Request parameters for creating a new project
+ * @public
+ */
+export type ProjectsPostRequest = {
+  orgName: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  deploymentPipeline?: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */
