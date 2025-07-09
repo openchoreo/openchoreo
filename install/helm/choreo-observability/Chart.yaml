@@ -20,10 +20,10 @@ version: 0.0.0-latest-dev
 # It is recommended to use it with quotes.
 appVersion: "latest-dev"
 dependencies:
-  - name: gateway-helm
+  - name: gateway
     repository: "oci://registry-1.docker.io/envoyproxy"
     version: 1.2.3
-    condition: gateway-helm.enabled
+    condition: gateway.enabled
   - name: cert-manager
     repository: https://charts.jetstack.io
     condition: certmanager.enabled

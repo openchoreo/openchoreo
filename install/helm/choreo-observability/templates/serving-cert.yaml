@@ -1,0 +1,20 @@
+{{- if .Values.certmanager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "choreo-observability.fullname" . }}-serving-cert
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+  labels:
+  {{- include "choreo-observability.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - '{{ include "choreo-observability.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
+  - '{{ include "choreo-observability.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{
+    .Values.kubernetesClusterDomain }}'
+  issuerRef:
+    kind: Issuer
+    name: '{{ include "choreo-observability.fullname" . }}-selfsigned-issuer'
+  secretName: webhook-server-cert
+{{- end }}

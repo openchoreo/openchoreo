@@ -1,5 +1,5 @@
 # customizing the envoy gateway configurations
-gateway-helm:
+gateway:
   enabled: true
   config:
     envoyGateway:
@@ -7,7 +7,7 @@ gateway-helm:
         backend:
           type: Redis
           redis:
-            url: redis.choreo-observability.svc.cluster.local:6379
+            url: redis.choreo-system.svc.cluster.local:6379
   # -- Resource limits and requests for the gateway
   deployment:
     envoyGateway:
@@ -19,9 +19,28 @@ gateway-helm:
           cpu: 100m
           memory: 128Mi
 
+# Redis configuration for gateway rate limiting
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "6.0.6"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  
+  service:
+    port: 6379
+
 # customizing the cert-manager configurations
 certmanager:
-  enabled: true
+  enabled: false
   crds:
     enabled: true
   # -- Resource limits and requests for the cert-manager controller
@@ -64,10 +83,12 @@ opensearch:
     pullPolicy: IfNotPresent
   
   service:
-    type: ClusterIP
+    type: NodePort
     httpPort: 9200
     transportPort: 9300
     nameSuffix: "opensearch"
+    # NodePort configuration for cross-cluster access
+    nodePort: 30920  # Fixed port for external access from other clusters
   
   config:
     clusterName: opensearch-cluster

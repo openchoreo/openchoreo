@@ -12,6 +12,9 @@ spec:
   - port: {{ .Values.opensearch.service.httpPort }}
     name: http
     targetPort: http
+    {{- if .Values.opensearch.service.nodePort }}
+    nodePort: {{ .Values.opensearch.service.nodePort }}
+    {{- end }}
   - port: {{ .Values.opensearch.service.transportPort }}
     name: transport
     targetPort: transport

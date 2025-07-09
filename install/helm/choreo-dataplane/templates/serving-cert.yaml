@@ -1,3 +1,4 @@
+{{- if .Values.certmanager.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -16,3 +17,4 @@ spec:
     kind: Issuer
     name: '{{ include "choreo-dataplane.fullname" . }}-selfsigned-issuer'
   secretName: webhook-server-cert
+{{- end }}

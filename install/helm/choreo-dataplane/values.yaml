@@ -106,7 +106,8 @@ registry:
     size: 2Gi
 
 # customizing the envoy gateway configurations
-gateway-helm:
+gateway:
+  enabled: true
   config:
     envoyGateway:
       rateLimit:
@@ -185,50 +186,48 @@ observability:
     publishers:
       fluentbit:
         enabled: true
-      vector:
-        enabled: false
-      promtail:
-        enabled: false
 
-# Customizing OpenSearch configurations
+# OpenSearch configuration for connecting to observability plane
 opensearch:
-  image:
-    repository: opensearchproject/opensearch
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
+  mode: "internal"  # Choose: "internal" or "external"
   
+  # Internal OpenChoreo OpenSearch  
+  internal:
+    deployment: "sameCluster"  # Choose: "sameCluster" or "differentCluster"
+    
+    # Same cluster configuration
+    sameCluster:
+      releaseName: "choreo-observability-plane"
+      namespace: "choreo-system" 
+      serviceSuffix: "opensearch"
+      port: "9200"
+      username: "admin"
+      password: "admin"
+      
+    # Different cluster configuration  
+    differentCluster:
+      host: "localhost"  # or node IP
+      port: "30920"      # NodePort
+      username: "admin"
+      password: "admin"
+      
+  # External (non-OpenChoreo) OpenSearch
+  external:
+    host: ""             # External OpenSearch host
+    port: "9200"
+    username: "admin"
+    password: "admin"
+    tls: false
+    tlsVerify: false
+  
+  # Legacy configuration for FluentBit template compatibility
   service:
-    type: ClusterIP
     httpPort: 9200
-    transportPort: 9300
     nameSuffix: "opensearch"
   
-  config:
-    clusterName: opensearch-cluster
-    discoveryType: single-node
-    javaOpts: "-Xms512m -Xmx512m"
-    memoryLock: false
-    disableSecurity: true
-  
   credentials:
-    username: admin
-    password: admin
-  
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 100m
-      memory: 512Mi
-  
-  persistence:
-    enabled: true
-    storageClass: ""
-    accessMode: ReadWriteOnce
-    size: 5Gi
-  
-  replicas: 1
+    username: "admin"
+    password: "admin"
 
 # Customizing Fluent Bit configurations
 fluentBit:

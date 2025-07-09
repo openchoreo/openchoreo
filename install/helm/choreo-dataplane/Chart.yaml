@@ -28,9 +28,10 @@ dependencies:
     repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
     version: "1.4.0"
     condition: secrets-store-csi-driver.enabled
-  - name: gateway-helm
+  - name: gateway
     repository: "oci://registry-1.docker.io/envoyproxy"
     version: 1.2.3
+    condition: gateway.enabled
   - name: cert-manager
     repository: https://charts.jetstack.io
     condition: certmanager.enabled
