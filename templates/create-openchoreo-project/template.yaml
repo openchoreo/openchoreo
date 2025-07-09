@@ -1,0 +1,57 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-openchoreo-project
+  title: Create Project
+  description: Create a new OpenChoreo project
+  tags:
+    - openchoreo
+spec:
+  owner: guests
+  type: system
+  parameters:
+    - title: OpenChoreo Project Details
+      required:
+        - owner
+        - organization_name
+        - project_name
+      properties:
+        project_name:
+          title: Project Name
+          type: string
+          description: Name of the project
+          ui:field: EntityNamePicker
+        displayName:
+          title: Display Name
+          type: string
+          description: Display name of the project
+        description:
+          title: Description
+          type: string
+          description: Help others understand what this project is for.
+        organization_name:
+          title: Organization Name
+          type: string
+          description: Help others understand what this project is for.
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              - kind: Domain
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the project
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              - kind: Group
+                spec.type: team
+  steps:
+    - id: create-openchoreo-project
+      name: Create OpenChoreo Project
+      action: openchoreo:project:create
+      input:
+        orgName: ${{ parameters.organization_name }}
+        projectName: ${{ parameters.project_name }}
+        displayName: ${{ parameters.displayName }}
+        description: ${{ parameters.description }}

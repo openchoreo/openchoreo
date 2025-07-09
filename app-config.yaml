@@ -85,27 +85,9 @@ catalog:
   rules:
     - allow: [Component, System, API, Resource, Location]
   locations:
-    #   # Local example data, file locations are relative to the backend process, typically `packages/backend`
-    #   - type: file
-    #     target: ../../examples/entities.yaml
-
     # Local example template
     - type: file
       target: ../../templates/create-openchoreo-project/template.yaml
-      rules:
-        - allow: [Template]
-    - type: file
-      target: ../../templates/create-openchoreo-component-docker-image/template.yaml
-      rules:
-        - allow: [Template]
-    - type: file
-      target: ../../templates/create-openchoreo-component-built-in-ci/template.yaml
-      rules:
-        - allow: [Template]
-    - type: file
-      target: ../../templates/create-openchoreo-component-external-ci/template.yaml
-      rules:
-        - allow: [Template]
 
     # Local example organizational data
     - type: file
