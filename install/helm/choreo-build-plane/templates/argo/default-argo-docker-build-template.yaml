@@ -39,10 +39,11 @@ spec:
             set -e
 
             BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
-            REPO="{{ "{{" }}workflow.parameters.git-repo{{ "}}" }}"
+            REPO={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
             COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
 
             if [[ -n "$COMMIT" ]]; then
+                echo "Cloning specific commit: $COMMIT"
                 git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
@@ -50,7 +51,8 @@ spec:
                 git checkout "$COMMIT"
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
             else
-                git clone --single-branch --branch $BRANCH --depth 1 "$repo" /mnt/vol/source
+                echo "Cloning branch: $BRANCH with latest commit"
+                git clone --single-branch --branch $BRANCH --depth 1 "REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
