@@ -42,6 +42,7 @@ func makeWorkflowSpec(build *choreov1.BuildV2) argoproj.WorkflowSpec {
 	parameters := buildWorkflowParameters(build)
 
 	return argoproj.WorkflowSpec{
+		ServiceAccountName: WorkflowServiceAccountName,
 		WorkflowTemplateRef: &argoproj.WorkflowTemplateRef{
 			Name:         build.Spec.TemplateRef.Name,
 			ClusterScope: true,

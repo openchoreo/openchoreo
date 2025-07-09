@@ -83,20 +83,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
 	}
 
-	if !isBuildTriggered(build) {
-		// Create or get workflow
-		_, err := r.ensureWorkflow(ctx, build, bpClient, logger)
-		if err != nil {
-			logger.Error(err, "Failed to ensure workflow")
-			return r.updateStatusAndRequeue(ctx, oldBuild, build)
-		}
-		setBuildTriggeredCondition(build)
+	workflow, created, err := r.ensureWorkflow(ctx, build, bpClient)
+	if err != nil {
+		logger.Error(err, "cannot ensure workflow")
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
-
-	workflow, err := r.retrieveWorkflow(ctx, build, bpClient)
-	if err != nil {
-		logger.Error(err, "Failed to ensure workflow")
+	if created {
+		setBuildTriggeredCondition(build)
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
@@ -170,38 +163,33 @@ func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client,
 	return nil
 }
 
-// ensureWorkflow creates or retrieves the workflow
-func (r *Reconciler) ensureWorkflow(ctx context.Context, build *choreov1.BuildV2, bpClient client.Client, logger logr.Logger) (*argoproj.Workflow, error) {
-	workflow := makeArgoWorkflow(build)
+// ensureWorkflow fetches the Argo Workflow; if it doesn't exist it creates one.
+// Returns (workflow, created, error)
+func (r *Reconciler) ensureWorkflow(
+	ctx context.Context,
+	build *choreov1.BuildV2,
+	bpClient client.Client,
+) (*argoproj.Workflow, bool, error) {
 
-	// Try to create workflow
-	if err := bpClient.Create(ctx, workflow); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			logger.V(1).Info("Workflow already exists", "workflow", workflow.Name)
-			// Get existing workflow
-			existingWorkflow := &argoproj.Workflow{}
-			if err := bpClient.Get(ctx, client.ObjectKey{Name: workflow.Name, Namespace: workflow.Namespace}, existingWorkflow); err != nil {
-				return nil, err
-			}
-			return existingWorkflow, nil
-		}
-		return nil, err
+	wf := &argoproj.Workflow{}
+	err := bpClient.Get(ctx,
+		client.ObjectKey{Name: makeWorkflowName(build), Namespace: makeNamespaceName(build)},
+		wf,
+	)
+
+	if err == nil || apierrors.IsAlreadyExists(err) {
+		return wf, false, nil
 	}
 
-	logger.Info("Created workflow", "workflow", workflow.Name)
-	return workflow, nil
-}
-
-func (r *Reconciler) retrieveWorkflow(ctx context.Context, build *choreov1.BuildV2, bpClient client.Client) (*argoproj.Workflow, error) {
-	workflow := &argoproj.Workflow{}
-	err := bpClient.Get(ctx, client.ObjectKey{Name: build.Name, Namespace: makeNamespaceName(build)}, workflow)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("workflow not found for build %s", build.Name)
-		}
-		return nil, err
+	if !apierrors.IsNotFound(err) {
+		return nil, false, err
 	}
-	return workflow, nil
+
+	wf = makeArgoWorkflow(build)
+	if err := bpClient.Create(ctx, wf); err != nil {
+		return nil, false, err
+	}
+	return wf, true, nil
 }
 
 // updateBuildStatus updates build status based on workflow status
