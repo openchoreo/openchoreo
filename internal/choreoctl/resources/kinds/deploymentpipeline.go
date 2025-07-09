@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -17,7 +17,7 @@ import (
 
 // DeploymentPipelineResource provides operations for DeploymentPipeline CRs.
 type DeploymentPipelineResource struct {
-	*resources.BaseResource[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList]
+	*resources.BaseResource[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList]
 }
 
 // NewDeploymentPipelineResource constructs a DeploymentPipelineResource with CRDConfig and optionally sets organization.
@@ -27,14 +27,14 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList]{
-		resources.WithClient[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList](cli),
-		resources.WithConfig[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList]{
+		resources.WithClient[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](cli),
+		resources.WithConfig[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](org))
 	}
 
 	// Create labels for filtering
@@ -45,11 +45,11 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](labels))
 	}
 
 	return &DeploymentPipelineResource{
-		BaseResource: resources.NewBaseResource[*choreov1.DeploymentPipeline, *choreov1.DeploymentPipelineList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](options...),
 	}, nil
 }
 
@@ -59,7 +59,7 @@ func (d *DeploymentPipelineResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a DeploymentPipeline with detailed information.
-func (d *DeploymentPipelineResource) GetStatus(pipeline *choreov1.DeploymentPipeline) string {
+func (d *DeploymentPipelineResource) GetStatus(pipeline *openchoreov1alpha1.DeploymentPipeline) string {
 	// DeploymentPipeline uses the Available condition type
 	priorityConditions := []string{
 		controller.TypeAvailable,
@@ -75,12 +75,12 @@ func (d *DeploymentPipelineResource) GetStatus(pipeline *choreov1.DeploymentPipe
 }
 
 // GetAge returns the age of a DeploymentPipeline.
-func (d *DeploymentPipelineResource) GetAge(pipeline *choreov1.DeploymentPipeline) string {
+func (d *DeploymentPipelineResource) GetAge(pipeline *openchoreov1alpha1.DeploymentPipeline) string {
 	return resources.FormatAge(pipeline.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats deployment pipelines into a table
-func (d *DeploymentPipelineResource) PrintTableItems(pipelines []resources.ResourceWrapper[*choreov1.DeploymentPipeline]) error {
+func (d *DeploymentPipelineResource) PrintTableItems(pipelines []resources.ResourceWrapper[*openchoreov1alpha1.DeploymentPipeline]) error {
 	if len(pipelines) == 0 {
 		namespaceName := d.GetNamespace()
 		message := "No deployment pipelines found"
@@ -117,25 +117,25 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 	k8sName := resources.GenerateResourceName(params.Organization, params.Name)
 
 	// Convert promotion paths from API params to CR structure
-	promotionPaths := []choreov1.PromotionPath{}
+	promotionPaths := []openchoreov1alpha1.PromotionPath{}
 	for _, path := range params.PromotionPaths {
-		targetEnvRefs := []choreov1.TargetEnvironmentRef{}
+		targetEnvRefs := []openchoreov1alpha1.TargetEnvironmentRef{}
 		for _, target := range path.TargetEnvironments {
-			targetEnvRefs = append(targetEnvRefs, choreov1.TargetEnvironmentRef{
+			targetEnvRefs = append(targetEnvRefs, openchoreov1alpha1.TargetEnvironmentRef{
 				Name:                     target.Name,
 				RequiresApproval:         target.RequiresApproval,
 				IsManualApprovalRequired: target.IsManualApprovalRequired,
 			})
 		}
 
-		promotionPaths = append(promotionPaths, choreov1.PromotionPath{
+		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
 			SourceEnvironmentRef:  path.SourceEnvironment,
 			TargetEnvironmentRefs: targetEnvRefs,
 		})
 	}
 
 	// Create the DeploymentPipeline resource
-	deploymentPipeline := &choreov1.DeploymentPipeline{
+	deploymentPipeline := &openchoreov1alpha1.DeploymentPipeline{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -148,7 +148,7 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 				constants.LabelOrganization: params.Organization,
 			},
 		},
-		Spec: choreov1.DeploymentPipelineSpec{
+		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 			PromotionPaths: promotionPaths,
 		},
 	}

@@ -8,7 +8,7 @@ metadata:
   name: servicebinding-viewer-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - servicebindings
   verbs:
@@ -16,7 +16,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - servicebindings/status
   verbs:

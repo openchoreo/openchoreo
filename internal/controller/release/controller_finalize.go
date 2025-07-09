@@ -14,18 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
 	// DataPlaneCleanupFinalizer is the finalizer that is used to clean up the data plane resources.
-	DataPlaneCleanupFinalizer = "core.choreo.dev/dataplane-cleanup"
+	DataPlaneCleanupFinalizer = "openchoreo.dev/dataplane-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the Release.
 // The first return value indicates whether the finalizer was added to the Release.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, release *choreov1.Release) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1alpha1.Release) (bool, error) {
 	// If the Release is being deleted, no need to add the finalizer
 	if !release.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -39,7 +39,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, release *choreov1.Rele
 }
 
 // finalize cleans up the data plane resources associated with the Release.
-func (r *Reconciler) finalize(ctx context.Context, old, release *choreov1.Release) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alpha1.Release) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil

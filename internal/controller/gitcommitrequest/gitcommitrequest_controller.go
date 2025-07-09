@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Reconciler reconciles a GitCommitRequest object
@@ -34,9 +34,9 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=gitcommitrequests/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=gitcommitrequests/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -51,7 +51,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Workload instance for this reconcile request
-	gcr := &choreov1.GitCommitRequest{}
+	gcr := &openchoreov1alpha1.GitCommitRequest{}
 	if err := r.Get(ctx, req.NamespacedName, gcr); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get Workload")
@@ -150,14 +150,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 //
 //nolint:unparam
 func (r *Reconciler) fail(ctx context.Context,
-	gcr *choreov1.GitCommitRequest, err error) (ctrl.Result, error) {
+	gcr *openchoreov1alpha1.GitCommitRequest, err error) (ctrl.Result, error) {
 	gcr.Status.Phase = "Failed"
 	gcr.Status.Message = err.Error()
 	_ = r.Status().Update(ctx, gcr)
 	return ctrl.Result{}, err
 }
 
-func applyEdits(root string, edits []choreov1.FileEdit) error {
+func applyEdits(root string, edits []openchoreov1alpha1.FileEdit) error {
 	for _, e := range edits {
 		abs := filepath.Join(root, e.Path)
 		if err := os.MkdirAll(filepath.Dir(abs), fs.ModePerm); err != nil {
@@ -182,7 +182,7 @@ func applyEdits(root string, edits []choreov1.FileEdit) error {
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.GitCommitRequest{}).
+		For(&openchoreov1alpha1.GitCommitRequest{}).
 		Named("gitcommitrequest").
 		Complete(r)
 }

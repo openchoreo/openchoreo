@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: organizations.core.choreo.dev
+  name: organizations.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: Organization
     listKind: OrganizationList
@@ -17,7 +17,7 @@ spec:
     singular: organization
   scope: Cluster
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Organization is the Schema for the organizations API.

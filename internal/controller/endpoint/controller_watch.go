@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -24,11 +24,11 @@ const (
 func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.Environment{},
+		&openchoreov1alpha1.Environment{},
 		dataPlaneRefIndexKey,
 		func(obj client.Object) []string {
 			// Convert the object to an Environment
-			env := obj.(*choreov1.Environment)
+			env := obj.(*openchoreov1alpha1.Environment)
 			// Return the data plane reference
 			return []string{env.Spec.DataPlaneRef}
 		},
@@ -37,12 +37,12 @@ func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manage
 
 // find and return all endpoints that belong to a dataplane
 func (r *Reconciler) listEndpointsForDataplane(ctx context.Context, obj client.Object) []reconcile.Request {
-	dp, ok := obj.(*choreov1.DataPlane)
+	dp, ok := obj.(*openchoreov1alpha1.DataPlane)
 	if !ok {
 		return nil
 	}
 
-	envList := &choreov1.EnvironmentList{}
+	envList := &openchoreov1alpha1.EnvironmentList{}
 	if err := r.List(
 		ctx,
 		envList,
@@ -54,7 +54,7 @@ func (r *Reconciler) listEndpointsForDataplane(ctx context.Context, obj client.O
 	}
 	requests := make([]reconcile.Request, 0, len(envList.Items))
 	for _, env := range envList.Items {
-		epList := &choreov1.EndpointList{}
+		epList := &openchoreov1alpha1.EndpointList{}
 		if err := r.List(ctx, epList, client.MatchingLabels{
 			labels.LabelKeyEnvironmentName: env.Name,
 		}); err != nil {
@@ -74,12 +74,12 @@ func (r *Reconciler) listEndpointsForDataplane(ctx context.Context, obj client.O
 
 // find and return all endpoints that belong to a dataplane
 func (r *Reconciler) listEndpointsForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
-	env, ok := obj.(*choreov1.Environment)
+	env, ok := obj.(*openchoreov1alpha1.Environment)
 	if !ok {
 		return nil
 	}
 
-	epList := &choreov1.EndpointList{}
+	epList := &openchoreov1alpha1.EndpointList{}
 	if err := r.List(
 		ctx,
 		epList,

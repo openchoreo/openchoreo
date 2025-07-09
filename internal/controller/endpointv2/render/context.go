@@ -6,13 +6,13 @@ package render
 import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Context holds all the information needed for rendering EndpointV2 resources
 type Context struct {
-	EndpointV2    *choreov1.EndpointV2
-	EndpointClass *choreov1.EndpointClass
+	EndpointV2    *openchoreov1alpha1.EndpointV2
+	EndpointClass *openchoreov1alpha1.EndpointClass
 
 	// ResolvedPolicies contains the merged policies from EndpointClass and EndpointV2
 	ResolvedPolicies *ResolvedPolicies
@@ -33,13 +33,13 @@ type RESTResolutionResult struct {
 	Operations map[string]*RESTOperationPolicies // key: method:path
 
 	// Default policies that apply to all operations
-	DefaultPolicies *choreov1.RESTPolicy
+	DefaultPolicies *openchoreov1alpha1.RESTPolicy
 }
 
 // RESTOperationPolicies contains the resolved policies for a specific REST operation
 type RESTOperationPolicies struct {
-	Operation    *choreov1.RESTEndpointOperation
-	ExposeLevels map[choreov1.RESTOperationExposeLevel]*choreov1.RESTPolicy
+	Operation    *openchoreov1alpha1.RESTEndpointOperation
+	ExposeLevels map[openchoreov1alpha1.RESTOperationExposeLevel]*openchoreov1alpha1.RESTPolicy
 }
 
 func (c *Context) AddError(err error) {
@@ -71,7 +71,7 @@ func (c *Context) EnsurePolicyResolution() {
 	c.ResolvedPolicies = &ResolvedPolicies{}
 
 	// Resolve REST policies if this is a REST endpoint
-	if c.EndpointV2.Spec.Type == choreov1.EndpointTypeREST && c.EndpointV2.Spec.RESTEndpoint != nil {
+	if c.EndpointV2.Spec.Type == openchoreov1alpha1.EndpointTypeREST && c.EndpointV2.Spec.RESTEndpoint != nil {
 		c.ResolvedPolicies.REST = c.resolveRESTPolicy()
 	}
 }
@@ -92,7 +92,7 @@ func (c *Context) resolveRESTPolicy() *RESTResolutionResult {
 		opKey := string(operation.Method) + ":" + operation.Path
 		opPolicies := &RESTOperationPolicies{
 			Operation:    &operation,
-			ExposeLevels: make(map[choreov1.RESTOperationExposeLevel]*choreov1.RESTPolicy),
+			ExposeLevels: make(map[openchoreov1alpha1.RESTOperationExposeLevel]*openchoreov1alpha1.RESTPolicy),
 		}
 
 		// Apply policies for each expose level
@@ -108,36 +108,36 @@ func (c *Context) resolveRESTPolicy() *RESTResolutionResult {
 }
 
 // resolveRESTOperationPolicy resolves the final policy for a specific operation and expose level
-func (c *Context) resolveRESTOperationPolicy(operation choreov1.RESTEndpointOperation, exposeLevel choreov1.RESTOperationExposeLevel) *choreov1.RESTPolicy {
+func (c *Context) resolveRESTOperationPolicy(operation openchoreov1alpha1.RESTEndpointOperation, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *openchoreov1alpha1.RESTPolicy {
 	// Start with default policy
-	var finalPolicy *choreov1.RESTPolicy
+	var finalPolicy *openchoreov1alpha1.RESTPolicy
 	if c.EndpointClass.Spec.RESTPolicy != nil && c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
 		finalPolicy = c.EndpointClass.Spec.RESTPolicy.Defaults.RESTPolicy.DeepCopy()
 	} else {
-		finalPolicy = &choreov1.RESTPolicy{}
+		finalPolicy = &openchoreov1alpha1.RESTPolicy{}
 	}
 
 	// Apply expose level overrides from EndpointClass
 	if c.EndpointClass.Spec.RESTPolicy != nil {
 		switch exposeLevel {
-		case choreov1.ExposeLevelOrganization:
+		case openchoreov1alpha1.ExposeLevelOrganization:
 			if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
 				finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Organization.RESTPolicy)
 			}
-		case choreov1.ExposeLevelPublic:
+		case openchoreov1alpha1.ExposeLevelPublic:
 			if c.EndpointClass.Spec.RESTPolicy.Public != nil {
 				finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Public.RESTPolicy)
 			}
 		}
 
 		// Apply conditional policies from EndpointClass based on expose level
-		var conditionalPolicies []choreov1.RESTConditionalPolicy
+		var conditionalPolicies []openchoreov1alpha1.RESTConditionalPolicy
 		switch exposeLevel {
-		case choreov1.ExposeLevelOrganization:
+		case openchoreov1alpha1.ExposeLevelOrganization:
 			if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
 				conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Organization.ConditionalPolicies
 			}
-		case choreov1.ExposeLevelPublic:
+		case openchoreov1alpha1.ExposeLevelPublic:
 			if c.EndpointClass.Spec.RESTPolicy.Public != nil {
 				conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Public.ConditionalPolicies
 			}
@@ -160,7 +160,7 @@ func (c *Context) resolveRESTOperationPolicy(operation choreov1.RESTEndpointOper
 }
 
 // mergeRESTPolicy merges two REST policies, with override taking precedence
-func (c *Context) mergeRESTPolicy(base, override *choreov1.RESTPolicy) *choreov1.RESTPolicy {
+func (c *Context) mergeRESTPolicy(base, override *openchoreov1alpha1.RESTPolicy) *openchoreov1alpha1.RESTPolicy {
 	if base == nil {
 		return override.DeepCopy()
 	}
@@ -214,7 +214,7 @@ func (c *Context) mergeRESTPolicy(base, override *choreov1.RESTPolicy) *choreov1
 }
 
 // matchesCondition checks if an operation matches a conditional policy condition
-func (c *Context) matchesCondition(operation choreov1.RESTEndpointOperation, condition *choreov1.RESTPolicyCondition) bool {
+func (c *Context) matchesCondition(operation openchoreov1alpha1.RESTEndpointOperation, condition *openchoreov1alpha1.RESTPolicyCondition) bool {
 	if condition == nil {
 		return true
 	}

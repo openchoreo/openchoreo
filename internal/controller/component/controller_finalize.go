@@ -14,19 +14,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	// ComponentCleanupFinalizer is the finalizer that is used to clean up component resources.
-	ComponentCleanupFinalizer = "core.choreo.dev/component-cleanup"
+	ComponentCleanupFinalizer = "openchoreo.dev/component-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the component.
 // The first return value indicates whether the finalizer was added to the component.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, component *choreov1.Component) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, component *openchoreov1alpha1.Component) (bool, error) {
 	// If the component is being deleted, no need to add the finalizer
 	if !component.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -40,7 +40,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, component *choreov1.Co
 }
 
 // finalize cleans up the resources associated with the component.
-func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Component) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, component *openchoreov1alpha1.Component) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("component", component.Name)
 
 	if !controllerutil.ContainsFinalizer(component, ComponentCleanupFinalizer) {
@@ -77,12 +77,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, component *choreov1.Comp
 }
 
 // deleteDeploymentTracksAndWait cleans up any resources that are dependent on this Component
-func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, component *choreov1.Component) (bool, error) {
+func (r *Reconciler) deleteDeploymentTracksAndWait(ctx context.Context, component *openchoreov1alpha1.Component) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("component", component.Name)
 	logger.Info("Cleaning up dependent resources")
 
 	// Find all DeploymentTracks owned by this Component using the component label
-	deploymentTrackList := &choreov1.DeploymentTrackList{}
+	deploymentTrackList := &openchoreov1alpha1.DeploymentTrackList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(component.Namespace),
 		client.MatchingLabels{

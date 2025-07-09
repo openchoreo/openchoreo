@@ -19,7 +19,7 @@ Until native support for the `BuildPlane` custom resource is available, you can 
 2. Add the following label to the `DataPlane` resource:
 
    ```yaml
-   core.choreo.dev/build-plane: "true"
+   openchoreo.dev/build-plane: "true"
    ```
 
 > [!IMPORTANT]

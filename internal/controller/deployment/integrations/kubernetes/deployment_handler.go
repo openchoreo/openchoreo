@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
@@ -40,8 +40,8 @@ func (h *deploymentHandler) Name() string {
 // If this returns false, the controller will attempt to delete the resource.
 func (h *deploymentHandler) IsRequired(deployCtx *dataplane.DeploymentContext) bool {
 	// Kubernetes Deployments are required for Web Applications and Services
-	return deployCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication ||
-		deployCtx.Component.Spec.Type == choreov1.ComponentTypeService
+	return deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication ||
+		deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService
 }
 
 // GetCurrentState returns the current state of the external resource.

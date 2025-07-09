@@ -14,6 +14,6 @@ spec:
   dependsOn:
     - name: choreo-platform
   healthChecks:
-    - apiVersion: core.choreo.dev/v1
+    - apiVersion: openchoreo.dev/v1alpha1
       kind: Workload
       name: reading-list-service

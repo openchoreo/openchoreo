@@ -16,7 +16,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
@@ -38,7 +38,7 @@ func (h *cronJobHandler) Name() string {
 }
 
 func (h *cronJobHandler) IsRequired(deployCtx *dataplane.DeploymentContext) bool {
-	return deployCtx.Component.Spec.Type == choreov1.ComponentTypeScheduledTask
+	return deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeScheduledTask
 }
 
 func (h *cronJobHandler) GetCurrentState(ctx context.Context, deployCtx *dataplane.DeploymentContext) (interface{}, error) {
@@ -137,7 +137,7 @@ func makeCronJobSpec(deployCtx *dataplane.DeploymentContext) batchv1.CronJobSpec
 		Suspend:  ptr.To(false),
 		TimeZone: ptr.To("Etc/UTC"),
 	}
-	var taskSpec *choreov1.TaskConfig
+	var taskSpec *openchoreov1alpha1.TaskConfig
 	if deployCtx.DeployableArtifact.Spec.Configuration != nil &&
 		deployCtx.DeployableArtifact.Spec.Configuration.Application != nil {
 		taskSpec = deployCtx.DeployableArtifact.Spec.Configuration.Application.Task

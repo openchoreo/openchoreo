@@ -16,7 +16,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
@@ -150,7 +150,7 @@ func MakeSecurityPolicies(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
+		if policy.PolicySpec == nil || policy.Type != openchoreov1alpha1.Oauth2PolicyType {
 			continue
 		}
 
@@ -172,7 +172,7 @@ func MakeSecurityPolicies(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	return out
 }
 
-func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, restOperation *choreov1.RESTOperation,
+func makeSecurityPolicyForOperation(epCtx *dataplane.EndpointContext, restOperation *openchoreov1alpha1.RESTOperation,
 	gwType visibility.GatewayType) *egv1a1.SecurityPolicy {
 	// Using the same name as HTTPRoute for consistency
 	name := makeHTTPRouteNameForOperation(epCtx, gwType, string(restOperation.Method), restOperation.Target)

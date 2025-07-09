@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -23,11 +23,11 @@ const dataplaneRefIndexKey = ".spec.dataPlaneRef"
 func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.Environment{},
+		&openchoreov1alpha1.Environment{},
 		dataplaneRefIndexKey,
 		func(obj client.Object) []string {
 			// Convert the object to the appropriate type
-			environment, ok := obj.(*choreov1.Environment)
+			environment, ok := obj.(*openchoreov1alpha1.Environment)
 			if !ok {
 				return nil
 			}
@@ -38,7 +38,7 @@ func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manage
 }
 
 func (r *Reconciler) GetDataPlaneForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
-	environment, ok := obj.(*choreov1.Environment)
+	environment, ok := obj.(*openchoreov1alpha1.Environment)
 	if !ok {
 		// Ideally, this should not happen as obj is always expected to be an Environment from the Watch
 		return nil

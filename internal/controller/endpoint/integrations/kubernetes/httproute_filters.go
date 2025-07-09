@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
@@ -150,7 +150,7 @@ func MakeHTTPRouteFilters(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	policies := extractPoliciesFromCtx(epCtx, gwType)
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
+		if policy.PolicySpec == nil || policy.Type != openchoreov1alpha1.Oauth2PolicyType {
 			continue
 		}
 
@@ -172,12 +172,12 @@ func MakeHTTPRouteFilters(epCtx *dataplane.EndpointContext, gwType visibility.Ga
 	return out
 }
 
-func makeHTTPRouteFilterForOperation(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType, restOperation *choreov1.RESTOperation) *egv1a1.HTTPRouteFilter {
+func makeHTTPRouteFilterForOperation(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType, restOperation *openchoreov1alpha1.RESTOperation) *egv1a1.HTTPRouteFilter {
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
 	prefix := makePathPrefix(epCtx)
 	endpointPath := path.Join(basePath, restOperation.Target)
 
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, endpointPath))
 	}
 	pattern := GenerateRegexWithCaptureGroup(basePath, restOperation.Target, endpointPath)

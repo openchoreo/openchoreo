@@ -10,12 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/project/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
-func (r *Reconciler) makeProjectContext(ctx context.Context, project *choreov1.Project) (*dataplane.ProjectContext, error) {
+func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreov1alpha1.Project) (*dataplane.ProjectContext, error) {
 	deploymentPipeline, err := r.findDeploymentPipeline(ctx, project)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
@@ -36,11 +36,11 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *choreov1.P
 	}, nil
 }
 
-func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *choreov1.Project) (*choreov1.DeploymentPipeline, error) {
+func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Get deployment pipeline
-	var deploymentPipeline choreov1.DeploymentPipeline
+	var deploymentPipeline openchoreov1alpha1.DeploymentPipeline
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: project.Namespace,
 		Name:      project.Spec.DeploymentPipelineRef,
@@ -50,13 +50,13 @@ func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *choreo
 		logger.Error(err, "Failed to get deployment pipeline",
 			"pipelineRef", project.Spec.DeploymentPipelineRef,
 			"namespace", project.Namespace)
-		return &choreov1.DeploymentPipeline{}, err
+		return &openchoreov1alpha1.DeploymentPipeline{}, err
 	}
 
 	return &deploymentPipeline, nil
 }
 
-func (r *Reconciler) findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline *choreov1.DeploymentPipeline) []string {
+func (r *Reconciler) findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline *openchoreov1alpha1.DeploymentPipeline) []string {
 	// Use a map to track unique environments
 	environmentMap := make(map[string]struct{})
 

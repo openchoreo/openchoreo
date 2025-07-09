@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: endpointv2s.core.choreo.dev
+  name: endpointv2s.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: EndpointV2
     listKind: EndpointV2List
@@ -14,7 +14,7 @@ spec:
     singular: endpointv2
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: EndpointV2 is the Schema for the endpointv2s API.

@@ -8,7 +8,7 @@ metadata:
   name: deploymenttrack-editor-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - deploymenttracks
   verbs:
@@ -20,7 +20,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - deploymenttracks/status
   verbs:

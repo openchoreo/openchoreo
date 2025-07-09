@@ -1,29 +1,29 @@
 ## Sample Organization kind (Cluster-scoped)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Organization
 metadata:
   name: acme
   annotations:
-    core.choreo.dev/display-name: ACME Organization
-    core.choreo.dev/description: Choreo Organization for ACME
+    openchoreo.dev/display-name: ACME Organization
+    openchoreo.dev/description: Choreo Organization for ACME
   labels:
-    core.choreo.dev/name: acme
+    openchoreo.dev/name: acme
 spec: {}
 ---
 
 ## Sample DataPlane kind (Namespaced) - add cluster credentials before applying
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
   name: dp-local
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Local Data Plane
-    core.choreo.dev/description: Data plane in Kind cluster
+    openchoreo.dev/display-name: Local Data Plane
+    openchoreo.dev/description: Data plane in Kind cluster
   labels:
-    core.choreo.dev/build-plane: "true"
-    core.choreo.dev/name: dp-local
-    core.choreo.dev/organization: acme
+    openchoreo.dev/build-plane: "true"
+    openchoreo.dev/name: dp-local
+    openchoreo.dev/organization: acme
 spec:
   gateway:
     organizationVirtualHost: choreoapis.internal
@@ -41,17 +41,17 @@ spec:
 ---
 
 ## Sample DeploymentPipeline kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
   name: pipeline-dev-stage-prod
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Default Deployment Pipeline
-    core.choreo.dev/description: Allows promoting from dev to production
+    openchoreo.dev/display-name: Default Deployment Pipeline
+    openchoreo.dev/description: Allows promoting from dev to production
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: pipeline-dev-stage-prod
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: pipeline-dev-stage-prod
 spec:
   promotionPaths:
     - sourceEnvironmentRef: development
@@ -67,17 +67,17 @@ spec:
 ---
 
 ## Sample Environment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: development
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Development Environment
-    core.choreo.dev/description: The environment where you can play around
+    openchoreo.dev/display-name: Development Environment
+    openchoreo.dev/description: The environment where you can play around
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: development
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: development
 spec:
   dataPlaneRef: dp-local 
   isProduction: false
@@ -86,16 +86,16 @@ spec:
 ---
 
 ## Sample Project kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   name: customer-portal
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Customer Portal
-    core.choreo.dev/description: This project contains types that are used by Acme customer portal
+    openchoreo.dev/display-name: Customer Portal
+    openchoreo.dev/description: This project contains types that are used by Acme customer portal
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: customer-portal
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: customer-portal
 spec:
   deploymentPipelineRef: pipeline-dev-stage-prod

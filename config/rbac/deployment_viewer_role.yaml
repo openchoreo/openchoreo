@@ -8,7 +8,7 @@ metadata:
   name: deployment-viewer-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - deployments
   verbs:
@@ -16,7 +16,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - deployments/status
   verbs:

@@ -8,7 +8,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var (
@@ -20,7 +20,7 @@ func init() {
 	// Register standard Kubernetes types
 	utilruntime.Must(clientgoscheme.AddToScheme(schemeInstance))
 	// Register Choreo CRDs
-	utilruntime.Must(choreov1.AddToScheme(schemeInstance))
+	utilruntime.Must(openchoreov1alpha1.AddToScheme(schemeInstance))
 }
 
 // GetScheme returns the runtime scheme with all required types registered

@@ -8,12 +8,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Deployment creates a complete Deployment resource for the new Resources array
-func Deployment(rCtx Context) *choreov1.Resource {
+func Deployment(rCtx Context) *openchoreov1alpha1.Resource {
 	base := rCtx.WebApplicationClass.Spec.DeploymentTemplate
 
 	overlay := makeWebApplicationDeploymentSpec(rCtx)
@@ -39,7 +39,7 @@ func Deployment(rCtx Context) *choreov1.Resource {
 	rawExt := &runtime.RawExtension{}
 	rawExt.Object = deployment
 
-	return &choreov1.Resource{
+	return &openchoreov1alpha1.Resource{
 		ID:     makeDeploymentResourceID(rCtx),
 		Object: rawExt,
 	}

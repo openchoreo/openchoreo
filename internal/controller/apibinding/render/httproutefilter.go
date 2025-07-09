@@ -11,14 +11,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // HTTPRouteFilters renders the HTTPRouteFilter resources for regex-based path replacement.
-func HTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
+func HTTPRouteFilters(rCtx *Context) []*openchoreov1alpha1.Resource {
 	apiType := rCtx.API.Spec.Type
 	switch apiType {
-	case choreov1.EndpointTypeREST:
+	case openchoreov1alpha1.EndpointTypeREST:
 		return makeRESTHTTPRouteFilters(rCtx)
 	default:
 		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
@@ -26,7 +26,7 @@ func HTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
 	}
 }
 
-func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
+func makeRESTHTTPRouteFilters(rCtx *Context) []*openchoreov1alpha1.Resource {
 	if rCtx.API.Spec.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
 		return nil
@@ -42,7 +42,7 @@ func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
 	// Process each operation and its expose levels
 	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelProject {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 				continue // Skip project level for now
 			}
 			httpRouteFilter := makeHTTPRouteFilterForRestOperation(rCtx, operation, exposeLevel)
@@ -52,13 +52,13 @@ func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, 0, len(httpRouteFilters))
+	resources := make([]*openchoreov1alpha1.Resource, 0, len(httpRouteFilters))
 
 	for _, httpRouteFilter := range httpRouteFilters {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRouteFilter
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeHTTPRouteFilterResourceID(httpRouteFilter),
 			Object: rawExt,
 		})
@@ -67,8 +67,8 @@ func makeRESTHTTPRouteFilters(rCtx *Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeHTTPRouteFilterForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *egv1a1.HTTPRouteFilter {
+func makeHTTPRouteFilterForRestOperation(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *egv1a1.HTTPRouteFilter {
 	basePath := rCtx.API.Spec.RESTEndpoint.Backend.BasePath
 	endpointPath := path.Join(basePath, restOperation.Path)
 	pattern := GenerateRegexWithCaptureGroup(basePath, restOperation.Path, endpointPath)

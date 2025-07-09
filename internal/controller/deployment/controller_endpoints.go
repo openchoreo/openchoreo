@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -29,7 +29,7 @@ func (r *Reconciler) reconcileChoreoEndpoints(ctx context.Context, deploymentCtx
 	}
 
 	// Get the current endpoints owned by this deployment
-	var currentEndpoints choreov1.EndpointList
+	var currentEndpoints openchoreov1alpha1.EndpointList
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentCtx.Deployment.Namespace),
 		client.MatchingFields{"metadata.ownerReferences": string(deploymentCtx.Deployment.UID)},
@@ -40,7 +40,7 @@ func (r *Reconciler) reconcileChoreoEndpoints(ctx context.Context, deploymentCtx
 
 	// Reconcile each desired endpoint
 	for _, desiredEndpoint := range desiredEndpoints {
-		existingEndpoint := &choreov1.Endpoint{}
+		existingEndpoint := &openchoreov1alpha1.Endpoint{}
 		err := r.Get(ctx, client.ObjectKeyFromObject(desiredEndpoint), existingEndpoint)
 		if apierrors.IsNotFound(err) {
 			if err := r.Create(ctx, desiredEndpoint); err != nil {
@@ -74,12 +74,12 @@ func (r *Reconciler) reconcileChoreoEndpoints(ctx context.Context, deploymentCtx
 	return nil
 }
 
-func (r *Reconciler) makeEndpoints(deployCtx *dataplane.DeploymentContext) ([]*choreov1.Endpoint, error) {
+func (r *Reconciler) makeEndpoints(deployCtx *dataplane.DeploymentContext) ([]*openchoreov1alpha1.Endpoint, error) {
 	if deployCtx.DeployableArtifact.Spec.Configuration == nil {
 		return nil, nil
 	}
 	endpointTemplates := deployCtx.DeployableArtifact.Spec.Configuration.EndpointTemplates
-	endpoints := make([]*choreov1.Endpoint, 0, len(endpointTemplates))
+	endpoints := make([]*openchoreov1alpha1.Endpoint, 0, len(endpointTemplates))
 	for _, endpointTemplate := range endpointTemplates {
 		endpoint := makeEndpoint(deployCtx, &endpointTemplate)
 		if err := ctrl.SetControllerReference(deployCtx.Deployment, endpoint, r.Scheme); err != nil {
@@ -90,8 +90,8 @@ func (r *Reconciler) makeEndpoints(deployCtx *dataplane.DeploymentContext) ([]*c
 	return endpoints, nil
 }
 
-func makeEndpoint(deployCtx *dataplane.DeploymentContext, endpointTemplate *choreov1.EndpointTemplate) *choreov1.Endpoint {
-	endpoint := &choreov1.Endpoint{
+func makeEndpoint(deployCtx *dataplane.DeploymentContext, endpointTemplate *openchoreov1alpha1.EndpointTemplate) *openchoreov1alpha1.Endpoint {
+	endpoint := &openchoreov1alpha1.Endpoint{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        makeEndpointName(deployCtx, endpointTemplate),
 			Namespace:   deployCtx.Deployment.Namespace,
@@ -107,14 +107,14 @@ func makeEndpoint(deployCtx *dataplane.DeploymentContext, endpointTemplate *chor
 // Format: <deployment-name>-<endpoint-name>-<random-suffix> if .metadata.name is set
 //
 //	<deployment-name>-endpoint-<random-suffix> if .metadata.name is not set
-func makeEndpointName(deployCtx *dataplane.DeploymentContext, endpointTemplate *choreov1.EndpointTemplate) string {
+func makeEndpointName(deployCtx *dataplane.DeploymentContext, endpointTemplate *openchoreov1alpha1.EndpointTemplate) string {
 	if endpointTemplate.Name != "" {
 		return kubernetes.GenerateK8sName(deployCtx.Deployment.Name, endpointTemplate.Name)
 	}
 	return kubernetes.GenerateK8sName(deployCtx.Deployment.Name, "endpoint")
 }
 
-func makeEndpointLabels(deployCtx *dataplane.DeploymentContext, endpointTemplate *choreov1.EndpointTemplate) map[string]string {
+func makeEndpointLabels(deployCtx *dataplane.DeploymentContext, endpointTemplate *openchoreov1alpha1.EndpointTemplate) map[string]string {
 	l := make(map[string]string)
 	// Add all the labels from the deployment
 	for key, value := range deployCtx.Deployment.Labels {
@@ -129,7 +129,7 @@ func makeEndpointLabels(deployCtx *dataplane.DeploymentContext, endpointTemplate
 	return l
 }
 
-func makeEndpointAnnotations(deployCtx *dataplane.DeploymentContext, endpointTemplate *choreov1.EndpointTemplate) map[string]string {
+func makeEndpointAnnotations(deployCtx *dataplane.DeploymentContext, endpointTemplate *openchoreov1alpha1.EndpointTemplate) map[string]string {
 	annotations := make(map[string]string)
 	// Add all the annotations from the deployment
 	for key, value := range deployCtx.Deployment.Annotations {

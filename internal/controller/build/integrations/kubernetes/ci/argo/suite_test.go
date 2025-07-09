@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -29,13 +29,13 @@ func imageName() string {
 func newTestBuildContext() *integrations.BuildContext {
 	buildCtx := &integrations.BuildContext{}
 
-	buildCtx.Registry = choreov1.Registry{
+	buildCtx.Registry = openchoreov1alpha1.Registry{
 		Unauthenticated: []string{
 			"registry.choreo-system:5000",
 		},
 	}
 
-	buildCtx.Component = &choreov1.Component{
+	buildCtx.Component = &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-component",
 			Namespace: "test-organization",
@@ -45,16 +45,16 @@ func newTestBuildContext() *integrations.BuildContext {
 				labels.LabelKeyName:             "test-component",
 			},
 		},
-		Spec: choreov1.ComponentSpec{
-			Type: choreov1.ComponentTypeService,
-			Source: choreov1.ComponentSource{
-				GitRepository: &choreov1.GitRepository{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Type: openchoreov1alpha1.ComponentTypeService,
+			Source: openchoreov1alpha1.ComponentSource{
+				GitRepository: &openchoreov1alpha1.GitRepository{
 					URL: "https://github.com/openchoreo/test",
 				},
 			},
 		},
 	}
-	buildCtx.DeploymentTrack = &choreov1.DeploymentTrack{
+	buildCtx.DeploymentTrack = &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-main-track",
 			Namespace: "test-organization",
@@ -66,7 +66,7 @@ func newTestBuildContext() *integrations.BuildContext {
 			},
 		},
 	}
-	buildCtx.Build = &choreov1.Build{
+	buildCtx.Build = &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-build",
 			Namespace: "test-organization",
@@ -84,22 +84,22 @@ func newTestBuildContext() *integrations.BuildContext {
 }
 
 func newDockerBasedBuildCtx(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &choreov1.BuildTemplateSpec{
+	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &openchoreov1alpha1.BuildTemplateSpec{
 		Branch: "main",
 		Path:   "/test-service",
-		BuildConfiguration: &choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
+		BuildConfiguration: &openchoreov1alpha1.BuildConfiguration{
+			Docker: &openchoreov1alpha1.DockerConfiguration{
 				Context:        "/time-logger",
 				DockerfilePath: "/time-logger/Dockerfile",
 			},
 		},
 	}
 
-	buildCtx.Build.Spec = choreov1.BuildSpec{
+	buildCtx.Build.Spec = openchoreov1alpha1.BuildSpec{
 		Branch: "main",
 		Path:   "/test-service",
-		BuildConfiguration: choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
+		BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+			Docker: &openchoreov1alpha1.DockerConfiguration{
 				Context:        "/time-logger",
 				DockerfilePath: "/time-logger/Dockerfile",
 			},
@@ -109,24 +109,24 @@ func newDockerBasedBuildCtx(buildCtx *integrations.BuildContext) *integrations.B
 }
 
 func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &choreov1.BuildTemplateSpec{
+	buildCtx.DeploymentTrack.Spec.BuildTemplateSpec = &openchoreov1alpha1.BuildTemplateSpec{
 		Branch: "main",
 		Path:   "/test-service",
-		BuildConfiguration: &choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
-				Name:    choreov1.BuildpackGo,
-				Version: choreov1.SupportedVersions[choreov1.BuildpackGo][0],
+		BuildConfiguration: &openchoreov1alpha1.BuildConfiguration{
+			Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
+				Name:    openchoreov1alpha1.BuildpackGo,
+				Version: openchoreov1alpha1.SupportedVersions[openchoreov1alpha1.BuildpackGo][0],
 			},
 		},
 	}
 
-	buildCtx.Build.Spec = choreov1.BuildSpec{
+	buildCtx.Build.Spec = openchoreov1alpha1.BuildSpec{
 		Branch: "main",
 		Path:   "/test-service",
-		BuildConfiguration: choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
-				Name:    choreov1.BuildpackGo,
-				Version: choreov1.SupportedVersions[choreov1.BuildpackGo][0],
+		BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+			Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
+				Name:    openchoreov1alpha1.BuildpackGo,
+				Version: openchoreov1alpha1.SupportedVersions[openchoreov1alpha1.BuildpackGo][0],
 			},
 		},
 	}
@@ -134,11 +134,11 @@ func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integration
 }
 
 func newBuildContextWithRegistries(buildCtx *integrations.BuildContext) *integrations.BuildContext {
-	buildCtx.Registry = choreov1.Registry{
+	buildCtx.Registry = openchoreov1alpha1.Registry{
 		Unauthenticated: []string{
 			"registry.choreo-system:5000",
 		},
-		ImagePushSecrets: []choreov1.ImagePushSecret{
+		ImagePushSecrets: []openchoreov1alpha1.ImagePushSecret{
 			{
 				Name:   "dev-dockerhub-push-secret",
 				Prefix: "docker.io/test-org",

@@ -6,10 +6,10 @@ package render
 import (
 	"fmt"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-func UnsupportedEndpointTypeError(epType corev1.EndpointType) error {
+func UnsupportedEndpointTypeError(epType openchoreov1alpha1.EndpointType) error {
 	return fmt.Errorf("unsupported endpoint type: %s", epType)
 }
 

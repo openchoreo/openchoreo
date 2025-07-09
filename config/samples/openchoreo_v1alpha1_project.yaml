@@ -1,0 +1,13 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: internal-apps
+  namespace: default-organization
+  annotations:
+    openchoreo.dev/display-name: Internal Applications
+    openchoreo.dev/description: This project contains components that are used by companies internal applications
+  labels:
+    openchoreo.dev/organization: default-organization
+    openchoreo.dev/name: internal-apps
+spec:
+  deploymentPipelineRef: default-deployment-pipeline

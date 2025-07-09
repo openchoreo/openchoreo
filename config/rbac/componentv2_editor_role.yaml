@@ -8,7 +8,7 @@ metadata:
   name: componentv2-editor-role
 rules:
   - apiGroups:
-      - core.choreo.dev
+      - openchoreo.dev
     resources:
       - componentv2s
     verbs:
@@ -20,7 +20,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - core.choreo.dev
+      - openchoreo.dev
     resources:
       - componentv2s/status
     verbs:

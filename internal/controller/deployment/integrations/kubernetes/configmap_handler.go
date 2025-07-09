@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
@@ -207,7 +207,7 @@ func makeConfigMaps(deployCtx *dataplane.DeploymentContext) []*corev1.ConfigMap 
 	return configMaps
 }
 
-func makeConfigMapName(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) string {
+func makeConfigMapName(deployCtx *dataplane.DeploymentContext, cg *openchoreov1alpha1.ConfigurationGroup) string {
 	// TODO: Ideally, this should be choreo name instead of kubernetes name
 	componentName := deployCtx.Component.Name
 	deploymentTrackName := deployCtx.DeploymentTrack.Name
@@ -218,7 +218,7 @@ func makeConfigMapName(deployCtx *dataplane.DeploymentContext, cg *choreov1.Conf
 
 // makeDirectFileMountConfigMapName creates a name for the ConfigMap that is used for the direct file mounts.
 // Format: <component-name>-<deployment-track-name>-<direct-file-mount-volume-name>
-func makeDirectFileMountConfigMapName(deployCtx *dataplane.DeploymentContext, fileMount *choreov1.FileMount) string {
+func makeDirectFileMountConfigMapName(deployCtx *dataplane.DeploymentContext, fileMount *openchoreov1alpha1.FileMount) string {
 	// TODO: Ideally, this should be choreo name instead of kubernetes name
 	componentName := deployCtx.Component.Name
 	deploymentTrackName := deployCtx.DeploymentTrack.Name

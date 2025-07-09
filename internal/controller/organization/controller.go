@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -28,9 +28,9 @@ type Reconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=organizations/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=organizations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=organizations/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=organizations/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Organization instance
-	organization := &choreov1.Organization{}
+	organization := &openchoreov1alpha1.Organization{}
 	if err := r.Get(ctx, req.NamespacedName, organization); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Organization resource may have been deleted since it triggered the reconcile
@@ -153,13 +153,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Organization{}).
+		For(&openchoreov1alpha1.Organization{}).
 		Owns(&corev1.Namespace{}). // Watch any changes to owned Namespaces
 		Named("organization").
 		Complete(r)
 }
 
-func makeOrganizationNamespace(organization *choreov1.Organization) *corev1.Namespace {
+func makeOrganizationNamespace(organization *openchoreov1alpha1.Organization) *corev1.Namespace {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   organization.Name,
@@ -169,7 +169,7 @@ func makeOrganizationNamespace(organization *choreov1.Organization) *corev1.Name
 	return namespace
 }
 
-func makeOrganizationNamespaceLabels(organization *choreov1.Organization) map[string]string {
+func makeOrganizationNamespaceLabels(organization *openchoreov1alpha1.Organization) map[string]string {
 	return map[string]string{
 		labels.LabelKeyManagedBy:        labels.LabelValueManagedBy,
 		labels.LabelKeyOrganizationName: organization.Name,

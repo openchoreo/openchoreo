@@ -6,10 +6,10 @@ package render
 import (
 	"fmt"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-func UnsupportedWorkloadTypeError(workloadType corev1.WorkloadType) error {
+func UnsupportedWorkloadTypeError(workloadType openchoreov1alpha1.WorkloadType) error {
 	return fmt.Errorf("unsupported workload type: %s", workloadType)
 }
 

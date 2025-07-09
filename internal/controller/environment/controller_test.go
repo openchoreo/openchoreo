@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	org "github.com/openchoreo/openchoreo/internal/controller/organization"
@@ -30,7 +30,7 @@ var _ = Describe("Environment Controller", func() {
 	orgNamespacedName := types.NamespacedName{
 		Name: orgName,
 	}
-	organization := &choreov1.Organization{
+	organization := &openchoreov1alpha1.Organization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: orgName,
 		},
@@ -54,7 +54,7 @@ var _ = Describe("Environment Controller", func() {
 			Namespace: orgName,
 		}
 
-		dataplane := &choreov1.DataPlane{
+		dataplane := &openchoreov1alpha1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
 				Namespace: orgName,
@@ -88,11 +88,11 @@ var _ = Describe("Environment Controller", func() {
 			Namespace: orgName,
 			Name:      envName,
 		}
-		environment := &choreov1.Environment{}
+		environment := &openchoreov1alpha1.Environment{}
 		By("Creating the environment resource", func() {
 			err := k8sClient.Get(ctx, envNamespacedName, environment)
 			if err != nil && errors.IsNotFound(err) {
-				dp := &choreov1.Environment{
+				dp := &openchoreov1alpha1.Environment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      envName,
 						Namespace: orgName,
@@ -105,10 +105,10 @@ var _ = Describe("Environment Controller", func() {
 							controller.AnnotationKeyDescription: "Test Environment Description",
 						},
 					},
-					Spec: choreov1.EnvironmentSpec{
+					Spec: openchoreov1alpha1.EnvironmentSpec{
 						DataPlaneRef: dpName,
 						IsProduction: false,
-						Gateway: choreov1.GatewayConfig{
+						Gateway: openchoreov1alpha1.GatewayConfig{
 							DNSPrefix: envName,
 						},
 					},
@@ -132,7 +132,7 @@ var _ = Describe("Environment Controller", func() {
 		})
 
 		By("Checking the environment resource", func() {
-			environment := &choreov1.Environment{}
+			environment := &openchoreov1alpha1.Environment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, envNamespacedName, environment)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
@@ -162,7 +162,7 @@ var _ = Describe("Environment Controller", func() {
 		})
 
 		By("Checking the status condition after first reconcile of deletion", func() {
-			environment := &choreov1.Environment{}
+			environment := &openchoreov1alpha1.Environment{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, envNamespacedName, environment)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())

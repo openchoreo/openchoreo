@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -27,9 +27,9 @@ type Reconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymentpipelines,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymentpipelines/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=deploymentpipelines/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -45,7 +45,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the DeploymentPipeline instance
-	deploymentPipeline := &choreov1.DeploymentPipeline{}
+	deploymentPipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	if err := r.Get(ctx, req.NamespacedName, deploymentPipeline); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The DeploymentPipeline resource may have been deleted since it triggered the reconcile
@@ -87,7 +87,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.DeploymentPipeline{}).
+		For(&openchoreov1alpha1.DeploymentPipeline{}).
 		Named("deploymentpipeline").
 		Complete(r)
 }

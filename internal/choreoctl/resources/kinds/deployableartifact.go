@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // DeployableArtifactResource provides operations for DeployableArtifact CRs.
 type DeployableArtifactResource struct {
-	*resources.BaseResource[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList]
+	*resources.BaseResource[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList]
 }
 
 // NewDeployableArtifactResource constructs a DeployableArtifactResource with CRDConfig and optionally sets organization, project, component, and deploymentTrack.
@@ -26,14 +26,14 @@ func NewDeployableArtifactResource(cfg constants.CRDConfig, org string, project 
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList]{
-		resources.WithClient[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList](cli),
-		resources.WithConfig[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList]{
+		resources.WithClient[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList](cli),
+		resources.WithConfig[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList](org))
 	}
 
 	// Create labels for filtering
@@ -56,11 +56,11 @@ func NewDeployableArtifactResource(cfg constants.CRDConfig, org string, project 
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList](labels))
 	}
 
 	return &DeployableArtifactResource{
-		BaseResource: resources.NewBaseResource[*choreov1.DeployableArtifact, *choreov1.DeployableArtifactList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeployableArtifactList](options...),
 	}, nil
 }
 
@@ -70,7 +70,7 @@ func (d *DeployableArtifactResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a DeployableArtifact with detailed information.
-func (d *DeployableArtifactResource) GetStatus(artifact *choreov1.DeployableArtifact) string {
+func (d *DeployableArtifactResource) GetStatus(artifact *openchoreov1alpha1.DeployableArtifact) string {
 	return resources.GetReadyStatus(
 		nil,
 		StatusPending,
@@ -80,17 +80,17 @@ func (d *DeployableArtifactResource) GetStatus(artifact *choreov1.DeployableArti
 }
 
 // GetAge returns the age of a DeployableArtifact.
-func (d *DeployableArtifactResource) GetAge(artifact *choreov1.DeployableArtifact) string {
+func (d *DeployableArtifactResource) GetAge(artifact *openchoreov1alpha1.DeployableArtifact) string {
 	return resources.FormatAge(artifact.GetCreationTimestamp().Time)
 }
 
 // GetSource returns the source of a DeployableArtifact.
-func (d *DeployableArtifactResource) GetSource(artifact *choreov1.DeployableArtifact) string {
+func (d *DeployableArtifactResource) GetSource(artifact *openchoreov1alpha1.DeployableArtifact) string {
 	return "Manual"
 }
 
 // GetArtifactSource returns a string describing the source of the deployable artifact.
-func (d *DeployableArtifactResource) GetArtifactSource(artifact *choreov1.DeployableArtifact) string {
+func (d *DeployableArtifactResource) GetArtifactSource(artifact *openchoreov1alpha1.DeployableArtifact) string {
 	if artifact.Spec.TargetArtifact.FromBuildRef != nil {
 		return fmt.Sprintf("build:%s", artifact.Spec.TargetArtifact.FromBuildRef.Name)
 	}
@@ -101,7 +101,7 @@ func (d *DeployableArtifactResource) GetArtifactSource(artifact *choreov1.Deploy
 }
 
 // PrintTableItems formats deployable artifacts into a table
-func (d *DeployableArtifactResource) PrintTableItems(artifacts []resources.ResourceWrapper[*choreov1.DeployableArtifact]) error {
+func (d *DeployableArtifactResource) PrintTableItems(artifacts []resources.ResourceWrapper[*openchoreov1alpha1.DeployableArtifact]) error {
 	if len(artifacts) == 0 {
 		// Provide a more descriptive message
 		namespaceName := d.GetNamespace()
@@ -185,7 +185,7 @@ func (d *DeployableArtifactResource) CreateDeployableArtifact(params api.CreateD
 	)
 
 	// Create the DeployableArtifact resource
-	deployableArtifact := &choreov1.DeployableArtifact{
+	deployableArtifact := &openchoreov1alpha1.DeployableArtifact{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -201,8 +201,8 @@ func (d *DeployableArtifactResource) CreateDeployableArtifact(params api.CreateD
 				constants.LabelDeploymentTrack: params.DeploymentTrack,
 			},
 		},
-		Spec: choreov1.DeployableArtifactSpec{
-			TargetArtifact: choreov1.TargetArtifact{
+		Spec: openchoreov1alpha1.DeployableArtifactSpec{
+			TargetArtifact: openchoreov1alpha1.TargetArtifact{
 				FromBuildRef: params.FromBuildRef,
 				FromImageRef: params.FromImageRef,
 			},
@@ -221,7 +221,7 @@ func (d *DeployableArtifactResource) CreateDeployableArtifact(params api.CreateD
 }
 
 // GetDeployableArtifactsForComponent returns deployable artifacts filtered by component
-func (d *DeployableArtifactResource) GetDeployableArtifactsForComponent(componentName string) ([]resources.ResourceWrapper[*choreov1.DeployableArtifact], error) {
+func (d *DeployableArtifactResource) GetDeployableArtifactsForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DeployableArtifact], error) {
 	// List all deployable artifacts in the namespace
 	allArtifacts, err := d.List()
 	if err != nil {
@@ -229,7 +229,7 @@ func (d *DeployableArtifactResource) GetDeployableArtifactsForComponent(componen
 	}
 
 	// Filter by component
-	var artifacts []resources.ResourceWrapper[*choreov1.DeployableArtifact]
+	var artifacts []resources.ResourceWrapper[*openchoreov1alpha1.DeployableArtifact]
 	for _, wrapper := range allArtifacts {
 		if wrapper.Resource.GetLabels()[constants.LabelComponent] == componentName {
 			artifacts = append(artifacts, wrapper)
@@ -240,13 +240,13 @@ func (d *DeployableArtifactResource) GetDeployableArtifactsForComponent(componen
 }
 
 // GetDeployableArtifactsForDeploymentTrack returns deployable artifacts filtered by deployment track
-func (d *DeployableArtifactResource) GetDeployableArtifactsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*choreov1.DeployableArtifact], error) {
+func (d *DeployableArtifactResource) GetDeployableArtifactsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DeployableArtifact], error) {
 	allArtifacts, err := d.List()
 	if err != nil {
 		return nil, err
 	}
 
-	var artifacts []resources.ResourceWrapper[*choreov1.DeployableArtifact]
+	var artifacts []resources.ResourceWrapper[*openchoreov1alpha1.DeployableArtifact]
 	for _, wrapper := range allArtifacts {
 		if wrapper.Resource.GetLabels()[constants.LabelDeploymentTrack] == deploymentTrack {
 			artifacts = append(artifacts, wrapper)

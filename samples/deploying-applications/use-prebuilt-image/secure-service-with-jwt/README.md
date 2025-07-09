@@ -15,7 +15,7 @@ For demonstration purposes, we'll use a sample JWKS endpoint and token from the 
 Patch your development environment to use the example remote JWKS endpoint:
 
 ```bash
-kubectl -n default-org patch environments.core.choreo.dev development --type=merge -p '{"spec":{"gateway":{"security":{"remoteJwks":{"uri":"https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/examples/kubernetes/jwt/jwks.json"}}}}}'
+kubectl -n default-org patch environments.openchoreo.dev development --type=merge -p '{"spec":{"gateway":{"security":{"remoteJwks":{"uri":"https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/examples/kubernetes/jwt/jwks.json"}}}}}'
 ```
 
 ## Deploy Greeter Application

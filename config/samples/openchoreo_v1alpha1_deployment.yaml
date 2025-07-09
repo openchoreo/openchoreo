@@ -1,0 +1,18 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Deployment
+metadata:
+  name: github-issue-reporter-daily-deployment-2024-12-10-1-development
+  namespace: default-organization
+  annotations:
+    openchoreo.dev/display-name: Daily Deployment
+    openchoreo.dev/description: This deployment will produce a daily report
+  labels:
+    openchoreo.dev/organization: default-organization
+    openchoreo.dev/project: internal-apps
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: daily
+    openchoreo.dev/name: development
+spec:
+  deploymentArtifactRef: github-issue-reporter-daily-deployable-artifact-2024-12-10-1
+

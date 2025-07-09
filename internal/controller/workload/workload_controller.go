@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Reconciler reconciles a Workload object
@@ -20,10 +20,10 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointv2s,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -43,7 +43,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Workload{}).
+		For(&openchoreov1alpha1.Workload{}).
 		Named("workload").
 		Complete(r)
 }

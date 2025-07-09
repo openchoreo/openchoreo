@@ -71,16 +71,16 @@ fi
 echo -e "\nApplying DataPlane to context: $TARGET_CONTEXT"
 
 if kubectl --context="$TARGET_CONTEXT" apply -f - <<EOF
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
   annotations:
-    core.choreo.dev/description: DataPlane "$DATAPLANE_KIND_NAME" was created through the script.
-    core.choreo.dev/display-name: DataPlane "$DATAPLANE_KIND_NAME"
+    openchoreo.dev/description: DataPlane "$DATAPLANE_KIND_NAME" was created through the script.
+    openchoreo.dev/display-name: DataPlane "$DATAPLANE_KIND_NAME"
   labels:
-    core.choreo.dev/name: $DATAPLANE_KIND_NAME
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/build-plane: "true"
+    openchoreo.dev/name: $DATAPLANE_KIND_NAME
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/build-plane: "true"
   name: $DATAPLANE_KIND_NAME
   namespace: default-org
 spec:

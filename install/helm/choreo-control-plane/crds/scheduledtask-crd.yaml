@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: scheduledtasks.core.choreo.dev
+  name: scheduledtasks.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: ScheduledTask
     listKind: ScheduledTaskList
@@ -14,7 +14,7 @@ spec:
     singular: scheduledtask
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ScheduledTask is the Schema for the scheduledtasks API.

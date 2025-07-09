@@ -1,16 +1,16 @@
 ## Sample Component kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: greeting-service-go
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Greeting Service
-    core.choreo.dev/description: Basic Starter project
+    openchoreo.dev/display-name: Greeting Service
+    openchoreo.dev/description: Basic Starter project
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/name: greeting-service-go
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/name: greeting-service-go
 spec:
   type: Service
   source:
@@ -19,19 +19,19 @@ spec:
 ---
 
 ## Sample DeploymentTrack kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: greeting-service-go-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Main deployment track
-    core.choreo.dev/description: The main deployment track for the greeting-service-go component
+    openchoreo.dev/display-name: Main deployment track
+    openchoreo.dev/description: The main deployment track for the greeting-service-go component
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: greeting-service-go
-    core.choreo.dev/name: greeting-service-go-main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: greeting-service-go
+    openchoreo.dev/name: greeting-service-go-main
 spec:
   buildTemplateSpec:
     branch: main
@@ -43,20 +43,20 @@ spec:
 ---
 
 ## Sample Build kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
   name: greeting-service-go-build-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Build for greeting-service-go
-    core.choreo.dev/description: Build 1 triggered for greeting-service-go
+    openchoreo.dev/display-name: Build for greeting-service-go
+    openchoreo.dev/description: Build 1 triggered for greeting-service-go
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: greeting-service-go
-    core.choreo.dev/deployment-track: greeting-service-go-main
-    core.choreo.dev/name: greeting-service-go-build-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: greeting-service-go
+    openchoreo.dev/deployment-track: greeting-service-go-main
+    openchoreo.dev/name: greeting-service-go-build-01
 spec:
   branch: main
   path: /greeting-service-go
@@ -67,19 +67,19 @@ spec:
 ---
 
 ## Sample Deployment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: greeting-service-go-development-deployment-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: greeting-service-go deployment
+    openchoreo.dev/display-name: greeting-service-go deployment
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: greeting-service-go
-    core.choreo.dev/deployment-track: greeting-service-go-main
-    core.choreo.dev/name: greeting-service-go-development-deployment-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: greeting-service-go
+    openchoreo.dev/deployment-track: greeting-service-go-main
+    openchoreo.dev/name: greeting-service-go-development-deployment-01
 spec:
   deploymentArtifactRef: greeting-service-go-build-01

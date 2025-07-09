@@ -1,0 +1,28 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: DeployableArtifact
+metadata:
+  name: github-issue-reporter-daily-deployable-artifact-2024-12-10-1
+  namespace: default-organization
+  annotations:
+    openchoreo.dev/display-name: Daily Deployable Artifact
+    openchoreo.dev/description: Generated artifact from Build 2024-12-10 1
+  labels:
+    openchoreo.dev/organization: default-organization
+    openchoreo.dev/project: internal-apps
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: daily
+    openchoreo.dev/name: build-2024-12-10-1
+spec:
+  targetArtifact:
+    fromBuildRef:
+      name: build-2024-12-10-1
+  configuration:
+    application:
+      env:
+        - key: GITHUB_REPOSITORY
+          value: https://github.com/wso2/product-apim
+      task:
+        disabled: false
+        schedule:
+          cron: "*/1 * * * *"
+          timezone: Asia/Colombo

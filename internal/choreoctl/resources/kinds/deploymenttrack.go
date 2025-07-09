@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // DeploymentTrackResource provides operations for DeploymentTrack CRs.
 type DeploymentTrackResource struct {
-	*resources.BaseResource[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList]
+	*resources.BaseResource[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList]
 }
 
 // NewDeploymentTrackResource constructs a DeploymentTrackResource with CRDConfig and optionally sets organization, project, and component.
@@ -26,14 +26,14 @@ func NewDeploymentTrackResource(cfg constants.CRDConfig, org string, project str
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList]{
-		resources.WithClient[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList](cli),
-		resources.WithConfig[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList]{
+		resources.WithClient[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](cli),
+		resources.WithConfig[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](org))
 	}
 
 	// Create labels for filtering
@@ -51,11 +51,11 @@ func NewDeploymentTrackResource(cfg constants.CRDConfig, org string, project str
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](labels))
 	}
 
 	return &DeploymentTrackResource{
-		BaseResource: resources.NewBaseResource[*choreov1.DeploymentTrack, *choreov1.DeploymentTrackList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](options...),
 	}, nil
 }
 
@@ -65,7 +65,7 @@ func (d *DeploymentTrackResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a DeploymentTrack with detailed information.
-func (d *DeploymentTrackResource) GetStatus(track *choreov1.DeploymentTrack) string {
+func (d *DeploymentTrackResource) GetStatus(track *openchoreov1alpha1.DeploymentTrack) string {
 	// DeploymentTrack typically uses Created or Ready conditions
 	priorityConditions := []string{ConditionTypeCreated, ConditionTypeReady}
 
@@ -79,12 +79,12 @@ func (d *DeploymentTrackResource) GetStatus(track *choreov1.DeploymentTrack) str
 }
 
 // GetAge returns the age of a DeploymentTrack.
-func (d *DeploymentTrackResource) GetAge(track *choreov1.DeploymentTrack) string {
+func (d *DeploymentTrackResource) GetAge(track *openchoreov1alpha1.DeploymentTrack) string {
 	return resources.FormatAge(track.GetCreationTimestamp().Time)
 }
 
 // GetAutoDeploy returns whether a DeploymentTrack has auto-deployment enabled.
-func (d *DeploymentTrackResource) GetAutoDeploy(track *choreov1.DeploymentTrack) string {
+func (d *DeploymentTrackResource) GetAutoDeploy(track *openchoreov1alpha1.DeploymentTrack) string {
 	autoDeploy := track.GetAnnotations()[AutoDeployAnnotation]
 	if autoDeploy == "true" {
 		return "Yes"
@@ -93,7 +93,7 @@ func (d *DeploymentTrackResource) GetAutoDeploy(track *choreov1.DeploymentTrack)
 }
 
 // PrintTableItems formats deployment tracks into a table
-func (d *DeploymentTrackResource) PrintTableItems(tracks []resources.ResourceWrapper[*choreov1.DeploymentTrack]) error {
+func (d *DeploymentTrackResource) PrintTableItems(tracks []resources.ResourceWrapper[*openchoreov1alpha1.DeploymentTrack]) error {
 	if len(tracks) == 0 {
 		// Provide a more descriptive message
 		namespaceName := d.GetNamespace()
@@ -168,7 +168,7 @@ func (d *DeploymentTrackResource) CreateDeploymentTrack(params api.CreateDeploym
 	k8sName := resources.GenerateResourceName(params.Organization, params.Project, params.Component, params.Name)
 
 	// Create the DeploymentTrack resource
-	deploymentTrack := &choreov1.DeploymentTrack{
+	deploymentTrack := &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -184,7 +184,7 @@ func (d *DeploymentTrackResource) CreateDeploymentTrack(params api.CreateDeploym
 				constants.LabelComponent:    params.Component,
 			},
 		},
-		Spec: choreov1.DeploymentTrackSpec{
+		Spec: openchoreov1alpha1.DeploymentTrackSpec{
 			BuildTemplateSpec: params.BuildTemplateSpec,
 		},
 	}
@@ -200,7 +200,7 @@ func (d *DeploymentTrackResource) CreateDeploymentTrack(params api.CreateDeploym
 }
 
 // GetDeploymentTracksForComponent returns deployment tracks filtered by component
-func (d *DeploymentTrackResource) GetDeploymentTracksForComponent(componentName string) ([]resources.ResourceWrapper[*choreov1.DeploymentTrack], error) {
+func (d *DeploymentTrackResource) GetDeploymentTracksForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DeploymentTrack], error) {
 	// List all deployment tracks in the namespace
 	allDeploymentTracks, err := d.List()
 	if err != nil {
@@ -208,7 +208,7 @@ func (d *DeploymentTrackResource) GetDeploymentTracksForComponent(componentName 
 	}
 
 	// Filter by component
-	var deploymentTracks []resources.ResourceWrapper[*choreov1.DeploymentTrack]
+	var deploymentTracks []resources.ResourceWrapper[*openchoreov1alpha1.DeploymentTrack]
 	for _, wrapper := range allDeploymentTracks {
 		if wrapper.Resource.GetLabels()[constants.LabelComponent] == componentName {
 			deploymentTracks = append(deploymentTracks, wrapper)

@@ -1,4 +1,4 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: APIClass
 metadata:
   name: sample-api-class

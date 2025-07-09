@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: projects.core.choreo.dev
+  name: projects.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: Project
     listKind: ProjectList
@@ -17,7 +17,7 @@ spec:
     singular: project
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Project is the Schema for the projects API.

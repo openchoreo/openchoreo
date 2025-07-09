@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -64,7 +64,7 @@ const (
 	ReasonDeployableArtifactDeletionFailed controller.ConditionReason = "DeployableArtifactRemain"
 )
 
-func setInitialBuildConditions(build *choreov1.Build) {
+func setInitialBuildConditions(build *openchoreov1alpha1.Build) {
 	steps := []struct {
 		conditionType controller.ConditionType
 		reason        controller.ConditionReason
@@ -87,7 +87,7 @@ func setInitialBuildConditions(build *choreov1.Build) {
 	}
 }
 
-func markStepInProgress(build *choreov1.Build, conditionType controller.ConditionType) {
+func markStepInProgress(build *openchoreov1alpha1.Build, conditionType controller.ConditionType) {
 	messageMap := map[controller.ConditionType]string{
 		ConditionCloneStepSucceeded: "Clone source code step is executing.",
 		ConditionBuildStepSucceeded: "Image build step is executing.",
@@ -103,7 +103,7 @@ func markStepInProgress(build *choreov1.Build, conditionType controller.Conditio
 	))
 }
 
-func markStepSucceeded(build *choreov1.Build, conditionType controller.ConditionType) {
+func markStepSucceeded(build *openchoreov1alpha1.Build, conditionType controller.ConditionType) {
 	successMessages := map[controller.ConditionType]string{
 		ConditionCloneStepSucceeded: "Source code clone step completed successfully.",
 		ConditionBuildStepSucceeded: "Image build step completed successfully.",
@@ -118,7 +118,7 @@ func markStepSucceeded(build *choreov1.Build, conditionType controller.Condition
 	))
 }
 
-func markStepFailed(build *choreov1.Build, conditionType controller.ConditionType) {
+func markStepFailed(build *openchoreov1alpha1.Build, conditionType controller.ConditionType) {
 	failureMessages := map[controller.ConditionType]string{
 		ConditionCloneStepSucceeded: "Source code cloning failed.",
 		ConditionBuildStepSucceeded: "Building the image from the source code failed.",

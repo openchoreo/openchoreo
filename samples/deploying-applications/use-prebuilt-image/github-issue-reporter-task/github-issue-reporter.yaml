@@ -5,17 +5,17 @@
 # Create the necessary ConfigurationGroups for the GitHub Issue Reporter component
 # -------------------------------------------------------------------------------------------------
 
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ConfigurationGroup
 metadata:
   name: github
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: GitHub Configuration
-    core.choreo.dev/description: GitHub configuration for the main repository
+    openchoreo.dev/display-name: GitHub Configuration
+    openchoreo.dev/description: GitHub configuration for the main repository
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: github
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: github
 spec:
   environmentGroups:
     # Define an environment groups that includes all environments for environment independent configurations
@@ -43,17 +43,17 @@ spec:
           vaultKey: "secret/data/prod/github/pat"
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ConfigurationGroup
 metadata:
   name: mysql
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: MySQL Configuration
-    core.choreo.dev/description: MySQL configuration for the internal database of the organization
+    openchoreo.dev/display-name: MySQL Configuration
+    openchoreo.dev/description: MySQL configuration for the internal database of the organization
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: mysql
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: mysql
 spec:
   environmentGroups:
     - environments:
@@ -96,17 +96,17 @@ spec:
           value: "github-issue-reporter"
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ConfigurationGroup
 metadata:
   name: email
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Email SMTP Configuration
-    core.choreo.dev/description: Email configuration for internal services
+    openchoreo.dev/display-name: Email SMTP Configuration
+    openchoreo.dev/description: Email configuration for internal services
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: email
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: email
 spec:
   environmentGroups:
     - environments:
@@ -150,18 +150,18 @@ spec:
 # Create the GitHub Issue Reporter component
 # -------------------------------------------------------------------------------------------------
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: github-issue-reporter
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: GitHub Issue Reporter
-    core.choreo.dev/description: Report summary of GitHub issues
+    openchoreo.dev/display-name: GitHub Issue Reporter
+    openchoreo.dev/description: Report summary of GitHub issues
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/name: github-issue-reporter
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/name: github-issue-reporter
 spec:
   type: ScheduledTask
   source:
@@ -169,36 +169,36 @@ spec:
       imageName: ghcr.io/openchoreo/samples/github-issue-reporter
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: github-issue-reporter-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Deployment Track
-    core.choreo.dev/description: Main deployment track
+    openchoreo.dev/display-name: Deployment Track
+    openchoreo.dev/description: Main deployment track
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: github-issue-reporter
-    core.choreo.dev/name: main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/name: main
 spec: { }
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeployableArtifact
 metadata:
   name: github-issue-reporter-latest
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: GitHub Issue Reporter Latest
-    core.choreo.dev/description: Latest deployable artifact for GitHub Issue Reporter
+    openchoreo.dev/display-name: GitHub Issue Reporter Latest
+    openchoreo.dev/description: Latest deployable artifact for GitHub Issue Reporter
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: github-issue-reporter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: github-issue-reporter-latest
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: github-issue-reporter-latest
 spec:
   targetArtifact:
     fromImageRef:
@@ -253,59 +253,59 @@ spec:
          # Run the task every minute so we can see the results quickly
          cron: "*/1 * * * *"
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: github-issue-reporter-development
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Development Deployment
-    core.choreo.dev/description: Development deployment for GitHub Issue Reporter
+    openchoreo.dev/display-name: Development Deployment
+    openchoreo.dev/description: Development deployment for GitHub Issue Reporter
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: github-issue-reporter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: development-deployment
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: development-deployment
 spec:
   deploymentArtifactRef: github-issue-reporter-latest
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: github-issue-reporter-staging
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Staging Deployment
-    core.choreo.dev/description: Staging deployment for GitHub Issue Reporter
+    openchoreo.dev/display-name: Staging Deployment
+    openchoreo.dev/description: Staging deployment for GitHub Issue Reporter
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: staging
-    core.choreo.dev/component: github-issue-reporter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: staging-deployment
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: staging
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: staging-deployment
 spec:
   deploymentArtifactRef: github-issue-reporter-latest
 
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: github-issue-reporter-production
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Production Deployment
-    core.choreo.dev/description: Production deployment for GitHub Issue Reporter
+    openchoreo.dev/display-name: Production Deployment
+    openchoreo.dev/description: Production deployment for GitHub Issue Reporter
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: production
-    core.choreo.dev/component: github-issue-reporter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: production-deployment
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: production
+    openchoreo.dev/component: github-issue-reporter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: production-deployment
 spec:
   deploymentArtifactRef: github-issue-reporter-latest
 

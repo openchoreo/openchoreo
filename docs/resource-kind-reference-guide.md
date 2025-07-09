@@ -74,15 +74,15 @@ To represent the Choreo hierarchical resource model in Kubernetes, the following
 
 The following labels format will be used to represent the relationships between the resources:
 
-`core.choreo.dev/<kind-lowecase>=<resource-name>`
+`openchoreo.dev/<kind-lowecase>=<resource-name>`
 
 Examples:
-- `core.choreo.dev/organization=my-org`: The organization name that the resource belongs to.
-- `core.choreo.dev/project=my-project`: The project name that the resource belongs to.
+- `openchoreo.dev/organization=my-org`: The organization name that the resource belongs to.
+- `openchoreo.dev/project=my-project`: The project name that the resource belongs to.
 
 In addition to the above labels, the following label will be used to represent the name of the resource:
 
-`core.choreo.dev/name=<resource-name>`
+`openchoreo.dev/name=<resource-name>`
 
 The reason for using having additional label for the resource name is to keep the Choreo hierarchical naming without conflicting with the Kubernetes resource name.
 This will allow duplicate resource names within the same namespace such as having two components with the same name in different projects.
@@ -101,7 +101,7 @@ to get the data plane information.
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
   # Unique name of the data plane within the organization (namespace).
@@ -117,17 +117,17 @@ metadata:
     # Display name of the data plane.
     #
     # +optional
-    core.choreo.dev/display-name: US Data Plane
+    openchoreo.dev/display-name: US Data Plane
     # Description of the data plane.
     #
     # +optional
-    core.choreo.dev/description: Data plane for the US region
+    openchoreo.dev/description: Data plane for the US region
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   kubernetesCluster:
     # Name of the kubernetes cluster
@@ -166,7 +166,7 @@ The `spec.dataPlaneRef` field should point to a existing `DataPlane` resource th
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   # Unique name of the environment within the organization (namespace).
@@ -183,18 +183,18 @@ metadata:
     #
     # +required
     # +mutable
-    core.choreo.dev/display-name: Production
+    openchoreo.dev/display-name: Production
     # Description of the environment.
     #
     # +optional
     # +mutable
-    core.choreo.dev/description: Production environment for the US region
+    openchoreo.dev/description: Production environment for the US region
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Reference to the data plane that the environment is associated with.
   # For the Shared Data Plane, the reference will use a special value with
@@ -232,7 +232,7 @@ Each organization will have a default deployment pipelines that will be used for
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
   # Unique name of the deployment pipeline within the organization (namespace).
@@ -248,17 +248,17 @@ metadata:
     # Display name of the deployment pipeline.
     #
     # +required
-    core.choreo.dev/display-name: Default deployment pipeline
+    openchoreo.dev/display-name: Default deployment pipeline
     # Description of the deployment pipeline.
     #
     # +optional
-    core.choreo.dev/description: Allows promoting from dev to production
+    openchoreo.dev/description: Allows promoting from dev to production
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # List of promotion paths in the deployment pipeline.
   # The order of the promotion paths in the list is the order in which the promotion will happen.
@@ -300,7 +300,7 @@ The `Project` resource kind represents a project in Choreo which enforces a prom
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   # Unique name of the project within the organization (namespace).
@@ -316,17 +316,17 @@ metadata:
     # Display name of the project.
     #
     # +required
-    core.choreo.dev/display-name: Test Project
+    openchoreo.dev/display-name: Test Project
     # Description of the project.
     #
     # +optional
-    core.choreo.dev/description: Test Project Description
+    openchoreo.dev/description: Test Project Description
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Reference to the deployment pipeline that defines the order of promotion of the components
   # within this project across environments.
@@ -349,7 +349,7 @@ The `spec.type` field defines the deployment architecture of the component.
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   # Unique name of the component within the project (namespace).
@@ -365,22 +365,22 @@ metadata:
     # Display name of the component.
     #
     # +required
-    core.choreo.dev/display-name: Test Component
+    openchoreo.dev/display-name: Test Component
     # Description of the component.
     #
     # +optional
-    core.choreo.dev/description: Test Component Description
+    openchoreo.dev/description: Test Component Description
   labels:
     # Project name that this component belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Type of the component that indicates how the component deployed.
   #
@@ -457,7 +457,7 @@ The deployment track will be responsible for following actions:
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   # Unique name of the deployment track within the component (namespace).
@@ -473,27 +473,27 @@ metadata:
     # Display name of the deployment track.
     #
     # +required
-    core.choreo.dev/display-name: Test Deployment Track
+    openchoreo.dev/display-name: Test Deployment Track
     # Description of the deployment track.
     #
     # +optional
-    core.choreo.dev/description: Test Deployment Track Description
+    openchoreo.dev/description: Test Deployment Track Description
   labels:
     # Component name that this deployment track belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this deployment track belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # API version of the managed APIs that are exposed via this deployment track.
   #
@@ -531,7 +531,7 @@ The build will be generally managed by the deployment track controller and the b
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
   # Unique name of the build within the deployment track (namespace).
@@ -551,32 +551,32 @@ metadata:
     # Display name of the build.
     #
     # +required
-    core.choreo.dev/display-name: Test Build
+    openchoreo.dev/display-name: Test Build
     # Description of the build.
     #
     # +optional
-    core.choreo.dev/description: Test Build Description
+    openchoreo.dev/description: Test Build Description
   labels:
     # Deployment track that this build belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment-track: test-deployment-track
+    openchoreo.dev/deployment-track: test-deployment-track
     # Component name that this build belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this build belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Branch of the git repository to build the component.
   # The branch field takes priority over gitRevision when both are specified.
@@ -669,7 +669,7 @@ This resource can be either created by the build controller or manually by the u
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeployableArtifact
 metadata:
   # Unique name of the deployable artifact within the deployment track (namespace).
@@ -690,32 +690,32 @@ metadata:
     # Display name of the deployable artifact.
     #
     # +required
-    core.choreo.dev/display-name: Test Deployable Artifact
+    openchoreo.dev/display-name: Test Deployable Artifact
     # Description of the deployable artifact.
     #
     # +optional
-    core.choreo.dev/description: Test Deployable Artifact Description
+    openchoreo.dev/description: Test Deployable Artifact Description
   labels:
     # Deployment track that this deployable artifact belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment-track: test-deployment-track
+    openchoreo.dev/deployment-track: test-deployment-track
     # Component name that this deployable artifact belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this deployable artifact belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Reference to the artifact that is being deployed.
   #
@@ -1090,7 +1090,7 @@ The deployment controller will be responsible for the following actions:
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   # Unique name of the deployment that belongs to the deployment track and environment (namespace).
@@ -1108,37 +1108,37 @@ metadata:
     # Display name of the deployment.
     #
     # +required
-    core.choreo.dev/display-name: Test Deployment
+    openchoreo.dev/display-name: Test Deployment
     # Description of the deployment.
     #
     # +optional
-    core.choreo.dev/description: Test Deployment Description
+    openchoreo.dev/description: Test Deployment Description
   labels:
     # Deployment track that this deployment belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment-track: test-deployment-track
+    openchoreo.dev/deployment-track: test-deployment-track
     # Component name that this deployment belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this deployment belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Environment name that this deployment belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/environment: test-environment
+    openchoreo.dev/environment: test-environment
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Sets the number of deployment revisions to keep for rollback.
   #
@@ -1191,7 +1191,7 @@ During the revert operation, the deployment controller will use the deployment r
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentRevision
 metadata:
   # Unique name of the deployment revision that belongs to the deployment (namespace).
@@ -1212,37 +1212,37 @@ metadata:
     # Display name of the deployment revision.
     #
     # +required
-    core.choreo.dev/display-name: Test Deployment Revision 456789
+    openchoreo.dev/display-name: Test Deployment Revision 456789
     # Description of the deployment revision.
     #
     # +optional
-    core.choreo.dev/description: Test Deployment Revision Description
+    openchoreo.dev/description: Test Deployment Revision Description
   labels:
     # Deployment track that this deployment revision belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment-track: test-deployment-track
+    openchoreo.dev/deployment-track: test-deployment-track
     # Component name that this deployment revision belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this deployment revision belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Environment name that this deployment revision belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/environment: test-environment
+    openchoreo.dev/environment: test-environment
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec: {} # Refer to the spec of the Deployment resource.
 ```
 
@@ -1261,7 +1261,7 @@ The endpoint controller will be responsible for the following actions:
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Endpoint
 metadata:
   # Unique name of the endpoint that belongs to a deployment (namespace).
@@ -1277,42 +1277,42 @@ metadata:
     # Display name of the endpoint.
     #
     # +required
-    core.choreo.dev/display-name: Test Endpoint
+    openchoreo.dev/display-name: Test Endpoint
     # Description of the endpoint.
     #
     # +optional
-    core.choreo.dev/description: Test Endpoint Description
+    openchoreo.dev/description: Test Endpoint Description
   labels:
     # Deployment name that this endpoint belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment: test-deployment
+    openchoreo.dev/deployment: test-deployment
     # Deployment track that this endpoint belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/deployment-track: test-deployment-track
+    openchoreo.dev/deployment-track: test-deployment-track
     # Component name that this endpoint belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/component: test-component
+    openchoreo.dev/component: test-component
     # Project name that this endpoint belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/project: test-project
+    openchoreo.dev/project: test-project
     # Environment name that this endpoint belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/environment: test-environment
+    openchoreo.dev/environment: test-environment
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Indicates the protocol of the endpoint.
   #
@@ -1464,7 +1464,7 @@ This resource is created manually for an organization by the user and its values
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ConfigurationGroup
 metadata:
   # Unique name of the configuration group within the organisation (namespace).
@@ -1481,23 +1481,23 @@ metadata:
     #
     # +optional
     # +mutable
-    core.choreo.dev/display-name: Test Configuration Group
+    openchoreo.dev/display-name: Test Configuration Group
     # Description of the configuration group.
     #
     # +optional
     # +mutable
-    core.choreo.dev/description: Test Configuration Group Description
+    openchoreo.dev/description: Test Configuration Group Description
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
     # Name of the resource.
     #
     # +required
     # +immutable
-    core.choreo.dev/name: test-configuration-group
+    openchoreo.dev/name: test-configuration-group
 spec:
   # Scope of the configuration group.
   #
@@ -1573,7 +1573,7 @@ The system secrets has predefined key-value pairs that are used by the system co
 **Field Reference:**
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Secret
 metadata:
   # Unique name of the secret within the organization (namespace).
@@ -1589,17 +1589,17 @@ metadata:
     # Display name of the secret.
     #
     # +required
-    core.choreo.dev/display-name: Test Secret
+    openchoreo.dev/display-name: Test Secret
     # Description of the secret.
     #
     # +optional
-    core.choreo.dev/description: Test Secret Description
+    openchoreo.dev/description: Test Secret Description
   labels:
     # Organization name that the resource belongs to.
     #
     # +required
     # +immutable
-    core.choreo.dev/organization: test-org
+    openchoreo.dev/organization: test-org
 spec:
   # Indicates the type of the secret. Depending on the type, the required fields will change.
   #

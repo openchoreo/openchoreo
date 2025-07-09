@@ -10,7 +10,7 @@ package apibinding
 //	"sigs.k8s.io/controller-runtime/pkg/client"
 //	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 //
-//	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+//	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 // )
 
 /*
@@ -25,8 +25,8 @@ const (
 // TODO: Implement when APIBinding spec includes API class reference
 /*
 func (r *Reconciler) setupAPIClassRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &choreov1.APIBinding{}, apiClassNameIndex, func(rawObj client.Object) []string {
-		// apiBinding := rawObj.(*choreov1.APIBinding)
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.APIBinding{}, apiClassNameIndex, func(rawObj client.Object) []string {
+		// apiBinding := rawObj.(*openchoreov1alpha1.APIBinding)
 		// TODO: Return the actual API class name when spec is defined
 		// if apiBinding.Spec.ClassName == "" {
 		//     return nil
@@ -41,12 +41,12 @@ func (r *Reconciler) setupAPIClassRefIndex(ctx context.Context, mgr ctrl.Manager
 // TODO: Implement when APIBinding spec includes API class reference
 /*
 func (r *Reconciler) listAPIBindingsForAPIClass(ctx context.Context, obj client.Object) []reconcile.Request {
-	apiClass, ok := obj.(*choreov1.APIClass)
+	apiClass, ok := obj.(*openchoreov1alpha1.APIClass)
 	if !ok {
 		return nil
 	}
 
-	apiBindingList := &choreov1.APIBindingList{}
+	apiBindingList := &openchoreov1alpha1.APIBindingList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(apiClass.Namespace),
 		client.MatchingFields{apiClassNameIndex: apiClass.Name},

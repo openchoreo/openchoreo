@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
@@ -34,7 +34,7 @@ func NewManager() *KubeClientManager {
 }
 
 // GetClient returns a cached clientset or creates a new one if not found
-func (m *KubeClientManager) GetClient(key string, creds choreov1.APIServerCredentials) (client.Client, error) {
+func (m *KubeClientManager) GetClient(key string, creds openchoreov1alpha1.APIServerCredentials) (client.Client, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -86,11 +86,11 @@ func (m *KubeClientManager) GetClient(key string, creds choreov1.APIServerCreden
 	return cl, nil
 }
 
-func makeDataplaneKey(dataplane *choreov1.DataPlane) string {
+func makeDataplaneKey(dataplane *openchoreov1alpha1.DataPlane) string {
 	return fmt.Sprintf("%s/%s", dataplane.Labels[labels.LabelKeyOrganizationName], dataplane.Labels[labels.LabelKeyName])
 }
 
-func GetDPClient(dpClientMgr *KubeClientManager, dataplane *choreov1.DataPlane) (client.Client, error) {
+func GetDPClient(dpClientMgr *KubeClientManager, dataplane *openchoreov1alpha1.DataPlane) (client.Client, error) {
 	// Get the DP client using the credentials from the dataplane kind
 	dpClient, err := dpClientMgr.GetClient(makeDataplaneKey(dataplane), dataplane.Spec.KubernetesCluster.Credentials)
 	if err != nil {

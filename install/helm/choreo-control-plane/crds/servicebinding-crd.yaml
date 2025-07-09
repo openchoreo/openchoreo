@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: servicebindings.core.choreo.dev
+  name: servicebindings.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: ServiceBinding
     listKind: ServiceBindingList
@@ -14,7 +14,7 @@ spec:
     singular: servicebinding
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ServiceBinding is the Schema for the servicebindings API.

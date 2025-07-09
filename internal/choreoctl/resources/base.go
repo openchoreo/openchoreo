@@ -275,7 +275,7 @@ func (b *BaseResource[T, L]) printYAMLItems(items []ResourceWrapper[T]) error {
 	return nil
 }
 
-// newPtrTypeOf returns a fresh pointer for lists (e.g. &choreov1.BuildList{})
+// newPtrTypeOf returns a fresh pointer for lists (e.g. &openchoreov1alpha1.BuildList{})
 func newPtrTypeOf[U any]() U {
 	t := reflect.TypeOf((*U)(nil)).Elem()
 	if t.Kind() != reflect.Pointer {

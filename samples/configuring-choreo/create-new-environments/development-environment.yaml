@@ -1,15 +1,15 @@
 ## Sample Environment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: development
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Development Environment
-    core.choreo.dev/description: The development environment for rapid integration and testing.
+    openchoreo.dev/display-name: Development Environment
+    openchoreo.dev/description: The development environment for rapid integration and testing.
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: development
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: development
 spec:
   dataPlaneRef: us-east-1
   isProduction: false

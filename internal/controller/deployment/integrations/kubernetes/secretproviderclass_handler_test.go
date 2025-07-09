@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 )
@@ -41,8 +41,8 @@ var _ = Describe("makeSecretProviderClasses", func() {
 
 	Context("for two Configuration Groups", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}
@@ -124,20 +124,20 @@ var _ = Describe("makeSecretProviderClasses", func() {
 
 	Context("for a Configuration Group with Environment Group", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestConfigurationGroup("salesforce-config-group",
-					choreov1.ConfigurationGroupSpec{
-						EnvironmentGroups: []choreov1.EnvironmentGroup{
+					openchoreov1alpha1.ConfigurationGroupSpec{
+						EnvironmentGroups: []openchoreov1alpha1.EnvironmentGroup{
 							{
 								Name:         "non-prod",
 								Environments: []string{"test-environment"},
 							},
 						},
-						Configurations: []choreov1.ConfigurationGroupConfiguration{
+						Configurations: []openchoreov1alpha1.ConfigurationGroupConfiguration{
 							{
 								Key: "client-secret",
-								Values: []choreov1.ConfigurationValue{
+								Values: []openchoreov1alpha1.ConfigurationValue{
 									{
 										EnvironmentGroupRef: "non-prod",
 										VaultKey:            "secret/test/salesforce/client-secret",

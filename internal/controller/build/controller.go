@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes"
@@ -57,7 +57,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the build resource
-	build := &choreov1.Build{}
+	build := &openchoreov1alpha1.Build{}
 	if err := r.Get(ctx, req.NamespacedName, build); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Build resource not found, ignoring since object must be deleted")
@@ -176,13 +176,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Build{}).
+		For(&openchoreov1alpha1.Build{}).
 		Named("build").
-		Owns(&choreov1.DeployableArtifact{}).
+		Owns(&openchoreov1alpha1.DeployableArtifact{}).
 		Complete(r)
 }
 
-func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.DeploymentPipeline) ([]*choreov1.Environment, error) {
+func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *openchoreov1alpha1.DeploymentPipeline) ([]*openchoreov1alpha1.Environment, error) {
 	envNamesSet := make(map[string]struct{})
 
 	for _, path := range dp.Spec.PromotionPaths {
@@ -192,7 +192,7 @@ func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.De
 		}
 	}
 
-	envs := make([]*choreov1.Environment, 0, len(envNamesSet))
+	envs := make([]*openchoreov1alpha1.Environment, 0, len(envNamesSet))
 	for name := range envNamesSet {
 		env, err := controller.GetEnvironmentByName(ctx, r.Client, dp, name)
 		if err != nil {
@@ -204,8 +204,8 @@ func (r *Reconciler) retrieveEnvsOfPipeline(ctx context.Context, dp *choreov1.De
 	return envs, nil
 }
 
-func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.Environment) ([]*choreov1.DataPlane, error) {
-	uniqueRefs := make(map[string]*choreov1.Environment)
+func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*openchoreov1alpha1.Environment) ([]*openchoreov1alpha1.DataPlane, error) {
+	uniqueRefs := make(map[string]*openchoreov1alpha1.Environment)
 
 	for _, env := range envs {
 		if env == nil || env.Spec.DataPlaneRef == "" {
@@ -214,7 +214,7 @@ func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.En
 		uniqueRefs[env.Spec.DataPlaneRef] = env
 	}
 
-	dataplanes := make([]*choreov1.DataPlane, 0, len(uniqueRefs))
+	dataplanes := make([]*openchoreov1alpha1.DataPlane, 0, len(uniqueRefs))
 	for _, env := range uniqueRefs {
 		dp, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 		if err != nil {
@@ -226,7 +226,7 @@ func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*choreov1.En
 	return dataplanes, nil
 }
 
-func getRegistriesForPush(dataplanes []*choreov1.DataPlane) (map[string]string, []string) {
+func getRegistriesForPush(dataplanes []*openchoreov1alpha1.DataPlane) (map[string]string, []string) {
 	registriesWithSecrets := make(map[string]string)
 	noAuthRegistriesSet := make(map[string]struct{})
 
@@ -251,11 +251,11 @@ func getRegistriesForPush(dataplanes []*choreov1.DataPlane) (map[string]string, 
 	return registriesWithSecrets, noAuthRegistriesList
 }
 
-func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {
-	imagePushSecrets := make([]choreov1.ImagePushSecret, 0, len(registriesWithSecrets))
+func convertToImagePushSecrets(registriesWithSecrets map[string]string) []openchoreov1alpha1.ImagePushSecret {
+	imagePushSecrets := make([]openchoreov1alpha1.ImagePushSecret, 0, len(registriesWithSecrets))
 
 	for name, prefix := range registriesWithSecrets {
-		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{
+		imagePushSecrets = append(imagePushSecrets, openchoreov1alpha1.ImagePushSecret{
 			Name:   name,
 			Prefix: prefix,
 		})
@@ -264,7 +264,7 @@ func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreo
 	return imagePushSecrets
 }
 
-func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build) (*integrations.BuildContext, error) {
+func (r *Reconciler) makeBuildContext(ctx context.Context, build *openchoreov1alpha1.Build) (*integrations.BuildContext, error) {
 	// makeBuildContext creates a build context for the given build by retrieving the
 	// parent objects that this build is required to continue its work.
 	component, err := controller.GetComponent(ctx, r.Client, build)
@@ -296,7 +296,7 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
 
 	return &integrations.BuildContext{
-		Registry: choreov1.Registry{
+		Registry: openchoreov1alpha1.Registry{
 			ImagePushSecrets: imagePushSecrets,
 			Unauthenticated:  registries,
 		},
@@ -306,7 +306,7 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *choreov1.Build
 	}, nil
 }
 
-func (r *Reconciler) getBPClient(ctx context.Context, build *choreov1.Build) (client.Client, error) {
+func (r *Reconciler) getBPClient(ctx context.Context, build *openchoreov1alpha1.Build) (client.Client, error) {
 	buildplane, err := r.getDataPlaneMarkedAsBuildPlane(ctx, r.Client, build)
 	if err != nil {
 		// Return an error if dataplane retrieval fails
@@ -322,14 +322,14 @@ func (r *Reconciler) getBPClient(ctx context.Context, build *choreov1.Build) (cl
 	return dpClient, nil
 }
 
-func (r *Reconciler) getDataPlaneMarkedAsBuildPlane(ctx context.Context, c client.Client, build *choreov1.Build) (*choreov1.DataPlane, error) {
+func (r *Reconciler) getDataPlaneMarkedAsBuildPlane(ctx context.Context, c client.Client, build *openchoreov1alpha1.Build) (*openchoreov1alpha1.DataPlane, error) {
 	orgName := controller.GetOrganizationName(build)
 	labelSelector := client.MatchingLabels{
 		labels.LabelKeyOrganizationName: orgName,
 		labels.LabelKeyBuildPlane:       "true",
 	}
 
-	var dataPlaneList choreov1.DataPlaneList
+	var dataPlaneList openchoreov1alpha1.DataPlaneList
 	if err := c.List(ctx, &dataPlaneList, client.InNamespace(build.GetNamespace()), labelSelector); err != nil {
 		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
 	}
@@ -450,7 +450,7 @@ func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.
 
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued.
 // Reconciliation should be avoided if the build is in a final state.
-func shouldIgnoreReconcile(build *choreov1.Build) bool {
+func shouldIgnoreReconcile(build *openchoreov1alpha1.Build) bool {
 	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
 		return true
 	}
@@ -460,11 +460,11 @@ func shouldIgnoreReconcile(build *choreov1.Build) bool {
 // shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
 // Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
 // does not exist.
-func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
+func shouldCreateDeployableArtifact(build *openchoreov1alpha1.Build) bool {
 	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
 }
 
-func isBuildWorkflowRunning(build *choreov1.Build) bool {
+func isBuildWorkflowRunning(build *openchoreov1alpha1.Build) bool {
 	stepConditions := []controller.ConditionType{
 		ConditionCloneStepSucceeded,
 		ConditionBuildStepSucceeded,
@@ -490,13 +490,13 @@ func isBuildWorkflowRunning(build *choreov1.Build) bool {
 	return false
 }
 
-func isBuildStepRunning(build *choreov1.Build) bool {
+func isBuildStepRunning(build *openchoreov1alpha1.Build) bool {
 	condition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded))
 	return condition != nil && condition.Reason == string(ReasonStepInProgress)
 }
 
 // handleRequeueAfterBuild manages the requeue process after a build step.
-func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *choreov1.Build) (ctrl.Result, error) {
+func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
 	// Check if the build step is running and has not yet succeeded.
 	if isBuildStepRunning(build) {
 		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
@@ -506,7 +506,7 @@ func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *ch
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 }
 
-func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
+func (r *Reconciler) handleBuildSteps(build *openchoreov1alpha1.Build, nodes argoproj.Nodes) bool {
 	steps := []struct {
 		stepName      integrations.BuildWorkflowStep
 		conditionType controller.ConditionType
@@ -552,7 +552,7 @@ func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Node
 func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *integrations.BuildContext) (bool, error) {
 	deployableArtifact := resources.MakeDeployableArtifact(buildCtx.Build)
 
-	if buildCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+	if buildCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService {
 		endpoints, err := r.getEndpointConfigs(ctx, buildCtx)
 		if err != nil {
 			return true, fmt.Errorf("error getting endpoint configs: %w", err)
@@ -634,7 +634,7 @@ func (r *Reconciler) updateOrCreateDeployment(ctx context.Context, buildCtx *int
 	return false, nil
 }
 
-func (r *Reconciler) getFirstEnvironmentFromDeploymentPipeline(ctx context.Context, build *choreov1.Build) (*choreov1.Environment, error) {
+func (r *Reconciler) getFirstEnvironmentFromDeploymentPipeline(ctx context.Context, build *openchoreov1alpha1.Build) (*openchoreov1alpha1.Environment, error) {
 	// Get the deployment pipeline of the project
 	deploymentPipeline, err := r.getDeploymentPipelineOfProject(ctx, r.Client, build)
 	if err != nil {
@@ -652,7 +652,7 @@ func (r *Reconciler) getFirstEnvironmentFromDeploymentPipeline(ctx context.Conte
 	return environment, nil
 }
 
-func (r *Reconciler) getDeploymentPipelineOfProject(ctx context.Context, c client.Client, obj client.Object) (*choreov1.DeploymentPipeline, error) {
+func (r *Reconciler) getDeploymentPipelineOfProject(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	project, err := controller.GetProject(ctx, c, obj)
 	if err != nil {
 		return nil, err
@@ -678,12 +678,12 @@ func (r *Reconciler) fetchComponentConfigs(ctx context.Context, buildCtx *integr
 	return config, nil
 }
 
-func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrations.BuildContext) ([]choreov1.EndpointTemplate, error) {
+func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrations.BuildContext) ([]openchoreov1alpha1.EndpointTemplate, error) {
 	config, err := r.fetchComponentConfigs(ctx, buildCtx)
 	if err != nil {
 		return nil, err
 	}
-	endpointTemplates := []choreov1.EndpointTemplate{}
+	endpointTemplates := []openchoreov1alpha1.EndpointTemplate{}
 	for _, endpoint := range config.Endpoints {
 		endpointTemplates = append(endpointTemplates, createEndpointTemplate(endpoint))
 	}
@@ -691,19 +691,19 @@ func (r *Reconciler) getEndpointConfigs(ctx context.Context, buildCtx *integrati
 	return endpointTemplates, nil
 }
 
-func createEndpointTemplate(endpoint source.Endpoint) choreov1.EndpointTemplate {
+func createEndpointTemplate(endpoint source.Endpoint) openchoreov1alpha1.EndpointTemplate {
 	basePath := endpoint.Service.BasePath
 	if basePath == "" {
 		basePath = "/"
 	}
-	return choreov1.EndpointTemplate{
-		Spec: choreov1.EndpointSpec{
+	return openchoreov1alpha1.EndpointTemplate{
+		Spec: openchoreov1alpha1.EndpointSpec{
 			Type:                endpoint.Type,
 			NetworkVisibilities: parseNetworkVisibilities(endpoint.NetworkVisibilities),
-			BackendRef: choreov1.BackendRef{
+			BackendRef: openchoreov1alpha1.BackendRef{
 				BasePath: basePath,
-				Type:     choreov1.BackendRefTypeComponentRef,
-				ComponentRef: &choreov1.ComponentRef{
+				Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+				ComponentRef: &openchoreov1alpha1.ComponentRef{
 					Port: endpoint.Service.Port,
 				},
 			},
@@ -711,15 +711,15 @@ func createEndpointTemplate(endpoint source.Endpoint) choreov1.EndpointTemplate 
 	}
 }
 
-func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) *choreov1.NetworkVisibility {
-	nv := choreov1.NetworkVisibility{}
+func parseNetworkVisibilities(visibilities []source.NetworkVisibilityLevel) *openchoreov1alpha1.NetworkVisibility {
+	nv := openchoreov1alpha1.NetworkVisibility{}
 
 	for _, visibility := range visibilities {
 		switch visibility {
 		case source.NetworkVisibilityLevelOrganization:
-			nv.Organization = &choreov1.VisibilityConfig{Enable: true}
+			nv.Organization = &openchoreov1alpha1.VisibilityConfig{Enable: true}
 		case source.NetworkVisibilityLevelPublic:
-			nv.Public = &choreov1.VisibilityConfig{Enable: true}
+			nv.Public = &openchoreov1alpha1.VisibilityConfig{Enable: true}
 		}
 	}
 

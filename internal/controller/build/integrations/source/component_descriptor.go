@@ -3,7 +3,7 @@
 
 package source
 
-import choreov1 "github.com/openchoreo/openchoreo/api/v1"
+import openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 
 // Config represents the root configuration structure
 type Config struct {
@@ -17,7 +17,7 @@ type Endpoint struct {
 	DisplayName         string                   `yaml:"displayName,omitempty"`
 	Service             Service                  `yaml:"service"`
 	NetworkVisibilities []NetworkVisibilityLevel `yaml:"networkVisibilities,omitempty"`
-	Type                choreov1.EndpointType    `yaml:"type"`
+	Type                openchoreov1alpha1.EndpointType    `yaml:"type"`
 }
 
 // Service contains the service-specific configuration

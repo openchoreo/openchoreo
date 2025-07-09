@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: webapplicationclasses.core.choreo.dev
+  name: webapplicationclasses.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: WebApplicationClass
     listKind: WebApplicationClassList
@@ -14,7 +14,7 @@ spec:
     singular: webapplicationclass
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: WebApplicationClass is the Schema for the webapplicationclasses

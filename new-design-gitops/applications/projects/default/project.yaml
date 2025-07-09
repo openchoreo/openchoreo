@@ -1,12 +1,12 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   annotations:
-    core.choreo.dev/description: Your first project to get started
-    core.choreo.dev/display-name: Default Project
+    openchoreo.dev/description: Your first project to get started
+    openchoreo.dev/display-name: Default Project
   labels:
-    core.choreo.dev/name: default-project
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/name: default-project
+    openchoreo.dev/organization: default-org
   name: default-project
 spec:
   deploymentPipelineRef: default

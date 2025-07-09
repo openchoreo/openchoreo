@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("Workload Controller", func() {
@@ -26,13 +26,13 @@ var _ = Describe("Workload Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		workload := &corev1.Workload{}
+		workload := &openchoreov1alpha1.Workload{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Workload")
 			err := k8sClient.Get(ctx, typeNamespacedName, workload)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.Workload{
+				resource := &openchoreov1alpha1.Workload{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -45,7 +45,7 @@ var _ = Describe("Workload Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.Workload{}
+			resource := &openchoreov1alpha1.Workload{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

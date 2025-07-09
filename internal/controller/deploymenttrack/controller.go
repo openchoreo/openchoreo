@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -41,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling deploymentTrack")
 
 	// Fetch the DeploymentTrack instance
-	deploymentTrack := &choreov1.DeploymentTrack{}
+	deploymentTrack := &openchoreov1alpha1.DeploymentTrack{}
 	if err := r.Get(ctx, req.NamespacedName, deploymentTrack); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The DeploymentTrack resource may have been deleted since it triggered the reconcile
@@ -101,24 +101,24 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.DeploymentTrack{}).
+		For(&openchoreov1alpha1.DeploymentTrack{}).
 		Named("deploymenttrack").
 		// Watch for Build changes to reconcile the Deployment Track
 		Watches(
-			&choreov1.Build{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Build, *choreov1.DeploymentTrack](
+			&openchoreov1alpha1.Build{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Build, *openchoreov1alpha1.DeploymentTrack](
 				r.Client, controller.GetDeploymentTrack)),
 		).
 		// Watch for DeployableArtifact changes to reconcile the Deployment Track
 		Watches(
-			&choreov1.DeployableArtifact{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.DeployableArtifact, *choreov1.DeploymentTrack](
+			&openchoreov1alpha1.DeployableArtifact{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeploymentTrack](
 				r.Client, controller.GetDeploymentTrack)),
 		).
 		// Watch for Deployment changes to reconcile the Deployment Track
 		Watches(
-			&choreov1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeploymentTrack](
+			&openchoreov1alpha1.Deployment{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentTrack](
 				r.Client, controller.GetDeploymentTrack)),
 		).
 		Complete(r)

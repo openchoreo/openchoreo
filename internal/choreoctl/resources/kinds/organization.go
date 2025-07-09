@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // OrganizationResource provides operations for Organization CRs.
 type OrganizationResource struct {
-	*resources.BaseResource[*corev1.Organization, *corev1.OrganizationList]
+	*resources.BaseResource[*openchoreov1alpha1.Organization, *openchoreov1alpha1.OrganizationList]
 }
 
 // NewOrganizationResource constructs an OrganizationResource with only the CRDConfig.
@@ -27,15 +27,15 @@ func NewOrganizationResource(cfg constants.CRDConfig) (*OrganizationResource, er
 	}
 
 	return &OrganizationResource{
-		BaseResource: resources.NewBaseResource[*corev1.Organization, *corev1.OrganizationList](
-			resources.WithClient[*corev1.Organization, *corev1.OrganizationList](cli),
-			resources.WithConfig[*corev1.Organization, *corev1.OrganizationList](cfg),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.Organization, *openchoreov1alpha1.OrganizationList](
+			resources.WithClient[*openchoreov1alpha1.Organization, *openchoreov1alpha1.OrganizationList](cli),
+			resources.WithConfig[*openchoreov1alpha1.Organization, *openchoreov1alpha1.OrganizationList](cfg),
 		),
 	}, nil
 }
 
 // GetStatus returns the status of an Organization with detailed information.
-func (o *OrganizationResource) GetStatus(org *corev1.Organization) string {
+func (o *OrganizationResource) GetStatus(org *openchoreov1alpha1.Organization) string {
 	return resources.GetReadyStatus(
 		org.Status.Conditions,
 		StatusPending,
@@ -45,12 +45,12 @@ func (o *OrganizationResource) GetStatus(org *corev1.Organization) string {
 }
 
 // GetAge returns the age of an Organization.
-func (o *OrganizationResource) GetAge(org *corev1.Organization) string {
+func (o *OrganizationResource) GetAge(org *openchoreov1alpha1.Organization) string {
 	return resources.FormatAge(org.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats organizations into a table
-func (o *OrganizationResource) PrintTableItems(orgs []resources.ResourceWrapper[*corev1.Organization]) error {
+func (o *OrganizationResource) PrintTableItems(orgs []resources.ResourceWrapper[*openchoreov1alpha1.Organization]) error {
 	if len(orgs) == 0 {
 		fmt.Println("No organizations found")
 		return nil
@@ -101,7 +101,7 @@ func (o *OrganizationResource) Print(format resources.OutputFormat, filter *reso
 
 // CreateOrganization creates a new Organization CR.
 func (o *OrganizationResource) CreateOrganization(params api.CreateOrganizationParams) error {
-	org := &corev1.Organization{
+	org := &openchoreov1alpha1.Organization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: params.Name,
 			Annotations: map[string]string{

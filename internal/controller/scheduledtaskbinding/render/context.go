@@ -6,12 +6,12 @@ package render
 import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 type Context struct {
-	ScheduledTaskBinding *choreov1.ScheduledTaskBinding
-	ScheduledTaskClass   *choreov1.ScheduledTaskClass
+	ScheduledTaskBinding *openchoreov1alpha1.ScheduledTaskBinding
+	ScheduledTaskClass   *openchoreov1alpha1.ScheduledTaskClass
 
 	// Stores the errors encountered during rendering.
 	errs []error

@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 type fakePort struct {
@@ -27,22 +27,22 @@ func createFakePort(name string, port int32, protocol corev1.Protocol) fakePort 
 
 var _ = Describe("makeUniquePorts", func() {
 	DescribeTable("should produce unique ports",
-		func(endpointTemplates []choreov1.EndpointTemplate, expectedPorts []fakePort) {
+		func(endpointTemplates []openchoreov1alpha1.EndpointTemplate, expectedPorts []fakePort) {
 			ports := makeUniquePorts(endpointTemplates, createFakePort)
 			Expect(ports).To(Equal(expectedPorts))
 		},
 		Entry("for a single endpoint",
-			[]choreov1.EndpointTemplate{
+			[]openchoreov1alpha1.EndpointTemplate{
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/customer",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeREST,
+						Type: openchoreov1alpha1.EndpointTypeREST,
 					},
 				},
 			},
@@ -51,29 +51,29 @@ var _ = Describe("makeUniquePorts", func() {
 			},
 		),
 		Entry("for two endpoints with same port and type",
-			[]choreov1.EndpointTemplate{
+			[]openchoreov1alpha1.EndpointTemplate{
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/customer",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeREST,
+						Type: openchoreov1alpha1.EndpointTypeREST,
 					},
 				},
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/order",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeREST,
+						Type: openchoreov1alpha1.EndpointTypeREST,
 					},
 				},
 			},
@@ -82,27 +82,27 @@ var _ = Describe("makeUniquePorts", func() {
 			},
 		),
 		Entry("for two endpoints with same port but tcp and udp",
-			[]choreov1.EndpointTemplate{
+			[]openchoreov1alpha1.EndpointTemplate{
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
-							Type: choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
+							Type: openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeTCP,
+						Type: openchoreov1alpha1.EndpointTypeTCP,
 					},
 				},
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
-							Type: choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
+							Type: openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeUDP,
+						Type: openchoreov1alpha1.EndpointTypeUDP,
 					},
 				},
 			},
@@ -112,41 +112,41 @@ var _ = Describe("makeUniquePorts", func() {
 			},
 		),
 		Entry("for three endpoints with different ports",
-			[]choreov1.EndpointTemplate{
+			[]openchoreov1alpha1.EndpointTemplate{
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/customer",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8080,
 							},
 						},
-						Type: choreov1.EndpointTypeREST,
+						Type: openchoreov1alpha1.EndpointTypeREST,
 					},
 				},
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/customer",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8081,
 							},
 						},
-						Type: choreov1.EndpointTypeGraphQL,
+						Type: openchoreov1alpha1.EndpointTypeGraphQL,
 					},
 				},
 				{
-					Spec: choreov1.EndpointSpec{
-						BackendRef: choreov1.BackendRef{
+					Spec: openchoreov1alpha1.EndpointSpec{
+						BackendRef: openchoreov1alpha1.BackendRef{
 							BasePath: "/customer",
-							Type:     choreov1.BackendRefTypeComponentRef,
-							ComponentRef: &choreov1.ComponentRef{
+							Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+							ComponentRef: &openchoreov1alpha1.ComponentRef{
 								Port: 8082,
 							},
 						},
-						Type: choreov1.EndpointTypeGRPC,
+						Type: openchoreov1alpha1.EndpointTypeGRPC,
 					},
 				},
 			},

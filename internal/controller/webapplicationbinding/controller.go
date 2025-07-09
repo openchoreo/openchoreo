@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding/render"
 )
 
@@ -25,11 +25,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationbindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationbindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationbindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -37,7 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the WebApplicationBinding instance
-	webApplicationBinding := &choreov1.WebApplicationBinding{}
+	webApplicationBinding := &openchoreov1alpha1.WebApplicationBinding{}
 	if err := r.Get(ctx, req.NamespacedName, webApplicationBinding); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get WebApplicationBinding")
@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Fetch the associated WebApplicationClass
-	webApplicationClass := &choreov1.WebApplicationClass{}
+	webApplicationClass := &openchoreov1alpha1.WebApplicationClass{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: webApplicationBinding.Namespace,
 		Name:      webApplicationBinding.Spec.ClassName,
@@ -64,10 +64,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileRelease reconciles the Release associated with the WebApplicationBinding.
-func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding *choreov1.WebApplicationBinding, webApplicationClass *choreov1.WebApplicationClass) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, webApplicationClass *openchoreov1alpha1.WebApplicationClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	release := &choreov1.Release{
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      webApplicationBinding.Name,
 			Namespace: webApplicationBinding.Namespace,
@@ -99,14 +99,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
-	release := &choreov1.Release{
+func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Release {
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.WebApplicationBinding.Name,
 			Namespace: rCtx.WebApplicationBinding.Namespace,
 		},
-		Spec: choreov1.ReleaseSpec{
-			Owner: choreov1.ReleaseOwner{
+		Spec: openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   rCtx.WebApplicationBinding.Spec.Owner.ProjectName,
 				ComponentName: rCtx.WebApplicationBinding.Spec.Owner.ComponentName,
 			},
@@ -114,7 +114,7 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
 		},
 	}
 
-	var resources []choreov1.Resource
+	var resources []openchoreov1alpha1.Resource
 
 	// Add Deployment resource
 	if res := render.Deployment(rCtx); res != nil {
@@ -145,9 +145,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.WebApplicationBinding{}).
+		For(&openchoreov1alpha1.WebApplicationBinding{}).
 		Watches(
-			&choreov1.WebApplicationClass{},
+			&openchoreov1alpha1.WebApplicationClass{},
 			handler.EnqueueRequestsFromMapFunc(r.listWebApplicationBindingsForWebApplicationClass),
 		).
 		Named("webapplicationbinding").

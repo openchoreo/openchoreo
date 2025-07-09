@@ -55,7 +55,7 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/ki
 > [!NOTE]
 > This setup assigns a specific label to one node in the Data Plane cluster to schedule Argo Workflows.
 > If you're creating Data Plane clusters manually, ensure that only one node is labeled with:
-> `core.choreo.dev/noderole: workflow-runner`.
+> `openchoreo.dev/noderole: workflow-runner`.
 > Additionally, create a DataPlane kind named `default-dataplane` pointing to this labeled cluster, which will serve 
 > as the default target cluster for Argo Workflows until support is added for running them on any Data Plane.
 

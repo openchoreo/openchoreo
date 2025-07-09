@@ -89,7 +89,7 @@ Resource isolation: build workloads do not compete with runtime workloads for cl
 #### BuildPlane
 
 ```yaml
-apiVersion: core.choreo.dev
+apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
    name: example-buildplane
@@ -112,7 +112,7 @@ spec:
 #### DataPlane
 
 ```yaml
-apiVersion: core.choreo.dev
+apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
    name: example-dataplane

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -25,7 +25,7 @@ var projectlog = logf.Log.WithName("project-resource")
 
 // SetupProjectWebhookWithManager registers the webhook for Project in the manager.
 func SetupProjectWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&corev1.Project{}).
+	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreov1alpha1.Project{}).
 		WithValidator(&ProjectCustomValidator{client: mgr.GetClient()}).
 		WithDefaulter(&ProjectCustomDefaulter{}).
 		Complete()
@@ -33,7 +33,7 @@ func SetupProjectWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-core-choreo-dev-v1-project,mutating=true,failurePolicy=fail,sideEffects=None,groups=core.choreo.dev,resources=projects,verbs=create;update,versions=v1,name=mproject-v1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-openchoreo-dev-v1alpha1-project,mutating=true,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=projects,verbs=create;update,versions=v1alpha1,name=mproject-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // ProjectCustomDefaulter struct is responsible for setting default values on the custom resource of the
 // Kind Project when those are created or updated.
@@ -48,7 +48,7 @@ var _ webhook.CustomDefaulter = &ProjectCustomDefaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Project.
 func (d *ProjectCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	project, ok := obj.(*corev1.Project)
+	project, ok := obj.(*openchoreov1alpha1.Project)
 
 	if !ok {
 		return fmt.Errorf("expected an Project object but got %T", obj)
@@ -63,7 +63,7 @@ func (d *ProjectCustomDefaulter) Default(ctx context.Context, obj runtime.Object
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-core-choreo-dev-v1-project,mutating=false,failurePolicy=fail,sideEffects=None,groups=core.choreo.dev,resources=projects,verbs=create;update,versions=v1,name=vproject-v1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-openchoreo-dev-v1alpha1-project,mutating=false,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=projects,verbs=create;update,versions=v1alpha1,name=vproject-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // ProjectCustomValidator struct is responsible for validating the Project resource
 // when it is created, updated, or deleted.
@@ -78,7 +78,7 @@ var _ webhook.CustomValidator = &ProjectCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Project.
 func (v *ProjectCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	project, ok := obj.(*corev1.Project)
+	project, ok := obj.(*openchoreov1alpha1.Project)
 	if !ok {
 		return nil, fmt.Errorf("expected a Project object but got %T", obj)
 	}
@@ -97,7 +97,7 @@ func (v *ProjectCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Project.
 func (v *ProjectCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	project, ok := newObj.(*corev1.Project)
+	project, ok := newObj.(*openchoreov1alpha1.Project)
 	if !ok {
 		return nil, fmt.Errorf("expected a Project object for the newObj but got %T", newObj)
 	}
@@ -111,7 +111,7 @@ func (v *ProjectCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Project.
 func (v *ProjectCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	project, ok := obj.(*corev1.Project)
+	project, ok := obj.(*openchoreov1alpha1.Project)
 	if !ok {
 		return nil, fmt.Errorf("expected a Project object but got %T", obj)
 	}
@@ -122,7 +122,7 @@ func (v *ProjectCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 	return nil, nil
 }
 
-func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, project *corev1.Project) error {
+func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, project *openchoreov1alpha1.Project) error {
 	// First validate the required labels for the Project resource.
 	if err := validateProjectLabels(project); err != nil {
 		return err
@@ -151,7 +151,7 @@ func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, proj
 }
 
 // validateProjectLabels validates the required labels for the Project resource.
-func validateProjectLabels(project *corev1.Project) error {
+func validateProjectLabels(project *openchoreov1alpha1.Project) error {
 	requiredLabels := []string{
 		labels.LabelKeyOrganizationName,
 		labels.LabelKeyName,
@@ -172,8 +172,8 @@ func validateProjectLabels(project *corev1.Project) error {
 }
 
 // ensureDeploymentPipelineExists checks whether the deployment pipeline specified in the project exists in the namespace.
-func (v *ProjectCustomValidator) ensureDeploymentPipelineExists(ctx context.Context, pipelineName string, project *corev1.Project) error {
-	pipelineList := &corev1.DeploymentPipelineList{}
+func (v *ProjectCustomValidator) ensureDeploymentPipelineExists(ctx context.Context, pipelineName string, project *openchoreov1alpha1.Project) error {
+	pipelineList := &openchoreov1alpha1.DeploymentPipelineList{}
 
 	// Define label selector
 	listOpts := []client.ListOption{
@@ -196,9 +196,9 @@ func (v *ProjectCustomValidator) ensureDeploymentPipelineExists(ctx context.Cont
 	return nil
 }
 
-func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx context.Context, project *corev1.Project) error {
+func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx context.Context, project *openchoreov1alpha1.Project) error {
 	// Create a list to hold the projects
-	projectList := &corev1.ProjectList{}
+	projectList := &openchoreov1alpha1.ProjectList{}
 
 	// Define label selector
 	listOpts := []client.ListOption{
@@ -222,9 +222,9 @@ func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx cont
 	return nil
 }
 
-func (v *ProjectCustomValidator) findOrganizationByNameLabel(ctx context.Context, orgName string) (*corev1.Organization, error) {
+func (v *ProjectCustomValidator) findOrganizationByNameLabel(ctx context.Context, orgName string) (*openchoreov1alpha1.Organization, error) {
 	// Create a list to hold the organizations
-	orgList := &corev1.OrganizationList{}
+	orgList := &openchoreov1alpha1.OrganizationList{}
 
 	// Define label selector
 	listOpts := []client.ListOption{

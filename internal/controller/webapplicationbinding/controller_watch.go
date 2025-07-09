@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 
 // setupWebApplicationClassRefIndex sets up the field index for web application class references
 func (r *Reconciler) setupWebApplicationClassRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &choreov1.WebApplicationBinding{}, webApplicationClassNameIndex, func(rawObj client.Object) []string {
-		webApplicationBinding := rawObj.(*choreov1.WebApplicationBinding)
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.WebApplicationBinding{}, webApplicationClassNameIndex, func(rawObj client.Object) []string {
+		webApplicationBinding := rawObj.(*openchoreov1alpha1.WebApplicationBinding)
 		if webApplicationBinding.Spec.ClassName == "" {
 			return nil
 		}
@@ -31,12 +31,12 @@ func (r *Reconciler) setupWebApplicationClassRefIndex(ctx context.Context, mgr c
 
 // listWebApplicationBindingsForWebApplicationClass finds all WebApplicationBindings that reference the given WebApplicationClass
 func (r *Reconciler) listWebApplicationBindingsForWebApplicationClass(ctx context.Context, obj client.Object) []reconcile.Request {
-	webApplicationClass, ok := obj.(*choreov1.WebApplicationClass)
+	webApplicationClass, ok := obj.(*openchoreov1alpha1.WebApplicationClass)
 	if !ok {
 		return nil
 	}
 
-	webApplicationBindingList := &choreov1.WebApplicationBindingList{}
+	webApplicationBindingList := &openchoreov1alpha1.WebApplicationBindingList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(webApplicationClass.Namespace),
 		client.MatchingFields{webApplicationClassNameIndex: webApplicationClass.Name},

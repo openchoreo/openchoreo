@@ -17,13 +17,13 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // updateStatus updates the Release status with applied resources
 // Returns true if the status was updated, false if unchanged
-func (r *Reconciler) updateStatus(ctx context.Context, old, release *choreov1.Release, appliedResources, liveResources []*unstructured.Unstructured) (bool, error) {
+func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.Release, appliedResources, liveResources []*unstructured.Unstructured) (bool, error) {
 	logger := log.FromContext(ctx)
 
 	// Build resource status from applied and live resources
@@ -47,7 +47,7 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *choreov1.Re
 }
 
 // buildResourceStatus converts applied unstructured objects to ResourceStatus entries using live resources
-func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Release, desiredResources, liveResources []*unstructured.Unstructured) []choreov1.ResourceStatus {
+func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.Release, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.ResourceStatus {
 	logger := log.FromContext(ctx)
 	// Build a map of live resources for quick lookup by resource ID
 	liveResourceMap := make(map[string]*unstructured.Unstructured)
@@ -58,12 +58,12 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Rele
 	}
 
 	// Build a map of old resource statuses for quick lookup by resource ID
-	oldResourceMap := make(map[string]choreov1.ResourceStatus)
+	oldResourceMap := make(map[string]openchoreov1alpha1.ResourceStatus)
 	for _, oldResource := range old.Status.Resources {
 		oldResourceMap[oldResource.ID] = oldResource
 	}
 
-	resourceStatuses := make([]choreov1.ResourceStatus, 0, len(desiredResources))
+	resourceStatuses := make([]openchoreov1alpha1.ResourceStatus, 0, len(desiredResources))
 
 	for _, desiredObj := range desiredResources {
 		gvk := desiredObj.GroupVersionKind()
@@ -107,7 +107,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Rele
 			}
 		}
 
-		status := choreov1.ResourceStatus{
+		status := openchoreov1alpha1.ResourceStatus{
 			ID:               resourceID,
 			Group:            gvk.Group,
 			Version:          gvk.Version,
@@ -125,7 +125,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *choreov1.Rele
 }
 
 // hasTransitioningResources checks if any resources are in a transitioning state
-func (r *Reconciler) hasTransitioningResources(resources []choreov1.ResourceStatus) bool {
+func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.ResourceStatus) bool {
 	for _, resource := range resources {
 		// Skip resources without status (ConfigMaps, Secrets, etc.)
 		if resource.Status == nil {
@@ -141,7 +141,7 @@ func (r *Reconciler) hasTransitioningResources(resources []choreov1.ResourceStat
 }
 
 // isResourceTransitioning checks if a specific resource is in a transitioning state
-func (r *Reconciler) isResourceTransitioning(resource choreov1.ResourceStatus) bool {
+func (r *Reconciler) isResourceTransitioning(resource openchoreov1alpha1.ResourceStatus) bool {
 	switch {
 	case resource.Group == "apps" && resource.Kind == "Deployment":
 		return r.isDeploymentTransitioning(resource.Status)

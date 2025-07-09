@@ -16,7 +16,7 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 You will see the following output.
 
 ```bash
-environment.core.choreo.dev/test created
+environment.openchoreo.dev/test created
 ```
 
 Use the following command to update the existing deployment pipeline.
@@ -28,5 +28,5 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 You will see the following output.
 
 ```bash
-deploymentpipeline.core.choreo.dev/pipeline-dev-stage-prod updated
+deploymentpipeline.openchoreo.dev/pipeline-dev-stage-prod updated
 ```

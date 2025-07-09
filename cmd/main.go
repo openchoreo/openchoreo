@@ -23,8 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
@@ -72,12 +71,11 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(choreov1.AddToScheme(scheme))
+	utilruntime.Must(openchoreov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(gwapiv1.Install(scheme))
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
-	utilruntime.Must(corev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -159,7 +157,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "43500532.choreo.dev",
+		LeaderElectionID:       "43500532.openchoreo.dev",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

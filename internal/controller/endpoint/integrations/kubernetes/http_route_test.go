@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -54,24 +54,24 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 			Entry("for basic component with public visibility",
 				createTestEndpointContext(
-					&choreov1.Endpoint{
+					&openchoreov1alpha1.Endpoint{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-endpoint",
 							Labels: map[string]string{
 								labels.LabelKeyName: "test-endpoint",
 							},
 						},
-						Spec: choreov1.EndpointSpec{
+						Spec: openchoreov1alpha1.EndpointSpec{
 							Type: "HTTP",
-							BackendRef: choreov1.BackendRef{
-								Type:     choreov1.BackendRefTypeComponentRef,
+							BackendRef: openchoreov1alpha1.BackendRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
 								BasePath: "/",
-								ComponentRef: &choreov1.ComponentRef{
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Public: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Public: &openchoreov1alpha1.VisibilityConfig{
 									Enable:   true,
 									Policies: nil,
 								},
@@ -80,7 +80,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 					},
 					"service-component-basic",
 					"prod",
-					choreov1.ComponentTypeService,
+					openchoreov1alpha1.ComponentTypeService,
 				),
 				visibility.GatewayExternal,
 				[]*gatewayv1.HTTPRoute{
@@ -141,24 +141,24 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 			Entry("for basic component with organization visibility",
 				createTestEndpointContext(
-					&choreov1.Endpoint{
+					&openchoreov1alpha1.Endpoint{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-endpoint",
 							Labels: map[string]string{
 								labels.LabelKeyName: "test-endpoint",
 							},
 						},
-						Spec: choreov1.EndpointSpec{
+						Spec: openchoreov1alpha1.EndpointSpec{
 							Type: "HTTP",
-							BackendRef: choreov1.BackendRef{
-								Type:     choreov1.BackendRefTypeComponentRef,
+							BackendRef: openchoreov1alpha1.BackendRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
 								BasePath: "/",
-								ComponentRef: &choreov1.ComponentRef{
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Organization: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Organization: &openchoreov1alpha1.VisibilityConfig{
 									Enable:   true,
 									Policies: nil,
 								},
@@ -167,7 +167,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 					},
 					"service-component-basic",
 					"prod",
-					choreov1.ComponentTypeService,
+					openchoreov1alpha1.ComponentTypeService,
 				),
 				visibility.GatewayInternal,
 				[]*gatewayv1.HTTPRoute{
@@ -228,24 +228,24 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 			Entry("for web application component with public visibility",
 				createTestEndpointContext(
-					&choreov1.Endpoint{
+					&openchoreov1alpha1.Endpoint{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-endpoint",
 							Labels: map[string]string{
 								labels.LabelKeyName: "test-endpoint",
 							},
 						},
-						Spec: choreov1.EndpointSpec{
+						Spec: openchoreov1alpha1.EndpointSpec{
 							Type: "HTTP",
-							BackendRef: choreov1.BackendRef{
-								Type:     choreov1.BackendRefTypeComponentRef,
+							BackendRef: openchoreov1alpha1.BackendRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
 								BasePath: "/",
-								ComponentRef: &choreov1.ComponentRef{
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Organization: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Organization: &openchoreov1alpha1.VisibilityConfig{
 									Enable:   true,
 									Policies: nil,
 								},
@@ -254,7 +254,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 					},
 					"webapp-component-basic",
 					"prod",
-					choreov1.ComponentTypeWebApplication,
+					openchoreov1alpha1.ComponentTypeWebApplication,
 				),
 				visibility.GatewayExternal,
 				[]*gatewayv1.HTTPRoute{
@@ -315,33 +315,33 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 			Entry("for service component with public visibility and has oauth2 scopes",
 				createTestEndpointContext(
-					&choreov1.Endpoint{
+					&openchoreov1alpha1.Endpoint{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-endpoint",
 							Labels: map[string]string{
 								labels.LabelKeyName: "test-endpoint",
 							},
 						},
-						Spec: choreov1.EndpointSpec{
+						Spec: openchoreov1alpha1.EndpointSpec{
 							Type: "REST",
-							BackendRef: choreov1.BackendRef{
-								Type:     choreov1.BackendRefTypeComponentRef,
+							BackendRef: openchoreov1alpha1.BackendRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
 								BasePath: "/api/v1/reading-list",
-								ComponentRef: &choreov1.ComponentRef{
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Public: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Public: &openchoreov1alpha1.VisibilityConfig{
 									Enable: true,
-									Policies: []choreov1.Policy{
+									Policies: []openchoreov1alpha1.Policy{
 										{
 											Name: "oauth2-scope-policy",
-											Type: choreov1.Oauth2PolicyType,
-											PolicySpec: &choreov1.PolicySpec{
-												OAuth2: &choreov1.OAuth2PolicySpec{
-													JWT: choreov1.JWT{
-														Claims: &[]choreov1.JWTClaim{
+											Type: openchoreov1alpha1.Oauth2PolicyType,
+											PolicySpec: &openchoreov1alpha1.PolicySpec{
+												OAuth2: &openchoreov1alpha1.OAuth2PolicySpec{
+													JWT: openchoreov1alpha1.JWT{
+														Claims: &[]openchoreov1alpha1.JWTClaim{
 															{
 																Key: "aud",
 																Values: []string{
@@ -350,23 +350,23 @@ var _ = Describe("HTTPRoute Handler", func() {
 																},
 															},
 														},
-														Authorization: choreov1.AuthzSpec{
-															APIType: choreov1.APITypeREST,
-															Rest: &choreov1.REST{
-																Operations: &[]choreov1.RESTOperation{
+														Authorization: openchoreov1alpha1.AuthzSpec{
+															APIType: openchoreov1alpha1.APITypeREST,
+															Rest: &openchoreov1alpha1.REST{
+																Operations: &[]openchoreov1alpha1.RESTOperation{
 																	{
 																		Target: "/books",
-																		Method: choreov1.HTTPMethodGet,
+																		Method: openchoreov1alpha1.HTTPMethodGet,
 																		Scopes: []string{"read:books:all"},
 																	},
 																	{
 																		Target: "/books",
-																		Method: choreov1.HTTPMethodPost,
+																		Method: openchoreov1alpha1.HTTPMethodPost,
 																		Scopes: []string{"write:books"},
 																	},
 																	{
 																		Target: "/books/{id}",
-																		Method: choreov1.HTTPMethodGet,
+																		Method: openchoreov1alpha1.HTTPMethodGet,
 																		Scopes: []string{"read:books"},
 																	},
 																},
@@ -383,7 +383,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 					},
 					"reading-list-service",
 					"dev",
-					choreov1.ComponentTypeService,
+					openchoreov1alpha1.ComponentTypeService,
 				),
 				visibility.GatewayExternal,
 				[]*gatewayv1.HTTPRoute{
@@ -602,22 +602,22 @@ var _ = Describe("HTTPRoute Handler", func() {
 })
 
 // Helper function to create test endpoint context
-func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDNSPrefix string,
-	componentType choreov1.ComponentType) *dataplane.EndpointContext {
+func createTestEndpointContext(endpoint *openchoreov1alpha1.Endpoint, componentName, envDNSPrefix string,
+	componentType openchoreov1alpha1.ComponentType) *dataplane.EndpointContext {
 	return &dataplane.EndpointContext{
 		Endpoint: endpoint,
-		Component: &choreov1.Component{
+		Component: &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: componentName,
 				Labels: map[string]string{
 					labels.LabelKeyName: componentName,
 				},
 			},
-			Spec: choreov1.ComponentSpec{
+			Spec: openchoreov1alpha1.ComponentSpec{
 				Type: componentType,
 			},
 		},
-		Environment: &choreov1.Environment{
+		Environment: &openchoreov1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-env",
 				Labels: map[string]string{
@@ -625,13 +625,13 @@ func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDN
 				},
 				UID: "test-env-id",
 			},
-			Spec: choreov1.EnvironmentSpec{
-				Gateway: choreov1.GatewayConfig{
+			Spec: openchoreov1alpha1.EnvironmentSpec{
+				Gateway: openchoreov1alpha1.GatewayConfig{
 					DNSPrefix: envDNSPrefix,
 				},
 			},
 		},
-		Project: &choreov1.Project{
+		Project: &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-project",
 				Labels: map[string]string{
@@ -640,7 +640,7 @@ func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDN
 				},
 			},
 		},
-		DeploymentTrack: &choreov1.DeploymentTrack{
+		DeploymentTrack: &openchoreov1alpha1.DeploymentTrack{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-track",
 				Labels: map[string]string{
@@ -648,7 +648,7 @@ func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDN
 				},
 			},
 		},
-		Deployment: &choreov1.Deployment{
+		Deployment: &openchoreov1alpha1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-deployment",
 				Labels: map[string]string{
@@ -656,15 +656,15 @@ func createTestEndpointContext(endpoint *choreov1.Endpoint, componentName, envDN
 				},
 			},
 		},
-		DataPlane: &choreov1.DataPlane{
+		DataPlane: &openchoreov1alpha1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-dataplane",
 				Labels: map[string]string{
 					labels.LabelKeyName: "test-dataplane",
 				},
 			},
-			Spec: choreov1.DataPlaneSpec{
-				Gateway: choreov1.GatewaySpec{
+			Spec: openchoreov1alpha1.DataPlaneSpec{
+				Gateway: openchoreov1alpha1.GatewaySpec{
 					PublicVirtualHost:       "choreoapis.localhost",
 					OrganizationVirtualHost: "internal.choreoapis.localhost",
 				},

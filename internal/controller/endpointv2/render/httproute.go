@@ -15,7 +15,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
@@ -27,10 +27,10 @@ const (
 */
 
 // HTTPRoutes renders the HTTPRoute resources for the given endpoint context.
-func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
+func HTTPRoutes(rCtx *Context) []*openchoreov1alpha1.Resource {
 	epType := rCtx.EndpointV2.Spec.Type
 	switch epType {
-	case choreov1.EndpointTypeREST:
+	case openchoreov1alpha1.EndpointTypeREST:
 		return makeRESTHTTPRoutes(rCtx)
 	default:
 		rCtx.AddError(UnsupportedEndpointTypeError(epType))
@@ -38,7 +38,7 @@ func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	}
 }
 
-func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
+func makeRESTHTTPRoutes(rCtx *Context) []*openchoreov1alpha1.Resource {
 	if rCtx.EndpointV2.Spec.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
 		return nil
@@ -54,7 +54,7 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	// Process each operation and its expose levels
 	for _, operation := range rCtx.EndpointV2.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelProject {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 				continue
 			}
 			httpRoute := makeHTTPRouteForRestOperation(rCtx, operation, exposeLevel)
@@ -64,13 +64,13 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, len(httpRoutes))
+	resources := make([]*openchoreov1alpha1.Resource, len(httpRoutes))
 
 	for _, httpRoute := range httpRoutes {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRoute
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeHTTPRouteResourceID(httpRoute),
 			Object: rawExt,
 		})
@@ -79,8 +79,8 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeHTTPRouteForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
+func makeHTTPRouteForRestOperation(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
 	pathType := gwapiv1.PathMatchRegularExpression
 	method := restOperation.Method
 	hostname := makeHostname(rCtx, exposeLevel)
@@ -146,16 +146,16 @@ func makeHTTPRouteForRestOperation(rCtx *Context, restOperation choreov1.RESTEnd
 }
 
 // makeHostname generates the hostname for an endpoint based on gateway type and component type
-func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
+func makeHostname(_ *Context, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) gatewayv1.Hostname {
 	// ToDO: Handle the case for webapps
-	// if rCtx.Component.Spec.Workload.Type == choreov1.WorkloadTypeWebApplication {
+	// if rCtx.Component.Spec.Workload.Type == openchoreov1alpha1.WorkloadTypeWebApplication {
 	//	return gatewayv1.Hostname(fmt.Sprintf("%s-%s.%s", rCtx.EndpointV2.Spec.Owner.ComponentName,
 	//		rCtx.EndpointV2.Spec.EnvironmentName, "choreoapps.localhost"))
 	// }
 	var domain string
 	switch exposeLevel {
 	// ToDo: Find a correct way to get the domain & env prefix for both expose levels
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		domain = "choreoapis.internal"
 	default:
 		domain = "choreoapis.localhost"
@@ -166,7 +166,7 @@ func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gat
 // makePathPrefix returns the URL path prefix based on component type
 /*
 func makePathPrefix(rCtx *Context) string {
-	// if rCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication {
+	// if rCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication {
 	//	return "/"
 	// }
 	return path.Clean(path.Join("/", rCtx.EndpointV2.Spec.Owner.ProjectName, rCtx.EndpointV2.Spec.Owner.ComponentName))
@@ -245,7 +245,7 @@ func getGatewayName(rCtx *Context) string {
 	// Check for any public expose level operations - if found, use external gateway
 	for _, operation := range rCtx.EndpointV2.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelPublic {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelPublic {
 				return "gateway-external"
 			}
 		}
@@ -261,11 +261,11 @@ func makeServiceName(epCtx *Context) string {
 }
 
 /*
-func gatewayNameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) string {
+func gatewayNameForExposeLevel(exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	switch exposeLevel {
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		return "gateway-internal" // Organization-level internal gateway
-	case choreov1.ExposeLevelPublic:
+	case openchoreov1alpha1.ExposeLevelPublic:
 		return "gateway-external" // Public external gateway
 	default:
 		return "gateway-internal"
@@ -274,18 +274,18 @@ func gatewayNameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) st
 */
 
 // todo: take this from dp
-//	func hostnameForExposeLevel(exposeLevel choreov1.RESTOperationExposeLevel) string {
+//	func hostnameForExposeLevel(exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 //		switch exposeLevel {
-//		case choreov1.ExposeLevelOrganization:
+//		case openchoreov1alpha1.ExposeLevelOrganization:
 //			return "choreoapis.internal" // Internal organization-level hostname
-//		case choreov1.ExposeLevelPublic:
+//		case openchoreov1alpha1.ExposeLevelPublic:
 //			return "choreoapis.localhost" // Public external hostname
 //		default:
 //			return "choreoapis.internal" // Default internal hostname
 //		}
 //	}
 
-func makeHTTPRouteName(rCtx *Context, operation choreov1.RESTEndpointOperation, exposeLevel choreov1.RESTOperationExposeLevel) string {
+func makeHTTPRouteName(rCtx *Context, operation openchoreov1alpha1.RESTEndpointOperation, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	operationStr := fmt.Sprintf("%s-%s", strings.ToLower(string(operation.Method)), strings.TrimPrefix(operation.Path, "/"))
 	return dpkubernetes.GenerateK8sName(rCtx.EndpointV2.Name, strings.ToLower(string(exposeLevel)), operationStr)
 }

@@ -8,7 +8,7 @@ metadata:
   name: componentv2-viewer-role
 rules:
   - apiGroups:
-      - core.choreo.dev
+      - openchoreo.dev
     resources:
       - componentv2s
     verbs:
@@ -16,7 +16,7 @@ rules:
       - list
       - watch
   - apiGroups:
-      - core.choreo.dev
+      - openchoreo.dev
     resources:
       - componentv2s/status
     verbs:

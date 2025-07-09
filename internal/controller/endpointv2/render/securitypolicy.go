@@ -12,14 +12,14 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // SecurityPolicies renders the SecurityPolicy resources for the given endpoint context.
-func SecurityPolicies(rCtx *Context) []*choreov1.Resource {
+func SecurityPolicies(rCtx *Context) []*openchoreov1alpha1.Resource {
 	epType := rCtx.EndpointV2.Spec.Type
 	switch epType {
-	case choreov1.EndpointTypeREST:
+	case openchoreov1alpha1.EndpointTypeREST:
 		return makeSecurityPolicies(rCtx)
 	default:
 		rCtx.AddError(UnsupportedEndpointTypeError(epType))
@@ -27,7 +27,7 @@ func SecurityPolicies(rCtx *Context) []*choreov1.Resource {
 	}
 }
 
-func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
+func makeSecurityPolicies(rCtx *Context) []*openchoreov1alpha1.Resource {
 	if rCtx.EndpointV2.Spec.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
 		return nil
@@ -43,7 +43,7 @@ func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
 	// Process each operation and its expose levels
 	for _, operation := range rCtx.EndpointV2.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelProject {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 				continue
 			}
 			httpRouteFilter := makeSecurityPolicyForRestOperation(rCtx, operation, exposeLevel)
@@ -53,13 +53,13 @@ func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, len(httpRouteFilters))
+	resources := make([]*openchoreov1alpha1.Resource, len(httpRouteFilters))
 
 	for _, httpRouteFilter := range httpRouteFilters {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRouteFilter
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeSecurityPolicyResourceID(httpRouteFilter),
 			Object: rawExt,
 		})
@@ -68,8 +68,8 @@ func makeSecurityPolicies(rCtx *Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeSecurityPolicyForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *egv1a1.SecurityPolicy {
+func makeSecurityPolicyForRestOperation(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *egv1a1.SecurityPolicy {
 	name := makeHTTPRouteName(rCtx, restOperation, exposeLevel)
 	actionDeny := egv1a1.AuthorizationActionDeny
 	actionAllow := egv1a1.AuthorizationActionAllow

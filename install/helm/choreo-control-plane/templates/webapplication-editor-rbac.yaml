@@ -6,7 +6,7 @@ metadata:
   {{- include "choreo-control-plane.labels" . | nindent 4 }}
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - webapplications
   verbs:
@@ -18,7 +18,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - webapplications/status
   verbs:

@@ -8,12 +8,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Service creates a complete Service resource for the new Resources array
-func Service(rCtx Context) *choreov1.Resource {
+func Service(rCtx Context) *openchoreov1alpha1.Resource {
 	base := rCtx.WebApplicationClass.Spec.ServiceTemplate
 
 	overlay := makeWebApplicationServiceSpec(rCtx)
@@ -39,7 +39,7 @@ func Service(rCtx Context) *choreov1.Resource {
 	rawExt := &runtime.RawExtension{}
 	rawExt.Object = service
 
-	return &choreov1.Resource{
+	return &openchoreov1alpha1.Resource{
 		ID:     makeServiceResourceID(rCtx),
 		Object: rawExt,
 	}

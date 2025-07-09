@@ -9,12 +9,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // CronJob creates a complete CronJob resource for scheduled task execution
-func CronJob(rCtx Context) *choreov1.Resource {
+func CronJob(rCtx Context) *openchoreov1alpha1.Resource {
 	base := rCtx.ScheduledTaskClass.Spec.CronJobTemplate
 
 	overlay := makeScheduledTaskCronJobSpec(rCtx)
@@ -47,7 +47,7 @@ func CronJob(rCtx Context) *choreov1.Resource {
 	rawExt := &runtime.RawExtension{}
 	rawExt.Object = cronJob
 
-	return &choreov1.Resource{
+	return &openchoreov1alpha1.Resource{
 		ID:     makeCronJobResourceID(rCtx),
 		Object: rawExt,
 	}

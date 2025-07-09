@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: deploymenttracks.core.choreo.dev
+  name: deploymenttracks.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: DeploymentTrack
     listKind: DeploymentTrackList
@@ -17,7 +17,7 @@ spec:
     singular: deploymenttrack
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DeploymentTrack is the Schema for the deploymenttracks API.

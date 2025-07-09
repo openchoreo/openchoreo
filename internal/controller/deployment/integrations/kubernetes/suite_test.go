@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -25,7 +25,7 @@ func TestDeploymentIntegrationKubernetes(t *testing.T) {
 func newTestDeploymentContext() *dataplane.DeploymentContext {
 	deployCtx := &dataplane.DeploymentContext{}
 
-	deployCtx.Project = &choreov1.Project{
+	deployCtx.Project = &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-project",
 			Namespace: "test-organization",
@@ -35,7 +35,7 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 			},
 		},
 	}
-	deployCtx.Environment = &choreov1.Environment{
+	deployCtx.Environment = &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-environment",
 			Namespace: "test-organization",
@@ -45,7 +45,7 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 			},
 		},
 	}
-	deployCtx.Component = &choreov1.Component{
+	deployCtx.Component = &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-component",
 			Namespace: "test-organization",
@@ -56,7 +56,7 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 			},
 		},
 	}
-	deployCtx.DeploymentTrack = &choreov1.DeploymentTrack{
+	deployCtx.DeploymentTrack = &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-main-track",
 			Namespace: "test-organization",
@@ -68,7 +68,7 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 			},
 		},
 	}
-	deployCtx.DeployableArtifact = &choreov1.DeployableArtifact{
+	deployCtx.DeployableArtifact = &openchoreov1alpha1.DeployableArtifact{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-artifact",
 			Namespace: "test-organization",
@@ -82,7 +82,7 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 		},
 	}
 
-	deployCtx.Deployment = &choreov1.Deployment{
+	deployCtx.Deployment = &openchoreov1alpha1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-deployment",
 			Namespace: "test-organization",
@@ -102,8 +102,8 @@ func newTestDeploymentContext() *dataplane.DeploymentContext {
 	return deployCtx
 }
 
-func newTestConfigurationGroup(name string, spec choreov1.ConfigurationGroupSpec) *choreov1.ConfigurationGroup {
-	return &choreov1.ConfigurationGroup{
+func newTestConfigurationGroup(name string, spec openchoreov1alpha1.ConfigurationGroupSpec) *openchoreov1alpha1.ConfigurationGroup {
+	return &openchoreov1alpha1.ConfigurationGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "test-organization",
@@ -116,14 +116,14 @@ func newTestConfigurationGroup(name string, spec choreov1.ConfigurationGroupSpec
 	}
 }
 
-func newTestRedisConfigurationGroup() *choreov1.ConfigurationGroup {
+func newTestRedisConfigurationGroup() *openchoreov1alpha1.ConfigurationGroup {
 	return newTestConfigurationGroup(
 		"redis-config-group",
-		choreov1.ConfigurationGroupSpec{
-			Configurations: []choreov1.ConfigurationGroupConfiguration{
+		openchoreov1alpha1.ConfigurationGroupSpec{
+			Configurations: []openchoreov1alpha1.ConfigurationGroupConfiguration{
 				{
 					Key: "host",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							Value:       "redis-dev.test.com",
@@ -136,7 +136,7 @@ func newTestRedisConfigurationGroup() *choreov1.ConfigurationGroup {
 				},
 				{
 					Key: "port",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							Value:       "6379",
@@ -149,7 +149,7 @@ func newTestRedisConfigurationGroup() *choreov1.ConfigurationGroup {
 				},
 				{
 					Key: "password",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							VaultKey:    "secret/test/redis/password",
@@ -164,14 +164,14 @@ func newTestRedisConfigurationGroup() *choreov1.ConfigurationGroup {
 		})
 }
 
-func newTestMysqlConfigurationGroup() *choreov1.ConfigurationGroup {
+func newTestMysqlConfigurationGroup() *openchoreov1alpha1.ConfigurationGroup {
 	return newTestConfigurationGroup(
 		"mysql-config-group",
-		choreov1.ConfigurationGroupSpec{
-			Configurations: []choreov1.ConfigurationGroupConfiguration{
+		openchoreov1alpha1.ConfigurationGroupSpec{
+			Configurations: []openchoreov1alpha1.ConfigurationGroupConfiguration{
 				{
 					Key: "host",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							Value:       "mysql-dev.test.com",
@@ -184,7 +184,7 @@ func newTestMysqlConfigurationGroup() *choreov1.ConfigurationGroup {
 				},
 				{
 					Key: "port",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							Value:       "3306",
@@ -197,7 +197,7 @@ func newTestMysqlConfigurationGroup() *choreov1.ConfigurationGroup {
 				},
 				{
 					Key: "password",
-					Values: []choreov1.ConfigurationValue{
+					Values: []openchoreov1alpha1.ConfigurationValue{
 						{
 							Environment: "test-environment",
 							VaultKey:    "secret/test/mysql/password",

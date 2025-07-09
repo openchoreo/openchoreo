@@ -14,19 +14,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	// DeploymentTrackCleanupFinalizer is the finalizer that is used to clean up deployment track resources.
-	DeploymentTrackCleanupFinalizer = "core.choreo.dev/deploymenttrack-cleanup"
+	DeploymentTrackCleanupFinalizer = "openchoreo.dev/deploymenttrack-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the deployment track.
 // The first return value indicates whether the finalizer was added to the deployment track.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (bool, error) {
 	// If the deployment track is being deleted, no need to add the finalizer
 	if !deploymentTrack.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -39,7 +39,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, deploymentTrack *chore
 	return false, nil
 }
 
-func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov1.DeploymentTrack) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 
 	if !controllerutil.ContainsFinalizer(deploymentTrack, DeploymentTrackCleanupFinalizer) {
@@ -82,7 +82,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, deploymentTrack *choreov
 
 // deleteChildResources cleans up any resources that are dependent on this DeploymentTrack
 // Returns a boolean indicating if all resources are deleted and an error if something unexpected occurred
-func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
+func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 
 	// Clean up deployments
@@ -123,12 +123,12 @@ func (r *Reconciler) deleteChildResources(ctx context.Context, deploymentTrack *
 }
 
 // deleteBuildsAndWait deletes builds and waits for them to be fully deleted
-func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
+func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up builds")
 
 	// Find all Builds owned by this DeploymentTrack
-	buildList := &choreov1.BuildList{}
+	buildList := &openchoreov1alpha1.BuildList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{
@@ -188,12 +188,12 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *c
 }
 
 // deleteDeployableArtifactsAndWait deletes deployable artifacts and waits for them to be fully deleted
-func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
+func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployable artifacts")
 
 	// Find all DeployableArtifacts owned by this DeploymentTrack
-	artifactList := &choreov1.DeployableArtifactList{}
+	artifactList := &openchoreov1alpha1.DeployableArtifactList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{
@@ -256,12 +256,12 @@ func (r *Reconciler) deleteDeployableArtifactsAndWait(ctx context.Context, deplo
 }
 
 // deleteDeploymentsAndWait deletes deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTrack *choreov1.DeploymentTrack) (bool, error) {
+func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deploymentTrack *openchoreov1alpha1.DeploymentTrack) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentTrack", deploymentTrack.Name)
 	logger.Info("Cleaning up deployments")
 
 	// Find all Deployments owned by this DeploymentTrack
-	deploymentList := &choreov1.DeploymentList{}
+	deploymentList := &openchoreov1alpha1.DeploymentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{

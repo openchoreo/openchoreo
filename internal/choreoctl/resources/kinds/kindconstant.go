@@ -244,7 +244,7 @@ const (
 // Annotations used across resources
 const (
 	// DeploymentTrack annotations
-	AutoDeployAnnotation = "core.choreo.dev/auto-deploy"
+	AutoDeployAnnotation = "openchoreo.dev/auto-deploy"
 )
 
 //

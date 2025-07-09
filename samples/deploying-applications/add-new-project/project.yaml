@@ -1,15 +1,15 @@
 ## Sample Project kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   name: customer-portal
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Customer Portal
-    core.choreo.dev/description: This project contains types that are used by Acme customer portal
+    openchoreo.dev/display-name: Customer Portal
+    openchoreo.dev/description: This project contains types that are used by Acme customer portal
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: customer-portal
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: customer-portal
 spec:
   deploymentPipelineRef: pipeline-dev-stage-prod
 

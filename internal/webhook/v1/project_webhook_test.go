@@ -13,7 +13,7 @@ import (
 	apimachineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -25,15 +25,15 @@ const (
 
 var _ = Describe("Project Webhook", func() {
 	var (
-		obj       *corev1.Project
-		oldObj    *corev1.Project
+		obj       *openchoreov1alpha1.Project
+		oldObj    *openchoreov1alpha1.Project
 		validator ProjectCustomValidator
 		defaulter ProjectCustomDefaulter
 	)
 
 	BeforeEach(func() {
-		obj = &corev1.Project{}
-		oldObj = &corev1.Project{}
+		obj = &openchoreov1alpha1.Project{}
+		oldObj = &openchoreov1alpha1.Project{}
 		validator = ProjectCustomValidator{
 			client: k8sClient,
 		}
@@ -52,7 +52,7 @@ var _ = Describe("Project Webhook", func() {
 	// Helper functions
 	createFakeClientBuilder := func() *fake.ClientBuilder {
 		scheme := apimachineryruntime.NewScheme()
-		err := corev1.AddToScheme(scheme)
+		err := openchoreov1alpha1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = admissionv1.AddToScheme(scheme)
@@ -61,23 +61,23 @@ var _ = Describe("Project Webhook", func() {
 		return fake.NewClientBuilder().WithScheme(scheme)
 	}
 
-	createValidOrganization := func(orgName string, orgNamespace string) *corev1.Organization {
-		org := &corev1.Organization{
+	createValidOrganization := func(orgName string, orgNamespace string) *openchoreov1alpha1.Organization {
+		org := &openchoreov1alpha1.Organization{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "org-" + orgName,
 				Labels: map[string]string{
 					labels.LabelKeyName: orgName,
 				},
 			},
-			Status: corev1.OrganizationStatus{
+			Status: openchoreov1alpha1.OrganizationStatus{
 				Namespace: orgNamespace,
 			},
 		}
 		return org
 	}
 
-	createValidDeploymentPipeline := func(name string, namespace string) *corev1.DeploymentPipeline {
-		pipeline := &corev1.DeploymentPipeline{
+	createValidDeploymentPipeline := func(name string, namespace string) *openchoreov1alpha1.DeploymentPipeline {
+		pipeline := &openchoreov1alpha1.DeploymentPipeline{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipeline-" + name,
 				Namespace: namespace,
@@ -89,8 +89,8 @@ var _ = Describe("Project Webhook", func() {
 		return pipeline
 	}
 
-	createValidProject := func(name string, orgName string, namespace string, pipelineName string) *corev1.Project {
-		project := &corev1.Project{
+	createValidProject := func(name string, orgName string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
+		project := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "proj-" + name,
 				Namespace: namespace,
@@ -99,7 +99,7 @@ var _ = Describe("Project Webhook", func() {
 					labels.LabelKeyOrganizationName: orgName,
 				},
 			},
-			Spec: corev1.ProjectSpec{
+			Spec: openchoreov1alpha1.ProjectSpec{
 				DeploymentPipelineRef: pipelineName,
 			},
 		}
@@ -125,13 +125,13 @@ var _ = Describe("Project Webhook", func() {
 	Context("When validating Project creation", func() {
 		It("Should deny creation if required labels are missing", func() {
 			By("Creating a project without required labels")
-			obj = &corev1.Project{
+			obj = &openchoreov1alpha1.Project{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "missing-labels-project",
 					Namespace: testNamespace,
 					// Missing required labels
 				},
-				Spec: corev1.ProjectSpec{
+				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: testPipeline,
 				},
 			}

@@ -1,15 +1,15 @@
 ## Sample DeploymentPipeline kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
   name: default-pipeline
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Default Deployment Pipeline
-    core.choreo.dev/description: Allows promoting from development, staging to production environments.
+    openchoreo.dev/display-name: Default Deployment Pipeline
+    openchoreo.dev/description: Allows promoting from development, staging to production environments.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: default-pipeline
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: default-pipeline
 spec:
   promotionPaths:
     - sourceEnvironmentRef: development

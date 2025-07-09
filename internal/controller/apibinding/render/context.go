@@ -6,13 +6,13 @@ package render
 import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 type Context struct {
-	APIBinding *choreov1.APIBinding
-	APIClass   *choreov1.APIClass
-	API        *choreov1.API
+	APIBinding *openchoreov1alpha1.APIBinding
+	APIClass   *openchoreov1alpha1.APIClass
+	API        *openchoreov1alpha1.API
 
 	// Stores the errors encountered during rendering.
 	errs []error

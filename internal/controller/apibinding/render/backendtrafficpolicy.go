@@ -12,14 +12,14 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // BackendTrafficPolicies renders the BackendTrafficPolicy resources for the given API context.
-func BackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
+func BackendTrafficPolicies(rCtx *Context) []*openchoreov1alpha1.Resource {
 	apiType := rCtx.API.Spec.Type
 	switch apiType {
-	case choreov1.EndpointTypeREST:
+	case openchoreov1alpha1.EndpointTypeREST:
 		return makeBackendTrafficPolicies(rCtx)
 	default:
 		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
@@ -27,7 +27,7 @@ func BackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
 	}
 }
 
-func makeBackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
+func makeBackendTrafficPolicies(rCtx *Context) []*openchoreov1alpha1.Resource {
 	if rCtx.API.Spec.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
 		return nil
@@ -43,7 +43,7 @@ func makeBackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
 	// Process each operation and its expose levels
 	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelProject {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 				continue // Skip project level for now
 			}
 			backendTrafficPolicy := makeBackendTrafficPolicyForRestOperation(rCtx, operation, exposeLevel)
@@ -53,13 +53,13 @@ func makeBackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, 0, len(backendTrafficPolicies))
+	resources := make([]*openchoreov1alpha1.Resource, 0, len(backendTrafficPolicies))
 
 	for _, backendTrafficPolicy := range backendTrafficPolicies {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = backendTrafficPolicy
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeBackendTrafficPolicyResourceID(backendTrafficPolicy),
 			Object: rawExt,
 		})
@@ -68,8 +68,8 @@ func makeBackendTrafficPolicies(rCtx *Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeBackendTrafficPolicyForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *egv1a1.BackendTrafficPolicy {
+func makeBackendTrafficPolicyForRestOperation(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *egv1a1.BackendTrafficPolicy {
 	name := makeHTTPRouteName(rCtx, restOperation, exposeLevel)
 
 	// Resolve rate limit policy for this operation and expose level
@@ -124,31 +124,31 @@ func makeBackendTrafficPolicyForRestOperation(rCtx *Context, restOperation chore
 }
 
 // resolveRateLimitPolicy resolves the rate limit configuration for a specific operation and expose level
-func resolveRateLimitPolicy(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *choreov1.RateLimitPolicy {
+func resolveRateLimitPolicy(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *openchoreov1alpha1.RateLimitPolicy {
 	restPolicy := rCtx.APIClass.Spec.RESTPolicy
 
 	// Start with defaults
-	var basePolicy *choreov1.RESTPolicyWithConditionals
+	var basePolicy *openchoreov1alpha1.RESTPolicyWithConditionals
 	if restPolicy.Defaults != nil {
 		basePolicy = restPolicy.Defaults
 	}
 
 	// Apply expose level overrides
-	var exposeLevelPolicy *choreov1.RESTPolicyWithConditionals
+	var exposeLevelPolicy *openchoreov1alpha1.RESTPolicyWithConditionals
 	switch exposeLevel {
-	case choreov1.ExposeLevelPublic:
+	case openchoreov1alpha1.ExposeLevelPublic:
 		if restPolicy.Public != nil {
 			exposeLevelPolicy = restPolicy.Public
 		}
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		if restPolicy.Organization != nil {
 			exposeLevelPolicy = restPolicy.Organization
 		}
 	}
 
 	// Merge policies: expose level overrides defaults
-	var mergedPolicy *choreov1.RESTPolicy
+	var mergedPolicy *openchoreov1alpha1.RESTPolicy
 	if exposeLevelPolicy != nil {
 		mergedPolicy = &exposeLevelPolicy.RESTPolicy
 		// If expose level policy doesn't have rate limit, fall back to defaults
@@ -164,7 +164,7 @@ func resolveRateLimitPolicy(rCtx *Context, restOperation choreov1.RESTEndpointOp
 	}
 
 	// Check for conditional policies that match this operation
-	var conditionalPolicies []choreov1.RESTConditionalPolicy
+	var conditionalPolicies []openchoreov1alpha1.RESTConditionalPolicy
 	if exposeLevelPolicy != nil {
 		conditionalPolicies = exposeLevelPolicy.ConditionalPolicies
 	} else if basePolicy != nil {
@@ -184,7 +184,7 @@ func resolveRateLimitPolicy(rCtx *Context, restOperation choreov1.RESTEndpointOp
 }
 
 // matchesCondition checks if a REST operation matches the given policy condition
-func matchesCondition(condition *choreov1.RESTPolicyCondition, operation choreov1.RESTEndpointOperation) bool {
+func matchesCondition(condition *openchoreov1alpha1.RESTPolicyCondition, operation openchoreov1alpha1.RESTEndpointOperation) bool {
 	// Check method match
 	if condition.Method != nil && *condition.Method != operation.Method {
 		return false
@@ -208,7 +208,7 @@ func matchesCondition(condition *choreov1.RESTPolicyCondition, operation choreov
 }
 
 // buildClientSelectors builds client selectors for rate limiting based on the configuration
-func buildClientSelectors(rateLimitConfig *choreov1.RateLimitPolicy) []egv1a1.RateLimitSelectCondition {
+func buildClientSelectors(rateLimitConfig *openchoreov1alpha1.RateLimitPolicy) []egv1a1.RateLimitSelectCondition {
 	if rateLimitConfig.KeyBy == nil {
 		// Default: rate limit by client IP (all IPs)
 		return []egv1a1.RateLimitSelectCondition{

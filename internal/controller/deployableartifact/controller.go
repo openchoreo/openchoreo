@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -42,7 +42,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling DeployableArtifact")
 
 	// Fetch the DeployableArtifact instance
-	deployableartifact := &choreov1.DeployableArtifact{}
+	deployableartifact := &openchoreov1alpha1.DeployableArtifact{}
 	if err := r.Get(ctx, req.NamespacedName, deployableartifact); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The DeployableArtifact resource may have been deleted since it triggered the reconcile
@@ -93,7 +93,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) shouldIgnoreReconcile(deployableArtifact *choreov1.DeployableArtifact) bool {
+func (r *Reconciler) shouldIgnoreReconcile(deployableArtifact *openchoreov1alpha1.DeployableArtifact) bool {
 	return meta.FindStatusCondition(deployableArtifact.Status.Conditions, string(controller.TypeAvailable)) != nil
 }
 
@@ -109,12 +109,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.DeployableArtifact{}).
+		For(&openchoreov1alpha1.DeployableArtifact{}).
 		Named("deployableartifact").
 		// Watch for Deployment changes to reconcile the component
 		Watches(
-			&choreov1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.DeployableArtifact](
+			&openchoreov1alpha1.Deployment{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeployableArtifact](
 				r.Client, controller.GetDeployableArtifact)),
 		).
 		Complete(r)

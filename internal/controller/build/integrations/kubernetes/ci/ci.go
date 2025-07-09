@@ -6,14 +6,14 @@ package ci
 import (
 	"fmt"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // ConstructImageNameWithTag constructs an image name with the tag.
 // The git revision is added from the workflow.
-func ConstructImageNameWithTag(build *choreov1.Build) string {
+func ConstructImageNameWithTag(build *openchoreov1alpha1.Build) string {
 	orgName := build.ObjectMeta.Labels[labels.LabelKeyOrganizationName]
 	projName := build.ObjectMeta.Labels[labels.LabelKeyProjectName]
 	componentName := build.ObjectMeta.Labels[labels.LabelKeyComponentName]

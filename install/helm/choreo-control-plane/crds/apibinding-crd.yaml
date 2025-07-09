@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: apibindings.core.choreo.dev
+  name: apibindings.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: APIBinding
     listKind: APIBindingList
@@ -14,7 +14,7 @@ spec:
     singular: apibinding
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: APIBinding is the Schema for the apibindings API.

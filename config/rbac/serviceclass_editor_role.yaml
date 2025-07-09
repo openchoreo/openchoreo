@@ -8,7 +8,7 @@ metadata:
   name: serviceclass-editor-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - serviceclasses
   verbs:
@@ -20,7 +20,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - serviceclasses/status
   verbs:

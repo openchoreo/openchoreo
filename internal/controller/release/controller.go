@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -39,9 +39,9 @@ type Reconciler struct {
 // TODO: Optimize to apply resource only if spec has changed
 // TODO: Add events and conditions
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -52,7 +52,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Release instance
-	release := &choreov1.Release{}
+	release := &openchoreov1alpha1.Release{}
 	if err := r.Get(ctx, req.NamespacedName, release); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Release resource not found. Ignoring since it must be deleted.")
@@ -149,13 +149,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // getDPClient gets the dataplane client for the specified environment
 func (r *Reconciler) getDPClient(ctx context.Context, environmentName string) (client.Client, error) {
 	// Fetch the environment from default namespace
-	env := &choreov1.Environment{}
+	env := &openchoreov1alpha1.Environment{}
 	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: "default"}, env); err != nil {
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
 	// Get the dataplane using the direct reference from default namespace
-	dataplane := &choreov1.DataPlane{}
+	dataplane := &openchoreov1alpha1.DataPlane{}
 	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: "default"}, dataplane); err != nil {
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
@@ -184,7 +184,7 @@ func (r *Reconciler) applyResources(ctx context.Context, dpClient client.Client,
 }
 
 // makeDesiredResources creates the desired resources from the Release spec
-func (r *Reconciler) makeDesiredResources(release *choreov1.Release) ([]*unstructured.Unstructured, error) {
+func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.Release) ([]*unstructured.Unstructured, error) {
 	desiredObjects := make([]*unstructured.Unstructured, 0, len(release.Spec.Resources))
 
 	for _, resource := range release.Spec.Resources {
@@ -214,7 +214,7 @@ func (r *Reconciler) makeDesiredResources(release *choreov1.Release) ([]*unstruc
 }
 
 // makeDesiredNamespaces creates namespace objects from the desired resources with proper labels
-func (r *Reconciler) makeDesiredNamespaces(release *choreov1.Release, resources []*unstructured.Unstructured) []*corev1.Namespace {
+func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.Release, resources []*unstructured.Unstructured) []*corev1.Namespace {
 	namespaceMap := make(map[string]*corev1.Namespace)
 
 	for _, obj := range resources {
@@ -347,7 +347,7 @@ func (r *Reconciler) deleteResources(ctx context.Context, dpClient client.Client
 //   - With status: Queries both Secret + ConfigMap, finds and deletes orphaned ConfigMap
 //
 // This approach automatically supports any CRDs (Gateway, Cilium, etc.) without hardcoded lists.
-func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []choreov1.ResourceStatus) []schema.GroupVersionKind {
+func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.ResourceStatus) []schema.GroupVersionKind {
 	gvkSet := make(map[schema.GroupVersionKind]bool)
 
 	// Add GVKs from desired resources (current spec)
@@ -428,7 +428,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 }
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
-func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient client.Client, release *choreov1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
+func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient client.Client, release *openchoreov1alpha1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
 	logger := log.FromContext(ctx)
 
 	var allLiveResources []*unstructured.Unstructured
@@ -474,7 +474,7 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient clien
 
 // getStableRequeueInterval returns the requeue interval for stable resources
 // Returns zero duration if interval is set to 0 (no requeue)
-func getStableRequeueInterval(release *choreov1.Release) time.Duration {
+func getStableRequeueInterval(release *openchoreov1alpha1.Release) time.Duration {
 	// Use configured interval or default to 5m
 	baseInterval := 5 * time.Minute
 	if release.Spec.Interval != nil {
@@ -492,7 +492,7 @@ func getStableRequeueInterval(release *choreov1.Release) time.Duration {
 
 // getProgressingRequeueInterval returns the requeue interval for transitioning resources
 // Returns zero duration if progressingInterval is set to 0 (no requeue)
-func getProgressingRequeueInterval(release *choreov1.Release) time.Duration {
+func getProgressingRequeueInterval(release *openchoreov1alpha1.Release) time.Duration {
 	// Use configured progressingInterval or default to 10s
 	baseInterval := 10 * time.Second
 	if release.Spec.ProgressingInterval != nil {
@@ -521,7 +521,7 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Release{}).
+		For(&openchoreov1alpha1.Release{}).
 		Named("release").
 		Complete(r)
 }

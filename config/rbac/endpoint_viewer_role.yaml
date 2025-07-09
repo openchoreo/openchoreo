@@ -1,7 +1,7 @@
 # This rule is not used by the project choreo itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to core.choreo.dev resources.
+# Grants read-only access to openchoreo.dev resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -14,7 +14,7 @@ metadata:
   name: endpoint-viewer-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - endpoints
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - endpoints/status
   verbs:

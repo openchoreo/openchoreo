@@ -4,7 +4,7 @@
 package visibility
 
 import (
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
@@ -59,7 +59,7 @@ func NewPublicVisibilityStrategy() *PublicVisibilityStrategy {
 }
 
 func (s *PublicVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return true
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
@@ -67,7 +67,7 @@ func (s *PublicVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.Endpoint
 }
 
 func (s *PublicVisibilityStrategy) IsHTTPRouteFilterRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return false
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Public != nil &&
@@ -97,7 +97,7 @@ func NewOrganizationVisibilityStrategy() *OrganizationVisibilityStrategy {
 }
 
 func (s *OrganizationVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return false // Disable organization visibility for webapp
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Organization != nil &&
@@ -105,7 +105,7 @@ func (s *OrganizationVisibilityStrategy) IsHTTPRouteRequired(epCtx *dataplane.En
 }
 
 func (s *OrganizationVisibilityStrategy) IsHTTPRouteFilterRequired(epCtx *dataplane.EndpointContext) bool {
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication || epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return false // Disable organization visibility for webapp
 	}
 	return epCtx.Endpoint.Spec.NetworkVisibilities.Organization != nil &&
@@ -140,7 +140,7 @@ func hasOAuthSecurityScheme(epCtx *dataplane.EndpointContext, gwType GatewayType
 			return false
 		}
 		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
-			if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
+			if policy.PolicySpec != nil && policy.Type == openchoreov1alpha1.Oauth2PolicyType {
 				if policy.PolicySpec.OAuth2 != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
@@ -158,7 +158,7 @@ func hasOAuthSecurityScheme(epCtx *dataplane.EndpointContext, gwType GatewayType
 			return false
 		}
 		for _, policy := range ep.Spec.NetworkVisibilities.Public.Policies {
-			if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
+			if policy.PolicySpec != nil && policy.Type == openchoreov1alpha1.Oauth2PolicyType {
 				if policy.PolicySpec.OAuth2 != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
 					policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&

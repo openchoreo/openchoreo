@@ -10,16 +10,16 @@ metadata:
     "helm.sh/hook-weight": "7"
   name: {{ .Values.choreoDefaultValues.organization.name }}
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1
 kind: Organization
 metadata:
   annotations:
-    core.choreo.dev/display-name: {{ .Values.choreoDefaultValues.organization.displayName }}
-    core.choreo.dev/description: {{ .Values.choreoDefaultValues.organization.description }}
+    openchoreo.dev/display-name: {{ .Values.choreoDefaultValues.organization.displayName }}
+    openchoreo.dev/description: {{ .Values.choreoDefaultValues.organization.description }}
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "7"
   labels:
-    core.choreo.dev/name: {{ .Values.choreoDefaultValues.organization.name }}
+    openchoreo.dev/name: {{ .Values.choreoDefaultValues.organization.name }}
   name: {{ .Values.choreoDefaultValues.organization.name }}
 spec:
 {{ end }}

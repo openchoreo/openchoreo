@@ -20,7 +20,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = corev1.AddToScheme(scheme.Scheme)
+	err = openchoreov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -82,23 +82,23 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func newBuildpackBasedBuild() *corev1.Build {
-	return &corev1.Build{
+func newBuildpackBasedBuild() *openchoreov1alpha1.Build {
+	return &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-build",
 			Labels: map[string]string{
-				"core.choreo.dev/organization":     "test-organization",
-				"core.choreo.dev/project":          "test-project",
-				"core.choreo.dev/component":        "test-component",
-				"core.choreo.dev/deployment-track": "test-main",
-				"core.choreo.dev/name":             "test-build",
+				"openchoreo.dev/organization":     "test-organization",
+				"openchoreo.dev/project":          "test-project",
+				"openchoreo.dev/component":        "test-component",
+				"openchoreo.dev/deployment-track": "test-main",
+				"openchoreo.dev/name":             "test-build",
 			},
 		},
-		Spec: corev1.BuildSpec{
+		Spec: openchoreov1alpha1.BuildSpec{
 			Branch: "main",
 			Path:   "/test-service",
-			BuildConfiguration: corev1.BuildConfiguration{
-				Buildpack: &corev1.BuildpackConfiguration{
+			BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+				Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
 					Name:    "Go",
 					Version: "1.x",
 				},

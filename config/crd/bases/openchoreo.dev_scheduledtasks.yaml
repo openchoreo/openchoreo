@@ -1,0 +1,78 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: scheduledtasks.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ScheduledTask
+    listKind: ScheduledTaskList
+    plural: scheduledtasks
+    singular: scheduledtask
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScheduledTask is the Schema for the scheduledtasks API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScheduledTaskSpec defines the desired state of ScheduledTask.
+            properties:
+              className:
+                description: ClassName is the name of the scheduled task class that
+                  provides the scheduled task-specific deployment configuration.
+                type: string
+              overrides:
+                additionalProperties:
+                  type: boolean
+                type: object
+              owner:
+                properties:
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              workloadName:
+                description: WorkloadName is the name of the workload that this scheduled
+                  task is referencing.
+                type: string
+            required:
+            - className
+            - owner
+            - workloadName
+            type: object
+          status:
+            description: ScheduledTaskStatus defines the observed state of ScheduledTask.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

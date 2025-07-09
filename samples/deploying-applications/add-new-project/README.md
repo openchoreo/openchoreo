@@ -20,5 +20,5 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 You will see the following output.
 
 ```bash
-project.core.choreo.dev/customer-portal created
+project.openchoreo.dev/customer-portal created
 ```

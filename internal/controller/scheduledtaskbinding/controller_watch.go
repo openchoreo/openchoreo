@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 
 // setupScheduledTaskClassRefIndex sets up the field index for scheduled task class references
 func (r *Reconciler) setupScheduledTaskClassRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &choreov1.ScheduledTaskBinding{}, scheduledTaskClassNameIndex, func(rawObj client.Object) []string {
-		scheduledTaskBinding := rawObj.(*choreov1.ScheduledTaskBinding)
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ScheduledTaskBinding{}, scheduledTaskClassNameIndex, func(rawObj client.Object) []string {
+		scheduledTaskBinding := rawObj.(*openchoreov1alpha1.ScheduledTaskBinding)
 		if scheduledTaskBinding.Spec.ClassName == "" {
 			return nil
 		}
@@ -31,12 +31,12 @@ func (r *Reconciler) setupScheduledTaskClassRefIndex(ctx context.Context, mgr ct
 
 // listScheduledTaskBindingsForScheduledTaskClass finds all ScheduledTaskBindings that reference the given ScheduledTaskClass
 func (r *Reconciler) listScheduledTaskBindingsForScheduledTaskClass(ctx context.Context, obj client.Object) []reconcile.Request {
-	scheduledTaskClass, ok := obj.(*choreov1.ScheduledTaskClass)
+	scheduledTaskClass, ok := obj.(*openchoreov1alpha1.ScheduledTaskClass)
 	if !ok {
 		return nil
 	}
 
-	scheduledTaskBindingList := &choreov1.ScheduledTaskBindingList{}
+	scheduledTaskBindingList := &openchoreov1alpha1.ScheduledTaskBindingList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(scheduledTaskClass.Namespace),
 		client.MatchingFields{scheduledTaskClassNameIndex: scheduledTaskClass.Name},

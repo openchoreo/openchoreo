@@ -1,12 +1,12 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   annotations:
-    core.choreo.dev/description: Production
-    core.choreo.dev/display-name: Production
+    openchoreo.dev/description: Production
+    openchoreo.dev/display-name: Production
   labels:
-    core.choreo.dev/name: production
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/name: production
+    openchoreo.dev/organization: default-org
   name: production
   namespace: default
 spec:

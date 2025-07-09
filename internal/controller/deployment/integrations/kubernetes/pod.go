@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -265,8 +265,8 @@ func makeSecretCSIVolumes(deployCtx *dataplane.DeploymentContext) ([]corev1.Volu
 }
 
 func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPolicy {
-	if deployCtx.Component.Spec.Type == choreov1.ComponentTypeScheduledTask ||
-		deployCtx.Component.Spec.Type == choreov1.ComponentTypeManualTask {
+	if deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeScheduledTask ||
+		deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeManualTask {
 		return corev1.RestartPolicyNever
 	}
 	return corev1.RestartPolicyAlways
@@ -274,7 +274,7 @@ func getRestartPolicy(deployCtx *dataplane.DeploymentContext) corev1.RestartPoli
 
 // makeDirectFileMountVolumeName generates a unique name for the file mount volume for a given FileMount spec
 // The name will be in the format: filemount-<hash-of-the-mount-path>
-func makeDirectFileMountVolumeName(fileMount *choreov1.FileMount) string {
+func makeDirectFileMountVolumeName(fileMount *openchoreov1alpha1.FileMount) string {
 	hashLength := 8
 	hashBytes := sha256.Sum256([]byte(fileMount.MountPath))
 	hash := hex.EncodeToString(hashBytes[:])[:hashLength]

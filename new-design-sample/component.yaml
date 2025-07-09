@@ -1,4 +1,4 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
   name: reading-list-service
@@ -51,7 +51,7 @@ spec:
 
 # Defines a workload that specifies the developer contract which describes the source code including
 # what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: reading-list-service
@@ -90,7 +90,7 @@ spec:
 
 # Service that specify runtime configuration for the component.
 # This can be either managed by the component controller or manually created by the user.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
   name: reading-list-service
@@ -115,7 +115,7 @@ spec:
 ---
 # Defines PE level configuration for the service component.
 # Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ServiceClass
 metadata:
   name: go-service-standard
@@ -183,7 +183,7 @@ spec:
 # - It should contain the runtime-specific details related to the component type.
 # - It can still refer to the Classes so that class changes can be applied to the runtime.
 # The controller should use the Classes and other spec details to generate the necessary resources in the environment.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ServiceBinding
 metadata:
   name: reading-list-service
@@ -265,7 +265,7 @@ spec:
 
 
 # Scheduled task workload that is created based on the component configuration.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ScheduledTask
 metadata:
   name: reading-list-service-workload

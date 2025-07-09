@@ -15,19 +15,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	// DataPlaneCleanupFinalizer is the finalizer that is used to clean up the data plane resources.
-	DataPlaneCleanupFinalizer = "core.choreo.dev/data-plane-cleanup"
+	DataPlaneCleanupFinalizer = "openchoreo.dev/data-plane-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the deployment.
 // The first return value indicates whether the finalizer was added to the deployment.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, deployment *choreov1.Deployment) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, deployment *openchoreov1alpha1.Deployment) (bool, error) {
 	// If the deployment is being deleted, no need to add the finalizer
 	if !deployment.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -41,7 +41,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, deployment *choreov1.D
 }
 
 // finalize cleans up the data plane resources associated with the deployment.
-func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Deployment) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, deployment *openchoreov1alpha1.Deployment) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("deployment", deployment.Name)
 	if !controllerutil.ContainsFinalizer(deployment, DataPlaneCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
@@ -127,12 +127,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployment *choreov1.Dep
 // cleanupEndpoints cleans up the endpoints associated with the deployment.
 // it will return true, nil if the deletion is still in progress and false, nil if the deletion is completed.
 // false, error will be returned if there is an error while deleting the endpoints.
-func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *choreov1.Deployment) (bool, error) {
+func (r *Reconciler) cleanupEndpoints(ctx context.Context, deployment *openchoreov1alpha1.Deployment) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deployment", deployment.Name)
 	logger.Info("Cleaning up the endpoints associated with the deployment")
 
 	// List all the endpoints associated with the deployment
-	endpointList := &choreov1.EndpointList{}
+	endpointList := &openchoreov1alpha1.EndpointList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels{

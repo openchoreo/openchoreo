@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding/render"
 )
 
@@ -24,12 +24,12 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apibindings/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apiclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=apis,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=apibindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=apibindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=apibindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=apiclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=apis,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=securitypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=httproutefilters,verbs=get;list;watch;create;update;patch;delete
@@ -41,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the APIBinding instance for this reconcile request
-	apiBinding := &choreov1.APIBinding{}
+	apiBinding := &openchoreov1alpha1.APIBinding{}
 	if err := r.Get(ctx, req.NamespacedName, apiBinding); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get APIBinding")
@@ -51,7 +51,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Step 1: Find associated APIClass resource
-	apiClass := &choreov1.APIClass{}
+	apiClass := &openchoreov1alpha1.APIClass{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      apiBinding.Spec.APIClassName,
 		Namespace: apiBinding.Namespace,
@@ -61,7 +61,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Step 2: Find associated API resource
-	api := &choreov1.API{}
+	api := &openchoreov1alpha1.API{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      apiBinding.Spec.APIName,
 		Namespace: apiBinding.Namespace,
@@ -91,7 +91,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	release := &choreov1.Release{
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.APIBinding.Name,
 			Namespace: rCtx.APIBinding.Namespace,
@@ -118,14 +118,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context)
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
-	release := &choreov1.Release{
+func (r *Reconciler) makeRelease(rCtx *render.Context) *openchoreov1alpha1.Release {
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.APIBinding.Name,
 			Namespace: rCtx.APIBinding.Namespace,
 		},
-		Spec: choreov1.ReleaseSpec{
-			Owner: choreov1.ReleaseOwner{
+		Spec: openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   rCtx.API.Spec.Owner.ProjectName,
 				ComponentName: rCtx.API.Spec.Owner.ComponentName,
 			},
@@ -133,7 +133,7 @@ func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
 		},
 	}
 
-	resources := make([]choreov1.Resource, 0)
+	resources := make([]openchoreov1alpha1.Resource, 0)
 
 	// Step 3: Find the RESTAPIPolicy in APIClassSpec
 	// Step 4 & 5: Apply strategic merge for both Public & Organization expose levels
@@ -175,10 +175,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// }
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.APIBinding{}).
+		For(&openchoreov1alpha1.APIBinding{}).
 		// TODO: Add watches for APIClass when the spec is defined
 		// Watches(
-		//     &choreov1.APIClass{},
+		//     &openchoreov1alpha1.APIClass{},
 		//     handler.EnqueueRequestsFromMapFunc(r.listAPIBindingsForAPIClass),
 		// ).
 		Named("apibinding").

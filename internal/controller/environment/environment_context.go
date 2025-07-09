@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
-func (r *Reconciler) makeEnvironmentContext(ctx context.Context, environment *choreov1.Environment) (*dataplane.EnvironmentContext, error) {
+func (r *Reconciler) makeEnvironmentContext(ctx context.Context, environment *openchoreov1alpha1.Environment) (*dataplane.EnvironmentContext, error) {
 	dataPlane, err := controller.GetDataPlaneByEnvironment(ctx, r.Client, environment)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the dataplane: %w", err)

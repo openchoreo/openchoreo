@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
@@ -29,8 +29,8 @@ var _ = Describe("makeConfigMaps", func() {
 
 	Context("for two Configuration Groups", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}
@@ -84,20 +84,20 @@ var _ = Describe("makeConfigMaps", func() {
 
 	Context("for a Configuration Group with Environment Group", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestConfigurationGroup("salesforce-config-group",
-					choreov1.ConfigurationGroupSpec{
-						EnvironmentGroups: []choreov1.EnvironmentGroup{
+					openchoreov1alpha1.ConfigurationGroupSpec{
+						EnvironmentGroups: []openchoreov1alpha1.EnvironmentGroup{
 							{
 								Name:         "non-prod",
 								Environments: []string{"test-environment"},
 							},
 						},
-						Configurations: []choreov1.ConfigurationGroupConfiguration{
+						Configurations: []openchoreov1alpha1.ConfigurationGroupConfiguration{
 							{
 								Key: "host",
-								Values: []choreov1.ConfigurationValue{
+								Values: []openchoreov1alpha1.ConfigurationValue{
 									{
 										EnvironmentGroupRef: "non-prod",
 										Value:               "sandbox.salesforce.com",
@@ -120,9 +120,9 @@ var _ = Describe("makeConfigMaps", func() {
 
 	Context("for a direct file mount", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					FileMounts: []choreov1.FileMount{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					FileMounts: []openchoreov1alpha1.FileMount{
 						{
 							MountPath: "/app/config.json",
 							Value:     "{\"key\":\"value\"}",

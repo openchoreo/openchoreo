@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -34,13 +34,13 @@ var _ = Context("Organization Controller", func() {
 
 		ctx := context.Background()
 
-		organization := &apiv1.Organization{}
+		organization := &openchoreov1alpha1.Organization{}
 
 		It("should successfully create a custom resource for the kind organization", func() {
 			By("creating a custom resource for the Kind Organization", func() {
 				err := k8sClient.Get(ctx, typeNamespacedName, organization)
 				if err != nil && errors.IsNotFound(err) {
-					org := &apiv1.Organization{
+					org := &openchoreov1alpha1.Organization{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: orgName,
 						},
@@ -65,7 +65,7 @@ var _ = Context("Organization Controller", func() {
 			Expect(result.Requeue).To(BeFalse())
 
 			By("Ensuring the finalizer is added", func() {
-				resource := &apiv1.Organization{}
+				resource := &openchoreov1alpha1.Organization{}
 				err := k8sClient.Get(ctx, typeNamespacedName, resource)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -165,7 +165,7 @@ var _ = Context("Organization Controller", func() {
 	Describe("delete an organization resource", func() {
 		var uuidOfOrgResource types.UID
 		It("should be able to delete the organization resource", func() {
-			resource := &apiv1.Organization{}
+			resource := &openchoreov1alpha1.Organization{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 			// saving the UUID of the resource to verify the owner reference
@@ -205,7 +205,7 @@ var _ = Context("Organization Controller", func() {
 
 			expectedOwnerReference := metav1.OwnerReference{
 				Kind:               "Organization",
-				APIVersion:         "core.choreo.dev/v1",
+				APIVersion:         "openchoreo.dev/v1alpha1",
 				UID:                uuidOfOrgResource,
 				Name:               orgName,
 				Controller:         ptr.To(true),
@@ -228,10 +228,10 @@ var _ = Context("Organization Controller", func() {
 		It("should create, reconcile, delete, and verify deletion of the organization resource in order", func() {
 			// 1. Check if the organization exists, if not, create it
 			By("Ensuring the organization resource exists")
-			orgDelete := &apiv1.Organization{}
+			orgDelete := &openchoreov1alpha1.Organization{}
 			err := k8sClient.Get(ctx, typeNamespacedName, orgDelete)
 			if err != nil && apierrors.IsNotFound(err) {
-				org := &apiv1.Organization{
+				org := &openchoreov1alpha1.Organization{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: orgNameDelete,
 					},
@@ -261,7 +261,7 @@ var _ = Context("Organization Controller", func() {
 
 			// 3. Ensure finalizer is added
 			By("Ensuring the finalizer is added")
-			resource := &apiv1.Organization{}
+			resource := &openchoreov1alpha1.Organization{}
 			err = k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resource.Finalizers).To(ContainElement(OrgCleanUpFinalizer))
@@ -288,7 +288,7 @@ var _ = Context("Organization Controller", func() {
 
 			// 6. Verify the organization resource is deleted
 			By("Ensuring the organization resource is deleted after finalizer removal")
-			resource = &apiv1.Organization{}
+			resource = &openchoreov1alpha1.Organization{}
 			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, typeNamespacedName, resource))).To(BeTrue())
 		})
 	})

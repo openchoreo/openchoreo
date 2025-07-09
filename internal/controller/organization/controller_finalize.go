@@ -16,18 +16,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
 	// OrgCleanUpFinalizer is the finalizer for cleaning up organization resources
-	OrgCleanUpFinalizer = "core.choreo.dev/delete-namespace"
+	OrgCleanUpFinalizer = "openchoreo.dev/delete-namespace"
 )
 
 var ErrNamespaceDeletionWait = errors.New("waiting for namespace to be deleted")
 
-func (r *Reconciler) ensureFinalizer(ctx context.Context, organization *choreov1.Organization) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, organization *openchoreov1alpha1.Organization) (bool, error) {
 	// If the organization is being deleted, no need to add the finalizer
 	if !organization.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -41,7 +41,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, organization *choreov1
 }
 
 // finalize cleans up the data plane resources associated with the organization.
-func (r *Reconciler) finalize(ctx context.Context, old, organization *choreov1.Organization) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, organization *openchoreov1alpha1.Organization) (ctrl.Result, error) {
 	// If the finalizer is not there, no need to do anything
 	if !controllerutil.ContainsFinalizer(organization, OrgCleanUpFinalizer) {
 		return ctrl.Result{}, nil
@@ -76,7 +76,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, organization *choreov1.O
 }
 
 // handleNamespaceDeletion Ensures the namespace is deleted when the organization is deleted
-func (r *Reconciler) handleNamespaceDeletion(ctx context.Context, org *choreov1.Organization) error {
+func (r *Reconciler) handleNamespaceDeletion(ctx context.Context, org *openchoreov1alpha1.Organization) error {
 	namespace := &corev1.Namespace{}
 	err := r.Get(ctx, types.NamespacedName{Name: org.Name}, namespace)
 

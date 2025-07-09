@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Reconciler reconciles a WebApplication object
@@ -22,11 +22,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplications,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplications/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplications/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=webapplicationbindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplications,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplications/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplications/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationbindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -37,7 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling WebApplication")
 
 	// Fetch the WebApplication instance
-	webApplication := &choreov1.WebApplication{}
+	webApplication := &openchoreov1alpha1.WebApplication{}
 	if err := r.Get(ctx, req.NamespacedName, webApplication); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get WebApplication")
@@ -54,11 +54,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileWebApplicationBinding reconciles the WebApplicationBinding with the given WebApplication.
-func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webApplication *choreov1.WebApplication) (ctrl.Result, error) {
+func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webApplication *openchoreov1alpha1.WebApplication) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Find the associated Workload
-	workload := &choreov1.Workload{}
+	workload := &openchoreov1alpha1.Workload{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Name:      webApplication.Spec.WorkloadName,
 		Namespace: webApplication.Namespace,
@@ -68,7 +68,7 @@ func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webAppl
 		return ctrl.Result{}, err
 	}
 
-	webApplicationBinding := &choreov1.WebApplicationBinding{
+	webApplicationBinding := &openchoreov1alpha1.WebApplicationBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      webApplication.Name,
 			Namespace: webApplication.Namespace,
@@ -90,14 +90,14 @@ func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webAppl
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeWebApplicationBinding(webApplication *choreov1.WebApplication, workload *choreov1.Workload) *choreov1.WebApplicationBinding {
-	wab := &choreov1.WebApplicationBinding{
+func (r *Reconciler) makeWebApplicationBinding(webApplication *openchoreov1alpha1.WebApplication, workload *openchoreov1alpha1.Workload) *openchoreov1alpha1.WebApplicationBinding {
+	wab := &openchoreov1alpha1.WebApplicationBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      webApplication.Name,
 			Namespace: webApplication.Namespace,
 		},
-		Spec: choreov1.WebApplicationBindingSpec{
-			Owner: choreov1.WebApplicationOwner{
+		Spec: openchoreov1alpha1.WebApplicationBindingSpec{
+			Owner: openchoreov1alpha1.WebApplicationOwner{
 				ProjectName:   webApplication.Spec.Owner.ProjectName,
 				ComponentName: webApplication.Spec.Owner.ComponentName,
 			},
@@ -113,7 +113,7 @@ func (r *Reconciler) makeWebApplicationBinding(webApplication *choreov1.WebAppli
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.WebApplication{}).
+		For(&openchoreov1alpha1.WebApplication{}).
 		Named("webapplication").
 		Complete(r)
 }

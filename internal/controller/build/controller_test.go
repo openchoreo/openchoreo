@@ -15,7 +15,7 @@ package build
 
 // 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// 	corev1 "github.com/openchoreo/openchoreo/api/v1"
+// 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 // )
 
 // var _ = Describe("Build Controller", func() {
@@ -28,13 +28,13 @@ package build
 // 			Name:      resourceName,
 // 			Namespace: "default", // TODO(user):Modify as needed
 // 		}
-// 		build := &corev1.Build{}
+// 		build := &openchoreov1alpha1.Build{openchoreov1alpha1.Build{}
 
 // 		BeforeEach(func() {
 // 			By("creating the custom resource for the Kind Build")
 // 			err := k8sClient.Get(ctx, typeNamespacedName, build)
 // 			if err != nil && errors.IsNotFound(err) {
-// 				resource := &corev1.Build{
+// 				resource := &openchoreov1alpha1.Build{openchoreov1alpha1.Build{
 // 					ObjectMeta: metav1.ObjectMeta{
 // 						Name:      resourceName,
 // 						Namespace: "default",
@@ -47,7 +47,7 @@ package build
 
 // 		AfterEach(func() {
 // 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-// 			resource := &corev1.Build{}
+// 			resource := &openchoreov1alpha1.Build{openchoreov1alpha1.Build{}
 // 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 // 			Expect(err).NotTo(HaveOccurred())
 

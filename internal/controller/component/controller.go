@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -41,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling component")
 
 	// Fetch the Component instance
-	component := &choreov1.Component{}
+	component := &openchoreov1alpha1.Component{}
 	if err := r.Get(ctx, req.NamespacedName, component); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Component resource may have been deleted since it triggered the reconcile
@@ -99,12 +99,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Component{}).
+		For(&openchoreov1alpha1.Component{}).
 		Named("component").
 		// Watch for DeploymentTrack changes to reconcile the component
 		Watches(
-			&choreov1.DeploymentTrack{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.DeploymentTrack, *choreov1.Component](
+			&openchoreov1alpha1.DeploymentTrack{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.Component](
 				r.Client, controller.GetComponent)),
 		).
 		Complete(r)

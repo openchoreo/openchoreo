@@ -6,14 +6,14 @@ package render
 import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 type Context struct {
-	WebApplicationBinding *choreov1.WebApplicationBinding
-	WebApplicationClass   *choreov1.WebApplicationClass
-	Component             *choreov1.ComponentV2
-	Environment           *choreov1.Environment
+	WebApplicationBinding *openchoreov1alpha1.WebApplicationBinding
+	WebApplicationClass   *openchoreov1alpha1.WebApplicationClass
+	Component             *openchoreov1alpha1.ComponentV2
+	Environment           *openchoreov1alpha1.Environment
 
 	// Stores the errors encountered during rendering.
 	errs []error

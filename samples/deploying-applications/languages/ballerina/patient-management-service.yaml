@@ -1,16 +1,16 @@
 ## Sample Component kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: patient-management-service
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Patient Management Ballerina Component
-    core.choreo.dev/description: This component can send manage patients through its REST API
+    openchoreo.dev/display-name: Patient Management Ballerina Component
+    openchoreo.dev/description: This component can send manage patients through its REST API
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/name: patient-management-service
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/name: patient-management-service
 spec:
   type: Service
   source:
@@ -21,19 +21,19 @@ spec:
 ---
 
 ## Sample DeploymentTrack kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: patient-management-service-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Deployment Track
-    core.choreo.dev/description: Main deployment track
+    openchoreo.dev/display-name: Deployment Track
+    openchoreo.dev/description: Main deployment track
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: patient-management-service
-    core.choreo.dev/name: patient-management-service-main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: patient-management-service
+    openchoreo.dev/name: patient-management-service-main
 spec:
   buildTemplateSpec:
     branch: main
@@ -44,20 +44,20 @@ spec:
 ---
 
 ## Sample Build kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
   name: patient-management-service-build-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Default Build
-    core.choreo.dev/description: Initial build configuration
+    openchoreo.dev/display-name: Default Build
+    openchoreo.dev/description: Initial build configuration
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: patient-management-service
-    core.choreo.dev/deployment-track: patient-management-service-main
-    core.choreo.dev/name: patient-management-service-build-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: patient-management-service
+    openchoreo.dev/deployment-track: patient-management-service-main
+    openchoreo.dev/name: patient-management-service-build-01
 spec:
   branch: main
   path: /patient-management-service
@@ -68,20 +68,20 @@ spec:
 ---
 
 #### Sample Deployment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: patient-management-service-development-deployment-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Deployment of Patient Management App
-    core.choreo.dev/description: Initial deployment configuration
+    openchoreo.dev/display-name: Deployment of Patient Management App
+    openchoreo.dev/description: Initial deployment configuration
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: patient-management-service
-    core.choreo.dev/deployment-track: patient-management-service-main
-    core.choreo.dev/name: patient-management-service-development-deployment-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: patient-management-service
+    openchoreo.dev/deployment-track: patient-management-service-main
+    openchoreo.dev/name: patient-management-service-development-deployment-01
 spec:
   deploymentArtifactRef: patient-management-service-build-01

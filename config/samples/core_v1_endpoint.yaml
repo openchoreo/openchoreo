@@ -1,9 +1,0 @@
-apiVersion: core.choreo.dev/v1
-kind: Endpoint
-metadata:
-  labels:
-    app.kubernetes.io/name: choreo
-    app.kubernetes.io/managed-by: kustomize
-  name: endpoint-sample
-spec:
-  # TODO(user): Add fields here

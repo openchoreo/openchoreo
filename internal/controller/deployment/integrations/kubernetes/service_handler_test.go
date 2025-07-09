@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
@@ -30,24 +30,24 @@ var _ = Describe("makeService", func() {
 
 	Context("for a Service component with one endpoint", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				EndpointTemplates: []choreov1.EndpointTemplate{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				EndpointTemplates: []openchoreov1alpha1.EndpointTemplate{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-service-endpoint",
 						},
-						Spec: choreov1.EndpointSpec{
-							Type: choreov1.EndpointTypeREST,
-							BackendRef: choreov1.BackendRef{
+						Spec: openchoreov1alpha1.EndpointSpec{
+							Type: openchoreov1alpha1.EndpointTypeREST,
+							BackendRef: openchoreov1alpha1.BackendRef{
 								BasePath: "/test",
-								Type:     choreov1.BackendRefTypeComponentRef,
-								ComponentRef: &choreov1.ComponentRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Public: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Public: &openchoreov1alpha1.VisibilityConfig{
 									Enable: true,
 								},
 							},
@@ -99,24 +99,24 @@ var _ = Describe("makeService", func() {
 
 	Context("for a Service component with one TCP and one UDP endpoint", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				EndpointTemplates: []choreov1.EndpointTemplate{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				EndpointTemplates: []openchoreov1alpha1.EndpointTemplate{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-service-endpoint-tcp",
 						},
-						Spec: choreov1.EndpointSpec{
-							Type: choreov1.EndpointTypeREST,
-							BackendRef: choreov1.BackendRef{
+						Spec: openchoreov1alpha1.EndpointSpec{
+							Type: openchoreov1alpha1.EndpointTypeREST,
+							BackendRef: openchoreov1alpha1.BackendRef{
 								BasePath: "/test",
-								Type:     choreov1.BackendRefTypeComponentRef,
-								ComponentRef: &choreov1.ComponentRef{
+								Type:     openchoreov1alpha1.BackendRefTypeComponentRef,
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Public: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Public: &openchoreov1alpha1.VisibilityConfig{
 									Enable: true,
 								},
 							},
@@ -126,16 +126,16 @@ var _ = Describe("makeService", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-service-endpoint-udp",
 						},
-						Spec: choreov1.EndpointSpec{
-							Type: choreov1.EndpointTypeUDP,
-							BackendRef: choreov1.BackendRef{
-								Type: choreov1.BackendRefTypeComponentRef,
-								ComponentRef: &choreov1.ComponentRef{
+						Spec: openchoreov1alpha1.EndpointSpec{
+							Type: openchoreov1alpha1.EndpointTypeUDP,
+							BackendRef: openchoreov1alpha1.BackendRef{
+								Type: openchoreov1alpha1.BackendRefTypeComponentRef,
+								ComponentRef: &openchoreov1alpha1.ComponentRef{
 									Port: 8080,
 								},
 							},
-							NetworkVisibilities: &choreov1.NetworkVisibility{
-								Public: &choreov1.VisibilityConfig{
+							NetworkVisibilities: &openchoreov1alpha1.NetworkVisibility{
+								Public: &openchoreov1alpha1.VisibilityConfig{
 									Enable: true,
 								},
 							},

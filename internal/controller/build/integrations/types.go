@@ -4,12 +4,12 @@
 package integrations
 
 import (
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 type BuildContext struct {
-	Registry        choreov1.Registry
-	Component       *choreov1.Component
-	DeploymentTrack *choreov1.DeploymentTrack
-	Build           *choreov1.Build
+	Registry        openchoreov1alpha1.Registry
+	Component       *openchoreov1alpha1.Component
+	DeploymentTrack *openchoreov1alpha1.DeploymentTrack
+	Build           *openchoreov1alpha1.Build
 }

@@ -4,7 +4,7 @@
 package constants
 
 const (
-	ChoreoGroup = "core.choreo.dev"
+	ChoreoGroup = "openchoreo.dev"
 )
 
 const (
@@ -13,27 +13,28 @@ const (
 )
 
 const (
-	LabelOrganization    = "core.choreo.dev/organization"
-	LabelProject         = "core.choreo.dev/project"
-	LabelComponent       = "core.choreo.dev/component"
-	LabelBuild           = "core.choreo.dev/build"
-	LabelName            = "core.choreo.dev/name"
-	LabelType            = "core.choreo.dev/type"
-	LabelVersion         = "core.choreo.dev/version"
-	LabelArtifact        = "core.choreo.dev/deployment-artifact"
-	LabelDeployment      = "core.choreo.dev/deployment"
-	LabelEnvironment     = "core.choreo.dev/environment"
-	LabelDeploymentTrack = "core.choreo.dev/deployment-track"
+	LabelOrganization    = "openchoreo.dev/organization"
+	LabelProject         = "openchoreo.dev/project"
+	LabelComponent       = "openchoreo.dev/component"
+	LabelBuild           = "openchoreo.dev/build"
+	LabelName            = "openchoreo.dev/name"
+	LabelType            = "openchoreo.dev/type"
+	LabelVersion         = "openchoreo.dev/version"
+	LabelArtifact        = "openchoreo.dev/deployment-artifact"
+	LabelDeployment      = "openchoreo.dev/deployment"
+	LabelEnvironment     = "openchoreo.dev/environment"
+	LabelDeploymentTrack = "openchoreo.dev/deployment-track"
 )
 const (
-	AnnotationDescription = "core.choreo.dev/description"
-	AnnotationDisplayName = "core.choreo.dev/display-name"
+	AnnotationDescription = "openchoreo.dev/description"
+	AnnotationDisplayName = "openchoreo.dev/display-name"
 )
 
 type APIVersion string
 
 const (
 	V1 APIVersion = "v1"
+	V1Alpha1 APIVersion = "v1alpha1"
 )
 
 const (
@@ -52,62 +53,62 @@ type CRDConfig struct {
 var (
 	OrganizationV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    OrganizationKind,
 	}
 	ProjectV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    ProjectKind,
 	}
 	ComponentV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    ComponentKind,
 	}
 	BuildV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "Build",
 	}
 	DeployableArtifactV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "DeployableArtifact",
 	}
 	DeploymentV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "Deployment",
 	}
 	DataPlaneV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "DataPlane",
 	}
 	DeploymentTrackV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "DeploymentTrack",
 	}
 	EndpointV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "Endpoint",
 	}
 	EnvironmentV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: V1,
+		Version: V1Alpha1,
 		Kind:    "Environment",
 	}
 	DeploymentPipelineV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: "v1",
+		Version: V1Alpha1,
 		Kind:    "DeploymentPipeline",
 	}
 	ConfigurationGroupV1Config = CRDConfig{
 		Group:   ChoreoGroup,
-		Version: "v1",
+		Version: V1Alpha1,
 		Kind:    "ConfigurationGroup",
 	}
 )

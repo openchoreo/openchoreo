@@ -14,12 +14,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // HTTPRoutes renders the HTTPRoute resources for the given ServiceBinding context.
-func HTTPRoutes(rCtx Context) []*choreov1.Resource {
+func HTTPRoutes(rCtx Context) []*openchoreov1alpha1.Resource {
 	if rCtx.ServiceBinding.Spec.APIs == nil || len(rCtx.ServiceBinding.Spec.APIs) == 0 {
 		return nil
 	}
@@ -28,7 +28,7 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 
 	// Generate HttpRoutes per API and expose level
 	for apiName, serviceAPI := range rCtx.ServiceBinding.Spec.APIs {
-		if serviceAPI.Type != choreov1.EndpointTypeREST {
+		if serviceAPI.Type != openchoreov1alpha1.EndpointTypeREST {
 			continue // Skip non-REST APIs
 		}
 
@@ -40,13 +40,13 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 		// Generate HttpRoute for each expose level
 		if len(serviceAPI.RESTEndpoint.ExposeLevels) == 0 {
 			// Default to Organization level if no expose levels specified
-			httpRoute := makeHTTPRouteForServiceAPI(rCtx, apiName, serviceAPI, choreov1.ExposeLevelPublic)
+			httpRoute := makeHTTPRouteForServiceAPI(rCtx, apiName, serviceAPI, openchoreov1alpha1.ExposeLevelPublic)
 			if httpRoute != nil {
 				httpRoutes = append(httpRoutes, httpRoute)
 			}
 		} else {
 			for _, exposeLevel := range serviceAPI.RESTEndpoint.ExposeLevels {
-				if exposeLevel == choreov1.ExposeLevelProject {
+				if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 					continue // Skip project level for now
 				}
 				httpRoute := makeHTTPRouteForServiceAPI(rCtx, apiName, serviceAPI, exposeLevel)
@@ -57,13 +57,13 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, 0, len(httpRoutes))
+	resources := make([]*openchoreov1alpha1.Resource, 0, len(httpRoutes))
 
 	for _, httpRoute := range httpRoutes {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRoute
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeHTTPRouteResourceID(httpRoute),
 			Object: rawExt,
 		})
@@ -72,7 +72,7 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeHTTPRouteForServiceAPI(rCtx Context, apiName string, serviceAPI *choreov1.ServiceAPI, exposeLevel choreov1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
+func makeHTTPRouteForServiceAPI(rCtx Context, apiName string, serviceAPI *openchoreov1alpha1.ServiceAPI, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
 	if serviceAPI.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing for API %s", apiName))
 		return nil
@@ -146,13 +146,13 @@ func makeHTTPRouteForServiceAPI(rCtx Context, apiName string, serviceAPI *choreo
 }
 
 // makeHostname generates the hostname for a service based on environment and expose level
-func makeHostname(rCtx *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
+func makeHostname(rCtx *Context, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) gatewayv1.Hostname {
 	envName := rCtx.ServiceBinding.Spec.Environment
 	var domain string
 	switch exposeLevel {
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		domain = "choreoapis.internal"
-	case choreov1.ExposeLevelPublic:
+	case openchoreov1alpha1.ExposeLevelPublic:
 		domain = "choreoapis.localhost"
 	default:
 		domain = "choreoapis.internal"
@@ -160,17 +160,17 @@ func makeHostname(rCtx *Context, exposeLevel choreov1.RESTOperationExposeLevel) 
 	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", envName, domain))
 }
 
-func makeHTTPRouteName(rCtx *Context, apiName string, exposeLevel choreov1.RESTOperationExposeLevel) string {
+func makeHTTPRouteName(rCtx *Context, apiName string, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	// Create a unique name for the HTTPRoute using ServiceBinding name, API name and expose level
 	exposeLevelStr := strings.ToLower(string(exposeLevel))
 	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name, apiName, exposeLevelStr, "httproute")
 }
 
-func getGatewayName(exposeLevel choreov1.RESTOperationExposeLevel) string {
+func getGatewayName(exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	switch exposeLevel {
-	case choreov1.ExposeLevelPublic:
+	case openchoreov1alpha1.ExposeLevelPublic:
 		return "gateway-external"
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		return "gateway-internal"
 	default:
 		return "gateway-internal"

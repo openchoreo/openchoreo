@@ -8,7 +8,7 @@ metadata:
   name: scheduledtaskclass-editor-role
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - scheduledtaskclasses
   verbs:
@@ -20,7 +20,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - scheduledtaskclasses/status
   verbs:

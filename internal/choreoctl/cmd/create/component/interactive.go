@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -33,7 +33,7 @@ const (
 
 type componentModel struct {
 	interactive.BaseModel // Reuses common organization/project selection logic
-	types                 []choreov1.ComponentType
+	types                 []openchoreov1alpha1.ComponentType
 	typeCursor            int
 
 	// Component fields
@@ -254,7 +254,7 @@ func (m componentModel) handleBuildpackConfig(keyMsg tea.KeyMsg) (tea.Model, tea
 	case stateBuildpackNameInput:
 		if interactive.IsEnterKey(keyMsg) {
 			m.buildpackName = m.buildpacks[m.buildpackCursor]
-			m.buildpackVersions = choreov1.SupportedVersions[choreov1.BuildpackName(m.buildpackName)]
+			m.buildpackVersions = openchoreov1alpha1.SupportedVersions[openchoreov1alpha1.BuildpackName(m.buildpackName)]
 			if len(m.buildpackVersions) == 0 {
 				m.errorMsg = "no versions available for selected buildpack"
 				return m, nil
@@ -317,10 +317,10 @@ func createComponentInteractive(config constants.CRDConfig) error {
 	}
 
 	// Initialize all supported component types
-	componentTypes := []choreov1.ComponentType{
-		choreov1.ComponentTypeScheduledTask,
-		choreov1.ComponentTypeWebApplication,
-		choreov1.ComponentTypeService,
+	componentTypes := []openchoreov1alpha1.ComponentType{
+		openchoreov1alpha1.ComponentTypeScheduledTask,
+		openchoreov1alpha1.ComponentTypeWebApplication,
+		openchoreov1alpha1.ComponentTypeService,
 	}
 
 	model := componentModel{
@@ -372,8 +372,8 @@ func createComponentInteractive(config constants.CRDConfig) error {
 }
 
 func getBuildpackTypes() []string {
-	keys := make([]string, 0, len(choreov1.SupportedVersions))
-	for k := range choreov1.SupportedVersions {
+	keys := make([]string, 0, len(openchoreov1alpha1.SupportedVersions))
+	for k := range openchoreov1alpha1.SupportedVersions {
 		keys = append(keys, string(k))
 	}
 	return keys

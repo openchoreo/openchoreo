@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("ScheduledTaskClass Controller", func() {
@@ -26,13 +26,13 @@ var _ = Describe("ScheduledTaskClass Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		scheduledtaskclass := &corev1.ScheduledTaskClass{}
+		scheduledtaskclass := &openchoreov1alpha1.ScheduledTaskClass{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind ScheduledTaskClass")
 			err := k8sClient.Get(ctx, typeNamespacedName, scheduledtaskclass)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.ScheduledTaskClass{
+				resource := &openchoreov1alpha1.ScheduledTaskClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -45,7 +45,7 @@ var _ = Describe("ScheduledTaskClass Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.ScheduledTaskClass{}
+			resource := &openchoreov1alpha1.ScheduledTaskClass{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

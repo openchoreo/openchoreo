@@ -10,12 +10,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("CI", func() {
 	var (
-		build *choreov1.Build
+		build *openchoreov1alpha1.Build
 	)
 
 	BeforeEach(func() {
@@ -25,7 +25,7 @@ var _ = Describe("CI", func() {
 	When("Generating image name", func() {
 		It("should construct the correct image name and tag", func() {
 			expectedImageName := "test-organization-test-project-test-component-999d9b43"
-			expectedTag := build.Labels["core.choreo.dev/deployment-track"] + "-507223bf"
+			expectedTag := build.Labels["openchoreo.dev/deployment-track"] + "-507223bf"
 
 			result := ConstructImageNameWithTag(build)
 
@@ -37,9 +37,9 @@ var _ = Describe("CI", func() {
 			longProjName := strings.Repeat("b", 129)
 			longComponentName := strings.Repeat("c", 129)
 
-			build.Labels["core.choreo.dev/organization"] = longOrgName
-			build.Labels["core.choreo.dev/project"] = longProjName
-			build.Labels["core.choreo.dev/component"] = longComponentName
+			build.Labels["openchoreo.dev/organization"] = longOrgName
+			build.Labels["openchoreo.dev/project"] = longProjName
+			build.Labels["openchoreo.dev/component"] = longComponentName
 
 			result := ConstructImageNameWithTag(build)
 
@@ -49,7 +49,7 @@ var _ = Describe("CI", func() {
 		It("should respect the length limit for image tag", func() {
 			longDtName := strings.Repeat("d", 130)
 
-			build.Labels["core.choreo.dev/deployment-track"] = longDtName
+			build.Labels["openchoreo.dev/deployment-track"] = longDtName
 
 			result := ConstructImageNameWithTag(build)
 

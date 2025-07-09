@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	deppip "github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
@@ -38,7 +38,7 @@ var _ = Describe("Component Controller", func() {
 		Name: orgName,
 	}
 
-	organization := &choreov1.Organization{
+	organization := &openchoreov1alpha1.Organization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: orgName,
 		},
@@ -60,7 +60,7 @@ var _ = Describe("Component Controller", func() {
 			Namespace: orgName,
 		}
 
-		dataplane := &choreov1.DataPlane{
+		dataplane := &openchoreov1alpha1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
 				Namespace: orgName,
@@ -81,7 +81,7 @@ var _ = Describe("Component Controller", func() {
 			Name:      envName,
 		}
 
-		environment := &choreov1.Environment{
+		environment := &openchoreov1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envName,
 				Namespace: orgName,
@@ -94,10 +94,10 @@ var _ = Describe("Component Controller", func() {
 					controller.AnnotationKeyDescription: "Test Environment Description",
 				},
 			},
-			Spec: choreov1.EnvironmentSpec{
+			Spec: openchoreov1alpha1.EnvironmentSpec{
 				DataPlaneRef: dpName,
 				IsProduction: false,
-				Gateway: choreov1.GatewayConfig{
+				Gateway: openchoreov1alpha1.GatewayConfig{
 					DNSPrefix: envName,
 				},
 			},
@@ -117,7 +117,7 @@ var _ = Describe("Component Controller", func() {
 			Name:      deppipName,
 		}
 
-		depPip := &choreov1.DeploymentPipeline{
+		depPip := &openchoreov1alpha1.DeploymentPipeline{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deppipName,
 				Namespace: orgName,
@@ -130,11 +130,11 @@ var _ = Describe("Component Controller", func() {
 					controller.AnnotationKeyDescription: "Test Deployment pipeline Description",
 				},
 			},
-			Spec: choreov1.DeploymentPipelineSpec{
-				PromotionPaths: []choreov1.PromotionPath{
+			Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+				PromotionPaths: []openchoreov1alpha1.PromotionPath{
 					{
 						SourceEnvironmentRef:  "test-env",
-						TargetEnvironmentRefs: make([]choreov1.TargetEnvironmentRef, 0),
+						TargetEnvironmentRefs: make([]openchoreov1alpha1.TargetEnvironmentRef, 0),
 					},
 				},
 			},
@@ -155,7 +155,7 @@ var _ = Describe("Component Controller", func() {
 			Name:      projectName,
 		}
 
-		project := &choreov1.Project{
+		project := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      projectName,
 				Namespace: orgName,
@@ -189,12 +189,12 @@ var _ = Describe("Component Controller", func() {
 			Name:      componentName,
 		}
 
-		component := &choreov1.Component{}
+		component := &openchoreov1alpha1.Component{}
 
 		By("Creating the component resource", func() {
 			err := k8sClient.Get(ctx, componentNamespacedName, component)
 			if err != nil && errors.IsNotFound(err) {
-				cmp := &choreov1.Component{
+				cmp := &openchoreov1alpha1.Component{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      componentName,
 						Namespace: orgName,
@@ -207,10 +207,10 @@ var _ = Describe("Component Controller", func() {
 							controller.AnnotationKeyDescription: "Test Component Description",
 						},
 					},
-					Spec: choreov1.ComponentSpec{
-						Type: choreov1.ComponentTypeService,
-						Source: choreov1.ComponentSource{
-							GitRepository: &choreov1.GitRepository{
+					Spec: openchoreov1alpha1.ComponentSpec{
+						Type: openchoreov1alpha1.ComponentTypeService,
+						Source: openchoreov1alpha1.ComponentSource{
+							GitRepository: &openchoreov1alpha1.GitRepository{
 								URL: "https://github.com/test-org/test-repo",
 							},
 						},
@@ -233,14 +233,14 @@ var _ = Describe("Component Controller", func() {
 		})
 
 		By("Checking the component resource", func() {
-			component := &choreov1.Component{}
+			component := &openchoreov1alpha1.Component{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, componentNamespacedName, component)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(component.Name).To(Equal(componentName))
 			Expect(component.Namespace).To(Equal(orgName))
 			Expect(component.Spec).NotTo(BeNil())
-			Expect(component.Spec.Type).To(Equal(choreov1.ComponentTypeService))
+			Expect(component.Spec.Type).To(Equal(openchoreov1alpha1.ComponentTypeService))
 		})
 
 		By("Deleting the component resource", func() {
@@ -260,7 +260,7 @@ var _ = Describe("Component Controller", func() {
 			}
 
 			// Component should exist but be marked for deletion
-			updatedComponent := &choreov1.Component{}
+			updatedComponent := &openchoreov1alpha1.Component{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, componentNamespacedName, updatedComponent)
 				if err != nil {
@@ -285,14 +285,14 @@ var _ = Describe("Component Controller", func() {
 		By("Checking the component resource deletion", func() {
 			// Now the component should be fully deleted
 			Eventually(func() error {
-				return k8sClient.Get(ctx, componentNamespacedName, &choreov1.Component{})
+				return k8sClient.Get(ctx, componentNamespacedName, &openchoreov1alpha1.Component{})
 			}, time.Second*10, time.Millisecond*500).Should(Satisfy(errors.IsNotFound))
 		})
 	})
 
 	AfterEach(func() {
 		By("Deleting the organization resource", func() {
-			org := &choreov1.Organization{}
+			org := &openchoreov1alpha1.Organization{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
 				Name: orgName,
 			}, org)

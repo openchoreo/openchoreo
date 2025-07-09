@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: webapplicationbindings.core.choreo.dev
+  name: webapplicationbindings.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: WebApplicationBinding
     listKind: WebApplicationBindingList
@@ -14,7 +14,7 @@ spec:
     singular: webapplicationbinding
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: WebApplicationBinding is the Schema for the webapplicationbindings

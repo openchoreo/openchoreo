@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
@@ -17,8 +17,8 @@ import (
 
 // findConfigGroupValueForEnv returns the configuration value for the given environment
 // from the given configuration value list. Returns nil if no matching configuration value is found.
-func findConfigGroupValueForEnv(value []choreov1.ConfigurationValue,
-	envGroup []choreov1.EnvironmentGroup, env *choreov1.Environment) *choreov1.ConfigurationValue {
+func findConfigGroupValueForEnv(value []openchoreov1alpha1.ConfigurationValue,
+	envGroup []openchoreov1alpha1.EnvironmentGroup, env *openchoreov1alpha1.Environment) *openchoreov1alpha1.ConfigurationValue {
 	for _, v := range value {
 		envName := controller.GetName(env)
 		if v.Environment == envName {
@@ -75,10 +75,10 @@ type envVarConfig struct {
 
 // newMappedEnvVarConfig creates a new mappedEnvVarConfig instance for the given configuration group that maps
 // the configuration group keys to the environment variables keys.
-func newMappedEnvVarConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) *mappedEnvVarConfig {
+func newMappedEnvVarConfig(deployCtx *dataplane.DeploymentContext, cg *openchoreov1alpha1.ConfigurationGroup) *mappedEnvVarConfig {
 	// Create a mapping of a key to env specific value for fast lookup
 	// The map value can be nil if the configuration value is not found for the environment
-	cgKeyValueMapping := make(map[string]*choreov1.ConfigurationValue)
+	cgKeyValueMapping := make(map[string]*openchoreov1alpha1.ConfigurationValue)
 	for _, cgConfig := range cg.Spec.Configurations {
 		cgKeyValueMapping[cgConfig.Key] = findConfigGroupValueForEnv(cgConfig.Values,
 			cg.Spec.EnvironmentGroups, deployCtx.Environment)
@@ -232,10 +232,10 @@ type fileMountConfig struct {
 
 // newMappedFileMountConfig creates a new mappedFileMountConfig instance for the given configuration group that maps
 // the configuration group keys to the file mount paths.
-func newMappedFileMountConfig(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) *mappedFileMountConfig {
+func newMappedFileMountConfig(deployCtx *dataplane.DeploymentContext, cg *openchoreov1alpha1.ConfigurationGroup) *mappedFileMountConfig {
 	// Create a mapping of a key to env specific value for fast lookup
 	// The map value can be nil if the configuration value is not found for the environment
-	cgKeyValueMapping := make(map[string]*choreov1.ConfigurationValue)
+	cgKeyValueMapping := make(map[string]*openchoreov1alpha1.ConfigurationValue)
 	for _, cgConfig := range cg.Spec.Configurations {
 		cgKeyValueMapping[cgConfig.Key] = findConfigGroupValueForEnv(cgConfig.Values,
 			cg.Spec.EnvironmentGroups, deployCtx.Environment)

@@ -9,10 +9,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-func makeServicePortsFromEndpointTemplates(endpointTemplates []choreov1.EndpointTemplate) []corev1.ServicePort {
+func makeServicePortsFromEndpointTemplates(endpointTemplates []openchoreov1alpha1.EndpointTemplate) []corev1.ServicePort {
 	return makeUniquePorts(endpointTemplates, func(name string, port int32, protocol corev1.Protocol) corev1.ServicePort {
 		return corev1.ServicePort{
 			Name:     name,
@@ -22,7 +22,7 @@ func makeServicePortsFromEndpointTemplates(endpointTemplates []choreov1.Endpoint
 	})
 }
 
-func makeContainerPortsFromEndpointTemplates(endpointTemplates []choreov1.EndpointTemplate) []corev1.ContainerPort {
+func makeContainerPortsFromEndpointTemplates(endpointTemplates []openchoreov1alpha1.EndpointTemplate) []corev1.ContainerPort {
 	return makeUniquePorts(endpointTemplates, func(name string, port int32, protocol corev1.Protocol) corev1.ContainerPort {
 		return corev1.ContainerPort{
 			Name:          name,
@@ -35,13 +35,13 @@ func makeContainerPortsFromEndpointTemplates(endpointTemplates []choreov1.Endpoi
 // makeUniquePorts generates a list of unique ports based on the endpoint templates.
 // This will ensure that the k8s port list does not have duplicates.
 func makeUniquePorts[T any](
-	endpointTemplates []choreov1.EndpointTemplate,
+	endpointTemplates []openchoreov1alpha1.EndpointTemplate,
 	createPort func(name string, port int32, protocol corev1.Protocol) T,
 ) []T {
 	uniquePorts := make(map[string]struct{})
 
 	// Generator fn for make a unique key to avoid duplicate mappings
-	generatePortKey := func(port int32, t choreov1.EndpointType) string {
+	generatePortKey := func(port int32, t openchoreov1alpha1.EndpointType) string {
 		return fmt.Sprintf("%d-%s", port, toK8SProtocol(t))
 	}
 
@@ -70,8 +70,8 @@ func makePortNameFromEndpointTemplate(port int32, protocol corev1.Protocol) stri
 	return fmt.Sprintf("ep-%d-%s", port, strings.ToLower(string(protocol)))
 }
 
-func toK8SProtocol(endpointType choreov1.EndpointType) corev1.Protocol {
-	if endpointType == choreov1.EndpointTypeUDP {
+func toK8SProtocol(endpointType openchoreov1alpha1.EndpointType) corev1.Protocol {
+	if endpointType == openchoreov1alpha1.EndpointTypeUDP {
 		return corev1.ProtocolUDP
 	}
 	return corev1.ProtocolTCP

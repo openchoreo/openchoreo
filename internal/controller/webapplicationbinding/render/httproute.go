@@ -12,12 +12,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // HTTPRoutes renders the HTTPRoute resources for exposing the webapplication endpoints.
-func HTTPRoutes(rCtx Context) []*choreov1.Resource {
+func HTTPRoutes(rCtx Context) []*openchoreov1alpha1.Resource {
 	if rCtx.WebApplicationBinding.Spec.WorkloadSpec.Endpoints == nil ||
 		len(rCtx.WebApplicationBinding.Spec.WorkloadSpec.Endpoints) == 0 {
 		return nil
@@ -33,13 +33,13 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, 0, len(httpRoutes))
+	resources := make([]*openchoreov1alpha1.Resource, 0, len(httpRoutes))
 
 	for _, httpRoute := range httpRoutes {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRoute
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeHTTPRouteResourceID(httpRoute),
 			Object: rawExt,
 		})
@@ -48,7 +48,7 @@ func HTTPRoutes(rCtx Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeHTTPRouteForWebApp(rCtx Context, endpointName string, endpoint *choreov1.WorkloadEndpoint) *gwapiv1.HTTPRoute {
+func makeHTTPRouteForWebApp(rCtx Context, endpointName string, endpoint *openchoreov1alpha1.WorkloadEndpoint) *gwapiv1.HTTPRoute {
 	pathType := gwapiv1.PathMatchPathPrefix
 	hostname := makeHostname(&rCtx)
 	name := makeHTTPRouteName(&rCtx, endpointName)

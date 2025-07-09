@@ -1,11 +1,11 @@
 ## Sample Organization kind (Cluster-scoped)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Organization
 metadata:
   name: acme
   annotations:
-    core.choreo.dev/display-name: ACME Organization
-    core.choreo.dev/description: Choreo Organization for ACME
+    openchoreo.dev/display-name: ACME Organization
+    openchoreo.dev/description: Choreo Organization for ACME
   labels:
-    core.choreo.dev/name: acme
+    openchoreo.dev/name: acme
 spec: {}

@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
@@ -37,8 +37,8 @@ func (h *serviceHandler) Name() string {
 
 func (h *serviceHandler) IsRequired(deployCtx *dataplane.DeploymentContext) bool {
 	// Services are required for Web Applications
-	return deployCtx.Component.Spec.Type == choreov1.ComponentTypeWebApplication ||
-		deployCtx.Component.Spec.Type == choreov1.ComponentTypeService
+	return deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeWebApplication ||
+		deployCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService
 }
 
 func (h *serviceHandler) GetCurrentState(ctx context.Context, deployCtx *dataplane.DeploymentContext) (interface{}, error) {

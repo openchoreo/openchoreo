@@ -24,9 +24,9 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 You will see the following output
 
 ```bash
-environment.core.choreo.dev/development created
-environment.core.choreo.dev/staging created
-environment.core.choreo.dev/production created
+environment.openchoreo.dev/development created
+environment.openchoreo.dev/staging created
+environment.openchoreo.dev/production created
 ```
 
 In case you prefer to have only two environments in your organization e.g. dev and prod you can run just those two commands.

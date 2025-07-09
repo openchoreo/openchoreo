@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // ProjectResource provides operations for Project CRs.
 type ProjectResource struct {
-	*resources.BaseResource[*choreov1.Project, *choreov1.ProjectList]
+	*resources.BaseResource[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList]
 }
 
 // NewProjectResource constructs a ProjectResource with CRDConfig and optionally sets organization.
@@ -26,14 +26,14 @@ func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, 
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Project, *choreov1.ProjectList]{
-		resources.WithClient[*choreov1.Project, *choreov1.ProjectList](cli),
-		resources.WithConfig[*choreov1.Project, *choreov1.ProjectList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList]{
+		resources.WithClient[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Project, *choreov1.ProjectList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](org))
 	}
 
 	return &ProjectResource{
@@ -47,7 +47,7 @@ func (p *ProjectResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a Project with detailed information.
-func (p *ProjectResource) GetStatus(proj *choreov1.Project) string {
+func (p *ProjectResource) GetStatus(proj *openchoreov1alpha1.Project) string {
 	// Project has both Created and Ready conditions to check
 	priorityConditions := []string{ConditionTypeCreated, ConditionTypeReady}
 	return resources.GetResourceStatus(
@@ -60,12 +60,12 @@ func (p *ProjectResource) GetStatus(proj *choreov1.Project) string {
 }
 
 // GetAge returns the age of a Project.
-func (p *ProjectResource) GetAge(proj *choreov1.Project) string {
+func (p *ProjectResource) GetAge(proj *openchoreov1alpha1.Project) string {
 	return resources.FormatAge(proj.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats projects into a table
-func (p *ProjectResource) PrintTableItems(projects []resources.ResourceWrapper[*choreov1.Project]) error {
+func (p *ProjectResource) PrintTableItems(projects []resources.ResourceWrapper[*openchoreov1alpha1.Project]) error {
 	if len(projects) == 0 {
 		// Provide a more descriptive message
 		namespaceName := p.GetNamespace()
@@ -124,7 +124,7 @@ func (p *ProjectResource) Print(format resources.OutputFormat, filter *resources
 
 // CreateProject creates a new Project CR.
 func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
-	project := &choreov1.Project{
+	project := &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resources.GenerateResourceName(params.Organization, params.Name),
 			Namespace: params.Organization,
@@ -137,7 +137,7 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 				constants.LabelOrganization: params.Organization,
 			},
 		},
-		Spec: choreov1.ProjectSpec{
+		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: func() string {
 				if params.DeploymentPipeline != "" {
 					return params.DeploymentPipeline

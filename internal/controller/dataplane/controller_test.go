@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	apiv1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	org "github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
 )
@@ -33,13 +33,13 @@ var _ = Describe("DataPlane Controller", func() {
 			Name:      dpName,
 			Namespace: orgName,
 		}
-		dataplane := &apiv1.DataPlane{}
+		dataplane := &openchoreov1alpha1.DataPlane{}
 
 		BeforeEach(func() {
 			orgNamespacedName := types.NamespacedName{
 				Name: orgName,
 			}
-			organization := &apiv1.Organization{
+			organization := &openchoreov1alpha1.Organization{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: orgName,
 				},
@@ -58,7 +58,7 @@ var _ = Describe("DataPlane Controller", func() {
 
 		AfterEach(func() {
 			By("Deleting the organization resource", func() {
-				org := &apiv1.Organization{}
+				org := &openchoreov1alpha1.Organization{}
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: orgName}, org)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Delete(ctx, org)).To(Succeed())
@@ -69,7 +69,7 @@ var _ = Describe("DataPlane Controller", func() {
 			By("Creating the dataplane resource", func() {
 				err := k8sClient.Get(ctx, dpNamespacedName, dataplane)
 				if err != nil && errors.IsNotFound(err) {
-					dp := &apiv1.DataPlane{
+					dp := &openchoreov1alpha1.DataPlane{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      dpName,
 							Namespace: orgName,
@@ -93,7 +93,7 @@ var _ = Describe("DataPlane Controller", func() {
 			})
 
 			By("Checking the dataplane resource", func() {
-				dataPlane := &apiv1.DataPlane{}
+				dataPlane := &openchoreov1alpha1.DataPlane{}
 				Eventually(func() error {
 					return k8sClient.Get(ctx, dpNamespacedName, dataPlane)
 				}, time.Second*10, time.Millisecond*500).Should(Succeed())

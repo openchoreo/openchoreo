@@ -18,7 +18,7 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 
 You will see the following output.
 ```bash
-organization.core.choreo.dev/acme created
+organization.openchoreo.dev/acme created
 ```
 
 If you want to create the organization along with all the necessary resources, use the following command:
@@ -32,11 +32,11 @@ choreoctl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/
 
 You will see the following output.
 ```bash
-organization.core.choreo.dev/acme created
-dataplane.core.choreo.dev/dp-local created
-deploymentpipeline.core.choreo.dev/default-pipeline created
-environment.core.choreo.dev/development created
-project.core.choreo.dev/customer-portal created
+organization.openchoreo.dev/acme created
+dataplane.openchoreo.dev/dp-local created
+deploymentpipeline.openchoreo.dev/default-pipeline created
+environment.openchoreo.dev/development created
+project.openchoreo.dev/customer-portal created
 ```
 
 ## Clean Up

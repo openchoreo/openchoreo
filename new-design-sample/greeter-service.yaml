@@ -1,4 +1,4 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
   name: greeter-service
@@ -12,7 +12,7 @@ spec:
 
 # Defines a workload that specifies the developer contract which describes the source code including
 # what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: greeter-service
@@ -51,7 +51,7 @@ spec:
 
 # Service that specify runtime configuration for the component.
 # This can be either managed by the component controller or manually created by the user.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
   name: greeter-service
@@ -81,7 +81,7 @@ spec:
 ---
 # Defines PE level configuration for the service component.
 # Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: ServiceClass
 metadata:
   name: go-service-standard

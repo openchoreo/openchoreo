@@ -205,11 +205,11 @@ The Release controller implements a reconciliation process:
 ### Resource Application
 - Converts raw resource definitions to unstructured objects
 - Adds tracking labels to all resources:
-  - `core.choreo.dev/managed-by`: "release-controller"
-  - `core.choreo.dev/release-resource-id`: Resource ID from spec
-  - `core.choreo.dev/release-uid`: Release UID for ownership tracking
-  - `core.choreo.dev/release-name`: Name of the Release that manages the resource
-  - `core.choreo.dev/release-namespace`: Namespace of the Release that manages the resource
+  - `openchoreo.dev/managed-by`: "release-controller"
+  - `openchoreo.dev/release-resource-id`: Resource ID from spec
+  - `openchoreo.dev/release-uid`: Release UID for ownership tracking
+  - `openchoreo.dev/release-name`: Name of the Release that manages the resource
+  - `openchoreo.dev/release-namespace`: Namespace of the Release that manages the resource
 - Applies resources to data plane using server-side apply
 
 ### Live Resource Discovery
@@ -228,12 +228,12 @@ The Release controller implements a reconciliation process:
 ### Namespace Pre-creation
 - Identifies all namespaces referenced by resources before deployment
 - Create namespaces with tracking labels:
-  - `core.choreo.dev/created-by`: "release-controller" (audit trail)
-  - `core.choreo.dev/release-name`: Name of the creating Release
-  - `core.choreo.dev/release-namespace`: Namespace of the creating Release
-  - `core.choreo.dev/release-uid`: UID of the creating Release
-  - `core.choreo.dev/environment`: Target environment name
-  - `core.choreo.dev/project`: Project name from the Release owner
+  - `openchoreo.dev/created-by`: "release-controller" (audit trail)
+  - `openchoreo.dev/release-name`: Name of the creating Release
+  - `openchoreo.dev/release-namespace`: Namespace of the creating Release
+  - `openchoreo.dev/release-uid`: UID of the creating Release
+  - `openchoreo.dev/environment`: Target environment name
+  - `openchoreo.dev/project`: Project name from the Release owner
 - Create-only: namespaces are never deleted by release controller
 
 ### Status Update
@@ -275,7 +275,7 @@ Binding controllers are expected to:
 
 The Release controller implements cleanup through finalizers:
 
-**Finalizer**: `core.choreo.dev/dataplane-cleanup`
+**Finalizer**: `openchoreo.dev/dataplane-cleanup`
 
 **Finalization Process**:
 1. **Status Update**: Sets "Finalizing" condition
@@ -296,7 +296,7 @@ The Release controller implements cleanup through finalizers:
 ### Basic Release Resource
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Release
 metadata:
   name: my-service-dev
@@ -347,7 +347,7 @@ spec:
 ### Release with Complex Resources
 
 ```yaml
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Release
 metadata:
   name: my-app-prod
@@ -416,7 +416,7 @@ spec:
 - **Main Controller**: [`internal/controller/release/controller.go`](../../internal/controller/release/controller.go)
 - **Finalization**: [`internal/controller/release/controller_finalize.go`](../../internal/controller/release/controller_finalize.go)
 - **Status Tracking**: [`internal/controller/release/controller_status.go`](../../internal/controller/release/controller_status.go)
-- **CRD Definition**: [`api/v1/release_types.go`](../../api/v1/release_types.go)
+- **CRD Definition**: [`api/v1alpha1/release_types.go`](../../api/v1alpha1/release_types.go)
 
 ### Key Dependencies
 - **Environment/DataPlane**: For target cluster configuration
@@ -424,9 +424,9 @@ spec:
 - **Kubernetes Client**: For data plane resource management
 
 ### Configuration
-- **Finalizer**: `core.choreo.dev/dataplane-cleanup`
-- **Manager Labels**: `core.choreo.dev/managed-by=release-controller`
-- **Resource ID Labels**: `core.choreo.dev/release-resource-id`
-- **Release UID Labels**: `core.choreo.dev/release-uid`
-- **Release Name Labels**: `core.choreo.dev/release-name`
-- **Release Namespace Labels**: `core.choreo.dev/release-namespace`
+- **Finalizer**: `openchoreo.dev/dataplane-cleanup`
+- **Manager Labels**: `openchoreo.dev/managed-by=release-controller`
+- **Resource ID Labels**: `openchoreo.dev/release-resource-id`
+- **Release UID Labels**: `openchoreo.dev/release-uid`
+- **Release Name Labels**: `openchoreo.dev/release-name`
+- **Release Namespace Labels**: `openchoreo.dev/release-namespace`

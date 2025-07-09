@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -246,11 +246,11 @@ func createDeployableArtifactInteractive(config constants.CRDConfig) error {
 	}
 
 	if m.artifactTypes[m.typeCursor] == "build" {
-		params.FromBuildRef = &choreov1.FromBuildRef{
+		params.FromBuildRef = &openchoreov1alpha1.FromBuildRef{
 			Name: m.builds[m.buildCursor],
 		}
 	} else {
-		params.FromImageRef = &choreov1.FromImageRef{
+		params.FromImageRef = &openchoreov1alpha1.FromImageRef{
 			Tag: m.imageTag,
 		}
 	}

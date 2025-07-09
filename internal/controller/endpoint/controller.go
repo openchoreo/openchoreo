@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Get Endpoint CR
-	ep := &choreov1.Endpoint{}
+	ep := &openchoreov1alpha1.Endpoint{}
 	if err := r.Get(ctx, req.NamespacedName, ep); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -190,21 +190,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Endpoint{}).
+		For(&openchoreov1alpha1.Endpoint{}).
 		Named("endpoint").
 		Watches(
-			&choreov1.DataPlane{},
+			&openchoreov1alpha1.DataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForDataplane),
 		).
 		Watches(
-			&choreov1.Environment{},
+			&openchoreov1alpha1.Environment{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointsForEnvironment),
 		)
 
 	return builder.Complete(r)
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
+func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.Environment) (client.Client, error) {
 	// Retrieve the dataplane associated with the environment
 	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {

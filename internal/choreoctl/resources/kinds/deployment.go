@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // DeploymentResource provides operations for Deployment CRs.
 type DeploymentResource struct {
-	*resources.BaseResource[*choreov1.Deployment, *choreov1.DeploymentList]
+	*resources.BaseResource[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList]
 }
 
 // NewDeploymentResource constructs a DeploymentResource with CRDConfig and optionally sets organization, project, component, and environment.
@@ -26,14 +26,14 @@ func NewDeploymentResource(cfg constants.CRDConfig, org string, project string, 
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Deployment, *choreov1.DeploymentList]{
-		resources.WithClient[*choreov1.Deployment, *choreov1.DeploymentList](cli),
-		resources.WithConfig[*choreov1.Deployment, *choreov1.DeploymentList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList]{
+		resources.WithClient[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Deployment, *choreov1.DeploymentList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList](org))
 	}
 
 	// Create labels for filtering
@@ -56,11 +56,11 @@ func NewDeploymentResource(cfg constants.CRDConfig, org string, project string, 
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.Deployment, *choreov1.DeploymentList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList](labels))
 	}
 
 	return &DeploymentResource{
-		BaseResource: resources.NewBaseResource[*choreov1.Deployment, *choreov1.DeploymentList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentList](options...),
 	}, nil
 }
 
@@ -70,7 +70,7 @@ func (d *DeploymentResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a Deployment with detailed information.
-func (d *DeploymentResource) GetStatus(deployment *choreov1.Deployment) string {
+func (d *DeploymentResource) GetStatus(deployment *openchoreov1alpha1.Deployment) string {
 	// Check for important deployment-specific conditions in priority order
 	priorityConditions := []string{
 		ConditionTypeReady,
@@ -89,12 +89,12 @@ func (d *DeploymentResource) GetStatus(deployment *choreov1.Deployment) string {
 }
 
 // GetAge returns the age of a Deployment.
-func (d *DeploymentResource) GetAge(deployment *choreov1.Deployment) string {
+func (d *DeploymentResource) GetAge(deployment *openchoreov1alpha1.Deployment) string {
 	return resources.FormatAge(deployment.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats deployments into a table
-func (d *DeploymentResource) PrintTableItems(deployments []resources.ResourceWrapper[*choreov1.Deployment]) error {
+func (d *DeploymentResource) PrintTableItems(deployments []resources.ResourceWrapper[*openchoreov1alpha1.Deployment]) error {
 	if len(deployments) == 0 {
 		// Provide a more descriptive message
 		namespaceName := d.GetNamespace()
@@ -179,7 +179,7 @@ func (d *DeploymentResource) CreateDeployment(params api.CreateDeploymentParams)
 	)
 
 	// Create the Deployment resource
-	deployment := &choreov1.Deployment{
+	deployment := &openchoreov1alpha1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -192,7 +192,7 @@ func (d *DeploymentResource) CreateDeployment(params api.CreateDeploymentParams)
 				constants.LabelDeploymentTrack: params.DeploymentTrack,
 			},
 		},
-		Spec: choreov1.DeploymentSpec{
+		Spec: openchoreov1alpha1.DeploymentSpec{
 			DeploymentArtifactRef: params.DeployableArtifact,
 		},
 	}
@@ -213,7 +213,7 @@ func (d *DeploymentResource) CreateDeployment(params api.CreateDeploymentParams)
 }
 
 // GetDeploymentsForComponent returns deployments filtered by component
-func (d *DeploymentResource) GetDeploymentsForComponent(componentName string) ([]resources.ResourceWrapper[*choreov1.Deployment], error) {
+func (d *DeploymentResource) GetDeploymentsForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Deployment], error) {
 	// List all deployments in the namespace
 	allDeployments, err := d.List()
 	if err != nil {
@@ -221,7 +221,7 @@ func (d *DeploymentResource) GetDeploymentsForComponent(componentName string) ([
 	}
 
 	// Filter by component
-	var deployments []resources.ResourceWrapper[*choreov1.Deployment]
+	var deployments []resources.ResourceWrapper[*openchoreov1alpha1.Deployment]
 	for _, wrapper := range allDeployments {
 		if wrapper.Resource.GetLabels()[constants.LabelComponent] == componentName {
 			deployments = append(deployments, wrapper)
@@ -232,7 +232,7 @@ func (d *DeploymentResource) GetDeploymentsForComponent(componentName string) ([
 }
 
 // GetDeploymentsForEnvironment returns deployments filtered by environment
-func (d *DeploymentResource) GetDeploymentsForEnvironment(environmentName string) ([]resources.ResourceWrapper[*choreov1.Deployment], error) {
+func (d *DeploymentResource) GetDeploymentsForEnvironment(environmentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Deployment], error) {
 	// List all deployments in the namespace
 	allDeployments, err := d.List()
 	if err != nil {
@@ -240,7 +240,7 @@ func (d *DeploymentResource) GetDeploymentsForEnvironment(environmentName string
 	}
 
 	// Filter by environment
-	var deployments []resources.ResourceWrapper[*choreov1.Deployment]
+	var deployments []resources.ResourceWrapper[*openchoreov1alpha1.Deployment]
 	for _, wrapper := range allDeployments {
 		if wrapper.Resource.GetLabels()[constants.LabelEnvironment] == environmentName {
 			deployments = append(deployments, wrapper)
@@ -251,7 +251,7 @@ func (d *DeploymentResource) GetDeploymentsForEnvironment(environmentName string
 }
 
 // GetDeploymentsForDeploymentTrack returns deployments filtered by deployment track
-func (d *DeploymentResource) GetDeploymentsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*choreov1.Deployment], error) {
+func (d *DeploymentResource) GetDeploymentsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Deployment], error) {
 	// List all deployments in the namespace
 	allDeployments, err := d.List()
 	if err != nil {
@@ -259,7 +259,7 @@ func (d *DeploymentResource) GetDeploymentsForDeploymentTrack(deploymentTrack st
 	}
 
 	// Filter by deployment track
-	var deployments []resources.ResourceWrapper[*choreov1.Deployment]
+	var deployments []resources.ResourceWrapper[*openchoreov1alpha1.Deployment]
 	for _, wrapper := range allDeployments {
 		if wrapper.Resource.GetLabels()[constants.LabelDeploymentTrack] == deploymentTrack {
 			deployments = append(deployments, wrapper)

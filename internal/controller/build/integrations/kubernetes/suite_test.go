@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -25,7 +25,7 @@ func TestDeploymentIntegrationKubernetes(t *testing.T) {
 func newTestBuildContext() *integrations.BuildContext {
 	buildCtx := &integrations.BuildContext{}
 
-	buildCtx.Component = &choreov1.Component{
+	buildCtx.Component = &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-component",
 			Namespace: "test-organization",
@@ -35,16 +35,16 @@ func newTestBuildContext() *integrations.BuildContext {
 				labels.LabelKeyName:             "test-component",
 			},
 		},
-		Spec: choreov1.ComponentSpec{
-			Type: choreov1.ComponentTypeService,
-			Source: choreov1.ComponentSource{
-				GitRepository: &choreov1.GitRepository{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Type: openchoreov1alpha1.ComponentTypeService,
+			Source: openchoreov1alpha1.ComponentSource{
+				GitRepository: &openchoreov1alpha1.GitRepository{
 					URL: "https://github.com/openchoreo/test",
 				},
 			},
 		},
 	}
-	buildCtx.DeploymentTrack = &choreov1.DeploymentTrack{
+	buildCtx.DeploymentTrack = &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-main-track",
 			Namespace: "test-organization",
@@ -56,7 +56,7 @@ func newTestBuildContext() *integrations.BuildContext {
 			},
 		},
 	}
-	buildCtx.Build = &choreov1.Build{
+	buildCtx.Build = &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-build",
 			Namespace: "test-organization",

@@ -15,19 +15,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	// EnvCleanupFinalizer is the finalizer that is used to clean up the environment.
-	EnvCleanupFinalizer = "core.choreo.dev/environment-cleanup"
+	EnvCleanupFinalizer = "openchoreo.dev/environment-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the environment.
 // The first return value indicates whether the finalizer was added to the environment.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *choreov1.Environment) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *openchoreov1alpha1.Environment) (bool, error) {
 	if !environment.DeletionTimestamp.IsZero() {
 		return false, nil
 	}
@@ -40,7 +40,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *choreov1.
 }
 
 // finalize cleans up the data plane resources associated with the environment.
-func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.Environment) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov1alpha1.Environment) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
 	if !controllerutil.ContainsFinalizer(environment, EnvCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
@@ -121,12 +121,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *choreov1.En
 }
 
 // cleanupDeployments deletes all the deployments associated with the environment.
-func (r *Reconciler) cleanupDeployments(ctx context.Context, environment *choreov1.Environment) (bool, error) {
+func (r *Reconciler) cleanupDeployments(ctx context.Context, environment *openchoreov1alpha1.Environment) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
 	logger.Info("Cleaning up the deployments associated with the environment")
 
-	// List all deployments with the label `core.choreo.dev/environment=<environment.Name>`
-	deploymentList := &choreov1.DeploymentList{}
+	// List all deployments with the label `openchoreo.dev/environment=<environment.Name>`
+	deploymentList := &openchoreov1alpha1.DeploymentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(environment.Namespace),
 		client.MatchingLabels{

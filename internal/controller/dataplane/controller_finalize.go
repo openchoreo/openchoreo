@@ -14,17 +14,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // DataPlaneCleanupFinalizer is the finalizer that is used to clean up dataplane resources.
-const DataPlaneCleanupFinalizer = "core.choreo.dev/dataplane-cleanup"
+const DataPlaneCleanupFinalizer = "openchoreo.dev/dataplane-cleanup"
 
 // ensureFinalizer ensures that the finalizer is added to the dataplane.
 // The first return value indicates whether the finalizer was added to the dataplane.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, dataPlane *choreov1.DataPlane) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) (bool, error) {
 	// If the dataplane is being deleted, no need to add the finalizer
 	if !dataPlane.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -37,7 +37,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, dataPlane *choreov1.Da
 	return false, nil
 }
 
-func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *choreov1.DataPlane) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1alpha1.DataPlane) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
 
 	if !controllerutil.ContainsFinalizer(dataPlane, DataPlaneCleanupFinalizer) {
@@ -76,12 +76,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *choreov1.Data
 }
 
 // deleteEnvironmentsAndWait deletes referenced deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteEnvironmentsAndWait(ctx context.Context, dataPlane *choreov1.DataPlane) (bool, error) {
+func (r *Reconciler) deleteEnvironmentsAndWait(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
 	logger.Info("Cleaning up environments")
 
 	// Find all Environments referred to by this Dataplane
-	environmentsList := &choreov1.EnvironmentList{}
+	environmentsList := &openchoreov1alpha1.EnvironmentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(dataPlane.Namespace),
 		client.MatchingLabels{

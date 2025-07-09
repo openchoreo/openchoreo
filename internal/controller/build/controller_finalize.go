@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	argointegrations "github.com/openchoreo/openchoreo/internal/controller/build/integrations/kubernetes/ci/argo"
@@ -25,12 +25,12 @@ import (
 
 const (
 	// CleanUpFinalizer is used to ensure proper cleanup of data plane resources before a Build resource is deleted.
-	CleanUpFinalizer = "core.choreo.dev/build-cleanup"
+	CleanUpFinalizer = "openchoreo.dev/build-cleanup"
 )
 
 // ensureFinalizer ensures that the build resource has the cleanup finalizer.
 // Returns true if the finalizer was added, and false if it was already present or not needed.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, build *openchoreov1alpha1.Build) (bool, error) {
 	// If the build is being deleted, do not add the finalizer
 	if !build.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -47,7 +47,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, build *choreov1.Build)
 
 // finalize cleans up data plane resources associated with the build before deletion.
 // It is invoked when the build resource has the cleanup finalizer.
-func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Build) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(build, CleanUpFinalizer) {
 		return ctrl.Result{}, nil
 	}
@@ -94,16 +94,16 @@ func (r *Reconciler) finalize(ctx context.Context, oldBuild, build *choreov1.Bui
 }
 
 // deleteWorkflow deletes the workflow resource.
-func deleteWorkflow(ctx context.Context, build *choreov1.Build, dpClient client.Client) error {
+func deleteWorkflow(ctx context.Context, build *openchoreov1alpha1.Build, dpClient client.Client) error {
 	buildCtx := &integrations.BuildContext{Build: build}
 	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
 	return workflowHandler.Delete(ctx, buildCtx)
 }
 
 // deleteDeployableArtifact attempts to delete the DeployableArtifact and determines whether requeueing is needed.
-func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *choreov1.Build) error {
+func (r *Reconciler) deleteDeployableArtifact(ctx context.Context, build *openchoreov1alpha1.Build) error {
 	deployableArtifact := resources.MakeDeployableArtifact(build)
-	existingArtifact := &choreov1.DeployableArtifact{}
+	existingArtifact := &openchoreov1alpha1.DeployableArtifact{}
 
 	// Check if the DeployableArtifact exists
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(deployableArtifact), existingArtifact); err != nil {

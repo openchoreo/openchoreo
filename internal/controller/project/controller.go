@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -40,7 +40,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Project instance
-	project := &choreov1.Project{}
+	project := &openchoreov1alpha1.Project{}
 	if err := r.Get(ctx, req.NamespacedName, project); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Project resource may have been deleted since it triggered the reconcile
@@ -100,12 +100,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Project{}).
+		For(&openchoreov1alpha1.Project{}).
 		Named("project").
 		// Watch for Component changes to reconcile the project
 		Watches(
-			&choreov1.Component{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Component, *choreov1.Project](
+			&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Component, *openchoreov1alpha1.Project](
 				r.Client, controller.GetProject)),
 		).
 		Complete(r)

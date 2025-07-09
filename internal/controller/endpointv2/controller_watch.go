@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 
 // setupEndpointClassRefIndex sets up the field index for endpoint class references
 func (r *Reconciler) setupEndpointClassRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &choreov1.EndpointV2{}, endpointClassNameIndex, func(rawObj client.Object) []string {
-		endpointv2 := rawObj.(*choreov1.EndpointV2)
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.EndpointV2{}, endpointClassNameIndex, func(rawObj client.Object) []string {
+		endpointv2 := rawObj.(*openchoreov1alpha1.EndpointV2)
 		if endpointv2.Spec.ClassName == "" {
 			return nil
 		}
@@ -31,12 +31,12 @@ func (r *Reconciler) setupEndpointClassRefIndex(ctx context.Context, mgr ctrl.Ma
 
 // listEndpointV2sForEndpointClass finds all EndpointV2s that reference the given EndpointClass
 func (r *Reconciler) listEndpointV2sForEndpointClass(ctx context.Context, obj client.Object) []reconcile.Request {
-	endpointClass, ok := obj.(*choreov1.EndpointClass)
+	endpointClass, ok := obj.(*openchoreov1alpha1.EndpointClass)
 	if !ok {
 		return nil
 	}
 
-	endpointV2List := &choreov1.EndpointV2List{}
+	endpointV2List := &openchoreov1alpha1.EndpointV2List{}
 	listOpts := []client.ListOption{
 		client.InNamespace(endpointClass.Namespace),
 		client.MatchingFields{endpointClassNameIndex: endpointClass.Name},

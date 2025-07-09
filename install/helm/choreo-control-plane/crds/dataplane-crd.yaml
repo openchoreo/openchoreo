@@ -4,9 +4,9 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: choreo-system/choreo-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: dataplanes.core.choreo.dev
+  name: dataplanes.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: DataPlane
     listKind: DataPlaneList
@@ -17,7 +17,7 @@ spec:
     singular: dataplane
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: DataPlane is the Schema for the dataplanes API.

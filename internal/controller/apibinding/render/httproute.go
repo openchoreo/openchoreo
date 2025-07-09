@@ -15,15 +15,15 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // HTTPRoutes renders the HTTPRoute resources for the given API context.
-func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
+func HTTPRoutes(rCtx *Context) []*openchoreov1alpha1.Resource {
 	apiType := rCtx.API.Spec.Type
 	switch apiType {
-	case choreov1.EndpointTypeREST:
+	case openchoreov1alpha1.EndpointTypeREST:
 		return makeRESTHTTPRoutes(rCtx)
 	default:
 		rCtx.AddError(fmt.Errorf("unsupported API type: %s", apiType))
@@ -31,7 +31,7 @@ func HTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	}
 }
 
-func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
+func makeRESTHTTPRoutes(rCtx *Context) []*openchoreov1alpha1.Resource {
 	if rCtx.API.Spec.RESTEndpoint == nil {
 		rCtx.AddError(fmt.Errorf("REST endpoint specification is missing"))
 		return nil
@@ -47,7 +47,7 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	// Process each operation and its expose levels
 	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelProject {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelProject {
 				continue // Skip project level for now
 			}
 			httpRoute := makeHTTPRouteForRestOperation(rCtx, operation, exposeLevel)
@@ -57,13 +57,13 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 		}
 	}
 
-	resources := make([]*choreov1.Resource, 0, len(httpRoutes))
+	resources := make([]*openchoreov1alpha1.Resource, 0, len(httpRoutes))
 
 	for _, httpRoute := range httpRoutes {
 		rawExt := &runtime.RawExtension{}
 		rawExt.Object = httpRoute
 
-		resources = append(resources, &choreov1.Resource{
+		resources = append(resources, &openchoreov1alpha1.Resource{
 			ID:     makeHTTPRouteResourceID(httpRoute),
 			Object: rawExt,
 		})
@@ -72,8 +72,8 @@ func makeRESTHTTPRoutes(rCtx *Context) []*choreov1.Resource {
 	return resources
 }
 
-func makeHTTPRouteForRestOperation(rCtx *Context, restOperation choreov1.RESTEndpointOperation,
-	exposeLevel choreov1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
+func makeHTTPRouteForRestOperation(rCtx *Context, restOperation openchoreov1alpha1.RESTEndpointOperation,
+	exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *gwapiv1.HTTPRoute {
 	pathType := gwapiv1.PathMatchRegularExpression
 	method := restOperation.Method
 	hostname := makeHostname(rCtx, exposeLevel)
@@ -153,10 +153,10 @@ func makeAPILabels(rCtx *Context) map[string]string {
 }
 
 // makeHostname generates the hostname for an API based on gateway type and expose level
-func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gatewayv1.Hostname {
+func makeHostname(_ *Context, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) gatewayv1.Hostname {
 	var domain string
 	switch exposeLevel {
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		domain = "choreoapis.internal"
 	default:
 		domain = "choreoapis.localhost"
@@ -164,7 +164,7 @@ func makeHostname(_ *Context, exposeLevel choreov1.RESTOperationExposeLevel) gat
 	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", "dev", domain))
 }
 
-func makeHTTPRouteName(rCtx *Context, operation choreov1.RESTEndpointOperation, exposeLevel choreov1.RESTOperationExposeLevel) string {
+func makeHTTPRouteName(rCtx *Context, operation openchoreov1alpha1.RESTEndpointOperation, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	operationStr := fmt.Sprintf("%s-%s", strings.ToLower(string(operation.Method)), strings.TrimPrefix(operation.Path, "/"))
 	return dpkubernetes.GenerateK8sName(rCtx.APIBinding.Name, strings.ToLower(string(exposeLevel)), operationStr)
 }
@@ -195,7 +195,7 @@ func getGatewayName(rCtx *Context) string {
 	// Check for any public expose level operations - if found, use external gateway
 	for _, operation := range rCtx.API.Spec.RESTEndpoint.Operations {
 		for _, exposeLevel := range operation.ExposeLevels {
-			if exposeLevel == choreov1.ExposeLevelPublic {
+			if exposeLevel == openchoreov1alpha1.ExposeLevelPublic {
 				return "gateway-external"
 			}
 		}

@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -17,7 +17,7 @@ var _ = Describe("Build Conditions", func() {
 	buildResource := newBuildpackBasedBuild()
 
 	DescribeTable("Set initial build conditions",
-		func(build choreov1.Build, conditionType controller.ConditionType, expectedReason controller.ConditionReason, expectedMessage string) {
+		func(build openchoreov1alpha1.Build, conditionType controller.ConditionType, expectedReason controller.ConditionReason, expectedMessage string) {
 			setInitialBuildConditions(&build)
 			cond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
 			Expect(cond).NotTo(BeNil())
@@ -32,7 +32,7 @@ var _ = Describe("Build Conditions", func() {
 	)
 
 	DescribeTable("Mark step as in progress",
-		func(build choreov1.Build, conditionType controller.ConditionType, expectedMessage string) {
+		func(build openchoreov1alpha1.Build, conditionType controller.ConditionType, expectedMessage string) {
 			markStepInProgress(&build, conditionType)
 			cond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
 			Expect(cond).NotTo(BeNil())
@@ -45,7 +45,7 @@ var _ = Describe("Build Conditions", func() {
 	)
 
 	DescribeTable("Mark step as succeeded",
-		func(build choreov1.Build, conditionType controller.ConditionType, expectedReason controller.ConditionReason, expectedMessage string) {
+		func(build openchoreov1alpha1.Build, conditionType controller.ConditionType, expectedReason controller.ConditionReason, expectedMessage string) {
 			markStepSucceeded(&build, conditionType)
 			cond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
 			Expect(cond).NotTo(BeNil())
@@ -59,7 +59,7 @@ var _ = Describe("Build Conditions", func() {
 	)
 
 	DescribeTable("Mark step as failed",
-		func(build choreov1.Build, conditionType controller.ConditionType, expectedStepReason controller.ConditionReason, expectedStepMessage string) {
+		func(build openchoreov1alpha1.Build, conditionType controller.ConditionType, expectedStepReason controller.ConditionReason, expectedStepMessage string) {
 			markStepFailed(&build, conditionType)
 			stepCond := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
 			Expect(stepCond).NotTo(BeNil())

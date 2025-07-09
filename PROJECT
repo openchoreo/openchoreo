@@ -2,233 +2,208 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: choreo.dev
+domain: openchoreo.dev
 layout:
 - go.kubebuilder.io/v4
-projectName: choreo
+projectName: openchoreo
 repo: github.com/openchoreo/openchoreo
 resources:
 - api:
     crdVersion: v1
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Organization
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Project
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Build
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: DeployableArtifact
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Deployment
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Endpoint
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ConfigurationGroup
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ComponentV2
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Workload
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: EndpointV2
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: EndpointClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: GitCommitRequest
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: API
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: APIClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: APIBinding
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Service
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ServiceClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ServiceBinding
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: WebApplication
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: WebApplicationClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: WebApplicationBinding
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ScheduledTask
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ScheduledTaskClass
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: ScheduledTaskBinding
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: choreo.dev
-  group: core
+  domain: openchoreo.dev
   kind: Release
-  path: github.com/openchoreo/openchoreo/api/v1
-  version: v1
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 version: "3"

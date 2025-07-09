@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("WebApplication Controller", func() {
@@ -26,13 +26,13 @@ var _ = Describe("WebApplication Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		webapplication := &corev1.WebApplication{}
+		webapplication := &openchoreov1alpha1.WebApplication{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind WebApplication")
 			err := k8sClient.Get(ctx, typeNamespacedName, webapplication)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.WebApplication{
+				resource := &openchoreov1alpha1.WebApplication{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -45,7 +45,7 @@ var _ = Describe("WebApplication Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.WebApplication{}
+			resource := &openchoreov1alpha1.WebApplication{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

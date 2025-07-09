@@ -4,40 +4,40 @@
 package dataplane
 
 import (
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // DeploymentContext is a struct that holds the all necessary data required for the resource handlers to
 // perform their operations.
 type DeploymentContext struct {
-	Project            *choreov1.Project
-	Component          *choreov1.Component
-	DeploymentTrack    *choreov1.DeploymentTrack
-	Build              *choreov1.Build
-	DeployableArtifact *choreov1.DeployableArtifact
-	Deployment         *choreov1.Deployment
-	Environment        *choreov1.Environment
+	Project            *openchoreov1alpha1.Project
+	Component          *openchoreov1alpha1.Component
+	DeploymentTrack    *openchoreov1alpha1.DeploymentTrack
+	Build              *openchoreov1alpha1.Build
+	DeployableArtifact *openchoreov1alpha1.DeployableArtifact
+	Deployment         *openchoreov1alpha1.Deployment
+	Environment        *openchoreov1alpha1.Environment
 
-	ConfigurationGroups []*choreov1.ConfigurationGroup
+	ConfigurationGroups []*openchoreov1alpha1.ConfigurationGroup
 
 	ContainerImage string
 }
 
 // EndpointContext is a struct that holds the all necessary data required for the resource handlers to perform their operations.
 type EndpointContext struct {
-	Project         *choreov1.Project
-	DataPlane       *choreov1.DataPlane
-	Component       *choreov1.Component
-	DeploymentTrack *choreov1.DeploymentTrack
-	Deployment      *choreov1.Deployment
-	Environment     *choreov1.Environment
-	Endpoint        *choreov1.Endpoint
+	Project         *openchoreov1alpha1.Project
+	DataPlane       *openchoreov1alpha1.DataPlane
+	Component       *openchoreov1alpha1.Component
+	DeploymentTrack *openchoreov1alpha1.DeploymentTrack
+	Deployment      *openchoreov1alpha1.Deployment
+	Environment     *openchoreov1alpha1.Environment
+	Endpoint        *openchoreov1alpha1.Endpoint
 }
 
 // ProjectContext is a struct that holds the all necessary data required for the resource handlers to perform their operations.
 type ProjectContext struct {
-	DeploymentPipeline *choreov1.DeploymentPipeline
-	Project            *choreov1.Project
+	DeploymentPipeline *openchoreov1alpha1.DeploymentPipeline
+	Project            *openchoreov1alpha1.Project
 	EnvironmentNames   []string
 	NamespaceNames     []string
 }
@@ -45,6 +45,6 @@ type ProjectContext struct {
 // EnvironmentContext is a struct that holds the all necessary data required for the resource handlers of the environment
 // to perform its operations.
 type EnvironmentContext struct {
-	Environment *choreov1.Environment
-	DataPlane   *choreov1.DataPlane
+	Environment *openchoreov1alpha1.Environment
+	DataPlane   *openchoreov1alpha1.DataPlane
 }

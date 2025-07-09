@@ -1,0 +1,9 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: choreo
+    app.kubernetes.io/managed-by: kustomize
+  name: service-sample
+spec:
+  # TODO(user): Add fields here

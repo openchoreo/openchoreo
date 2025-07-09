@@ -24,6 +24,6 @@ spec:
   prune: true
   targetNamespace: choreo-system
   healthChecks:
-    - apiVersion: core.choreo.dev/v1
+    - apiVersion: openchoreo.dev/v1alpha1
       kind: WorkloadClass
       name: go-service-standard

@@ -6,7 +6,7 @@ package kinds
 import (
 	"fmt"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -14,7 +14,7 @@ import (
 
 // ConfigurationGroupResource provides operations for ConfigurationGroup CRs.
 type ConfigurationGroupResource struct {
-	*resources.BaseResource[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList]
+	*resources.BaseResource[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList]
 }
 
 // NewConfigurationGroupResource constructs a ConfigurationGroupResource with CRDConfig and optionally sets organization.
@@ -24,14 +24,14 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList]{
-		resources.WithClient[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList](cli),
-		resources.WithConfig[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList]{
+		resources.WithClient[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](cli),
+		resources.WithConfig[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](org))
 	}
 
 	// Create labels for filtering
@@ -42,11 +42,11 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](labels))
 	}
 
 	return &ConfigurationGroupResource{
-		BaseResource: resources.NewBaseResource[*choreov1.ConfigurationGroup, *choreov1.ConfigurationGroupList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](options...),
 	}, nil
 }
 
@@ -56,7 +56,7 @@ func (d *ConfigurationGroupResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a ConfigurationGroup with detailed information.
-func (d *ConfigurationGroupResource) GetStatus(cg *choreov1.ConfigurationGroup) string {
+func (d *ConfigurationGroupResource) GetStatus(cg *openchoreov1alpha1.ConfigurationGroup) string {
 	// ConfigurationGroup uses the Available condition type
 	priorityConditions := []string{
 		controller.TypeAvailable,
@@ -72,12 +72,12 @@ func (d *ConfigurationGroupResource) GetStatus(cg *choreov1.ConfigurationGroup) 
 }
 
 // GetAge returns the age of a ConfigurationGroup.
-func (d *ConfigurationGroupResource) GetAge(cg *choreov1.ConfigurationGroup) string {
+func (d *ConfigurationGroupResource) GetAge(cg *openchoreov1alpha1.ConfigurationGroup) string {
 	return resources.FormatAge(cg.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats configuration groups into a table
-func (d *ConfigurationGroupResource) PrintTableItems(cgs []resources.ResourceWrapper[*choreov1.ConfigurationGroup]) error {
+func (d *ConfigurationGroupResource) PrintTableItems(cgs []resources.ResourceWrapper[*openchoreov1alpha1.ConfigurationGroup]) error {
 	if len(cgs) == 0 {
 		namespaceName := d.GetNamespace()
 		message := "No configuration groups found"

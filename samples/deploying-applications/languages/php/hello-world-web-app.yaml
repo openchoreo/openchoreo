@@ -1,16 +1,16 @@
 ## Component kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: hello-world-web-application-php
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Hello World PHP Web Application
-    core.choreo.dev/description: A simple web application built with PHP.
+    openchoreo.dev/display-name: Hello World PHP Web Application
+    openchoreo.dev/description: A simple web application built with PHP.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/name: hello-world-web-application-php
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/name: hello-world-web-application-php
 spec:
   type: WebApplication
   source:
@@ -21,19 +21,19 @@ spec:
 ---
 
 ## DeploymentTrack kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: hello-world-web-application-php-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Main Deployment Track
-    core.choreo.dev/description: Deployment track for the Hello World PHP web application.
+    openchoreo.dev/display-name: Main Deployment Track
+    openchoreo.dev/description: Deployment track for the Hello World PHP web application.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: hello-world-web-application-php
-    core.choreo.dev/name: hello-world-web-application-php-main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: hello-world-web-application-php
+    openchoreo.dev/name: hello-world-web-application-php-main
 spec:
   buildTemplateSpec:
     branch: main
@@ -44,20 +44,20 @@ spec:
 ---
 
 ## Build kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
   name: hello-world-web-application-php-build-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Default Build
-    core.choreo.dev/description: Initial build configuration for the Hello World PHP web application.
+    openchoreo.dev/display-name: Default Build
+    openchoreo.dev/description: Initial build configuration for the Hello World PHP web application.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: hello-world-web-application-php
-    core.choreo.dev/deployment-track: hello-world-web-application-php-main
-    core.choreo.dev/name: hello-world-web-application-php-build-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: hello-world-web-application-php
+    openchoreo.dev/deployment-track: hello-world-web-application-php-main
+    openchoreo.dev/name: hello-world-web-application-php-build-01
 spec:
   branch: main
   path: /hello-world-php-webapp
@@ -68,20 +68,20 @@ spec:
 ---
 #
 ### Deployment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: hello-world-web-application-php-development-deployment-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Hello World PHP Web Application Deployment
-    core.choreo.dev/description: Initial deployment configuration for the Hello World PHP web application.
+    openchoreo.dev/display-name: Hello World PHP Web Application Deployment
+    openchoreo.dev/description: Initial deployment configuration for the Hello World PHP web application.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: hello-world-web-application-php
-    core.choreo.dev/deployment-track: hello-world-web-application-php-main
-    core.choreo.dev/name: hello-world-web-application-php-development-deployment-01
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: hello-world-web-application-php
+    openchoreo.dev/deployment-track: hello-world-web-application-php-main
+    openchoreo.dev/name: hello-world-web-application-php-development-deployment-01
 spec:
   deploymentArtifactRef: hello-world-web-application-php-build-01

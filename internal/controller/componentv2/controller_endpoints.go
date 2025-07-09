@@ -8,12 +8,12 @@ package componentv2
 //
 //	ctrl "sigs.k8s.io/controller-runtime"
 //
-//	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+//	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 // )
 
 // reconcileEndpoints reconciles the Choreo endpoints in the Control Plane based on the ComponentV2
 /*
-func (r *Reconciler) reconcileEndpoints(ctx context.Context, comp *choreov1.ComponentV2) (ctrl.Result, error) {
+func (r *Reconciler) reconcileEndpoints(ctx context.Context, comp *openchoreov1alpha1.ComponentV2) (ctrl.Result, error) {
 	// Make the desired endpoints
 	// desiredEndpoints, err := r.makeEndpoints(comp)
 	// if err != nil {
@@ -21,13 +21,13 @@ func (r *Reconciler) reconcileEndpoints(ctx context.Context, comp *choreov1.Comp
 	// }
 	//
 	// // Get all endpoints in the namespace and filter by owner reference
-	// var allEndpoints choreov1.EndpointV2List
+	// var allEndpoints openchoreov1alpha1.EndpointV2List
 	// if err := r.List(ctx, &allEndpoints, client.InNamespace(comp.Namespace)); err != nil {
 	//	return ctrl.Result{}, fmt.Errorf("failed to list endpoints: %w", err)
 	// }
 	//
 	// // Filter endpoints owned by this component
-	// var currentEndpoints []choreov1.EndpointV2
+	// var currentEndpoints []openchoreov1alpha1.EndpointV2
 	// for _, endpoint := range allEndpoints.Items {
 	//	if metav1.IsControlledBy(&endpoint, comp) {
 	//		currentEndpoints = append(currentEndpoints, endpoint)
@@ -36,7 +36,7 @@ func (r *Reconciler) reconcileEndpoints(ctx context.Context, comp *choreov1.Comp
 	//
 	// // Reconcile each desired endpoint
 	// for _, desiredEndpoint := range desiredEndpoints {
-	//	existingEndpoint := &choreov1.EndpointV2{}
+	//	existingEndpoint := &openchoreov1alpha1.EndpointV2{}
 	//	err := r.Get(ctx, client.ObjectKeyFromObject(desiredEndpoint), existingEndpoint)
 	//	if apierrors.IsNotFound(err) {
 	//		if err := r.Create(ctx, desiredEndpoint); err != nil {

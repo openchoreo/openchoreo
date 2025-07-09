@@ -1,15 +1,15 @@
 ## Sample Environment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: production
   namespace: acme
   annotations:
-    core.choreo.dev/display-name: Production Environment
-    core.choreo.dev/description: The environment dedicated to running production-grade services and applications with high availability and reliability.
+    openchoreo.dev/display-name: Production Environment
+    openchoreo.dev/description: The environment dedicated to running production-grade services and applications with high availability and reliability.
   labels:
-    core.choreo.dev/organization: acme
-    core.choreo.dev/name: production
+    openchoreo.dev/organization: acme
+    openchoreo.dev/name: production
 spec:
   dataPlaneRef: us-east-1
   isProduction: true

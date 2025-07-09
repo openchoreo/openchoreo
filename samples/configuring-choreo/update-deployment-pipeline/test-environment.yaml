@@ -1,15 +1,15 @@
 ## Sample Environment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: test
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Test Environment
-    core.choreo.dev/description: The test environment for testing.
+    openchoreo.dev/display-name: Test Environment
+    openchoreo.dev/description: The test environment for testing.
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: test
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: test
 spec:
   dataPlaneRef: us-east-1
   isProduction: false

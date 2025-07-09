@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
@@ -30,9 +30,9 @@ type buildModel struct {
 	interactive.BaseModel
 	name                 string
 	revision             string
-	deploymentTracks     []corev1.DeploymentTrack
+	deploymentTracks     []openchoreov1alpha1.DeploymentTrack
 	trackCursor          int
-	deploymentTrack      *corev1.DeploymentTrack
+	deploymentTrack      *openchoreov1alpha1.DeploymentTrack
 	selected             bool
 	errorMsg             string
 	state                int
@@ -133,7 +133,7 @@ func (m buildModel) handleResourceSelection(keyMsg tea.KeyMsg) (buildModel, tea.
 				return m, tea.Quit
 			}
 
-			m.deploymentTracks = make([]corev1.DeploymentTrack, len(trackObjects))
+			m.deploymentTracks = make([]openchoreov1alpha1.DeploymentTrack, len(trackObjects))
 			m.deploymentTrackNames = make([]string, len(trackObjects)) // Initialize the new array
 			for i, trackWrapper := range trackObjects {
 				m.deploymentTracks[i] = *trackWrapper.Resource
@@ -247,12 +247,12 @@ func createBuildInteractive(config constants.CRDConfig) error {
 
 		if buildSpec.BuildConfiguration != nil {
 			if buildSpec.BuildConfiguration.Docker != nil {
-				params.Docker = &corev1.DockerConfiguration{
+				params.Docker = &openchoreov1alpha1.DockerConfiguration{
 					Context:        buildSpec.BuildConfiguration.Docker.Context,
 					DockerfilePath: buildSpec.BuildConfiguration.Docker.DockerfilePath,
 				}
 			} else if buildSpec.BuildConfiguration.Buildpack != nil {
-				params.Buildpack = &corev1.BuildpackConfiguration{
+				params.Buildpack = &openchoreov1alpha1.BuildpackConfiguration{
 					Name:    buildSpec.BuildConfiguration.Buildpack.Name,
 					Version: buildSpec.BuildConfiguration.Buildpack.Version,
 				}

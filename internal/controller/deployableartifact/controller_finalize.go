@@ -14,17 +14,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // DeployableArtifactCleanupFinalizer is the finalizer that is used to clean up deployable artifact resources.
-const DeployableArtifactCleanupFinalizer = "core.choreo.dev/deployableartifact-cleanup"
+const DeployableArtifactCleanupFinalizer = "openchoreo.dev/deployableartifact-cleanup"
 
 // ensureFinalizer ensures that the finalizer is added to the deployable artifact.
 // The first return value indicates whether the finalizer was added to the deployable artifact.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, deployableArtifact *choreov1.DeployableArtifact) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, deployableArtifact *openchoreov1alpha1.DeployableArtifact) (bool, error) {
 	// If the deployable artifact is being deleted, no need to add the finalizer
 	if !deployableArtifact.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -37,7 +37,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, deployableArtifact *ch
 	return false, nil
 }
 
-func (r *Reconciler) finalize(ctx context.Context, old, deployableArtifact *choreov1.DeployableArtifact) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, deployableArtifact *openchoreov1alpha1.DeployableArtifact) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("deployableArtifact", deployableArtifact.Name)
 
 	if !controllerutil.ContainsFinalizer(deployableArtifact, DeployableArtifactCleanupFinalizer) {
@@ -77,12 +77,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, deployableArtifact *chor
 }
 
 // deleteDeploymentsAndWait deletes referenced deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deployableArtifact *choreov1.DeployableArtifact) (bool, error) {
+func (r *Reconciler) deleteDeploymentsAndWait(ctx context.Context, deployableArtifact *openchoreov1alpha1.DeployableArtifact) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("deployableArtifact", deployableArtifact.Name)
 	logger.Info("Cleaning up deployments")
 
 	// Find all Deployments referred to by this DeployableArtifact
-	deploymentList := &choreov1.DeploymentList{}
+	deploymentList := &openchoreov1alpha1.DeploymentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployableArtifact.Namespace),
 		client.MatchingLabels{

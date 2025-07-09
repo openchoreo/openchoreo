@@ -9,7 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // deployableArtifactRefIndexKey is the index key for the deployable artifact reference
@@ -19,11 +19,11 @@ const deployableArtifactRefIndexKey = ".spec.deploymentArtifactRef"
 func (r *Reconciler) setupDeployableArtifactRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.Deployment{},
+		&openchoreov1alpha1.Deployment{},
 		deployableArtifactRefIndexKey,
 		func(obj client.Object) []string {
 			// Convert the object to the appropriate type
-			deployment, ok := obj.(*choreov1.Deployment)
+			deployment, ok := obj.(*openchoreov1alpha1.Deployment)
 			if !ok {
 				return nil
 			}

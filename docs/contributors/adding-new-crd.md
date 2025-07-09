@@ -12,10 +12,13 @@ Run the following command to scaffold a new API group, version, and kind:
 kubebuilder create api --group <group_name> --version <version> --kind <kind_name>
 ```
 
-Replace `<group_name>`, `<version>`, and `<kind_name>` with the appropriate values for your resource. For example:
+Replace `<version>`, and `<kind_name>` with the appropriate values for your resource. For example:
 ```bash
-kubebuilder create api --group core --version v1 --kind Component
+kubebuilder create api --version v1alpha1 --kind Component
 ```
+
+> [!NOTE]
+> The group name is not specified in the command because we use the empty group with domain `openchoreo.dev` configured in the PROJECT file.
 
 This generates:
 - **API types** under `api/<version>/`

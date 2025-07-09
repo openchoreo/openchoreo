@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	v1api "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -129,7 +129,7 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				Project:          fg.GetString(flags.Project),
 				DisplayName:      fg.GetString(flags.DisplayName),
 				GitRepositoryURL: fg.GetString(flags.GitRepositoryURL),
-				Type:             v1api.ComponentType(fg.GetString(flags.ComponentType)),
+				Type:             openchoreov1alpha1.ComponentType(fg.GetString(flags.ComponentType)),
 				Interactive:      fg.GetBool(flags.Interactive),
 				Branch:           fg.GetString(flags.Branch),
 				Path:             fg.GetString(flags.Path),
@@ -169,12 +169,12 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Revision:     fg.GetString(flags.Revision),
 				AutoBuild:    fg.GetBool(flags.AutoBuild),
 				Interactive:  fg.GetBool(flags.Interactive),
-				Docker: &v1api.DockerConfiguration{
+				Docker: &openchoreov1alpha1.DockerConfiguration{
 					Context:        fg.GetString(flags.DockerContext),
 					DockerfilePath: fg.GetString(flags.DockerfilePath),
 				},
-				Buildpack: &v1api.BuildpackConfiguration{
-					Name:    v1api.BuildpackName(fg.GetString(flags.BuildpackName)),
+				Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
+					Name:    openchoreov1alpha1.BuildpackName(fg.GetString(flags.BuildpackName)),
 					Version: fg.GetString(flags.BuildpackVersion),
 				},
 				DeploymentTrack: fg.GetString(flags.DeploymentTrack),

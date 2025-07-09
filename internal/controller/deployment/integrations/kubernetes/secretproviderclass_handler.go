@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
@@ -224,7 +224,7 @@ func makeSecretProviderClasses(deployCtx *dataplane.DeploymentContext) []*csisec
 	return secretProviderClasses
 }
 
-func makeSecretProviderClassName(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup) string {
+func makeSecretProviderClassName(deployCtx *dataplane.DeploymentContext, cg *openchoreov1alpha1.ConfigurationGroup) string {
 	// TODO: Ideally, this should be choreo name instead of kubernetes name
 	componentName := deployCtx.Component.Name
 	deploymentTrackName := deployCtx.DeploymentTrack.Name
@@ -233,7 +233,7 @@ func makeSecretProviderClassName(deployCtx *dataplane.DeploymentContext, cg *cho
 	return dpkubernetes.GenerateK8sName(componentName, deploymentTrackName, configGroupName)
 }
 
-func makeSecretObject(deployCtx *dataplane.DeploymentContext, cg *choreov1.ConfigurationGroup,
+func makeSecretObject(deployCtx *dataplane.DeploymentContext, cg *openchoreov1alpha1.ConfigurationGroup,
 	spObjects []secretProviderObject) *csisecretv1.SecretObject {
 	// Here, we use the configuration key (objectName) for both the object name and the key for simplicity
 	data := make([]*csisecretv1.SecretObjectData, 0, len(spObjects))

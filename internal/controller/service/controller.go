@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Reconciler reconciles a Service object
@@ -22,11 +22,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=services/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=services/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -37,7 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling Service")
 
 	// Fetch the Service instance
-	service := &choreov1.Service{}
+	service := &openchoreov1alpha1.Service{}
 	if err := r.Get(ctx, req.NamespacedName, service); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get Service")
@@ -54,11 +54,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileServiceBinding reconciles the ServiceBinding with the given Service.
-func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *choreov1.Service) (ctrl.Result, error) {
+func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *openchoreov1alpha1.Service) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Find the associated Workload
-	workload := &choreov1.Workload{}
+	workload := &openchoreov1alpha1.Workload{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Name:      service.Spec.WorkloadName,
 		Namespace: service.Namespace,
@@ -68,7 +68,7 @@ func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *chore
 		return ctrl.Result{}, err
 	}
 
-	serviceBinding := &choreov1.ServiceBinding{
+	serviceBinding := &openchoreov1alpha1.ServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
 			Namespace: service.Namespace,
@@ -90,14 +90,14 @@ func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *chore
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeServiceBinding(service *choreov1.Service, workload *choreov1.Workload) *choreov1.ServiceBinding {
-	sb := &choreov1.ServiceBinding{
+func (r *Reconciler) makeServiceBinding(service *openchoreov1alpha1.Service, workload *openchoreov1alpha1.Workload) *openchoreov1alpha1.ServiceBinding {
+	sb := &openchoreov1alpha1.ServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
 			Namespace: service.Namespace,
 		},
-		Spec: choreov1.ServiceBindingSpec{
-			Owner: choreov1.ServiceOwner{
+		Spec: openchoreov1alpha1.ServiceBindingSpec{
+			Owner: openchoreov1alpha1.ServiceOwner{
 				ProjectName:   service.Spec.Owner.ProjectName,
 				ComponentName: service.Spec.Owner.ComponentName,
 			},
@@ -113,7 +113,7 @@ func (r *Reconciler) makeServiceBinding(service *choreov1.Service, workload *cho
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Service{}).
+		For(&openchoreov1alpha1.Service{}).
 		Named("service").
 		Complete(r)
 }

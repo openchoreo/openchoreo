@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -17,8 +17,8 @@ var _ = Describe("Deployable Artifact Creation", func() {
 
 	var (
 		buildCtx           *integrations.BuildContext
-		deployableArtifact *choreov1.DeployableArtifact
-		endpoints          *[]choreov1.EndpointTemplate
+		deployableArtifact *openchoreov1alpha1.DeployableArtifact
+		endpoints          *[]openchoreov1alpha1.EndpointTemplate
 	)
 
 	BeforeEach(func() {
@@ -42,7 +42,7 @@ var _ = Describe("Deployable Artifact Creation", func() {
 
 			Expect(artifact).NotTo(BeNil())
 			Expect(artifact.Kind).To(Equal("DeployableArtifact"))
-			Expect(artifact.APIVersion).To(Equal("core.choreo.dev/v1"))
+			Expect(artifact.APIVersion).To(Equal("openchoreo.dev/v1alpha1"))
 
 			Expect(artifact.ObjectMeta.Name).To(Equal("test-build"))
 			Expect(artifact.ObjectMeta.Namespace).To(Equal("test-organization"))
@@ -66,16 +66,16 @@ var _ = Describe("Deployable Artifact Creation", func() {
 		})
 
 		It("should add endpoint templates for service components", func() {
-			buildCtx.Component.Spec.Type = choreov1.ComponentTypeService
+			buildCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
 			AddComponentSpecificConfigs(buildCtx, deployableArtifact, endpoints)
 			Expect(deployableArtifact.Spec.Configuration).NotTo(BeNil())
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates).To(HaveLen(1))
-			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(choreov1.EndpointTypeHTTP))
+			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(openchoreov1alpha1.EndpointTypeHTTP))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.ComponentRef.Port).To(BeEquivalentTo(80))
 		})
 
 		It("should add scheduled task configuration for task components", func() {
-			buildCtx.Component.Spec.Type = choreov1.ComponentTypeScheduledTask
+			buildCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeScheduledTask
 			AddComponentSpecificConfigs(buildCtx, deployableArtifact, endpoints)
 			Expect(deployableArtifact.Spec.Configuration).NotTo(BeNil())
 			Expect(deployableArtifact.Spec.Configuration.Application).NotTo(BeNil())
@@ -85,12 +85,12 @@ var _ = Describe("Deployable Artifact Creation", func() {
 		})
 
 		It("should add web application endpoint template for web app components", func() {
-			buildCtx.Component.Spec.Type = choreov1.ComponentTypeWebApplication
+			buildCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeWebApplication
 			AddComponentSpecificConfigs(buildCtx, deployableArtifact, endpoints)
 			Expect(deployableArtifact.Spec.Configuration).NotTo(BeNil())
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates).To(HaveLen(1))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].ObjectMeta.Name).To(Equal("webapp"))
-			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(choreov1.EndpointTypeHTTP))
+			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.Type).To(Equal(openchoreov1alpha1.EndpointTypeHTTP))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.BasePath).To(Equal("/"))
 			Expect(deployableArtifact.Spec.Configuration.EndpointTemplates[0].Spec.BackendRef.ComponentRef.Port).To(BeEquivalentTo(80))
 		})

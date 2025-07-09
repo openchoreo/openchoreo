@@ -6,7 +6,7 @@ package render
 import (
 	corev1 "k8s.io/api/core/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 func makeScheduledTaskPodSpec(rCtx Context) *corev1.PodSpec {
@@ -38,7 +38,7 @@ func makeMainContainer(rCtx Context) *corev1.Container {
 
 	// Use the first container as the main container
 	// TODO: Fix me later to support multiple containers
-	var mainContainerSpec choreov1.Container
+	var mainContainerSpec openchoreov1alpha1.Container
 	var containerName string
 	for name, container := range wls.Containers {
 		mainContainerSpec = container

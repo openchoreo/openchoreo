@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding/render"
 )
 
@@ -25,11 +25,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=servicebindings/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=serviceclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=serviceclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -44,7 +44,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the ServiceBinding instance
-	serviceBinding := &choreov1.ServiceBinding{}
+	serviceBinding := &openchoreov1alpha1.ServiceBinding{}
 	if err := r.Get(ctx, req.NamespacedName, serviceBinding); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get ServiceBinding")
@@ -54,7 +54,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Fetch the associated ServiceClass
-	serviceClass := &choreov1.ServiceClass{}
+	serviceClass := &openchoreov1alpha1.ServiceClass{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: serviceBinding.Namespace,
 		Name:      serviceBinding.Spec.ClassName,
@@ -71,10 +71,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileRelease reconciles the Release associated with the ServiceBinding.
-func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *choreov1.ServiceBinding, serviceClass *choreov1.ServiceClass) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding, serviceClass *openchoreov1alpha1.ServiceClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	release := &choreov1.Release{
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceBinding.Name,
 			Namespace: serviceBinding.Namespace,
@@ -106,14 +106,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *chore
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
-	release := &choreov1.Release{
+func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Release {
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.ServiceBinding.Name,
 			Namespace: rCtx.ServiceBinding.Namespace,
 		},
-		Spec: choreov1.ReleaseSpec{
-			Owner: choreov1.ReleaseOwner{
+		Spec: openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   rCtx.ServiceBinding.Spec.Owner.ProjectName,
 				ComponentName: rCtx.ServiceBinding.Spec.Owner.ComponentName,
 			},
@@ -121,7 +121,7 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *choreov1.Release {
 		},
 	}
 
-	var resources []choreov1.Resource
+	var resources []openchoreov1alpha1.Resource
 
 	// Add Deployment resource
 	if res := render.Deployment(rCtx); res != nil {
@@ -152,9 +152,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.ServiceBinding{}).
+		For(&openchoreov1alpha1.ServiceBinding{}).
 		Watches(
-			&choreov1.ServiceClass{},
+			&openchoreov1alpha1.ServiceClass{},
 			handler.EnqueueRequestsFromMapFunc(r.listServiceBindingsForServiceClass),
 		).
 		Named("servicebinding").

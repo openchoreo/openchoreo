@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -61,7 +61,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req 
 func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*models.ProjectResponse, error) {
 	s.logger.Debug("Listing projects", "org", orgName)
 
-	var projectList choreov1.ProjectList
+	var projectList openchoreov1alpha1.ProjectList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
 	}
@@ -84,7 +84,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
 	s.logger.Debug("Getting project", "org", orgName, "project", projectName)
 
-	project := &choreov1.Project{}
+	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
 		Namespace: orgName,
@@ -104,7 +104,7 @@ func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName st
 
 // projectExists checks if a project already exists in the organization
 func (s *ProjectService) projectExists(ctx context.Context, orgName, projectName string) (bool, error) {
-	project := &choreov1.Project{}
+	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
 		Namespace: orgName,
@@ -121,17 +121,17 @@ func (s *ProjectService) projectExists(ctx context.Context, orgName, projectName
 }
 
 // buildProjectCR builds a Project custom resource from the request
-func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjectRequest) *choreov1.Project {
+func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjectRequest) *openchoreov1alpha1.Project {
 	// Set default deployment pipeline if not provided
 	deploymentPipeline := req.DeploymentPipeline
 	if deploymentPipeline == "" {
 		deploymentPipeline = "default-pipeline"
 	}
 
-	return &choreov1.Project{
+	return &openchoreov1alpha1.Project{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Project",
-			APIVersion: "core.choreo.dev/v1",
+			APIVersion: "openchoreo.dev/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
@@ -146,14 +146,14 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 				"backstage.io/kubernetes-id":    req.Name,
 			},
 		},
-		Spec: choreov1.ProjectSpec{
+		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: deploymentPipeline,
 		},
 	}
 }
 
 // toProjectResponse converts a Project CR to a ProjectResponse
-func (s *ProjectService) toProjectResponse(project *choreov1.Project) *models.ProjectResponse {
+func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) *models.ProjectResponse {
 	// Extract repository info from annotations if available
 	repositoryURL := project.Annotations["repository-url"]
 	repositoryBranch := project.Annotations["repository-branch"]

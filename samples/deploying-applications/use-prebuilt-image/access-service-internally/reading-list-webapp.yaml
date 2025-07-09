@@ -1,31 +1,31 @@
 ## Sample Project kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   name: portal
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Customer Portal
-    core.choreo.dev/description: This project contains reading list webapp
+    openchoreo.dev/display-name: Customer Portal
+    openchoreo.dev/description: This project contains reading list webapp
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/name: portal
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/name: portal
 spec:
   deploymentPipelineRef: default-pipeline
 ---
 ## Component Definition
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: reading-list-webapp
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Reading List Web App
-    core.choreo.dev/description: Web application for managing reading lists
+    openchoreo.dev/display-name: Reading List Web App
+    openchoreo.dev/description: Web application for managing reading lists
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: portal
-    core.choreo.dev/name: reading-list-webapp
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: portal
+    openchoreo.dev/name: reading-list-webapp
 spec:
   type: WebApplication
   source:
@@ -33,36 +33,36 @@ spec:
       imageName: ghcr.io/openchoreo/samples/reading-list-webapp
 ---
 ## Deployment Track Definition
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: reading-list-webapp-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Main deployment track
-    core.choreo.dev/description: The main deployment track for the reading-list-webapp component
+    openchoreo.dev/display-name: Main deployment track
+    openchoreo.dev/description: The main deployment track for the reading-list-webapp component
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: portal
-    core.choreo.dev/component: reading-list-webapp
-    core.choreo.dev/name: main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: portal
+    openchoreo.dev/component: reading-list-webapp
+    openchoreo.dev/name: main
 spec: {}
 ---
 ## Deployable Artifact Definition
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeployableArtifact
 metadata:
   name: reading-list-webapp
   namespace: default-org
   annotations:
-    core.choreo.dev/description: Deployable Artifact for reading-list-webapp
-    core.choreo.dev/display-name: reading-list-webapp
+    openchoreo.dev/description: Deployable Artifact for reading-list-webapp
+    openchoreo.dev/display-name: reading-list-webapp
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: portal
-    core.choreo.dev/component: reading-list-webapp
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: reading-list-webapp
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: portal
+    openchoreo.dev/component: reading-list-webapp
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: reading-list-webapp
 spec:
   
   configuration:
@@ -85,19 +85,19 @@ spec:
       tag: latest
 ---
 ## Deployment Definition
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: reading-list-webapp-deployment
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: reading-list-webapp deployment
+    openchoreo.dev/display-name: reading-list-webapp deployment
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: portal
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: reading-list-webapp
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: reading-list-webapp-deployment
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: portal
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: reading-list-webapp
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: reading-list-webapp-deployment
 spec:
   deploymentArtifactRef: reading-list-webapp

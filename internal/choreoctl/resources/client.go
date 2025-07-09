@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
 )
 
@@ -22,7 +22,7 @@ func CreateNewScheme() (*runtime.Scheme, error) {
 	if err := scheme.AddToScheme(s); err != nil {
 		return nil, fmt.Errorf("failed to add core scheme: %w", err)
 	}
-	if err := choreov1.AddToScheme(s); err != nil {
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
 		return nil, fmt.Errorf("failed to add Choreo scheme: %w", err)
 	}
 	return s, nil

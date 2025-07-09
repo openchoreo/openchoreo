@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -16,7 +16,7 @@ import (
 
 // EnvironmentResource provides operations for Environment CRs.
 type EnvironmentResource struct {
-	*resources.BaseResource[*choreov1.Environment, *choreov1.EnvironmentList]
+	*resources.BaseResource[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList]
 }
 
 // NewEnvironmentResource constructs an EnvironmentResource with CRDConfig and optionally sets organization.
@@ -26,18 +26,18 @@ func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentRe
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Environment, *choreov1.EnvironmentList]{
-		resources.WithClient[*choreov1.Environment, *choreov1.EnvironmentList](cli),
-		resources.WithConfig[*choreov1.Environment, *choreov1.EnvironmentList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList]{
+		resources.WithClient[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Environment, *choreov1.EnvironmentList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](org))
 	}
 
 	return &EnvironmentResource{
-		BaseResource: resources.NewBaseResource[*choreov1.Environment, *choreov1.EnvironmentList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](options...),
 	}, nil
 }
 
@@ -47,7 +47,7 @@ func (e *EnvironmentResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of an Environment with detailed information.
-func (e *EnvironmentResource) GetStatus(env *choreov1.Environment) string {
+func (e *EnvironmentResource) GetStatus(env *openchoreov1alpha1.Environment) string {
 	// Environment can have Ready or Configured conditions
 	priorityConditions := []string{ConditionTypeReady, ConditionTypeConfigured}
 
@@ -61,12 +61,12 @@ func (e *EnvironmentResource) GetStatus(env *choreov1.Environment) string {
 }
 
 // GetAge returns the age of an Environment.
-func (e *EnvironmentResource) GetAge(env *choreov1.Environment) string {
+func (e *EnvironmentResource) GetAge(env *openchoreov1alpha1.Environment) string {
 	return resources.FormatAge(env.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats environments into a table
-func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceWrapper[*choreov1.Environment]) error {
+func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceWrapper[*openchoreov1alpha1.Environment]) error {
 	if len(environments) == 0 {
 		// Provide a more descriptive message
 		namespaceName := e.GetNamespace()
@@ -131,7 +131,7 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 	k8sName := resources.GenerateResourceName(params.Organization, params.Name)
 
 	// Create the Environment resource
-	environment := &choreov1.Environment{
+	environment := &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -144,10 +144,10 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 				constants.LabelOrganization: params.Organization,
 			},
 		},
-		Spec: choreov1.EnvironmentSpec{
+		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: params.DataPlaneRef,
 			IsProduction: params.IsProduction,
-			Gateway: choreov1.GatewayConfig{
+			Gateway: openchoreov1alpha1.GatewayConfig{
 				DNSPrefix: params.DNSPrefix,
 			},
 		},
@@ -163,7 +163,7 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 }
 
 // GetEnvironmentsForOrganization returns environments filtered by organization
-func (e *EnvironmentResource) GetEnvironmentsForOrganization(orgName string) ([]resources.ResourceWrapper[*choreov1.Environment], error) {
+func (e *EnvironmentResource) GetEnvironmentsForOrganization(orgName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Environment], error) {
 	// List all environments in the namespace
 	allEnvironments, err := e.List()
 	if err != nil {
@@ -171,7 +171,7 @@ func (e *EnvironmentResource) GetEnvironmentsForOrganization(orgName string) ([]
 	}
 
 	// Filter by organization
-	var environments []resources.ResourceWrapper[*choreov1.Environment]
+	var environments []resources.ResourceWrapper[*openchoreov1alpha1.Environment]
 	for _, wrapper := range allEnvironments {
 		if wrapper.Resource.GetLabels()[constants.LabelOrganization] == orgName {
 			environments = append(environments, wrapper)

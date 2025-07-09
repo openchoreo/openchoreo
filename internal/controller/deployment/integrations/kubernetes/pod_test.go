@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
@@ -31,7 +31,7 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("for a Service component", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeService
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeService
 		})
 
 		It("should create a PodSpec with correct RestartPolicy", func() {
@@ -41,7 +41,7 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("for a Scheduled Task component", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeScheduledTask
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeScheduledTask
 		})
 
 		It("should create a PodSpec with correct RestartPolicy", func() {
@@ -51,9 +51,9 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("when the deployable artifact has direct environment variables", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					Env: []choreov1.EnvVar{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					Env: []openchoreov1alpha1.EnvVar{
 						{
 							Key:   "LOG_FORMAT",
 							Value: "json",
@@ -76,9 +76,9 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("when the deployable artifact has direct file mounts", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					FileMounts: []choreov1.FileMount{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					FileMounts: []openchoreov1alpha1.FileMount{
 						{
 							MountPath: "/app/config.json",
 							Value:     "{\"key\":\"value\"}",
@@ -114,13 +114,13 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("when the deployable artifact has environment variables mapped from configuration groups", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					Env: []choreov1.EnvVar{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					Env: []openchoreov1alpha1.EnvVar{
 						{
 							Key: "REDIS_HOST",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "host",
 								},
@@ -128,8 +128,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							Key: "REDIS_PORT",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "port",
 								},
@@ -137,8 +137,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							Key: "REDIS_PASSWORD",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "password",
 								},
@@ -146,8 +146,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							Key: "MYSQL_HOST",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "host",
 								},
@@ -155,8 +155,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							Key: "MYSQL_PORT",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "port",
 								},
@@ -164,8 +164,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							Key: "MYSQL_PASSWORD",
-							ValueFrom: &choreov1.EnvVarValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "password",
 								},
@@ -175,7 +175,7 @@ var _ = Describe("makePodSpec", func() {
 				},
 			}
 
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}
@@ -244,13 +244,13 @@ var _ = Describe("makePodSpec", func() {
 
 	Context("when the deployable artifact has file mounts mapped from configuration groups", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					FileMounts: []choreov1.FileMount{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					FileMounts: []openchoreov1alpha1.FileMount{
 						{
 							MountPath: "/config/redis-host",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "host",
 								},
@@ -258,8 +258,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							MountPath: "/config/redis-port",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "port",
 								},
@@ -267,8 +267,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							MountPath: "/config/redis-password",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "redis-config-group",
 									Key:  "password",
 								},
@@ -276,8 +276,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							MountPath: "/config/mysql-host",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "host",
 								},
@@ -285,8 +285,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							MountPath: "/config/mysql-port",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "port",
 								},
@@ -294,8 +294,8 @@ var _ = Describe("makePodSpec", func() {
 						},
 						{
 							MountPath: "/config/mysql-password",
-							ValueFrom: &choreov1.FileMountValueFrom{
-								ConfigurationGroupRef: &choreov1.ConfigurationGroupKeyRef{
+							ValueFrom: &openchoreov1alpha1.FileMountValueFrom{
+								ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupKeyRef{
 									Name: "mysql-config-group",
 									Key:  "password",
 								},
@@ -305,7 +305,7 @@ var _ = Describe("makePodSpec", func() {
 				},
 			}
 
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}
@@ -415,11 +415,11 @@ var _ = Describe("makePodSpec", func() {
 	//       name: redis-config
 	Context("when the deployable artifact has environment variables bulk mapping a configuration group", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					EnvFrom: []choreov1.EnvFromSource{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					EnvFrom: []openchoreov1alpha1.EnvFromSource{
 						{
-							ConfigurationGroupRef: &choreov1.ConfigurationGroupRef{
+							ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupRef{
 								Name: "redis-config-group",
 							},
 						},
@@ -427,7 +427,7 @@ var _ = Describe("makePodSpec", func() {
 				},
 			}
 
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}
@@ -491,11 +491,11 @@ var _ = Describe("makePodSpec", func() {
 	//		 mountPath: /redis-config
 	Context("when the deployable artifact has file mount bulk mapping from a configuration group", func() {
 		BeforeEach(func() {
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					FileMountsFrom: []choreov1.FileMountsFromSource{
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					FileMountsFrom: []openchoreov1alpha1.FileMountsFromSource{
 						{
-							ConfigurationGroupRef: &choreov1.ConfigurationGroupMountRef{
+							ConfigurationGroupRef: &openchoreov1alpha1.ConfigurationGroupMountRef{
 								Name:      "redis-config-group",
 								MountPath: "/config",
 							},
@@ -504,7 +504,7 @@ var _ = Describe("makePodSpec", func() {
 				},
 			}
 
-			deployCtx.ConfigurationGroups = []*choreov1.ConfigurationGroup{
+			deployCtx.ConfigurationGroups = []*openchoreov1alpha1.ConfigurationGroup{
 				newTestRedisConfigurationGroup(),
 				newTestMysqlConfigurationGroup(),
 			}

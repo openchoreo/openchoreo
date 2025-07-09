@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -29,11 +29,11 @@ const (
 func (r *Reconciler) setupDeploymentArtifactRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.Deployment{},
+		&openchoreov1alpha1.Deployment{},
 		deploymentArtifactRefIndexKey,
 		func(obj client.Object) []string {
 			// Convert the object to the appropriate type
-			deployment, ok := obj.(*choreov1.Deployment)
+			deployment, ok := obj.(*openchoreov1alpha1.Deployment)
 			if !ok {
 				return nil
 			}
@@ -47,10 +47,10 @@ func (r *Reconciler) setupDeploymentArtifactRefIndex(ctx context.Context, mgr ct
 func (r *Reconciler) setupEndpointsOwnerRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.Endpoint{},
+		&openchoreov1alpha1.Endpoint{},
 		"metadata.ownerReferences",
 		func(rawObj client.Object) []string {
-			endpoint, ok := rawObj.(*choreov1.Endpoint)
+			endpoint, ok := rawObj.(*openchoreov1alpha1.Endpoint)
 			if !ok {
 				return nil
 			}
@@ -66,14 +66,14 @@ func (r *Reconciler) setupEndpointsOwnerRefIndex(ctx context.Context, mgr ctrl.M
 // listDeploymentsForDeployableArtifact is a watch handler that lists all the deployments
 // that refers to a given deployable artifact and makes reconcile.Request for reconciliation.
 func (r *Reconciler) listDeploymentsForDeployableArtifact(ctx context.Context, obj client.Object) []reconcile.Request {
-	deployableArtifact, ok := obj.(*choreov1.DeployableArtifact)
+	deployableArtifact, ok := obj.(*openchoreov1alpha1.DeployableArtifact)
 	if !ok {
 		// Ideally, this should not happen as obj is always expected to be a DeployableArtifact from the Watch
 		return nil
 	}
 
 	// List all the deployments that have .spec.deploymentArtifactRef equal to the name of the deployable artifact
-	deploymentList := &choreov1.DeploymentList{}
+	deploymentList := &openchoreov1alpha1.DeploymentList{}
 	if err := r.List(
 		ctx,
 		deploymentList,
@@ -101,11 +101,11 @@ func (r *Reconciler) listDeploymentsForDeployableArtifact(ctx context.Context, o
 func (r *Reconciler) setupConfigurationGroupRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
-		&choreov1.DeployableArtifact{},
+		&openchoreov1alpha1.DeployableArtifact{},
 		configurationGroupRefIndexKey,
 		func(obj client.Object) []string {
 			// Convert the object to the appropriate type
-			da, ok := obj.(*choreov1.DeployableArtifact)
+			da, ok := obj.(*openchoreov1alpha1.DeployableArtifact)
 			if !ok || da.Spec.Configuration == nil || da.Spec.Configuration.Application == nil {
 				return nil
 			}
@@ -145,14 +145,14 @@ func (r *Reconciler) setupConfigurationGroupRefIndex(ctx context.Context, mgr ct
 // listDeploymentsForConfigurationGroup is a watch handler that queues all the deployments
 // that refers to a configuration group via a deployable artifact.
 func (r *Reconciler) listDeploymentsForConfigurationGroup(ctx context.Context, obj client.Object) []reconcile.Request {
-	cg, ok := obj.(*choreov1.ConfigurationGroup)
+	cg, ok := obj.(*openchoreov1alpha1.ConfigurationGroup)
 	if !ok {
 		// Ideally, this should not happen as obj is always expected to be a ConfigurationGroup from the Watch
 		return nil
 	}
 
 	// List all the deployable artifacts that refers to this configuration group
-	deployableArtifactList := &choreov1.DeployableArtifactList{}
+	deployableArtifactList := &openchoreov1alpha1.DeployableArtifactList{}
 	if err := r.List(
 		ctx,
 		deployableArtifactList,
@@ -165,7 +165,7 @@ func (r *Reconciler) listDeploymentsForConfigurationGroup(ctx context.Context, o
 
 	// For each deployable artifact, list all the deployments that refers to it
 	for _, da := range deployableArtifactList.Items {
-		deploymentList := &choreov1.DeploymentList{}
+		deploymentList := &openchoreov1alpha1.DeploymentList{}
 		if err := r.List(
 			ctx,
 			deploymentList,

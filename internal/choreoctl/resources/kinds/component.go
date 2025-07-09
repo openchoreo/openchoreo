@@ -9,7 +9,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -17,7 +17,7 @@ import (
 
 // ComponentResource provides operations for Component CRs.
 type ComponentResource struct {
-	*resources.BaseResource[*choreov1.Component, *choreov1.ComponentList]
+	*resources.BaseResource[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList]
 }
 
 // NewComponentResource constructs a ComponentResource with CRDConfig and optionally sets organization and project.
@@ -27,24 +27,24 @@ func NewComponentResource(cfg constants.CRDConfig, org string, project string) (
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Component, *choreov1.ComponentList]{
-		resources.WithClient[*choreov1.Component, *choreov1.ComponentList](cli),
-		resources.WithConfig[*choreov1.Component, *choreov1.ComponentList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList]{
+		resources.WithClient[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Component, *choreov1.ComponentList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](org))
 	}
 
 	// Add project label if provided
 	if project != "" {
-		options = append(options, resources.WithLabels[*choreov1.Component, *choreov1.ComponentList](
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](
 			map[string]string{constants.LabelProject: project}))
 	}
 
 	return &ComponentResource{
-		BaseResource: resources.NewBaseResource[*choreov1.Component, *choreov1.ComponentList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](options...),
 	}, nil
 }
 
@@ -54,7 +54,7 @@ func (c *ComponentResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a Component with detailed information.
-func (c *ComponentResource) GetStatus(comp *choreov1.Component) string {
+func (c *ComponentResource) GetStatus(comp *openchoreov1alpha1.Component) string {
 	return resources.GetReadyStatus(
 		comp.Status.Conditions,
 		StatusPending,
@@ -64,12 +64,12 @@ func (c *ComponentResource) GetStatus(comp *choreov1.Component) string {
 }
 
 // GetAge returns the age of a Component.
-func (c *ComponentResource) GetAge(comp *choreov1.Component) string {
+func (c *ComponentResource) GetAge(comp *openchoreov1alpha1.Component) string {
 	return resources.FormatAge(comp.GetCreationTimestamp().Time)
 }
 
 // PrintTableItems formats components into a table
-func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapper[*choreov1.Component]) error {
+func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapper[*openchoreov1alpha1.Component]) error {
 	if len(components) == 0 {
 		namespaceName := c.GetNamespace()
 		labels := c.GetLabels()
@@ -134,7 +134,7 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 	k8sName := resources.GenerateResourceName(params.Organization, params.Project, params.Name)
 
 	// Create the Component resource
-	component := &choreov1.Component{
+	component := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -149,10 +149,10 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 				constants.LabelType:         string(params.Type),
 			},
 		},
-		Spec: choreov1.ComponentSpec{
+		Spec: openchoreov1alpha1.ComponentSpec{
 			Type: params.Type,
-			Source: choreov1.ComponentSource{
-				GitRepository: &choreov1.GitRepository{
+			Source: openchoreov1alpha1.ComponentSource{
+				GitRepository: &openchoreov1alpha1.GitRepository{
 					URL: params.GitRepositoryURL,
 				},
 			},
@@ -166,7 +166,7 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 
 	// Create default deployment track
 	trackName := resources.GenerateResourceName(params.Organization, params.Project, params.Name, DefaultTrackName)
-	deploymentTrack := &choreov1.DeploymentTrack{
+	deploymentTrack := &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      trackName,
 			Namespace: params.Organization,
@@ -177,8 +177,8 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 				constants.LabelComponent:    params.Name,
 			},
 		},
-		Spec: choreov1.DeploymentTrackSpec{
-			BuildTemplateSpec: &choreov1.BuildTemplateSpec{
+		Spec: openchoreov1alpha1.DeploymentTrackSpec{
+			BuildTemplateSpec: &openchoreov1alpha1.BuildTemplateSpec{
 				Branch: resources.DefaultIfEmpty(params.Branch, DefaultBranch),
 				Path:   resources.DefaultIfEmpty(params.Path, DefaultPath),
 			},
@@ -187,16 +187,16 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 
 	// Add build configuration to deployment track based on component's build type
 	if params.DockerFile != "" || params.DockerContext != "" {
-		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
+		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &openchoreov1alpha1.BuildConfiguration{
+			Docker: &openchoreov1alpha1.DockerConfiguration{
 				Context:        resources.DefaultIfEmpty(params.DockerContext, DefaultContext),
 				DockerfilePath: resources.DefaultIfEmpty(params.DockerFile, DefaultDockerfile),
 			},
 		}
 	} else if params.BuildpackName != "" || params.BuildpackVersion != "" {
-		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
-				Name:    choreov1.BuildpackName(params.BuildpackName),
+		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &openchoreov1alpha1.BuildConfiguration{
+			Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
+				Name:    openchoreov1alpha1.BuildpackName(params.BuildpackName),
 				Version: params.BuildpackVersion,
 			},
 		}
@@ -214,13 +214,13 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 }
 
 // GetComponentsForProject returns components filtered by project
-func (c *ComponentResource) GetComponentsForProject(projectName string) ([]resources.ResourceWrapper[*choreov1.Component], error) {
+func (c *ComponentResource) GetComponentsForProject(projectName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Component], error) {
 	allComponents, err := c.List()
 	if err != nil {
 		return nil, err
 	}
 
-	var components []resources.ResourceWrapper[*choreov1.Component]
+	var components []resources.ResourceWrapper[*openchoreov1alpha1.Component]
 	for _, wrapper := range allComponents {
 		if wrapper.Resource.GetLabels()[constants.LabelProject] == projectName {
 			components = append(components, wrapper)

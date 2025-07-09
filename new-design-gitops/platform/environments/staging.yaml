@@ -1,12 +1,12 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   annotations:
-    core.choreo.dev/description: Staging
-    core.choreo.dev/display-name: Staging
+    openchoreo.dev/description: Staging
+    openchoreo.dev/display-name: Staging
   labels:
-    core.choreo.dev/name: staging
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/name: staging
+    openchoreo.dev/organization: default-org
   name: staging
   namespace: default
 spec:

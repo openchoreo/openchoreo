@@ -1,16 +1,16 @@
 ## Sample Component kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: react-starter
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: React Starter
-    core.choreo.dev/description: Basic Starter project
+    openchoreo.dev/display-name: React Starter
+    openchoreo.dev/description: Basic Starter project
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/name: react-starter
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/name: react-starter
 spec:
   type: WebApplication
   source:
@@ -20,19 +20,19 @@ spec:
         secretRef: choreo-bot-git-pat
 ---
 ## Sample DeploymentTrack kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentTrack
 metadata:
   name: react-starter-main
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Main deployment track
-    core.choreo.dev/description: The main deployment track for the react-starter component
+    openchoreo.dev/display-name: Main deployment track
+    openchoreo.dev/description: The main deployment track for the react-starter component
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: react-starter
-    core.choreo.dev/name: main
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: react-starter
+    openchoreo.dev/name: main
 spec:
   buildTemplateSpec:
     branch: master
@@ -43,20 +43,20 @@ spec:
         dockerfilePath: /react-nginx/Dockerfile
 ---
 ## Sample Build kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
   name: react-starter-build-01
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: Build for react-starter
-    core.choreo.dev/description: Build 1 triggered for react-starter
+    openchoreo.dev/display-name: Build for react-starter
+    openchoreo.dev/description: Build 1 triggered for react-starter
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/component: react-starter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: react-starter-build
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/component: react-starter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: react-starter-build
 spec:
   branch: master
   path: /react-nginx
@@ -66,19 +66,19 @@ spec:
       dockerfilePath: /react-nginx/Dockerfile
 ---
 ## Sample Deployment kind (Namespaced)
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Deployment
 metadata:
   name: react-starter-deployment
   namespace: default-org
   annotations:
-    core.choreo.dev/display-name: react-starter deployment
+    openchoreo.dev/display-name: react-starter deployment
   labels:
-    core.choreo.dev/organization: default-org
-    core.choreo.dev/project: default-project
-    core.choreo.dev/environment: development
-    core.choreo.dev/component: react-starter
-    core.choreo.dev/deployment-track: main
-    core.choreo.dev/name: react-starter-deployment
+    openchoreo.dev/organization: default-org
+    openchoreo.dev/project: default-project
+    openchoreo.dev/environment: development
+    openchoreo.dev/component: react-starter
+    openchoreo.dev/deployment-track: main
+    openchoreo.dev/name: react-starter-deployment
 spec:
   deploymentArtifactRef: react-starter-build-01

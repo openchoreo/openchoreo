@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("Deployment Controller", func() {
@@ -27,13 +27,13 @@ var _ = Describe("Deployment Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		deployment := &corev1.Deployment{}
+		deployment := &openchoreov1alpha1.Deployment{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Deployment")
 			err := k8sClient.Get(ctx, typeNamespacedName, deployment)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.Deployment{
+				resource := &openchoreov1alpha1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -46,7 +46,7 @@ var _ = Describe("Deployment Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.Deployment{}
+			resource := &openchoreov1alpha1.Deployment{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

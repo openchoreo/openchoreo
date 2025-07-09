@@ -12,26 +12,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the endpoint.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, ep *choreov1.Endpoint) error {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, ep *openchoreov1alpha1.Endpoint) error {
 	// If the deployment is being deleted, no need to add the finalizer
 	if !ep.DeletionTimestamp.IsZero() {
 		return nil
 	}
-	if controllerutil.AddFinalizer(ep, choreov1.EndpointDeletionFinalizer) {
+	if controllerutil.AddFinalizer(ep, openchoreov1alpha1.EndpointDeletionFinalizer) {
 		return r.Update(ctx, ep)
 	}
 	return nil
 }
 
 // finalize cleans up the data plane resources associated with the endpoint.
-func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, ep *openchoreov1alpha1.Endpoint) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("endpoint", ep.Name)
-	if !controllerutil.ContainsFinalizer(ep, choreov1.EndpointDeletionFinalizer) {
+	if !controllerutil.ContainsFinalizer(ep, openchoreov1alpha1.EndpointDeletionFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil
 	}
@@ -82,7 +82,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, ep *choreov1.Endpoint) (
 	}
 
 	// Remove the finalizer after all the data plane resources are cleaned up
-	if controllerutil.RemoveFinalizer(ep, choreov1.EndpointDeletionFinalizer) {
+	if controllerutil.RemoveFinalizer(ep, openchoreov1alpha1.EndpointDeletionFinalizer) {
 		if err := r.Update(ctx, ep); err != nil {
 			return ctrl.Result{}, err
 		}

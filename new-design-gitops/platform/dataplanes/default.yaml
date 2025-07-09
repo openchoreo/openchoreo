@@ -1,9 +1,9 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
   labels:
-    core.choreo.dev/name: default
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/name: default
+    openchoreo.dev/organization: default-org
   name: default
   namespace: default
 spec:

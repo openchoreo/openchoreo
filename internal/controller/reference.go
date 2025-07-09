@@ -9,12 +9,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-func GetDataplaneOfEnv(ctx context.Context, c client.Client, env *choreov1.Environment) (*choreov1.DataPlane, error) {
-	dataplaneList := &choreov1.DataPlaneList{}
+func GetDataplaneOfEnv(ctx context.Context, c client.Client, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.DataPlane, error) {
+	dataplaneList := &openchoreov1alpha1.DataPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(env.GetNamespace()),
 		client.MatchingLabels{

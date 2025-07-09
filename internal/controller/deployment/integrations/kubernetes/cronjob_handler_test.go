@@ -9,7 +9,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/utils/ptr"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
@@ -30,7 +30,7 @@ var _ = Describe("makeCronJob", func() {
 
 	Context("for a ScheduledTask component", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeScheduledTask
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeScheduledTask
 		})
 
 		It("should create a CronJob with correct name and namespace", func() {
@@ -99,12 +99,12 @@ var _ = Describe("makeCronJob", func() {
 
 	Context("for a ScheduledTask component with a configuration", func() {
 		BeforeEach(func() {
-			deployCtx.Component.Spec.Type = choreov1.ComponentTypeScheduledTask
-			deployCtx.DeployableArtifact.Spec.Configuration = &choreov1.Configuration{
-				Application: &choreov1.Application{
-					Task: &choreov1.TaskConfig{
+			deployCtx.Component.Spec.Type = openchoreov1alpha1.ComponentTypeScheduledTask
+			deployCtx.DeployableArtifact.Spec.Configuration = &openchoreov1alpha1.Configuration{
+				Application: &openchoreov1alpha1.Application{
+					Task: &openchoreov1alpha1.TaskConfig{
 						Disabled: true,
-						Schedule: &choreov1.TaskSchedule{
+						Schedule: &openchoreov1alpha1.TaskSchedule{
 							Cron:     "*/5 * * * *",
 							Timezone: "Asia/Colombo",
 						},

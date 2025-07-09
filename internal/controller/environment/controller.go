@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/environment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
@@ -32,9 +32,9 @@ type Reconciler struct {
 	Recorder    record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=environments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=environments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -51,7 +51,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Environment instance
-	environment := &choreov1.Environment{}
+	environment := &openchoreov1alpha1.Environment{}
 	if err := r.Get(ctx, req.NamespacedName, environment); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Environment resource may have been deleted since it triggered the reconcile
@@ -102,11 +102,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Environment{}).
+		For(&openchoreov1alpha1.Environment{}).
 		Named("environment").
 		Watches(
-			&choreov1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Deployment, *choreov1.Environment](
+			&openchoreov1alpha1.Deployment{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.Environment](
 				r.Client, controller.GetEnvironment)),
 		).
 		Complete(r)
@@ -121,7 +121,7 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 	return resourceHandlers
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
+func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.Environment) (client.Client, error) {
 	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		// Return an error if dataplane retrieval fails

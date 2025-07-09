@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -21,7 +21,7 @@ import (
 
 // makeDeploymentContext creates a deployment context for the given deployment by retrieving the
 // parent objects that this deployment is associated with.
-func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *choreov1.Deployment) (*dataplane.DeploymentContext, error) {
+func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *openchoreov1alpha1.Deployment) (*dataplane.DeploymentContext, error) {
 	project, err := controller.GetProject(ctx, r.Client, deployment)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
@@ -73,9 +73,9 @@ func (r *Reconciler) makeDeploymentContext(ctx context.Context, deployment *chor
 	}, nil
 }
 
-func (r *Reconciler) findDeployableArtifact(ctx context.Context, deployment *choreov1.Deployment) (*choreov1.DeployableArtifact, error) {
+func (r *Reconciler) findDeployableArtifact(ctx context.Context, deployment *openchoreov1alpha1.Deployment) (*openchoreov1alpha1.DeployableArtifact, error) {
 	// Find the DeployableArtifact that the Deployment is referring to within the hierarchy
-	deployableArtifactList := &choreov1.DeployableArtifactList{}
+	deployableArtifactList := &openchoreov1alpha1.DeployableArtifactList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployment.Namespace),
 		client.MatchingLabels(makeHierarchyLabelsForDeploymentTrack(deployment.ObjectMeta)),
@@ -85,7 +85,7 @@ func (r *Reconciler) findDeployableArtifact(ctx context.Context, deployment *cho
 	}
 
 	// Find the target deployable artifact
-	var targetDeployableArtifact *choreov1.DeployableArtifact
+	var targetDeployableArtifact *openchoreov1alpha1.DeployableArtifact
 	for _, deployableArtifact := range deployableArtifactList.Items {
 		if deployableArtifact.Name == deployment.Spec.DeploymentArtifactRef {
 			targetDeployableArtifact = &deployableArtifact
@@ -125,12 +125,12 @@ func makeHierarchyLabelsForDeploymentTrack(objMeta metav1.ObjectMeta) map[string
 	return hierarchyLabelMap
 }
 
-func (r *Reconciler) findContainerImage(ctx context.Context, component *choreov1.Component,
-	deployableArtifact *choreov1.DeployableArtifact, deployment *choreov1.Deployment) (string, error) {
+func (r *Reconciler) findContainerImage(ctx context.Context, component *openchoreov1alpha1.Component,
+	deployableArtifact *openchoreov1alpha1.DeployableArtifact, deployment *openchoreov1alpha1.Deployment) (string, error) {
 	if buildRef := deployableArtifact.Spec.TargetArtifact.FromBuildRef; buildRef != nil {
 		if buildRef.Name != "" {
 			// Find the build that the deployable artifact is referring to
-			buildList := &choreov1.BuildList{}
+			buildList := &openchoreov1alpha1.BuildList{}
 			listOpts := []client.ListOption{
 				client.InNamespace(deployableArtifact.Namespace),
 				client.MatchingLabels(makeHierarchyLabelsForDeploymentTrack(deployableArtifact.ObjectMeta)),
@@ -166,7 +166,7 @@ func (r *Reconciler) findContainerImage(ctx context.Context, component *choreov1
 	return "", fmt.Errorf("one of the build or image reference should be provided")
 }
 
-func (r *Reconciler) findConfigurationGroups(ctx context.Context, deployableArtifact *choreov1.DeployableArtifact) ([]*choreov1.ConfigurationGroup, error) {
+func (r *Reconciler) findConfigurationGroups(ctx context.Context, deployableArtifact *openchoreov1alpha1.DeployableArtifact) ([]*openchoreov1alpha1.ConfigurationGroup, error) {
 	// Find all the ConfigurationGroups that the deployable artifact is referring to
 	if deployableArtifact.Spec.Configuration == nil || deployableArtifact.Spec.Configuration.Application == nil {
 		return nil, nil
@@ -244,7 +244,7 @@ func (r *Reconciler) findConfigurationGroups(ctx context.Context, deployableArti
 	}
 	selector := k8slabels.NewSelector().Add(*req)
 
-	configurationGroupList := &choreov1.ConfigurationGroupList{}
+	configurationGroupList := &openchoreov1alpha1.ConfigurationGroupList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deployableArtifact.Namespace),
 		client.MatchingLabels(map[string]string{
@@ -258,7 +258,7 @@ func (r *Reconciler) findConfigurationGroups(ctx context.Context, deployableArti
 		return nil, err
 	}
 
-	cgs := make([]*choreov1.ConfigurationGroup, 0, len(configurationGroupList.Items))
+	cgs := make([]*openchoreov1alpha1.ConfigurationGroup, 0, len(configurationGroupList.Items))
 	for _, item := range configurationGroupList.Items {
 		cgs = append(cgs, &item)
 	}

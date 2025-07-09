@@ -1,12 +1,12 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   annotations:
-    core.choreo.dev/description: Development
-    core.choreo.dev/display-name: Development
+    openchoreo.dev/description: Development
+    openchoreo.dev/display-name: Development
   labels:
-    core.choreo.dev/name: development
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/name: development
+    openchoreo.dev/organization: default-org
   name: development
   namespace: default
 spec:
@@ -17,7 +17,7 @@ spec:
       remoteJwks:
         uri: ""
 ---
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: WorkloadClass
 metadata:
   name: go-service-standard
@@ -78,7 +78,7 @@ spec:
 
 ---
 # The EndpointClass is still a work in progress and not finalized yet.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: EndpointClass
 metadata:
   name: rest-api-standard

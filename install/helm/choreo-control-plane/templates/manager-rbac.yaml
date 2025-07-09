@@ -89,7 +89,33 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - gateway.envoyproxy.io
+  resources:
+  - backendtrafficpolicies
+  - httproutefilters
+  - securitypolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - openchoreo.dev
   resources:
   - apibindings
   - apiclasses
@@ -129,7 +155,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - apibindings/finalizers
   - apiclasses/finalizers
@@ -163,7 +189,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - apibindings/status
   - apiclasses/status
@@ -199,38 +225,12 @@ rules:
   - patch
   - update
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - configurationgroups
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - gateway.envoyproxy.io
-  resources:
-  - backendtrafficpolicies
-  - httproutefilters
-  - securitypolicies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - httproutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io

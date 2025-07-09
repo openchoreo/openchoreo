@@ -6,14 +6,14 @@ package kinds
 import (
 	"fmt"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
 // EndpointResource provides operations for Endpoint CRs.
 type EndpointResource struct {
-	*resources.BaseResource[*choreov1.Endpoint, *choreov1.EndpointList]
+	*resources.BaseResource[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList]
 }
 
 // NewEndpointResource constructs an EndpointResource with CRDConfig and optionally sets organization, project, component, and environment.
@@ -23,14 +23,14 @@ func NewEndpointResource(cfg constants.CRDConfig, org string, project string, co
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Endpoint, *choreov1.EndpointList]{
-		resources.WithClient[*choreov1.Endpoint, *choreov1.EndpointList](cli),
-		resources.WithConfig[*choreov1.Endpoint, *choreov1.EndpointList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList]{
+		resources.WithClient[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Endpoint, *choreov1.EndpointList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList](org))
 	}
 
 	// Create labels for filtering
@@ -53,11 +53,11 @@ func NewEndpointResource(cfg constants.CRDConfig, org string, project string, co
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.Endpoint, *choreov1.EndpointList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList](labels))
 	}
 
 	return &EndpointResource{
-		BaseResource: resources.NewBaseResource[*choreov1.Endpoint, *choreov1.EndpointList](options...),
+		BaseResource: resources.NewBaseResource[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.EndpointList](options...),
 	}, nil
 }
 
@@ -67,7 +67,7 @@ func (e *EndpointResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of an Endpoint with detailed information.
-func (e *EndpointResource) GetStatus(endpoint *choreov1.Endpoint) string {
+func (e *EndpointResource) GetStatus(endpoint *openchoreov1alpha1.Endpoint) string {
 	return resources.GetReadyStatus(
 		endpoint.Status.Conditions,
 		StatusPending,
@@ -77,12 +77,12 @@ func (e *EndpointResource) GetStatus(endpoint *choreov1.Endpoint) string {
 }
 
 // GetAge returns the age of an Endpoint.
-func (e *EndpointResource) GetAge(endpoint *choreov1.Endpoint) string {
+func (e *EndpointResource) GetAge(endpoint *openchoreov1alpha1.Endpoint) string {
 	return resources.FormatAge(endpoint.GetCreationTimestamp().Time)
 }
 
 // GetAddress returns the address of an Endpoint.
-func (e *EndpointResource) GetAddress(endpoint *choreov1.Endpoint) string {
+func (e *EndpointResource) GetAddress(endpoint *openchoreov1alpha1.Endpoint) string {
 	if endpoint.Status.Address == "" {
 		return resources.GetPlaceholder()
 	}
@@ -90,7 +90,7 @@ func (e *EndpointResource) GetAddress(endpoint *choreov1.Endpoint) string {
 }
 
 // PrintTableItems formats endpoints into a table
-func (e *EndpointResource) PrintTableItems(endpoints []resources.ResourceWrapper[*choreov1.Endpoint]) error {
+func (e *EndpointResource) PrintTableItems(endpoints []resources.ResourceWrapper[*openchoreov1alpha1.Endpoint]) error {
 	if len(endpoints) == 0 {
 		// Provide a more descriptive message
 		namespaceName := e.GetNamespace()
@@ -166,7 +166,7 @@ func (e *EndpointResource) Print(format resources.OutputFormat, filter *resource
 }
 
 // GetEndpointsForComponent returns endpoints filtered by component
-func (e *EndpointResource) GetEndpointsForComponent(componentName string) ([]resources.ResourceWrapper[*choreov1.Endpoint], error) {
+func (e *EndpointResource) GetEndpointsForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Endpoint], error) {
 	// List all endpoints in the namespace
 	allEndpoints, err := e.List()
 	if err != nil {
@@ -174,7 +174,7 @@ func (e *EndpointResource) GetEndpointsForComponent(componentName string) ([]res
 	}
 
 	// Filter by component
-	var endpoints []resources.ResourceWrapper[*choreov1.Endpoint]
+	var endpoints []resources.ResourceWrapper[*openchoreov1alpha1.Endpoint]
 	for _, wrapper := range allEndpoints {
 		if wrapper.Resource.GetLabels()[constants.LabelComponent] == componentName {
 			endpoints = append(endpoints, wrapper)
@@ -185,7 +185,7 @@ func (e *EndpointResource) GetEndpointsForComponent(componentName string) ([]res
 }
 
 // GetEndpointsForEnvironment returns endpoints filtered by environment
-func (e *EndpointResource) GetEndpointsForEnvironment(environmentName string) ([]resources.ResourceWrapper[*choreov1.Endpoint], error) {
+func (e *EndpointResource) GetEndpointsForEnvironment(environmentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Endpoint], error) {
 	// List all endpoints in the namespace
 	allEndpoints, err := e.List()
 	if err != nil {
@@ -193,7 +193,7 @@ func (e *EndpointResource) GetEndpointsForEnvironment(environmentName string) ([
 	}
 
 	// Filter by environment
-	var endpoints []resources.ResourceWrapper[*choreov1.Endpoint]
+	var endpoints []resources.ResourceWrapper[*openchoreov1alpha1.Endpoint]
 	for _, wrapper := range allEndpoints {
 		if wrapper.Resource.GetLabels()[constants.LabelEnvironment] == environmentName {
 			endpoints = append(endpoints, wrapper)

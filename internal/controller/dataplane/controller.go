@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -41,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the DataPlane instance
-	dataPlane := &choreov1.DataPlane{}
+	dataPlane := &openchoreov1alpha1.DataPlane{}
 	if err := r.Get(ctx, req.NamespacedName, dataPlane); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The DataPlane resource may have been deleted since it triggered the reconcile
@@ -92,7 +92,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) shouldIgnoreReconcile(dataPlane *choreov1.DataPlane) bool {
+func (r *Reconciler) shouldIgnoreReconcile(dataPlane *openchoreov1alpha1.DataPlane) bool {
 	return meta.FindStatusCondition(dataPlane.Status.Conditions, string(controller.TypeAvailable)) != nil
 }
 
@@ -108,11 +108,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.DataPlane{}).
+		For(&openchoreov1alpha1.DataPlane{}).
 		Named("dataplane").
 		// Watch for Environment changes to reconcile the dataplane
 		Watches(
-			&choreov1.Environment{},
+			&openchoreov1alpha1.Environment{},
 			handler.EnqueueRequestsFromMapFunc(r.GetDataPlaneForEnvironment),
 		).
 		Complete(r)

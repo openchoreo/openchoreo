@@ -11,7 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -91,7 +91,7 @@ func (h *namespaceHandler) Delete(ctx context.Context, deployCtx *dataplane.Proj
 
 // MakeNamespaceNames generates Kubernetes namespace names for each environment in the project
 // NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
-func MakeNamespaceNames(environmentNames []string, project choreov1.Project) []string {
+func MakeNamespaceNames(environmentNames []string, project openchoreov1alpha1.Project) []string {
 	namespaceNames := make([]string, 0, len(environmentNames))
 
 	organizationName := controller.GetOrganizationName(&project)

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("Service Controller", func() {
@@ -26,13 +26,13 @@ var _ = Describe("Service Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		service := &corev1.Service{}
+		service := &openchoreov1alpha1.Service{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Service")
 			err := k8sClient.Get(ctx, typeNamespacedName, service)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &corev1.Service{
+				resource := &openchoreov1alpha1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -45,7 +45,7 @@ var _ = Describe("Service Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &corev1.Service{}
+			resource := &openchoreov1alpha1.Service{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

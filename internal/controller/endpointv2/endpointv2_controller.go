@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointv2/render"
 )
 
@@ -25,11 +25,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointv2s/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=endpointclasses,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointv2s,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointv2s/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointv2s/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -37,7 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the EndpointV2 instance for this reconcile request
-	endpointv2 := &choreov1.EndpointV2{}
+	endpointv2 := &openchoreov1alpha1.EndpointV2{}
 	if err := r.Get(ctx, req.NamespacedName, endpointv2); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get EndpointV2")
@@ -53,7 +53,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	endpointClass := &choreov1.EndpointClass{}
+	endpointClass := &openchoreov1alpha1.EndpointClass{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Namespace: endpointv2.Namespace,
 		Name:      endpointClassName,
@@ -84,7 +84,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	release := &choreov1.Release{
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.EndpointV2.Name,
 			Namespace: rCtx.EndpointV2.Namespace,
@@ -111,14 +111,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, rCtx *render.Context)
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
-	release := &choreov1.Release{
+func (r *Reconciler) makeRelease(rCtx *render.Context) *openchoreov1alpha1.Release {
+	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.EndpointV2.Name,
 			Namespace: rCtx.EndpointV2.Namespace,
 		},
-		Spec: choreov1.ReleaseSpec{
-			Owner: choreov1.ReleaseOwner{
+		Spec: openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   rCtx.EndpointV2.Spec.Owner.ProjectName,
 				ComponentName: rCtx.EndpointV2.Spec.Owner.ComponentName,
 			},
@@ -126,10 +126,10 @@ func (r *Reconciler) makeRelease(rCtx *render.Context) *choreov1.Release {
 		},
 	}
 
-	var resources []choreov1.Resource
+	var resources []openchoreov1alpha1.Resource
 
 	// Add HTTPRoute resource for REST endpoints
-	if rCtx.EndpointV2.Spec.Type == choreov1.EndpointTypeREST {
+	if rCtx.EndpointV2.Spec.Type == openchoreov1alpha1.EndpointTypeREST {
 		routes := render.HTTPRoutes(rCtx)
 		for _, route := range routes {
 			if route != nil {
@@ -164,9 +164,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.EndpointV2{}).
+		For(&openchoreov1alpha1.EndpointV2{}).
 		Watches(
-			&choreov1.EndpointClass{},
+			&openchoreov1alpha1.EndpointClass{},
 			handler.EnqueueRequestsFromMapFunc(r.listEndpointV2sForEndpointClass),
 		).
 		Named("endpointv2").

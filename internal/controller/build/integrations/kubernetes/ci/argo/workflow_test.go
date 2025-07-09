@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -153,10 +153,10 @@ CMD ["nginx", "-g", "daemon off;"]`, nodeVersion)
 		DescribeTable("should return the correct Dockerfile path",
 			func(dockerfilePath string, expected string) {
 				// Create the Build object with the specified Dockerfile path
-				build := &choreov1.Build{
-					Spec: choreov1.BuildSpec{
-						BuildConfiguration: choreov1.BuildConfiguration{
-							Docker: &choreov1.DockerConfiguration{
+				build := &openchoreov1alpha1.Build{
+					Spec: openchoreov1alpha1.BuildSpec{
+						BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+							Docker: &openchoreov1alpha1.DockerConfiguration{
 								DockerfilePath: dockerfilePath,
 							},
 						},
@@ -236,11 +236,11 @@ podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, ex
 		})
 
 		DescribeTable("should return correct environment version flag",
-			func(buildpackName choreov1.BuildpackName, version string, expected string) {
-				build := &choreov1.Build{
-					Spec: choreov1.BuildSpec{
-						BuildConfiguration: choreov1.BuildConfiguration{
-							Buildpack: &choreov1.BuildpackConfiguration{
+			func(buildpackName openchoreov1alpha1.BuildpackName, version string, expected string) {
+				build := &openchoreov1alpha1.Build{
+					Spec: openchoreov1alpha1.BuildSpec{
+						BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+							Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
 								Name:    buildpackName,
 								Version: version,
 							},
@@ -251,18 +251,18 @@ podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, ex
 				result := getLanguageVersion(build)
 				Expect(result).To(Equal(expected))
 			},
-			Entry("when the buildpack is Go", choreov1.BuildpackGo, "1.x", "--env GOOGLE_GO_VERSION=\"1.x\""),
-			Entry("when the buildpack is NodeJS", choreov1.BuildpackNodeJS, "18.x.x", "--env GOOGLE_NODEJS_VERSION=18.x.x"),
-			Entry("when the buildpack is Python", choreov1.BuildpackPython, "3.10", "--env GOOGLE_PYTHON_VERSION=\"3.10\""),
-			Entry("when the buildpack is PHP", choreov1.BuildpackPHP, "8.1.x", ""),
-			Entry("when the buildpack is Ruby", choreov1.BuildpackRuby, "3.1.x", "--env GOOGLE_RUNTIME_VERSION=3.1.x"),
-			Entry("when the version is empty", choreov1.BuildpackGo, "", ""),
+			Entry("when the buildpack is Go", openchoreov1alpha1.BuildpackGo, "1.x", "--env GOOGLE_GO_VERSION=\"1.x\""),
+			Entry("when the buildpack is NodeJS", openchoreov1alpha1.BuildpackNodeJS, "18.x.x", "--env GOOGLE_NODEJS_VERSION=18.x.x"),
+			Entry("when the buildpack is Python", openchoreov1alpha1.BuildpackPython, "3.10", "--env GOOGLE_PYTHON_VERSION=\"3.10\""),
+			Entry("when the buildpack is PHP", openchoreov1alpha1.BuildpackPHP, "8.1.x", ""),
+			Entry("when the buildpack is Ruby", openchoreov1alpha1.BuildpackRuby, "3.1.x", "--env GOOGLE_RUNTIME_VERSION=3.1.x"),
+			Entry("when the version is empty", openchoreov1alpha1.BuildpackGo, "", ""),
 		)
 
 		It("should generate correct php build script", func() {
 			buildCtx := newTestBuildContext()
 			buildCtx = newBuildpackBasedBuildCtx(buildCtx)
-			buildCtx.Build.Spec.BuildConfiguration.Buildpack.Name = choreov1.BuildpackPHP
+			buildCtx.Build.Spec.BuildConfiguration.Buildpack.Name = openchoreov1alpha1.BuildpackPHP
 			buildCtx.Build.Spec.BuildConfiguration.Buildpack.Version = "8.1.x"
 
 			expectedScript := `
@@ -318,13 +318,13 @@ fi`
 podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`,
 				phpVersionSetup, cacheScript1, cacheScript2, imageName(), imageName())
 
-			build := &choreov1.Build{
-				Spec: choreov1.BuildSpec{
+			build := &openchoreov1alpha1.Build{
+				Spec: openchoreov1alpha1.BuildSpec{
 					Path: "/time-logger",
-					BuildConfiguration: choreov1.BuildConfiguration{
-						Buildpack: &choreov1.BuildpackConfiguration{
-							Name:    choreov1.BuildpackGo,
-							Version: choreov1.SupportedVersions[choreov1.BuildpackGo][0],
+					BuildConfiguration: openchoreov1alpha1.BuildConfiguration{
+						Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
+							Name:    openchoreov1alpha1.BuildpackGo,
+							Version: openchoreov1alpha1.SupportedVersions[openchoreov1alpha1.BuildpackGo][0],
 						},
 					},
 				},
@@ -507,7 +507,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			workflow := makeArgoWorkflow(buildCtx)
 
 			Expect(workflow.ObjectMeta.Name).To(Equal(buildCtx.Build.Name + "-c9f6181a"))
-			Expect(workflow.ObjectMeta.Namespace).To(Equal("choreo-ci-" + buildCtx.Build.Labels["core.choreo.dev/organization"]))
+			Expect(workflow.ObjectMeta.Namespace).To(Equal("choreo-ci-" + buildCtx.Build.Labels["openchoreo.dev/organization"]))
 		})
 
 		It("should limit workflow name to 63 characters", func() {
@@ -516,7 +516,7 @@ echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, imageName(), imageName(), imageNam
 			workflow := makeArgoWorkflow(buildCtx)
 
 			Expect(workflow.ObjectMeta.Name).To(Equal(buildCtx.Build.Name[:54] + "-41c7560f"))
-			Expect(workflow.ObjectMeta.Namespace).To(Equal("choreo-ci-" + buildCtx.Build.Labels["core.choreo.dev/organization"]))
+			Expect(workflow.ObjectMeta.Namespace).To(Equal("choreo-ci-" + buildCtx.Build.Labels["openchoreo.dev/organization"]))
 		})
 
 	})

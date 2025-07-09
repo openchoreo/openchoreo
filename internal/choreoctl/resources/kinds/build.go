@@ -9,7 +9,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	buildController "github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -18,7 +18,7 @@ import (
 
 // BuildResource provides operations for Build CRs.
 type BuildResource struct {
-	*resources.BaseResource[*choreov1.Build, *choreov1.BuildList]
+	*resources.BaseResource[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList]
 }
 
 // NewBuildResource constructs a BuildResource with CRDConfig and optionally sets organization, project, component, and deploymentTrack.
@@ -28,14 +28,14 @@ func NewBuildResource(cfg constants.CRDConfig, org string, project string, compo
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
 	}
 
-	options := []resources.ResourceOption[*choreov1.Build, *choreov1.BuildList]{
-		resources.WithClient[*choreov1.Build, *choreov1.BuildList](cli),
-		resources.WithConfig[*choreov1.Build, *choreov1.BuildList](cfg),
+	options := []resources.ResourceOption[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList]{
+		resources.WithClient[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](cli),
+		resources.WithConfig[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](cfg),
 	}
 
 	// Add organization namespace if provided
 	if org != "" {
-		options = append(options, resources.WithNamespace[*choreov1.Build, *choreov1.BuildList](org))
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](org))
 	}
 
 	// Create labels for filtering
@@ -58,7 +58,7 @@ func NewBuildResource(cfg constants.CRDConfig, org string, project string, compo
 
 	// Add labels if any were set
 	if len(labels) > 0 {
-		options = append(options, resources.WithLabels[*choreov1.Build, *choreov1.BuildList](labels))
+		options = append(options, resources.WithLabels[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](labels))
 	}
 
 	return &BuildResource{
@@ -72,7 +72,7 @@ func (b *BuildResource) WithNamespace(namespace string) {
 }
 
 // GetStatus returns the status of a Build with detailed information.
-func (b *BuildResource) GetStatus(build *choreov1.Build) string {
+func (b *BuildResource) GetStatus(build *openchoreov1alpha1.Build) string {
 	priorityConditions := []string{
 		ConditionTypeCompleted,
 		ConditionTypeDeployableArtifactCreated,
@@ -89,12 +89,12 @@ func (b *BuildResource) GetStatus(build *choreov1.Build) string {
 }
 
 // GetAge returns the age of a Build.
-func (b *BuildResource) GetAge(build *choreov1.Build) string {
+func (b *BuildResource) GetAge(build *openchoreov1alpha1.Build) string {
 	return resources.FormatAge(build.GetCreationTimestamp().Time)
 }
 
 // GetBuildDuration returns the duration of a build if completed
-func (b *BuildResource) GetBuildDuration(build *choreov1.Build) string {
+func (b *BuildResource) GetBuildDuration(build *openchoreov1alpha1.Build) string {
 	conditions := build.Status.Conditions
 	var startTime, endTime time.Time
 	hasEnd := false
@@ -117,7 +117,7 @@ func (b *BuildResource) GetBuildDuration(build *choreov1.Build) string {
 }
 
 // PrintTableItems formats builds into a table
-func (b *BuildResource) PrintTableItems(builds []resources.ResourceWrapper[*choreov1.Build]) error {
+func (b *BuildResource) PrintTableItems(builds []resources.ResourceWrapper[*openchoreov1alpha1.Build]) error {
 	if len(builds) == 0 {
 		namespaceName := b.GetNamespace()
 		labels := b.GetLabels()
@@ -195,7 +195,7 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 	)
 
 	// Create the Build resource
-	build := &choreov1.Build{
+	build := &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
 			Namespace: params.Organization,
@@ -207,7 +207,7 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 				constants.LabelDeploymentTrack: params.DeploymentTrack,
 			},
 		},
-		Spec: choreov1.BuildSpec{
+		Spec: openchoreov1alpha1.BuildSpec{
 			Branch:      resources.DefaultIfEmpty(params.Branch, DefaultBranch),
 			Path:        resources.DefaultIfEmpty(params.Path, DefaultPath),
 			GitRevision: params.Revision,
@@ -217,15 +217,15 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 
 	// Add build configuration to build based on build type
 	if params.Docker != nil {
-		build.Spec.BuildConfiguration = choreov1.BuildConfiguration{
-			Docker: &choreov1.DockerConfiguration{
+		build.Spec.BuildConfiguration = openchoreov1alpha1.BuildConfiguration{
+			Docker: &openchoreov1alpha1.DockerConfiguration{
 				Context:        params.Docker.Context,
 				DockerfilePath: params.Docker.DockerfilePath,
 			},
 		}
 	} else if params.Buildpack != nil {
-		build.Spec.BuildConfiguration = choreov1.BuildConfiguration{
-			Buildpack: &choreov1.BuildpackConfiguration{
+		build.Spec.BuildConfiguration = openchoreov1alpha1.BuildConfiguration{
+			Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
 				Name:    params.Buildpack.Name,
 				Version: params.Buildpack.Version,
 			},
@@ -243,14 +243,14 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 }
 
 // GetBuildsForComponent returns builds filtered by component
-func (b *BuildResource) GetBuildsForComponent(componentName string) ([]resources.ResourceWrapper[*choreov1.Build], error) {
+func (b *BuildResource) GetBuildsForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Build], error) {
 	allBuilds, err := b.List()
 	if err != nil {
 		return nil, err
 	}
 
 	// Filter by component
-	var builds []resources.ResourceWrapper[*choreov1.Build]
+	var builds []resources.ResourceWrapper[*openchoreov1alpha1.Build]
 	for _, wrapper := range allBuilds {
 		if wrapper.Resource.GetLabels()[constants.LabelComponent] == componentName {
 			builds = append(builds, wrapper)
@@ -261,14 +261,14 @@ func (b *BuildResource) GetBuildsForComponent(componentName string) ([]resources
 }
 
 // GetBuildsForDeploymentTrack returns builds filtered by deployment track
-func (b *BuildResource) GetBuildsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*choreov1.Build], error) {
+func (b *BuildResource) GetBuildsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Build], error) {
 	allBuilds, err := b.List()
 	if err != nil {
 		return nil, err
 	}
 
 	// Filter by deployment track
-	var builds []resources.ResourceWrapper[*choreov1.Build]
+	var builds []resources.ResourceWrapper[*openchoreov1alpha1.Build]
 	for _, wrapper := range allBuilds {
 		if wrapper.Resource.GetLabels()[constants.LabelDeploymentTrack] == deploymentTrack {
 			builds = append(builds, wrapper)

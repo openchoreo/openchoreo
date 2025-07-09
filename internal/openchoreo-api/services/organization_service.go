@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -31,7 +31,7 @@ func NewOrganizationService(k8sClient client.Client, logger *slog.Logger) *Organ
 func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.OrganizationResponse, error) {
 	s.logger.Debug("Listing organizations")
 
-	var orgList choreov1.OrganizationList
+	var orgList openchoreov1alpha1.OrganizationList
 	if err := s.k8sClient.List(ctx, &orgList); err != nil {
 		s.logger.Error("Failed to list organizations", "error", err)
 		return nil, fmt.Errorf("failed to list organizations: %w", err)
@@ -50,7 +50,7 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 func (s *OrganizationService) GetOrganization(ctx context.Context, orgName string) (*models.OrganizationResponse, error) {
 	s.logger.Debug("Getting organization", "org", orgName)
 
-	org := &choreov1.Organization{}
+	org := &openchoreov1alpha1.Organization{}
 	key := client.ObjectKey{
 		Name: orgName,
 	}
@@ -68,7 +68,7 @@ func (s *OrganizationService) GetOrganization(ctx context.Context, orgName strin
 }
 
 // toOrganizationResponse converts an Organization CR to an OrganizationResponse
-func (s *OrganizationService) toOrganizationResponse(org *choreov1.Organization) *models.OrganizationResponse {
+func (s *OrganizationService) toOrganizationResponse(org *openchoreov1alpha1.Organization) *models.OrganizationResponse {
 	// Extract display name and description from annotations
 	displayName := org.Annotations[controller.AnnotationKeyDisplayName]
 	description := org.Annotations[controller.AnnotationKeyDescription]

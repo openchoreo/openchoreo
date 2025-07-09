@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -16,14 +16,14 @@ import (
 var _ = Describe("makeEndpointLabels", func() {
 	var (
 		deployCtx        *dataplane.DeploymentContext
-		endpointTemplate *choreov1.EndpointTemplate
+		endpointTemplate *openchoreov1alpha1.EndpointTemplate
 		generatedLabels  map[string]string
 	)
 
 	// Prepare fresh DeploymentContext before each test
 	BeforeEach(func() {
 		deployCtx = &dataplane.DeploymentContext{}
-		deployCtx.Deployment = &choreov1.Deployment{
+		deployCtx.Deployment = &openchoreov1alpha1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-deployment",
 				Namespace: "test-organization",
@@ -37,7 +37,7 @@ var _ = Describe("makeEndpointLabels", func() {
 				},
 			},
 		}
-		endpointTemplate = &choreov1.EndpointTemplate{
+		endpointTemplate = &openchoreov1alpha1.EndpointTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "my-endpoint",
 			},
@@ -49,18 +49,18 @@ var _ = Describe("makeEndpointLabels", func() {
 	})
 
 	It("should include all the original deployment labels", func() {
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/organization", "test-organization"))
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/project", "my-project"))
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/environment", "my-environment"))
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/component", "my-component"))
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/deployment-track", "my-main-track"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/organization", "test-organization"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/project", "my-project"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/environment", "my-environment"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/component", "my-component"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/deployment-track", "my-main-track"))
 	})
 
 	It("should include the deployment name label", func() {
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/deployment", "my-deployment"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/deployment", "my-deployment"))
 	})
 
 	It("should include the endpoint name label", func() {
-		Expect(generatedLabels).To(HaveKeyWithValue("core.choreo.dev/name", "my-endpoint"))
+		Expect(generatedLabels).To(HaveKeyWithValue("openchoreo.dev/name", "my-endpoint"))
 	})
 })

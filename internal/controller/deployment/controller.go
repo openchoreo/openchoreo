@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/deployment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
@@ -45,7 +45,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx)
 
 	// Fetch the Deployment instance for this reconcile request
-	deployment := &choreov1.Deployment{}
+	deployment := &openchoreov1alpha1.Deployment{}
 	if err := r.Get(ctx, req.NamespacedName, deployment); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Deployment resource may have been deleted since it triggered the reconcile
@@ -150,22 +150,22 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.Deployment{}).
+		For(&openchoreov1alpha1.Deployment{}).
 		Named("deployment").
 		// Watch for DeployableArtifact changes to reconcile the deployments
 		Watches(
-			&choreov1.DeployableArtifact{},
+			&openchoreov1alpha1.DeployableArtifact{},
 			handler.EnqueueRequestsFromMapFunc(r.listDeploymentsForDeployableArtifact),
 		).
 		// Watch for ConfigurationGroup changes to reconcile the deployments
 		Watches(
-			&choreov1.ConfigurationGroup{},
+			&openchoreov1alpha1.ConfigurationGroup{},
 			handler.EnqueueRequestsFromMapFunc(r.listDeploymentsForConfigurationGroup),
 		).
 		// Watch Endpoints that are associated to the deployment by label
 		Watches(
-			&choreov1.Endpoint{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*choreov1.Endpoint, *choreov1.Deployment](
+			&openchoreov1alpha1.Endpoint{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Endpoint, *openchoreov1alpha1.Deployment](
 				r.Client, controller.GetDeployment)),
 		).
 		Complete(r)
@@ -189,7 +189,7 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 	return handlers
 }
 
-func (r *Reconciler) getDPClient(ctx context.Context, env *choreov1.Environment) (client.Client, error) {
+func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.Environment) (client.Client, error) {
 	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		// Return an error if dataplane retrieval fails

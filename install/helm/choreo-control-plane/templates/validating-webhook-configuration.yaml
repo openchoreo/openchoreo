@@ -13,14 +13,14 @@ webhooks:
     service:
       name: '{{ include "choreo-control-plane.fullname" . }}-webhook-service'
       namespace: '{{ .Release.Namespace }}'
-      path: /validate-core-choreo-dev-v1-project
+      path: /validate-openchoreo-dev-v1alpha1-project
   failurePolicy: Fail
-  name: vproject-v1.kb.io
+  name: vproject-v1alpha1.kb.io
   rules:
   - apiGroups:
-    - core.choreo.dev
+    - openchoreo.dev
     apiVersions:
-    - v1
+    - v1alpha1
     operations:
     - CREATE
     - UPDATE

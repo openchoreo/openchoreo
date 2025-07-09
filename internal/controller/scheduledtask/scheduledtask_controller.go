@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Reconciler reconciles a ScheduledTask object
@@ -22,11 +22,11 @@ type Reconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtasks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtasks/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtasks/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=workloads,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=scheduledtaskbindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtasks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtasks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtasks/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtaskbindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -37,7 +37,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger.Info("Reconciling ScheduledTask")
 
 	// Fetch the ScheduledTask instance
-	scheduledTask := &choreov1.ScheduledTask{}
+	scheduledTask := &openchoreov1alpha1.ScheduledTask{}
 	if err := r.Get(ctx, req.NamespacedName, scheduledTask); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			logger.Error(err, "Failed to get ScheduledTask")
@@ -54,11 +54,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileScheduledTaskBinding reconciles the ScheduledTaskBinding with the given ScheduledTask.
-func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, scheduledTask *choreov1.ScheduledTask) (ctrl.Result, error) {
+func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, scheduledTask *openchoreov1alpha1.ScheduledTask) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Find the associated Workload
-	workload := &choreov1.Workload{}
+	workload := &openchoreov1alpha1.Workload{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Name:      scheduledTask.Spec.WorkloadName,
 		Namespace: scheduledTask.Namespace,
@@ -68,7 +68,7 @@ func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, schedule
 		return ctrl.Result{}, err
 	}
 
-	scheduledTaskBinding := &choreov1.ScheduledTaskBinding{
+	scheduledTaskBinding := &openchoreov1alpha1.ScheduledTaskBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scheduledTask.Name,
 			Namespace: scheduledTask.Namespace,
@@ -90,14 +90,14 @@ func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, schedule
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) makeScheduledTaskBinding(scheduledTask *choreov1.ScheduledTask, workload *choreov1.Workload) *choreov1.ScheduledTaskBinding {
-	stb := &choreov1.ScheduledTaskBinding{
+func (r *Reconciler) makeScheduledTaskBinding(scheduledTask *openchoreov1alpha1.ScheduledTask, workload *openchoreov1alpha1.Workload) *openchoreov1alpha1.ScheduledTaskBinding {
+	stb := &openchoreov1alpha1.ScheduledTaskBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scheduledTask.Name,
 			Namespace: scheduledTask.Namespace,
 		},
-		Spec: choreov1.ScheduledTaskBindingSpec{
-			Owner: choreov1.ScheduledTaskOwner{
+		Spec: openchoreov1alpha1.ScheduledTaskBindingSpec{
+			Owner: openchoreov1alpha1.ScheduledTaskOwner{
 				ProjectName:   scheduledTask.Spec.Owner.ProjectName,
 				ComponentName: scheduledTask.Spec.Owner.ComponentName,
 			},
@@ -113,7 +113,7 @@ func (r *Reconciler) makeScheduledTaskBinding(scheduledTask *choreov1.ScheduledT
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.ScheduledTask{}).
+		For(&openchoreov1alpha1.ScheduledTask{}).
 		Named("scheduledtask").
 		Complete(r)
 }

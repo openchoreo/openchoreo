@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -98,7 +98,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	var componentList choreov1.ComponentV2List
+	var componentList openchoreov1alpha1.ComponentV2List
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
 	}
@@ -133,7 +133,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	component := &choreov1.ComponentV2{}
+	component := &openchoreov1alpha1.ComponentV2{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
@@ -159,7 +159,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
 func (s *ComponentService) componentExists(ctx context.Context, orgName, projectName, componentName string) (bool, error) {
-	component := &choreov1.ComponentV2{}
+	component := &openchoreov1alpha1.ComponentV2{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
@@ -183,10 +183,10 @@ func (s *ComponentService) componentExists(ctx context.Context, orgName, project
 
 // createComponentResources creates the component and related Kubernetes resources
 func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest, branch string) error {
-	componentCR := &choreov1.ComponentV2{
+	componentCR := &openchoreov1alpha1.ComponentV2{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Component",
-			APIVersion: "core.choreo.dev/v1",
+			APIVersion: "openchoreo.dev/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
@@ -198,11 +198,11 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 				"repository-branch":                 branch,
 			},
 		},
-		Spec: choreov1.ComponentV2Spec{
-			Owner: choreov1.ComponentOwner{
+		Spec: openchoreov1alpha1.ComponentV2Spec{
+			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: projectName,
 			},
-			Type: choreov1.ComponentType(req.Type),
+			Type: openchoreov1alpha1.ComponentType(req.Type),
 		},
 	}
 
@@ -214,7 +214,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 }
 
 // toComponentResponse converts a ComponentV2 CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *choreov1.ComponentV2) *models.ComponentResponse {
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2) *models.ComponentResponse {
 	// Extract repository URL from annotations (stored during creation)
 	repositoryURL := component.Annotations["repository-url"]
 	if repositoryURL == "" {

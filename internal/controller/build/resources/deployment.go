@@ -6,7 +6,7 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/integrations"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -17,7 +17,7 @@ func MakeDeploymentLabelName(environmentName string) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(63, environmentName, "deployment")
 }
 
-func MakeDeploymentName(build *choreov1.Build, environmentName string) string {
+func MakeDeploymentName(build *openchoreov1alpha1.Build, environmentName string) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxResourceNameLength,
 		controller.GetOrganizationName(build),
@@ -28,10 +28,10 @@ func MakeDeploymentName(build *choreov1.Build, environmentName string) string {
 	)
 }
 
-func MakeDeployment(buildCtx *integrations.BuildContext, environmentName string) *choreov1.Deployment {
-	return &choreov1.Deployment{
+func MakeDeployment(buildCtx *integrations.BuildContext, environmentName string) *openchoreov1alpha1.Deployment {
+	return &openchoreov1alpha1.Deployment{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "core.choreo.dev/v1",
+			APIVersion: "openchoreo.dev/v1alpha1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,7 +50,7 @@ func MakeDeployment(buildCtx *integrations.BuildContext, environmentName string)
 				labels.LabelKeyName:                MakeDeploymentLabelName(environmentName),
 			},
 		},
-		Spec: choreov1.DeploymentSpec{
+		Spec: openchoreov1alpha1.DeploymentSpec{
 			DeploymentArtifactRef: buildCtx.Build.Name,
 		},
 	}

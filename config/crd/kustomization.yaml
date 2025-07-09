@@ -2,36 +2,36 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-  - bases/core.choreo.dev_organizations.yaml
-  - bases/core.choreo.dev_builds.yaml
-  - bases/core.choreo.dev_projects.yaml
-  - bases/core.choreo.dev_environments.yaml
-  - bases/core.choreo.dev_dataplanes.yaml
-  - bases/core.choreo.dev_deploymentpipelines.yaml
-  - bases/core.choreo.dev_components.yaml
-  - bases/core.choreo.dev_deploymenttracks.yaml
-  - bases/core.choreo.dev_deployableartifacts.yaml
-  - bases/core.choreo.dev_deployments.yaml
-  - bases/core.choreo.dev_endpoints.yaml
-  - bases/core.choreo.dev_configurationgroups.yaml
-  - bases/core.choreo.dev_componentv2s.yaml
-  - bases/core.choreo.dev_workloads.yaml
-  - bases/core.choreo.dev_endpointv2s.yaml
-  - bases/core.choreo.dev_endpointclasses.yaml
-  - bases/core.choreo.dev_gitcommitrequests.yaml
-  - bases/core.choreo.dev_apis.yaml
-  - bases/core.choreo.dev_apiclasses.yaml
-  - bases/core.choreo.dev_apibindings.yaml
-  - bases/core.choreo.dev_services.yaml
-  - bases/core.choreo.dev_serviceclasses.yaml
-  - bases/core.choreo.dev_servicebindings.yaml
-  - bases/core.choreo.dev_webapplications.yaml
-  - bases/core.choreo.dev_webapplicationclasses.yaml
-  - bases/core.choreo.dev_webapplicationbindings.yaml
-  - bases/core.choreo.dev_scheduledtasks.yaml
-  - bases/core.choreo.dev_scheduledtaskclasses.yaml
-  - bases/core.choreo.dev_scheduledtaskbindings.yaml
-  - bases/core.choreo.dev_releases.yaml
+  - bases/openchoreo.dev_organizations.yaml
+  - bases/openchoreo.dev_builds.yaml
+  - bases/openchoreo.dev_projects.yaml
+  - bases/openchoreo.dev_environments.yaml
+  - bases/openchoreo.dev_dataplanes.yaml
+  - bases/openchoreo.dev_deploymentpipelines.yaml
+  - bases/openchoreo.dev_components.yaml
+  - bases/openchoreo.dev_deploymenttracks.yaml
+  - bases/openchoreo.dev_deployableartifacts.yaml
+  - bases/openchoreo.dev_deployments.yaml
+  - bases/openchoreo.dev_endpoints.yaml
+  - bases/openchoreo.dev_configurationgroups.yaml
+  - bases/openchoreo.dev_componentv2s.yaml
+  - bases/openchoreo.dev_workloads.yaml
+  - bases/openchoreo.dev_endpointv2s.yaml
+  - bases/openchoreo.dev_endpointclasses.yaml
+  - bases/openchoreo.dev_gitcommitrequests.yaml
+  - bases/openchoreo.dev_apis.yaml
+  - bases/openchoreo.dev_apiclasses.yaml
+  - bases/openchoreo.dev_apibindings.yaml
+  - bases/openchoreo.dev_services.yaml
+  - bases/openchoreo.dev_serviceclasses.yaml
+  - bases/openchoreo.dev_servicebindings.yaml
+  - bases/openchoreo.dev_webapplications.yaml
+  - bases/openchoreo.dev_webapplicationclasses.yaml
+  - bases/openchoreo.dev_webapplicationbindings.yaml
+  - bases/openchoreo.dev_scheduledtasks.yaml
+  - bases/openchoreo.dev_scheduledtaskclasses.yaml
+  - bases/openchoreo.dev_scheduledtaskbindings.yaml
+  - bases/openchoreo.dev_releases.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

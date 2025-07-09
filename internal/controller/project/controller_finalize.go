@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/project/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
@@ -24,12 +24,12 @@ import (
 
 const (
 	// ProjectCleanupFinalizer is the finalizer that is used to clean up project resources.
-	ProjectCleanupFinalizer = "core.choreo.dev/project-cleanup"
+	ProjectCleanupFinalizer = "openchoreo.dev/project-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the project.
 // The first return value indicates whether the finalizer was added to the project.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, project *choreov1.Project) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
 	// If the project is being deleted, no need to add the finalizer
 	if !project.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -43,7 +43,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, project *choreov1.Proj
 }
 
 // finalize cleans up the resources associated with the project.
-func (r *Reconciler) finalize(ctx context.Context, old, project *choreov1.Project) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	if !controllerutil.ContainsFinalizer(project, ProjectCleanupFinalizer) {
@@ -82,7 +82,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, project *choreov1.Projec
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project *choreov1.Project) (bool, error) {
+func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Clean up components
@@ -114,11 +114,11 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 }
 
 // deleteComponentsAndWait cleans up any resources that are dependent on this Project
-func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
+func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Find all Components owned by this Project using the project label
-	componentsList := &choreov1.ComponentList{}
+	componentsList := &openchoreov1alpha1.ComponentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(project.Namespace),
 		client.MatchingLabels{
@@ -178,7 +178,7 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *chore
 }
 
 // deleteExternalResourcesAndWait cleans up any resources that are dependent on this Project
-func (r *Reconciler) deleteExternalResourcesAndWait(ctx context.Context, project *choreov1.Project) (bool, error) {
+func (r *Reconciler) deleteExternalResourcesAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
 	// Create the project context for external resource deletions

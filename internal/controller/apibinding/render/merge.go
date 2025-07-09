@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // merge applies a strategic merge patch to the base object using the overlay object.
@@ -48,7 +48,7 @@ func merge[T any](base, overlay *T) (*T, error) {
 
 // MergePoliciesForExposeLevel merges the default policies with the expose level specific policies
 // Returns the final policy to be applied for the given expose level
-func MergePoliciesForExposeLevel(restPolicy *choreov1.RESTAPIPolicy, exposeLevel choreov1.RESTOperationExposeLevel) (*choreov1.RESTPolicyWithConditionals, error) {
+func MergePoliciesForExposeLevel(restPolicy *openchoreov1alpha1.RESTAPIPolicy, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) (*openchoreov1alpha1.RESTPolicyWithConditionals, error) {
 	if restPolicy == nil {
 		return nil, nil
 	}
@@ -57,11 +57,11 @@ func MergePoliciesForExposeLevel(restPolicy *choreov1.RESTAPIPolicy, exposeLevel
 	mergedPolicy := restPolicy.Defaults
 
 	// Apply expose level specific overrides
-	var exposeLevelPolicy *choreov1.RESTPolicyWithConditionals
+	var exposeLevelPolicy *openchoreov1alpha1.RESTPolicyWithConditionals
 	switch exposeLevel {
-	case choreov1.ExposeLevelPublic:
+	case openchoreov1alpha1.ExposeLevelPublic:
 		exposeLevelPolicy = restPolicy.Public
-	case choreov1.ExposeLevelOrganization:
+	case openchoreov1alpha1.ExposeLevelOrganization:
 		exposeLevelPolicy = restPolicy.Organization
 	}
 

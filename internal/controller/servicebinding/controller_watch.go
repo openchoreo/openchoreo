@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 
 // setupServiceClassRefIndex sets up the field index for service class references
 func (r *Reconciler) setupServiceClassRefIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &choreov1.ServiceBinding{}, serviceClassNameIndex, func(rawObj client.Object) []string {
-		serviceBinding := rawObj.(*choreov1.ServiceBinding)
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ServiceBinding{}, serviceClassNameIndex, func(rawObj client.Object) []string {
+		serviceBinding := rawObj.(*openchoreov1alpha1.ServiceBinding)
 		if serviceBinding.Spec.ClassName == "" {
 			return nil
 		}
@@ -31,12 +31,12 @@ func (r *Reconciler) setupServiceClassRefIndex(ctx context.Context, mgr ctrl.Man
 
 // listServiceBindingsForServiceClass finds all ServiceBindings that reference the given ServiceClass
 func (r *Reconciler) listServiceBindingsForServiceClass(ctx context.Context, obj client.Object) []reconcile.Request {
-	serviceClass, ok := obj.(*choreov1.ServiceClass)
+	serviceClass, ok := obj.(*openchoreov1alpha1.ServiceClass)
 	if !ok {
 		return nil
 	}
 
-	serviceBindingList := &choreov1.ServiceBindingList{}
+	serviceBindingList := &openchoreov1alpha1.ServiceBindingList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(serviceClass.Namespace),
 		client.MatchingFields{serviceClassNameIndex: serviceClass.Name},

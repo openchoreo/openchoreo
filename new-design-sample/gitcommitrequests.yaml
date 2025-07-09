@@ -1,4 +1,4 @@
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: GitCommitRequest
 metadata:
   name: update-component-config
@@ -13,7 +13,7 @@ spec:
   files:
     - path: "environments/dev/user-service/workload.yaml"
       content: |
-        apiVersion: core.choreo.dev/v1
+        apiVersion: openchoreo.dev/v1alpha1
         kind: Workload
         metadata:
           name: user-service

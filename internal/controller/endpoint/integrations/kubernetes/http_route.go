@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
@@ -163,7 +163,7 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 
 	for _, policy := range policies {
 		// Skip policies without specs or if not OAuth2 type
-		if policy.PolicySpec == nil || policy.Type != choreov1.Oauth2PolicyType {
+		if policy.PolicySpec == nil || policy.Type != openchoreov1alpha1.Oauth2PolicyType {
 			continue
 		}
 
@@ -187,7 +187,7 @@ func MakeHTTPRoutes(epCtx *dataplane.EndpointContext, gwType visibility.GatewayT
 
 // shouldOnlyCreateWildCardHTTPRoute checks if we should only create the wildcard HTTPRoute
 func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
-	gwType visibility.GatewayType, policies []choreov1.Policy) bool {
+	gwType visibility.GatewayType, policies []openchoreov1alpha1.Policy) bool {
 	if epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return true
 	}
@@ -213,7 +213,7 @@ func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 	// Check if any of the policies have OAuth2 configured
 	for _, policy := range policies {
 		if policy.PolicySpec != nil &&
-			policy.Type == choreov1.Oauth2PolicyType &&
+			policy.Type == openchoreov1alpha1.Oauth2PolicyType &&
 			policy.PolicySpec.OAuth2 != nil &&
 			policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
 			policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
@@ -239,7 +239,7 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 	prefix := makePathPrefix(epCtx)
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
 	endpointPath := basePath
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, basePath))
 	}
 	return &gwapiv1.HTTPRoute{
@@ -296,7 +296,7 @@ func makeWildcardHTTPRoute(epCtx *dataplane.EndpointContext, gwType visibility.G
 }
 
 // makeHTTPRouteForOperation creates an HTTPRoute for a specific REST operation
-func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *choreov1.RESTOperation,
+func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *openchoreov1alpha1.RESTOperation,
 	gwType visibility.GatewayType) *gwapiv1.HTTPRoute {
 	pathType := gwapiv1.PathMatchRegularExpression
 	method := restOperation.Method
@@ -306,7 +306,7 @@ func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *
 	prefix := makePathPrefix(epCtx)
 	basePath := epCtx.Endpoint.Spec.BackendRef.BasePath
 	endpointPath := path.Join(basePath, restOperation.Target)
-	if epCtx.Component.Spec.Type == choreov1.ComponentTypeService {
+	if epCtx.Component.Spec.Type == openchoreov1alpha1.ComponentTypeService {
 		endpointPath = path.Clean(path.Join(prefix, endpointPath))
 	}
 
@@ -365,7 +365,7 @@ func makeHTTPRouteForOperation(epCtx *dataplane.EndpointContext, restOperation *
 	}
 }
 
-func extractPoliciesFromCtx(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) []choreov1.Policy {
+func extractPoliciesFromCtx(epCtx *dataplane.EndpointContext, gwType visibility.GatewayType) []openchoreov1alpha1.Policy {
 	if epCtx.Endpoint.Spec.NetworkVisibilities == nil {
 		return nil
 	}
