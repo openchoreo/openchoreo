@@ -9,7 +9,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
@@ -25,7 +25,7 @@ const (
 )
 
 // makeArgoWorkflow creates an Argo Workflow from a BuildV2 resource
-func makeArgoWorkflow(build *choreov1.BuildV2) *argoproj.Workflow {
+func makeArgoWorkflow(build *openchoreov1alpha1.BuildV2) *argoproj.Workflow {
 	workflow := &argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeWorkflowName(build),
@@ -38,7 +38,7 @@ func makeArgoWorkflow(build *choreov1.BuildV2) *argoproj.Workflow {
 }
 
 // makeWorkflowSpec creates the workflow specification from a BuildV2 resource
-func makeWorkflowSpec(build *choreov1.BuildV2) argoproj.WorkflowSpec {
+func makeWorkflowSpec(build *openchoreov1alpha1.BuildV2) argoproj.WorkflowSpec {
 	parameters := buildWorkflowParameters(build)
 
 	return argoproj.WorkflowSpec{
@@ -54,7 +54,7 @@ func makeWorkflowSpec(build *choreov1.BuildV2) argoproj.WorkflowSpec {
 }
 
 // buildWorkflowParameters constructs the parameters for the workflow
-func buildWorkflowParameters(build *choreov1.BuildV2) []argoproj.Parameter {
+func buildWorkflowParameters(build *openchoreov1alpha1.BuildV2) []argoproj.Parameter {
 	var parameters []argoproj.Parameter
 
 	// Add core parameters
@@ -93,7 +93,7 @@ func createParameter(name, value string) argoproj.Parameter {
 }
 
 // makeImageName creates the image name following the pattern: project_name-component_name
-func makeImageName(build *choreov1.BuildV2) string {
+func makeImageName(build *openchoreov1alpha1.BuildV2) string {
 	projectName := normalizeForImageName(build.Spec.Owner.ProjectName)
 	componentName := normalizeForImageName(build.Spec.Owner.ComponentName)
 
@@ -110,7 +110,7 @@ func makeImageName(build *choreov1.BuildV2) string {
 }
 
 // makeImageTag creates the image tag
-func makeImageTag(build *choreov1.BuildV2) string {
+func makeImageTag(build *openchoreov1alpha1.BuildV2) string {
 	tag := DefaultDTName
 	return tag
 }
@@ -136,19 +136,18 @@ func normalizeForImageName(s string) string {
 }
 
 // makeWorkflowName generates a valid workflow name with length constraints
-func makeWorkflowName(build *choreov1.BuildV2) string {
-	return "go-build-01-b6b06b0"
-	// return dpkubernetes.GenerateK8sNameWithLengthLimit(MaxWorkflowNameLength, build.Name)
+func makeWorkflowName(build *openchoreov1alpha1.BuildV2) string {
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(MaxWorkflowNameLength, build.Name)
 }
 
 // makeNamespaceName generates the namespace name for the workflow based on organization
-func makeNamespaceName(build *choreov1.BuildV2) string {
+func makeNamespaceName(build *openchoreov1alpha1.BuildV2) string {
 	orgName := normalizeForK8s(build.Spec.Owner.OrganizationName)
 	return fmt.Sprintf("choreo-ci-%s", orgName)
 }
 
 // makeWorkflowLabels creates labels for the workflow
-func makeWorkflowLabels(build *choreov1.BuildV2) map[string]string {
+func makeWorkflowLabels(build *openchoreov1alpha1.BuildV2) map[string]string {
 	labels := map[string]string{
 		dpkubernetes.LabelKeyManagedBy:     dpkubernetes.LabelBuildControllerCreated,
 		"core.openchoreo.dev/build-name":   build.Name,
@@ -179,7 +178,7 @@ func normalizeForK8s(s string) string {
 }
 
 // makeNamespace creates a namespace for the build
-func makeNamespace(build *choreov1.BuildV2) *corev1.Namespace {
+func makeNamespace(build *openchoreov1alpha1.BuildV2) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   makeNamespaceName(build),
@@ -189,7 +188,7 @@ func makeNamespace(build *choreov1.BuildV2) *corev1.Namespace {
 }
 
 // makeServiceAccount creates a service account for the workflow
-func makeServiceAccount(build *choreov1.BuildV2) *corev1.ServiceAccount {
+func makeServiceAccount(build *openchoreov1alpha1.BuildV2) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowServiceAccountName,
@@ -200,7 +199,7 @@ func makeServiceAccount(build *choreov1.BuildV2) *corev1.ServiceAccount {
 }
 
 // makeRole creates a role for the workflow
-func makeRole(build *choreov1.BuildV2) *rbacv1.Role {
+func makeRole(build *openchoreov1alpha1.BuildV2) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowRoleName,
@@ -218,7 +217,7 @@ func makeRole(build *choreov1.BuildV2) *rbacv1.Role {
 }
 
 // makeRoleBinding creates a role binding for the workflow
-func makeRoleBinding(build *choreov1.BuildV2) *rbacv1.RoleBinding {
+func makeRoleBinding(build *openchoreov1alpha1.BuildV2) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowRoleBindingName,

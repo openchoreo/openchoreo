@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -41,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logger := log.FromContext(ctx).WithValues("buildv2", req.NamespacedName)
 
 	// Fetch the build resource
-	build := &choreov1.BuildV2{}
+	build := &openchoreov1alpha1.BuildV2{}
 	if err := r.Get(ctx, req.NamespacedName, build); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("BuildV2 resource not found, ignoring since object must be deleted")
@@ -123,9 +123,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 
 	// Field index: spec.owner.projectName
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &choreov1.Workload{}, workloadProjectIndexKey,
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{}, workloadProjectIndexKey,
 		func(obj client.Object) []string {
-			if wl, ok := obj.(*choreov1.Workload); ok {
+			if wl, ok := obj.(*openchoreov1alpha1.Workload); ok {
 				return []string{wl.Spec.Owner.ProjectName}
 			}
 			return nil
@@ -134,9 +134,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	// Field index: spec.owner.componentName
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &choreov1.Workload{}, workloadComponentIndexKey,
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{}, workloadComponentIndexKey,
 		func(obj client.Object) []string {
-			if wl, ok := obj.(*choreov1.Workload); ok {
+			if wl, ok := obj.(*openchoreov1alpha1.Workload); ok {
 				return []string{wl.Spec.Owner.ComponentName}
 			}
 			return nil
@@ -145,16 +145,16 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&choreov1.BuildV2{}).
+		For(&openchoreov1alpha1.BuildV2{}).
 		Named("buildv2").
 		Complete(r)
 }
 
 func (r *Reconciler) updateWorkloadWithBuiltImage(
 	ctx context.Context,
-	build *choreov1.BuildV2,
+	build *openchoreov1alpha1.BuildV2,
 ) error {
-	wlList := &choreov1.WorkloadList{}
+	wlList := &openchoreov1alpha1.WorkloadList{}
 	if err := r.List(
 		ctx,
 		wlList,
@@ -184,7 +184,7 @@ func (r *Reconciler) updateWorkloadWithBuiltImage(
 	return r.Patch(ctx, workload, client.MergeFrom(oldWorkload))
 }
 
-func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *choreov1.BuildPlane) (client.Client, error) {
+func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
 	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Spec.Owner.OrganizationName, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
 	if err != nil {
 		logger := log.FromContext(ctx)
@@ -195,7 +195,7 @@ func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *choreov1.Build
 }
 
 // ensurePrerequisiteResources ensures that all prerequisite resources exist for the workflow
-func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *choreov1.BuildV2, logger logr.Logger) error {
+func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *openchoreov1alpha1.BuildV2, logger logr.Logger) error {
 	// Create namespace
 	namespace := makeNamespace(build)
 	if err := r.ensureResource(ctx, bpClient, namespace, "Namespace", logger); err != nil {
@@ -242,7 +242,7 @@ func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client,
 // Returns (workflow, created, error)
 func (r *Reconciler) ensureWorkflow(
 	ctx context.Context,
-	build *choreov1.BuildV2,
+	build *openchoreov1alpha1.BuildV2,
 	bpClient client.Client,
 ) (*argoproj.Workflow, bool, error) {
 	wf := &argoproj.Workflow{}
@@ -267,7 +267,7 @@ func (r *Reconciler) ensureWorkflow(
 }
 
 // updateBuildStatus updates build status based on workflow status
-func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *choreov1.BuildV2, workflow *argoproj.Workflow) (ctrl.Result, error) {
+func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2, workflow *argoproj.Workflow) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
 	switch workflow.Status.Phase {
 	case argoproj.WorkflowSucceeded:
@@ -320,14 +320,14 @@ func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
 }
 
 // Status update methods
-func (r *Reconciler) updateStatusAndRequeue(ctx context.Context, oldBuild, build *choreov1.BuildV2) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndRequeue(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 }
 
-func (r *Reconciler) updateStatusAndReturn(ctx context.Context, oldBuild, build *choreov1.BuildV2) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndReturn(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 }
 
-func (r *Reconciler) updateStatusAndRequeueAfter(ctx context.Context, oldBuild, build *choreov1.BuildV2, duration time.Duration) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndRequeueAfter(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2, duration time.Duration) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, oldBuild, build, duration)
 }
