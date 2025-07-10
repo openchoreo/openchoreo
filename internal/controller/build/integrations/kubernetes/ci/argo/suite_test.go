@@ -30,9 +30,8 @@ func newTestBuildContext() *integrations.BuildContext {
 	buildCtx := &integrations.BuildContext{}
 
 	buildCtx.Registry = openchoreov1alpha1.Registry{
-		Unauthenticated: []string{
-			"registry.choreo-system:5000",
-		},
+		Prefix:    "registry.choreo-system:5000",
+		SecretRef: "",
 	}
 
 	buildCtx.Component = &openchoreov1alpha1.Component{
@@ -135,19 +134,8 @@ func newBuildpackBasedBuildCtx(buildCtx *integrations.BuildContext) *integration
 
 func newBuildContextWithRegistries(buildCtx *integrations.BuildContext) *integrations.BuildContext {
 	buildCtx.Registry = openchoreov1alpha1.Registry{
-		Unauthenticated: []string{
-			"registry.choreo-system:5000",
-		},
-		ImagePushSecrets: []openchoreov1alpha1.ImagePushSecret{
-			{
-				Name:   "dev-dockerhub-push-secret",
-				Prefix: "docker.io/test-org",
-			},
-			{
-				Name:   "prod-ghcr-push-secret",
-				Prefix: "ghcr.io/test-org",
-			},
-		},
+		Prefix:    "docker.io/test-org",
+		SecretRef: "dev-dockerhub-push-secret",
 	}
 
 	return buildCtx

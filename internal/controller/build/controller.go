@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-github/v69/github"
@@ -31,7 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build/resources"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
 	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	// argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -92,9 +91,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if shouldIgnoreReconcile(build) {
-		return ctrl.Result{}, nil
-	}
+	// if shouldIgnoreReconcile(build) {
+	//	return ctrl.Result{}, nil
+	//}
 
 	// Create a new build context for the build with required hierarchy objects
 	buildCtx, err := r.makeBuildContext(ctx, build)
@@ -118,54 +117,53 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			"External resource reconciliation failed: %s", err)
 		return ctrl.Result{}, err
 	}
-
-	existingWorkflow, err := r.ensureWorkflow(ctx, buildCtx, dpClient)
-
-	if err != nil {
-		logger.Error(err, "Failed to ensure workflow")
-		r.recorder.Eventf(build, corev1.EventTypeWarning, "WorkflowReconciliationFailed",
-			"Build workflow reconciliation failed: %s", err)
-		return ctrl.Result{}, err
-	}
-
-	if isBuildWorkflowRunning(build) {
-		requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
-
-		if requeue {
-			return r.handleRequeueAfterBuild(ctx, oldBuild, build)
-		}
-
-		// When ci workflow is completed, it is required to update conditions
-		if oldBuild.Status.ImageStatus.Image != buildCtx.Build.Status.ImageStatus.Image ||
-			controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
-			if err := r.Status().Update(ctx, build); err != nil {
-				logger.Error(err, "Failed to update build status")
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
-	if shouldCreateDeployableArtifact(buildCtx.Build) {
-		requeue, err := r.createDeployableArtifact(ctx, buildCtx)
-		if requeue {
-			return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
-		}
-		if err != nil {
-			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
-		}
-		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
-		r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
-	}
-
-	requeue, err := r.handleAutoDeployment(ctx, buildCtx)
-	if requeue {
-		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
-	} else if err != nil {
-		meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildFailedCondition(buildCtx.Build.Generation))
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
-	}
-	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildCompletedCondition(buildCtx.Build.Generation))
+	//
+	// existingWorkflow, err := r.ensureWorkflow(ctx, buildCtx, dpClient)
+	//
+	// i// if err != nil {/	logger.Error(err, "Failed to ensure workflow")
+	//	r.recorder.Eventf(build, corev1.EventTypeWarning, "WorkflowReconciliationFailed",
+	//		"Build workflow reconciliation failed: %s", err)
+	//	return ctrl.Result{}, err
+	//}
+	//
+	// if isBuildWorkflowRunning(build) {
+	//	requeue := r.handleBuildSteps(build, existingWorkflow.Status.Nodes)
+	//
+	//	if requeue {
+	//		return r.handleRequeueAfterBuild(ctx, oldBuild, build)
+	//	}
+	//
+	//	// When ci workflow is completed, it is required to update conditions
+	//	if oldBuild.Status.ImageStatus.Image != buildCtx.Build.Status.ImageStatus.Image ||
+	//		controller.NeedConditionUpdate(oldBuild.Status.Conditions, buildCtx.Build.Status.Conditions) {
+	//		if err := r.Status().Update(ctx, build); err != nil {
+	//			logger.Error(err, "Failed to update build status")
+	//			return ctrl.Result{}, err
+	//		}
+	//	}
+	//}
+	//
+	//if shouldCreateDeployableArtifact(buildCtx.Build) {
+	//	requeue, err := r.createDeployableArtifact(ctx, buildCtx)
+	//	if requeue {
+	//		return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+	//	}
+	//	if err != nil {
+	//		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+	//	}
+	//	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewDeployableArtifactCreatedCondition(buildCtx.Build.Generation))
+	//	r.recorder.Event(build, corev1.EventTypeNormal, "DeployableArtifactReady", "Deployable artifact created")
+	//	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+	//}
+	//
+	//requeue, err := r.handleAutoDeployment(ctx, buildCtx)
+	//if requeue {
+	//	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
+	//} else if err != nil {
+	//	meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildFailedCondition(buildCtx.Build.Generation))
+	//	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
+	//}
+	//meta.SetStatusCondition(&buildCtx.Build.Status.Conditions, NewBuildCompletedCondition(buildCtx.Build.Generation))
 	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 }
 
@@ -226,43 +224,43 @@ func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*openchoreov
 	return dataplanes, nil
 }
 
-func getRegistriesForPush(dataplanes []*openchoreov1alpha1.DataPlane) (map[string]string, []string) {
-	registriesWithSecrets := make(map[string]string)
-	noAuthRegistriesSet := make(map[string]struct{})
-
-	for _, dp := range dataplanes {
-		pushSecrets := dp.Spec.Registry.ImagePushSecrets
-		noAuthRegistries := dp.Spec.Registry.Unauthenticated
-
-		for _, pushSecret := range pushSecrets {
-			registriesWithSecrets[pushSecret.Name] = pushSecret.Prefix
-		}
-
-		for _, registryPrefix := range noAuthRegistries {
-			noAuthRegistriesSet[registryPrefix] = struct{}{}
-		}
-	}
-
-	noAuthRegistriesList := make([]string, 0, len(noAuthRegistriesSet))
-	for registry := range noAuthRegistriesSet {
-		noAuthRegistriesList = append(noAuthRegistriesList, registry)
-	}
-
-	return registriesWithSecrets, noAuthRegistriesList
-}
-
-func convertToImagePushSecrets(registriesWithSecrets map[string]string) []openchoreov1alpha1.ImagePushSecret {
-	imagePushSecrets := make([]openchoreov1alpha1.ImagePushSecret, 0, len(registriesWithSecrets))
-
-	for name, prefix := range registriesWithSecrets {
-		imagePushSecrets = append(imagePushSecrets, openchoreov1alpha1.ImagePushSecret{
-			Name:   name,
-			Prefix: prefix,
-		})
-	}
-
-	return imagePushSecrets
-}
+//
+// func getRegistriesForPush(dataplanes []*openchoreov1alpha1.DataPlane) (map[string]string, []string) {
+//	registriesWithSecrets := make(map[string]string)
+//	noAuthRegistriesSet := make(map[string]struct{})
+//
+//	for _, dp := range dataplanes {
+//		pushSecrets := dp.Spec.Registry.ImagePushSecrets
+//		noAuthRegistries := dp.Spec.Registry.Unauthenticated
+//
+//		for _, pushSecret := range pushSecrets {
+//			registriesWithSecrets[pushSecret.Name] = pushSecret.Prefix
+//		}
+//
+//		for _, registryPrefix := range noAuthRegistries {
+//			noAuthRegistriesSet[registryPrefix] = struct{}{}
+//		}
+//	}
+//
+//	noAuthRegistriesList := make([]string, 0, len(noAuthRegistriesSet))
+//	for registry := range noAuthRegistriesSet {
+//		noAuthRegistriesList = append(noAuthRegistriesList, registry)
+//	}
+//
+//	return registriesWithSecrets, noAuthRegistriesList
+//}
+//
+// f// func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {	imagePushSecrets := make([]choreov1.ImagePushSecret, 0, len(registriesWithSecrets))
+//
+//	for name, prefix := range registriesWithSecrets {
+//		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{
+//			Name:   name,
+//			Prefix: prefix,
+//		})
+//	}
+//
+//	return imagePushSecrets
+//}
 
 func (r *Reconciler) makeBuildContext(ctx context.Context, build *openchoreov1alpha1.Build) (*integrations.BuildContext, error) {
 	// makeBuildContext creates a build context for the given build by retrieving the
@@ -276,30 +274,29 @@ func (r *Reconciler) makeBuildContext(ctx context.Context, build *openchoreov1al
 		return nil, fmt.Errorf("cannot retrieve the deployment track: %w", err)
 	}
 
-	project, err := controller.GetProject(ctx, r.Client, build)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the project: %w", err)
-	}
-	deploymentPipeline, err := controller.GetDeploymentPipeline(ctx, r.Client, build, project.Spec.DeploymentPipelineRef)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
-	}
-	envs, err := r.retrieveEnvsOfPipeline(ctx, deploymentPipeline)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the environments of the pipeline: %w", err)
-	}
-	dataplanes, err := r.retrieveDataplanes(ctx, envs)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the dataplanes: %w", err)
-	}
-	registriesWithSecrets, registries := getRegistriesForPush(dataplanes)
-	imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
+	// project, err := controller.GetProject(ctx, r.Client, build)
+	// i// if err != nil {/	return nil, fmt.Errorf("cannot retrieve the project: %w", err)
+	//}
+	// deploymentPipeline, err := controller.GetDeploymentPipeline(ctx, r.Client, build, project.Spec.DeploymentPipelineRef)
+	//if err != nil {
+	//	return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
+	//}
+	//envs, err := r.retrieveEnvsOfPipeline(ctx, deploymentPipeline)
+	//if err != nil {
+	//	return nil, fmt.Errorf("cannot retrieve the environments of the pipeline: %w", err)
+	//}
+	//dataplanes, err := r.retrieveDataplanes(ctx, envs)
+	//if err != nil {
+	//	return nil, fmt.Errorf("cannot retrieve the dataplanes: %w", err)
+	//}
+	//registriesWithSecrets, registries := getRegistriesForPush(dataplanes)
+	//imagePushSecrets := convertToImagePushSecrets(registriesWithSecrets)
 
 	return &integrations.BuildContext{
-		Registry: openchoreov1alpha1.Registry{
-			ImagePushSecrets: imagePushSecrets,
-			Unauthenticated:  registries,
-		},
+		//Registry: openchoreov1alpha1.Registry{
+		//	ImagePushSecrets: imagePushSecrets,
+		//	Unauthenticated:  registries,
+		// },
 		Component:       component,
 		DeploymentTrack: deploymentTrack,
 		Build:           build,
@@ -414,140 +411,140 @@ func (r *Reconciler) reconcileExternalResources(
 	return nil
 }
 
-func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, dpClient client.Client) (*argoproj.Workflow, error) {
-	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
-	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
-	existingWorkflow, err := workflowHandler.GetCurrentState(ctx, buildCtx)
-	if err != nil {
-		logger.Error(err, "Error retrieving current state of the workflow resource")
-		return nil, err
-	}
-
-	exists := existingWorkflow != nil
-
-	if !exists {
-		// Create the external resource if it does not exist
-		if err := workflowHandler.Create(ctx, buildCtx); err != nil {
-			logger.Error(err, "Error creating workflow resource")
-			return nil, err
-		}
-		r.recorder.Eventf(buildCtx.Build, corev1.EventTypeNormal, "NewWorkflowCreated",
-			"New build workflow created: %s", buildCtx.Build.Name)
-		existingWorkflow, err = workflowHandler.GetCurrentState(ctx, buildCtx)
-		if err != nil {
-			logger.Error(err, "Error retrieving current state of the workflow resource")
-			return nil, err
-		}
-	}
-
-	// Use the two-value form of type assertion for safety
-	existing, ok := existingWorkflow.(argoproj.Workflow)
-	if !ok {
-		return nil, fmt.Errorf("could not convert workflow to expected type")
-	}
-	return &existing, nil
-}
-
-// shouldIgnoreReconcile checks whether the reconcile loop should be continued.
-// Reconciliation should be avoided if the build is in a final state.
-func shouldIgnoreReconcile(build *openchoreov1alpha1.Build) bool {
-	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
-		return true
-	}
-	return false
-}
-
-// shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
-// Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
-// does not exist.
-func shouldCreateDeployableArtifact(build *openchoreov1alpha1.Build) bool {
-	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
-}
-
-func isBuildWorkflowRunning(build *openchoreov1alpha1.Build) bool {
-	stepConditions := []controller.ConditionType{
-		ConditionCloneStepSucceeded,
-		ConditionBuildStepSucceeded,
-		ConditionPushStepSucceeded,
-	}
-
-	for _, conditionType := range stepConditions {
-		condition := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
-		if condition == nil {
-			continue
-		}
-
-		switch condition.Reason {
-		case string(ReasonStepFailed):
-			// A failed step means the workflow is not running
-			return false
-		case string(ReasonStepQueued), string(ReasonStepInProgress):
-			// At least one step is running/scheduled to run
-			return true
-		}
-	}
-
-	return false
-}
-
-func isBuildStepRunning(build *openchoreov1alpha1.Build) bool {
-	condition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded))
-	return condition != nil && condition.Reason == string(ReasonStepInProgress)
-}
-
-// handleRequeueAfterBuild manages the requeue process after a build step.
-func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
-	// Check if the build step is running and has not yet succeeded.
-	if isBuildStepRunning(build) {
-		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
-		return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
-	}
-	// Default requeue without a delay if the build step is not there or already succeeded.
-	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
-}
-
-func (r *Reconciler) handleBuildSteps(build *openchoreov1alpha1.Build, nodes argoproj.Nodes) bool {
-	steps := []struct {
-		stepName      integrations.BuildWorkflowStep
-		conditionType controller.ConditionType
-	}{
-		{integrations.CloneStep, ConditionCloneStepSucceeded},
-		{integrations.BuildStep, ConditionBuildStepSucceeded},
-		{integrations.PushStep, ConditionPushStepSucceeded},
-	}
-
-	for _, step := range steps {
-		stepInfo, isFound := argointegrations.GetStepByTemplateName(nodes, step.stepName)
-		if !isFound || meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(step.conditionType), metav1.ConditionTrue) {
-			continue
-		}
-		switch argointegrations.GetStepPhase(stepInfo.Phase) {
-		case integrations.Running:
-			markStepInProgress(build, step.conditionType)
-			return true
-		case integrations.Succeeded:
-			markStepSucceeded(build, step.conditionType)
-			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
-			isFinalStep := step.stepName == integrations.PushStep
-			if isFinalStep {
-				image := argointegrations.GetImageNameFromWorkflow(*stepInfo.Outputs)
-				if image == "" {
-					meta.SetStatusCondition(&build.Status.Conditions, NewImageMissingBuildFailedCondition(build.Generation))
-				} else {
-					build.Status.ImageStatus.Image = image
-				}
-				return false
-			}
-			return true
-		case integrations.Failed:
-			markStepFailed(build, step.conditionType)
-			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
-			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFailedCondition(build.Generation))
-			return false
-		}
-	}
-	return true
-}
+//
+// func (r *Reconciler) ensureWorkflow(ctx context.Context, buildCtx *integrations.BuildContext, dpClient client.Client) (*argoproj.Workflow, error) {
+//	logger := log.FromContext(ctx).WithValues("workflowHandler", "Workflow")
+//	workflowHandler := argointegrations.NewWorkflowHandler(dpClient)
+//	existingWorkflow, err := workflowHandler.GetCurrentState(ctx, buildCtx)
+//	if err != nil {
+//		logger.Error(err, "Error retrieving current state of the workflow resource")
+//		return nil, err
+//	}
+//
+//	exists := existingWorkflow != nil
+//
+//	if !exists {
+//		// Create the external resource if it does not exist
+//		if err := workflowHandler.Create(ctx, buildCtx); err != nil {
+//			logger.Error(err, "Error creating workflow resource")
+//			return nil, err
+//		}
+//		r.recorder.Eventf(buildCtx.Build, corev1.EventTypeNormal, "NewWorkflowCreated",
+//			"New build workflow created: %s", buildCtx.Build.Name)
+//		existingWorkflow, err = workflowHandler.GetCurrentState(ctx, buildCtx)
+//		if err != nil {
+//			logger.Error(err, "Error retrieving current state of the workflow resource")
+//			return nil, err
+//		}
+//	}
+//
+//	// Use the two-value form of type assertion for safety
+//	existing, ok := existingWorkflow.(argoproj.Workflow)
+//	if !ok {
+//		return nil, fmt.Errorf("could not convert workflow to expected type")
+//	}
+//	return &existing, nil
+//}
+//
+//// shouldIgnoreReconcile checks whether the reconcile loop should be continued.
+//// Reconciliation should be avoided if the build is in a final state.
+// f// func shouldIgnoreReconcile(build *choreov1.Build) bool {	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
+//		return true
+//	}
+//	return false
+//}
+//
+//// shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
+//// Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
+//// does not exist.
+// func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
+//	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
+//}
+//
+//func isBuildWorkflowRunning(build *choreov1.Build) bool {
+//	stepConditions := []controller.ConditionType{
+//		ConditionCloneStepSucceeded,
+//		ConditionBuildStepSucceeded,
+//		ConditionPushStepSucceeded,
+//	}
+//
+//	for _, conditionType := range stepConditions {
+//		condition := meta.FindStatusCondition(build.Status.Conditions, string(conditionType))
+//		if condition == nil {
+//			continue
+//		}
+//
+//		switch condition.Reason {
+//		case string(ReasonStepFailed):
+//			// A failed step means the workflow is not running
+//			return false
+//		case string(ReasonStepQueued), string(ReasonStepInProgress):
+//			// At least one step is running/scheduled to run
+//			return true
+//		}
+//	}
+//
+//	return false
+//}
+//
+//func isBuildStepRunning(build *choreov1.Build) bool {
+//	condition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded))
+//	return condition != nil && condition.Reason == string(ReasonStepInProgress)
+//}
+//
+//// handleRequeueAfterBuild manages the requeue process after a build step.
+//func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *choreov1.Build) (ctrl.Result, error) {
+//	// Check if the build step is running and has not yet succeeded.
+//	if isBuildStepRunning(build) {
+//		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
+//		return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, build, 20*time.Second)
+//	}
+//	// Default requeue without a delay if the build step is not there or already succeeded.
+//	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
+//}
+//
+//func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
+//	steps := []struct {
+//		stepName      integrations.BuildWorkflowStep
+//		conditionType controller.ConditionType
+//	}{
+//		{integrations.CloneStep, ConditionCloneStepSucceeded},
+//		{integrations.BuildStep, ConditionBuildStepSucceeded},
+//		{integrations.PushStep, ConditionPushStepSucceeded},
+//	}
+//
+//	for _, step := range steps {
+//		stepInfo, isFound := argointegrations.GetStepByTemplateName(nodes, step.stepName)
+//		if !isFound || meta.IsStatusConditionPresentAndEqual(build.Status.Conditions, string(step.conditionType), metav1.ConditionTrue) {
+//			continue
+//		}
+//		switch argointegrations.GetStepPhase(stepInfo.Phase) {
+//		case integrations.Running:
+//			markStepInProgress(build, step.conditionType)
+//			return true
+//		case integrations.Succeeded:
+//			markStepSucceeded(build, step.conditionType)
+//			r.recorder.Event(build, corev1.EventTypeNormal, string(step.conditionType), "Workflow step succeeded")
+//			isFinalStep := step.stepName == integrations.PushStep
+//			if isFinalStep {
+//				image := argointegrations.GetImageNameFromWorkflow(*stepInfo.Outputs)
+//				if image == "" {
+//					meta.SetStatusCondition(&build.Status.Conditions, NewImageMissingBuildFailedCondition(build.Generation))
+//				} else {
+//					build.Status.ImageStatus.Image = image
+//				}
+//				return false
+//			}
+//			return true
+//		case integrations.Failed:
+//			markStepFailed(build, step.conditionType)
+//			r.recorder.Event(build, corev1.EventTypeWarning, string(step.conditionType), "Workflow step failed")
+//			meta.SetStatusCondition(&build.Status.Conditions, NewBuildFailedCondition(build.Generation))
+//			return false
+//		}
+//	}
+//	return true
+//}
 
 func (r *Reconciler) createDeployableArtifact(ctx context.Context, buildCtx *integrations.BuildContext) (bool, error) {
 	deployableArtifact := resources.MakeDeployableArtifact(buildCtx.Build)

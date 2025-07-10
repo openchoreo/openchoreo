@@ -6,10 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"os"
-
-	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -30,6 +27,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
+	"github.com/openchoreo/openchoreo/internal/controller/build"
+	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
+	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
@@ -199,15 +199,15 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "Project")
 			os.Exit(1)
 		}
-		//if err = (&build.Reconciler{
-		//	Client:       mgr.GetClient(),
-		//	DpClientMgr:  dpClientMgr,
-		//	Scheme:       mgr.GetScheme(),
-		//	GithubClient: github.NewClient(nil),
-		//}).SetupWithManager(mgr); err != nil {
-		//	setupLog.Error(err, "unable to create controller", "controller", "Build")
-		//	os.Exit(1)
-		//}
+		if err = (&build.Reconciler{
+			Client:       mgr.GetClient(),
+			DpClientMgr:  dpClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GithubClient: github.NewClient(nil),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Build")
+			os.Exit(1)
+		}
 		if err = (&environment.Reconciler{
 			Client:      mgr.GetClient(),
 			DpClientMgr: dpClientMgr,
