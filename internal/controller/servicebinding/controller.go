@@ -63,7 +63,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if res, err := r.reconcileRelease(ctx, serviceBinding, serviceClass); err != nil || res.Requeue {
+	// Fetch all associated APIClasses from the APIs map
+	apiClasses := make(map[string]*openchoreov1alpha1.APIClass)
+	for apiName, serviceAPI := range serviceBinding.Spec.APIs {
+		if serviceAPI != nil && serviceAPI.ClassName != "" {
+			apiClass := &openchoreov1alpha1.APIClass{}
+			if err := r.Get(ctx, client.ObjectKey{
+				Namespace: serviceBinding.Namespace,
+				Name:      serviceAPI.ClassName,
+			}, apiClass); err != nil {
+				logger.Error(err, "Failed to get APIClass", "apiClassName",
+					serviceAPI.ClassName, "apiName", apiName)
+				return ctrl.Result{}, err
+			}
+			apiClasses[apiName] = apiClass
+		}
+	}
+
+	if res, err := r.reconcileRelease(ctx, serviceBinding, serviceClass, apiClasses); err != nil || res.Requeue {
 		return res, err
 	}
 
@@ -71,7 +88,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileRelease reconciles the Release associated with the ServiceBinding.
-func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding, serviceClass *openchoreov1alpha1.ServiceClass) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding,
+	serviceClass *openchoreov1alpha1.ServiceClass, apiClasses map[string]*openchoreov1alpha1.APIClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	release := &openchoreov1alpha1.Release{
@@ -85,6 +103,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 		rCtx := render.Context{
 			ServiceBinding: serviceBinding,
 			ServiceClass:   serviceClass,
+			APIClasses:     apiClasses,
 		}
 		release.Spec = r.makeRelease(rCtx).Spec
 		if len(rCtx.Errors()) > 0 {
@@ -137,6 +156,13 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 	if res := render.HTTPRoutes(rCtx); res != nil {
 		for _, httpRoute := range res {
 			resources = append(resources, *httpRoute)
+		}
+	}
+
+	// Add SecurityPolicy resources
+	if res := render.SecurityPolicies(rCtx); res != nil {
+		for _, policy := range res {
+			resources = append(resources, *policy)
 		}
 	}
 
