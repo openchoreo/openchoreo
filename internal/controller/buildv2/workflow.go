@@ -137,7 +137,8 @@ func normalizeForImageName(s string) string {
 
 // makeWorkflowName generates a valid workflow name with length constraints
 func makeWorkflowName(build *choreov1.BuildV2) string {
-	return dpkubernetes.GenerateK8sNameWithLengthLimit(MaxWorkflowNameLength, build.Name)
+	return "go-build-01-b6b06b0"
+	// return dpkubernetes.GenerateK8sNameWithLengthLimit(MaxWorkflowNameLength, build.Name)
 }
 
 // makeNamespaceName generates the namespace name for the workflow based on organization

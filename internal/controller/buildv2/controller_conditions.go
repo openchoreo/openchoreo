@@ -13,9 +13,10 @@ import (
 
 // Build condition types
 const (
-	ConditionBuildInitiated controller.ConditionType = "BuildInitiated"
-	ConditionBuildTriggered controller.ConditionType = "BuildTriggered"
-	ConditionBuildCompleted controller.ConditionType = "BuildCompleted"
+	ConditionBuildInitiated  controller.ConditionType = "BuildInitiated"
+	ConditionBuildTriggered  controller.ConditionType = "BuildTriggered"
+	ConditionBuildCompleted  controller.ConditionType = "BuildCompleted"
+	ConditionWorkloadUpdated controller.ConditionType = "WorkloadUpdated"
 )
 
 // Build condition reasons
@@ -29,6 +30,8 @@ const (
 	ReasonWorkflowCreationFailed  controller.ConditionReason = "WorkflowCreationFailed"
 	ReasonNamespaceCreationFailed controller.ConditionReason = "NamespaceCreationFailed"
 	ReasonRBACCreationFailed      controller.ConditionReason = "RBACCreationFailed"
+	ReasonWorkloadUpdated         controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed    controller.ConditionReason = "WorkloadUpdateFailed"
 )
 
 // NewBuildInitiatedCondition creates a new BuildInitiated condition
@@ -82,6 +85,28 @@ func NewBuildInProgressCondition(generation int64) metav1.Condition {
 		Status:             metav1.ConditionFalse,
 		Reason:             string(ReasonBuildInProgress),
 		Message:            "Build is in progress",
+		ObservedGeneration: generation,
+	}
+}
+
+// NewWorkloadUpdatedCondition creates a new WorkloadUpdated condition
+func NewWorkloadUpdatedCondition(generation int64) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(ConditionWorkloadUpdated),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonWorkloadUpdated),
+		Message:            "Workload updated successfully",
+		ObservedGeneration: generation,
+	}
+}
+
+// NewWorkloadUpdateFailedCondition creates a new WorkloadUpdateFailed condition
+func NewWorkloadUpdateFailedCondition(generation int64) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(ConditionWorkloadUpdated),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonWorkloadUpdateFailed),
+		Message:            "Failed to update workload with the new built image",
 		ObservedGeneration: generation,
 	}
 }
@@ -174,6 +199,20 @@ func isBuildInitiated(build *choreov1.BuildV2) bool {
 // isBuildCompleted returns true when the Build has **reached a terminal state**
 // (either Succeeded or Failed).  Any “in-progress” or unknown condition returns false.
 func isBuildCompleted(build *choreov1.BuildV2) bool {
+	cond := meta.FindStatusCondition(build.Status.Conditions, string(ConditionWorkloadUpdated))
+	if cond == nil {
+		return false
+	}
+
+	switch cond.Reason {
+	case string(ReasonWorkloadUpdated):
+		return cond.Status == metav1.ConditionTrue
+	}
+
+	return false
+}
+
+func isBuildSucceeded(build *choreov1.BuildV2) bool {
 	cond := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildCompleted))
 	if cond == nil {
 		return false
@@ -181,15 +220,8 @@ func isBuildCompleted(build *choreov1.BuildV2) bool {
 
 	switch cond.Reason {
 	case string(ReasonBuildCompleted):
-		// success → the controller set Status=True + Completed reason
 		return cond.Status == metav1.ConditionTrue
-
-	case string(ReasonBuildFailed):
-		// failure → the controller set Status=False + Failed reason
-		return cond.Status == metav1.ConditionFalse
 	}
-
-	// “InProgress” or any other reason → still running
 	return false
 }
 

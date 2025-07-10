@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -93,9 +94,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
-	// Update build status based on workflow status
-	return r.updateBuildStatus(ctx, oldBuild, build, workflow)
+	if !isBuildSucceeded(build) {
+		// Update build status based on workflow status
+		return r.updateBuildStatus(ctx, oldBuild, build, workflow)
+	}
+
+	err = r.updateWorkloadWithBuiltImage(ctx, build)
+	if err != nil {
+		logger.Error(err, "Failed to patch workload with image")
+		meta.SetStatusCondition(&build.Status.Conditions, NewWorkloadUpdateFailedCondition(build.Generation))
+		return r.updateStatusAndRequeue(ctx, oldBuild, build)
+	}
+	meta.SetStatusCondition(&build.Status.Conditions, NewWorkloadUpdatedCondition(build.Generation))
+	return r.updateStatusAndReturn(ctx, oldBuild, build)
 }
+
+const (
+	workloadProjectIndexKey   = "spec.owner.projectName"
+	workloadComponentIndexKey = "spec.owner.componentName"
+)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -103,10 +120,68 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.k8sClientMgr = kubernetesClient.NewManager()
 	}
 
+	ctx := context.Background()
+
+	// Field index: spec.owner.projectName
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &choreov1.Workload{}, workloadProjectIndexKey,
+		func(obj client.Object) []string {
+			if wl, ok := obj.(*choreov1.Workload); ok {
+				return []string{wl.Spec.Owner.ProjectName}
+			}
+			return nil
+		}); err != nil {
+		return fmt.Errorf("index owner.projectName: %w", err)
+	}
+
+	// Field index: spec.owner.componentName
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &choreov1.Workload{}, workloadComponentIndexKey,
+		func(obj client.Object) []string {
+			if wl, ok := obj.(*choreov1.Workload); ok {
+				return []string{wl.Spec.Owner.ComponentName}
+			}
+			return nil
+		}); err != nil {
+		return fmt.Errorf("index owner.componentName: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&choreov1.BuildV2{}).
 		Named("buildv2").
 		Complete(r)
+}
+
+func (r *Reconciler) updateWorkloadWithBuiltImage(
+	ctx context.Context,
+	build *choreov1.BuildV2,
+) error {
+	wlList := &choreov1.WorkloadList{}
+	if err := r.List(
+		ctx,
+		wlList,
+		client.InNamespace(build.Namespace),
+		client.MatchingFields{
+			workloadProjectIndexKey:   build.Spec.Owner.ProjectName,
+			workloadComponentIndexKey: build.Spec.Owner.ComponentName,
+		},
+	); err != nil {
+		return fmt.Errorf("list workloads: %w", err)
+	}
+
+	if len(wlList.Items) == 0 {
+		return fmt.Errorf("no Workload found for project=%s component=%s",
+			build.Spec.Owner.ProjectName, build.Spec.Owner.ComponentName)
+	}
+	workload := &wlList.Items[0]
+
+	oldWorkload := workload.DeepCopy()
+
+	for name, c := range workload.Spec.Containers {
+		c.Image = build.Status.ImageStatus.Image
+		workload.Spec.Containers[name] = c
+		break
+	}
+
+	return r.Patch(ctx, workload, client.MergeFrom(oldWorkload))
 }
 
 func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *choreov1.BuildPlane) (client.Client, error) {
@@ -170,7 +245,6 @@ func (r *Reconciler) ensureWorkflow(
 	build *choreov1.BuildV2,
 	bpClient client.Client,
 ) (*argoproj.Workflow, bool, error) {
-
 	wf := &argoproj.Workflow{}
 	err := bpClient.Get(ctx,
 		client.ObjectKey{Name: makeWorkflowName(build), Namespace: makeNamespaceName(build)},
@@ -194,11 +268,26 @@ func (r *Reconciler) ensureWorkflow(
 
 // updateBuildStatus updates build status based on workflow status
 func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *choreov1.BuildV2, workflow *argoproj.Workflow) (ctrl.Result, error) {
-	// Check workflow status
+	logger := log.FromContext(ctx).WithValues("build", build.Name)
 	switch workflow.Status.Phase {
 	case argoproj.WorkflowSucceeded:
 		setBuildCompletedCondition(build, "Build completed successfully")
-		return r.updateStatusAndReturn(ctx, oldBuild, build)
+		stepInfo := getStepByTemplateName(workflow.Status.Nodes, "push-step")
+		if stepInfo == nil {
+			logger.Error(fmt.Errorf("push-step not found in workflow nodes"), "Push step not found")
+			return r.updateStatusAndRequeue(ctx, oldBuild, build)
+		}
+		image := getImageNameFromWorkflow(*stepInfo.Outputs)
+		if image == "" {
+			logger.Error(fmt.Errorf("image not found in workflow outputs"), "Image not found in workflow outputs")
+			return r.updateStatusAndRequeue(ctx, oldBuild, build)
+		}
+		build.Status.ImageStatus.Image = string(image)
+		if err := r.Status().Update(ctx, build); err != nil {
+			logger.Error(err, "Failed to update build status")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
 		setBuildFailedCondition(build, ReasonBuildFailed, "Build workflow failed")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
@@ -210,6 +299,24 @@ func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *cho
 		// Workflow is pending or in unknown state, requeue
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
+}
+
+func getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStatus {
+	for _, node := range nodes {
+		if node.TemplateName == step {
+			return &node
+		}
+	}
+	return nil
+}
+
+func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
+	for _, param := range output.Parameters {
+		if param.Name == "image" {
+			return *param.Value
+		}
+	}
+	return ""
 }
 
 // Status update methods
