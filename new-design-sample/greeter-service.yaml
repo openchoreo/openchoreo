@@ -45,6 +45,40 @@ spec:
     rest-api:
       protocol: TCP
       port: 9090
+      schema:
+        type: REST
+        content: |
+          openapi: 3.0.0
+          info:
+            title: Sample API
+            version: 1.0.0
+          paths:
+            /api/v1/reading-list:
+              get:
+                summary: Get all books in the reading list
+                responses:
+                  '200':
+                    description: Successful response
+              post:
+                summary: Add a book to the reading list
+                requestBody:
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/Book'
+                responses:
+                  '201':
+                    description: Book added successfully
+          components:
+            schemas:
+              Book:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  author:
+                    type: string
+
   connections: { } # How does this look like?
 
 ---
@@ -65,19 +99,80 @@ spec:
   apis:
     greeter-api: # Should we go with map type or array type?
       type: REST
-      className: rest-api-standard
+      className: greeter-service-rest-api-standard
       rest:
         backend:
           port: 9090
           basePath: /greeter
         exposeLevels: [ "Organization", "Public" ]
-        operations:
-          - method: GET
-            path: /greet
-            description: Get greeting message
-            scopes: [ "greeter:greet" ]
-            exposeLevels: [ "Organization", "Public" ]
-
+---
+# Defines the APIClass for the REST API exposed by the service.
+apiVersion: core.choreo.dev/v1
+kind: APIClass
+metadata:
+  name: greeter-service-rest-api-standard
+spec:
+  restPolicy:
+    defaults:
+      rateLimit:
+        requests: 1000
+        window: "1h"
+        burst: 100
+        keyBy: "clientIP"
+        skipSuccessfulRequests: false
+        skipFailedRequests: true
+      authentication:
+        type: jwt
+        jwt:
+          jwks: "https://dev-tfsf6412a2bn011a.us.auth0.com/.well-known/jwks.json"
+          issuer: "https://dev-tfsf6412a2bn011a.us.auth0.com/"
+          audience: ["choreo:deployment:production"]
+        oauth2:
+          scopes: ["greet"]
+          tokenUrl: "https://dev-tfsf6412a2bn011a.us.auth0.com/oauth/token"
+      cors:
+        allowOrigins: ["https://example.com", "https://app.example.com"]
+        allowMethods: ["GET", "POST", "PUT", "DELETE"]
+        allowHeaders: ["Content-Type", "Authorization"]
+        exposeHeaders: ["X-Request-ID"]
+        maxAge: 86400
+      timeout: "30s"
+      retries:
+        attempts: 3
+        backoff: "exponential"
+        initialInterval: "1s"
+        maxInterval: "10s"
+      requestSizeLimit: "10MB"
+      responseSizeLimit: "50MB"
+      circuitBreaker:
+        enabled: true
+        errorThreshold: 50
+        successThreshold: 10
+        timeout: "60s"
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: "info"
+          includeRequestBody: false
+          includeResponseBody: false
+    public:
+      rateLimit:
+        requests: 100
+        window: "1h"
+        burst: 20
+        keyBy: "header:X-API-Key"
+      security:
+        requireTLS: true
+        minTLSVersion: "1.3"
+    organization:
+      rateLimit:
+        requests: 5000
+        window: "1h"
+        burst: 500
+        keyBy: "jwt:sub"
 ---
 # Defines PE level configuration for the service component.
 # Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
