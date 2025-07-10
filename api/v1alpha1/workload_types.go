@@ -40,6 +40,17 @@ type WorkloadEndpoint struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
+
+	// Optional schema for the endpoint.
+	// This can be used to define the actual API definition of the endpoint that is exposed by the workload.
+	// +optional
+	Schema *Schema `json:"schema,omitempty"`
+}
+
+// Schema defines the API definition for an endpoint.
+type Schema struct {
+	Type    string `json:"type,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 // WorkloadTemplateSpec defines the desired state of Workload.

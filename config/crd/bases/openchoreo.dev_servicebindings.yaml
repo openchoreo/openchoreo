@@ -226,6 +226,16 @@ spec:
                         protocol:
                           description: Network protocol (TCP, UDP, etc.).
                           type: string
+                        schema:
+                          description: |-
+                            Optional schema for the endpoint.
+                            This can be used to define the actual API definition of the endpoint that is exposed by the workload.
+                          properties:
+                            content:
+                              type: string
+                            type:
+                              type: string
+                          type: object
                       required:
                       - port
                       - protocol

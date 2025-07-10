@@ -48,7 +48,7 @@ func merge[T any](base, overlay *T) (*T, error) {
 
 // MergePoliciesForExposeLevel merges the default policies with the expose level specific policies
 // Returns the final policy to be applied for the given expose level
-func MergePoliciesForExposeLevel(restPolicy *openchoreov1alpha1.RESTAPIPolicy, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) (*openchoreov1alpha1.RESTPolicyWithConditionals, error) {
+func MergePoliciesForExposeLevel(restPolicy *openchoreov1alpha1.RESTAPIPolicy, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) (*openchoreov1alpha1.RESTPolicy, error) {
 	if restPolicy == nil {
 		return nil, nil
 	}
@@ -57,7 +57,7 @@ func MergePoliciesForExposeLevel(restPolicy *openchoreov1alpha1.RESTAPIPolicy, e
 	mergedPolicy := restPolicy.Defaults
 
 	// Apply expose level specific overrides
-	var exposeLevelPolicy *openchoreov1alpha1.RESTPolicyWithConditionals
+	var exposeLevelPolicy *openchoreov1alpha1.RESTPolicy
 	switch exposeLevel {
 	case openchoreov1alpha1.ExposeLevelPublic:
 		exposeLevelPolicy = restPolicy.Public

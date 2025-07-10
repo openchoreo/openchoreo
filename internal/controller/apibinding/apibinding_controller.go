@@ -146,10 +146,10 @@ func (r *Reconciler) makeRelease(rCtx *render.Context) *openchoreov1alpha1.Relea
 	}
 
 	// Generate SecurityPolicy resources
-	securityPolicies := render.SecurityPolicies(rCtx)
-	for _, securityPolicy := range securityPolicies {
-		resources = append(resources, *securityPolicy)
-	}
+	//	securityPolicies := render.SecurityPolicies(rCtx)
+	//	for _, securityPolicy := range securityPolicies {
+	//		resources = append(resources, *securityPolicy)
+	//	}
 
 	// Generate HTTPRouteFilter resources for regex-based path replacement
 	httpRouteFilters := render.HTTPRouteFilters(rCtx)
@@ -158,10 +158,10 @@ func (r *Reconciler) makeRelease(rCtx *render.Context) *openchoreov1alpha1.Relea
 	}
 
 	// Generate BackendTrafficPolicy resources for rate limiting
-	backendTrafficPolicies := render.BackendTrafficPolicies(rCtx)
-	for _, backendTrafficPolicy := range backendTrafficPolicies {
-		resources = append(resources, *backendTrafficPolicy)
-	}
+	//	backendTrafficPolicies := render.BackendTrafficPolicies(rCtx)
+	//	for _, backendTrafficPolicy := range backendTrafficPolicies {
+	//		resources = append(resources, *backendTrafficPolicy)
+	//	}
 
 	release.Spec.Resources = resources
 	return release
