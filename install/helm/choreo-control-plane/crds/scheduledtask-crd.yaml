@@ -40,6 +40,7 @@ spec:
             description: ScheduledTaskSpec defines the desired state of ScheduledTask.
             properties:
               className:
+                default: default
                 description: ClassName is the name of the scheduled task class that
                   provides the scheduled task-specific deployment configuration.
                 type: string

@@ -20,6 +20,7 @@ type WebApplicationSpec struct {
 	// WorkloadName is the name of the workload that this web application is referencing.
 	WorkloadName string `json:"workloadName"`
 	// ClassName is the name of the web application class that provides the web application-specific deployment configuration.
+	// +kubebuilder:default=default
 	ClassName string `json:"className"`
 
 	Overrides map[string]bool `json:"overrides,omitempty"` // TODO: Think about how to structure this

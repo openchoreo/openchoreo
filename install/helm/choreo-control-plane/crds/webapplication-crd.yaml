@@ -40,6 +40,7 @@ spec:
             description: WebApplicationSpec defines the desired state of WebApplication.
             properties:
               className:
+                default: default
                 description: ClassName is the name of the web application class that
                   provides the web application-specific deployment configuration.
                 type: string

@@ -43,6 +43,7 @@ spec:
                 additionalProperties:
                   properties:
                     className:
+                      default: default
                       type: string
                     rest:
                       properties:
@@ -109,6 +110,7 @@ spec:
                   type: object
                 type: object
               className:
+                default: default
                 description: ClassName is the name of the service class that provides
                   the service-specific deployment configuration.
                 type: string

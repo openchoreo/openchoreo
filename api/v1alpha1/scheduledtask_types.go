@@ -20,6 +20,7 @@ type ScheduledTaskSpec struct {
 	// WorkloadName is the name of the workload that this scheduled task is referencing.
 	WorkloadName string `json:"workloadName"`
 	// ClassName is the name of the scheduled task class that provides the scheduled task-specific deployment configuration.
+	// +kubebuilder:default=default
 	ClassName string `json:"className"`
 
 	Overrides map[string]bool `json:"overrides,omitempty"` // TODO: Think about how to structure this
