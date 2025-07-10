@@ -1,0 +1,53 @@
+# Secure Service with JWT Authentication Sample
+# This sample demonstrates how to deploy a service with JWT authentication using the new CRD design
+
+# ComponentV2 - Defines the component metadata
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    projectName: default
+  type: Service
+
+---
+
+# Workload - Defines the developer contract including container configuration and endpoints
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  containers:
+    main:
+      image: ghcr.io/openchoreo/samples/greeter-service:latest
+  endpoints:
+    greeter:
+      protocol: TCP
+      port: 9090
+
+---
+
+# Service - Runtime configuration for the service component
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  workloadName: greeter-service
+  overrides: {}
+  apis:
+    greeter-api:
+      type: REST
+      rest:
+        backend:
+          port: 9090
+          basePath: /greeter
+        exposeLevels: [ "Organization", "Public" ]

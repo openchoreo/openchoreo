@@ -1,0 +1,35 @@
+# Platform Engineer Resources - Classes
+# These resources are typically set up once by the platform team to define templates and policies
+
+# TODO: Move this to the helm installation as default classes
+
+# ServiceClass - Platform Engineer defined template for services
+apiVersion: openchoreo.dev/v1alpha1
+kind: ServiceClass
+metadata:
+  name: default
+spec:
+  deploymentTemplate:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: main
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+  serviceTemplate:
+    type: ClusterIP
+
+---
+
+# APIClass - Platform Engineer defined template for APIs with OAuth security
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default
+spec:
