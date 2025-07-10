@@ -1,7 +1,7 @@
 {{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
 {{- range .Values.choreoDefaultValues.Environments }}
 ---
-apiVersion: openchoreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: {{ .name }}

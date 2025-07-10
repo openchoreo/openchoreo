@@ -5,39 +5,39 @@ choreoDefaultValues:
   enableDefaultOrgAndProject: true
   organization:
     enabled: true
-    name: default-org
+    name: default
     displayName: Default Organization
     description: Getting started with your first organization
   dataPlane:
-    name: default-dataplane
-    namespace: default-org
-    organization: default-org
+    name: default
+    namespace: default
+    organization: default
   Environments:
     - name: development
       displayName: Development
       description: Development environment for testing
-      namespace: default-org
-      organization: default-org
+      namespace: default
+      organization: default
       dnsPrefix: dev
       isCritical: false
     - name: staging
       displayName: Staging
       description: Staging environment for pre-production testing
-      namespace: default-org
-      organization: default-org
+      namespace: default
+      organization: default
       dnsPrefix: staging
       isCritical: false
     - name: production
       displayName: Production
       description: Production environment
-      namespace: default-org
-      organization: default-org
+      namespace: default
+      organization: default
       dnsPrefix: prod
       isCritical: true
   deploymentPipeline:
-    name: default-pipeline
-    namespace: default-org
-    organization: default-org
+    name: default
+    namespace: default
+    organization: default
     displayName: Default Pipeline
     description: Standard deployment pipeline with dev, staging, and prod environments
     promotionOrder:
@@ -52,9 +52,9 @@ choreoDefaultValues:
             - name: production
               requiresApproval: true
   DefaultProject:
-    name: default-project
-    namespace: default-org
-    organization: default-org
+    name: default
+    namespace: default
+    organization: default
     displayName: Default Project
     description: Your first project to get started
 waitJob:

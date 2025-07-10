@@ -1,5 +1,5 @@
 {{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
-apiVersion: openchoreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
   name: {{ .Values.choreoDefaultValues.deploymentPipeline.name }}

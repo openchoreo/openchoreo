@@ -39,5 +39,5 @@ const (
 	// LabelKeyReleaseNamespace tracks the namespace of the release that manages a resource.
 	LabelKeyReleaseNamespace = "openchoreo.dev/release-namespace"
 
-	LabelValueManagedBy = "choreo-control-plane"
+	LabelValueManagedBy = "openchoreo-control-plane"
 )

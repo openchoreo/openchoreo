@@ -1,16 +1,6 @@
 {{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
 ---
-# creating the namespace before creating the organization to avoid the issue
-# of helm installation failure as the organization reconcile delay due to controller startup
-apiVersion: v1
-kind: Namespace
-metadata:
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "7"
-  name: {{ .Values.choreoDefaultValues.organization.name }}
----
-apiVersion: openchoreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Organization
 metadata:
   annotations:

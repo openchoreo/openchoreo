@@ -9,7 +9,7 @@ RESET='\033[0m'
 DEFAULT_CONTEXT="kind-choreo-dp"
 DEFAULT_TARGET_CONTEXT="kind-choreo-cp"
 SERVER_URL=""
-DEFAULT_DATAPLANE_KIND_NAME="default-dataplane"
+DEFAULT_DATAPLANE_KIND_NAME="default"
 
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
@@ -79,10 +79,10 @@ metadata:
     openchoreo.dev/display-name: DataPlane "$DATAPLANE_KIND_NAME"
   labels:
     openchoreo.dev/name: $DATAPLANE_KIND_NAME
-    openchoreo.dev/organization: default-org
+    openchoreo.dev/organization: default
     openchoreo.dev/build-plane: "true"
   name: $DATAPLANE_KIND_NAME
-  namespace: default-org
+  namespace: default
 spec:
   registry:
     unauthenticated:
@@ -99,7 +99,7 @@ spec:
       clientKey: $CLIENT_KEY
 EOF
 then
-    echo -e "\n${GREEN}DataPlane applied to 'default-org' successfully!${RESET}"
+    echo -e "\n${GREEN}DataPlane applied to 'default' successfully!${RESET}"
 else
     echo -e "\n${RED}Failed to apply DataPlane manifest to context: $TARGET_CONTEXT${RESET}"
     exit 1

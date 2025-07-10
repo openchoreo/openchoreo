@@ -11,7 +11,7 @@ webhooks:
       name: webhook-service
       namespace: system
       path: /mutate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Fail
+  failurePolicy: Ignore # TODO: Change to Fail after implementing the webhook logic
   name: mproject-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -37,7 +37,7 @@ webhooks:
       name: webhook-service
       namespace: system
       path: /validate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Fail
+  failurePolicy: Ignore # TODO: Change to Fail after implementing the webhook logic
   name: vproject-v1alpha1.kb.io
   rules:
   - apiGroups:

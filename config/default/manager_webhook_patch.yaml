@@ -11,6 +11,9 @@ spec:
     spec:
       containers:
       - name: manager
+        env:
+          - name: ENABLE_WEBHOOKS
+            value: "false"  # TODO: Temporarily disable webhooks until the webhook server is ready
         ports:
         - containerPort: 9443
           name: webhook-server

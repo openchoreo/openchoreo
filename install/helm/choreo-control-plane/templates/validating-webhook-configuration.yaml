@@ -14,7 +14,7 @@ webhooks:
       name: '{{ include "choreo-control-plane.fullname" . }}-webhook-service'
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Fail
+  failurePolicy: Ignore
   name: vproject-v1alpha1.kb.io
   rules:
   - apiGroups:

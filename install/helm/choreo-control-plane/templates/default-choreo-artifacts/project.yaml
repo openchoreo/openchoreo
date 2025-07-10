@@ -1,5 +1,5 @@
 {{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
-apiVersion: openchoreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   name: {{ .Values.choreoDefaultValues.DefaultProject.name }}
