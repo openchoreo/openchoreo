@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: buildv2s.core.choreo.dev
+  name: buildv2s.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: BuildV2
     listKind: BuildV2List
@@ -14,7 +14,7 @@ spec:
     singular: buildv2
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: BuildV2 is the Schema for the buildv2s API.
@@ -44,15 +44,11 @@ spec:
                   componentName:
                     minLength: 1
                     type: string
-                  organizationName:
-                    minLength: 1
-                    type: string
                   projectName:
                     minLength: 1
                     type: string
                 required:
                 - componentName
-                - organizationName
                 - projectName
                 type: object
               repository:

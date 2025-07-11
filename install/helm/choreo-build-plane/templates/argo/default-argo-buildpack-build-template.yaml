@@ -12,23 +12,26 @@ spec:
         value: gcr.io/buildpacks/builder:google-22
       - name: run-image
         value: gcr.io/buildpacks/google-22/run:latest
+      - name: commit
+        value: ""
   templates:
     - name: build-workflow
       steps:
         - - name: clone-step
             template: clone-step
-        - - arguments:
-              parameters:
-                - name: git-revision
-                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-            name: build-step
+        - - name: build-step
             template: build-step
-        - - arguments:
+            arguments:
               parameters:
                 - name: git-revision
                   value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-            name: push-step
+        - - name: push-step
             template: push-step
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
+
     - name: clone-step
       outputs:
         parameters:

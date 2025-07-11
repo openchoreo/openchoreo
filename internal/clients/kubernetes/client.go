@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	choreov1 "github.com/openchoreo/openchoreo/api/v1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
@@ -35,7 +35,7 @@ func NewManager() *KubeMultiClientManager {
 
 func init() {
 	_ = scheme.AddToScheme(scheme.Scheme)
-	_ = choreov1.AddToScheme(scheme.Scheme)
+	_ = openchoreov1alpha1.AddToScheme(scheme.Scheme)
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
 	_ = gwapiv1.Install(scheme.Scheme)
 	_ = egv1a1.AddToScheme(scheme.Scheme)
@@ -44,7 +44,7 @@ func init() {
 }
 
 // GetClient returns an existing Kubernetes client or creates one using the provided credentials.
-func (m *KubeMultiClientManager) GetClient(key string, creds choreov1.APIServerCredentials) (client.Client, error) {
+func (m *KubeMultiClientManager) GetClient(key string, creds openchoreov1alpha1.APIServerCredentials) (client.Client, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -97,7 +97,7 @@ func makeClientKey(orgName, name string) string {
 func GetK8sClient(
 	clientMgr *KubeMultiClientManager,
 	orgName, name string,
-	kubernetesCluster choreov1.KubernetesClusterSpec,
+	kubernetesCluster openchoreov1alpha1.KubernetesClusterSpec,
 ) (client.Client, error) {
 	key := makeClientKey(orgName, name)
 	cl, err := clientMgr.GetClient(key, kubernetesCluster.Credentials)

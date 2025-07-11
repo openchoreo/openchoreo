@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: buildplanes.core.choreo.dev
+  name: buildplanes.openchoreo.dev
 spec:
-  group: core.choreo.dev
+  group: openchoreo.dev
   names:
     kind: BuildPlane
     listKind: BuildPlaneList
@@ -14,7 +14,7 @@ spec:
     singular: buildplane
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: BuildPlane is the Schema for the buildplanes API.

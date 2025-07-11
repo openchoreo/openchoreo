@@ -10,23 +10,25 @@ spec:
     parameters:
       - name: branch
         value: main
+      - name: commit
+        value: ""
   templates:
     - name: build-workflow
       steps:
         - - name: clone-step
             template: clone-step
-        - - arguments:
-              parameters:
-                - name: git-revision
-                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-            name: build-step
+        - - name: build-step
             template: build-step
-        - - arguments:
+            arguments:
               parameters:
                 - name: git-revision
                   value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-            name: push-step
+        - - name: push-step
             template: push-step
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
     - name: clone-step
       outputs:
         parameters:

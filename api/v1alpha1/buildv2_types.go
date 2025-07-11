@@ -51,8 +51,6 @@ type Parameter struct {
 
 type BuildOwner struct {
 	// +kubebuilder:validation:MinLength=1
-	OrganizationName string `json:"organizationName"`
-	// +kubebuilder:validation:MinLength=1
 	ProjectName string `json:"projectName"`
 	// +kubebuilder:validation:MinLength=1
 	ComponentName string `json:"componentName"`

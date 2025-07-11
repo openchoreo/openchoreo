@@ -6,13 +6,13 @@ metadata:
   {{- include "choreo-control-plane.labels" . | nindent 4 }}
 rules:
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - buildv2s
   verbs:
   - '*'
 - apiGroups:
-  - core.choreo.dev
+  - openchoreo.dev
   resources:
   - buildv2s/status
   verbs:

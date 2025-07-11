@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1"
+	corev1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // BuildPlaneReconciler reconciles a BuildPlane object
@@ -20,9 +20,9 @@ type BuildPlaneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=buildplanes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=buildplanes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core.choreo.dev,resources=buildplanes/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildplanes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildplanes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildplanes/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -67,15 +67,12 @@ fi
 echo -e "\nApplying BuildPlane to context: $TARGET_CONTEXT"
 
 if kubectl --context="$TARGET_CONTEXT" apply -f - <<EOF
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
   annotations:
-    core.choreo.dev/description: BuildPlane "$BUILDPLANE_KIND_NAME" was created through the script.
-    core.choreo.dev/display-name: BuildPlane "$BUILDPLANE_KIND_NAME"
-  labels:
-    core.choreo.dev/name: $BUILDPLANE_KIND_NAME
-    core.choreo.dev/organization: default-org
+    openchoreo.dev/description: BuildPlane "$BUILDPLANE_KIND_NAME" was created through the script.
+    openchoreo.dev/display-name: BuildPlane "$BUILDPLANE_KIND_NAME"
   name: $BUILDPLANE_KIND_NAME
   namespace: default-org
 spec:
