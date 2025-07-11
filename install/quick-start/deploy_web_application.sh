@@ -14,7 +14,7 @@ else
 fi
 
 YAML_FILE="react-starter.yaml"
-NAMESPACE="default-org"
+NAMESPACE="default"
 ENDPOINT_PREFIX="react-starter-image-deployment-webapp"
 
 # Apply the YAML file

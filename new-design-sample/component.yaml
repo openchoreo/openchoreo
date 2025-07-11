@@ -4,7 +4,7 @@ metadata:
   name: reading-list-service
 spec:
   owner:
-    projectName: default-project
+    projectName: default
 
   # Defines how to create the artifact
   #  build:
@@ -97,7 +97,7 @@ metadata:
 spec:
   owner:
     componentName: reading-list-service
-    projectName: default-project
+    projectName: default
   workloadName: reading-list-service
   className: go-service-standard
   overrides: { }
@@ -190,7 +190,7 @@ metadata:
 spec:
   owner:
     componentName: reading-list-service
-    projectName: default-project
+    projectName: default
   environment: development
   workload:
     className: go-service-standard
@@ -272,7 +272,7 @@ metadata:
 spec:
   owner:
     componentName: reading-list-service
-    projectName: default-project
+    projectName: default
   className: go-task-standard
   workloadName: reading-list-service-workload
   override:

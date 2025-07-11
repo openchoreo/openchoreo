@@ -9,7 +9,7 @@ RESET='\033[0m'
 DEFAULT_CONTEXT="kind-choreo-bp"
 DEFAULT_TARGET_CONTEXT="kind-choreo"
 SERVER_URL=""
-DEFAULT_BUILDPLANE_KIND_NAME="default-buildplane"
+DEFAULT_BUILDPLANE_KIND_NAME="default"
 
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
@@ -74,7 +74,7 @@ metadata:
     openchoreo.dev/description: BuildPlane "$BUILDPLANE_KIND_NAME" was created through the script.
     openchoreo.dev/display-name: BuildPlane "$BUILDPLANE_KIND_NAME"
   name: $BUILDPLANE_KIND_NAME
-  namespace: default-org
+  namespace: default
 spec:
   kubernetesCluster:
     name: $CLUSTER_NAME
@@ -85,7 +85,7 @@ spec:
       clientKey: $CLIENT_KEY
 EOF
 then
-    echo -e "\n${GREEN}BuildPlane applied to 'default-org' successfully!${RESET}"
+    echo -e "\n${GREEN}BuildPlane applied to 'default' successfully!${RESET}"
 else
     echo -e "\n${RED}Failed to apply BuildPlane manifest to context: $TARGET_CONTEXT${RESET}"
     exit 1

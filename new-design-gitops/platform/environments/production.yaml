@@ -6,7 +6,7 @@ metadata:
     openchoreo.dev/display-name: Production
   labels:
     openchoreo.dev/name: production
-    openchoreo.dev/organization: default-org
+    openchoreo.dev/organization: default
   name: production
   namespace: default
 spec:

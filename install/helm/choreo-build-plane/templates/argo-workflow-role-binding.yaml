@@ -9,4 +9,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: argo-workflow-sa
-    namespace: choreo-ci-default-org
+    namespace: choreo-ci-default

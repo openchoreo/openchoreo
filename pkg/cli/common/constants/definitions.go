@@ -480,7 +480,7 @@ If no organization is specified, you will be prompted to select one interactivel
   choreoctl get deploymentpipeline --organization acme-corp
 
   # List a specific deployment pipeline
-  choreoctl get deploymentpipeline default-pipeline --organization acme-corp
+  choreoctl get deploymentpipeline default --organization acme-corp
 
   # Output deployment pipeline details in YAML format
   choreoctl get deploymentpipeline --organization acme-corp -o yaml`,

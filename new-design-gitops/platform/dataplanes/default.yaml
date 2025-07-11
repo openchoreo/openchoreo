@@ -3,7 +3,7 @@ kind: DataPlane
 metadata:
   labels:
     openchoreo.dev/name: default
-    openchoreo.dev/organization: default-org
+    openchoreo.dev/organization: default
   name: default
   namespace: default
 spec:

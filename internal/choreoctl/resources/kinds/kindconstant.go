@@ -263,5 +263,5 @@ const (
 
 // Deployment pipelines
 const (
-	DefaultDeploymentPipeline = "default-pipeline"
+	DefaultDeploymentPipeline = "default"
 )

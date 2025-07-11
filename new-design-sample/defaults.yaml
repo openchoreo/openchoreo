@@ -6,7 +6,7 @@ metadata:
     openchoreo.dev/display-name: Development
   labels:
     openchoreo.dev/name: development
-    openchoreo.dev/organization: default-org
+    openchoreo.dev/organization: default
   name: development
   namespace: default
 spec:

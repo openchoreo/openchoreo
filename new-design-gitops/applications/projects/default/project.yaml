@@ -5,8 +5,8 @@ metadata:
     openchoreo.dev/description: Your first project to get started
     openchoreo.dev/display-name: Default Project
   labels:
-    openchoreo.dev/name: default-project
-    openchoreo.dev/organization: default-org
-  name: default-project
+    openchoreo.dev/name: default
+    openchoreo.dev/organization: default
+  name: default
 spec:
   deploymentPipelineRef: default

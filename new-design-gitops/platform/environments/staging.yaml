@@ -6,7 +6,7 @@ metadata:
     openchoreo.dev/display-name: Staging
   labels:
     openchoreo.dev/name: staging
-    openchoreo.dev/organization: default-org
+    openchoreo.dev/organization: default
   name: staging
   namespace: default
 spec:

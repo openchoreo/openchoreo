@@ -7,5 +7,5 @@ resources:
 
 labels:
   - pairs:
-      choreo.dev/project: default-project
+      choreo.dev/project: default
       choreo.dev/environment: production

@@ -455,11 +455,11 @@ type DefaultContextValues struct {
 func getDefaultContextValues() DefaultContextValues {
 	return DefaultContextValues{
 		ContextName:  getEnvOrDefault("CHOREO_DEFAULT_CONTEXT", "default"),
-		Organization: getEnvOrDefault("CHOREO_DEFAULT_ORG", "default-org"),
-		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default-project"),
-		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default-dataplane"),
+		Organization: getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
+		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
+		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
-		ClusterName:  getEnvOrDefault("CHOREO_DEFAULT_CLUSTER", "default-cluster"),
+		ClusterName:  getEnvOrDefault("CHOREO_DEFAULT_CLUSTER", "default"),
 	}
 }
 

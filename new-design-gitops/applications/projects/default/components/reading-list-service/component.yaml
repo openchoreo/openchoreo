@@ -2,7 +2,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
   name: reading-list-service
-#  namespace: default-org
+#  namespace: default
 spec:
   # Defines how to create the artifact
   #  build:
@@ -17,7 +17,7 @@ spec:
   #      - name: CGO_ENABLED
   #        value: "0"
   owner:
-    projectName: default-project
+    projectName: default
 
   # Defines how the component is configured during deployment
   workload:

@@ -125,7 +125,7 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 	// Set default deployment pipeline if not provided
 	deploymentPipeline := req.DeploymentPipeline
 	if deploymentPipeline == "" {
-		deploymentPipeline = "default-pipeline"
+		deploymentPipeline = "default"
 	}
 
 	return &openchoreov1alpha1.Project{
