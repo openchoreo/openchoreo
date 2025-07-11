@@ -1,4 +1,3 @@
-{{- if .Values.certmanager.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -10,4 +9,3 @@ metadata:
   {{- include "choreo-dataplane.labels" . | nindent 4 }}
 spec:
   selfSigned: {}
-{{- end }}

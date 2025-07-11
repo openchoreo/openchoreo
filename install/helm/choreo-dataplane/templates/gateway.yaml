@@ -1,4 +1,3 @@
-{{- if .Values.gateway.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
@@ -79,4 +78,3 @@ spec:
     kubernetes:
       envoyService:
         name: choreo-external-gateway
-{{- end }}

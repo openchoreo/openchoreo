@@ -1,4 +1,4 @@
-{{- if and .Values.observability.logging.enabled .Values.observability.logging.publishers.fluentbit.enabled }}
+{{- if .Values.observability.logging.publishers.fluentbit.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

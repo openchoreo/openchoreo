@@ -106,8 +106,7 @@ registry:
     size: 2Gi
 
 # customizing the envoy gateway configurations
-gateway:
-  enabled: true
+gateway-helm:
   config:
     envoyGateway:
       rateLimit:
