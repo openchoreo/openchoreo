@@ -386,8 +386,8 @@ func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*ope
 	)
 }
 
-func GetBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*choreov1.BuildPlane, error) {
-	buildPlaneList := &choreov1.BuildPlaneList{}
+func GetBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.BuildPlane, error) {
+	buildPlaneList := &openchoreov1alpha1.BuildPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 	}
@@ -401,7 +401,7 @@ func GetBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*ch
 		return &buildPlaneList.Items[0], nil
 	}
 
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&choreov1.BuildPlane{}, GetName(obj)),
-		objWithName(&choreov1.Organization{}, GetOrganizationName(obj)),
+	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.BuildPlane{}, GetName(obj)),
+		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
 	)
 }

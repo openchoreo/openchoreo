@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // BuildPlaneReconciler reconciles a BuildPlane object
@@ -44,7 +44,7 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BuildPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.BuildPlane{}).
+		For(&openchoreov1alpha1.BuildPlane{}).
 		Named("buildplane").
 		Complete(r)
 }

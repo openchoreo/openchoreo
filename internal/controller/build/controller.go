@@ -250,10 +250,10 @@ func (r *Reconciler) retrieveDataplanes(ctx context.Context, envs []*openchoreov
 //	return registriesWithSecrets, noAuthRegistriesList
 //}
 //
-// f// func convertToImagePushSecrets(registriesWithSecrets map[string]string) []choreov1.ImagePushSecret {	imagePushSecrets := make([]choreov1.ImagePushSecret, 0, len(registriesWithSecrets))
+// f// func convertToImagePushSecrets(registriesWithSecrets map[string]string) []openchoreov1alpha1.ImagePushSecret {	imagePushSecrets := make([]openchoreov1alpha1.ImagePushSecret, 0, len(registriesWithSecrets))
 //
 //	for name, prefix := range registriesWithSecrets {
-//		imagePushSecrets = append(imagePushSecrets, choreov1.ImagePushSecret{
+//		imagePushSecrets = append(imagePushSecrets, openchoreov1alpha1.ImagePushSecret{
 //			Name:   name,
 //			Prefix: prefix,
 //		})
@@ -448,7 +448,7 @@ func (r *Reconciler) reconcileExternalResources(
 //
 //// shouldIgnoreReconcile checks whether the reconcile loop should be continued.
 //// Reconciliation should be avoided if the build is in a final state.
-// f// func shouldIgnoreReconcile(build *choreov1.Build) bool {	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
+// f// func shouldIgnoreReconcile(build *openchoreov1alpha1.Build) bool {	if completedCondition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionCompleted)); completedCondition != nil && completedCondition.Reason != string(ReasonBuildInProgress) {
 //		return true
 //	}
 //	return false
@@ -457,11 +457,11 @@ func (r *Reconciler) reconcileExternalResources(
 //// shouldCreateDeployableArtifact represents whether the deployable artifact should be created.
 //// Deployable artifact should be created when the workflow is completed successfully and when the deployable artifact
 //// does not exist.
-// func shouldCreateDeployableArtifact(build *choreov1.Build) bool {
+// func shouldCreateDeployableArtifact(build *openchoreov1alpha1.Build) bool {
 //	return meta.FindStatusCondition(build.Status.Conditions, string(ConditionDeployableArtifactCreated)) == nil
 //}
 //
-//func isBuildWorkflowRunning(build *choreov1.Build) bool {
+//func isBuildWorkflowRunning(build *openchoreov1alpha1.Build) bool {
 //	stepConditions := []controller.ConditionType{
 //		ConditionCloneStepSucceeded,
 //		ConditionBuildStepSucceeded,
@@ -487,13 +487,13 @@ func (r *Reconciler) reconcileExternalResources(
 //	return false
 //}
 //
-//func isBuildStepRunning(build *choreov1.Build) bool {
+//func isBuildStepRunning(build *openchoreov1alpha1.Build) bool {
 //	condition := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildStepSucceeded))
 //	return condition != nil && condition.Reason == string(ReasonStepInProgress)
 //}
 //
 //// handleRequeueAfterBuild manages the requeue process after a build step.
-//func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *choreov1.Build) (ctrl.Result, error) {
+//func (r *Reconciler) handleRequeueAfterBuild(ctx context.Context, old, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
 //	// Check if the build step is running and has not yet succeeded.
 //	if isBuildStepRunning(build) {
 //		// Requeue after 20 seconds to provide a controlled interval instead of exponential backoff.
@@ -503,7 +503,7 @@ func (r *Reconciler) reconcileExternalResources(
 //	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, old, build)
 //}
 //
-//func (r *Reconciler) handleBuildSteps(build *choreov1.Build, nodes argoproj.Nodes) bool {
+//func (r *Reconciler) handleBuildSteps(build *openchoreov1alpha1.Build, nodes argoproj.Nodes) bool {
 //	steps := []struct {
 //		stepName      integrations.BuildWorkflowStep
 //		conditionType controller.ConditionType

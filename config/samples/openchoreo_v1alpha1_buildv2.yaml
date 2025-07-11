@@ -1,4 +1,4 @@
-apiVersion: openchoreo.openchoreo.dev
+apiVersion: openchoreo.dev/v1alpha1
 kind: BuildV2
 metadata:
   labels:

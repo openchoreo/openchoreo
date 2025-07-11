@@ -212,7 +212,7 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: core.choreo.dev/noderole
+              - key: openchoreo.dev/noderole
                 operator: In
                 values:
                   - workflow-runner

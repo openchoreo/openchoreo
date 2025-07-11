@@ -187,7 +187,7 @@ func (r *Reconciler) makeCommitRequestSpec(message string, files []openchoreov1a
 		Message: message,
 		Author: openchoreov1alpha1.GitCommitAuthor{
 			Name:  "OpenChoreo",
-			Email: "controller@choreo.dev",
+			Email: "controller@openchoreo.dev",
 		},
 		AuthSecretRef: "git-credentials",
 		Files:         files,

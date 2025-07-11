@@ -1,4 +1,4 @@
-apiVersion: openchoreo.openchoreo.devalpha1
+apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
   labels:

@@ -18,7 +18,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	corev1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -44,7 +44,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	var err error
-	err = corev1.AddToScheme(scheme.Scheme)
+	err = openchoreov1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

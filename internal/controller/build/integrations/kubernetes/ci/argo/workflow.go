@@ -256,7 +256,7 @@ package argo
 //					{
 //						MatchExpressions: []corev1.NodeSelectorRequirement{
 //							{
-//								Key:      "core.choreo.dev/noderole",
+//								Key:      "openchoreo.dev/noderole",
 //								Operator: corev1.NodeSelectorOpIn,
 //								Values:   []string{"workflow-runner"},
 //							},
@@ -288,33 +288,33 @@ package argo
 //	}
 //}
 //
-//func getDockerContext(buildObj *choreov1.Build) string {
+//func getDockerContext(buildObj *openchoreov1alpha1.Build) string {
 //	if buildObj.Spec.BuildConfiguration.Docker.Context != "" {
 //		return buildObj.Spec.BuildConfiguration.Docker.Context
 //	}
 //	return buildObj.Spec.Path
 //}
 //
-//func getDockerfilePath(buildObj *choreov1.Build) string {
+//func getDockerfilePath(buildObj *openchoreov1alpha1.Build) string {
 //	if buildObj.Spec.BuildConfiguration.Docker.DockerfilePath != "" {
 //		return buildObj.Spec.BuildConfiguration.Docker.DockerfilePath
 //	}
 //	return "Dockerfile"
 //}
 //
-//func getLanguageVersion(buildObj *choreov1.Build) string {
+//func getLanguageVersion(buildObj *openchoreov1alpha1.Build) string {
 //	version := buildObj.Spec.BuildConfiguration.Buildpack.Version
 //	if version == "" {
 //		return ""
 //	}
 //	switch buildObj.Spec.BuildConfiguration.Buildpack.Name {
-//	case choreov1.BuildpackGo:
+//	case openchoreov1alpha1.BuildpackGo:
 //		return fmt.Sprintf("--env GOOGLE_GO_VERSION=%q", version)
-//	case choreov1.BuildpackNodeJS:
+//	case openchoreov1alpha1.BuildpackNodeJS:
 //		return fmt.Sprintf("--env GOOGLE_NODEJS_VERSION=%s", version)
-//	case choreov1.BuildpackPython:
+//	case openchoreov1alpha1.BuildpackPython:
 //		return fmt.Sprintf("--env GOOGLE_PYTHON_VERSION=%q", version)
-//	case choreov1.BuildpackPHP:
+//	case openchoreov1alpha1.BuildpackPHP:
 //		// Handled separately by generating composer.json
 //		return ""
 //	default:
@@ -344,7 +344,7 @@ package argo
 //	}
 //}
 //
-//func generateBuildArgs(buildObj *choreov1.Build, imageName string) []string {
+//func generateBuildArgs(buildObj *openchoreov1alpha1.Build, imageName string) []string {
 //	baseScript := `set -e
 //
 //mkdir -p /etc/containers
@@ -360,9 +360,9 @@ package argo
 //	var buildScript string
 //
 //	if buildObj.Spec.BuildConfiguration.Buildpack != nil {
-//		if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackReact {
+//		if buildObj.Spec.BuildConfiguration.Buildpack.Name == openchoreov1alpha1.BuildpackReact {
 //			buildScript = makeReactBuildScript(buildObj.Spec.BuildConfiguration.Buildpack.Version, buildObj.Spec.Path, imageName)
-//		} else if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackBallerina {
+//		} else if buildObj.Spec.BuildConfiguration.Buildpack.Name == openchoreov1alpha1.BuildpackBallerina {
 //			buildScript = makeBuildpackBuildScript(buildObj, imageName, true)
 //		} else {
 //			buildScript = makeBuildpackBuildScript(buildObj, imageName, false)
@@ -426,7 +426,7 @@ package argo
 //echo -n "%s-$GIT_REVISION" > /tmp/image.txt`, tagList, pushList, imageName)
 //}
 //
-//func makeDockerfileBuildScript(build *choreov1.Build, imageName string) string {
+//func makeDockerfileBuildScript(build *openchoreov1alpha1.Build, imageName string) string {
 //	return fmt.Sprintf(`
 //podman build -t %s-{{inputs.parameters.git-revision}} -f /mnt/vol/source%s /mnt/vol/source%s
 //podman save -o /mnt/vol/app-image.tar %s-{{inputs.parameters.git-revision}}`, imageName, getDockerfilePath(build), getDockerContext(build), imageName)
@@ -452,7 +452,7 @@ package argo
 //	)
 //}
 //
-//func makeBuildpackBuildScript(buildObj *choreov1.Build, imageName string, isBallerina bool) string {
+//func makeBuildpackBuildScript(buildObj *openchoreov1alpha1.Build, imageName string, isBallerina bool) string {
 //	baseScript := `
 //podman system service --time=0 &
 //until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q "true"; do
@@ -489,8 +489,8 @@ package argo
 //		imageName, path, imageName)
 //}
 //
-//func makePHPVersionSetup(buildObj *choreov1.Build) string {
-//	if buildObj.Spec.BuildConfiguration.Buildpack.Name == choreov1.BuildpackPHP {
+//func makePHPVersionSetup(buildObj *openchoreov1alpha1.Build) string {
+//	if buildObj.Spec.BuildConfiguration.Buildpack.Name == openchoreov1alpha1.BuildpackPHP {
 //		buildPath := fmt.Sprintf("/mnt/vol/source%s", buildObj.Spec.Path)
 //		version := buildObj.Spec.BuildConfiguration.Buildpack.Version
 //		return fmt.Sprintf(`
@@ -509,7 +509,7 @@ package argo
 //	return ""
 //}
 //
-//func makeGoogleBuildpackBuildScript(imageName string, buildObj *choreov1.Build) string {
+//func makeGoogleBuildpackBuildScript(imageName string, buildObj *openchoreov1alpha1.Build) string {
 //	phpVersionSetup := makePHPVersionSetup(buildObj)
 //
 //	return fmt.Sprintf(`
