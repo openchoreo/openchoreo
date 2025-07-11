@@ -1,4 +1,3 @@
-{{- if .Values.observability.logging.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -87,4 +86,3 @@ spec:
         requests:
           storage: {{ .Values.opensearch.persistence.size }}
   {{- end }}
-{{- end }}

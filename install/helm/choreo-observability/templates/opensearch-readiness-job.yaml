@@ -1,4 +1,3 @@
-{{- if .Values.observability.logging.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -30,4 +29,3 @@ spec:
           done
           echo "OpenSearch is ready!"
           curl -s http://{{ include "choreo-observability.fullname" . }}-opensearch:9200/_cluster/health
-{{- end }}

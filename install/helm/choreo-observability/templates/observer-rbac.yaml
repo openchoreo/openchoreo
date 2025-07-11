@@ -1,26 +1,21 @@
-{{- if .Values.observability.logging.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: choreo-observer
+  name: {{ include "choreo-observability.fullname" . }}-observer
   namespace: {{ .Release.Namespace }}
   labels:
-    app: choreo-observer
-    app.kubernetes.io/name: choreo-observer
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: observability
+    {{- include "choreo-observability.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observer
 automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: choreo-observer-opensearch
+  name: {{ include "choreo-observability.fullname" . }}-observer-opensearch
   namespace: {{ .Release.Namespace }}
   labels:
-    app: choreo-observer
-    app.kubernetes.io/name: choreo-observer
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: observability
+    {{- include "choreo-observability.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observer
 type: Opaque
 data:
   username: {{ if .Values.observer.opensearch }}{{ .Values.observer.opensearch.username | default "admin" | b64enc }}{{ else }}{{ "admin" | b64enc }}{{ end }}
@@ -45,4 +40,3 @@ spec:
     name: http
   selector:
     app: choreo-observer
-{{- end }}

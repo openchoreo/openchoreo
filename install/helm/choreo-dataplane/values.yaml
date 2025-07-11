@@ -187,47 +187,6 @@ observability:
       fluentbit:
         enabled: true
 
-# OpenSearch configuration for connecting to observability plane
-opensearch:
-  mode: "internal"  # Choose: "internal" or "external"
-  
-  # Internal OpenChoreo OpenSearch  
-  internal:
-    deployment: "sameCluster"  # Choose: "sameCluster" or "differentCluster"
-    
-    # Same cluster configuration
-    sameCluster:
-      releaseName: "choreo-observability-plane"
-      namespace: "choreo-system" 
-      serviceSuffix: "opensearch"
-      port: "9200"
-      username: "admin"
-      password: "admin"
-      
-    # Different cluster configuration  
-    differentCluster:
-      host: "localhost"  # or node IP
-      port: "30920"      # NodePort
-      username: "admin"
-      password: "admin"
-      
-  # External (non-OpenChoreo) OpenSearch
-  external:
-    host: ""             # External OpenSearch host
-    port: "9200"
-    username: "admin"
-    password: "admin"
-    tls: false
-    tlsVerify: false
-  
-  # Legacy configuration for FluentBit template compatibility
-  service:
-    httpPort: 9200
-    nameSuffix: "opensearch"
-  
-  credentials:
-    username: "admin"
-    password: "admin"
 
 # Customizing Fluent Bit configurations
 fluentBit:
@@ -269,19 +228,24 @@ fluentBit:
     output:
       name: opensearch
       match: "kube.*"
-      # host: constructed in fluent-bit template using nameSuffix
-      port: "{{ .Values.opensearch.service.httpPort }}"
       index: kubernetes_cluster
       type: flb_type
       logstashFormat: true
       logstashPrefix: kubernetes
       timeKey: "@timestamp"
       traceError: true
-      httpUser: "{{ .Values.opensearch.credentials.username }}"
-      httpPasswd: "{{ .Values.opensearch.credentials.password }}"
+      suppressTypeName: true
+    
+    # OpenSearch connection configuration
+    opensearch:
+      host: "choreo-observability-plane-opensearch.choreo-system.svc.cluster.local"
+      port: "9200"
+      authentication:
+        basicauth:
+          username: "admin"
+          password: "admin"
       tls: false
       tlsVerify: false
-      suppressTypeName: true
     
     parser:
       name: docker

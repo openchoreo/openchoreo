@@ -1,28 +1,24 @@
-{{- if .Values.observability.logging.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: choreo-observer
+  name: {{ include "choreo-observability.fullname" . }}-observer
   namespace: {{ .Release.Namespace }}
   labels:
-    app: choreo-observer
-    app.kubernetes.io/name: choreo-observer
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: observability
+    {{- include "choreo-observability.labels" . | nindent 4 }}
+    app.kubernetes.io/component: observer
 spec:
   replicas: {{ .Values.observer.replicas | default 1 }}
   selector:
     matchLabels:
-      app: choreo-observer
+      {{- include "choreo-observability.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: observer
   template:
     metadata:
       labels:
-        app: choreo-observer
-        app.kubernetes.io/name: choreo-observer
-        app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: observability
+        {{- include "choreo-observability.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: observer
     spec:
-      serviceAccountName: choreo-observer
+      serviceAccountName: {{ include "choreo-observability.fullname" . }}-observer
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -68,12 +64,12 @@ spec:
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
-              name: choreo-observer-opensearch
+              name: {{ include "choreo-observability.fullname" . }}-observer-opensearch
               key: username
         - name: OPENSEARCH_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: choreo-observer-opensearch
+              name: {{ include "choreo-observability.fullname" . }}-observer-opensearch
               key: password
         livenessProbe:
           httpGet:
@@ -110,4 +106,3 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 65532
-{{- end }}

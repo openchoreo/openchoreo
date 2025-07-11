@@ -40,7 +40,7 @@ redis:
 
 # customizing the cert-manager configurations
 certmanager:
-  enabled: false
+  enabled: true
   crds:
     enabled: true
   # -- Resource limits and requests for the cert-manager controller
@@ -70,11 +70,6 @@ certmanager:
         cpu: 50m
         memory: 64Mi
 
-# Customizing overall observability configurations
-observability:
-  logging:
-    enabled: true
-
 # Customizing OpenSearch configurations
 opensearch:
   image:
@@ -97,9 +92,10 @@ opensearch:
     memoryLock: false
     disableSecurity: true
   
-  credentials:
-    username: admin
-    password: admin
+  authentication:
+    basicauth:
+      username: admin
+      password: admin
   
   resources:
     limits:
@@ -150,8 +146,8 @@ observer:
   opensearch:
     # References the OpenSearch configuration above
     # address: constructed in observer-deployment.yaml template
-    username: "{{ .Values.opensearch.credentials.username }}"
-    password: "{{ .Values.opensearch.credentials.password }}"
+    username: "{{ .Values.opensearch.authentication.basicauth.username }}"
+    password: "{{ .Values.opensearch.authentication.basicauth.password }}"
   
   logLevel: info
   
