@@ -5,7 +5,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   labels:
-    app.kubernetes.io/name: choreo
+    app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
   name: selfsigned-issuer
   namespace: system
@@ -19,8 +19,8 @@ metadata:
     app.kubernetes.io/name: certificate
     app.kubernetes.io/instance: serving-cert
     app.kubernetes.io/component: certificate
-    app.kubernetes.io/created-by: choreo
-    app.kubernetes.io/part-of: choreo
+    app.kubernetes.io/created-by: openchoreo
+    app.kubernetes.io/part-of: openchoreo
     app.kubernetes.io/managed-by: kustomize
   name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
   namespace: system
