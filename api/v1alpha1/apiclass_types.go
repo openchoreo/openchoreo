@@ -122,10 +122,15 @@ type RetryPolicy struct {
 
 // CircuitBreakerPolicy defines circuit breaker configuration
 type CircuitBreakerPolicy struct {
-	Enabled          bool   `json:"enabled"`
-	ErrorThreshold   int32  `json:"errorThreshold"`
-	SuccessThreshold int32  `json:"successThreshold"`
-	Timeout          string `json:"timeout"`
+	Enabled bool `json:"enabled"`
+	// +optional
+	MaxConnections *int32 `json:"maxConnections"`
+	// +optional
+	MaxPendingRequests *int32 `json:"maxPendingRequests"`
+	// +optional
+	MaxParallelRequests *int32 `json:"maxParallelRequests"`
+	// +optional
+	MaxParallelRetries *int32 `json:"maxParallelRetries"`
 }
 
 // MonitoringPolicy defines monitoring and logging configuration
