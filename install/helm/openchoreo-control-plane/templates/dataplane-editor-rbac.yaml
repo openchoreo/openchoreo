@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "choreo-control-plane.fullname" . }}-dataplane-editor-role
+  name: {{ include "openchoreo-control-plane.fullname" . }}-dataplane-editor-role
   labels:
-  {{- include "choreo-control-plane.labels" . | nindent 4 }}
+  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - openchoreo.dev
