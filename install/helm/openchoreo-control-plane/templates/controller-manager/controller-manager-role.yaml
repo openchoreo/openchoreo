@@ -1,0 +1,266 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-control-plane.fullname" . }}-{{ .Values.controllerManager.name }}
+  labels:
+  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflows
+  - workflowtaskresults
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.envoyproxy.io
+  resources:
+  - backendtrafficpolicies
+  - httproutefilters
+  - securitypolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - apibindings
+  - apiclasses
+  - apis
+  - buildplanes
+  - builds
+  - buildv2s
+  - components
+  - componentv2s
+  - dataplanes
+  - deployableartifacts
+  - deploymentpipelines
+  - deployments
+  - deploymenttracks
+  - endpointclasses
+  - endpoints
+  - endpointv2s
+  - environments
+  - gitcommitrequests
+  - organizations
+  - projects
+  - releases
+  - scheduledtaskbindings
+  - scheduledtaskclasses
+  - scheduledtasks
+  - servicebindings
+  - serviceclasses
+  - services
+  - webapplicationbindings
+  - webapplicationclasses
+  - webapplications
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - apibindings/finalizers
+  - apiclasses/finalizers
+  - apis/finalizers
+  - buildplanes/finalizers
+  - builds/finalizers
+  - buildv2s/finalizers
+  - components/finalizers
+  - componentv2s/finalizers
+  - dataplanes/finalizers
+  - deployableartifacts/finalizers
+  - deploymentpipelines/finalizers
+  - deployments/finalizers
+  - deploymenttracks/finalizers
+  - endpointclasses/finalizers
+  - endpoints/finalizers
+  - endpointv2s/finalizers
+  - environments/finalizers
+  - gitcommitrequests/finalizers
+  - organizations/finalizers
+  - projects/finalizers
+  - releases/finalizers
+  - scheduledtaskbindings/finalizers
+  - scheduledtaskclasses/finalizers
+  - scheduledtasks/finalizers
+  - servicebindings/finalizers
+  - serviceclasses/finalizers
+  - services/finalizers
+  - webapplicationbindings/finalizers
+  - webapplicationclasses/finalizers
+  - webapplications/finalizers
+  - workloads/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - apibindings/status
+  - apiclasses/status
+  - apis/status
+  - buildplanes/status
+  - builds/status
+  - buildv2s/status
+  - components/status
+  - componentv2s/status
+  - dataplanes/status
+  - deployableartifacts/status
+  - deploymentpipelines/status
+  - deployments/status
+  - deploymenttracks/status
+  - endpointclasses/status
+  - endpoints/status
+  - endpointv2s/status
+  - environments/status
+  - gitcommitrequests/status
+  - organizations/status
+  - projects/status
+  - releases/status
+  - scheduledtaskbindings/status
+  - scheduledtaskclasses/status
+  - scheduledtasks/status
+  - servicebindings/status
+  - serviceclasses/status
+  - services/status
+  - webapplicationbindings/status
+  - webapplicationclasses/status
+  - webapplications/status
+  - workloads/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - configurationgroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - secrets-store.csi.x-k8s.io
+  resources:
+  - secretproviderclasses
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
