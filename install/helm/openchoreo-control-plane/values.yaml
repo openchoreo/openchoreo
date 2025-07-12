@@ -34,7 +34,7 @@ controllerManager:
     runAsNonRoot: true
   replicas: 1
   serviceAccount:
-    annotations: {}
+    annotations: { }
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
@@ -97,8 +97,8 @@ choreoDefaultValues:
             isManualApprovalRequired: true
       - sourceEnvironmentRef: staging
         targetEnvironmentRefs:
-            - name: production
-              requiresApproval: true
+          - name: production
+            requiresApproval: true
   DefaultProject:
     name: default
     namespace: default
@@ -150,4 +150,3 @@ openchoreoApi:
     limits:
       cpu: "500m"
       memory: "512Mi"
-      

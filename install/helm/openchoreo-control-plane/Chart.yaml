@@ -1,6 +1,6 @@
 apiVersion: v2
-name: choreo-control-plane
-description: A Helm chart for openChoreo Control Plane
+name: openchoreo-control-plane
+description: A Helm chart for OpenChoreo Control Plane
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
