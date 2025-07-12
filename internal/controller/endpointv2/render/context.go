@@ -83,9 +83,9 @@ func (c *Context) resolveRESTPolicy() *RESTResolutionResult {
 	}
 
 	// Get default policies from EndpointClass
-	if c.EndpointClass.Spec.RESTPolicy != nil && c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
-		result.DefaultPolicies = &c.EndpointClass.Spec.RESTPolicy.Defaults.RESTPolicy
-	}
+	// if c.EndpointClass.Spec.RESTPolicy != nil && c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
+	//	result.DefaultPolicies = &c.EndpointClass.Spec.RESTPolicy.Defaults.RESTPolicy
+	//}
 
 	// Process each operation in the EndpointV2
 	for _, operation := range c.EndpointV2.Spec.RESTEndpoint.Operations {
@@ -111,48 +111,48 @@ func (c *Context) resolveRESTPolicy() *RESTResolutionResult {
 func (c *Context) resolveRESTOperationPolicy(operation openchoreov1alpha1.RESTEndpointOperation, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) *openchoreov1alpha1.RESTPolicy {
 	// Start with default policy
 	var finalPolicy *openchoreov1alpha1.RESTPolicy
-	if c.EndpointClass.Spec.RESTPolicy != nil && c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
-		finalPolicy = c.EndpointClass.Spec.RESTPolicy.Defaults.RESTPolicy.DeepCopy()
-	} else {
-		finalPolicy = &openchoreov1alpha1.RESTPolicy{}
-	}
-
-	// Apply expose level overrides from EndpointClass
-	if c.EndpointClass.Spec.RESTPolicy != nil {
-		switch exposeLevel {
-		case openchoreov1alpha1.ExposeLevelOrganization:
-			if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
-				finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Organization.RESTPolicy)
-			}
-		case openchoreov1alpha1.ExposeLevelPublic:
-			if c.EndpointClass.Spec.RESTPolicy.Public != nil {
-				finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Public.RESTPolicy)
-			}
-		}
-
-		// Apply conditional policies from EndpointClass based on expose level
-		var conditionalPolicies []openchoreov1alpha1.RESTConditionalPolicy
-		switch exposeLevel {
-		case openchoreov1alpha1.ExposeLevelOrganization:
-			if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
-				conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Organization.ConditionalPolicies
-			}
-		case openchoreov1alpha1.ExposeLevelPublic:
-			if c.EndpointClass.Spec.RESTPolicy.Public != nil {
-				conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Public.ConditionalPolicies
-			}
-		default:
-			if c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
-				conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Defaults.ConditionalPolicies
-			}
-		}
-
-		for _, conditionalPolicy := range conditionalPolicies {
-			if c.matchesCondition(operation, conditionalPolicy.Condition) {
-				finalPolicy = c.mergeRESTPolicy(finalPolicy, conditionalPolicy.Policy)
-			}
-		}
-	}
+	//if c.EndpointClass.Spec.RESTPolicy != nil && c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
+	//	finalPolicy = c.EndpointClass.Spec.RESTPolicy.Defaults.RESTPolicy.DeepCopy()
+	//} else {
+	//	finalPolicy = &openchoreov1alpha1.RESTPolicy{}
+	//}
+	//
+	//// Apply expose level overrides from EndpointClass
+	//if c.EndpointClass.Spec.RESTPolicy != nil {
+	//	switch exposeLevel {
+	//	case openchoreov1alpha1.ExposeLevelOrganization:
+	//		if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
+	//			finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Organization.RESTPolicy)
+	//		}
+	//	case openchoreov1alpha1.ExposeLevelPublic:
+	//		if c.EndpointClass.Spec.RESTPolicy.Public != nil {
+	//			finalPolicy = c.mergeRESTPolicy(finalPolicy, &c.EndpointClass.Spec.RESTPolicy.Public.RESTPolicy)
+	//		}
+	//	}
+	//
+	//	// Apply conditional policies from EndpointClass based on expose level
+	//	var conditionalPolicies []openchoreov1alpha1.RESTConditionalPolicy
+	//	switch exposeLevel {
+	//	case openchoreov1alpha1.ExposeLevelOrganization:
+	//		if c.EndpointClass.Spec.RESTPolicy.Organization != nil {
+	//			conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Organization.ConditionalPolicies
+	//		}
+	//	case openchoreov1alpha1.ExposeLevelPublic:
+	//		if c.EndpointClass.Spec.RESTPolicy.Public != nil {
+	//			conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Public.ConditionalPolicies
+	//		}
+	//	default:
+	//		if c.EndpointClass.Spec.RESTPolicy.Defaults != nil {
+	//			conditionalPolicies = c.EndpointClass.Spec.RESTPolicy.Defaults.ConditionalPolicies
+	//		}
+	//	}
+	//
+	//	for _, conditionalPolicy := range conditionalPolicies {
+	//		if c.matchesCondition(operation, conditionalPolicy.Condition) {
+	//			finalPolicy = c.mergeRESTPolicy(finalPolicy, conditionalPolicy.Policy)
+	//		}
+	//	}
+	//}
 
 	// TODO: Apply EndpointV2-specific policy overrides if they exist in the API
 
