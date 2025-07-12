@@ -100,19 +100,20 @@ spec:
                         properties:
                           enabled:
                             type: boolean
-                          errorThreshold:
+                          maxConnections:
                             format: int32
                             type: integer
-                          successThreshold:
+                          maxParallelRequests:
                             format: int32
                             type: integer
-                          timeout:
-                            type: string
+                          maxParallelRetries:
+                            format: int32
+                            type: integer
+                          maxPendingRequests:
+                            format: int32
+                            type: integer
                         required:
                         - enabled
-                        - errorThreshold
-                        - successThreshold
-                        - timeout
                         type: object
                       cors:
                         description: CORS configuration
@@ -338,19 +339,20 @@ spec:
                         properties:
                           enabled:
                             type: boolean
-                          errorThreshold:
+                          maxConnections:
                             format: int32
                             type: integer
-                          successThreshold:
+                          maxParallelRequests:
                             format: int32
                             type: integer
-                          timeout:
-                            type: string
+                          maxParallelRetries:
+                            format: int32
+                            type: integer
+                          maxPendingRequests:
+                            format: int32
+                            type: integer
                         required:
                         - enabled
-                        - errorThreshold
-                        - successThreshold
-                        - timeout
                         type: object
                       cors:
                         description: CORS configuration
@@ -576,19 +578,20 @@ spec:
                         properties:
                           enabled:
                             type: boolean
-                          errorThreshold:
+                          maxConnections:
                             format: int32
                             type: integer
-                          successThreshold:
+                          maxParallelRequests:
                             format: int32
                             type: integer
-                          timeout:
-                            type: string
+                          maxParallelRetries:
+                            format: int32
+                            type: integer
+                          maxPendingRequests:
+                            format: int32
+                            type: integer
                         required:
                         - enabled
-                        - errorThreshold
-                        - successThreshold
-                        - timeout
                         type: object
                       cors:
                         description: CORS configuration

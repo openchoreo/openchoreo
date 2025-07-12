@@ -107,7 +107,7 @@ spec:
         exposeLevels: [ "Organization", "Public" ]
 ---
 # Defines the APIClass for the REST API exposed by the service.
-apiVersion: core.choreo.dev/v1
+apiVersion: openchoreo.dev/v1alpha1
 kind: APIClass
 metadata:
   name: greeter-service-rest-api-standard
@@ -126,7 +126,7 @@ spec:
         jwt:
           jwks: "https://dev-tfsf6412a2bn011a.us.auth0.com/.well-known/jwks.json"
           issuer: "https://dev-tfsf6412a2bn011a.us.auth0.com/"
-          audience: ["choreo:deployment:production"]
+          audience: ["openchoreo:greeter:service"]
         oauth2:
           scopes: ["greet"]
           tokenUrl: "https://dev-tfsf6412a2bn011a.us.auth0.com/oauth/token"
@@ -146,9 +146,7 @@ spec:
       responseSizeLimit: "50MB"
       circuitBreaker:
         enabled: true
-        errorThreshold: 50
-        successThreshold: 10
-        timeout: "60s"
+        maxConnections: 2
       monitoring:
         metrics:
           enabled: true
