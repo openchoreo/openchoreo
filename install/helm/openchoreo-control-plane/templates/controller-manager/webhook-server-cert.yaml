@@ -3,6 +3,9 @@ kind: Certificate
 metadata:
   name: {{ .Values.controllerManager.name }}-webhook-server-cert
   namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "3"
   labels:
     {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 spec:
@@ -11,5 +14,5 @@ spec:
     - '{{ .Values.controllerManager.name }}-webhook-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer
-    name: '{{ include "openchoreo-control-plane.fullname" . }}-selfsigned-issuer'
+    name: '{{ .Values.controllerManager.name }}-selfsigned-issuer'
   secretName: {{ .Values.controllerManager.name }}-webhook-server-cert

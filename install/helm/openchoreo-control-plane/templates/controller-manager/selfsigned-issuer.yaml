@@ -2,6 +2,9 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ .Values.controllerManager.name }}-selfsigned-issuer
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
   labels:
     {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 spec:

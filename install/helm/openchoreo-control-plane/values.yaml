@@ -2,6 +2,46 @@
 global:
   # Common labels to add to all resources
   commonLabels: {}
+  
+  # Default OpenChoreo resources created during installation
+  defaultResources:
+    enabled: true
+    organization:
+      displayName: Default Organization
+      description: Getting started with your first organization
+    environments:
+      - name: development
+        displayName: Development
+        description: Development environment for testing
+        dnsPrefix: dev
+        isCritical: false
+      - name: staging
+        displayName: Staging
+        description: Staging environment for pre-production testing
+        dnsPrefix: staging
+        isCritical: false
+      - name: production
+        displayName: Production
+        description: Production environment
+        dnsPrefix: prod
+        isCritical: true
+    deploymentPipeline:
+      displayName: Default Pipeline
+      description: Standard deployment pipeline with dev, staging, and prod environments
+      promotionOrder:
+        - sourceEnvironmentRef: development
+          targetEnvironmentRefs:
+            - name: staging
+              requiresApproval: false
+            - name: production
+              isManualApprovalRequired: true
+        - sourceEnvironmentRef: staging
+          targetEnvironmentRefs:
+            - name: production
+              requiresApproval: true
+    project:
+      displayName: Default Project
+      description: Your first project to get started
 
 controllerManager:
   name: controller-manager
@@ -47,62 +87,6 @@ webhookService:
       protocol: TCP
       targetPort: 9443
   type: ClusterIP
-choreoDefaultValues:
-  enableDefaultOrgAndProject: true
-  organization:
-    enabled: true
-    name: default
-    displayName: Default Organization
-    description: Getting started with your first organization
-  dataPlane:
-    name: default
-    namespace: default
-    organization: default
-  Environments:
-    - name: development
-      displayName: Development
-      description: Development environment for testing
-      namespace: default
-      organization: default
-      dnsPrefix: dev
-      isCritical: false
-    - name: staging
-      displayName: Staging
-      description: Staging environment for pre-production testing
-      namespace: default
-      organization: default
-      dnsPrefix: staging
-      isCritical: false
-    - name: production
-      displayName: Production
-      description: Production environment
-      namespace: default
-      organization: default
-      dnsPrefix: prod
-      isCritical: true
-  deploymentPipeline:
-    name: default
-    namespace: default
-    organization: default
-    displayName: Default Pipeline
-    description: Standard deployment pipeline with dev, staging, and prod environments
-    promotionOrder:
-      - sourceEnvironmentRef: development
-        targetEnvironmentRefs:
-          - name: staging
-            requiresApproval: false
-          - name: production
-            isManualApprovalRequired: true
-      - sourceEnvironmentRef: staging
-        targetEnvironmentRefs:
-          - name: production
-            requiresApproval: true
-  DefaultProject:
-    name: default
-    namespace: default
-    organization: default
-    displayName: Default Project
-    description: Your first project to get started
 waitJob:
   image: bitnami/kubectl:latest
 metricsServer:
@@ -124,10 +108,15 @@ openchoreoApi:
       cpu: "500m"
       memory: "512Mi"
 
-certManager:
-  enabled: false
+# Dependency configurations
+
+# Cert-Manager configuration
+cert-manager:
+  enabled: true
+  fullnameOverride: cert-manager
+  nameOverride: cert-manager
   crds:
-    enabled: false
+    enabled: true
   resources:
     requests:
       cpu: 10m

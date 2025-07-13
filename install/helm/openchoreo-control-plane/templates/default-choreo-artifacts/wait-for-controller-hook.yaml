@@ -1,4 +1,4 @@
-{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
+{{ if .Values.global.defaultResources.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -19,10 +19,10 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Waiting for choreo controller to be ready..."
+              echo "Waiting for openchoreo controller to be ready..."
               kubectl wait --namespace {{ .Release.Namespace }} \
               --for=condition=Ready pod \
-              -l app.kubernetes.io/name=choreo-control-plane,control-plane=controller-manager \
+              -l app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager \
               --timeout=900s
       restartPolicy: Never
   backoffLimit: 5

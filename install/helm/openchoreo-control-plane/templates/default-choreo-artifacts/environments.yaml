@@ -1,21 +1,21 @@
-{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
-{{- range .Values.choreoDefaultValues.Environments }}
+{{ if .Values.global.defaultResources.enabled }}
+{{- range .Values.global.defaultResources.environments }}
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
   name: {{ .name }}
-  namespace: {{ .namespace }}
+  namespace: default
   annotations:
     openchoreo.dev/display-name: {{ .displayName }}
     openchoreo.dev/description: {{ .displayName }}
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "9"
   labels:
-    openchoreo.dev/organization: {{ .organization }}
+    openchoreo.dev/organization: default
     openchoreo.dev/name: {{ .name }}
 spec:
-  dataPlaneRef: {{ $.Values.choreoDefaultValues.dataPlane.name }}
+  # dataPlaneRef: default # DataPlane must be created manually
   isProduction: {{ .isCritical }}
   gateway:
     dnsPrefix: {{ .dnsPrefix }}

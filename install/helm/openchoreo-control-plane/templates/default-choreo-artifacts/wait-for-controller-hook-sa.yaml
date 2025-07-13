@@ -1,4 +1,4 @@
-{{ if .Values.choreoDefaultValues.enableDefaultOrgAndProject }}
+{{ if .Values.global.defaultResources.enabled }}
 ---
 apiVersion: v1
 kind: ServiceAccount
