@@ -1,0 +1,781 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: endpoints.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: Endpoint
+    listKind: EndpointList
+    plural: endpoints
+    singular: endpoint
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.address
+      name: Address
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Endpoint is the Schema for the endpoints API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EndpointSpec defines the desired state of Endpoint
+            properties:
+              backendRef:
+                description: BackendRef is the reference to the backend service
+                properties:
+                  basePath:
+                    description: Base path of the upstream service
+                    type: string
+                  componentRef:
+                    description: ComponentRef defines the component reference for
+                      the upstream service
+                    properties:
+                      port:
+                        format: int32
+                        type: integer
+                    required:
+                    - port
+                    type: object
+                  target:
+                    description: Target defines the target service URL for the upstream
+                      service. This is used for proxies
+                    properties:
+                      url:
+                        description: URL of the upstream service
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  type:
+                    description: type of the upstream service
+                    enum:
+                    - componentRef
+                    - target
+                    type: string
+                required:
+                - type
+                type: object
+              networkVisibilities:
+                description: Network visibility levels that the endpoint is exposed
+                properties:
+                  organization:
+                    description: When enabled, the endpoint is accessible to other
+                      services within the same organization.
+                    properties:
+                      enable:
+                        type: boolean
+                      policies:
+                        items:
+                          description: Policy defines an API management policy for
+                            an endpoint
+                          properties:
+                            name:
+                              type: string
+                            policySpec:
+                              description: PolicySpec defines the configuration for
+                                different types of policies
+                              properties:
+                                apiKeyAuth:
+                                  properties:
+                                    keySource:
+                                      properties:
+                                        header:
+                                          type: string
+                                        headerAuthScheme:
+                                          type: string
+                                      required:
+                                      - header
+                                      type: object
+                                    secretRefs:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - keySource
+                                  - secretRefs
+                                  type: object
+                                basicAuth:
+                                  properties:
+                                    header:
+                                      type: string
+                                    headerAuthScheme:
+                                      type: string
+                                    users:
+                                      items:
+                                        properties:
+                                          passwordFromSecret:
+                                            type: string
+                                          username:
+                                            type: string
+                                        required:
+                                        - passwordFromSecret
+                                        - username
+                                        type: object
+                                      type: array
+                                  required:
+                                  - header
+                                  - headerAuthScheme
+                                  - users
+                                  type: object
+                                cors:
+                                  properties:
+                                    allowCredentials:
+                                      type: boolean
+                                    allowHeaders:
+                                      items:
+                                        type: string
+                                      type: array
+                                    allowMethods:
+                                      items:
+                                        type: string
+                                      type: array
+                                    allowOrigins:
+                                      items:
+                                        type: string
+                                      type: array
+                                    exposeHeaders:
+                                      items:
+                                        type: string
+                                      type: array
+                                    maxAge:
+                                      type: integer
+                                  required:
+                                  - allowCredentials
+                                  - allowHeaders
+                                  - allowMethods
+                                  - allowOrigins
+                                  - exposeHeaders
+                                  - maxAge
+                                  type: object
+                                oauth2:
+                                  description: OAuth2PolicySpec defines the configuration
+                                    for OAuth2 policies
+                                  properties:
+                                    jwt:
+                                      properties:
+                                        authorization:
+                                          properties:
+                                            apiType:
+                                              enum:
+                                              - REST
+                                              - GRPC
+                                              - GraphQL
+                                              type: string
+                                            graphql:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      scopes:
+                                                        items:
+                                                          type: string
+                                                        type: array
+                                                      type:
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    - scopes
+                                                    - type
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                            grpc:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      methods:
+                                                        items:
+                                                          properties:
+                                                            name:
+                                                              type: string
+                                                            scopes:
+                                                              items:
+                                                                type: string
+                                                              type: array
+                                                          required:
+                                                          - name
+                                                          - scopes
+                                                          type: object
+                                                        type: array
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - methods
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                            rest:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      method:
+                                                        description: |-
+                                                          HTTPMethod describes how to select a HTTP route by matching the HTTP
+                                                          method as defined by
+                                                          [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
+                                                          [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
+                                                          The value is expected in upper case.
+                                                        enum:
+                                                        - GET
+                                                        - HEAD
+                                                        - POST
+                                                        - PUT
+                                                        - DELETE
+                                                        - CONNECT
+                                                        - OPTIONS
+                                                        - TRACE
+                                                        - PATCH
+                                                        type: string
+                                                      scopes:
+                                                        items:
+                                                          type: string
+                                                        type: array
+                                                      target:
+                                                        type: string
+                                                    required:
+                                                    - method
+                                                    - scopes
+                                                    - target
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                          required:
+                                          - apiType
+                                          type: object
+                                        claims:
+                                          items:
+                                            properties:
+                                              key:
+                                                type: string
+                                              values:
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - values
+                                            type: object
+                                          type: array
+                                      required:
+                                      - authorization
+                                      type: object
+                                  required:
+                                  - jwt
+                                  type: object
+                                rateLimit:
+                                  properties:
+                                    apiLevel:
+                                      properties:
+                                        requestLimit:
+                                          type: integer
+                                        timeUnit:
+                                          type: string
+                                      required:
+                                      - requestLimit
+                                      - timeUnit
+                                      type: object
+                                    operationLevel:
+                                      properties:
+                                        rest:
+                                          items:
+                                            properties:
+                                              method:
+                                                type: string
+                                              requestLimit:
+                                                type: integer
+                                              target:
+                                                type: string
+                                              timeUnit:
+                                                type: string
+                                            required:
+                                            - method
+                                            - requestLimit
+                                            - target
+                                            - timeUnit
+                                            type: object
+                                          type: array
+                                      required:
+                                      - rest
+                                      type: object
+                                  required:
+                                  - apiLevel
+                                  - operationLevel
+                                  type: object
+                              type: object
+                            type:
+                              description: PolicyType defines the type of API management
+                                policy
+                              type: string
+                          required:
+                          - name
+                          - policySpec
+                          - type
+                          type: object
+                        type: array
+                    required:
+                    - enable
+                    type: object
+                  public:
+                    description: When enabled, the endpoint becomes accessible externally
+                    properties:
+                      enable:
+                        type: boolean
+                      policies:
+                        items:
+                          description: Policy defines an API management policy for
+                            an endpoint
+                          properties:
+                            name:
+                              type: string
+                            policySpec:
+                              description: PolicySpec defines the configuration for
+                                different types of policies
+                              properties:
+                                apiKeyAuth:
+                                  properties:
+                                    keySource:
+                                      properties:
+                                        header:
+                                          type: string
+                                        headerAuthScheme:
+                                          type: string
+                                      required:
+                                      - header
+                                      type: object
+                                    secretRefs:
+                                      items:
+                                        type: string
+                                      type: array
+                                  required:
+                                  - keySource
+                                  - secretRefs
+                                  type: object
+                                basicAuth:
+                                  properties:
+                                    header:
+                                      type: string
+                                    headerAuthScheme:
+                                      type: string
+                                    users:
+                                      items:
+                                        properties:
+                                          passwordFromSecret:
+                                            type: string
+                                          username:
+                                            type: string
+                                        required:
+                                        - passwordFromSecret
+                                        - username
+                                        type: object
+                                      type: array
+                                  required:
+                                  - header
+                                  - headerAuthScheme
+                                  - users
+                                  type: object
+                                cors:
+                                  properties:
+                                    allowCredentials:
+                                      type: boolean
+                                    allowHeaders:
+                                      items:
+                                        type: string
+                                      type: array
+                                    allowMethods:
+                                      items:
+                                        type: string
+                                      type: array
+                                    allowOrigins:
+                                      items:
+                                        type: string
+                                      type: array
+                                    exposeHeaders:
+                                      items:
+                                        type: string
+                                      type: array
+                                    maxAge:
+                                      type: integer
+                                  required:
+                                  - allowCredentials
+                                  - allowHeaders
+                                  - allowMethods
+                                  - allowOrigins
+                                  - exposeHeaders
+                                  - maxAge
+                                  type: object
+                                oauth2:
+                                  description: OAuth2PolicySpec defines the configuration
+                                    for OAuth2 policies
+                                  properties:
+                                    jwt:
+                                      properties:
+                                        authorization:
+                                          properties:
+                                            apiType:
+                                              enum:
+                                              - REST
+                                              - GRPC
+                                              - GraphQL
+                                              type: string
+                                            graphql:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      name:
+                                                        type: string
+                                                      scopes:
+                                                        items:
+                                                          type: string
+                                                        type: array
+                                                      type:
+                                                        type: string
+                                                    required:
+                                                    - name
+                                                    - scopes
+                                                    - type
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                            grpc:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      methods:
+                                                        items:
+                                                          properties:
+                                                            name:
+                                                              type: string
+                                                            scopes:
+                                                              items:
+                                                                type: string
+                                                              type: array
+                                                          required:
+                                                          - name
+                                                          - scopes
+                                                          type: object
+                                                        type: array
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - methods
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                            rest:
+                                              properties:
+                                                claimsToHeaders:
+                                                  items:
+                                                    properties:
+                                                      header:
+                                                        type: string
+                                                      name:
+                                                        type: string
+                                                    required:
+                                                    - header
+                                                    - name
+                                                    type: object
+                                                  type: array
+                                                operations:
+                                                  items:
+                                                    properties:
+                                                      method:
+                                                        description: |-
+                                                          HTTPMethod describes how to select a HTTP route by matching the HTTP
+                                                          method as defined by
+                                                          [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
+                                                          [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
+                                                          The value is expected in upper case.
+                                                        enum:
+                                                        - GET
+                                                        - HEAD
+                                                        - POST
+                                                        - PUT
+                                                        - DELETE
+                                                        - CONNECT
+                                                        - OPTIONS
+                                                        - TRACE
+                                                        - PATCH
+                                                        type: string
+                                                      scopes:
+                                                        items:
+                                                          type: string
+                                                        type: array
+                                                      target:
+                                                        type: string
+                                                    required:
+                                                    - method
+                                                    - scopes
+                                                    - target
+                                                    type: object
+                                                  type: array
+                                              required:
+                                              - claimsToHeaders
+                                              - operations
+                                              type: object
+                                          required:
+                                          - apiType
+                                          type: object
+                                        claims:
+                                          items:
+                                            properties:
+                                              key:
+                                                type: string
+                                              values:
+                                                items:
+                                                  type: string
+                                                type: array
+                                            required:
+                                            - key
+                                            - values
+                                            type: object
+                                          type: array
+                                      required:
+                                      - authorization
+                                      type: object
+                                  required:
+                                  - jwt
+                                  type: object
+                                rateLimit:
+                                  properties:
+                                    apiLevel:
+                                      properties:
+                                        requestLimit:
+                                          type: integer
+                                        timeUnit:
+                                          type: string
+                                      required:
+                                      - requestLimit
+                                      - timeUnit
+                                      type: object
+                                    operationLevel:
+                                      properties:
+                                        rest:
+                                          items:
+                                            properties:
+                                              method:
+                                                type: string
+                                              requestLimit:
+                                                type: integer
+                                              target:
+                                                type: string
+                                              timeUnit:
+                                                type: string
+                                            required:
+                                            - method
+                                            - requestLimit
+                                            - target
+                                            - timeUnit
+                                            type: object
+                                          type: array
+                                      required:
+                                      - rest
+                                      type: object
+                                  required:
+                                  - apiLevel
+                                  - operationLevel
+                                  type: object
+                              type: object
+                            type:
+                              description: PolicyType defines the type of API management
+                                policy
+                              type: string
+                          required:
+                          - name
+                          - policySpec
+                          - type
+                          type: object
+                        type: array
+                    required:
+                    - enable
+                    type: object
+                type: object
+              type:
+                description: Type indicates the protocol of the endpoint
+                enum:
+                - HTTP
+                - REST
+                - gRPC
+                - GraphQL
+                - Websocket
+                - TCP
+                - UDP
+                type: string
+            required:
+            - backendRef
+            - type
+            type: object
+          status:
+            description: EndpointStatus defines the observed state of Endpoint
+            properties:
+              address:
+                type: string
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

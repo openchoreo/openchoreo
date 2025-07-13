@@ -31,6 +31,7 @@ ENVTEST ?= $(TOOL_BIN)/setup-envtest
 GOLANGCI_LINT ?= $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
 YQ ?= $(TOOL_BIN)/yq
+KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -69,3 +70,4 @@ $(HELMIFY): $(TOOL_BIN)
 yq: $(YQ) ## Download yq locally if necessary.
 $(YQ): $(TOOL_BIN)
 	$(call go_install_tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
+
