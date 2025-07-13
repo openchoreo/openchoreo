@@ -4,11 +4,10 @@ metadata:
   name: {{ .Values.controllerManager.name }}-webhook-service
   namespace: {{ .Release.Namespace }}
   labels:
-  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 spec:
   type: {{ .Values.webhookService.type }}
   selector:
-    control-plane: {{ .Values.controllerManager.name }}
-    {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
   ports:
   {{- .Values.webhookService.ports | toYaml | nindent 2 }}

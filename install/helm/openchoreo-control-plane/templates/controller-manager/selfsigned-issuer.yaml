@@ -3,6 +3,6 @@ kind: Issuer
 metadata:
   name: {{ .Values.controllerManager.name }}-selfsigned-issuer
   labels:
-  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 spec:
   selfSigned: {}

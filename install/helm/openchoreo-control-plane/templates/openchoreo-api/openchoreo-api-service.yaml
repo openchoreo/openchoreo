@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-openchoreo-api
+  name: {{ .Values.openchoreoApi.name }}
   labels:
-  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 4 }}
 spec:
   selector:
-    app: openchoreo-api
+    {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 4 }}
   ports:
     - protocol: TCP
       port: 8080

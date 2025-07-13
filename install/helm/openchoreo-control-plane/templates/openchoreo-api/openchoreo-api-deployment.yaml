@@ -1,21 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-openchoreo-api
+  name: {{ .Values.openchoreoApi.name }}
   labels:
-    control-plane: controller-manager
-  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 4 }}
 spec:
   replicas: {{ .Values.openchoreoApi.replicas }}
   selector:
     matchLabels:
-      app: openchoreo-api
+      {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 6 }}
   template:
     metadata:
       labels:
-        app: openchoreo-api
+        {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "openchoreo-control-plane.fullname" . }}-controller-manager
+      serviceAccountName: {{ .Values.controllerManager.name }}
       containers:
       - name: openchoreo-api
         image: "{{ .Values.openchoreoApi.image }}:{{ .Values.openchoreoApi.tag }}"
