@@ -2,7 +2,6 @@
 global:
   # Common labels to add to all resources
   commonLabels: {}
-  
   # Default OpenChoreo resources created during installation
   defaultResources:
     enabled: true
@@ -42,7 +41,6 @@ global:
     project:
       displayName: Default Project
       description: Your first project to get started
-
 controllerManager:
   name: controller-manager
   manager:
@@ -92,12 +90,11 @@ waitJob:
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
-
 openchoreoApi:
   name: api-server
   enabled: true
   image: "ghcr.io/openchoreo/openchoreo-api"
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
   tag: "latest-dev"
   replicas: 1
   resources:
@@ -107,7 +104,6 @@ openchoreoApi:
     limits:
       cpu: "500m"
       memory: "512Mi"
-
 # Dependency configurations
 
 # Cert-Manager configuration

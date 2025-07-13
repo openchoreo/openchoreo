@@ -42,7 +42,7 @@ kind: ClusterRole
 metadata:
   name: {{ include "openchoreo-control-plane.fullname" . }}-{{ .Values.controllerManager.name }}
   labels:
-  {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 rules:
 %s`
 
