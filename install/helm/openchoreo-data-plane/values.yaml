@@ -9,6 +9,8 @@ waitJob:
 
 # customizing the vault configurations
 vault:
+  fullnameOverride: hashicorp-vault
+  nameOverride: hashicorp-vault
   server:
     # -- Resource limits and requests for the vault server
     resources:
@@ -43,6 +45,8 @@ vault:
 
 # customizing the secrets-store-csi-driver configurations
 secrets-store-csi-driver:
+  fullnameOverride: secrets-store-csi-driver
+  nameOverride: secrets-store-csi-driver
   syncSecret:
     enabled: true
   enableSecretRotation: true
@@ -75,7 +79,7 @@ gateway-helm:
         backend:
           type: Redis
           redis:
-            url: redis.choreo-system.svc.cluster.local:6379
+            url: redis:6379
   # -- Resource limits and requests for the gateway
   deployment:
     envoyGateway:
@@ -90,6 +94,8 @@ gateway-helm:
 # customizing the cert-manager configurations
 cert-manager:
   enabled: true
+  fullnameOverride: cert-manager
+  nameOverride: cert-manager
   crds:
     enabled: true
   # -- Resource limits and requests for the cert-manager controller
@@ -119,27 +125,6 @@ cert-manager:
         cpu: 50m
         memory: 64Mi
 
-# customizing the argo workflows configurations
-argo-workflows:
-  controller:
-    # -- Resource limits and requests for the argo workflows controller
-    resources:
-      limits:
-        memory: 64Mi
-        cpu: 50m
-      requests:
-        memory: 32Mi
-        cpu: 25m
-  server:
-    enabled: false
-  crds:
-    keep: false
-  workflow:
-    serviceAccount:
-      create: true
-  workflowNamespaces:
-    - argo-build
-
 # Customizing overall observability configurations
 observability:
   logging:
@@ -165,8 +150,8 @@ fluentBit:
     input:
       name: tail
       tag: "kube.*"
-      path: "/var/log/containers/*_choreo-system_*.log,/var/log/containers/*_dp-*_*.log"
-      excludePath: "/var/log/containers/*opensearch-0*_choreo-system_*.log,/var/log/containers/*opensearch-dashboard*_choreo-system_*.log,/var/log/containers/*fluent-bit*_choreo-system_*.log"
+      path: "/var/log/containers/*_openchoreo-system_*.log,/var/log/containers/*_dp-*_*.log"
+      excludePath: "/var/log/containers/*opensearch-0*_openchoreo-system_*.log,/var/log/containers/*opensearch-dashboard*_openchoreo-system_*.log,/var/log/containers/*fluent-bit*_openchoreo-system_*.log"
       parser: docker
       inotifyWatcher: false
       db: "/var/log/flb_kube.db"
@@ -199,7 +184,7 @@ fluentBit:
     
     # OpenSearch connection configuration
     opensearch:
-      host: "choreo-observability-plane-opensearch.choreo-system.svc.cluster.local"
+      host: "openchoreo-observability-plane-opensearch.openchoreo-system.svc.cluster.local"
       port: "9200"
       authentication:
         basicauth:

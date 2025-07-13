@@ -6,14 +6,14 @@ GREEN='\033[0;32m'
 DARK_YELLOW='\033[0;33m'
 RESET='\033[0m'
 
-DEFAULT_CONTEXT="kind-choreo-dp"
-DEFAULT_TARGET_CONTEXT="kind-choreo-cp"
+DEFAULT_CONTEXT="kind-openchoreo-dp"
+DEFAULT_TARGET_CONTEXT="kind-openchoreo-cp"
 SERVER_URL=""
 DEFAULT_DATAPLANE_KIND_NAME="default"
 
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
-echo -e "\nSetting up Choreo DataPlane\n"
+echo -e "\nSetting up OpenChoreo DataPlane\n"
 
 SINGLE_CLUSTER=true
 
@@ -85,10 +85,10 @@ metadata:
   namespace: default
 spec:
   registry:
-    prefix: registry.choreo-system:5000
+    prefix: registry.openchoreo-data-plane:5000
   gateway:
-    organizationVirtualHost: choreoapis.internal
-    publicVirtualHost: choreoapis.localhost
+    organizationVirtualHost: openchoreoapis.internal
+    publicVirtualHost: openchoreoapis.localhost
   kubernetesCluster:
     name: $CLUSTER_NAME
     credentials:

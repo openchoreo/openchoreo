@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit
+  name: fluent-bit
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
     {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
@@ -45,5 +45,5 @@ spec:
           path: {{ .Values.fluentBit.hostPaths.dockerContainers }}
       - name: fluent-bit-config
         configMap:
-          name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-config
+          name: fluent-bit-config
 {{- end }}

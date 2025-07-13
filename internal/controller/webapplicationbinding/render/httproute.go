@@ -72,7 +72,7 @@ func makeHTTPRouteForWebApp(rCtx Context, endpointName string, endpoint *opencho
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(getGatewayName()),
-						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
+						Namespace: (*gwapiv1.Namespace)(ptr.To(dpkubernetes.SystemNamespace)),
 					},
 				},
 			},

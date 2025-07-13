@@ -15,7 +15,7 @@ metadata:
     openchoreo.dev/organization: default
     openchoreo.dev/name: {{ .name }}
 spec:
-  # dataPlaneRef: default # DataPlane must be created manually
+  dataPlaneRef: default #TODO: Use kubebulder defaults to set this
   isProduction: {{ .isCritical }}
   gateway:
     dnsPrefix: {{ .dnsPrefix }}

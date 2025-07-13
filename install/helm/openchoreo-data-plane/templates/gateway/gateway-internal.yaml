@@ -8,7 +8,7 @@ spec:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
-      name: openchoreo-internal-gateway
+      name: gateway-internal
   listeners:
     - name: https
       protocol: HTTPS
@@ -26,11 +26,13 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: openchoreo-internal-gateway
+  name: gateway-internal
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
 spec:
   provider:
     type: Kubernetes
     kubernetes:
+      envoyDeployment:
+        name: gateway-internal
       envoyService:
-        name: openchoreo-internal-gateway
+        name: gateway-internal

@@ -142,7 +142,8 @@ func makeWorkflowName(build *openchoreov1alpha1.BuildV2) string {
 
 // makeNamespaceName generates the namespace name for the workflow based on organization
 func makeNamespaceName(build *openchoreov1alpha1.BuildV2) string {
-	orgName := normalizeForK8s(build.Spec.Owner.OrganizationName)
+	//orgName := normalizeForK8s(build.Spec.Owner.OrganizationName)// TODO: Fix me
+	orgName := "default"
 	return fmt.Sprintf("choreo-ci-%s", orgName)
 }
 
@@ -151,7 +152,7 @@ func makeWorkflowLabels(build *openchoreov1alpha1.BuildV2) map[string]string {
 	labels := map[string]string{
 		dpkubernetes.LabelKeyManagedBy:     dpkubernetes.LabelBuildControllerCreated,
 		"core.openchoreo.dev/build-name":   build.Name,
-		"core.openchoreo.dev/organization": normalizeForK8s(build.Spec.Owner.OrganizationName),
+		"core.openchoreo.dev/organization": normalizeForK8s("default"), // Fixme: use orgName from build spec
 		"core.openchoreo.dev/project":      normalizeForK8s(build.Spec.Owner.ProjectName),
 		"core.openchoreo.dev/component":    normalizeForK8s(build.Spec.Owner.ComponentName),
 	}

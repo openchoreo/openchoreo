@@ -99,7 +99,7 @@ func makeHTTPRouteForRestOperation(rCtx *Context, restOperation openchoreov1alph
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(getGatewayName(rCtx)),
-						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
+						Namespace: (*gwapiv1.Namespace)(ptr.To(dpkubernetes.SystemNamespace)),
 					},
 				},
 			},
@@ -159,7 +159,7 @@ func makeHostname(_ *Context, exposeLevel openchoreov1alpha1.RESTOperationExpose
 	case openchoreov1alpha1.ExposeLevelOrganization:
 		domain = "choreoapis.internal"
 	default:
-		domain = "choreoapis.localhost"
+		domain = "choreoapis.localhost" // TODO: Change this to openchoreoapis.localhost or a different domain
 	}
 	return gatewayv1.Hostname(fmt.Sprintf("%s.%s", "dev", domain))
 }

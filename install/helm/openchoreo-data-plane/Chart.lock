@@ -11,8 +11,5 @@ dependencies:
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.16.2
-- name: argo-workflows
-  repository: https://argoproj.github.io/argo-helm
-  version: 0.45.2
-digest: sha256:6ad8b563a12d6b8bd879f8e03756ce5d3e45ffb619475c01b3d4973a593651c8
-generated: "2025-05-27T11:12:37.475192+05:30"
+digest: sha256:937ee41d26a39d8400481d659e741a33a2a202eb7f6169f81bc06e83703aa043
+generated: "2025-07-13T20:01:50.270075+05:30"

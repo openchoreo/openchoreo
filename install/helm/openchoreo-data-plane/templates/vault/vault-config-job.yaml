@@ -23,7 +23,7 @@ spec:
         - -c
         - |          
           # Set environment variables
-          export VAULT_ADDR=http://openchoreo-data-plane-vault.{{ .Release.Namespace }}.svc:8200
+          export VAULT_ADDR=http://hashicorp-vault.{{ .Release.Namespace }}.svc:8200
           export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
           
           # Enable Kubernetes authentication

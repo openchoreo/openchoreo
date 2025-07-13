@@ -103,7 +103,7 @@ func makeHTTPRouteForServiceAPI(rCtx Context, apiName string, serviceAPI *opench
 				ParentRefs: []gwapiv1.ParentReference{
 					{
 						Name:      gwapiv1.ObjectName(getGatewayName(exposeLevel)),
-						Namespace: (*gwapiv1.Namespace)(ptr.To("choreo-system")),
+						Namespace: (*gwapiv1.Namespace)(ptr.To(dpkubernetes.SystemNamespace)),
 					},
 				},
 			},

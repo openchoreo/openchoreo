@@ -8,7 +8,7 @@ spec:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
-      name: openchoreo-external-gateway
+      name: gateway-external
   listeners:
     - name: https
       protocol: HTTPS
@@ -26,11 +26,13 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: openchoreo-external-gateway
+  name: gateway-external
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
 spec:
   provider:
     type: Kubernetes
     kubernetes:
+      envoyDeployment:
+        name: gateway-external
       envoyService:
-        name: openchoreo-external-gateway
+        name: gateway-external
