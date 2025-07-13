@@ -25,7 +25,7 @@ spec:
                       }
                       ready
 
-                      rewrite name regex (.+\.)?choreoapis\.internal choreo-internal-gateway.choreo-system.svc.cluster.local
+                      rewrite name regex (.+\.)?choreoapis\.internal openchoreo-internal-gateway.{{ .Release.Namespace }}.svc.cluster.local
 
                       kubernetes cluster.local in-addr.arpa ip6.arpa {
                           pods insecure

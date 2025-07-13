@@ -2,19 +2,19 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app.kubernetes.io/name:  {{ include "choreo-dataplane.fullname" . }}-vault-csi-provider
-  name:  {{ include "choreo-dataplane.fullname" . }}-vault-csi-provider
+    app.kubernetes.io/name:  {{ include "openchoreo-data-plane.fullname" . }}-vault-csi-provider
+  name:  {{ include "openchoreo-data-plane.fullname" . }}-vault-csi-provider
   namespace:  {{ .Release.Namespace }}
 spec:
   updateStrategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app.kubernetes.io/name:  {{ include "choreo-dataplane.fullname" . }}-vault-csi-provider
+      app.kubernetes.io/name:  {{ include "openchoreo-data-plane.fullname" . }}-vault-csi-provider
   template:
     metadata:
       labels:
-        app.kubernetes.io/name:  {{ include "choreo-dataplane.fullname" . }}-vault-csi-provider
+        app.kubernetes.io/name:  {{ include "openchoreo-data-plane.fullname" . }}-vault-csi-provider
     spec:
       serviceAccountName: default
       tolerations:

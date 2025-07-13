@@ -21,7 +21,7 @@ spec:
               echo "Waiting for vault to be ready..."
               kubectl wait --namespace {{ .Release.Namespace }} \
               --for=condition=Ready pods \
-              -l app.kubernetes.io/name=vault,app.kubernetes.io/instance=choreo-dataplane \
+              -l app.kubernetes.io/name=vault,app.kubernetes.io/instance=openchoreo-data-plane \
               --timeout=900s
       restartPolicy: Never
   backoffLimit: 5

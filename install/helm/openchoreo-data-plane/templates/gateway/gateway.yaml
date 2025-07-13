@@ -15,7 +15,7 @@ spec:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
-      name: choreo-external-gateway
+      name: openchoreo-external-gateway
   listeners:
     - name: https
       protocol: HTTPS
@@ -40,7 +40,7 @@ spec:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
-      name: choreo-internal-gateway
+      name: openchoreo-internal-gateway
   listeners:
     - name: https
       protocol: HTTPS
@@ -58,23 +58,23 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: choreo-internal-gateway
+  name: openchoreo-internal-gateway
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
 spec:
   provider:
     type: Kubernetes
     kubernetes:
       envoyService:
-        name: choreo-internal-gateway
+        name: openchoreo-internal-gateway
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: choreo-external-gateway
+  name: openchoreo-external-gateway
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
 spec:
   provider:
     type: Kubernetes
     kubernetes:
       envoyService:
-        name: choreo-external-gateway
+        name: openchoreo-external-gateway

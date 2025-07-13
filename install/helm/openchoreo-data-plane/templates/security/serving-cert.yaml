@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "openchoreo-data-plane.fullname" . }}-serving-cert
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+  labels:
+  {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - '{{ include "openchoreo-data-plane.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
+  - '{{ include "openchoreo-data-plane.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{
+    .Values.kubernetesClusterDomain }}'
+  issuerRef:
+    kind: Issuer
+    name: '{{ include "openchoreo-data-plane.fullname" . }}-selfsigned-issuer'
+  secretName: webhook-server-cert

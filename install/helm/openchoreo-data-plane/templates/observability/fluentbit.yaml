@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-config
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-config
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: fluent-bit
 data:
   fluent-bit.conf: |
@@ -69,15 +69,15 @@ metadata:
   name: {{ .Values.fluentBit.rbac.serviceAccountName }}
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: fluent-bit
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-read
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: fluent-bit
 rules:
 - apiGroups: [""]
@@ -89,14 +89,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-read
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: fluent-bit
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-read
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-read
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.fluentBit.rbac.serviceAccountName }}
@@ -106,20 +106,20 @@ subjects:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-dataplane.labels" . | nindent 4 }}
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: fluent-bit
 spec:
   selector:
     matchLabels:
-      {{- include "choreo-dataplane.selectorLabels" . | nindent 6 }}
+      {{- include "openchoreo-data-plane.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: fluent-bit
   template:
     metadata:
       labels:
-        {{- include "choreo-dataplane.selectorLabels" . | nindent 8 }}
+        {{- include "openchoreo-data-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: fluent-bit
     spec:
       serviceAccountName: {{ .Values.fluentBit.rbac.serviceAccountName }}
@@ -149,5 +149,5 @@ spec:
           path: {{ .Values.fluentBit.hostPaths.dockerContainers }}
       - name: fluent-bit-config
         configMap:
-          name: {{ include "choreo-dataplane.fullname" . }}-fluent-bit-config
+          name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-config
 {{- end }}

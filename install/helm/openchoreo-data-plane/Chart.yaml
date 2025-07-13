@@ -33,8 +33,7 @@ dependencies:
     version: 1.2.3
   - name: cert-manager
     repository: https://charts.jetstack.io
-    condition: certmanager.enabled
-    alias: certmanager
+    condition: cert-manager.enabled
     version: "v1.16.2"
   - name: argo-workflows
     repository: "https://argoproj.github.io/argo-helm"

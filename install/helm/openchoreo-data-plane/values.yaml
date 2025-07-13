@@ -1,49 +1,11 @@
-controllerManager:
-  manager:
-    args:
-    - --metrics-bind-address=:8443
-    - --leader-elect
-    - --health-probe-bind-address=:8081
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-    image:
-      repository: ghcr.io/openchoreo/controller
-      tag: latest
-    imagePullPolicy: IfNotPresent
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 10m
-        memory: 64Mi
-  podSecurityContext:
-    runAsNonRoot: true
-  replicas: 1
-  serviceAccount:
-    annotations: {}
+# Global values shared across all components
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
+
 kubernetesClusterDomain: cluster.local
-metricsService:
-  ports:
-  - name: https
-    port: 8443
-    protocol: TCP
-    targetPort: 8443
-  type: ClusterIP
-webhookService:
-  ports:
-  - port: 443
-    protocol: TCP
-    targetPort: 9443
-  type: ClusterIP
 waitJob:
   image: bitnami/kubectl:latest
-metricsServer:
-  enabled: false
-  kubeletInsecureTlsEnabled: true
 
 # customizing the vault configurations
 vault:
@@ -126,7 +88,7 @@ gateway-helm:
           memory: 128Mi
 
 # customizing the cert-manager configurations
-certmanager:
+cert-manager:
   enabled: true
   crds:
     enabled: true
