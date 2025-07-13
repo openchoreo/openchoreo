@@ -51,35 +51,3 @@ spec:
               EOF
       restartPolicy: Never
   backoffLimit: 4
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: coredns-apply-sa
-  namespace: default
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: coredns-configmap-role
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get", "create", "update", "patch"]
-    resourceNames: ["coredns"]
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: coredns-apply-binding
-subjects:
-  - kind: ServiceAccount
-    name: coredns-apply-sa
-    namespace: default
-roleRef:
-  kind: ClusterRole
-  name: coredns-configmap-role
-  apiGroup: rbac.authorization.k8s.io

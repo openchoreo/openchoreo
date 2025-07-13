@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,20 +26,3 @@ spec:
           requests:
             cpu: 50m
             memory: 128Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis
-  namespace: {{ .Values.namespace | default .Release.Namespace }} 
-  labels:
-    app: redis
-  annotations:
-spec:
-  ports:
-  - name: redis
-    port: 6379
-    protocol: TCP
-    targetPort: 6379
-  selector:
-    app: redis

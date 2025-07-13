@@ -1,0 +1,17 @@
+{{- if .Values.fluentBit.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-read
+  labels:
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openchoreo-data-plane.fullname" . }}-fluent-bit-read
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.fluentBit.rbac.serviceAccountName }}
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+{{- end }}

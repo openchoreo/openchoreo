@@ -1,31 +1,4 @@
 {{ if .Values.registry.enabled }}
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: container-registry-shared-pv
-spec:
-  capacity:
-    storage: {{ .Values.registry.storage.size }}
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
-  hostPath:
-    path: /mnt/shared
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: container-registry-shared-pvc
-  namespace: {{ .Release.Namespace }}
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: {{ .Values.registry.storage.size }}
-  storageClassName: manual
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

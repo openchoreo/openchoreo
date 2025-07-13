@@ -1,0 +1,15 @@
+{{ if .Values.registry.enabled }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: container-registry-shared-pv
+spec:
+  capacity:
+    storage: {{ .Values.registry.storage.size }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: /mnt/shared
+{{ end }}

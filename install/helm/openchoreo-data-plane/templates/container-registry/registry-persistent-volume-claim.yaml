@@ -1,0 +1,14 @@
+{{ if .Values.registry.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: container-registry-shared-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.registry.storage.size }}
+  storageClassName: manual
+{{ end }}
