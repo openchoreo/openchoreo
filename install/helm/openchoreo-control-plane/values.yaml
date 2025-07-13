@@ -1,12 +1,10 @@
-# =======================================================
-# DO NOT MODIFY THIS FILE - THIS IS A GENERATED FILE
-# Instead, make your changes in choreo.values.yaml
-# =======================================================
+# Global values shared across all components
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
 
-certmanager:
-  enabled: true
-  installCRDs: true
 controllerManager:
+  name: controller-manager
   manager:
     args:
       - --metrics-bind-address=:8443
@@ -34,7 +32,7 @@ controllerManager:
     runAsNonRoot: true
   replicas: 1
   serviceAccount:
-    annotations: { }
+    annotations: {}
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
@@ -110,10 +108,26 @@ waitJob:
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
-certmanager:
+
+openchoreoApi:
+  name: api-server
   enabled: true
+  image: "ghcr.io/openchoreo/openchoreo-api"
+  imagePullPolicy: IfNotPresent
+  tag: "latest-dev"
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+certManager:
+  enabled: false
   crds:
-    enabled: true
+    enabled: false
   resources:
     requests:
       cpu: 10m
@@ -137,16 +151,3 @@ certmanager:
       limits:
         cpu: 50m
         memory: 64Mi
-openchoreoApi:
-  enabled: true
-  image: "ghcr.io/openchoreo/openchoreo-api"
-  imagePullPolicy: IfNotPresent
-  tag: "latest-dev"
-  replicas: 1
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "128Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
