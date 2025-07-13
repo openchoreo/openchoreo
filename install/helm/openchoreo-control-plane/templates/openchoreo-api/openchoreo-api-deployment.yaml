@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.openchoreoApi.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.openchoreoApi.name) | nindent 4 }}
 spec:

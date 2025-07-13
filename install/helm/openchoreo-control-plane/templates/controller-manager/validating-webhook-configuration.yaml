@@ -1,7 +1,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-validating-webhook-configuration
+  name: {{ include "openchoreo-control-plane.name" . }}-validating-webhook-configuration
   annotations:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ .Values.controllerManager.name }}-webhook-server-cert
   labels:

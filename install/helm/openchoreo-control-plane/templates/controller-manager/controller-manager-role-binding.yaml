@@ -1,13 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-{{ .Values.controllerManager.name }}
+  name: {{ include "openchoreo-control-plane.name" . }}-{{ .Values.controllerManager.name }}
   labels:
     {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "openchoreo-control-plane.fullname" . }}-{{ .Values.controllerManager.name }}
+  name: {{ include "openchoreo-control-plane.name" . }}-{{ .Values.controllerManager.name }}
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.controllerManager.name }}
