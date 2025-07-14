@@ -36,21 +36,21 @@ type CreateEnvironmentRequest struct {
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
 type CreateDataPlaneRequest struct {
-	Name                        string                       `json:"name"`
-	DisplayName                 string                       `json:"displayName,omitempty"`
-	Description                 string                       `json:"description,omitempty"`
-	RegistryPrefix              string                       `json:"registryPrefix"`
-	RegistrySecretRef           string                       `json:"registrySecretRef,omitempty"`
-	KubernetesClusterName       string                       `json:"kubernetesClusterName"`
-	APIServerURL                string                       `json:"apiServerURL"`
-	CACert                      string                       `json:"caCert"`
-	ClientCert                  string                       `json:"clientCert"`
-	ClientKey                   string                       `json:"clientKey"`
-	PublicVirtualHost           string                       `json:"publicVirtualHost"`
-	OrganizationVirtualHost     string                       `json:"organizationVirtualHost"`
-	ObserverURL                 string                       `json:"observerURL,omitempty"`
-	ObserverUsername            string                       `json:"observerUsername,omitempty"`
-	ObserverPassword            string                       `json:"observerPassword,omitempty"`
+	Name                    string `json:"name"`
+	DisplayName             string `json:"displayName,omitempty"`
+	Description             string `json:"description,omitempty"`
+	RegistryPrefix          string `json:"registryPrefix"`
+	RegistrySecretRef       string `json:"registrySecretRef,omitempty"`
+	KubernetesClusterName   string `json:"kubernetesClusterName"`
+	APIServerURL            string `json:"apiServerURL"`
+	CACert                  string `json:"caCert"`
+	ClientCert              string `json:"clientCert"`
+	ClientKey               string `json:"clientKey"`
+	PublicVirtualHost       string `json:"publicVirtualHost"`
+	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+	ObserverURL             string `json:"observerURL,omitempty"`
+	ObserverUsername        string `json:"observerUsername,omitempty"`
+	ObserverPassword        string `json:"observerPassword,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -117,7 +117,7 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.ClientKey = strings.TrimSpace(req.ClientKey)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
-	
+
 	req.ObserverURL = strings.TrimSpace(req.ObserverURL)
 	req.ObserverUsername = strings.TrimSpace(req.ObserverUsername)
 	req.ObserverPassword = strings.TrimSpace(req.ObserverPassword)

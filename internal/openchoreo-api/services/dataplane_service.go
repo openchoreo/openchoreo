@@ -151,8 +151,8 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 			},
 		},
 		Gateway: openchoreov1alpha1.GatewaySpec{
-			PublicVirtualHost:           req.PublicVirtualHost,
-			OrganizationVirtualHost:     req.OrganizationVirtualHost,
+			PublicVirtualHost:       req.PublicVirtualHost,
+			OrganizationVirtualHost: req.OrganizationVirtualHost,
 		},
 	}
 
@@ -209,18 +209,18 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	}
 
 	response := &models.DataPlaneResponse{
-		Name:                        dp.Name,
-		Namespace:                   dp.Namespace,
-		DisplayName:                 displayName,
-		Description:                 description,
-		RegistryPrefix:              dp.Spec.Registry.Prefix,
-		RegistrySecretRef:           dp.Spec.Registry.SecretRef,
-		KubernetesClusterName:       dp.Spec.KubernetesCluster.Name,
-		APIServerURL:                dp.Spec.KubernetesCluster.Credentials.APIServerURL,
-		PublicVirtualHost:           dp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost:     dp.Spec.Gateway.OrganizationVirtualHost,
-		CreatedAt:                   dp.CreationTimestamp.Time,
-		Status:                      status,
+		Name:                    dp.Name,
+		Namespace:               dp.Namespace,
+		DisplayName:             displayName,
+		Description:             description,
+		RegistryPrefix:          dp.Spec.Registry.Prefix,
+		RegistrySecretRef:       dp.Spec.Registry.SecretRef,
+		KubernetesClusterName:   dp.Spec.KubernetesCluster.Name,
+		APIServerURL:            dp.Spec.KubernetesCluster.Credentials.APIServerURL,
+		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
+		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
+		CreatedAt:               dp.CreationTimestamp.Time,
+		Status:                  status,
 	}
 
 	// Add observer configuration if present

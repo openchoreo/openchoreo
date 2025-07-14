@@ -72,20 +72,20 @@ type EnvironmentResponse struct {
 
 // DataPlaneResponse represents a dataplane in API responses
 type DataPlaneResponse struct {
-	Name                        string                      `json:"name"`
-	Namespace                   string                      `json:"namespace"`
-	DisplayName                 string                      `json:"displayName,omitempty"`
-	Description                 string                      `json:"description,omitempty"`
-	RegistryPrefix              string                      `json:"registryPrefix"`
-	RegistrySecretRef           string                      `json:"registrySecretRef,omitempty"`
-	KubernetesClusterName       string                      `json:"kubernetesClusterName"`
-	APIServerURL                string                      `json:"apiServerURL"`
-	PublicVirtualHost           string                      `json:"publicVirtualHost"`
-	OrganizationVirtualHost     string                      `json:"organizationVirtualHost"`
-	ObserverURL                 string                      `json:"observerURL,omitempty"`
-	ObserverUsername            string                      `json:"observerUsername,omitempty"`
-	CreatedAt                   time.Time                   `json:"createdAt"`
-	Status                      string                      `json:"status,omitempty"`
+	Name                    string    `json:"name"`
+	Namespace               string    `json:"namespace"`
+	DisplayName             string    `json:"displayName,omitempty"`
+	Description             string    `json:"description,omitempty"`
+	RegistryPrefix          string    `json:"registryPrefix"`
+	RegistrySecretRef       string    `json:"registrySecretRef,omitempty"`
+	KubernetesClusterName   string    `json:"kubernetesClusterName"`
+	APIServerURL            string    `json:"apiServerURL"`
+	PublicVirtualHost       string    `json:"publicVirtualHost"`
+	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
+	ObserverURL             string    `json:"observerURL,omitempty"`
+	ObserverUsername        string    `json:"observerUsername,omitempty"`
+	CreatedAt               time.Time `json:"createdAt"`
+	Status                  string    `json:"status,omitempty"`
 }
 
 // Response helper functions

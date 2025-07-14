@@ -20,15 +20,15 @@ var (
 
 // Error codes for API responses
 const (
-	CodeProjectExists           = "PROJECT_EXISTS"
-	CodeProjectNotFound         = "PROJECT_NOT_FOUND"
-	CodeComponentExists         = "COMPONENT_EXISTS"
-	CodeComponentNotFound       = "COMPONENT_NOT_FOUND"
-	CodeOrganizationNotFound    = "ORGANIZATION_NOT_FOUND"
-	CodeEnvironmentNotFound     = "ENVIRONMENT_NOT_FOUND"
-	CodeEnvironmentExists       = "ENVIRONMENT_EXISTS"
-	CodeDataPlaneNotFound       = "DATAPLANE_NOT_FOUND"
-	CodeDataPlaneExists         = "DATAPLANE_EXISTS"
-	CodeInvalidInput            = "INVALID_INPUT"
-	CodeInternalError           = "INTERNAL_ERROR"
+	CodeProjectExists        = "PROJECT_EXISTS"
+	CodeProjectNotFound      = "PROJECT_NOT_FOUND"
+	CodeComponentExists      = "COMPONENT_EXISTS"
+	CodeComponentNotFound    = "COMPONENT_NOT_FOUND"
+	CodeOrganizationNotFound = "ORGANIZATION_NOT_FOUND"
+	CodeEnvironmentNotFound  = "ENVIRONMENT_NOT_FOUND"
+	CodeEnvironmentExists    = "ENVIRONMENT_EXISTS"
+	CodeDataPlaneNotFound    = "DATAPLANE_NOT_FOUND"
+	CodeDataPlaneExists      = "DATAPLANE_EXISTS"
+	CodeInvalidInput         = "INVALID_INPUT"
+	CodeInternalError        = "INTERNAL_ERROR"
 )
