@@ -185,7 +185,7 @@ func (r *Reconciler) updateWorkloadWithBuiltImage(
 }
 
 func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Spec.Owner.OrganizationName, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
 	if err != nil {
 		logger := log.FromContext(ctx)
 		logger.Error(err, "Failed to get build plane client")

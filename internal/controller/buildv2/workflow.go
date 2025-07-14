@@ -142,8 +142,7 @@ func makeWorkflowName(build *openchoreov1alpha1.BuildV2) string {
 
 // makeNamespaceName generates the namespace name for the workflow based on organization
 func makeNamespaceName(build *openchoreov1alpha1.BuildV2) string {
-	//orgName := normalizeForK8s(build.Spec.Owner.OrganizationName)// TODO: Fix me
-	orgName := "default"
+	orgName := normalizeForK8s(build.Namespace)
 	return fmt.Sprintf("choreo-ci-%s", orgName)
 }
 
