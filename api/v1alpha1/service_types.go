@@ -39,6 +39,33 @@ type ServiceAPI struct {
 	EndpointTemplateSpec `json:",inline"`
 }
 
+type EndpointTemplateSpec struct {
+	// +kubebuilder:default=default
+	ClassName    string        `json:"className"`
+	Type         EndpointType  `json:"type"`
+	RESTEndpoint *RESTEndpoint `json:"rest,omitempty"`
+	// GRPCEndpointSpec GRPCEndpointSpec `json:"grpc,omitempty"`
+	// TCPEndpointSpec  TCPEndpointSpec  `json:"tcp,omitempty"`
+}
+
+type RESTEndpoint struct {
+	Backend      HTTPBackend                `json:"backend,omitempty"`
+	ExposeLevels []RESTOperationExposeLevel `json:"exposeLevels,omitempty"`
+}
+
+type RESTOperationExposeLevel string
+
+const (
+	ExposeLevelProject      RESTOperationExposeLevel = "Project"
+	ExposeLevelOrganization RESTOperationExposeLevel = "Organization"
+	ExposeLevelPublic       RESTOperationExposeLevel = "Public"
+)
+
+type HTTPBackend struct {
+	Port     int32  `json:"port"`
+	BasePath string `json:"basePath,omitempty"`
+}
+
 // ServiceStatus defines the observed state of Service.
 type ServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

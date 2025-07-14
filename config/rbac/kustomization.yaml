@@ -96,8 +96,6 @@ resources:
   - gitcommitrequest_viewer_role.yaml
   - endpointclass_editor_role.yaml
   - endpointclass_viewer_role.yaml
-  - endpointv2_editor_role.yaml
-  - endpointv2_viewer_role.yaml
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
   - buildplane_viewer_role.yaml

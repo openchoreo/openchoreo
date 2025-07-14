@@ -15,7 +15,6 @@ resources:
   - bases/openchoreo.dev_configurationgroups.yaml
   - bases/openchoreo.dev_componentv2s.yaml
   - bases/openchoreo.dev_workloads.yaml
-  - bases/openchoreo.dev_endpointv2s.yaml
   - bases/openchoreo.dev_endpointclasses.yaml
   - bases/openchoreo.dev_gitcommitrequests.yaml
   - bases/openchoreo.dev_apis.yaml

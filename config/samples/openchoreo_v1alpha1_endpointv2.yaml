@@ -1,9 +1,0 @@
-apiVersion: openchoreo.dev/v1alpha1
-kind: EndpointV2
-metadata:
-  labels:
-    app.kubernetes.io/name: openchoreo
-    app.kubernetes.io/managed-by: kustomize
-  name: endpointv2-sample
-spec:
-  # TODO(user): Add fields here

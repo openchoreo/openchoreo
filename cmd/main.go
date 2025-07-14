@@ -37,7 +37,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/endpointclass"
-	"github.com/openchoreo/openchoreo/internal/controller/endpointv2"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
@@ -261,13 +260,6 @@ func main() {
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Workload")
-			os.Exit(1)
-		}
-		if err = (&endpointv2.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "EndpointV2")
 			os.Exit(1)
 		}
 		if err = (&endpointclass.Reconciler{

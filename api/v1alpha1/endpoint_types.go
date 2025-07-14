@@ -99,6 +99,18 @@ type RateLimitConfig struct {
 }
 
 // ==============================================================================
+// Owner and Template Types
+// ==============================================================================
+
+// EndpointOwner defines the owner reference for an endpoint
+type EndpointOwner struct {
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+	// +kubebuilder:validation:MinLength=1
+	ComponentName string `json:"componentName"`
+}
+
+// ==============================================================================
 // Endpoint Types and Core Structures
 // ==============================================================================
 

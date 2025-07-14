@@ -118,7 +118,6 @@ rules:
     - deploymenttracks
     - endpointclasses
     - endpoints
-    - endpointv2s
     - environments
     - gitcommitrequests
     - organizations
@@ -159,7 +158,6 @@ rules:
     - deploymenttracks/finalizers
     - endpointclasses/finalizers
     - endpoints/finalizers
-    - endpointv2s/finalizers
     - environments/finalizers
     - gitcommitrequests/finalizers
     - organizations/finalizers
@@ -194,7 +192,6 @@ rules:
     - deploymenttracks/status
     - endpointclasses/status
     - endpoints/status
-    - endpointv2s/status
     - environments/status
     - gitcommitrequests/status
     - organizations/status
