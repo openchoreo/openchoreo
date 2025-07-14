@@ -112,7 +112,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	for _, item := range componentList.Items {
 		// Only include components that belong to the specified project
 		if item.Spec.Owner.ProjectName == projectName {
-			components = append(components, s.toComponentResponse(&item))
+			components = append(components, s.toComponentResponse(&item, nil))
 		}
 	}
 
@@ -121,7 +121,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 }
 
 // GetComponent retrieves a specific component
-func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectName, componentName string) (*models.ComponentResponse, error) {
+func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectName, componentName string, additionalResources []string) (*models.ComponentResponse, error) {
 	s.logger.Debug("Getting component", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
@@ -148,13 +148,27 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
+	var serviceSpec *openchoreov1alpha1.ServiceSpec
+	for _, v := range additionalResources {
+		if v == "service" {
+			service := &openchoreov1alpha1.Service{}
+			if err := s.k8sClient.Get(ctx, key, service); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					s.logger.Warn("Service not found", "org", orgName, "project", projectName, "component", componentName)
+				}
+				s.logger.Error("Failed to get service for component", "error", err)
+			}
+			serviceSpec = &service.Spec
+		}
+	}
+
 	// Verify that the component belongs to the specified project
 	if component.Spec.Owner.ProjectName != projectName {
 		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
-	return s.toComponentResponse(component), nil
+	return s.toComponentResponse(component, serviceSpec), nil
 }
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
@@ -214,7 +228,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 }
 
 // toComponentResponse converts a ComponentV2 CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2) *models.ComponentResponse {
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, serviceSpec *openchoreov1alpha1.ServiceSpec) *models.ComponentResponse {
 	// Extract repository URL from annotations (stored during creation)
 	repositoryURL := component.Annotations["repository-url"]
 	if repositoryURL == "" {
@@ -245,5 +259,6 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		Branch:        branch,
 		CreatedAt:     component.CreationTimestamp.Time,
 		Status:        status,
+		Service:       serviceSpec,
 	}
 }

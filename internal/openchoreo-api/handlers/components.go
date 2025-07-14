@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -97,6 +98,13 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetComponent handler called")
 
+	// Extract query parameters
+	include := r.URL.Query().Get("include")
+	additionalResources := []string{}
+	if include != "" {
+		additionalResources = strings.Split(include, ",")
+	}
+
 	// Extract path parameters
 	orgName := r.PathValue("orgName")
 	projectName := r.PathValue("projectName")
@@ -108,7 +116,7 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service to get component
-	component, err := h.services.ComponentService.GetComponent(ctx, orgName, projectName, componentName)
+	component, err := h.services.ComponentService.GetComponent(ctx, orgName, projectName, componentName, additionalResources)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)

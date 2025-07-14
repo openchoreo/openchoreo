@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+)
 
 // APIResponse represents a standard API response wrapper
 type APIResponse[T any] struct {
@@ -33,15 +37,16 @@ type ProjectResponse struct {
 
 // ComponentResponse represents a component in API responses
 type ComponentResponse struct {
-	Name          string    `json:"name"`
-	Description   string    `json:"description,omitempty"`
-	Type          string    `json:"type"`
-	ProjectName   string    `json:"projectName"`
-	OrgName       string    `json:"orgName"`
-	RepositoryURL string    `json:"repositoryUrl"`
-	Branch        string    `json:"branch,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-	Status        string    `json:"status,omitempty"`
+	Name          string                          `json:"name"`
+	Description   string                          `json:"description,omitempty"`
+	Type          string                          `json:"type"`
+	ProjectName   string                          `json:"projectName"`
+	OrgName       string                          `json:"orgName"`
+	RepositoryURL string                          `json:"repositoryUrl"`
+	Branch        string                          `json:"branch,omitempty"`
+	CreatedAt     time.Time                       `json:"createdAt"`
+	Status        string                          `json:"status,omitempty"`
+	Service       *openchoreov1alpha1.ServiceSpec `json:"service,omitempty"`
 }
 
 // OrganizationResponse represents an organization in API responses
