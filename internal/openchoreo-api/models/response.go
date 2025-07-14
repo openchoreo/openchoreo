@@ -54,6 +54,19 @@ type OrganizationResponse struct {
 	Status      string    `json:"status,omitempty"`
 }
 
+// EnvironmentResponse represents an environment in API responses
+type EnvironmentResponse struct {
+	Name         string    `json:"name"`
+	Namespace    string    `json:"namespace"`
+	DisplayName  string    `json:"displayName,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	DataPlaneRef string    `json:"dataPlaneRef,omitempty"`
+	IsProduction bool      `json:"isProduction"`
+	DNSPrefix    string    `json:"dnsPrefix,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+	Status       string    `json:"status,omitempty"`
+}
+
 // Response helper functions
 func SuccessResponse[T any](data T) APIResponse[T] {
 	return APIResponse[T]{

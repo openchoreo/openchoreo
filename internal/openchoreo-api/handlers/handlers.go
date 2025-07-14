@@ -48,6 +48,11 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
 
+	// Environment endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
+
 	// Apply middleware
 	return logger.LoggerMiddleware(h.logger)(mux)
 }
