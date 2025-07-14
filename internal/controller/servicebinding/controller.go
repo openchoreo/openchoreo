@@ -166,6 +166,13 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 		}
 	}
 
+	// Add BackendTrafficPolicy resources
+	if res := render.BackendTrafficPolicies(rCtx); res != nil {
+		for _, policy := range res {
+			resources = append(resources, *policy)
+		}
+	}
+
 	release.Spec.Resources = resources
 	return release
 }
