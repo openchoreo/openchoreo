@@ -1,0 +1,406 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    projectName: default
+  type: Service
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: BuildV2
+metadata:
+  name: reading-list-service-build-01
+  namespace: default
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  repository:
+    appPath: /go-reading-list-rest-api
+    revision:
+      branch: main
+    url: https://github.com/wso2/choreo-samples
+  templateRef:
+    name: default-argo-buildpack-build-template
+    parameters:
+    - name: language
+      value: go
+    - name: language-version
+      value: 1.x
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: reading-list-service-workload
+  namespace: default
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  containers:
+    main:
+      image: "test:latest"
+      args:
+      - --port
+      - "8080"
+      env:
+      - key: LOG_LEVEL
+        value: info
+      - key: GITHUB_REPOSITORY
+        valueFrom:
+          configurationGroupRef:
+            key: repository
+            name: github
+      - key: GITHUB_TOKEN
+        valueFrom:
+          configurationGroupRef:
+            key: pat
+            name: github
+  endpoints:
+    rest-api:
+      port: 8080
+      protocol: TCP
+      schema:
+        type: REST
+        content: |
+          openapi: 3.0.1
+          info:
+            title: OpenChoreo Reading List
+            description: This is a sample service that manages a list of reading items.
+            version: "1.0"
+          servers:
+          - url: //localhost:8080/api/v1/reading-list
+          paths:
+            /books:
+              get:
+                tags:
+                - books
+                summary: List all the reading list books
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/models.Book'
+              post:
+                tags:
+                - books
+                summary: Add a new book to the reading list
+                requestBody:
+                  description: New book details
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/models.Book'
+                  required: true
+                responses:
+                  "201":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "400":
+                    description: invalid book details
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                  "409":
+                    description: book already exists
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                x-codegen-request-body-name: request
+            /books/{id}:
+              get:
+                tags:
+                - books
+                summary: Get reading list book by id
+                security:
+                  - default:
+                      - read:books 
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+              put:
+                tags:
+                - books
+                summary: Update a reading list book by id
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                requestBody:
+                  description: Updated book details
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/models.Book'
+                  required: true
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "400":
+                    description: invalid book details
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                x-codegen-request-body-name: request
+              delete:
+                tags:
+                - books
+                summary: Delete a reading list book by id
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+          components:
+            securitySchemes:
+              default:
+                type: oauth2
+                flows:
+                  implicit:
+                    authorizationUrl: https://test.com
+                    scopes: 
+                      read:books: Grants read access
+            schemas:
+              models.Book:
+                type: object
+                properties:
+                  author:
+                    type: string
+                    example: J. R. R. Tolkien
+                  id:
+                    type: string
+                    example: fe2594d0-ccea-42a2-97ac-0487458b5642
+                  status:
+                    type: object
+                    example: to_read
+                    allOf:
+                    - $ref: '#/components/schemas/models.ReadStatus'
+                  title:
+                    type: string
+                    example: The Lord of the Rings
+              models.ReadStatus:
+                type: string
+                enum:
+                - to_read
+                - reading
+                - read
+                x-enum-varnames:
+                - ReadStatusToRead
+                - ReadStatusReading
+                - ReadStatusRead
+              utils.ErrorResponse:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: error message
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: reading-list-service-service
+  namespace: default
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  workloadName: reading-list-service-workload
+  className: go-service-standard
+  apis:
+    reading-list-api: 
+      type: REST
+      className: reading-list-service-rest-api-standard
+      rest:
+        backend:
+          port: 8080
+          basePath: /api/v1/reading-list
+        exposeLevels: [ "Public" ]
+
+---
+# Defines the APIClass for the REST API exposed by the service.
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: reading-list-service-rest-api-standard
+  namespace: default
+spec:
+  restPolicy:
+    defaults:
+      rateLimit:
+        requests: 1000
+        window: "1h"
+        burst: 100
+        keyBy: "clientIP"
+        skipSuccessfulRequests: false
+        skipFailedRequests: true
+      authentication:
+        type: jwt
+        jwt:
+          jwks: "https://dev-tfsf6412a2bn011a.us.auth0.com/.well-known/jwks.json"
+          issuer: "https://dev-tfsf6412a2bn011a.us.auth0.com/"
+          audience: ["openchoreo:readinglist:service"]
+        oauth2:
+          scopes: ["readinglist"]
+          tokenUrl: "https://dev-tfsf6412a2bn011a.us.auth0.com/oauth/token"
+      cors:
+        allowOrigins: ["https://example.com", "https://app.example.com"]
+        allowMethods: ["GET", "POST", "PUT", "DELETE"]
+        allowHeaders: ["Content-Type", "Authorization"]
+        exposeHeaders: ["X-Request-ID"]
+        maxAge: 86400
+      timeout: "30s"
+      retries:
+        attempts: 3
+        backoff: "exponential"
+        initialInterval: "1s"
+        maxInterval: "10s"
+      requestSizeLimit: "10MB"
+      responseSizeLimit: "50MB"
+      circuitBreaker:
+        enabled: true
+        maxConnections: 2
+      monitoring:
+        metrics:
+          enabled: true
+          detailedMetrics: true
+        logging:
+          enabled: true
+          logLevel: "info"
+          includeRequestBody: false
+          includeResponseBody: false
+    public:
+      rateLimit:
+        requests: 100
+        window: "1h"
+        burst: 20
+        keyBy: "header:X-API-Key"
+      security:
+        requireTLS: true
+        minTLSVersion: "1.3"
+    organization:
+      rateLimit:
+        requests: 5000
+        window: "1h"
+        burst: 500
+        keyBy: "jwt:sub"
+
+---
+# Defines PE level configuration for the service component.
+# Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ServiceClass
+metadata:
+  name: go-service-standard
+  namespace: default
+spec:
+  deploymentTemplate:
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    template:
+      metadata:
+        labels:
+          reloader.stakater.com/auto: "true"
+      spec:
+        containers:
+          - name: main
+            env:
+              - name: LOG_TYPE
+                value: "json"
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          - name: sidecar
+            image: busybox:latest
+            command: [ "/bin/sh", "-c" ]
+            args:
+              - |
+                echo "Exposing metrics on port 12001";
+                # Simulate long-running metrics server
+                while true; do nc -lk -p 12001 -e echo "metrics 1"; done
+            ports:
+              - name: metrics
+                containerPort: 12001
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            readinessProbe:
+              tcpSocket:
+                port: metrics
+              initialDelaySeconds: 5
+              periodSeconds: 10
+  serviceTemplate:
+    ports:
+      - name: metrics-http
+        port: 12001
+        targetPort: 12001
