@@ -15,17 +15,19 @@ import (
 
 // ComponentService handles component-related business logic
 type ComponentService struct {
-	k8sClient      client.Client
-	projectService *ProjectService
-	logger         *slog.Logger
+	k8sClient           client.Client
+	projectService      *ProjectService
+	specFetcherRegistry *ComponentSpecFetcherRegistry
+	logger              *slog.Logger
 }
 
 // NewComponentService creates a new component service
 func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger) *ComponentService {
 	return &ComponentService{
-		k8sClient:      k8sClient,
-		projectService: projectService,
-		logger:         logger,
+		k8sClient:           k8sClient,
+		projectService:      projectService,
+		specFetcherRegistry: NewComponentSpecFetcherRegistry(),
+		logger:              logger,
 	}
 }
 
@@ -112,7 +114,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	for _, item := range componentList.Items {
 		// Only include components that belong to the specified project
 		if item.Spec.Owner.ProjectName == projectName {
-			components = append(components, s.toComponentResponse(&item, nil))
+			components = append(components, s.toComponentResponse(&item, make(map[string]interface{})))
 		}
 	}
 
@@ -148,17 +150,20 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	var serviceSpec *openchoreov1alpha1.ServiceSpec
-	for _, v := range additionalResources {
-		if v == "service" {
-			service := &openchoreov1alpha1.Service{}
-			if err := s.k8sClient.Get(ctx, key, service); err != nil {
+	// Fetch type-specific spec based on additionalResources
+	var typeSpec interface{}
+	for _, resourceType := range additionalResources {
+		if fetcher, exists := s.specFetcherRegistry.GetFetcher(resourceType); exists {
+			spec, err := fetcher.FetchSpec(ctx, s.k8sClient, key)
+			if err != nil {
 				if client.IgnoreNotFound(err) == nil {
-					s.logger.Warn("Service not found", "org", orgName, "project", projectName, "component", componentName)
+					s.logger.Warn("Resource not found for type", "type", resourceType, "org", orgName, "project", projectName, "component", componentName)
+				} else {
+					s.logger.Error("Failed to fetch spec for type", "type", resourceType, "error", err)
 				}
-				s.logger.Error("Failed to get service for component", "error", err)
+				continue
 			}
-			serviceSpec = &service.Spec
+			typeSpec = spec
 		}
 	}
 
@@ -168,7 +173,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, ErrComponentNotFound
 	}
 
-	return s.toComponentResponse(component, serviceSpec), nil
+	return s.toComponentResponse(component, typeSpec), nil
 }
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
@@ -228,7 +233,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 }
 
 // toComponentResponse converts a ComponentV2 CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, serviceSpec *openchoreov1alpha1.ServiceSpec) *models.ComponentResponse {
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, typeSpec interface{}) *models.ComponentResponse {
 	// Extract repository URL from annotations (stored during creation)
 	repositoryURL := component.Annotations["repository-url"]
 	if repositoryURL == "" {
@@ -249,7 +254,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when ComponentV2 adds status conditions
 	status := "Creating"
 
-	return &models.ComponentResponse{
+	response := &models.ComponentResponse{
 		Name:          component.Name,
 		Description:   component.Annotations[controller.AnnotationKeyDescription],
 		Type:          string(component.Spec.Type),
@@ -259,6 +264,21 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		Branch:        branch,
 		CreatedAt:     component.CreationTimestamp.Time,
 		Status:        status,
-		Service:       serviceSpec,
 	}
+
+	switch spec := typeSpec.(type) {
+	case *openchoreov1alpha1.ServiceSpec:
+		response.Service = spec
+	case *openchoreov1alpha1.WebApplicationSpec:
+		response.WebApplication = spec
+	case *openchoreov1alpha1.ScheduledTaskSpec:
+		response.ScheduledTask = spec
+	case *openchoreov1alpha1.APISpec:
+		response.API = spec
+	case nil:
+	default:
+		s.logger.Error("Unknown type for typeSpec", "component", component.Name, "actualType", fmt.Sprintf("%T", typeSpec))
+	}
+
+	return response
 }
