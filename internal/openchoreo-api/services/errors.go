@@ -11,6 +11,8 @@ var (
 	ErrOrganizationNotFound     = errors.New("organization not found")
 	ErrEnvironmentNotFound      = errors.New("environment not found")
 	ErrEnvironmentAlreadyExists = errors.New("environment already exists")
+	ErrDataPlaneNotFound        = errors.New("dataplane not found")
+	ErrDataPlaneAlreadyExists   = errors.New("dataplane already exists")
 )
 
 // Error codes for API responses
@@ -22,6 +24,8 @@ const (
 	CodeOrganizationNotFound    = "ORGANIZATION_NOT_FOUND"
 	CodeEnvironmentNotFound     = "ENVIRONMENT_NOT_FOUND"
 	CodeEnvironmentExists       = "ENVIRONMENT_EXISTS"
+	CodeDataPlaneNotFound       = "DATAPLANE_NOT_FOUND"
+	CodeDataPlaneExists         = "DATAPLANE_EXISTS"
 	CodeInvalidInput            = "INVALID_INPUT"
 	CodeInternalError           = "INTERNAL_ERROR"
 )

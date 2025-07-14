@@ -67,6 +67,22 @@ type EnvironmentResponse struct {
 	Status       string    `json:"status,omitempty"`
 }
 
+// DataPlaneResponse represents a dataplane in API responses
+type DataPlaneResponse struct {
+	Name                        string    `json:"name"`
+	Namespace                   string    `json:"namespace"`
+	DisplayName                 string    `json:"displayName,omitempty"`
+	Description                 string    `json:"description,omitempty"`
+	RegistryPrefix              string    `json:"registryPrefix"`
+	RegistrySecretRef           string    `json:"registrySecretRef,omitempty"`
+	KubernetesClusterName       string    `json:"kubernetesClusterName"`
+	APIServerURL                string    `json:"apiServerURL"`
+	PublicVirtualHost           string    `json:"publicVirtualHost"`
+	OrganizationVirtualHost     string    `json:"organizationVirtualHost"`
+	CreatedAt                   time.Time `json:"createdAt"`
+	Status                      string    `json:"status,omitempty"`
+}
+
 // Response helper functions
 func SuccessResponse[T any](data T) APIResponse[T] {
 	return APIResponse[T]{

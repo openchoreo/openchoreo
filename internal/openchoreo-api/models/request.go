@@ -31,6 +31,22 @@ type CreateEnvironmentRequest struct {
 	DNSPrefix    string `json:"dnsPrefix,omitempty"`
 }
 
+// CreateDataPlaneRequest represents the request to create a new dataplane
+type CreateDataPlaneRequest struct {
+	Name                        string `json:"name"`
+	DisplayName                 string `json:"displayName,omitempty"`
+	Description                 string `json:"description,omitempty"`
+	RegistryPrefix              string `json:"registryPrefix"`
+	RegistrySecretRef           string `json:"registrySecretRef,omitempty"`
+	KubernetesClusterName       string `json:"kubernetesClusterName"`
+	APIServerURL                string `json:"apiServerURL"`
+	CACert                      string `json:"caCert"`
+	ClientCert                  string `json:"clientCert"`
+	ClientKey                   string `json:"clientKey"`
+	PublicVirtualHost           string `json:"publicVirtualHost"`
+	OrganizationVirtualHost     string `json:"organizationVirtualHost"`
+}
+
 // Validate validates the CreateProjectRequest
 func (req *CreateProjectRequest) Validate() error {
 	// TODO: Implement custom validation using Go stdlib
@@ -45,6 +61,12 @@ func (req *CreateComponentRequest) Validate() error {
 
 // Validate validates the CreateEnvironmentRequest
 func (req *CreateEnvironmentRequest) Validate() error {
+	// TODO: Implement custom validation using Go stdlib
+	return nil
+}
+
+// Validate validates the CreateDataPlaneRequest
+func (req *CreateDataPlaneRequest) Validate() error {
 	// TODO: Implement custom validation using Go stdlib
 	return nil
 }
@@ -73,4 +95,20 @@ func (req *CreateEnvironmentRequest) Sanitize() {
 	req.Description = strings.TrimSpace(req.Description)
 	req.DataPlaneRef = strings.TrimSpace(req.DataPlaneRef)
 	req.DNSPrefix = strings.TrimSpace(req.DNSPrefix)
+}
+
+// Sanitize sanitizes the CreateDataPlaneRequest by trimming whitespace
+func (req *CreateDataPlaneRequest) Sanitize() {
+	req.Name = strings.TrimSpace(req.Name)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.Description = strings.TrimSpace(req.Description)
+	req.RegistryPrefix = strings.TrimSpace(req.RegistryPrefix)
+	req.RegistrySecretRef = strings.TrimSpace(req.RegistrySecretRef)
+	req.KubernetesClusterName = strings.TrimSpace(req.KubernetesClusterName)
+	req.APIServerURL = strings.TrimSpace(req.APIServerURL)
+	req.CACert = strings.TrimSpace(req.CACert)
+	req.ClientCert = strings.TrimSpace(req.ClientCert)
+	req.ClientKey = strings.TrimSpace(req.ClientKey)
+	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
+	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
 }

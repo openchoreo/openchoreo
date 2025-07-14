@@ -10,6 +10,7 @@ type Services struct {
 	ComponentService    *ComponentService
 	OrganizationService *OrganizationService
 	EnvironmentService  *EnvironmentService
+	DataPlaneService    *DataPlaneService
 }
 
 // NewServices creates and initializes all services
@@ -26,10 +27,14 @@ func NewServices(k8sClient client.Client, logger *slog.Logger) *Services {
 	// Create environment service
 	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"))
 
+	// Create dataplane service
+	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
+
 	return &Services{
 		ProjectService:      projectService,
 		ComponentService:    componentService,
 		OrganizationService: organizationService,
 		EnvironmentService:  environmentService,
+		DataPlaneService:    dataplaneService,
 	}
 }

@@ -53,6 +53,11 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
 
+	// DataPlane endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
+
 	// Apply middleware
 	return logger.LoggerMiddleware(h.logger)(mux)
 }
