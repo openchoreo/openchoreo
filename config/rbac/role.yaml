@@ -114,7 +114,6 @@ rules:
   - deploymentpipelines
   - deployments
   - deploymenttracks
-  - endpointclasses
   - endpoints
   - environments
   - gitcommitrequests
@@ -154,7 +153,6 @@ rules:
   - deploymentpipelines/finalizers
   - deployments/finalizers
   - deploymenttracks/finalizers
-  - endpointclasses/finalizers
   - endpoints/finalizers
   - environments/finalizers
   - gitcommitrequests/finalizers
@@ -188,7 +186,6 @@ rules:
   - deploymentpipelines/status
   - deployments/status
   - deploymenttracks/status
-  - endpointclasses/status
   - endpoints/status
   - environments/status
   - gitcommitrequests/status

@@ -102,6 +102,16 @@ type SecurityPolicy struct {
 	MinTLSVersion *string  `json:"minTLSVersion,omitempty"`
 }
 
+// TransformationRule defines a single transformation rule
+type TransformationRule struct {
+	Type        string            `json:"type"`   // json | xml
+	Action      string            `json:"action"` // addFields | addHeader | removeHeaders | removeFields
+	Fields      map[string]string `json:"fields,omitempty"`
+	Headers     []string          `json:"headers,omitempty"`
+	HeaderName  *string           `json:"headerName,omitempty"`
+	HeaderValue *string           `json:"headerValue,omitempty"`
+}
+
 // MediationPolicy defines request and response transformation policies
 type MediationPolicy struct {
 	RequestTransformations  []TransformationRule `json:"requestTransformations,omitempty"`

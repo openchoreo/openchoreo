@@ -12,7 +12,6 @@ resources:
   - openchoreo_v1alpha1_deploymentpipeline.yaml
   - openchoreo_v1alpha1_deploymenttrack.yaml
   - openchoreo_v1alpha1_endpoint.yaml
-  - openchoreo_v1alpha1_endpointclass.yaml
   - openchoreo_v1alpha1_environment.yaml
   - openchoreo_v1alpha1_gitcommitrequest.yaml
   - openchoreo_v1alpha1_organization.yaml

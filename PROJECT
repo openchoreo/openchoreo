@@ -83,14 +83,6 @@ resources:
     namespaced: true
   controller: true
   domain: openchoreo.dev
-  kind: EndpointClass
-  path: github.com/openchoreo/openchoreo/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: openchoreo.dev
   kind: GitCommitRequest
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
