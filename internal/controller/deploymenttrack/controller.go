@@ -105,8 +105,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("deploymenttrack").
 		// Watch for Build changes to reconcile the Deployment Track
 		Watches(
-			&openchoreov1alpha1.Build{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Build, *openchoreov1alpha1.DeploymentTrack](
+			&openchoreov1alpha1.BuildV2{},
+			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.BuildV2, *openchoreov1alpha1.DeploymentTrack](
 				r.Client, controller.GetDeploymentTrack)),
 		).
 		// Watch for DeployableArtifact changes to reconcile the Deployment Track

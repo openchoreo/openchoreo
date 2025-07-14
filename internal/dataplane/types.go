@@ -13,7 +13,7 @@ type DeploymentContext struct {
 	Project            *openchoreov1alpha1.Project
 	Component          *openchoreov1alpha1.Component
 	DeploymentTrack    *openchoreov1alpha1.DeploymentTrack
-	Build              *openchoreov1alpha1.Build
+	Build              *openchoreov1alpha1.BuildV2
 	DeployableArtifact *openchoreov1alpha1.DeployableArtifact
 	Deployment         *openchoreov1alpha1.Deployment
 	Environment        *openchoreov1alpha1.Environment

@@ -10,7 +10,6 @@ import (
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	"github.com/google/go-github/v69/github"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -27,7 +26,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
-	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
@@ -197,15 +195,6 @@ func main() {
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Project")
-			os.Exit(1)
-		}
-		if err = (&build.Reconciler{
-			Client:       mgr.GetClient(),
-			DpClientMgr:  dpClientMgr,
-			Scheme:       mgr.GetScheme(),
-			GithubClient: github.NewClient(nil),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Build")
 			os.Exit(1)
 		}
 		if err = (&environment.Reconciler{

@@ -130,7 +130,7 @@ func (r *Reconciler) findContainerImage(ctx context.Context, component *openchor
 	if buildRef := deployableArtifact.Spec.TargetArtifact.FromBuildRef; buildRef != nil {
 		if buildRef.Name != "" {
 			// Find the build that the deployable artifact is referring to
-			buildList := &openchoreov1alpha1.BuildList{}
+			buildList := &openchoreov1alpha1.BuildV2List{}
 			listOpts := []client.ListOption{
 				client.InNamespace(deployableArtifact.Namespace),
 				client.MatchingLabels(makeHierarchyLabelsForDeploymentTrack(deployableArtifact.ObjectMeta)),

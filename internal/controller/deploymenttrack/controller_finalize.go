@@ -128,7 +128,7 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *o
 	logger.Info("Cleaning up builds")
 
 	// Find all Builds owned by this DeploymentTrack
-	buildList := &openchoreov1alpha1.BuildList{}
+	buildList := &openchoreov1alpha1.BuildV2List{}
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{

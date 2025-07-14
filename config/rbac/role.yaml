@@ -28,7 +28,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - serviceaccounts
   - services
   verbs:
   - create
@@ -42,19 +41,6 @@ rules:
   - apps
   resources:
   - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - argoproj.io
-  resources:
-  - workflows
-  - workflowtaskresults
   verbs:
   - create
   - delete
@@ -120,7 +106,6 @@ rules:
   - apiclasses
   - apis
   - buildplanes
-  - builds
   - buildv2s
   - components
   - componentv2s
@@ -162,7 +147,6 @@ rules:
   - apiclasses/finalizers
   - apis/finalizers
   - buildplanes/finalizers
-  - builds/finalizers
   - buildv2s/finalizers
   - components/finalizers
   - componentv2s/finalizers
@@ -198,7 +182,6 @@ rules:
   - apiclasses/status
   - apis/status
   - buildplanes/status
-  - builds/status
   - buildv2s/status
   - components/status
   - componentv2s/status
@@ -236,19 +219,6 @@ rules:
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - secrets-store.csi.x-k8s.io
