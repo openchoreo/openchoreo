@@ -115,12 +115,8 @@ spec:
   restPolicy:
     defaults:
       rateLimit:
-        requests: 1000
-        window: "1h"
-        burst: 100
-        keyBy: "clientIP"
-        skipSuccessfulRequests: false
-        skipFailedRequests: true
+        requests: 5
+        window: "1m"
       authentication:
         type: jwt
         jwt:
@@ -158,10 +154,8 @@ spec:
           includeResponseBody: false
     public:
       rateLimit:
-        requests: 100
+        requests: 5
         window: "1h"
-        burst: 20
-        keyBy: "header:X-API-Key"
       security:
         requireTLS: true
         minTLSVersion: "1.3"
@@ -169,8 +163,6 @@ spec:
       rateLimit:
         requests: 5000
         window: "1h"
-        burst: 500
-        keyBy: "jwt:sub"
 ---
 # Defines PE level configuration for the service component.
 # Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
