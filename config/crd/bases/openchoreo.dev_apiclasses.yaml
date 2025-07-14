@@ -225,18 +225,9 @@ spec:
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
-                          burst:
-                            format: int64
-                            type: integer
-                          keyBy:
-                            type: string
                           requests:
                             format: int64
                             type: integer
-                          skipFailedRequests:
-                            type: boolean
-                          skipSuccessfulRequests:
-                            type: boolean
                           window:
                             type: string
                         required:
@@ -464,18 +455,9 @@ spec:
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
-                          burst:
-                            format: int64
-                            type: integer
-                          keyBy:
-                            type: string
                           requests:
                             format: int64
                             type: integer
-                          skipFailedRequests:
-                            type: boolean
-                          skipSuccessfulRequests:
-                            type: boolean
                           window:
                             type: string
                         required:
@@ -703,18 +685,9 @@ spec:
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
-                          burst:
-                            format: int64
-                            type: integer
-                          keyBy:
-                            type: string
                           requests:
                             format: int64
                             type: integer
-                          skipFailedRequests:
-                            type: boolean
-                          skipSuccessfulRequests:
-                            type: boolean
                           window:
                             type: string
                         required:

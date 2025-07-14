@@ -54,12 +54,8 @@ type RESTPolicy struct {
 
 // RateLimitPolicy defines rate limiting configuration
 type RateLimitPolicy struct {
-	Requests               int64   `json:"requests"`
-	Window                 string  `json:"window"`
-	Burst                  *int64  `json:"burst,omitempty"`
-	KeyBy                  *string `json:"keyBy,omitempty"` // clientIP | header:X-API-Key | jwt:sub
-	SkipSuccessfulRequests *bool   `json:"skipSuccessfulRequests,omitempty"`
-	SkipFailedRequests     *bool   `json:"skipFailedRequests,omitempty"`
+	Requests int64  `json:"requests"` // Number of requests allowed
+	Window   string `json:"window"`   // Time window (e.g., "1m", "1h", "30s", "1d")
 }
 
 // AuthenticationPolicy defines authentication and authorization configuration
