@@ -47,6 +47,28 @@ type Registry struct {
 	SecretRef string `json:"secretRef,omitempty"`
 }
 
+// BasicAuthCredentials defines username and password for basic authentication
+type BasicAuthCredentials struct {
+	// Username for basic authentication
+	Username string `json:"username"`
+	// Password for basic authentication
+	Password string `json:"password"`
+}
+
+// ObserverAuthentication defines authentication configuration for Observer API
+type ObserverAuthentication struct {
+	// BasicAuth contains basic authentication credentials
+	BasicAuth BasicAuthCredentials `json:"basicAuth"`
+}
+
+// ObserverAPI defines the configuration for the Observer API integration
+type ObserverAPI struct {
+	// URL is the base URL of the Observer API
+	URL string `json:"url"`
+	// Authentication contains the authentication configuration
+	Authentication ObserverAuthentication `json:"authentication"`
+}
+
 // DataPlaneSpec defines the desired state of a DataPlane.
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -58,6 +80,9 @@ type DataPlaneSpec struct {
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
 	Gateway GatewaySpec `json:"gateway"`
+	// Observer specifies the configuration for the Observer API integration.
+	// +optional
+	Observer ObserverAPI `json:"observer,omitempty"`
 }
 
 // DataPlaneStatus defines the observed state of DataPlane.

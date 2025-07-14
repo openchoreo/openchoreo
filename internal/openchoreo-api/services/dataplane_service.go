@@ -133,6 +133,39 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 		description = fmt.Sprintf("DataPlane for %s", req.Name)
 	}
 
+	spec := openchoreov1alpha1.DataPlaneSpec{
+		Registry: openchoreov1alpha1.Registry{
+			Prefix:    req.RegistryPrefix,
+			SecretRef: req.RegistrySecretRef,
+		},
+		KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
+			Name: req.KubernetesClusterName,
+			Credentials: openchoreov1alpha1.APIServerCredentials{
+				APIServerURL: req.APIServerURL,
+				CACert:       req.CACert,
+				ClientCert:   req.ClientCert,
+				ClientKey:    req.ClientKey,
+			},
+		},
+		Gateway: openchoreov1alpha1.GatewaySpec{
+			PublicVirtualHost:           req.PublicVirtualHost,
+			OrganizationVirtualHost:     req.OrganizationVirtualHost,
+		},
+	}
+
+	// Add observer configuration if provided
+	if req.ObserverURL != "" {
+		spec.Observer = openchoreov1alpha1.ObserverAPI{
+			URL: req.ObserverURL,
+			Authentication: openchoreov1alpha1.ObserverAuthentication{
+				BasicAuth: openchoreov1alpha1.BasicAuthCredentials{
+					Username: req.ObserverUsername,
+					Password: req.ObserverPassword,
+				},
+			},
+		}
+	}
+
 	return &openchoreov1alpha1.DataPlane{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "DataPlane",
@@ -150,25 +183,7 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 				labels.LabelKeyName:             req.Name,
 			},
 		},
-		Spec: openchoreov1alpha1.DataPlaneSpec{
-			Registry: openchoreov1alpha1.Registry{
-				Prefix:    req.RegistryPrefix,
-				SecretRef: req.RegistrySecretRef,
-			},
-			KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
-				Name: req.KubernetesClusterName,
-				Credentials: openchoreov1alpha1.APIServerCredentials{
-					APIServerURL: req.APIServerURL,
-					CACert:       req.CACert,
-					ClientCert:   req.ClientCert,
-					ClientKey:    req.ClientKey,
-				},
-			},
-			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:           req.PublicVirtualHost,
-				OrganizationVirtualHost:     req.OrganizationVirtualHost,
-			},
-		},
+		Spec: spec,
 	}
 }
 
@@ -190,7 +205,7 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		}
 	}
 
-	return &models.DataPlaneResponse{
+	response := &models.DataPlaneResponse{
 		Name:                        dp.Name,
 		Namespace:                   dp.Namespace,
 		DisplayName:                 displayName,
@@ -204,4 +219,13 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		CreatedAt:                   dp.CreationTimestamp.Time,
 		Status:                      status,
 	}
+
+	// Add observer configuration if present
+	if dp.Spec.Observer.URL != "" {
+		response.ObserverURL = dp.Spec.Observer.URL
+		response.ObserverUsername = dp.Spec.Observer.Authentication.BasicAuth.Username
+		// Password is excluded for security
+	}
+
+	return response
 }
