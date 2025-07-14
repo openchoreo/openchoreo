@@ -15,15 +15,8 @@ type BuildPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Owner BuildPlaneOwner `json:"owner"`
-
 	// KubernetesCluster defines the Kubernetes cluster where build workloads (e.g., Argo Workflows) will be executed.
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
-}
-
-type BuildPlaneOwner struct {
-	// +kubebuilder:validation:MinLength=1
-	OrganizationName string `json:"organizationName"`
 }
 
 // BuildPlaneStatus defines the observed state of BuildPlane.

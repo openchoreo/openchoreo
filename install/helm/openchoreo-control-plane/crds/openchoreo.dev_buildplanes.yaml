@@ -75,17 +75,8 @@ spec:
                 - credentials
                 - name
                 type: object
-              owner:
-                properties:
-                  organizationName:
-                    minLength: 1
-                    type: string
-                required:
-                - organizationName
-                type: object
             required:
             - kubernetesCluster
-            - owner
             type: object
           status:
             description: BuildPlaneStatus defines the observed state of BuildPlane.
