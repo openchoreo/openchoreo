@@ -3,7 +3,6 @@
 # It should be run by config/default
 resources:
   - bases/openchoreo.dev_organizations.yaml
-  - bases/openchoreo.dev_builds.yaml
   - bases/openchoreo.dev_projects.yaml
   - bases/openchoreo.dev_environments.yaml
   - bases/openchoreo.dev_dataplanes.yaml

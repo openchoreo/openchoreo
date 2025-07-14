@@ -76,6 +76,10 @@ type BuildV2Status struct {
 	ImageStatus Image `json:"imageStatus,omitempty"`
 }
 
+type Image struct {
+	Image string `json:"image"`
+}
+
 // GetConditions returns the conditions slice
 func (b *BuildV2) GetConditions() []metav1.Condition {
 	return b.Status.Conditions
@@ -85,6 +89,39 @@ func (b *BuildV2) GetConditions() []metav1.Condition {
 func (b *BuildV2) SetConditions(conditions []metav1.Condition) {
 	b.Status.Conditions = conditions
 }
+
+type DockerConfiguration struct {
+	// Context specifies the build context path
+	Context string `json:"context"`
+	// DockerfilePath specifies the path to the Dockerfile
+	DockerfilePath string `json:"dockerfilePath"`
+}
+
+type BuildpackConfiguration struct {
+	Name    BuildpackName `json:"name"`
+	Version string        `json:"version,omitempty"`
+}
+
+// BuildConfiguration specifies the build configuration details
+type BuildConfiguration struct {
+	// Docker specifies the Docker-specific build configuration
+	Docker *DockerConfiguration `json:"docker,omitempty"`
+	// Buildpack specifies the buildpack to use
+	Buildpack *BuildpackConfiguration `json:"buildpack,omitempty"`
+}
+
+type BuildpackName string
+
+const (
+	BuildpackReact     BuildpackName = "React"
+	BuildpackGo        BuildpackName = "Go"
+	BuildpackBallerina BuildpackName = "Ballerina"
+	BuildpackNodeJS    BuildpackName = "Node.js"
+	BuildpackPython    BuildpackName = "Python"
+	BuildpackRuby      BuildpackName = "Ruby"
+	BuildpackPHP       BuildpackName = "PHP"
+	// BuildpackJava      BuildpackName = "Java"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
