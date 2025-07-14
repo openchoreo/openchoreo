@@ -1,3 +1,13 @@
+# Global configuration
+global:
+  # Common labels applied to all resources
+  commonLabels: {}
+  # Default build plane resources and configuration
+  defaultResources:
+    enabled: true
+    # Container registry endpoint for pushing images
+    registryEndpoint: "registry.openchoreo-data-plane:5000"
+
 # customizing the argo workflows configurations
 argo-workflows:
   fullnameOverride: argo

@@ -1,8 +1,13 @@
+{{ if .Values.global.defaultResources.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: default-argo-docker-build-template
-  namespace: choreo-system
+  name: default-docker-template
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
   entrypoint: build-workflow
   serviceAccountName: workflow-sa
@@ -137,8 +142,8 @@ spec:
             EOF
 
             podman load -i /mnt/vol/app-image.tar
-            podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
-            podman push --tls-verify=false registry.choreo-system:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+            podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
+            podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
             echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
         command:
@@ -178,3 +183,4 @@ spec:
         path: /shared/podman/cache
         type: DirectoryOrCreate
       name: podman-cache
+{{ end }}

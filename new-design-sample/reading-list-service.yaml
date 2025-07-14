@@ -23,7 +23,7 @@ spec:
       branch: main
     url: https://github.com/wso2/choreo-samples
   templateRef:
-    name: default-argo-buildpack-build-template
+    name: default-buildpack-template
     parameters:
     - name: language
       value: go
@@ -288,10 +288,10 @@ spec:
       rateLimit:
         requests: 1000
         window: "1h"
-        burst: 100
-        keyBy: "clientIP"
-        skipSuccessfulRequests: false
-        skipFailedRequests: true
+#        burst: 100
+#        keyBy: "clientIP"
+#        skipSuccessfulRequests: false
+#        skipFailedRequests: true
       authentication:
         type: jwt
         jwt:
@@ -331,8 +331,8 @@ spec:
       rateLimit:
         requests: 100
         window: "1h"
-        burst: 20
-        keyBy: "header:X-API-Key"
+#        burst: 20
+#        keyBy: "header:X-API-Key"
       security:
         requireTLS: true
         minTLSVersion: "1.3"
@@ -340,8 +340,8 @@ spec:
       rateLimit:
         requests: 5000
         window: "1h"
-        burst: 500
-        keyBy: "jwt:sub"
+#        burst: 500
+#        keyBy: "jwt:sub"
 
 ---
 # Defines PE level configuration for the service component.

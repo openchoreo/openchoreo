@@ -6,8 +6,8 @@ GREEN='\033[0;32m'
 DARK_YELLOW='\033[0;33m'
 RESET='\033[0m'
 
-DEFAULT_CONTEXT="kind-choreo-bp"
-DEFAULT_TARGET_CONTEXT="kind-choreo"
+DEFAULT_CONTEXT="kind-openchoreo-dp"
+DEFAULT_TARGET_CONTEXT="kind-openchoreo-cp"
 SERVER_URL=""
 DEFAULT_BUILDPLANE_KIND_NAME="default"
 
