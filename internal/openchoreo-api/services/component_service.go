@@ -150,21 +150,56 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	// Fetch type-specific spec based on additionalResources
-	var typeSpec interface{}
+	// Get Workload and Type optionally
+	typeSpecs := make(map[string]interface{})
+	validResourceTypes := map[string]bool{"type": true, "workload": true}
+
 	for _, resourceType := range additionalResources {
-		if fetcher, exists := s.specFetcherRegistry.GetFetcher(resourceType); exists {
-			spec, err := fetcher.FetchSpec(ctx, s.k8sClient, key)
-			if err != nil {
-				if client.IgnoreNotFound(err) == nil {
-					s.logger.Warn("Resource not found for type", "type", resourceType, "org", orgName, "project", projectName, "component", componentName)
-				} else {
-					s.logger.Error("Failed to fetch spec for type", "type", resourceType, "error", err)
-				}
-				continue
-			}
-			typeSpec = spec
+		if !validResourceTypes[resourceType] {
+			s.logger.Warn("Invalid resource type requested", "resourceType", resourceType, "component", componentName)
+			continue
 		}
+
+		var fetcherKey string
+		switch resourceType {
+		case "type":
+			fetcherKey = string(component.Spec.Type)
+		case "workload":
+			fetcherKey = "Workload"
+		default:
+			s.logger.Warn("Unknown resource type requested", "resourceType", resourceType, "component", componentName)
+			continue
+		}
+
+		fetcher, exists := s.specFetcherRegistry.GetFetcher(fetcherKey)
+		if !exists {
+			s.logger.Warn("No fetcher registered for resource type", "fetcherKey", fetcherKey, "component", componentName)
+			continue
+		}
+
+		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, key)
+		if err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn(
+					"Resource not found for fetcher",
+					"fetcherKey", fetcherKey,
+					"org", orgName,
+					"project", projectName,
+					"component", componentName,
+				)
+			} else {
+				s.logger.Error(
+					"Failed to fetch spec for resource type",
+					"fetcherKey", fetcherKey,
+					"org", orgName,
+					"project", projectName,
+					"component", componentName,
+					"error", err,
+				)
+			}
+			continue
+		}
+		typeSpecs[resourceType] = spec
 	}
 
 	// Verify that the component belongs to the specified project
@@ -173,7 +208,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, ErrComponentNotFound
 	}
 
-	return s.toComponentResponse(component, typeSpec), nil
+	return s.toComponentResponse(component, typeSpecs), nil
 }
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
@@ -233,7 +268,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 }
 
 // toComponentResponse converts a ComponentV2 CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, typeSpec interface{}) *models.ComponentResponse {
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, typeSpecs map[string]interface{}) *models.ComponentResponse {
 	// Extract repository URL from annotations (stored during creation)
 	repositoryURL := component.Annotations["repository-url"]
 	if repositoryURL == "" {
@@ -266,18 +301,17 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		Status:        status,
 	}
 
-	switch spec := typeSpec.(type) {
-	case *openchoreov1alpha1.ServiceSpec:
-		response.Service = spec
-	case *openchoreov1alpha1.WebApplicationSpec:
-		response.WebApplication = spec
-	case *openchoreov1alpha1.ScheduledTaskSpec:
-		response.ScheduledTask = spec
-	case *openchoreov1alpha1.APISpec:
-		response.API = spec
-	case nil:
-	default:
-		s.logger.Error("Unknown type for typeSpec", "component", component.Name, "actualType", fmt.Sprintf("%T", typeSpec))
+	for _, v := range typeSpecs {
+		switch spec := v.(type) {
+		case *openchoreov1alpha1.WorkloadSpec:
+			response.Workload = spec
+		case *openchoreov1alpha1.ServiceSpec:
+			response.Service = spec
+		case *openchoreov1alpha1.WebApplicationSpec:
+			response.WebApplication = spec
+		default:
+			s.logger.Error("Unknown type in typeSpecs", "component", component.Name, "actualType", fmt.Sprintf("%T", v))
+		}
 	}
 
 	return response

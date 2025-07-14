@@ -31,6 +31,7 @@ func NewComponentSpecFetcherRegistry() *ComponentSpecFetcherRegistry {
 	// Register all fetchers
 	registry.Register(&ServiceSpecFetcher{})
 	registry.Register(&WebApplicationSpecFetcher{})
+	registry.Register(&WorkloadSpecFetcher{})
 	// Future: registry.Register(&ScheduledTaskSpecFetcher{})
 	// Future: registry.Register(&APISpecFetcher{})
 
@@ -52,7 +53,7 @@ func (r *ComponentSpecFetcherRegistry) GetFetcher(typeName string) (ComponentSpe
 type ServiceSpecFetcher struct{}
 
 func (f *ServiceSpecFetcher) GetTypeName() string {
-	return "service"
+	return "Service"
 }
 
 func (f *ServiceSpecFetcher) FetchSpec(ctx context.Context, k8sClient client.Client, key client.ObjectKey) (interface{}, error) {
@@ -67,7 +68,7 @@ func (f *ServiceSpecFetcher) FetchSpec(ctx context.Context, k8sClient client.Cli
 type WebApplicationSpecFetcher struct{}
 
 func (f *WebApplicationSpecFetcher) GetTypeName() string {
-	return "webApplication"
+	return "WebApplication"
 }
 
 func (f *WebApplicationSpecFetcher) FetchSpec(ctx context.Context, k8sClient client.Client, key client.ObjectKey) (interface{}, error) {
@@ -76,4 +77,18 @@ func (f *WebApplicationSpecFetcher) FetchSpec(ctx context.Context, k8sClient cli
 		return nil, fmt.Errorf("failed to get web application: %w", err)
 	}
 	return &webApp.Spec, nil
+}
+
+type WorkloadSpecFetcher struct{}
+
+func (f *WorkloadSpecFetcher) GetTypeName() string {
+	return "Workload"
+}
+
+func (f *WorkloadSpecFetcher) FetchSpec(ctx context.Context, k8sClient client.Client, key client.ObjectKey) (interface{}, error) {
+	workload := &openchoreov1alpha1.Workload{}
+	if err := k8sClient.Get(ctx, key, workload); err != nil {
+		return nil, fmt.Errorf("failed to get workload: %w", err)
+	}
+	return &workload.Spec, nil
 }

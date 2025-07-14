@@ -37,19 +37,20 @@ type ProjectResponse struct {
 
 // ComponentResponse represents a component in API responses
 type ComponentResponse struct {
-	Name            string                                    `json:"name"`
-	Description     string                                    `json:"description,omitempty"`
-	Type            string                                    `json:"type"`
-	ProjectName     string                                    `json:"projectName"`
-	OrgName         string                                    `json:"orgName"`
-	RepositoryURL   string                                    `json:"repositoryUrl"`
-	Branch          string                                    `json:"branch,omitempty"`
-	CreatedAt       time.Time                                 `json:"createdAt"`
-	Status          string                                    `json:"status,omitempty"`
-	Service         *openchoreov1alpha1.ServiceSpec          `json:"service,omitempty"`
-	WebApplication  *openchoreov1alpha1.WebApplicationSpec   `json:"webApplication,omitempty"`
-	ScheduledTask   *openchoreov1alpha1.ScheduledTaskSpec    `json:"scheduledTask,omitempty"`
-	API             *openchoreov1alpha1.APISpec              `json:"api,omitempty"`
+	Name           string                                 `json:"name"`
+	Description    string                                 `json:"description,omitempty"`
+	Type           string                                 `json:"type"`
+	ProjectName    string                                 `json:"projectName"`
+	OrgName        string                                 `json:"orgName"`
+	RepositoryURL  string                                 `json:"repositoryUrl"`
+	Branch         string                                 `json:"branch,omitempty"`
+	CreatedAt      time.Time                              `json:"createdAt"`
+	Status         string                                 `json:"status,omitempty"`
+	Service        *openchoreov1alpha1.ServiceSpec        `json:"service,omitempty"`
+	WebApplication *openchoreov1alpha1.WebApplicationSpec `json:"webApplication,omitempty"`
+	ScheduledTask  *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
+	API            *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
+	Workload       *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
 }
 
 // OrganizationResponse represents an organization in API responses
