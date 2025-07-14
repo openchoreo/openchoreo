@@ -140,13 +140,12 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 			Name:      req.Name,
 			Namespace: orgName,
 			Annotations: map[string]string{
-				controller.AnnotationKeyDisplayName: req.Name,
-				controller.AnnotationKeyDescription: fmt.Sprintf("Project for %s", req.Name),
+				controller.AnnotationKeyDisplayName: req.DisplayName,
+				controller.AnnotationKeyDescription: req.Description,
 			},
 			Labels: map[string]string{
 				labels.LabelKeyOrganizationName: orgName,
 				labels.LabelKeyName:             req.Name,
-				"backstage.io/kubernetes-id":    req.Name,
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
@@ -157,10 +156,6 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 
 // toProjectResponse converts a Project CR to a ProjectResponse
 func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) *models.ProjectResponse {
-	// Extract repository info from annotations if available
-	repositoryURL := project.Annotations["repository-url"]
-	repositoryBranch := project.Annotations["repository-branch"]
-
 	// Extract display name and description from annotations
 	displayName := project.Annotations[controller.AnnotationKeyDisplayName]
 	description := project.Annotations[controller.AnnotationKeyDescription]
@@ -182,8 +177,6 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		OrgName:            project.Namespace,
 		DisplayName:        displayName,
 		Description:        description,
-		RepositoryURL:      repositoryURL,
-		RepositoryBranch:   repositoryBranch,
 		DeploymentPipeline: project.Spec.DeploymentPipelineRef,
 		CreatedAt:          project.CreationTimestamp.Time,
 		Status:             status,

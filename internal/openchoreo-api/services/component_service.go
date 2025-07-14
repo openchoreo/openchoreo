@@ -62,14 +62,8 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 		return nil, ErrComponentAlreadyExists
 	}
 
-	// Set default branch if not provided
-	branch := req.Branch
-	if branch == "" {
-		branch = "main"
-	}
-
 	// Create the component and related resources
-	if err := s.createComponentResources(ctx, orgName, projectName, req, branch); err != nil {
+	if err := s.createComponentResources(ctx, orgName, projectName, req); err != nil {
 		s.logger.Error("Failed to create component resources", "error", err)
 		return nil, fmt.Errorf("failed to create component: %w", err)
 	}
@@ -78,15 +72,14 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 
 	// Return the created component
 	return &models.ComponentResponse{
-		Name:          req.Name,
-		Description:   req.Description,
-		Type:          req.Type,
-		ProjectName:   projectName,
-		OrgName:       orgName,
-		RepositoryURL: req.RepositoryURL,
-		Branch:        branch,
-		CreatedAt:     metav1.Now().Time,
-		Status:        "Creating",
+		Name:        req.Name,
+		DisplayName: req.DisplayName,
+		Description: req.Description,
+		Type:        req.Type,
+		ProjectName: projectName,
+		OrgName:     orgName,
+		CreatedAt:   metav1.Now().Time,
+		Status:      "Creating",
 	}, nil
 }
 
@@ -239,21 +232,26 @@ func (s *ComponentService) componentExists(ctx context.Context, orgName, project
 }
 
 // createComponentResources creates the component and related Kubernetes resources
-func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest, branch string) error {
+func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) error {
+	displayName := req.DisplayName
+	if displayName == "" {
+		displayName = req.Name
+	}
+
+	annotations := map[string]string{
+		controller.AnnotationKeyDisplayName: displayName,
+		controller.AnnotationKeyDescription: req.Description,
+	}
+
 	componentCR := &openchoreov1alpha1.ComponentV2{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Component",
 			APIVersion: "openchoreo.dev/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: orgName,
-			Annotations: map[string]string{
-				controller.AnnotationKeyDisplayName: req.Name,
-				controller.AnnotationKeyDescription: req.Description,
-				"repository-url":                    req.RepositoryURL,
-				"repository-branch":                 branch,
-			},
+			Name:        req.Name,
+			Namespace:   orgName,
+			Annotations: annotations,
 		},
 		Spec: openchoreov1alpha1.ComponentV2Spec{
 			Owner: openchoreov1alpha1.ComponentOwner{
@@ -272,36 +270,22 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 
 // toComponentResponse converts a ComponentV2 CR to a ComponentResponse
 func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, typeSpecs map[string]interface{}) *models.ComponentResponse {
-	// Extract repository URL from annotations (stored during creation)
-	repositoryURL := component.Annotations["repository-url"]
-	if repositoryURL == "" {
-		// Fallback if not in annotations
-		repositoryURL = ""
-	}
-
 	// Extract project name from the component owner
 	projectName := component.Spec.Owner.ProjectName
-
-	// Extract branch info from annotations
-	branch := component.Annotations["repository-branch"]
-	if branch == "" {
-		branch = "main" // default
-	}
 
 	// Get status - ComponentV2 doesn't have conditions yet, so default to Creating
 	// This can be enhanced later when ComponentV2 adds status conditions
 	status := "Creating"
 
 	response := &models.ComponentResponse{
-		Name:          component.Name,
-		Description:   component.Annotations[controller.AnnotationKeyDescription],
-		Type:          string(component.Spec.Type),
-		ProjectName:   projectName,
-		OrgName:       component.Namespace,
-		RepositoryURL: repositoryURL,
-		Branch:        branch,
-		CreatedAt:     component.CreationTimestamp.Time,
-		Status:        status,
+		Name:        component.Name,
+		DisplayName: component.Annotations[controller.AnnotationKeyDisplayName],
+		Description: component.Annotations[controller.AnnotationKeyDescription],
+		Type:        string(component.Spec.Type),
+		ProjectName: projectName,
+		OrgName:     component.Namespace,
+		CreatedAt:   component.CreationTimestamp.Time,
+		Status:      status,
 	}
 
 	for _, v := range typeSpecs {
