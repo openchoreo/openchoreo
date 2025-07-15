@@ -52,8 +52,11 @@ spec:
           info:
             title: Sample API
             version: 1.0.0
+          servers:
+            - url: /api/v1
+              description: Base API path
           paths:
-            /api/v1/reading-list:
+            /reading-list:
               get:
                 summary: Get all books in the reading list
                 responses:
@@ -132,26 +135,9 @@ spec:
         allowHeaders: ["Content-Type", "Authorization"]
         exposeHeaders: ["X-Request-ID"]
         maxAge: 86400
-      timeout: "30s"
-      retries:
-        attempts: 3
-        backoff: "exponential"
-        initialInterval: "1s"
-        maxInterval: "10s"
-      requestSizeLimit: "10MB"
-      responseSizeLimit: "50MB"
       circuitBreaker:
         enabled: true
         maxConnections: 2
-      monitoring:
-        metrics:
-          enabled: true
-          detailedMetrics: true
-        logging:
-          enabled: true
-          logLevel: "info"
-          includeRequestBody: false
-          includeResponseBody: false
     public:
       rateLimit:
         requests: 5

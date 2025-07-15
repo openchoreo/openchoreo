@@ -194,34 +194,6 @@ spec:
                               type: object
                             type: array
                         type: object
-                      monitoring:
-                        description: Monitoring and logging configuration
-                        properties:
-                          logging:
-                            description: LoggingConfig defines logging configuration
-                            properties:
-                              enabled:
-                                type: boolean
-                              includeRequestBody:
-                                type: boolean
-                              includeResponseBody:
-                                type: boolean
-                              logLevel:
-                                type: string
-                            required:
-                            - enabled
-                            type: object
-                          metrics:
-                            description: MetricsConfig defines metrics configuration
-                            properties:
-                              detailedMetrics:
-                                type: boolean
-                              enabled:
-                                type: boolean
-                            required:
-                            - enabled
-                            type: object
-                        type: object
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
@@ -233,28 +205,6 @@ spec:
                         required:
                         - requests
                         - window
-                        type: object
-                      requestSizeLimit:
-                        type: string
-                      responseSizeLimit:
-                        type: string
-                      retries:
-                        description: RetryPolicy defines retry configuration
-                        properties:
-                          attempts:
-                            format: int32
-                            type: integer
-                          backoff:
-                            type: string
-                          initialInterval:
-                            type: string
-                          maxInterval:
-                            type: string
-                        required:
-                        - attempts
-                        - backoff
-                        - initialInterval
-                        - maxInterval
                         type: object
                       security:
                         description: Security policies
@@ -272,9 +222,6 @@ spec:
                           requireTLS:
                             type: boolean
                         type: object
-                      timeout:
-                        description: Request and response management
-                        type: string
                     type: object
                   organization:
                     description: Override policies for organization expose level
@@ -424,34 +371,6 @@ spec:
                               type: object
                             type: array
                         type: object
-                      monitoring:
-                        description: Monitoring and logging configuration
-                        properties:
-                          logging:
-                            description: LoggingConfig defines logging configuration
-                            properties:
-                              enabled:
-                                type: boolean
-                              includeRequestBody:
-                                type: boolean
-                              includeResponseBody:
-                                type: boolean
-                              logLevel:
-                                type: string
-                            required:
-                            - enabled
-                            type: object
-                          metrics:
-                            description: MetricsConfig defines metrics configuration
-                            properties:
-                              detailedMetrics:
-                                type: boolean
-                              enabled:
-                                type: boolean
-                            required:
-                            - enabled
-                            type: object
-                        type: object
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
@@ -463,28 +382,6 @@ spec:
                         required:
                         - requests
                         - window
-                        type: object
-                      requestSizeLimit:
-                        type: string
-                      responseSizeLimit:
-                        type: string
-                      retries:
-                        description: RetryPolicy defines retry configuration
-                        properties:
-                          attempts:
-                            format: int32
-                            type: integer
-                          backoff:
-                            type: string
-                          initialInterval:
-                            type: string
-                          maxInterval:
-                            type: string
-                        required:
-                        - attempts
-                        - backoff
-                        - initialInterval
-                        - maxInterval
                         type: object
                       security:
                         description: Security policies
@@ -502,9 +399,6 @@ spec:
                           requireTLS:
                             type: boolean
                         type: object
-                      timeout:
-                        description: Request and response management
-                        type: string
                     type: object
                   public:
                     description: Override policies for public expose level
@@ -654,34 +548,6 @@ spec:
                               type: object
                             type: array
                         type: object
-                      monitoring:
-                        description: Monitoring and logging configuration
-                        properties:
-                          logging:
-                            description: LoggingConfig defines logging configuration
-                            properties:
-                              enabled:
-                                type: boolean
-                              includeRequestBody:
-                                type: boolean
-                              includeResponseBody:
-                                type: boolean
-                              logLevel:
-                                type: string
-                            required:
-                            - enabled
-                            type: object
-                          metrics:
-                            description: MetricsConfig defines metrics configuration
-                            properties:
-                              detailedMetrics:
-                                type: boolean
-                              enabled:
-                                type: boolean
-                            required:
-                            - enabled
-                            type: object
-                        type: object
                       rateLimit:
                         description: Rate limiting configuration
                         properties:
@@ -693,28 +559,6 @@ spec:
                         required:
                         - requests
                         - window
-                        type: object
-                      requestSizeLimit:
-                        type: string
-                      responseSizeLimit:
-                        type: string
-                      retries:
-                        description: RetryPolicy defines retry configuration
-                        properties:
-                          attempts:
-                            format: int32
-                            type: integer
-                          backoff:
-                            type: string
-                          initialInterval:
-                            type: string
-                          maxInterval:
-                            type: string
-                        required:
-                        - attempts
-                        - backoff
-                        - initialInterval
-                        - maxInterval
                         type: object
                       security:
                         description: Security policies
@@ -732,9 +576,6 @@ spec:
                           requireTLS:
                             type: boolean
                         type: object
-                      timeout:
-                        description: Request and response management
-                        type: string
                     type: object
                 type: object
             type: object

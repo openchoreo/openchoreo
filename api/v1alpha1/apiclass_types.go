@@ -41,15 +41,8 @@ type RESTPolicy struct {
 	Security *SecurityPolicy `json:"security,omitempty"`
 	// Request and response mediation/transformation
 	Mediation *MediationPolicy `json:"mediation,omitempty"`
-	// Request and response management
-	Timeout           *metav1.Duration `json:"timeout,omitempty"`
-	Retries           *RetryPolicy     `json:"retries,omitempty"`
-	RequestSizeLimit  *string          `json:"requestSizeLimit,omitempty"`
-	ResponseSizeLimit *string          `json:"responseSizeLimit,omitempty"`
 	// Circuit breaker configuration
 	CircuitBreaker *CircuitBreakerPolicy `json:"circuitBreaker,omitempty"`
-	// Monitoring and logging configuration
-	Monitoring *MonitoringPolicy `json:"monitoring,omitempty"`
 }
 
 // RateLimitPolicy defines rate limiting configuration
@@ -137,26 +130,6 @@ type CircuitBreakerPolicy struct {
 	MaxParallelRequests *int32 `json:"maxParallelRequests"`
 	// +optional
 	MaxParallelRetries *int32 `json:"maxParallelRetries"`
-}
-
-// MonitoringPolicy defines monitoring and logging configuration
-type MonitoringPolicy struct {
-	Metrics *MetricsConfig `json:"metrics,omitempty"`
-	Logging *LoggingConfig `json:"logging,omitempty"`
-}
-
-// MetricsConfig defines metrics configuration
-type MetricsConfig struct {
-	Enabled         bool  `json:"enabled"`
-	DetailedMetrics *bool `json:"detailedMetrics,omitempty"`
-}
-
-// LoggingConfig defines logging configuration
-type LoggingConfig struct {
-	Enabled             bool   `json:"enabled"`
-	LogLevel            string `json:"logLevel,omitempty"`
-	IncludeRequestBody  *bool  `json:"includeRequestBody,omitempty"`
-	IncludeResponseBody *bool  `json:"includeResponseBody,omitempty"`
 }
 
 // GRPCAPIPolicy defines gRPC-specific API policies (placeholder for future implementation)
