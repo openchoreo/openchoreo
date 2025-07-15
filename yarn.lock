@@ -7038,35 +7038,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@internal/plugin-catalog-backend-module-choreo-provider@workspace:plugins/catalog-backend-module-choreo-provider":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-catalog-backend-module-choreo-provider@workspace:plugins/catalog-backend-module-choreo-provider"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.2.1"
-    "@backstage/backend-test-utils": "npm:^1.3.1"
-    "@backstage/catalog-client": "npm:^1.9.1"
-    "@backstage/catalog-model": "npm:^1.7.3"
-    "@backstage/cli": "npm:^0.31.0"
-    "@backstage/config": "npm:^1.3.2"
-    "@backstage/plugin-catalog-node": "npm:^1.16.3"
-    "@backstage/plugin-kubernetes-backend": "npm:^0.19.5"
-    "@backstage/plugin-kubernetes-common": "npm:^0.9.4"
-    "@backstage/plugin-kubernetes-node": "npm:^0.2.5"
-    "@backstage/plugin-permission-common": "npm:^0.8.4"
-    "@types/js-yaml": "npm:^4"
-    "@types/pluralize": "npm:^0.0.33"
-    js-yaml: "npm:^4.1.0"
-    pluralize: "npm:^8.0.0"
-  languageName: unknown
-  linkType: soft
-
 "@internal/plugin-catalog-backend-module-openchoreo@workspace:^, @internal/plugin-catalog-backend-module-openchoreo@workspace:plugins/catalog-backend-module-openchoreo":
   version: 0.0.0-use.local
   resolution: "@internal/plugin-catalog-backend-module-openchoreo@workspace:plugins/catalog-backend-module-openchoreo"
   dependencies:
     "@backstage/backend-plugin-api": "npm:^1.3.0"
     "@backstage/backend-test-utils": "npm:^1.3.1"
+    "@backstage/catalog-client": "npm:^1.9.1"
+    "@backstage/catalog-model": "npm:^1.7.3"
     "@backstage/cli": "npm:^0.32.0"
+    "@backstage/config": "npm:^1.3.2"
+    "@backstage/plugin-catalog-node": "npm:^1.16.3"
+    "@backstage/plugin-permission-common": "npm:^0.8.4"
+    "@internal/plugin-openchoreo-api": "npm:*"
   languageName: unknown
   linkType: soft
 
@@ -7126,7 +7110,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api":
+"@internal/plugin-openchoreo-api@npm:*, @internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api":
   version: 0.0.0-use.local
   resolution: "@internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api"
   dependencies:
@@ -13312,7 +13296,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/js-yaml@npm:^4, @types/js-yaml@npm:^4.0.1":
+"@types/js-yaml@npm:^4.0.1":
   version: 4.0.9
   resolution: "@types/js-yaml@npm:4.0.9"
   checksum: 10c0/24de857aa8d61526bbfbbaa383aa538283ad17363fcd5bb5148e2c7f604547db36646440e739d78241ed008702a8920665d1add5618687b6743858fae00da211
@@ -13549,13 +13533,6 @@ __metadata:
   version: 0.0.9
   resolution: "@types/pathfinding@npm:0.0.9"
   checksum: 10c0/291d9dcdb38b0b7b55b1045ad910c9929b10a14885a314beb4dd41d4f5438f018e0dac57a3fafb3ae3b2892e0240cf9483b4b807b78cf61e6cb4324de5cd59ac
-  languageName: node
-  linkType: hard
-
-"@types/pluralize@npm:^0.0.33":
-  version: 0.0.33
-  resolution: "@types/pluralize@npm:0.0.33"
-  checksum: 10c0/24899caf85b79dd291a6b6e9b9f3b67b452b18d578d0ac0d531a705bf5ee0361d9386ea1f8532c64de9e22c6e9606c5497787bb5e31bd299c487980436c59785
   languageName: node
   linkType: hard
 
