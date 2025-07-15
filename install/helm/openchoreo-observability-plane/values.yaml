@@ -1,3 +1,8 @@
+# Global values shared across all components
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
+
 # Customizing OpenSearch configurations
 opensearch:
   image:
@@ -58,7 +63,7 @@ opensearchDashboard:
   
   replicas: 1
 
-# Choreo Observer Service Configuration
+# OpenChoreo Observer Service Configuration
 observer:
   replicas: 1
   
@@ -73,9 +78,7 @@ observer:
   
   opensearch:
     # References the OpenSearch configuration above
-    # address: constructed in observer-deployment.yaml template
-    username: "{{ .Values.opensearch.authentication.basicauth.username }}"
-    password: "{{ .Values.opensearch.authentication.basicauth.password }}"
+    # Address and credentials are automatically configured from the opensearch section
   
   logLevel: info
   

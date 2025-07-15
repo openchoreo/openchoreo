@@ -1,11 +1,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "choreo-observability.fullname" . }}-opensearch-readiness
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-opensearch-readiness
   namespace: {{ $.Values.namespace | default $.Release.Namespace}}
   labels:
-    {{- include "choreo-observability.labels" . | nindent 4 }}
-    app.kubernetes.io/component: opensearch-readiness
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch-readiness") | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "10"
@@ -23,9 +22,9 @@ spec:
         - -c
         - |
           echo "Waiting for OpenSearch to be ready..."
-          until curl -s http://{{ include "choreo-observability.fullname" . }}-opensearch:9200/_cluster/health | grep -q '"status":"green\|yellow"'; do
+          until curl -s http://{{ include "openchoreo-observability-plane.fullname" . }}-opensearch:9200/_cluster/health | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready yet, waiting 10 seconds..."
             sleep 10
           done
           echo "OpenSearch is ready!"
-          curl -s http://{{ include "choreo-observability.fullname" . }}-opensearch:9200/_cluster/health
+          curl -s http://{{ include "openchoreo-observability-plane.fullname" . }}-opensearch:9200/_cluster/health

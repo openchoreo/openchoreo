@@ -1,36 +1,31 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "choreo-observability.fullname" . }}-observer
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-observer
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "choreo-observability.labels" . | nindent 4 }}
-    app.kubernetes.io/component: observer
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ include "choreo-observability.fullname" . }}-observer-opensearch
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-observer-opensearch
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "choreo-observability.labels" . | nindent 4 }}
-    app.kubernetes.io/component: observer
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 type: Opaque
 data:
-  username: {{ if .Values.observer.opensearch }}{{ .Values.observer.opensearch.username | default "admin" | b64enc }}{{ else }}{{ "admin" | b64enc }}{{ end }}
-  password: {{ if .Values.observer.opensearch }}{{ .Values.observer.opensearch.password | default "admin" | b64enc }}{{ else }}{{ "admin" | b64enc }}{{ end }}
+  username: {{ .Values.opensearch.authentication.basicauth.username | b64enc }}
+  password: {{ .Values.opensearch.authentication.basicauth.password | b64enc }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: choreo-observer
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-observer
   namespace: {{ .Release.Namespace }}
   labels:
-    app: choreo-observer
-    app.kubernetes.io/name: choreo-observer
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: observability
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 spec:
   type: {{ if .Values.observer.service }}{{ .Values.observer.service.type | default "ClusterIP" }}{{ else }}ClusterIP{{ end }}
   ports:
@@ -39,4 +34,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: choreo-observer
+    {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 4 }}

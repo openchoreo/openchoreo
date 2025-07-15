@@ -1,11 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "choreo-observability.fullname" . }}-opensearch
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-opensearch
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-observability.labels" . | nindent 4 }}
-    app.kubernetes.io/component: opensearch
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
 spec:
   ports:
   - port: {{ .Values.opensearch.service.httpPort }}
@@ -18,30 +17,26 @@ spec:
     name: transport
     targetPort: transport
   selector:
-    {{- include "choreo-observability.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: opensearch
+    {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
   type: {{ .Values.opensearch.service.type }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "choreo-observability.fullname" . }}-opensearch
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-opensearch
   namespace: {{ $.Values.namespace | default $.Release.Namespace }}
   labels:
-    {{- include "choreo-observability.labels" . | nindent 4 }}
-    app.kubernetes.io/component: opensearch
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
 spec:
-  serviceName: {{ include "choreo-observability.fullname" . }}-opensearch
+  serviceName: {{ include "openchoreo-observability-plane.fullname" . }}-opensearch
   replicas: {{ .Values.opensearch.replicas }}
   selector:
     matchLabels:
-      {{- include "choreo-observability.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: opensearch
+      {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "choreo-observability.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: opensearch
+        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 8 }}
     spec:
       containers:
       - name: opensearch
