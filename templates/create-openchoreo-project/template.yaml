@@ -2,8 +2,8 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: create-openchoreo-project
-  title: Create Project
-  description: Create a new OpenChoreo project
+  title: Create OpenChoreo Project 
+  description: This template creates a new OpenChoreo project.
   tags:
     - openchoreo
 spec:
@@ -12,7 +12,6 @@ spec:
   parameters:
     - title: OpenChoreo Project Details
       required:
-        - owner
         - organization_name
         - project_name
       properties:
@@ -37,15 +36,15 @@ spec:
           ui:options:
             catalogFilter:
               - kind: Domain
-        owner:
-          title: Owner
-          type: string
-          description: Owner of the project
-          ui:field: EntityPicker
-          ui:options:
-            catalogFilter:
-              - kind: Group
-                spec.type: team
+        # owner:
+        #   title: Owner
+        #   type: string
+        #   description: Owner of the project
+        #   ui:field: EntityPicker
+        #   ui:options:
+        #     catalogFilter:
+        #       - kind: Group
+        #         spec.type: team
   steps:
     - id: create-openchoreo-project
       name: Create OpenChoreo Project
