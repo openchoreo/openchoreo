@@ -72,6 +72,6 @@ export const cellChoreoWorkflowTypes: ObjectToFetch[] = [
 export interface CellDiagramService {
   fetchProjectInfo(request: {
     projectName: string;
-    organizationName: string;
+    orgName: string;
   }): Promise<Project | undefined>;
 }

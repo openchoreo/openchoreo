@@ -42,14 +42,9 @@ export const choreoPlugin = createBackendPlugin({
           permissions,
           discovery,
         );
+        const openchoreoConfig = config.getConfig('openchoreo'); // Make optional
 
-        const cellDiagramInfoService = await CellDiagramInfoService.create(
-          logger,
-          config,
-          catalog,
-          permissions,
-          discovery,
-        );
+        const cellDiagramInfoService = new CellDiagramInfoService(logger, openchoreoConfig.get("baseUrl"))
 
         httpRouter.use(
           await createRouter({

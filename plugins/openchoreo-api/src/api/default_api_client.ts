@@ -1,7 +1,7 @@
 import { FetchApi } from '../types/fetch';
 import crossFetch from 'cross-fetch';
 import * as parser from 'uri-template';
-import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, TypedResponse, OpenChoreoApiResponse } from '../models';
+import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, TypedResponse, OpenChoreoApiResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
 
 
 /**
@@ -76,6 +76,31 @@ export class DefaultApiClient {
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
       projectName: request.projectName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Retrieves all Component CRs from a project
+   * List all components of a project
+   */
+  public async componentGet(
+    request: ComponentGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsCompleteComponent>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}?include=type,workload`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName
     });
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

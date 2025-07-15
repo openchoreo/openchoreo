@@ -20,7 +20,7 @@ import {
 import {
   CHOREO_LABELS,
   CHOREO_ANNOTATIONS,
-} from '@internal/plugin-choreo/src/constants/labels';
+} from '@internal/plugin-choreo';
 
 /**
  * Service for managing and retrieving environment-related information for deployments.

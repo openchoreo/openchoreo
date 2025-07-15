@@ -1,3 +1,8 @@
+import { EndpointTemplateSpec } from "./ModelsAPI.Model";
+import { ModelsService } from "./ModelsService.model";
+import { ModelsWebApplication } from "./ModelsWebApplication.model";
+import { ModelsWorkload } from "./ModelsWorkload.model";
+
 /**
  * @public
  */
@@ -38,4 +43,10 @@ export interface ModelsComponent {
    * Current status of the component
    */
   status: string;
+}
+
+export interface ModelsCompleteComponent extends ModelsComponent {
+  workload?: ModelsWorkload
+  service?: ModelsService
+  webApplication?: ModelsWebApplication
 }
