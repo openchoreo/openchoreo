@@ -150,8 +150,8 @@ fluentBit:
     input:
       name: tail
       tag: "kube.*"
-      path: "/var/log/containers/*_openchoreo-system_*.log,/var/log/containers/*_dp-*_*.log"
-      excludePath: "/var/log/containers/*opensearch-0*_openchoreo-system_*.log,/var/log/containers/*opensearch-dashboard*_openchoreo-system_*.log,/var/log/containers/*fluent-bit*_openchoreo-system_*.log"
+      path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log"
+      excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
       parser: docker
       inotifyWatcher: false
       db: "/var/log/flb_kube.db"
@@ -184,7 +184,7 @@ fluentBit:
     
     # OpenSearch connection configuration
     opensearch:
-      host: "openchoreo-observability-plane-opensearch.openchoreo-system.svc.cluster.local"
+      host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
       port: "9200"
       authentication:
         basicauth:
