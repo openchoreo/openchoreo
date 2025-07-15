@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-observability-plane.fullname" . }}-observer
+  name: observer
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
@@ -15,7 +15,7 @@ spec:
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "openchoreo-observability-plane.fullname" . }}-observer
+      serviceAccountName: observer
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -29,7 +29,7 @@ spec:
         - -c
         - |
           echo "Waiting for OpenSearch to be ready..."
-          OPENSEARCH_URL="http://{{ include "openchoreo-observability-plane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          OPENSEARCH_URL="http://opensearch:{{ .Values.opensearch.service.httpPort }}"
           echo "Checking OpenSearch at: $OPENSEARCH_URL"
           until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready, waiting 10 seconds..."
@@ -57,16 +57,16 @@ spec:
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
-          value: "http://{{ include "openchoreo-observability-plane.fullname" . }}-{{ .Values.opensearch.service.nameSuffix }}:{{ .Values.opensearch.service.httpPort }}"
+          value: "http://opensearch:{{ .Values.opensearch.service.httpPort }}"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-observability-plane.fullname" . }}-observer-opensearch
+              name: observer-opensearch
               key: username
         - name: OPENSEARCH_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-observability-plane.fullname" . }}-observer-opensearch
+              name: observer-opensearch
               key: password
         livenessProbe:
           httpGet:

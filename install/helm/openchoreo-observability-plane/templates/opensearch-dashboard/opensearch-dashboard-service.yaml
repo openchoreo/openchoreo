@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch-dashboard") | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.opensearchDashboard.service.port }}
+    name: http
+    targetPort: http
+  selector:
+    {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch-dashboard") | nindent 4 }}
+  type: {{ .Values.opensearchDashboard.service.type }}

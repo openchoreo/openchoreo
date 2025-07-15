@@ -14,7 +14,6 @@ opensearch:
     type: NodePort
     httpPort: 9200
     transportPort: 9300
-    nameSuffix: "opensearch"
     # NodePort configuration for cross-cluster access
     nodePort: 30920  # Fixed port for external access from other clusters
   
@@ -26,7 +25,7 @@ opensearch:
     disableSecurity: true
   
   authentication:
-    basicauth:
+    basicAuth:
       username: admin
       password: admin
   
@@ -56,7 +55,6 @@ opensearchDashboard:
   service:
     type: NodePort
     port: 5601
-    nameSuffix: "opensearch-dashboard"
   
   config:
     disableSecurity: true
@@ -75,10 +73,6 @@ observer:
   service:
     type: ClusterIP
     port: 8080
-  
-  opensearch:
-    # References the OpenSearch configuration above
-    # Address and credentials are automatically configured from the opensearch section
   
   logLevel: info
   
