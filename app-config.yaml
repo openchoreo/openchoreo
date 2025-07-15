@@ -88,6 +88,12 @@ catalog:
     # Local example template
     - type: file
       target: ../../templates/create-openchoreo-project/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ../../templates/create-openchoreo-component/template.yaml
+      rules:
+        - allow: [Template]
 
     # Local example organizational data
     - type: file
