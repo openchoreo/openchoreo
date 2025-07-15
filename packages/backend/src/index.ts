@@ -51,7 +51,6 @@ backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 
 // kubernetes
 backend.add(import('@backstage/plugin-kubernetes-backend'));
-backend.add(import('@internal/plugin-catalog-backend-module-choreo-provider'));
 backend.add(import('@internal/plugin-choreo-backend'));
 backend.add(import('@internal/plugin-catalog-backend-module-openchoreo'));
 backend.start();

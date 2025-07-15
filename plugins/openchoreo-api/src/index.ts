@@ -6,6 +6,7 @@
 
 export { OpenChoreoApiClient } from './client';
 export { createOpenChoreoApiClient } from './factory';
+export { DefaultApiClient } from './api';
 // export { readOpenChoreoConfigFromConfig } from './config';
 // export type { OpenChoreoConfig } from './config';
 export * from './models';

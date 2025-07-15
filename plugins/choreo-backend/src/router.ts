@@ -47,7 +47,7 @@ export async function createRouter({
       res.json(
         await cellDiagramInfoService.fetchProjectInfo({
           projectName: projectName as string,
-          organizationName: organizationName as string,
+          orgName: organizationName as string,
         }),
       );
     },

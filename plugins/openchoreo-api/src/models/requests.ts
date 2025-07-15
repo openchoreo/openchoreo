@@ -37,6 +37,16 @@ export type ComponentsGetRequest = {
 };
 
 /**
+ * Request parameters for getting all components of a project
+ * @public
+ */
+export type ComponentGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */
