@@ -130,4 +130,46 @@ export class OpenChoreoApiClient {
       throw error;
     }
   }
+
+  async createComponent(
+    orgName: string,
+    projectName: string,
+    componentData: {
+      name: string;
+      displayName?: string;
+      description?: string;
+      type: string;
+    }
+  ): Promise<ModelsComponent> {
+    this.logger?.info(`Creating component: ${componentData.name} in project: ${projectName}, organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.componentsPost(
+        {
+          orgName,
+          projectName,
+          name: componentData.name,
+          displayName: componentData.displayName,
+          description: componentData.description,
+          type: componentData.type,
+        },
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsComponent> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const component = apiResponse.data;
+      this.logger?.info(`Successfully created component: ${component.name} in project: ${projectName}, org: ${orgName}`);
+      
+      return component;
+    } catch (error) {
+      this.logger?.error(`Failed to create component ${componentData.name} in project ${projectName}, org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
 }

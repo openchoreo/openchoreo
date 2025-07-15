@@ -1,7 +1,7 @@
 import { FetchApi } from '../types/fetch';
 import crossFetch from 'cross-fetch';
 import * as parser from 'uri-template';
-import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, ProjectsPostRequest, TypedResponse, OpenChoreoApiResponse, OpenChoreoApiSingleResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
+import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, ProjectsPostRequest, ComponentsPostRequest, TypedResponse, OpenChoreoApiResponse, OpenChoreoApiSingleResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
 
 
 /**
@@ -131,6 +131,38 @@ export class DefaultApiClient {
       ...(request.displayName && { displayName: request.displayName }),
       ...(request.description && { description: request.description }),
       ...(request.deploymentPipeline && { deploymentPipeline: request.deploymentPipeline }),
+    };
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Creates a new component in the specified project
+   * Create a new component
+   */
+  public async componentsPost(
+    request: ComponentsPostRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsComponent>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+    });
+
+    const body = {
+      name: request.name,
+      type: request.type,
+      ...(request.displayName && { displayName: request.displayName }),
+      ...(request.description && { description: request.description }),
     };
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

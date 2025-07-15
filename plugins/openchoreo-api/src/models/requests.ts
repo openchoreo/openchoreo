@@ -59,6 +59,19 @@ export type ProjectsPostRequest = {
 };
 
 /**
+ * Request parameters for creating a new component
+ * @public
+ */
+export type ComponentsPostRequest = {
+  orgName: string;
+  projectName: string;
+  name: string;
+  displayName?: string;
+  description?: string;
+  type: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

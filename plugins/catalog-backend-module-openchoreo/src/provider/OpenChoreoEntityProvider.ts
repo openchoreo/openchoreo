@@ -177,6 +177,12 @@ export class OpenChoreoEntityProvider implements EntityProvider {
    * Translates a ModelsComponent from OpenChoreo API to a Backstage Component entity
    */
   private translateComponentToEntity(component: ModelsComponent, orgName: string, projectName: string): Entity {
+
+    let backstageComponentType: string = component.type.toLowerCase(); // e.g., 'service', 'webapp', etc.
+    if (component.type === 'WebApplication') {
+      backstageComponentType = 'website';
+    }
+
     const componentEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -203,7 +209,7 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         },
       },
       spec: {
-        type: component.type.toLowerCase(), // e.g., 'service'
+        type: backstageComponentType,
         lifecycle: component.status.toLowerCase(), // Map status to lifecycle
         owner: 'guests', // This could be mapped from component metadata
         system: projectName, // Link to the parent system (project)
