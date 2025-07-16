@@ -4,10 +4,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ServiceClass
 metadata:
   name: default
-  namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "8"
+  namespace: default
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
 spec:

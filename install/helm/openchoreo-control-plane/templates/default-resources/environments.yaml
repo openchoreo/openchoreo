@@ -9,8 +9,6 @@ metadata:
   annotations:
     openchoreo.dev/display-name: {{ .displayName }}
     openchoreo.dev/description: {{ .displayName }}
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "9"
   labels:
     openchoreo.dev/organization: default
     openchoreo.dev/name: {{ .name }}
