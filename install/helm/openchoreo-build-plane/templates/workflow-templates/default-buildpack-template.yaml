@@ -15,7 +15,7 @@ spec:
       - name: branch
         value: main
       - name: builder-image
-        value: gcr.io/buildpacks/builder:google-22
+        value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
       - name: run-image
         value: gcr.io/buildpacks/google-22/run:latest
       - name: commit
