@@ -1,0 +1,44 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: shipping
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: shipping
+spec:
+  owner:
+    componentName: shipping
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: shippingservice:arm64
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "50055"
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 50055
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: shipping
+spec:
+  owner:
+    componentName: shipping
+    projectName: gcp-microservice-demo
+  workloadName: shipping
+  overrides: {}

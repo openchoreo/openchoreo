@@ -1,0 +1,57 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: checkout
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: checkout
+spec:
+  owner:
+    componentName: checkout
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: checkoutservice:arm64
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "5050"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog-5c8ab466:3550"
+        - key: SHIPPING_SERVICE_ADDR
+          value: "shipping-74006267:50055"
+        - key: PAYMENT_SERVICE_ADDR
+          value: "payment-040ffd59:50051"
+        - key: EMAIL_SERVICE_ADDR
+          value: "email-82244417:5000"
+        - key: CURRENCY_SERVICE_ADDR
+          value: "currency-466e5b9c:7000"
+        - key: CART_SERVICE_ADDR
+          value: "cart-1c42ddc0:7070"
+
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 5050
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: checkout
+spec:
+  owner:
+    componentName: checkout
+    projectName: gcp-microservice-demo
+  workloadName: checkout
+  overrides: {}

@@ -1,0 +1,44 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: payment
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: payment
+spec:
+  owner:
+    componentName: payment
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/paymentservice:v0.10.3
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "50051"
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 50051
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: payment
+spec:
+  owner:
+    componentName: payment
+    projectName: gcp-microservice-demo    
+  workloadName: payment
+  overrides: {}

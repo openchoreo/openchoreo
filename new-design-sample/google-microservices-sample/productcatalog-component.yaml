@@ -1,0 +1,44 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: productcatalog
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: productcatalog
+spec:
+  owner:
+    componentName: productcatalog
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: productcatalogservice:arm64
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "3550"
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 3550
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: productcatalog
+spec:
+  owner:
+    componentName: productcatalog
+    projectName: gcp-microservice-demo
+  workloadName: productcatalog
+  overrides: {}

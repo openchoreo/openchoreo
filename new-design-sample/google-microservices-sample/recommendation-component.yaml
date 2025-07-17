@@ -1,0 +1,46 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: recommendation
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: recommendation
+spec:
+  owner:
+    componentName: recommendation
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "8080"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog-5c8ab466:3550"
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 8080
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: recommendation
+spec:
+  owner:
+    componentName: recommendation
+    projectName: gcp-microservice-demo
+  workloadName: recommendation
+  overrides: {}

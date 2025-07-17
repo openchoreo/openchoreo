@@ -1,0 +1,69 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: frontend
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: WebApplication
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: frontend
+spec:
+  owner:
+    componentName: frontend
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: frontend:arm64
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "8080"
+        - key: AD_SERVICE_ADDR
+          value: "ad-70ba3370:9555"
+        - key: CART_SERVICE_ADDR
+          value: "cart-1c42ddc0:7070"
+        - key: CHECKOUT_SERVICE_ADDR
+          value: "checkout-c7761e58:5050"
+        - key: CURRENCY_SERVICE_ADDR
+          value: "currency-466e5b9c:7000"
+        - key: PAYMENT_SERVICE_ADDR
+          value: "payment-040ffd59:50051"
+        - key: RECOMMENDATION_SERVICE_ADDR
+          value: "recommendation-dbfe9375:8080"
+        - key: SHIPPING_SERVICE_ADDR
+          value: "shipping-74006267:50055"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog-5c8ab466:3550"
+        - key: SHOPPING_ASSISTANT_SERVICE_ADDR
+          value: "shoppingassistant-8c4f1b2a:5000"
+        - key: CYMBAL_BRANDING
+          value: "false"
+        - key: FRONTEND_MESSAGE
+          value: "Welcome to the Microservices Demo!"
+        - key: ENABLE_ASSISTANT
+          value: "false"
+
+  endpoints:
+    http-endpoint:
+      protocol: TCP
+      port: 8080
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WebApplication
+metadata:
+  name: frontend
+spec:
+  owner:
+    componentName: frontend
+    projectName: gcp-microservice-demo
+  workloadName: frontend
+  overrides: {}

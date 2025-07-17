@@ -1,0 +1,42 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: ad
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: ad
+spec:
+  owner:
+    componentName: ad
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3
+      env:
+        - key: PORT
+          value: "9555"
+  endpoints:
+    grpc-endpoint:
+      protocol: TCP
+      port: 9555
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: ad
+spec:
+  owner:
+    componentName: ad
+    projectName: gcp-microservice-demo
+  workloadName: ad
+  overrides: {}
