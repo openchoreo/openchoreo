@@ -1,8 +1,9 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Content,
   ContentHeader,
   Header,
+  HeaderLabel,
   Page,
   Progress,
 } from '@backstage/core-components';
@@ -43,9 +44,10 @@ export const CellDiagram = () => {
 
   return (
     <Page themeId="tool">
-      <Header title="Cell-Diagram" />
+      <Header title="Architecture Diagram" type="tool">
+        <HeaderLabel label="Project" value={entity.metadata.name} />
+      </Header> 
       <Content>
-        <ContentHeader title="Cell Diagram View" />
         <CellView project={cellDiagramData} />
         <Suspense fallback={<Progress />} />
       </Content>
