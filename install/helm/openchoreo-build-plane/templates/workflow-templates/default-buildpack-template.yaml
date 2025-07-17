@@ -89,7 +89,7 @@ spec:
             LANG="{{ "{{" }}workflow.parameters.language{{ "}}" }}"
             LANG_VER="{{ "{{" }}workflow.parameters.language-version{{ "}}" }}"
 
-            BUILDER="gcr.io/buildpacks/builder:google-22"
+            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
             RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
 
             if [ "$LANG" = "ballerina" ]; then
