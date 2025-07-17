@@ -10,7 +10,6 @@ metadata:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
   entrypoint: build-workflow
-  serviceAccountName: workflow-sa
   arguments:
     parameters:
       - name: branch
