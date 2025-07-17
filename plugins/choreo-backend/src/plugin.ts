@@ -35,16 +35,17 @@ export const choreoPlugin = createBackendPlugin({
         permissions,
         discovery,
       }) {
-        const environmentInfoService = await EnvironmentInfoService.create(
-          logger,
-          config,
-          catalog,
-          permissions,
-          discovery,
-        );
         const openchoreoConfig = config.getConfig('openchoreo'); // Make optional
 
-        const cellDiagramInfoService = new CellDiagramInfoService(logger, openchoreoConfig.get("baseUrl"))
+        const environmentInfoService = new EnvironmentInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
+        const cellDiagramInfoService = new CellDiagramInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
 
         httpRouter.use(
           await createRouter({

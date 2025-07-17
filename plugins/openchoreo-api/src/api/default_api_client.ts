@@ -1,8 +1,24 @@
 import { FetchApi } from '../types/fetch';
 import crossFetch from 'cross-fetch';
 import * as parser from 'uri-template';
-import { ModelsProject, ModelsOrganization, ModelsComponent, RequestOptions, ProjectsGetRequest, OrganizationsGetRequest, ComponentsGetRequest, ProjectsPostRequest, ComponentsPostRequest, TypedResponse, OpenChoreoApiResponse, OpenChoreoApiSingleResponse, ComponentGetRequest, ModelsCompleteComponent } from '../models';
-
+import {
+  ModelsProject,
+  ModelsOrganization,
+  ModelsComponent,
+  ModelsEnvironment,
+  RequestOptions,
+  ProjectsGetRequest,
+  OrganizationsGetRequest,
+  ComponentsGetRequest,
+  EnvironmentsGetRequest,
+  ProjectsPostRequest,
+  ComponentsPostRequest,
+  TypedResponse,
+  OpenChoreoApiResponse,
+  OpenChoreoApiSingleResponse,
+  ComponentGetRequest,
+  ModelsCompleteComponent,
+} from '../models';
 
 /**
  * @public
@@ -64,6 +80,28 @@ export class DefaultApiClient {
   }
 
   /**
+   * Retrieves all environments for an organization
+   * List all environments of an organization
+   */
+  public async environmentsGet(
+    request: EnvironmentsGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsEnvironment>>> {
+    const uriTemplate = `/orgs/{orgName}/environments`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+    });
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
    * Retrieves all Component CRs from a project
    * List all components of a project
    */
@@ -87,7 +125,7 @@ export class DefaultApiClient {
     });
   }
 
-    /**
+  /**
    * Retrieves all Component CRs from a project
    * List all components of a project
    */
@@ -100,7 +138,7 @@ export class DefaultApiClient {
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
       projectName: request.projectName,
-      componentName: request.componentName
+      componentName: request.componentName,
     });
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
@@ -130,7 +168,9 @@ export class DefaultApiClient {
       name: request.name,
       ...(request.displayName && { displayName: request.displayName }),
       ...(request.description && { description: request.description }),
-      ...(request.deploymentPipeline && { deploymentPipeline: request.deploymentPipeline }),
+      ...(request.deploymentPipeline && {
+        deploymentPipeline: request.deploymentPipeline,
+      }),
     };
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

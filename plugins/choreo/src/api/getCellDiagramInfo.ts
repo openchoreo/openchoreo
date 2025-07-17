@@ -12,7 +12,8 @@ export async function getCellDiagramInfo(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.CELL_DIAGRAM}`,
   );
   const project = entity.metadata.name;
-  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+  const organization =
+    entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
 
   if (!project || !organization) {
     console.log('Missing required labels:', { project, organization });

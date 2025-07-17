@@ -34,7 +34,6 @@ export const Environments = () => {
   const [environments, setEnvironmentsData] = useState<Environment[]>([]);
   const discovery = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
-
   useEffect(() => {
     const fetchData = async () => {
       const data = await getEnvironmentInfo(entity, discovery, identityApi);
