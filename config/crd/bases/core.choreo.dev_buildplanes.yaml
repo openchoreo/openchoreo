@@ -4,23 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: dataplanes.core.choreo.dev
+  name: buildplanes.core.choreo.dev
 spec:
   group: core.choreo.dev
   names:
-    kind: DataPlane
-    listKind: DataPlaneList
-    plural: dataplanes
-    shortNames:
-    - dp
-    - dps
-    singular: dataplane
+    kind: BuildPlane
+    listKind: BuildPlaneList
+    plural: buildplanes
+    singular: buildplane
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: DataPlane is the Schema for the dataplanes API.
+        description: BuildPlane is the Schema for the buildplanes API.
         properties:
           apiVersion:
             description: |-
@@ -40,25 +37,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: DataPlaneSpec defines the desired state of a DataPlane.
+            description: BuildPlaneSpec defines the desired state of a BuildPlane.
             properties:
-              gateway:
-                description: Gateway specifies the configuration for the API gateway
-                  in this DataPlane.
-                properties:
-                  organizationVirtualHost:
-                    description: Organization-specific virtual host for the gateway
-                    type: string
-                  publicVirtualHost:
-                    description: Public virtual host for the gateway
-                    type: string
-                required:
-                - organizationVirtualHost
-                - publicVirtualHost
-                type: object
               kubernetesCluster:
-                description: KubernetesCluster defines the target Kubernetes cluster
-                  where workloads should be deployed.
+                description: KubernetesCluster defines the Kubernetes cluster where
+                  build workloads (e.g., Argo Workflows) will be executed.
                 properties:
                   credentials:
                     description: Credentials contains the authentication details for
@@ -93,30 +76,34 @@ spec:
                 - credentials
                 - name
                 type: object
-              registry:
-                description: Registry contains the configuration required to pull
-                  images from a container registry.
-                properties:
-                  prefix:
-                    description: Prefix specifies the registry domain and namespace
-                      (e.g., docker.io/namespace) that this configuration applies
-                      to.
-                    type: string
-                  secretRef:
-                    description: |-
-                      SecretRef is the name of the Kubernetes Secret containing credentials for accessing the registry.
-                      This field is optional and can be omitted for public or unauthenticated registries.
-                    type: string
-                required:
-                - prefix
-                type: object
+              registries:
+                description: |-
+                  Registries specifies the list of container registries to which built images will be pushed.
+                  Each entry may include authentication credentials if required.
+                items:
+                  description: Registry defines the container registry configuration,
+                    including the image prefix and optional authentication credentials.
+                  properties:
+                    prefix:
+                      description: Prefix specifies the registry domain and namespace
+                        (e.g., docker.io/namespace) that this configuration applies
+                        to.
+                      type: string
+                    secretRef:
+                      description: |-
+                        SecretRef is the name of the Kubernetes Secret containing credentials for accessing the registry.
+                        This field is optional and can be omitted for public or unauthenticated registries.
+                      type: string
+                  required:
+                  - prefix
+                  type: object
+                type: array
             required:
-            - gateway
             - kubernetesCluster
-            - registry
+            - registries
             type: object
           status:
-            description: DataPlaneStatus defines the observed state of DataPlane.
+            description: BuildPlaneStatus defines the observed state of BuildPlane.
             properties:
               conditions:
                 items:

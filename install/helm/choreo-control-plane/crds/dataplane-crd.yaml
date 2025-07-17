@@ -40,10 +40,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: DataPlaneSpec defines the desired state of DataPlane.
+            description: DataPlaneSpec defines the desired state of a DataPlane.
             properties:
               gateway:
-                description: Gateway specifies the gateway configuration
+                description: Gateway specifies the configuration for the API gateway
+                  in this DataPlane.
                 properties:
                   organizationVirtualHost:
                     description: Organization-specific virtual host for the gateway
@@ -56,7 +57,8 @@ spec:
                 - publicVirtualHost
                 type: object
               kubernetesCluster:
-                description: KubernetesCluster specifies the target cluster configuration
+                description: KubernetesCluster defines the target Kubernetes cluster
+                  where workloads should be deployed.
                 properties:
                   credentials:
                     description: Credentials contains the authentication details for
@@ -92,35 +94,21 @@ spec:
                 - name
                 type: object
               registry:
-                description: Registry holds configuration for authenticating to container
-                  registries used by this DataPlane.
+                description: Registry contains the configuration required to pull
+                  images from a container registry.
                 properties:
-                  imagePushSecrets:
-                    description: ImagePushSecrets holds references to secrets and
-                      their associated registry prefixes.
-                    items:
-                      description: ImagePushSecret defines a secret used for pushing
-                        images, along with the registry prefix it applies to.
-                      properties:
-                        name:
-                          description: Name is the name of the Kubernetes Secret containing
-                            registry credentials.
-                          type: string
-                        prefix:
-                          description: Prefix specifies the registry domain this secret
-                            applies to (e.g., ghcr.io).
-                          type: string
-                      required:
-                      - name
-                      - prefix
-                      type: object
-                    type: array
-                  unauthenticated:
-                    description: Unauthenticated lists registry domains that do not
-                      require authentication (e.g., public registries).
-                    items:
-                      type: string
-                    type: array
+                  prefix:
+                    description: Prefix specifies the registry domain and namespace
+                      (e.g., docker.io/namespace) that this configuration applies
+                      to.
+                    type: string
+                  secretRef:
+                    description: |-
+                      SecretRef is the name of the Kubernetes Secret containing credentials for accessing the registry.
+                      This field is optional and can be omitted for public or unauthenticated registries.
+                    type: string
+                required:
+                - prefix
                 type: object
             required:
             - gateway
