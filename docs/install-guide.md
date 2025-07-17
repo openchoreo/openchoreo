@@ -201,7 +201,7 @@ You will see an output similar to the following:
 
 ```text
 NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
-choreo--external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
+choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
 ```
 
 You have two options to expose the DataPlane choreo-external-gateway service to your host machine.
