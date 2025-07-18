@@ -41,8 +41,18 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
 
-	// Buildplane endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/buildtemplates", h.ListBuildTemplates)
+	// DataPlane endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
+
+	// Environment endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
+
+	// BuildPlane endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
 
 	// Project endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
@@ -55,18 +65,8 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
 
 	// Build endpoints
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds/{commit}", h.TriggerBuild)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.ListBuilds)
-
-	// Environment endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
-
-	// DataPlane endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
 
 	// Apply middleware
 	return logger.LoggerMiddleware(h.logger)(mux)
