@@ -38,10 +38,77 @@ spec:
           spec:
             description: ComponentV2Spec defines the desired state of ComponentV2.
             properties:
+              build:
+                description: Build defines the build configuration for the component
+                properties:
+                  repository:
+                    description: Repository defines the source repository configuration
+                      where the component code resides
+                    properties:
+                      appPath:
+                        description: |-
+                          AppPath is the path to the application within the repository
+                          This is relative to the repository root. Default is "." for root directory
+                        type: string
+                      revision:
+                        description: |-
+                          Revision specifies the default revision configuration for builds
+                          This can be overridden when triggering specific builds
+                        properties:
+                          branch:
+                            description: |-
+                              Branch specifies the default branch to build from
+                              This will be used when no specific commit is provided for a build
+                            type: string
+                        required:
+                        - branch
+                        type: object
+                      url:
+                        description: |-
+                          URL is the repository URL where the component source code is located
+                          Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
+                        type: string
+                    required:
+                    - appPath
+                    - revision
+                    - url
+                    type: object
+                  templateRef:
+                    description: |-
+                      TemplateRef defines the build template reference and configuration
+                      This references a ClusterWorkflowTemplate in the build plane
+                    properties:
+                      engine:
+                        description: Engine specifies the build engine
+                        type: string
+                      name:
+                        description: Name is the template name
+                        type: string
+                      parameters:
+                        description: Parameters contains the template parameters
+                        items:
+                          description: Parameter defines a template parameter
+                          properties:
+                            name:
+                              description: Name is the parameter name
+                              type: string
+                            value:
+                              description: Value is the parameter value
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                    required:
+                    - name
+                    type: object
+                required:
+                - repository
+                - templateRef
+                type: object
               owner:
-                description: |-
-                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
+                description: Owner defines the ownership information for the component
                 properties:
                   projectName:
                     minLength: 1
@@ -50,9 +117,11 @@ spec:
                 - projectName
                 type: object
               type:
-                description: ComponentType defines how the component is deployed.
+                description: Type specifies the component type (e.g., Service, WebApplication,
+                  etc.)
                 type: string
             required:
+            - build
             - owner
             - type
             type: object

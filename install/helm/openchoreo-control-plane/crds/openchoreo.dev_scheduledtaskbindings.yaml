@@ -73,10 +73,51 @@ spec:
                 properties:
                   connections:
                     additionalProperties:
-                      type: string
+                      description: WorkloadConnection represents an internal API connection
+                      properties:
+                        inject:
+                          description: Inject defines how connection details are injected
+                            into the workload
+                          properties:
+                            env:
+                              description: Environment variables to inject
+                              items:
+                                description: WorkloadConnectionEnvVar defines an environment
+                                  variable injection
+                                properties:
+                                  name:
+                                    description: Environment variable name
+                                    type: string
+                                  value:
+                                    description: Template value using connection properties
+                                      (e.g., "{{ .url }}")
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                          required:
+                          - env
+                          type: object
+                        params:
+                          additionalProperties:
+                            type: string
+                          description: Parameters for connection configuration (dynamic
+                            key-value pairs)
+                          type: object
+                        type:
+                          description: Type of connection - only "api" for now
+                          enum:
+                          - api
+                          type: string
+                      required:
+                      - inject
+                      - type
+                      type: object
                     description: |-
-                      Connections define how this workload connects to external resources.
-                      This is a placeholder for future connection management capabilities.
+                      Connections define how this workload consumes internal and external resources.
+                      The key is the connection name, and the value is the connection specification.
                     type: object
                   containers:
                     additionalProperties:

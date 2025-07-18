@@ -53,6 +53,40 @@ type Schema struct {
 	Content string `json:"content,omitempty"`
 }
 
+// WorkloadConnection represents an internal API connection
+type WorkloadConnection struct {
+	// Type of connection - only "api" for now
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=api
+	Type string `json:"type"`
+
+	// Parameters for connection configuration (dynamic key-value pairs)
+	// +optional
+	Params map[string]string `json:"params,omitempty"`
+
+	// Inject defines how connection details are injected into the workload
+	// +kubebuilder:validation:Required
+	Inject WorkloadConnectionInject `json:"inject"`
+}
+
+// WorkloadConnectionInject defines how connection details are injected
+type WorkloadConnectionInject struct {
+	// Environment variables to inject
+	// +kubebuilder:validation:Required
+	Env []WorkloadConnectionEnvVar `json:"env"`
+}
+
+// WorkloadConnectionEnvVar defines an environment variable injection
+type WorkloadConnectionEnvVar struct {
+	// Environment variable name
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Template value using connection properties (e.g., "{{ .url }}")
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -68,10 +102,10 @@ type WorkloadTemplateSpec struct {
 	// +optional
 	Endpoints map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
 
-	// Connections define how this workload connects to external resources.
-	// This is a placeholder for future connection management capabilities.
+	// Connections define how this workload consumes internal and external resources.
+	// The key is the connection name, and the value is the connection specification.
 	// +optional
-	Connections map[string]string `json:"connections,omitempty"`
+	Connections map[string]WorkloadConnection `json:"connections,omitempty"`
 }
 
 type WorkloadOwner struct {
@@ -96,6 +130,11 @@ const (
 	WorkloadTypeManualTask     WorkloadType = "ManualTask"
 	WorkloadTypeScheduledTask  WorkloadType = "ScheduledTask"
 	WorkloadTypeWebApplication WorkloadType = "WebApplication"
+)
+
+// ConnectionTypeAPI represents an API connection type
+const (
+	ConnectionTypeAPI = "api"
 )
 
 // WorkloadStatus defines the observed state of Workload.

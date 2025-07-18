@@ -32,3 +32,5 @@ go.work
 
 *.local.md
 
+# Log files
+*.log
