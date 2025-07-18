@@ -10,7 +10,11 @@ export const createComponentAction = (config: Config) => {
     displayName?: string; 
     description?: string; 
     componentType: string; 
-    dockerImageUrl?: string; 
+    useBuiltInCI?: boolean;
+    repoUrl?: string;
+    branch?: string;
+    componentPath?: string;
+    buildTemplateName?: string;
   }>({
     id: 'openchoreo:component:create',
     description: 'Create OpenChoreo Component',
@@ -49,6 +53,31 @@ export const createComponentAction = (config: Config) => {
             type: 'string',
             title: 'Component Type',
             description: 'The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)',
+          },
+          useBuiltInCI: {
+            type: 'boolean',
+            title: 'Use Built-in CI',
+            description: 'Whether to use built-in CI in OpenChoreo',
+          },
+          repoUrl: {
+            type: 'string',
+            title: 'Repository URL',
+            description: 'The URL of the repository containing the component source code',
+          },
+          branch: {
+            type: 'string',
+            title: 'Branch',
+            description: 'The branch of the repository to use',
+          },
+          componentPath: {
+            type: 'string',
+            title: 'Component Path',
+            description: 'The path within the repository where the component source code is located',
+          },
+          buildTemplateName: {
+            type: 'string',
+            title: 'Build Template Name',
+            description: 'The name of the build template to use (e.g., java-maven, nodejs-npm)',
           },
         },
       },
@@ -100,6 +129,18 @@ export const createComponentAction = (config: Config) => {
       // Create a new instance of the OpenChoreoApiClient
       const client = new OpenChoreoApiClient(baseUrl, '', ctx.logger);
       
+      // Build configuration for built-in CI
+      let buildConfig = undefined;
+      if (ctx.input.useBuiltInCI && ctx.input.repoUrl && ctx.input.branch && ctx.input.componentPath && ctx.input.buildTemplateName) {
+        buildConfig = {
+          repoUrl: ctx.input.repoUrl,
+          repoBranch: ctx.input.branch,
+          componentPath: ctx.input.componentPath,
+          buildTemplateRef: ctx.input.buildTemplateName,
+        };
+        ctx.logger.info(`Build configuration created: ${JSON.stringify(buildConfig)}`);
+      }
+      
       try {
         const response = await client.createComponent(
           orgName,
@@ -109,6 +150,7 @@ export const createComponentAction = (config: Config) => {
             displayName: ctx.input.displayName,
             description: ctx.input.description,
             type: ctx.input.componentType,
+            buildConfig,
           }
         );
 

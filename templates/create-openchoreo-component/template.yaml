@@ -55,6 +55,11 @@ spec:
             - WebApplication
             - ScheduledTask
             - APIProxy
+          enumNames:
+            - 'Service is a long running process that exposes one or more APIs.'
+            - 'Web Application is a user-facing application that runs in a web browser.'
+            - 'Scheduled Task is a background job that runs on a schedule.'
+            - 'API Proxy is a service that acts as a gateway to other APIs.'
 
     - title: CI Setup
       required:
@@ -75,6 +80,23 @@ spec:
                     const: true
               then:
                 properties:
+                  repo_url:
+                    title: Repository Location
+                    type: string
+                    ui:field: RepoUrlPicker
+                    ui:options:
+                      allowedHosts:
+                        - github.com
+                  branch:
+                    title: Branch Name
+                    type: string
+                    description: The branch of the repository to use for the component.
+                    default: main
+                  component_path:
+                    title: Component Path
+                    type: string
+                    description: The path within the repository where the component's source code is located.
+                    default: .
                   # build_engine:
                   #   title: Build Engine
                   #   type: string
@@ -86,22 +108,24 @@ spec:
                     title: Argo Workflows Build Template Name
                     type: string
                     description: Name of the Argo Workflow build template to use (e.g., java-maven, nodejs-npm)
-                  build_parameters:
-                    title: Build Parameters
-                    type: array
-                    description: Optional parameters to pass to the build template
-                    items:
-                      type: object
-                      properties:
-                        name: 
-                          title: Parameter Name
-                          type: string
-                        value:
-                          title: Parameter Value
-                          type: string
-                # You can use additional fields of parameters within conditional parameters such as required.
+                  # build_parameters:
+                  #   title: Build Parameters
+                  #   type: array
+                  #   description: Optional parameters to pass to the build template
+                  #   items:
+                  #     type: object
+                  #     properties:
+                  #       name: 
+                  #         title: Parameter Name
+                  #         type: string
+                  #       value:
+                  #         title: Parameter Value
+                  #         type: string
                 required:
                   - build_template_name
+                  - repo_url
+                  - branch
+                  - component_path
             - if:
                 properties:
                   useBuiltInCI:
@@ -126,3 +150,9 @@ spec:
         displayName: ${{ parameters.displayName }}
         description: ${{ parameters.description }}
         componentType: ${{ parameters.component_type }}
+        useBuiltInCI: ${{ parameters.useBuiltInCI }}
+        repoUrl: ${{ parameters.repo_url }}
+        branch: ${{ parameters.branch }}
+        componentPath: ${{ parameters.component_path }}
+        buildTemplateName: ${{ parameters.build_template_name }}
+        # buildParameters: ${{ parameters.build_parameters }}

@@ -44,6 +44,7 @@ export type ComponentGetRequest = {
   orgName: string;
   projectName: string;
   componentName: string;
+  
 };
 
 /**
@@ -59,6 +60,17 @@ export type ProjectsPostRequest = {
 };
 
 /**
+ * Build configuration for component creation
+ * @public
+ */
+export type BuildConfig = {
+  repoUrl: string;
+  repoBranch: string;
+  componentPath: string;
+  buildTemplateRef: string;
+};
+
+/**
  * Request parameters for creating a new component
  * @public
  */
@@ -69,6 +81,7 @@ export type ComponentsPostRequest = {
   displayName?: string;
   description?: string;
   type: string;
+  buildConfig?: BuildConfig;
 };
 
 /**

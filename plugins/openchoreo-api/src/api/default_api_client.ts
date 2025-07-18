@@ -203,6 +203,7 @@ export class DefaultApiClient {
       type: request.type,
       ...(request.displayName && { displayName: request.displayName }),
       ...(request.description && { description: request.description }),
+      ...(request.buildConfig && { buildConfig: request.buildConfig }),
     };
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
