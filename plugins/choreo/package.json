@@ -29,6 +29,7 @@
     "@backstage/core-plugin-api": "^1.10.5",
     "@backstage/plugin-catalog-react": "^1.17.0",
     "@backstage/theme": "^0.6.4",
+    "@internal/plugin-openchoreo-api": "workspace:^",
     "@material-ui/core": "^4.9.13",
     "@material-ui/icons": "^4.9.1",
     "@material-ui/lab": "^4.0.0-alpha.61",

@@ -7,12 +7,14 @@ import {
   ModelsComponent,
   ModelsEnvironment,
   ModelsBuildTemplate,
+  ModelsBuild,
   RequestOptions,
   ProjectsGetRequest,
   OrganizationsGetRequest,
   ComponentsGetRequest,
   EnvironmentsGetRequest,
   BuildTemplatesGetRequest,
+  BuildsGetRequest,
   ProjectsPostRequest,
   ComponentsPostRequest,
   TypedResponse,
@@ -197,6 +199,31 @@ export class DefaultApiClient {
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Retrieves all builds for a component
+   * List all builds of a component
+   */
+  public async buildsGet(
+    request: BuildsGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsBuild>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
     });
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

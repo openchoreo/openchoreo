@@ -4,6 +4,7 @@ import {
   ModelsOrganization,
   ModelsComponent,
   ModelsBuildTemplate,
+  ModelsBuild,
   OpenChoreoApiResponse,
   OpenChoreoApiSingleResponse,
   BuildConfig,
@@ -266,6 +267,37 @@ export class OpenChoreoApiClient {
       return buildTemplates;
     } catch (error) {
       this.logger?.error(`Failed to fetch build templates for org ${orgName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async getAllBuilds(orgName: string, projectName: string, componentName: string): Promise<ModelsBuild[]> {
+    this.logger?.info(`Fetching builds for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.buildsGet(
+        { orgName, projectName, componentName },
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiResponse<ModelsBuild> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      if (!apiResponse.data || !apiResponse.data.items) {
+        this.logger?.warn(`No builds data found for component: ${componentName}`);
+        return [];
+      }
+
+      const builds = apiResponse.data.items;
+      this.logger?.info(`Successfully fetched ${builds.length} builds for component: ${componentName} (total: ${apiResponse.data.totalCount})`);
+      
+      return builds;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch builds for component ${componentName}: ${error}`);
       throw error;
     }
   }

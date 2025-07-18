@@ -58,7 +58,7 @@ import {
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
 
-import { Environments, CellDiagram } from '@internal/plugin-choreo';
+import { Environments, CellDiagram, Builds } from '@internal/plugin-choreo';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -156,6 +156,10 @@ const serviceEntityPage = (
       <Environments />
     </EntityLayout.Route>
 
+    <EntityLayout.Route path="/builds" title="Builds">
+      <Builds />
+    </EntityLayout.Route>
+
     <EntityLayout.Route path="/ci-cd" title="CI/CD">
       {cicdContent}
     </EntityLayout.Route>
@@ -204,6 +208,10 @@ const websiteEntityPage = (
 
     <EntityLayout.Route path="/environments" title="Environments">
       <Environments />
+    </EntityLayout.Route>
+
+    <EntityLayout.Route path="/builds" title="Builds">
+      <Builds />
     </EntityLayout.Route>
 
     <EntityLayout.Route path="/ci-cd" title="CI/CD">

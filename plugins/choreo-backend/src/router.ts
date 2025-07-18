@@ -4,17 +4,20 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { EnvironmentInfoService } from './services/EnvironmentService/EnvironmentInfoService';
 import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
+import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { CellDiagramService } from './types';
 
 export async function createRouter({
   environmentInfoService,
   cellDiagramInfoService,
   buildTemplateInfoService,
+  buildInfoService,
 }: {
   httpAuth: HttpAuthService;
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
   buildTemplateInfoService: BuildTemplateInfoService;
+  buildInfoService: BuildInfoService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -68,6 +71,24 @@ export async function createRouter({
     res.json(
       await buildTemplateInfoService.fetchBuildTemplates(
         organizationName as string,
+      ),
+    );
+  });
+
+  router.get('/builds', async (req, res) => {
+    const { componentName, projectName, organizationName } = req.query;
+
+    if (!componentName || !projectName || !organizationName) {
+      throw new InputError(
+        'componentName, projectName and organizationName are required query parameters',
+      );
+    }
+
+    res.json(
+      await buildInfoService.fetchBuilds(
+        organizationName as string,
+        projectName as string,
+        componentName as string,
       ),
     );
   });

@@ -93,6 +93,16 @@ export type BuildTemplatesGetRequest = {
 };
 
 /**
+ * Request parameters for getting builds of a component
+ * @public
+ */
+export type BuildsGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

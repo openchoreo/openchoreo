@@ -8,5 +8,6 @@ export * from './ModelsOrganization.model';
 export * from './ModelsComponent.model';
 export * from './ModelsEnvironment.model';
 export * from './ModelsBuildTemplate.model';
+export * from './ModelsBuild.model';
 export * from './requests';
 export * from './responses';
