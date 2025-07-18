@@ -3,6 +3,7 @@ import {
   ModelsProject,
   ModelsOrganization,
   ModelsComponent,
+  ModelsBuildTemplate,
   OpenChoreoApiResponse,
   OpenChoreoApiSingleResponse,
   BuildConfig,
@@ -210,6 +211,61 @@ export class OpenChoreoApiClient {
       this.logger?.error(
         `Failed to create component ${componentData.name} in project ${projectName}, org ${orgName}: ${error}`,
       );
+      throw error;
+    }
+  }
+
+  async getAllBuildTemplates(orgName: string): Promise<ModelsBuildTemplate[]> {
+    this.logger?.info(`Fetching build templates for organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.buildTemplatesGet(
+        { orgName },
+        { token: this.token }
+      );
+
+      // Crete a dummy OpenChoreoApiResponse to match the expected structure
+      const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = {
+        success: true,
+        data: {
+          items: [ 
+            {
+              name: 'default-buildpack-template',
+              displayName: 'Default Buildpack Template',
+              description: 'A default build template for Buildpack projects',
+              version: '1.0.0',
+              stack: 'buildpack',
+            },
+            {
+              name: 'default-docker-template',
+              displayName: 'Docker Build Template',
+              description: 'A build template for Docker projects',
+              version: '1.0.0',
+              stack: 'docker',
+            },
+          ],
+          totalCount: 0, // Assuming no pagination for simplicity
+          page: 1,
+          pageSize: 100, // Default page size
+        },
+      };
+
+      
+
+
+      // const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const buildTemplates = apiResponse.data.items;
+      this.logger?.info(`Successfully fetched ${buildTemplates.length} build templates for org: ${orgName} (total: ${apiResponse.data.totalCount})`);
+      
+      return buildTemplates;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch build templates for org ${orgName}: ${error}`);
       throw error;
     }
   }

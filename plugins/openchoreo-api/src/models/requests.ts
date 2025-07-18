@@ -85,6 +85,14 @@ export type ComponentsPostRequest = {
 };
 
 /**
+ * Request parameters for getting build templates
+ * @public
+ */
+export type BuildTemplatesGetRequest = {
+  orgName: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

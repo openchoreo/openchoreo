@@ -6,6 +6,7 @@ import { createRouter } from './router';
 import { catalogServiceRef } from '@backstage/plugin-catalog-node/alpha';
 import { EnvironmentInfoService } from './services/EnvironmentService/EnvironmentInfoService';
 import { CellDiagramInfoService } from './services/CellDiagramService/CellDiagramInfoService';
+import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 
 /**
  * choreoPlugin backend plugin
@@ -47,11 +48,17 @@ export const choreoPlugin = createBackendPlugin({
           openchoreoConfig.get('baseUrl'),
         );
 
+        const buildTemplateInfoService = new BuildTemplateInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
         httpRouter.use(
           await createRouter({
             httpAuth,
             environmentInfoService,
             cellDiagramInfoService,
+            buildTemplateInfoService,
           }),
         );
       },

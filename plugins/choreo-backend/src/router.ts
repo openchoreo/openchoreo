@@ -3,15 +3,18 @@ import { InputError } from '@backstage/errors';
 import express from 'express';
 import Router from 'express-promise-router';
 import { EnvironmentInfoService } from './services/EnvironmentService/EnvironmentInfoService';
+import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 import { CellDiagramService } from './types';
 
 export async function createRouter({
   environmentInfoService,
   cellDiagramInfoService,
+  buildTemplateInfoService,
 }: {
   httpAuth: HttpAuthService;
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
+  buildTemplateInfoService: BuildTemplateInfoService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -52,6 +55,22 @@ export async function createRouter({
       );
     },
   );
+
+  router.get('/build-templates', async (req, res) => {
+    const { organizationName } = req.query;
+
+    if (!organizationName) {
+      throw new InputError(
+        'organizationName is a required query parameter',
+      );
+    }
+
+    res.json(
+      await buildTemplateInfoService.fetchBuildTemplates(
+        organizationName as string,
+      ),
+    );
+  });
 
   return router;
 }

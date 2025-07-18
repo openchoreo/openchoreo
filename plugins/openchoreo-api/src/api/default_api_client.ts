@@ -6,11 +6,13 @@ import {
   ModelsOrganization,
   ModelsComponent,
   ModelsEnvironment,
+  ModelsBuildTemplate,
   RequestOptions,
   ProjectsGetRequest,
   OrganizationsGetRequest,
   ComponentsGetRequest,
   EnvironmentsGetRequest,
+  BuildTemplatesGetRequest,
   ProjectsPostRequest,
   ComponentsPostRequest,
   TypedResponse,
@@ -180,6 +182,29 @@ export class DefaultApiClient {
       },
       method: 'POST',
       body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Retrieves all build templates for an organization
+   * List all build templates of an organization
+   */
+  public async buildTemplatesGet(
+    request: BuildTemplatesGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsBuildTemplate>>> {
+    const uriTemplate = `/orgs/{orgName}/build-templates`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
     });
   }
 
