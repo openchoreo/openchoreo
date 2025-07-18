@@ -121,7 +121,6 @@ spec:
                   etc.)
                 type: string
             required:
-            - build
             - owner
             - type
             type: object

@@ -24,7 +24,7 @@ type ComponentV2Spec struct {
 	Type ComponentType `json:"type"`
 
 	// Build defines the build configuration for the component
-	Build BuildSpecInComponent `json:"build"`
+	Build BuildSpecInComponent `json:"build,omitempty"`
 }
 
 // BuildSpecInComponent defines the build configuration for a component
