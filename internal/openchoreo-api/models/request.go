@@ -15,12 +15,21 @@ type CreateProjectRequest struct {
 	DeploymentPipeline string `json:"deploymentPipeline,omitempty"`
 }
 
+// BuildConfig represents the build configuration for a component
+type BuildConfig struct {
+	RepoUrl          string `json:"repoUrl"`
+	Branch           string `json:"repoBranch"`
+	ComponentPath    string `json:"componentPath"`
+	BuildTemplateRef string `json:"buildTemplateRef"`
+}
+
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName,omitempty"`
-	Description string `json:"description,omitempty"`
-	Type        string `json:"type"`
+	Name        string      `json:"name"`
+	DisplayName string      `json:"displayName,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Type        string      `json:"type"`
+	BuildConfig BuildConfig `json:"buildConfig,omitempty"`
 }
 
 // CreateEnvironmentRequest represents the request to create a new environment

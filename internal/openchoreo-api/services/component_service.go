@@ -258,6 +258,18 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 				ProjectName: projectName,
 			},
 			Type: openchoreov1alpha1.ComponentType(req.Type),
+			Build: openchoreov1alpha1.BuildSpecInComponent{
+				Repository: openchoreov1alpha1.BuildRepository{
+					URL: req.BuildConfig.RepoUrl,
+					Revision: openchoreov1alpha1.BuildRevision{
+						Branch: req.BuildConfig.Branch,
+					},
+					AppPath: req.BuildConfig.ComponentPath,
+				},
+				TemplateRef: openchoreov1alpha1.TemplateRef{
+					Name: req.BuildConfig.BuildTemplateRef,
+				},
+			},
 		},
 	}
 
