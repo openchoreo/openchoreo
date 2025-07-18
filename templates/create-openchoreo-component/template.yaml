@@ -107,7 +107,8 @@ spec:
                   build_template_name:
                     title: Argo Workflows Build Template Name
                     type: string
-                    description: Name of the Argo Workflow build template to use (e.g., java-maven, nodejs-npm)
+                    description: Name of the Argo Workflow build template to use
+                    ui:field: BuildTemplatePicker
                   # build_parameters:
                   #   title: Build Parameters
                   #   type: array
