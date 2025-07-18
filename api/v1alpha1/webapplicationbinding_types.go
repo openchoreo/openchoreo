@@ -31,8 +31,9 @@ type WebApplicationBindingSpec struct {
 
 // WebApplicationBindingStatus defines the observed state of WebApplicationBinding.
 type WebApplicationBindingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions represent the latest available observations of the WebApplicationBinding's current state.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -54,6 +55,16 @@ type WebApplicationBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []WebApplicationBinding `json:"items"`
+}
+
+// GetConditions returns the conditions from the status
+func (wab *WebApplicationBinding) GetConditions() []metav1.Condition {
+	return wab.Status.Conditions
+}
+
+// SetConditions sets the conditions in the status
+func (wab *WebApplicationBinding) SetConditions(conditions []metav1.Condition) {
+	wab.Status.Conditions = conditions
 }
 
 func init() {

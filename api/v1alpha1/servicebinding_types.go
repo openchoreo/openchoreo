@@ -28,8 +28,9 @@ type ServiceBindingSpec struct {
 
 // ServiceBindingStatus defines the observed state of ServiceBinding.
 type ServiceBindingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions represent the latest available observations of the ServiceBinding's current state.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -51,6 +52,16 @@ type ServiceBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ServiceBinding `json:"items"`
+}
+
+// GetConditions returns the conditions from the status
+func (sb *ServiceBinding) GetConditions() []metav1.Condition {
+	return sb.Status.Conditions
+}
+
+// SetConditions sets the conditions in the status
+func (sb *ServiceBinding) SetConditions(conditions []metav1.Condition) {
+	sb.Status.Conditions = conditions
 }
 
 func init() {
