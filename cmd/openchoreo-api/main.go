@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"net/http"
 	"os"
 	"os/signal"
@@ -42,7 +43,7 @@ func main() {
 	}
 
 	// Initialize services
-	services := services.NewServices(k8sClient, baseLogger)
+	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), baseLogger)
 
 	// Initialize HTTP handlers
 	handler := handlers.New(services, baseLogger.With("component", "handlers"))

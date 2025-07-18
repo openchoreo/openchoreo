@@ -6,6 +6,8 @@ package services
 import (
 	"golang.org/x/exp/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 )
 
 type Services struct {
@@ -14,10 +16,12 @@ type Services struct {
 	OrganizationService *OrganizationService
 	EnvironmentService  *EnvironmentService
 	DataPlaneService    *DataPlaneService
+	BuildService        *BuildService
+	BuildPlaneService   *BuildPlaneService
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"))
 
@@ -33,11 +37,19 @@ func NewServices(k8sClient client.Client, logger *slog.Logger) *Services {
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
 
+	// Create build plane service with client manager for multi-cluster support
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
+
+	// Create build service (depends on build plane service)
+	buildService := NewBuildService(k8sClient, buildPlaneService, k8sBPClientMgr, logger.With("service", "build"))
+
 	return &Services{
 		ProjectService:      projectService,
 		ComponentService:    componentService,
 		OrganizationService: organizationService,
 		EnvironmentService:  environmentService,
 		DataPlaneService:    dataplaneService,
+		BuildService:        buildService,
+		BuildPlaneService:   buildPlaneService,
 	}
 }

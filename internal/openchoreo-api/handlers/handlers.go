@@ -41,6 +41,9 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
 
+	// Buildplane endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/buildtemplates", h.ListBuildTemplates)
+
 	// Project endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
@@ -50,6 +53,10 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+
+	// Build endpoints
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds/{commit}", h.TriggerBuild)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.ListBuilds)
 
 	// Environment endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)

@@ -94,6 +94,19 @@ type DataPlaneResponse struct {
 	Status                  string    `json:"status,omitempty"`
 }
 
+// BuildResponse represents a build in API responses
+type BuildResponse struct {
+	Name          string    `json:"name"`
+	ComponentName string    `json:"componentName"`
+	ProjectName   string    `json:"projectName"`
+	OrgName       string    `json:"orgName"`
+	Commit        string    `json:"commit,omitempty"`
+	Branch        string    `json:"branch,omitempty"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"createdAt"`
+	Image         string    `json:"image,omitempty"`
+}
+
 // Response helper functions
 func SuccessResponse[T any](data T) APIResponse[T] {
 	return APIResponse[T]{

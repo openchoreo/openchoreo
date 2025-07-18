@@ -21,7 +21,6 @@ func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
 		return
 	}
-
 	dataplanes, err := h.services.DataPlaneService.ListDataPlanes(ctx, orgName)
 	if err != nil {
 		h.logger.Error("Failed to list dataplanes", "error", err, "org", orgName)
