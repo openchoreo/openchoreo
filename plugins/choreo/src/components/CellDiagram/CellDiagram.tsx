@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Content,
-  ContentHeader,
   Header,
   HeaderLabel,
   Page,

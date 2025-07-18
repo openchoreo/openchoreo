@@ -3,6 +3,8 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Content,
   ContentHeader,
+  Header,
+  HeaderLabel,
   Page,
   TabbedLayout,
 } from '@backstage/core-components';
@@ -61,117 +63,132 @@ export const Environments = () => {
 
   return (
     <Page themeId="tool">
-      {/* <Header title="Deployments" type="tool">
-        <HeaderLabel label="Component" value={entity.metadata.name} />
-      </Header> */}
       <Content>
-        <ContentHeader title="Environments" />
-        <TabbedLayout>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={3}>
+            <Card>
+              {/* Make this card color different from the others */}
+              <Box
+                bgcolor="grey.200"
+                color="text.primary"
+                padding={1}
+                borderRadius={1}
+              >
+                <CardContent>
+                  <Typography variant="h6" component="h4">
+                    Set up
+                  </Typography>
+
+                  <Box
+                    borderBottom={1}
+                    borderColor="divider"
+                    marginBottom={2}
+                    marginTop={1}
+                  />
+                  <Typography color="textSecondary">
+                    View and manage deployment environments
+                  </Typography>
+
+                </CardContent>
+              </Box>
+            </Card>
+          </Grid>
           {[...environments]
             .sort((a, b) =>
               environmentOrder.indexOf(a.name) - environmentOrder.indexOf(b.name),
             )
             .map(env => (
-              // {environments.map(env => (
-              <TabbedLayout.Route key={env.name} path={env.name} title={env.name}>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6">Deployment Status</Typography>
-                        <Box display="flex" alignItems="center" mt={2}>
-                          {env.deployment.status === 'success' ? (
-                            <StatusOK />
-                          ) : (
-                            <StatusError />
-                          )}
-                          <Typography variant="body1" style={{ marginLeft: 8 }}>
-                            {env.deployment.status === 'success'
-                              ? 'Successful'
-                              : 'Failed'}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="textSecondary">
-                          Last deployed:{' '}
-                          {new Date(env.deployment.lastDeployed).toLocaleString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Card>
-                      <CardContent>
-                        <Typography variant="h6">Endpoint</Typography>
-                        <Box display="flex" alignItems="center" mt={2}>
-                          {env.endpoint.status === 'active' ? (
-                            <StatusOK />
-                          ) : (
-                            <StatusError />
-                          )}
-                          <Typography variant="body1" style={{ marginLeft: 8 }}>
-                            {env.endpoint.status === 'active'
-                              ? 'Active'
-                              : 'Inactive'}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" color="textSecondary">
-                          {/* URL: {env.endpoint.url} */}
-                          {/* URL:{' '} */}
-                          {/* <a href={env.endpoint.url} target="_blank" rel="noopener noreferrer">
+              <Grid item xs={12} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" component="h4">
+                      {env.name}
+                    </Typography>
+                    {/* add a line in the ui */}
+                    <Box
+                      borderBottom={1}
+                      borderColor="divider"
+                      marginBottom={2}
+                      marginTop={1}
+                    />
+                    <Typography variant="body2" color="textSecondary">
+                      Last deployed: {new Date(env.deployment.lastDeployed).toLocaleString()}
+                    </Typography>
+                    <Box display="flex" alignItems="center" mt={2} bgcolor="grey.200" padding={1} borderRadius={1}>
+                      <Typography variant="body2" color="error">
+                        Deployment Status: {env.deployment.status === 'success'
+                          ? 'Active'
+                          : 'Failed'}
+                      </Typography>
+                    </Box>
+                    
+                    <Box display="flex" alignItems="center" mt={2} >
+                      <Typography variant="body2" color="textSecondary">
+                        Image
+                      </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" mt={0} bgcolor="grey.200" padding={1} borderRadius={2} >  
+                      <Typography variant="body2" color="textSecondary">
+                        us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3
+                      </Typography>
+                    </Box>
+
+                    <Box display="flex" alignItems="center" mt={2} >
+                      <Typography variant="body2" color="textSecondary">
+                        Endpoints
+                      </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" mt={0} >  
+                      <Typography variant="body2" color="textSecondary">
+                        <a
+                          href={env.endpoint.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#1976d2', textDecoration: 'underline' }}
+                        >
                           {env.endpoint.url}
-                        </a> */}
-                          <a
-                            href={env.endpoint.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: '#1976d2', textDecoration: 'underline' }}
-                          >
-                            {env.endpoint.url}
-                          </a>
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                        </a>
+                      </Typography>
+                    </Box>
 
-                  {/* Promotion buttons section */}
-                  {(() => {
-                    const promotionPath = promotionPaths.find(
-                      path => path.sourceEnvironmentRef === env.name
-                    );
-                    console.log('Promotion Path:', env.name);
-                    // alert('Promotion Path:', env.name);
-                    return promotionPath ? (
-                      <Grid item xs={12}>
-                        <Box mt={2}>
-                          {/* <Typography variant="subtitle1">Promote to:</Typography> */}
-                          <Box display="flex" mt={1}>
-                            {promotionPath.targetEnvironmentRefs.map(target => (
-                              <Button
-                                key={target.name}
-                                variant="contained"
-                                color="primary"
-                                onClick={async () => {
-                                  try {
-                                    const result = await promoteToEnvironment(entity, discovery, identityApi, target.name.toLowerCase());
-                                    alert(`Promotion started: ${JSON.stringify(result)}`);
-                                  } catch (err) {
-                                    alert(`Error promoting: ${err}`);
-                                  }
-                                }}
-                              >
-                                Promote to {target.name.charAt(0).toUpperCase() + target.name.slice(1)}
-                              </Button>
-                            ))}
-                          </Box>
+                    {/* Promotion buttons section */}
+                    {(() => {
+                      const promotionPath = promotionPaths.find(
+                        path => path.sourceEnvironmentRef === env.name
+                      );
+                      console.log('Promotion Path:', env.name);
+                      // alert('Promotion Path:', env.name);
+                      return promotionPath ? (
+                        // <Grid item xs={12}>
+                        <Box display="flex" mt={3}>
+                          {promotionPath.targetEnvironmentRefs.map(target => (
+                            <Button
+                              key={target.name}
+                              variant="contained"
+                              color="primary"
+                              size='small'
+                              onClick={async () => {
+                                try {
+                                  const result = await promoteToEnvironment(entity, discovery, identityApi, target.name.toLowerCase());
+                                  alert(`Promotion started: ${JSON.stringify(result)}`);
+                                } catch (err) {
+                                  alert(`Error promoting: ${err}`);
+                                }
+                              }}
+                            >
+                              Promote
+                            </Button>
+                          ))}
                         </Box>
-                      </Grid>
-                    ) : null;
-                  })()}
+                      ) : null;
+                    })()}
 
-                </Grid>
-              </TabbedLayout.Route>
+
+                  </CardContent>
+                </Card>
+              </Grid>
             ))}
-        </TabbedLayout>
+        </Grid>
       </Content>
     </Page>
   );
