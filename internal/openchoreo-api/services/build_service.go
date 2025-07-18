@@ -6,6 +6,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +38,7 @@ func NewBuildService(k8sClient client.Client, buildPlaneService *BuildPlaneServi
 	}
 }
 
-// ListBuildTemplates retrieves cluster workflow templates available for an organization in the buildplane
+// ListBuildTemplates retrieves cluster workflow templates (argo) available for an organization in the buildplane
 func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) ([]argo.ClusterWorkflowTemplate, error) {
 	s.logger.Debug("Listing build templates", "org", orgName)
 
@@ -73,10 +76,11 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	// Create build name
-	buildName := fmt.Sprintf("%s-build-%s", componentName, commit[:8])
+	buildUUID := uuid.New().String()
+	buildID := strings.ReplaceAll(buildUUID[:8], "-", "")
 
-	// Create BuildV2 resource
+	buildName := fmt.Sprintf("%s-build-%s", componentName, buildID)
+
 	build := &openchoreov1alpha1.BuildV2{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildName,
@@ -104,7 +108,6 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 		},
 	}
 
-	// Create the build in Kubernetes
 	err = s.k8sClient.Create(ctx, build)
 	if err != nil {
 		s.logger.Error("Failed to create build", "error", err)
@@ -113,11 +116,16 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 
 	s.logger.Info("Build created successfully", "build", buildName)
 
+	if commit == "" {
+		commit = "latest"
+	}
+
 	return &models.BuildResponse{
 		Name:          buildName,
 		ComponentName: componentName,
 		ProjectName:   projectName,
 		OrgName:       orgName,
+		Branch:        component.Spec.Build.Repository.Revision.Branch,
 		Commit:        commit,
 		Status:        "Created",
 		CreatedAt:     build.CreationTimestamp.Time,
@@ -129,11 +137,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 	s.logger.Debug("Listing builds", "org", orgName, "project", projectName, "component", componentName)
 
 	var builds openchoreov1alpha1.BuildV2List
-	err := s.k8sClient.List(ctx, &builds, client.InNamespace(orgName), client.MatchingLabels{
-		labels.LabelKeyProjectName:   projectName,
-		labels.LabelKeyComponentName: componentName,
-	})
-
+	err := s.k8sClient.List(ctx, &builds, client.InNamespace(orgName))
 	if err != nil {
 		s.logger.Error("Failed to list builds", "error", err)
 		return nil, fmt.Errorf("failed to list builds: %w", err)
@@ -141,9 +145,9 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 
 	var buildResponses []models.BuildResponse
 	for _, build := range builds.Items {
-		status := "Unknown"
-		if len(build.Status.Conditions) > 0 {
-			status = string(build.Status.Conditions[0].Type)
+		// Filter by spec.owner fields instead of labels
+		if build.Spec.Owner.ProjectName != projectName || build.Spec.Owner.ComponentName != componentName {
+			continue
 		}
 
 		buildResponses = append(buildResponses, models.BuildResponse{
@@ -152,7 +156,9 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 			ProjectName:   projectName,
 			OrgName:       orgName,
 			Commit:        build.Spec.Repository.Revision.Commit,
-			Status:        status,
+			Branch:        build.Spec.Repository.Revision.Branch,
+			Image:         build.Status.ImageStatus.Image,
+			BuildStatus:   &build.Status,
 			CreatedAt:     build.CreationTimestamp.Time,
 		})
 	}

@@ -38,7 +38,7 @@ func (h *Handler) TriggerBuild(w http.ResponseWriter, r *http.Request) {
 	orgName := r.PathValue("orgName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	commit := r.PathValue("commit")
+	commit := r.URL.Query().Get("commit")
 
 	if orgName == "" {
 		log.Warn("Organization name is required")
