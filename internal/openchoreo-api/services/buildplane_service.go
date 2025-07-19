@@ -65,16 +65,11 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
-	kubernetesCluster := buildPlane.Spec.KubernetesCluster
-
-	kubernetesCluster.Credentials.APIServerURL = "https://127.0.0.1:56485"
-
-	// Create client for the build plane cluster
 	buildPlaneClient, err := kubernetesClient.GetK8sClient(
 		s.BPClientMgr,
 		orgName,
 		buildPlane.Spec.KubernetesCluster.Name,
-		kubernetesCluster,
+		buildPlane.Spec.KubernetesCluster,
 	)
 	if err != nil {
 		s.logger.Error("Failed to create build plane client", "error", err, "org", orgName)
