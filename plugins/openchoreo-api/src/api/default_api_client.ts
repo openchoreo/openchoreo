@@ -15,6 +15,7 @@ import {
   EnvironmentsGetRequest,
   BuildTemplatesGetRequest,
   BuildsGetRequest,
+  BuildsTriggerRequest,
   ProjectsPostRequest,
   ComponentsPostRequest,
   TypedResponse,
@@ -232,6 +233,35 @@ export class DefaultApiClient {
         ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
       },
       method: 'GET',
+    });
+  }
+
+  /**
+   * Triggers a new build for a component
+   * Trigger a build for a component
+   */
+  public async buildsPost(
+    request: BuildsTriggerRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsBuild>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds`;
+
+    let uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    if (request.commit) {
+      uri += `?commit=${encodeURIComponent(request.commit)}`;
+    }
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
     });
   }
 

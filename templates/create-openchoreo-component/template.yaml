@@ -81,12 +81,10 @@ spec:
               then:
                 properties:
                   repo_url:
-                    title: Repository Location
+                    title: Repository URL
                     type: string
-                    ui:field: RepoUrlPicker
-                    ui:options:
-                      allowedHosts:
-                        - github.com
+                    description: GitHub repository URL (e.g., https://github.com/username/repository)
+                    pattern: '^https://github\.com/[^/]+/[^/]+/?$'
                   branch:
                     title: Branch Name
                     type: string

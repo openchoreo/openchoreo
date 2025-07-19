@@ -103,6 +103,17 @@ export type BuildsGetRequest = {
 };
 
 /**
+ * Request parameters for triggering a build for a component
+ * @public
+ */
+export type BuildsTriggerRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  commit?: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

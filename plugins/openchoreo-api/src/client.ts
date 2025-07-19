@@ -281,14 +281,14 @@ export class OpenChoreoApiClient {
       );
 
       const apiResponse: OpenChoreoApiResponse<ModelsBuild> = await response.json();
-      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      this.logger?.info(`API response: ${JSON.stringify(apiResponse)}`);
       
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
 
-      if (!apiResponse.data || !apiResponse.data.items) {
-        this.logger?.warn(`No builds data found for component: ${componentName}`);
+      if (!apiResponse.data.items) {
+        this.logger?.info(`No builds found for component: ${componentName}`);
         return [];
       }
 
@@ -298,6 +298,35 @@ export class OpenChoreoApiClient {
       return builds;
     } catch (error) {
       this.logger?.error(`Failed to fetch builds for component ${componentName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async triggerBuild(orgName: string, projectName: string, componentName: string, commit?: string): Promise<ModelsBuild> {
+    this.logger?.info(`Triggering build for component: ${componentName} in project: ${projectName}, organization: ${orgName}${commit ? ` with commit: ${commit}` : ''}`);
+    
+    try {
+      const response = await this.client.buildsPost(
+        { orgName, projectName, componentName, commit },
+        { token: this.token }
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsBuild> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      if (!apiResponse.data) {
+        throw new Error('No build data returned');
+      }
+
+      this.logger?.info(`Successfully triggered build for component: ${componentName}, build name: ${apiResponse.data.name}`);
+      
+      return apiResponse.data;
+    } catch (error) {
+      this.logger?.error(`Failed to trigger build for component ${componentName}: ${error}`);
       throw error;
     }
   }

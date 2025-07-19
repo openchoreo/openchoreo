@@ -93,5 +93,24 @@ export async function createRouter({
     );
   });
 
+  router.post('/builds', async (req, res) => {
+    const { componentName, projectName, organizationName, commit } = req.body;
+
+    if (!componentName || !projectName || !organizationName) {
+      throw new InputError(
+        'componentName, projectName and organizationName are required in request body',
+      );
+    }
+
+    res.json(
+      await buildInfoService.triggerBuild(
+        organizationName as string,
+        projectName as string,
+        componentName as string,
+        commit as string | undefined,
+      ),
+    );
+  });
+
   return router;
 }

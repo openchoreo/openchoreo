@@ -24,4 +24,19 @@ export class BuildInfoService {
       throw error;
     }
   }
+
+  async triggerBuild(orgName: string, projectName: string, componentName: string, commit?: string): Promise<ModelsBuild> {
+    this.logger.info(`Triggering build for component: ${componentName} in project: ${projectName}, organization: ${orgName}${commit ? ` with commit: ${commit}` : ''}`);
+    
+    try {
+      const client = new OpenChoreoApiClient(this.baseUrl, '', this.logger);
+      const build = await client.triggerBuild(orgName, projectName, componentName, commit);
+      
+      this.logger.info(`Successfully triggered build for component: ${componentName}, build name: ${build.name}`);
+      return build;
+    } catch (error) {
+      this.logger.error(`Failed to trigger build for component ${componentName}: ${error}`);
+      throw error;
+    }
+  }
 }
