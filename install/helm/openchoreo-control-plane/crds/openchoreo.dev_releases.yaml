@@ -165,6 +165,10 @@ spec:
                         Group is the API group of the resource (e.g., "apps", "batch")
                         Empty string for core resources
                       type: string
+                    healthStatus:
+                      description: HealthStatus indicates the health of the resource
+                        in the data plane.
+                      type: string
                     id:
                       description: ID corresponds to the resource ID in spec.resources
                       minLength: 1

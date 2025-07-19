@@ -127,10 +127,30 @@ type ResourceStatus struct {
 	// +optional
 	Status *runtime.RawExtension `json:"status,omitempty"`
 
+	// HealthStatus indicates the health of the resource in the data plane.
+	// +optional
+	HealthStatus HealthStatus `json:"healthStatus,omitempty"`
+
 	// LastObservedTime stores the last time the status was observed
 	// +optional
 	LastObservedTime *metav1.Time `json:"lastObservedTime,omitempty"`
 }
+
+// HealthStatus represents the health of a resource
+type HealthStatus string
+
+const (
+	// HealthStatusUnknown indicates that the health of the resource is not known.
+	HealthStatusUnknown HealthStatus = "Unknown"
+	// HealthStatusProgressing indicates that the resource is in a transitioning state to become healthy.
+	HealthStatusProgressing HealthStatus = "Progressing"
+	// HealthStatusHealthy indicates that the resource is healthy and operating as expected.
+	HealthStatusHealthy HealthStatus = "Healthy"
+	// HealthStatusSuspended indicates that the resource is intentionally paused such as CronJob, Deployment with paused rollout, etc.
+	HealthStatusSuspended HealthStatus = "Suspended"
+	// HealthStatusDegraded indicates that the resource is not healthy and not operating as expected.
+	HealthStatusDegraded HealthStatus = "Degraded"
+)
 
 // GetConditions returns the conditions from the status
 func (in *Release) GetConditions() []metav1.Condition {
