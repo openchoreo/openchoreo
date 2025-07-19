@@ -125,7 +125,6 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 		ComponentName: componentName,
 		ProjectName:   projectName,
 		OrgName:       orgName,
-		Branch:        component.Spec.Build.Repository.Revision.Branch,
 		Commit:        commit,
 		Status:        "Created",
 		CreatedAt:     build.CreationTimestamp.Time,
@@ -150,18 +149,38 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 			continue
 		}
 
+		// This commit hash should alway be there since the build is triggered with a commit
+		// If not provided, we can default to "latest" for now.
+		commit := build.Spec.Repository.Revision.Commit
+		if commit == "" {
+			commit = "latest"
+		}
+
 		buildResponses = append(buildResponses, models.BuildResponse{
 			Name:          build.Name,
 			ComponentName: componentName,
 			ProjectName:   projectName,
 			OrgName:       orgName,
-			Commit:        build.Spec.Repository.Revision.Commit,
-			Branch:        build.Spec.Repository.Revision.Branch,
-			Image:         build.Status.ImageStatus.Image,
-			BuildStatus:   &build.Status,
+			Commit:        commit,
+			Status:        GetLatestBuildStatus(build.Status.Conditions),
 			CreatedAt:     build.CreationTimestamp.Time,
 		})
 	}
 
 	return buildResponses, nil
+}
+
+func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
+	if len(buildConditions) == 0 {
+		return "Unknown"
+	}
+
+	latestCondition := buildConditions[0]
+	for _, condition := range buildConditions {
+		if condition.LastTransitionTime.Time.After(latestCondition.LastTransitionTime.Time) {
+			latestCondition = condition
+		}
+	}
+
+	return string(latestCondition.Reason)
 }

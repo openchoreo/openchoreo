@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"net/http"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 )
 
 func (h *Handler) ListBuildTemplates(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +27,7 @@ func (h *Handler) ListBuildTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	writeSuccessResponse(w, http.StatusOK, templates)
+	writeListResponse(w, templates, len(templates), 1, len(templates))
 }
 
 func (h *Handler) TriggerBuild(w http.ResponseWriter, r *http.Request) {
@@ -106,5 +107,5 @@ func (h *Handler) ListBuilds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	writeSuccessResponse(w, http.StatusOK, builds)
+	writeListResponse(w, builds, len(builds), 1, len(builds))
 }

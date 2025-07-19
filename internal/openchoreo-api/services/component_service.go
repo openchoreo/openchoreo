@@ -273,6 +273,32 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		},
 	}
 
+	// Only add build configuration if it's provided in the request
+	if req.BuildConfig.RepoUrl != "" {
+		componentCR.Spec.Build = openchoreov1alpha1.BuildSpecInComponent{
+			Repository: openchoreov1alpha1.BuildRepository{
+				URL: req.BuildConfig.RepoUrl,
+				Revision: openchoreov1alpha1.BuildRevision{
+					Branch: req.BuildConfig.Branch,
+				},
+				AppPath: req.BuildConfig.ComponentPath,
+			},
+			TemplateRef: openchoreov1alpha1.TemplateRef{
+				Name: req.BuildConfig.BuildTemplateRef,
+				Parameters: []openchoreov1alpha1.Parameter{
+					{
+						Name:  "language",
+						Value: "go",
+					},
+					{
+						Name:  "language-version",
+						Value: "1.x",
+					},
+				},
+			},
+		}
+	}
+
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
 		return fmt.Errorf("failed to create component CR: %w", err)
 	}
@@ -298,6 +324,12 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		OrgName:     component.Namespace,
 		CreatedAt:   component.CreationTimestamp.Time,
 		Status:      status,
+		BuildConfig: &models.BuildConfig{
+			RepoUrl:          component.Spec.Build.Repository.URL,
+			Branch:           component.Spec.Build.Repository.Revision.Branch,
+			ComponentPath:    component.Spec.Build.Repository.AppPath,
+			BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
+		},
 	}
 
 	for _, v := range typeSpecs {

@@ -51,6 +51,7 @@ type ComponentResponse struct {
 	ScheduledTask  *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
 	API            *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
 	Workload       *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
+	BuildConfig    *BuildConfig                           `json:"buildConfig,omitempty"`
 }
 
 // OrganizationResponse represents an organization in API responses
@@ -96,16 +97,13 @@ type DataPlaneResponse struct {
 
 // BuildResponse represents a build in API responses
 type BuildResponse struct {
-	Name          string                            `json:"name"`
-	ComponentName string                            `json:"componentName"`
-	ProjectName   string                            `json:"projectName"`
-	OrgName       string                            `json:"orgName"`
-	Commit        string                            `json:"commit,omitempty"`
-	Branch        string                            `json:"branch,omitempty"`
-	Image         string                            `json:"image,omitempty"`
-	Status        string                            `json:"status,omitempty"`
-	BuildStatus   *openchoreov1alpha1.BuildV2Status `json:"buildStatus"`
-	CreatedAt     time.Time                         `json:"createdAt"`
+	Name          string    `json:"name"`
+	ComponentName string    `json:"componentName"`
+	ProjectName   string    `json:"projectName"`
+	OrgName       string    `json:"orgName"`
+	Commit        string    `json:"commit,omitempty"`
+	Status        string    `json:"status,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 // Response helper functions
