@@ -8,6 +8,7 @@ import { EnvironmentInfoService } from './services/EnvironmentService/Environmen
 import { CellDiagramInfoService } from './services/CellDiagramService/CellDiagramInfoService';
 import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
+import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 
 /**
  * choreoPlugin backend plugin
@@ -59,6 +60,11 @@ export const choreoPlugin = createBackendPlugin({
           openchoreoConfig.get('baseUrl'),
         );
 
+        const componentInfoService = new ComponentInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
         httpRouter.use(
           await createRouter({
             httpAuth,
@@ -66,6 +72,7 @@ export const choreoPlugin = createBackendPlugin({
             cellDiagramInfoService,
             buildTemplateInfoService,
             buildInfoService,
+            componentInfoService,
           }),
         );
       },

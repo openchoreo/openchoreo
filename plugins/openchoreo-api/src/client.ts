@@ -330,4 +330,30 @@ export class OpenChoreoApiClient {
       throw error;
     }
   }
+
+  async getComponent(orgName: string, projectName: string, componentName: string): Promise<ModelsCompleteComponent> {
+    this.logger?.info(`Fetching component details for: ${componentName} in project: ${projectName}, organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.componentGet({
+        orgName,
+        projectName,
+        componentName,
+      });
+      
+      const apiResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+      
+      const component = apiResponse.data;
+      this.logger?.info(`Successfully fetched component details for: ${componentName}`);
+      return component;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch component details for ${componentName}: ${error}`);
+      throw error;
+    }
+  }
 }

@@ -6,18 +6,21 @@ import { EnvironmentInfoService } from './services/EnvironmentService/Environmen
 import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { CellDiagramService } from './types';
+import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 
 export async function createRouter({
   environmentInfoService,
   cellDiagramInfoService,
   buildTemplateInfoService,
   buildInfoService,
+  componentInfoService,
 }: {
   httpAuth: HttpAuthService;
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
   buildTemplateInfoService: BuildTemplateInfoService;
   buildInfoService: BuildInfoService;
+  componentInfoService: ComponentInfoService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -108,6 +111,24 @@ export async function createRouter({
         projectName as string,
         componentName as string,
         commit as string | undefined,
+      ),
+    );
+  });
+
+  router.get('/component', async (req, res) => {
+    const { componentName, projectName, organizationName } = req.query;
+
+    if (!componentName || !projectName || !organizationName) {
+      throw new InputError(
+        'componentName, projectName and organizationName are required query parameters',
+      );
+    }
+
+    res.json(
+      await componentInfoService.fetchComponentDetails(
+        organizationName as string,
+        projectName as string,
+        componentName as string,
       ),
     );
   });

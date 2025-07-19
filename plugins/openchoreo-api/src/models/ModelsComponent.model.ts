@@ -1,7 +1,7 @@
-import { EndpointTemplateSpec } from "./ModelsAPI.Model";
 import { ModelsService } from "./ModelsService.model";
 import { ModelsWebApplication } from "./ModelsWebApplication.model";
 import { ModelsWorkload } from "./ModelsWorkload.model";
+import { BuildConfig } from "./requests";
 
 /**
  * @public
@@ -43,6 +43,14 @@ export interface ModelsComponent {
    * Current status of the component
    */
   status: string;
+  /**
+   * Display name of the component
+   */
+  displayName?: string;
+  /**
+   * Build configuration
+   */
+  buildConfig?: BuildConfig;
 }
 
 export interface ModelsCompleteComponent extends ModelsComponent {

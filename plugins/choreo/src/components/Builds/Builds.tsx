@@ -12,9 +12,9 @@ import {
   StatusPending,
   StatusRunning,
 } from '@backstage/core-components';
-import { Typography, Button, Box } from '@material-ui/core';
-import { PlayArrow } from '@material-ui/icons';
-import type { ModelsBuild } from '@internal/plugin-openchoreo-api';
+import { Typography, Button, Box, Paper, Grid, Link, IconButton } from '@material-ui/core';
+import { PlayArrow, GitHub, CallSplit, FileCopy } from '@material-ui/icons';
+import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
 
 const BuildStatusComponent = ({ status }: { status?: string }) => {
   if (!status) {
@@ -48,6 +48,7 @@ export const Builds = () => {
   const catalogApi = useApi(catalogApiRef);
   const identityApi = useApi(identityApiRef);
   const [builds, setBuilds] = useState<ModelsBuild[]>([]);
+  const [componentDetails, setComponentDetails] = useState<ModelsCompleteComponent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [triggeringBuild, setTriggeringBuild] = useState(false);
@@ -90,6 +91,35 @@ export const Builds = () => {
     const organizationName = typeof organizationValue === 'string' ? organizationValue : String(organizationValue);
 
     return { componentName, projectName, organizationName };
+  };
+
+  const fetchComponentDetails = async () => {
+    try {
+      const { componentName, projectName, organizationName } = await getEntityDetails();
+      
+      // Get authentication token
+      const { token } = await identityApi.getCredentials();
+
+      // Fetch component details
+      const baseUrl = await discoveryApi.getBaseUrl('choreo');
+      const componentResponse = await fetch(
+        `${baseUrl}/component?componentName=${encodeURIComponent(componentName)}&projectName=${encodeURIComponent(projectName)}&organizationName=${encodeURIComponent(organizationName)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!componentResponse.ok) {
+        throw new Error(`HTTP ${componentResponse.status}: ${componentResponse.statusText}`);
+      }
+
+      const componentData = await componentResponse.json();
+      setComponentDetails(componentData);
+    } catch (err) {
+      setError(err as Error);
+    }
   };
 
   const fetchBuilds = async () => {
@@ -160,7 +190,10 @@ export const Builds = () => {
   };
 
   useEffect(() => {
-    fetchBuilds();
+    const fetchData = async () => {
+      await Promise.all([fetchComponentDetails(), fetchBuilds()]);
+    };
+    fetchData();
   }, [entity, discoveryApi, catalogApi, identityApi]);
 
   if (loading) {
@@ -201,8 +234,75 @@ export const Builds = () => {
     },
   ];
 
+  const getRepositoryUrl = (component: ModelsCompleteComponent) => {
+    const baseUrl = component.buildConfig?.repoUrl || component.repositoryUrl;
+    const branch = component.buildConfig?.repoBranch || component.branch;
+    const componentPath = component.buildConfig?.componentPath;
+    
+    if (!componentPath) {
+      return baseUrl;
+    }
+    
+    const separator = baseUrl.endsWith('/') ? '' : '/';
+    return `${baseUrl}${separator}tree/${branch}/${componentPath}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+  };
+
   return (
     <Box>
+      {componentDetails && (
+        <Paper style={{ padding: '16px', marginBottom: '16px' }}>
+          <Box>
+            <Typography variant="body2" color="textSecondary" gutterBottom>
+              {componentDetails.type}
+            </Typography>
+            <Typography variant="h6" style={{ marginBottom: '16px' }}>
+              {componentDetails.displayName || componentDetails.name}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" gutterBottom>
+              Source
+            </Typography>
+            <Box display="flex" alignItems="center" style={{ marginBottom: '8px' }}>
+              <GitHub style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
+              <Link
+                href={getRepositoryUrl(componentDetails)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '13px' }}
+              >
+                {getRepositoryUrl(componentDetails)}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={() => copyToClipboard(getRepositoryUrl(componentDetails))}
+                style={{ marginLeft: '8px', padding: '4px' }}
+                title="Copy URL to clipboard"
+              >
+                <FileCopy style={{ fontSize: '14px', color: '#666' }} />
+              </IconButton>
+            </Box>
+            <Box display="flex" alignItems="center">
+              <CallSplit style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
+              <Typography variant="body2">
+                {componentDetails.buildConfig?.repoBranch || componentDetails.branch}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      )}
       <Box mb={2} display="flex" justifyContent="flex-end">
         <Button
           variant="contained"
