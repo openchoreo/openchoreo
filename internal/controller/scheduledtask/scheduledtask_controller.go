@@ -5,12 +5,14 @@ package scheduledtask
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -112,8 +114,18 @@ func (r *Reconciler) makeScheduledTaskBinding(scheduledTask *openchoreov1alpha1.
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Set up the index for workload reference
+	if err := r.setupWorkloadRefIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("failed to setup workload reference index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ScheduledTask{}).
+		Owns(&openchoreov1alpha1.ScheduledTaskBinding{}).
+		Watches(
+			&openchoreov1alpha1.Workload{},
+			handler.EnqueueRequestsFromMapFunc(r.listScheduledTasksForWorkload),
+		).
 		Named("scheduledtask").
 		Complete(r)
 }
