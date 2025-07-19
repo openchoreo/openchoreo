@@ -13,7 +13,7 @@ import {
   StatusRunning,
 } from '@backstage/core-components';
 import { Typography, Button, Box, Paper, Grid, Link, IconButton } from '@material-ui/core';
-import { PlayArrow, GitHub, CallSplit, FileCopy } from '@material-ui/icons';
+import { PlayArrow, GitHub, CallSplit, FileCopy, Refresh } from '@material-ui/icons';
 import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
 
 const BuildStatusComponent = ({ status }: { status?: string }) => {
@@ -42,6 +42,39 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString();
 };
 
+const formatRelativeTime = (dateString: string) => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds} seconds ago`;
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 30) {
+    return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`;
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) {
+    return `${diffInMonths} ${diffInMonths === 1 ? 'month' : 'months'} ago`;
+  }
+
+  const diffInYears = Math.floor(diffInMonths / 12);
+  return `${diffInYears} ${diffInYears === 1 ? 'year' : 'years'} ago`;
+};
+
 export const Builds = () => {
   const { entity } = useEntity();
   const discoveryApi = useApi(discoveryApiRef);
@@ -52,6 +85,7 @@ export const Builds = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [triggeringBuild, setTriggeringBuild] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const getEntityDetails = async () => {
     if (!entity.metadata.name) {
@@ -189,6 +223,17 @@ export const Builds = () => {
     }
   };
 
+  const refreshBuilds = async () => {
+    setRefreshing(true);
+    try {
+      await fetchBuilds();
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       await Promise.all([fetchComponentDetails(), fetchBuilds()]);
@@ -230,7 +275,7 @@ export const Builds = () => {
     {
       title: 'Time',
       field: 'time',
-      render: (row: any) => formatDate((row as ModelsBuild).createdAt),
+      render: (row: any) => formatRelativeTime((row as ModelsBuild).createdAt),
     },
   ];
 
@@ -294,31 +339,60 @@ export const Builds = () => {
                 <FileCopy style={{ fontSize: '14px', color: '#666' }} />
               </IconButton>
             </Box>
-            <Box display="flex" alignItems="center">
-              <CallSplit style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
-              <Typography variant="body2">
-                {componentDetails.buildConfig?.repoBranch || componentDetails.branch}
-              </Typography>
+            <Box display="flex" alignItems="center" justifyContent="space-between" style={{ marginBottom: '8px' }}>
+              <Box display="flex" alignItems="center">
+                <CallSplit style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
+                <Typography variant="body2">
+                  {componentDetails.buildConfig?.repoBranch || componentDetails.branch}
+                </Typography>
+              </Box>
+              <Box display="flex">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={triggerBuild}
+                  disabled={triggeringBuild}
+                  style={{ marginRight: '12px' }}
+                >
+                  {triggeringBuild ? 'Building...' : 'Build Latest'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {}}
+                >
+                  Show Commits
+                </Button>
+              </Box>
             </Box>
           </Box>
         </Paper>
       )}
-      <Box mb={2} display="flex" justifyContent="flex-end">
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<PlayArrow />}
-          onClick={triggerBuild}
-          disabled={triggeringBuild}
-        >
-          {triggeringBuild ? 'Triggering Build...' : 'Trigger Build'}
-        </Button>
-      </Box>
       <Table
-        title="Component Builds"
-        options={{ search: true, paging: true }}
+        title={
+          <Box display="flex" alignItems="center">
+            <Typography variant="h6" component="span">
+              Builds
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={refreshBuilds}
+              disabled={refreshing || loading}
+              style={{ marginLeft: '8px' }}
+              title={refreshing ? 'Refreshing...' : 'Refresh builds'}
+            >
+              <Refresh style={{ fontSize: '18px' }} />
+            </IconButton>
+          </Box>
+        }
+        options={{ 
+          search: true, 
+          paging: true,
+          sorting: true
+        }}
         columns={columns}
-        data={builds}
+        data={builds.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
         emptyContent={
           <Typography variant="body1">
             No builds found for this component.

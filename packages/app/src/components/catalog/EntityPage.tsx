@@ -152,17 +152,17 @@ const serviceEntityPage = (
       {overviewContent}
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/environments" title="Environments">
-      <Environments />
-    </EntityLayout.Route>
-
     <EntityLayout.Route path="/builds" title="Builds">
       <Builds />
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/ci-cd" title="CI/CD">
-      {cicdContent}
+    <EntityLayout.Route path="/environments" title="Deploy">
+      <Environments />
     </EntityLayout.Route>
+
+    {/* <EntityLayout.Route path="/ci-cd" title="CI/CD">
+      {cicdContent}
+    </EntityLayout.Route> */}
 
     <EntityLayout.Route
       path="/kubernetes"
@@ -206,17 +206,17 @@ const websiteEntityPage = (
       {overviewContent}
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/environments" title="Environments">
-      <Environments />
-    </EntityLayout.Route>
-
     <EntityLayout.Route path="/builds" title="Builds">
       <Builds />
     </EntityLayout.Route>
 
-    <EntityLayout.Route path="/ci-cd" title="CI/CD">
-      {cicdContent}
+    <EntityLayout.Route path="/environments" title="Deploy">
+      <Environments />
     </EntityLayout.Route>
+
+    {/* <EntityLayout.Route path="/ci-cd" title="CI/CD">
+      {cicdContent}
+    </EntityLayout.Route> */}
 
     <EntityLayout.Route
       path="/kubernetes"

@@ -1,7 +1,7 @@
 import { createRouteRef } from '@backstage/core-plugin-api';
 
 export const rootCatalogEnvironmentRouteRef = createRouteRef({
-  id: 'environments',
+  id: 'deploy',
 });
 export const rootCatalogCellDiagramRouteRef = createRouteRef({
   id: 'cell-diagram',

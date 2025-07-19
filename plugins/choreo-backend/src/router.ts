@@ -25,7 +25,7 @@ export async function createRouter({
   const router = Router();
   router.use(express.json());
 
-  router.get('/environments', async (req, res) => {
+  router.get('/deploy', async (req, res) => {
     const { componentName, projectName, organizationName } = req.query;
 
     if (!componentName || !projectName || !organizationName) {
