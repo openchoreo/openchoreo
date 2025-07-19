@@ -96,16 +96,13 @@ type DataPlaneResponse struct {
 
 // BuildResponse represents a build in API responses
 type BuildResponse struct {
-	Name              string    `json:"name"`
-	ComponentName     string    `json:"componentName"`
-	ProjectName       string    `json:"projectName"`
-	OrgName           string    `json:"orgName"`
-	Commit            string    `json:"commit,omitempty"`
-	Branch            string    `json:"branch,omitempty"`
-	Image             string    `json:"image,omitempty"`
-	Status            string    `json:"status,omitempty"`
-	CreatedAt         time.Time `json:"createdAt"`
-	DurationInSeconds int64     `json:"durationInSeconds,omitempty"`
+	Name          string    `json:"name"`
+	ComponentName string    `json:"componentName"`
+	ProjectName   string    `json:"projectName"`
+	OrgName       string    `json:"orgName"`
+	Commit        string    `json:"commit,omitempty"`
+	Status        string    `json:"status,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 // Response helper functions
