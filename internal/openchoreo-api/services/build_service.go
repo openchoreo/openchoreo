@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
@@ -151,17 +152,70 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 		}
 
 		buildResponses = append(buildResponses, models.BuildResponse{
-			Name:          build.Name,
-			ComponentName: componentName,
-			ProjectName:   projectName,
-			OrgName:       orgName,
-			Commit:        build.Spec.Repository.Revision.Commit,
-			Branch:        build.Spec.Repository.Revision.Branch,
-			Image:         build.Status.ImageStatus.Image,
-			BuildStatus:   &build.Status,
-			CreatedAt:     build.CreationTimestamp.Time,
+			Name:              build.Name,
+			ComponentName:     componentName,
+			ProjectName:       projectName,
+			OrgName:           orgName,
+			Commit:            build.Spec.Repository.Revision.Commit,
+			Branch:            build.Spec.Repository.Revision.Branch,
+			Image:             build.Status.ImageStatus.Image,
+			Status:            GetLatestBuildStatus(build.Status.Conditions),
+			CreatedAt:         build.CreationTimestamp.Time,
+			DurationInSeconds: GetBuildDurationInSeconds(build),
 		})
 	}
 
 	return buildResponses, nil
+}
+
+func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
+	if len(buildConditions) == 0 {
+		return "Unknown"
+	}
+
+	latestCondition := buildConditions[0]
+	for _, condition := range buildConditions {
+		if condition.LastTransitionTime.Time.After(latestCondition.LastTransitionTime.Time) {
+			latestCondition = condition
+		}
+	}
+
+	return string(latestCondition.Reason)
+}
+
+func GetBuildDurationInSeconds(build openchoreov1alpha1.BuildV2) int64 {
+	// Get the condition with the most recent lastTransitionTime as status
+	var durationInSeconds int64
+
+	if len(build.Status.Conditions) > 0 {
+		var latestCondition metav1.Condition
+		var earliestCondition metav1.Condition
+		var hasLatest, hasEarliest bool
+
+		for _, condition := range build.Status.Conditions {
+			if !hasLatest || condition.LastTransitionTime.Time.After(latestCondition.LastTransitionTime.Time) {
+				latestCondition = condition
+				hasLatest = true
+			}
+			if !hasEarliest || condition.LastTransitionTime.Time.Before(earliestCondition.LastTransitionTime.Time) {
+				earliestCondition = condition
+				hasEarliest = true
+			}
+		}
+
+		// Calculate duration from earliest condition to latest condition
+		startTime := earliestCondition.LastTransitionTime.Time
+		endTime := latestCondition.LastTransitionTime.Time
+
+		// For in-progress builds, use current time as end time
+		if latestCondition.Type != "BuildCompleted" && latestCondition.Type != "BuildFailed" {
+			endTime = time.Now()
+		}
+
+		durationInSeconds = int64(endTime.Sub(startTime).Seconds())
+	} else {
+		durationInSeconds = int64(time.Since(build.CreationTimestamp.Time).Seconds())
+	}
+
+	return durationInSeconds
 }

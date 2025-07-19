@@ -258,19 +258,33 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 				ProjectName: projectName,
 			},
 			Type: openchoreov1alpha1.ComponentType(req.Type),
-			Build: openchoreov1alpha1.BuildSpecInComponent{
-				Repository: openchoreov1alpha1.BuildRepository{
-					URL: req.BuildConfig.RepoUrl,
-					Revision: openchoreov1alpha1.BuildRevision{
-						Branch: req.BuildConfig.Branch,
-					},
-					AppPath: req.BuildConfig.ComponentPath,
+		},
+	}
+
+	// Only add build configuration if it's provided in the request
+	if req.BuildConfig.RepoUrl != "" {
+		componentCR.Spec.Build = openchoreov1alpha1.BuildSpecInComponent{
+			Repository: openchoreov1alpha1.BuildRepository{
+				URL: req.BuildConfig.RepoUrl,
+				Revision: openchoreov1alpha1.BuildRevision{
+					Branch: req.BuildConfig.Branch,
 				},
-				TemplateRef: openchoreov1alpha1.TemplateRef{
-					Name: req.BuildConfig.BuildTemplateRef,
+				AppPath: req.BuildConfig.ComponentPath,
+			},
+			TemplateRef: openchoreov1alpha1.TemplateRef{
+				Name: req.BuildConfig.BuildTemplateRef,
+				Parameters: []openchoreov1alpha1.Parameter{
+					{
+						Name:  "language",
+						Value: "go",
+					},
+					{
+						Name:  "language-version",
+						Value: "1.x",
+					},
 				},
 			},
-		},
+		}
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
