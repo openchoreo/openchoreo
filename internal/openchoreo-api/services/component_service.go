@@ -312,6 +312,12 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		OrgName:     component.Namespace,
 		CreatedAt:   component.CreationTimestamp.Time,
 		Status:      status,
+		BuildConfig: &models.BuildConfig{
+			RepoUrl:          component.Spec.Build.Repository.URL,
+			Branch:           component.Spec.Build.Repository.Revision.Branch,
+			ComponentPath:    component.Spec.Build.Repository.AppPath,
+			BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
+		},
 	}
 
 	for _, v := range typeSpecs {
