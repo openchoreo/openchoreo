@@ -52,6 +52,24 @@ func NewCondition(conditionType ConditionType, status metav1.ConditionStatus, re
 	}
 }
 
+func MarkTrueCondition(obj ConditionedObject, ct ConditionType, reason ConditionReason, message string) (changed bool) {
+	cond := NewCondition(ct, metav1.ConditionTrue, reason, message, obj.GetGeneration())
+	conditions := obj.GetConditions()
+	return meta.SetStatusCondition(&conditions, cond)
+}
+
+func MarkFalseCondition(obj ConditionedObject, ct ConditionType, reason ConditionReason, message string) (changed bool) {
+	cond := NewCondition(ct, metav1.ConditionFalse, reason, message, obj.GetGeneration())
+	conditions := obj.GetConditions()
+	return meta.SetStatusCondition(&conditions, cond)
+}
+
+func MarkUnknownCondition(obj ConditionedObject, ct ConditionType, reason ConditionReason, message string) (changed bool) {
+	cond := NewCondition(ct, metav1.ConditionUnknown, reason, message, obj.GetGeneration())
+	conditions := obj.GetConditions()
+	return meta.SetStatusCondition(&conditions, cond)
+}
+
 // NeedConditionUpdate checks if the conditions need to be updated based on the current and updated conditions.
 func NeedConditionUpdate(currentConditions, updatedConditions []metav1.Condition) bool {
 	// If the number of conditions is different, an update is needed
