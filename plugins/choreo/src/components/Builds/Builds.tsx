@@ -12,8 +12,8 @@ import {
   StatusPending,
   StatusRunning,
 } from '@backstage/core-components';
-import { Typography, Button, Box, Paper, Grid, Link, IconButton } from '@material-ui/core';
-import { PlayArrow, GitHub, CallSplit, FileCopy, Refresh } from '@material-ui/icons';
+import { Typography, Button, Box, Paper, Link, IconButton } from '@material-ui/core';
+import { GitHub, CallSplit, FileCopy, Refresh } from '@material-ui/icons';
 import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
 
 const BuildStatusComponent = ({ status }: { status?: string }) => {
@@ -36,10 +36,6 @@ const BuildStatusComponent = ({ status }: { status?: string }) => {
   }
   
   return <StatusPending>{status}</StatusPending>;
-};
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleString();
 };
 
 const formatRelativeTime = (dateString: string) => {
