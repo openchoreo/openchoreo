@@ -59,13 +59,19 @@ newline-fix: ## Add missing trailing newlines to all Git-tracked text files
 	rm -f /tmp/newline-fix-output.txt; \
 	echo "✓ Fixed $$fixed_count files"
 
-.PHONY: lint
-lint: golangci-lint license-check newline-check ## Run golangci-lint linter, licenser, and newline check
+.PHONY: golangci-lint-check
+golangci-lint-check: golangci-lint ## Check code with golangci-lint
 	$(GOLANGCI_LINT) run
 
-.PHONY: lint-fix
-lint-fix: golangci-lint license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
+.PHONY: golangci-lint-fix
+golangci-lint-fix: golangci-lint ## Run golangci-lint with fix option
 	$(GOLANGCI_LINT) run --fix
+
+.PHONY: lint
+lint: golangci-lint-check license-check newline-check ## Run golangci-lint linter, licenser, and newline check
+
+.PHONY: lint-fix
+lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
 .PHONY: code.gen
 code.gen: manifests generate go.mod.lint helm-generate ## Generate code and fix the code with linter
