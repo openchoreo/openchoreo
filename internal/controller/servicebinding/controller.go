@@ -80,9 +80,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Namespace: serviceBinding.Namespace,
 		Name:      serviceBinding.Spec.ClassName,
 	}, serviceClass); err != nil {
-		msg := fmt.Sprintf("Failed to get ServiceClass %q", serviceBinding.Spec.ClassName)
-		logger.Error(err, msg)
-		controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonServiceClassNotFound, msg)
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("ServiceClass %q not found", serviceBinding.Spec.ClassName)
+			controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonServiceClassNotFound, msg)
+			logger.Error(err, msg)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get ServiceClass", "ServiceClass", serviceBinding.Spec.ClassName)
 		return ctrl.Result{}, err
 	}
 
@@ -95,9 +99,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				Namespace: serviceBinding.Namespace,
 				Name:      serviceAPI.ClassName,
 			}, apiClass); err != nil {
-				msg := fmt.Sprintf("Failed to get APIClass %q for API %q", serviceAPI.ClassName, apiName)
-				logger.Error(err, msg)
-				controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonAPIClassNotFound, msg)
+				if apierrors.IsNotFound(err) {
+					msg := fmt.Sprintf("APIClass %q not found for API %q", serviceAPI.ClassName, apiName)
+					controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonAPIClassNotFound, msg)
+					logger.Error(err, msg)
+					return ctrl.Result{}, nil
+				}
+				logger.Error(err, "Failed to get APIClass", "APIClass", serviceAPI.ClassName, "API", apiName)
 				return ctrl.Result{}, err
 			}
 			apiClasses[apiName] = apiClass
@@ -225,6 +233,14 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 func (r *Reconciler) setReadyStatus(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding, release *openchoreov1alpha1.Release) error {
 	// Count resources by health status
 	totalResources := len(release.Status.Resources)
+
+	// Handle the case where there are no resources
+	if totalResources == 0 {
+		message := "No resources to deploy"
+		controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonAllResourcesReady, message)
+		return nil
+	}
+
 	healthyCount := 0
 	progressingCount := 0
 	degradedCount := 0

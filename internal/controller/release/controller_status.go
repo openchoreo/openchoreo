@@ -185,42 +185,72 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 		return openchoreov1alpha1.HealthStatusUnknown, fmt.Errorf("failed to convert to deployment: %w", err)
 	}
 
-	// Check if deployment is paused (suspended)
+	// Check if deployment is paused (or deliberately scaled to zero) -> Suspended
 	if deployment.Spec.Paused {
 		return openchoreov1alpha1.HealthStatusSuspended, nil
 	}
+	if deployment.Spec.Replicas != nil && *deployment.Spec.Replicas == 0 {
+		return openchoreov1alpha1.HealthStatusSuspended, nil
+	}
 
-	// If status is not populated yet, it's progressing
+	// New spec not yet observed -> Progressing
 	if deployment.Status.ObservedGeneration == 0 || deployment.Generation > deployment.Status.ObservedGeneration {
 		return openchoreov1alpha1.HealthStatusProgressing, nil
 	}
 
-	// Check deployment conditions for health status
-	for _, condition := range deployment.Status.Conditions {
-		if condition.Type == appsv1.DeploymentProgressing {
-			// Check if progress deadline exceeded
-			if condition.Reason == "ProgressDeadlineExceeded" {
-				return openchoreov1alpha1.HealthStatusDegraded, nil
-			}
-		}
-		if condition.Type == appsv1.DeploymentReplicaFailure && condition.Status == corev1.ConditionTrue {
-			return openchoreov1alpha1.HealthStatusDegraded, nil
-		}
-	}
-
-	// Get desired replicas (default to 1 if not specified)
+	// Extract replica details
 	desiredReplicas := int32(1)
 	if deployment.Spec.Replicas != nil {
 		desiredReplicas = *deployment.Spec.Replicas
 	}
-
-	// Determine health based on replica counts
 	updatedReplicas := deployment.Status.UpdatedReplicas
 	readyReplicas := deployment.Status.ReadyReplicas
 	availableReplicas := deployment.Status.AvailableReplicas
+	unavailableReplicas := deployment.Status.UnavailableReplicas
 
-	// All replicas are up-to-date, ready, and available
-	if desiredReplicas == updatedReplicas && desiredReplicas == readyReplicas && desiredReplicas == availableReplicas {
+	// Extract deployment conditions
+	var availableCond, progressingCond, replicaFailCond *appsv1.DeploymentCondition
+	for i := range deployment.Status.Conditions {
+		c := &deployment.Status.Conditions[i]
+		switch c.Type {
+		case appsv1.DeploymentAvailable:
+			availableCond = c
+		case appsv1.DeploymentProgressing:
+			progressingCond = c
+		case appsv1.DeploymentReplicaFailure:
+			replicaFailCond = c
+		}
+	}
+
+	// Progress deadline or replica failure -> Degraded
+	if progressingCond != nil && progressingCond.Reason == "ProgressDeadlineExceeded" {
+		return openchoreov1alpha1.HealthStatusDegraded, nil
+	}
+	if replicaFailCond != nil && replicaFailCond.Status == corev1.ConditionTrue {
+		return openchoreov1alpha1.HealthStatusDegraded, nil
+	}
+
+	// All pods on new revision but none are available yet -> Degraded
+	// Check if deployment is still progressing normally before marking as degraded
+	if desiredReplicas == updatedReplicas && availableReplicas == 0 && desiredReplicas > 0 {
+		// If Progressing condition is True, pods are still starting up
+		if progressingCond != nil && progressingCond.Status == corev1.ConditionTrue {
+			return openchoreov1alpha1.HealthStatusProgressing, nil
+		}
+		// Only mark as degraded if progressing is False or unknown
+		return openchoreov1alpha1.HealthStatusDegraded, nil
+	}
+
+	// Serving traffic impacted? -> Degraded
+	// We only check if we have seen at least one available pod or ready replica
+	if availableCond != nil && availableCond.Status != corev1.ConditionTrue &&
+		unavailableReplicas > 0 && (readyReplicas > 0 || availableReplicas > 0) {
+		return openchoreov1alpha1.HealthStatusDegraded, nil
+	}
+
+	// All replicas are up to date, ready, and available -> healthy
+	if desiredReplicas == updatedReplicas && desiredReplicas == readyReplicas &&
+		desiredReplicas == availableReplicas && unavailableReplicas == 0 {
 		return openchoreov1alpha1.HealthStatusHealthy, nil
 	}
 
@@ -228,9 +258,11 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	// - Not all replicas are updated
 	// - Not all replicas are ready
 	// - Not all replicas are available
+	// - Some replicas are unavailable
 	return openchoreov1alpha1.HealthStatusProgressing, nil
 }
 
+// TODO: Check the statefulset health tracking and update logic
 func getStatefulSetHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
 	// Convert an unstructured object to StatefulSet
 	var statefulSet appsv1.StatefulSet
