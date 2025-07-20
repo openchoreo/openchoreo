@@ -1,0 +1,15 @@
+{{- if .Values.persistence.database.enabled }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "openchoreo-identity-provider.fullname" . }}-database-pv
+spec:
+  capacity:
+    storage: {{ .Values.persistence.database.size }}
+  accessModes:
+    - {{ .Values.persistence.database.accessMode }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    path: /mnt/shared/identity-provider-db
+{{- end }}
