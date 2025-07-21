@@ -19,7 +19,7 @@ spec:
     projectName: gcp-microservice-demo
   containers:
     main:
-      image: frontend:arm64
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
       env:
         - key: DISABLE_PROFILER
           value: "1"

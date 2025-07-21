@@ -19,7 +19,7 @@ spec:
     projectName: gcp-microservice-demo
   containers:
     main:
-      image: shippingservice:arm64
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/shippingservice:v0.10.3
       env:
         - key: DISABLE_PROFILER
           value: "1"
@@ -41,4 +41,4 @@ spec:
     componentName: shipping
     projectName: gcp-microservice-demo
   workloadName: shipping
-  overrides: {}
+  overrides: { }
