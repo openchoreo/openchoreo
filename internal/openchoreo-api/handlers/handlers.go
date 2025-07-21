@@ -39,6 +39,9 @@ func (h *Handler) Routes() http.Handler {
 
 	// Apply endpoint (similar to kubectl apply)
 	mux.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
+	
+	// Delete endpoint (similar to kubectl delete)
+	mux.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
 
 	// Organization endpoints
 	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
