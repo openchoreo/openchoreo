@@ -55,27 +55,32 @@ func makeWorkflowSpec(build *openchoreov1alpha1.BuildV2) argoproj.WorkflowSpec {
 
 // buildWorkflowParameters constructs the parameters for the workflow
 func buildWorkflowParameters(build *openchoreov1alpha1.BuildV2) []argoproj.Parameter {
-	var parameters []argoproj.Parameter
 
-	// Add core parameters
-	parameters = append(parameters,
+	parameters := []argoproj.Parameter{
 		createParameter("git-repo", build.Spec.Repository.URL),
 		createParameter("app-path", build.Spec.Repository.AppPath),
 		createParameter("image-name", makeImageName(build)),
 		createParameter("image-tag", makeImageTag(build)),
-	)
-
-	// Add revision parameter (branch or commit)
-	if build.Spec.Repository.Revision.Commit != "" {
-		parameters = append(parameters, createParameter("commit", build.Spec.Repository.Revision.Commit))
-	} else if build.Spec.Repository.Revision.Branch != "" {
-		parameters = append(parameters, createParameter("branch", build.Spec.Repository.Revision.Branch))
-	} else {
-		// Default to main branch if no revision specified
-		parameters = append(parameters, createParameter("branch", "main"))
 	}
 
-	// Add template-specific parameters
+	commit := build.Spec.Repository.Revision.Commit
+	branch := build.Spec.Repository.Revision.Branch
+
+	if commit != "" {
+		branch = "" // ignore branch when commit is provided
+	} else {
+		if branch == "" {
+			branch = "main"
+		}
+		commit = "" // ensure commit is empty when using branch
+	}
+
+	parameters = append(
+		parameters,
+		createParameter("commit", commit),
+		createParameter("branch", branch),
+	)
+
 	for _, param := range build.Spec.TemplateRef.Parameters {
 		parameters = append(parameters, createParameter(param.Name, param.Value))
 	}
