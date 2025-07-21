@@ -14,11 +14,6 @@ spec:
       url: https://github.com/wso2/choreo-samples
     templateRef:
       name: default-buildpack-template
-      parameters:
-        - name: language
-          value: go
-        - name: language-version
-          value: 1.x
 
 
 ---
@@ -38,11 +33,6 @@ spec:
     url: https://github.com/wso2/choreo-samples
   templateRef:
     name: default-buildpack-template
-    parameters:
-    - name: language
-      value: go
-    - name: language-version
-      value: 1.x
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
