@@ -11,5 +11,5 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: manual
   hostPath:
-    path: /mnt/shared
+    path: /mnt/shared/container-registry-storage
 {{ end }}
