@@ -225,7 +225,7 @@ export class OpenChoreoApiClient {
         { token: this.token }
       );
 
-      // Crete a dummy OpenChoreoApiResponse to match the expected structure
+      // Create a dummy OpenChoreoApiResponse to match the expected structure
       const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = {
         success: true,
         data: {
