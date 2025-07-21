@@ -156,7 +156,6 @@ export const Environments = () => {
                       const promotionPath = promotionPaths.find(
                         path => path.sourceEnvironmentRef === env.name
                       );
-                      console.log('Promotion Path:', env.name);
                       return promotionPath ? (
                         // <Grid item xs={12}>
                         <Box display="flex" mt={3}>
