@@ -18,6 +18,7 @@ type Services struct {
 	DataPlaneService    *DataPlaneService
 	BuildService        *BuildService
 	BuildPlaneService   *BuildPlaneService
+	k8sClient           client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
@@ -51,5 +52,11 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DataPlaneService:    dataplaneService,
 		BuildService:        buildService,
 		BuildPlaneService:   buildPlaneService,
+		k8sClient:           k8sClient,
 	}
+}
+
+// GetKubernetesClient returns the Kubernetes client for direct API operations
+func (s *Services) GetKubernetesClient() client.Client {
+	return s.k8sClient
 }

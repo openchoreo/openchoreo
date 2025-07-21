@@ -37,6 +37,9 @@ func (h *Handler) Routes() http.Handler {
 	// API versioning
 	v1 := "/api/v1"
 
+	// Apply endpoint (similar to kubectl apply)
+	mux.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
+
 	// Organization endpoints
 	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
