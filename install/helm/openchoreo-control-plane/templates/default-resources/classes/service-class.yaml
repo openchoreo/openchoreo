@@ -17,10 +17,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 128Mi
+                memory: 64Mi
               limits:
-                cpu: 500m
-                memory: 512Mi
+                cpu: 400m
+                memory: 256Mi
   serviceTemplate:
     type: ClusterIP
 {{ end }}
