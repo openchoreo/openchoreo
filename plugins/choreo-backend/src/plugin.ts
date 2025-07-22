@@ -73,10 +73,6 @@ export const choreoPlugin = createBackendPlugin({
             runtimeLogsInfoService,
           }),
         );
-        httpRouter.addAuthPolicy({
-          path: '/logs/component',
-          allow: 'unauthenticated',
-        });
       },
     });
   },
