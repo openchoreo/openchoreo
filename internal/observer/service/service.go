@@ -46,7 +46,7 @@ func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *sl
 }
 
 // GetComponentLogs retrieves logs for a specific component using V2 wildcard search
-func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.QueryParams) (*LogResponse, error) {
+func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting component logs",
 		"component_id", params.ComponentID,
 		"environment_id", params.EnvironmentID,

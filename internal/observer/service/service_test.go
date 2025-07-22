@@ -114,15 +114,20 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 	}
 	service.osClient = mockClient
 
-	params := opensearch.QueryParams{
-		StartTime:     "2024-01-01T00:00:00Z",
-		EndTime:       "2024-01-01T23:59:59Z",
-		SearchPhrase:  "error",
-		ComponentID:   "comp-123",
-		EnvironmentID: "env-456",
-		Namespace:     "default",
-		Limit:         100,
-		SortOrder:     "desc",
+	params := opensearch.ComponentQueryParams{
+		QueryParams: opensearch.QueryParams{
+			StartTime:     "2024-01-01T00:00:00Z",
+			EndTime:       "2024-01-01T23:59:59Z",
+			SearchPhrase:  "error",
+			ComponentID:   "comp-123",
+			EnvironmentID: "env-456",
+			Namespace:     "default",
+			Limit:         100,
+			SortOrder:     "desc",
+			LogType:       "RUNTIME",
+		},
+		BuildID:   "",
+		BuildUUID: "",
 	}
 
 	ctx := context.Background()

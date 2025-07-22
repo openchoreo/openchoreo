@@ -38,6 +38,12 @@ const (
 
 	// WorkflowName identifies the build/deployment workflow
 	WorkflowName = "workflow_name"
+
+	// BuildID identifies the specific build instance
+	BuildID = "build-name"
+
+	// BuildUUID identifies the unique build identifier (UUID)
+	BuildUUID = "build-uuid"
 )
 
 // OpenSearch field paths for querying Kubernetes labels in log documents
@@ -55,6 +61,8 @@ const (
 	OSPipelineID       = KubernetesLabelsPrefix + "." + PipelineID
 	OSRunID            = KubernetesLabelsPrefix + "." + RunID
 	OSWorkflowName     = KubernetesLabelsPrefix + "." + WorkflowName
+	OSBuildID          = KubernetesLabelsPrefix + "." + BuildID
+	OSBuildUUID        = KubernetesLabelsPrefix + "." + BuildUUID
 )
 
 // RequiredLabels are the required labels that must be present on all Choreo components for proper log filtering

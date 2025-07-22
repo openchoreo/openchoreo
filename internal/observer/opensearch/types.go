@@ -81,6 +81,14 @@ type QueryParams struct {
 	Namespace      string   `json:"namespace,omitempty"`
 	Versions       []string `json:"versions,omitempty"`
 	VersionIDs     []string `json:"versionIds,omitempty"`
+	LogType        string   `json:"logType,omitempty"`
+}
+
+// ComponentQueryParams holds component-specific query parameters
+type ComponentQueryParams struct {
+	QueryParams
+	BuildID   string `json:"buildId,omitempty"`
+	BuildUUID string `json:"buildUuid,omitempty"`
 }
 
 // GatewayQueryParams holds gateway-specific query parameters
@@ -189,4 +197,16 @@ func extractLogLevel(log string) string {
 	}
 
 	return "INFO" // Default to INFO if no level found
+}
+
+// ExtractLogType determines the log type from query parameters or defaults to RUNTIME
+func ExtractLogType(logType string) string {
+	switch strings.ToUpper(logType) {
+	case "BUILD":
+		return "BUILD"
+	case "RUNTIME":
+		return "RUNTIME"
+	default:
+		return "RUNTIME" // Default to RUNTIME if no valid type specified
+	}
 }

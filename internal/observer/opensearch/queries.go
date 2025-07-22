@@ -80,7 +80,7 @@ func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []stri
 }
 
 // BuildComponentLogsQuery builds a query for component logs with wildcard search
-func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]interface{} {
+func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{
 		{
 			"match": map[string]interface{}{
@@ -90,14 +90,19 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 				},
 			},
 		},
-		{
+	}
+
+	// Add environment filter only for RUNTIME logs, not for BUILD logs
+	if params.LogType != "BUILD" {
+		environmentFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				labels.OSEnvironmentID: map[string]interface{}{
 					"query":            params.EnvironmentID,
 					"zero_terms_query": "none",
 				},
 			},
-		},
+		}
+		mustConditions = append(mustConditions, environmentFilter)
 	}
 
 	// Add namespace filter only if specified
@@ -113,8 +118,40 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params QueryParams) map[string]i
 		mustConditions = append(mustConditions, namespaceFilter)
 	}
 
-	// Add common filters
-	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	// Add type-specific filters based on LogType
+	if params.LogType == "BUILD" {
+		// For BUILD logs, add BuildID and BuildUUID filters instead of date filter
+		if params.BuildID != "" {
+			buildIDFilter := map[string]interface{}{
+				"match": map[string]interface{}{
+					labels.OSBuildID: map[string]interface{}{
+						"query":            params.BuildID,
+						"zero_terms_query": "none",
+					},
+				},
+			}
+			mustConditions = append(mustConditions, buildIDFilter)
+		}
+
+		if params.BuildUUID != "" {
+			buildUUIDFilter := map[string]interface{}{
+				"match": map[string]interface{}{
+					labels.OSBuildUUID: map[string]interface{}{
+						"query":            params.BuildUUID,
+						"zero_terms_query": "none",
+					},
+				},
+			}
+			mustConditions = append(mustConditions, buildUUIDFilter)
+		}
+
+		// Skip date filter for BUILD logs
+	} else {
+		// For RUNTIME logs, use the existing behavior with date filter
+		mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+	}
+
+	// Add common filters for both types
 	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
 	mustConditions = addLogLevelFilter(mustConditions, params.LogLevels)
 
