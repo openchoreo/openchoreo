@@ -17,6 +17,9 @@ type BuildPlaneSpec struct {
 
 	// KubernetesCluster defines the Kubernetes cluster where build workloads (e.g., Argo Workflows) will be executed.
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
+	// Observer specifies the configuration for the Observer API integration.
+	// +optional
+	Observer ObserverAPI `json:"observer,omitempty"`
 }
 
 // BuildPlaneStatus defines the observed state of BuildPlane.

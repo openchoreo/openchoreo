@@ -75,6 +75,36 @@ spec:
                 - credentials
                 - name
                 type: object
+              observer:
+                description: Observer specifies the configuration for the Observer
+                  API integration.
+                properties:
+                  authentication:
+                    description: Authentication contains the authentication configuration
+                    properties:
+                      basicAuth:
+                        description: BasicAuth contains basic authentication credentials
+                        properties:
+                          password:
+                            description: Password for basic authentication
+                            type: string
+                          username:
+                            description: Username for basic authentication
+                            type: string
+                        required:
+                        - password
+                        - username
+                        type: object
+                    required:
+                    - basicAuth
+                    type: object
+                  url:
+                    description: URL is the base URL of the Observer API
+                    type: string
+                required:
+                - authentication
+                - url
+                type: object
             required:
             - kubernetesCluster
             type: object
