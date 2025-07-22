@@ -98,6 +98,7 @@ type DataPlaneResponse struct {
 // BuildResponse represents a build in API responses
 type BuildResponse struct {
 	Name          string    `json:"name"`
+	UUID          string    `json:"uuid"`
 	ComponentName string    `json:"componentName"`
 	ProjectName   string    `json:"projectName"`
 	OrgName       string    `json:"orgName"`

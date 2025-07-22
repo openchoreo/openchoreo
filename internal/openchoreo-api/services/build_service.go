@@ -122,6 +122,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 
 	return &models.BuildResponse{
 		Name:          buildName,
+		UUID:          string(build.UID),
 		ComponentName: componentName,
 		ProjectName:   projectName,
 		OrgName:       orgName,
@@ -158,6 +159,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 
 		buildResponses = append(buildResponses, models.BuildResponse{
 			Name:          build.Name,
+			UUID:          string(build.UID),
 			ComponentName: componentName,
 			ProjectName:   projectName,
 			OrgName:       orgName,
