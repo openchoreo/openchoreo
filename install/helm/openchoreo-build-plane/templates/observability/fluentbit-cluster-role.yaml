@@ -1,0 +1,15 @@
+{{- if .Values.fluentBit.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-build-plane.name" . }}-fluent-bit-read
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+rules:
+- apiGroups: [""]
+  resources:
+  - namespaces
+  - pods
+  verbs: ["get", "list", "watch"]
+{{- end }}

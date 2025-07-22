@@ -1,0 +1,49 @@
+{{- if .Values.fluentBit.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: {{ $.Values.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fluent-bit
+spec:
+  selector:
+    matchLabels:
+      {{- include "openchoreo-build-plane.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: fluent-bit
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-build-plane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: fluent-bit
+    spec:
+      serviceAccountName: {{ .Values.fluentBit.rbac.serviceAccountName }}
+      containers:
+      - name: fluent-bit
+        image: "{{ .Values.fluentBit.image.repository }}:{{ .Values.fluentBit.image.tag }}"
+        imagePullPolicy: {{ .Values.fluentBit.image.pullPolicy }}
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      volumes:
+      - name: varlog
+        hostPath:
+          path: {{ .Values.fluentBit.hostPaths.varLog }}
+      - name: varlibdockercontainers
+        hostPath:
+          path: {{ .Values.fluentBit.hostPaths.dockerContainers }}
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+{{- end }}

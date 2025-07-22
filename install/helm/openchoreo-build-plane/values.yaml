@@ -29,3 +29,78 @@ argo-workflows:
       create: true
   workflowNamespaces:
     - argo-build
+
+fluentBit:
+  enabled: true
+
+  image:
+    repository: fluent/fluent-bit
+    tag: "2.1.10"
+    pullPolicy: IfNotPresent
+
+  config:
+    service:
+      flush: 1
+      logLevel: info
+      daemon: off
+
+    input:
+      name: tail
+      tag: "kube.*"
+      path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log"
+      excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
+      parser: docker
+      inotifyWatcher: false
+      db: "/var/log/flb_kube.db"
+      memBufLimit: "256MB"
+      skipLongLines: true
+      refreshInterval: 10
+
+    filter:
+      name: kubernetes
+      match: "kube.*"
+      kubeURL: "https://kubernetes.default.svc:443"
+      kubeCAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      kubeTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      kubeTagPrefix: "kube.var.log.containers."
+      mergeLog: true
+      mergeLogKey: "log_processed"
+      k8sLoggingParser: true
+      k8sLoggingExclude: false
+
+    output:
+      name: opensearch
+      match: "kube.*"
+      index: kubernetes_cluster
+      type: flb_type
+      logstashFormat: true
+      logstashPrefix: kubernetes
+      timeKey: "@timestamp"
+      traceError: true
+      suppressTypeName: true
+
+    # OpenSearch connection configuration
+    opensearch:
+      host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
+      port: "9200"
+      authentication:
+        basicauth:
+          username: "admin"
+          password: "admin"
+      tls: false
+      tlsVerify: false
+
+    parser:
+      name: docker
+      format: json
+      timeKey: time
+      timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
+      timeKeep: true
+
+  rbac:
+    create: true
+    serviceAccountName: fluent-bit
+
+  hostPaths:
+    varLog: /var/log
+    dockerContainers: /var/lib/docker/containers
