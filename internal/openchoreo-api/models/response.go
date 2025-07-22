@@ -115,9 +115,8 @@ type BuildTemplateResponse struct {
 
 // BuildTemplateParameter represents a parameter of a build template
 type BuildTemplateParameter struct {
-	Name     string `json:"name"`
-	Default  string `json:"default,omitempty"`
-	Required bool   `json:"required,omitempty"`
+	Name    string `json:"name"`
+	Default string `json:"default,omitempty"`
 }
 
 // Response helper functions

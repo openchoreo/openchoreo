@@ -64,8 +64,7 @@ func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) (
 		if template.Spec.Arguments.Parameters != nil {
 			for _, param := range template.Spec.Arguments.Parameters {
 				templateParam := models.BuildTemplateParameter{
-					Name:     param.Name,
-					Required: param.Default == nil, // If no default, it's required
+					Name: param.Name,
 				}
 
 				if param.Default != nil {
