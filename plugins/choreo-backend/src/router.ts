@@ -1,4 +1,3 @@
-import { HttpAuthService } from '@backstage/backend-plugin-api';
 import { InputError } from '@backstage/errors';
 import express from 'express';
 import Router from 'express-promise-router';
@@ -7,6 +6,7 @@ import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildT
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { CellDiagramService } from './types';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
+import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 
 export async function createRouter({
   environmentInfoService,
@@ -14,13 +14,14 @@ export async function createRouter({
   buildTemplateInfoService,
   buildInfoService,
   componentInfoService,
+  runtimeLogsInfoService,
 }: {
-  httpAuth: HttpAuthService;
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
   buildTemplateInfoService: BuildTemplateInfoService;
   buildInfoService: BuildInfoService;
   componentInfoService: ComponentInfoService;
+  runtimeLogsInfoService: RuntimeLogsInfoService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -66,9 +67,7 @@ export async function createRouter({
     const { organizationName } = req.query;
 
     if (!organizationName) {
-      throw new InputError(
-        'organizationName is a required query parameter',
-      );
+      throw new InputError('organizationName is a required query parameter');
     }
 
     res.json(
@@ -132,6 +131,59 @@ export async function createRouter({
       ),
     );
   });
+  router.post(
+    '/logs/component/:componentId',
+    async (req: express.Request, res: express.Response) => {
+      const { componentId } = req.params;
+      const { environmentId, logLevels, startTime, endTime, limit, offset } =
+        req.body;
+
+      if (!componentId || !environmentId) {
+        throw new InputError(
+          'componentId, namespace, and environmentId are required',
+        );
+      }
+
+      try {
+        const result = await runtimeLogsInfoService.fetchRuntimeLogs({
+          componentId,
+          environmentId,
+          logLevels,
+          startTime,
+          endTime,
+          limit,
+          offset,
+        });
+
+        res.json(result);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+
+        // Check if it's a fetch error with status code info
+        if (errorMessage.includes('Failed to fetch runtime logs: ')) {
+          const statusMatch = errorMessage.match(
+            /Failed to fetch runtime logs: (\d+)/,
+          );
+          if (statusMatch) {
+            const statusCode = parseInt(statusMatch[1], 10);
+            return res
+              .status(statusCode >= 400 && statusCode < 600 ? statusCode : 500)
+              .json({
+                error: 'Failed to fetch runtime logs',
+                message: errorMessage,
+              });
+          }
+        }
+
+        // Default to 500 for other errors
+        return res.status(500).json({
+          error: 'Internal server error',
+          message: errorMessage,
+        });
+      }
+    },
+  );
 
   return router;
 }

@@ -29,13 +29,11 @@ export const CellDiagram = () => {
   const identityApi = useApi(identityApiRef);
 
   useEffect(() => {
-
     const fetchData = async () => {
       try {
         const data = await getCellDiagramInfo(entity, discovery, identityApi);
         setCellDiagramData(data as Project);
-      } catch (error) {
-      }
+      } catch (error) {}
     };
 
     fetchData();

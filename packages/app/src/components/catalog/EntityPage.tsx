@@ -58,7 +58,12 @@ import {
   isKubernetesAvailable,
 } from '@backstage/plugin-kubernetes';
 
-import { Environments, CellDiagram, Builds } from '@internal/plugin-choreo';
+import {
+  Environments,
+  CellDiagram,
+  RuntimeLogs,
+  Builds,
+} from '@internal/plugin-choreo';
 
 const techdocsContent = (
   <EntityTechdocsContent>
@@ -158,6 +163,9 @@ const serviceEntityPage = (
 
     <EntityLayout.Route path="/environments" title="Deploy">
       <Environments />
+    </EntityLayout.Route>
+    <EntityLayout.Route path="/runtime-logs" title="Runtime Logs">
+      <RuntimeLogs />
     </EntityLayout.Route>
 
     {/* <EntityLayout.Route path="/ci-cd" title="CI/CD">

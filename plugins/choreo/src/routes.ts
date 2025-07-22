@@ -6,3 +6,6 @@ export const rootCatalogEnvironmentRouteRef = createRouteRef({
 export const rootCatalogCellDiagramRouteRef = createRouteRef({
   id: 'cell-diagram',
 });
+export const rootCatalogRuntimeLogsRouteRef = createRouteRef({
+  id: 'runtime-logs',
+});

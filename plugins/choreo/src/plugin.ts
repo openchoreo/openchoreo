@@ -2,7 +2,10 @@ import {
   createPlugin,
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
-import { rootCatalogEnvironmentRouteRef } from './routes';
+import {
+  rootCatalogEnvironmentRouteRef,
+  rootCatalogRuntimeLogsRouteRef,
+} from './routes';
 
 export const choreoPlugin = createPlugin({
   id: 'choreo',
@@ -25,5 +28,15 @@ export const CellDiagram = choreoPlugin.provide(
     component: () =>
       import('./components/CellDiagram/CellDiagram').then(m => m.CellDiagram),
     mountPoint: rootCatalogEnvironmentRouteRef,
+  }),
+);
+
+// Runtime logs page tab
+export const RuntimeLogs = choreoPlugin.provide(
+  createRoutableExtension({
+    name: 'ChoreoRuntimeLogs',
+    component: () =>
+      import('./components/RuntimeLogs/RuntimeLogs').then(m => m.RuntimeLogs),
+    mountPoint: rootCatalogRuntimeLogsRouteRef,
   }),
 );

@@ -1,6 +1,9 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { EnvironmentService, Environment } from '../../types';
-import { DefaultApiClient, ModelsEnvironment } from '@internal/plugin-openchoreo-api';
+import {
+  DefaultApiClient,
+  ModelsEnvironment,
+} from '@internal/plugin-openchoreo-api';
 
 /**
  * Service for managing and retrieving environment-related information for deployments.

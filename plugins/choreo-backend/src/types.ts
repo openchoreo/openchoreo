@@ -75,3 +75,37 @@ export interface CellDiagramService {
     orgName: string;
   }): Promise<Project | undefined>;
 }
+
+export interface RuntimeLogsService {
+  fetchRuntimeLogs(request: {
+    componentId: string;
+    namespace: string;
+    environmentId: string;
+    logLevels?: string[];
+    startTime?: string;
+    endTime?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<RuntimeLogsResponse>;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  log: string;
+  logLevel: 'ERROR' | 'WARN' | 'INFO' | 'DEBUG';
+  componentId: string;
+  environmentId: string;
+  projectId: string;
+  version: string;
+  versionId: string;
+  namespace: string;
+  podId: string;
+  containerName: string;
+  labels: Record<string, string>;
+}
+
+export interface RuntimeLogsResponse {
+  logs: LogEntry[];
+  totalCount: number;
+  tookMs: number;
+}

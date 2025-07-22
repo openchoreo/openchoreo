@@ -9,6 +9,7 @@ import { CellDiagramInfoService } from './services/CellDiagramService/CellDiagra
 import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
+import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 
 /**
  * choreoPlugin backend plugin
@@ -65,6 +66,11 @@ export const choreoPlugin = createBackendPlugin({
           openchoreoConfig.get('baseUrl'),
         );
 
+        const runtimeLogsInfoService = new RuntimeLogsInfoService(
+          logger,
+          openchoreoConfig.get('observabilityBaseUrl'),
+        );
+
         httpRouter.use(
           await createRouter({
             httpAuth,
@@ -73,8 +79,13 @@ export const choreoPlugin = createBackendPlugin({
             buildTemplateInfoService,
             buildInfoService,
             componentInfoService,
+            runtimeLogsInfoService,
           }),
         );
+        httpRouter.addAuthPolicy({
+          path: '/logs/component',
+          allow: 'unauthenticated',
+        });
       },
     });
   },
