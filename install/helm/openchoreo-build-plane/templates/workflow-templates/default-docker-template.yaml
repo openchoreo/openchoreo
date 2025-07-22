@@ -12,10 +12,8 @@ spec:
   entrypoint: build-workflow
   arguments:
     parameters:
-      - name: branch
-        value: main
-      - name: commit
-        value: ""
+      - name: docker-context
+      - name: dockerfile-path
   templates:
     - name: build-workflow
       steps:
