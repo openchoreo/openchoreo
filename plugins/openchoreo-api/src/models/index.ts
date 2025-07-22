@@ -11,3 +11,4 @@ export * from './ModelsBuildTemplate.model';
 export * from './ModelsBuild.model';
 export * from './requests';
 export * from './responses';
+export * from './observability';

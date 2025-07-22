@@ -10,7 +10,9 @@ import {
   Tooltip,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import { ExpandMore, ExpandLess, FileCopy } from '@material-ui/icons';
+import ExpandMore from '@material-ui/icons/ExpandMore';
+import ExpandLess from '@material-ui/icons/ExpandLess';
+import FileCopy from '@material-ui/icons/FileCopy';
 import { LogEntry as LogEntryType } from './types';
 
 const useStyles = makeStyles(theme => ({
@@ -154,7 +156,6 @@ export const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
     event.stopPropagation();
     navigator.clipboard.writeText(log.log).catch(error => {
       console.error('Failed to copy log to clipboard:', error);
-      alert('Failed to copy log. Please try again.');
     });
   };
 

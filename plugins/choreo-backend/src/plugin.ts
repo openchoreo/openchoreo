@@ -30,15 +30,7 @@ export const choreoPlugin = createBackendPlugin({
         discovery: coreServices.discovery,
         config: coreServices.rootConfig,
       },
-      async init({
-        logger,
-        config,
-        httpAuth,
-        httpRouter,
-        catalog,
-        permissions,
-        discovery,
-      }) {
+      async init({ logger, config, httpRouter }) {
         const openchoreoConfig = config.getConfig('openchoreo'); // Make optional
 
         const environmentInfoService = new EnvironmentInfoService(
@@ -73,7 +65,6 @@ export const choreoPlugin = createBackendPlugin({
 
         httpRouter.use(
           await createRouter({
-            httpAuth,
             environmentInfoService,
             cellDiagramInfoService,
             buildTemplateInfoService,

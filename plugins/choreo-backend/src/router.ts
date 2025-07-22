@@ -139,9 +139,10 @@ export async function createRouter({
         req.body;
 
       if (!componentId || !environmentId) {
-        throw new InputError(
-          'componentId, namespace, and environmentId are required',
-        );
+        return res.status(422).json({
+          error: 'Missing Parameter',
+          message: 'Component ID or Environment ID is missing from request',
+        });
       }
 
       try {

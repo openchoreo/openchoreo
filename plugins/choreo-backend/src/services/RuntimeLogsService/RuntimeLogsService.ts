@@ -1,6 +1,6 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { RuntimeLogsService, RuntimeLogsResponse } from '../../types';
-import { DefaultApiClient } from '@internal/plugin-openchoreo-api';
+import { ObservabilityApiClient, ComponentLogsPostRequest } from '@internal/plugin-openchoreo-api';
 
 /**
  * Service for fetching runtime logs for components.
@@ -8,18 +8,25 @@ import { DefaultApiClient } from '@internal/plugin-openchoreo-api';
  */
 export class RuntimeLogsInfoService implements RuntimeLogsService {
   private readonly logger: LoggerService;
-  private readonly baseUrl: string;
+  private readonly observabilityClient: ObservabilityApiClient;
 
-  public constructor(logger: LoggerService, baseUrl: string) {
+  public constructor(
+    logger: LoggerService,
+    observabilityClient: ObservabilityApiClient,
+  ) {
     this.logger = logger;
-    this.baseUrl = baseUrl;
+    this.observabilityClient = observabilityClient;
   }
 
   static create(
     logger: LoggerService,
-    baseUrl: string,
+    observabilityBaseUrl: string,
   ): RuntimeLogsInfoService {
-    return new RuntimeLogsInfoService(logger, baseUrl);
+    const observabilityClient = new ObservabilityApiClient(
+      observabilityBaseUrl,
+      {},
+    );
+    return new RuntimeLogsInfoService(logger, observabilityClient);
   }
 
   /**
@@ -62,8 +69,8 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
         `Fetching runtime logs for component ${componentId} in environment ${environmentId}`,
       );
 
-      // Prepare the request body
-      const requestBody = {
+      const apiRequest: ComponentLogsPostRequest = {
+        componentId,
         environmentId,
         ...(logLevels && { logLevels }),
         ...(startTime && { startTime }),
@@ -72,25 +79,14 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
         offset,
       };
 
-      // Log the outgoing request for debugging
       this.logger.info(
-        `Sending request to ${
-          this.baseUrl
-        }/api/logs/component/${componentId} with body: ${JSON.stringify(
-          requestBody,
+        `Sending logs request for component ${componentId} with parameters: ${JSON.stringify(
+          apiRequest,
         )}`,
       );
 
-      // Make the API call to fetch logs
-      const response = await fetch(
-        `${this.baseUrl}/api/logs/component/${componentId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        },
+      const response = await this.observabilityClient.componentLogsPost(
+        apiRequest,
       );
 
       if (!response.ok) {
