@@ -6,7 +6,7 @@ global:
   defaultResources:
     enabled: true
     # Container registry endpoint for pushing images
-    registryEndpoint: "registry.openchoreo-data-plane:5000"
+    registryEndpoint: "registry.openchoreo-data-plane.svc.cluster.local:5000"
 
 # customizing the argo workflows configurations
 argo-workflows:
