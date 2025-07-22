@@ -32,6 +32,18 @@ spec:
       protocol: TCP
       port: 8080
 
+  connections:
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

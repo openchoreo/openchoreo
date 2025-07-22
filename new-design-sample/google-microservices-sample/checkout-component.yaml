@@ -43,6 +43,68 @@ spec:
       protocol: TCP
       port: 5050
 
+  connections:
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    shipping:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: shipping
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: SHIPPING_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    payment:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: payment
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: PAYMENT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    email:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: email
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: EMAIL_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    currency:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: currency
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: CURRENCY_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    cart:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: cart
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: CART_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

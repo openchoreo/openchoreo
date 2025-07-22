@@ -30,6 +30,18 @@ spec:
       protocol: TCP
       port: 7070
 
+  connections:
+    redis-cache:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: redis
+        endpoint: tcp-endpoint
+      inject:
+        env:
+          - name: REDIS_ADDR
+            value: "{{ .host }}:{{ .port }}"
+
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
