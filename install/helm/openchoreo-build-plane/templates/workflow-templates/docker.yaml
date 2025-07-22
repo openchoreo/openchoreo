@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: default-react-template
+  name: docker
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
@@ -12,7 +12,8 @@ spec:
   entrypoint: build-workflow
   arguments:
     parameters:
-      - name: node-version
+      - name: docker-context
+      - name: dockerfile-path
   templates:
     - name: build-workflow
       steps:
@@ -30,7 +31,6 @@ spec:
               parameters:
                 - name: git-revision
                   value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-
     - name: clone-step
       outputs:
         parameters:
@@ -56,7 +56,7 @@ spec:
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
             else
                 echo "Cloning branch: $BRANCH with latest commit"
-                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                git clone --single-branch --branch $BRANCH --depth 1 "REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
@@ -79,45 +79,30 @@ spec:
             set -e
 
             WORKDIR=/mnt/vol/source
-            CACHE_DIR=/shared/podman/cache
-
+            BUILDER="{{ "{{" }}workflow.parameters.builder-image{{ "}}" }}"
+            RUN_IMG="{{ "{{" }}workflow.parameters.run-image{{ "}}" }}"
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
-            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
-
-            NODE_VERSION="{{ "{{" }}workflow.parameters.node-version{{ "}}" }}"
+            DOCKER_CONTEXT="{{ "{{" }}workflow.parameters.docker-context{{ "}}" }}"
+            DOCKERFILE_PATH="{{ "{{" }}workflow.parameters.dockerfile-path{{ "}}" }}"
 
             #####################################################################
-            # 1. Build React: Custom Dockerfile + Nginx
+            # 1.  Podman daemon + storage.conf
             #####################################################################
-            cat > "$APP_PATH/Dockerfile" <<'EOF'
-            FROM node:$NODE_VERSION-alpine as builder
-            RUN npm install -g pnpm
-            WORKDIR /app
-            COPY . .
-            RUN if [ -f "package-lock.json" ]; then npm ci; \
-                elif [ -f "yarn.lock" ]; then yarn install --frozen-lockfile; \
-                elif [ -f "pnpm-lock.yaml" ]; then pnpm install --frozen-lockfile; \
-                else echo "No lock file found" && exit 1; fi
-            RUN npm run build || yarn run build || pnpm run build
-
-            FROM nginx:alpine
-            COPY --from=builder /app/default.conf /etc/nginx/conf.d/default.conf
-            COPY --from=builder /app/build /usr/share/nginx/html/
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
-            cat > "$APP_PATH/default.conf" <<'EOF'
-            server {
-              listen 80;
-              location / {
-                root   /usr/share/nginx/html;
-                index  index.html;
-                try_files $uri /index.html;
-              }
-            }
-            EOF
-
-            podman build -t "$IMAGE" -f "$APP_PATH/Dockerfile" "$APP_PATH"
-            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+            #####################################################################
+            # 2.  Docker Build
+            #####################################################################
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $WORKDIR/$DOCKER_CONTEXT
+            podman save -o /mnt/vol/app-image.tar $IMAGE
         command:
           - sh
           - -c
@@ -157,7 +142,7 @@ spec:
             podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
             podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
-            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+            echo -n "{{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
         command:
           - sh
           - -c

@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: default-buildpack-template
+  name: ballerina
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
@@ -10,6 +10,12 @@ metadata:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
   entrypoint: build-workflow
+  arguments:
+    parameters:
+      - name: branch
+        default: main
+      - name: commit
+        value: ""
   templates:
     - name: build-workflow
       steps:
@@ -81,8 +87,7 @@ spec:
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
 
-            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
-            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
+            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
 
             #####################################################################
             # 1. Podman daemon + storage.conf
@@ -117,15 +122,15 @@ spec:
             }
 
             #####################################################################
-            # 3. Build with Google Buildpacks
+            # 3. Build with Ballerina Buildpacks
             #####################################################################
-            ensure_cached "$BUILDER" "$CACHE_DIR/google-builder.tar"
-            ensure_cached "$RUN_IMG" "$CACHE_DIR/google-run.tar"
+            ensure_cached "$BUILDER" "$CACHE_DIR/ballerina-builder.tar"
 
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
+              --volume "/mnt/vol:/app/generated-artifacts:rw" \
               --pull-policy if-not-present
 
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
@@ -168,7 +173,7 @@ spec:
             podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
             podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
-            echo -n "{{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
         command:
           - sh
           - -c
