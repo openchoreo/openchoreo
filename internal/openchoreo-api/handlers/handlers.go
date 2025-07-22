@@ -52,6 +52,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
 
 	// BuildPlane endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
 
 	// Project endpoints

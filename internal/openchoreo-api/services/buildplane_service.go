@@ -6,12 +6,14 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/openchoreo/openchoreo/internal/controller"
 
 	"golang.org/x/exp/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 // BuildPlaneService handles build plane-related business logic
@@ -78,4 +80,54 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 
 	s.logger.Debug("Created build plane client", "org", orgName, "cluster", buildPlane.Spec.KubernetesCluster.Name)
 	return buildPlaneClient, nil
+}
+
+// ListBuildPlanes retrieves all build planes for an organization
+func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string) ([]models.BuildPlaneResponse, error) {
+	s.logger.Debug("Listing build planes", "org", orgName)
+
+	// List all build planes in the organization namespace
+	var buildPlanes openchoreov1alpha1.BuildPlaneList
+	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
+	if err != nil {
+		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
+		return nil, fmt.Errorf("failed to list build planes: %w", err)
+	}
+
+	s.logger.Debug("Found build planes", "count", len(buildPlanes.Items), "org", orgName)
+
+	// Convert to response format
+	var buildPlaneResponses []models.BuildPlaneResponse
+	for _, buildPlane := range buildPlanes.Items {
+		displayName := buildPlane.Annotations[controller.AnnotationKeyDisplayName]
+		description := buildPlane.Annotations[controller.AnnotationKeyDescription]
+
+		// Determine status from conditions
+		status := ""
+
+		// Extract observer information if available
+		observerURL := ""
+		observerUsername := ""
+		if buildPlane.Spec.Observer.URL != "" {
+			observerURL = buildPlane.Spec.Observer.URL
+			observerUsername = buildPlane.Spec.Observer.Authentication.BasicAuth.Username
+		}
+
+		buildPlaneResponse := models.BuildPlaneResponse{
+			Name:                  buildPlane.Name,
+			Namespace:             buildPlane.Namespace,
+			DisplayName:           displayName,
+			Description:           description,
+			KubernetesClusterName: buildPlane.Spec.KubernetesCluster.Name,
+			APIServerURL:          buildPlane.Spec.KubernetesCluster.Credentials.APIServerURL,
+			ObserverURL:           observerURL,
+			ObserverUsername:      observerUsername,
+			CreatedAt:             buildPlane.CreationTimestamp.Time,
+			Status:                status,
+		}
+
+		buildPlaneResponses = append(buildPlaneResponses, buildPlaneResponse)
+	}
+
+	return buildPlaneResponses, nil
 }
