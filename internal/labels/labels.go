@@ -39,5 +39,17 @@ const (
 	// LabelKeyReleaseNamespace tracks the namespace of the release that manages a resource.
 	LabelKeyReleaseNamespace = "openchoreo.dev/release-namespace"
 
+	// LabelKeyTarget identifies which logical target a resource belongs to
+	// Allowed values: build | runtime | gateway | <future‑targets>
+	LabelKeyTarget = "openchoreo.dev/target"
+
+	// Predefined values for LabelKeyTarget.
+	LabelValueBuildTarget   = "build"
+	LabelValueRuntimeTarget = "runtime"
+	LabelValueGatewayTarget = "gateway"
+
+	// LabelKeyUUID stores the Kubernetes UID (metadata.uid) of the resource.
+	LabelKeyUUID = "openchoreo.dev/uuid"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
 )

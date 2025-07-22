@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/openchoreo/openchoreo/internal/labels"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,9 @@ func makeWorkflowSpec(build *openchoreov1alpha1.BuildV2) argoproj.WorkflowSpec {
 	parameters := buildWorkflowParameters(build)
 
 	return argoproj.WorkflowSpec{
+		PodMetadata: &argoproj.Metadata{
+			Labels: makeWorkflowLabels(build),
+		},
 		ServiceAccountName: WorkflowServiceAccountName,
 		WorkflowTemplateRef: &argoproj.WorkflowTemplateRef{
 			Name:         build.Spec.TemplateRef.Name,
@@ -149,11 +153,12 @@ func makeNamespaceName(build *openchoreov1alpha1.BuildV2) string {
 // makeWorkflowLabels creates labels for the workflow
 func makeWorkflowLabels(build *openchoreov1alpha1.BuildV2) map[string]string {
 	labels := map[string]string{
-		dpkubernetes.LabelKeyManagedBy:     dpkubernetes.LabelBuildControllerCreated,
-		"core.openchoreo.dev/build-name":   build.Name,
-		"core.openchoreo.dev/organization": normalizeForK8s("default"), // Fixme: use orgName from build spec
-		"core.openchoreo.dev/project":      normalizeForK8s(build.Spec.Owner.ProjectName),
-		"core.openchoreo.dev/component":    normalizeForK8s(build.Spec.Owner.ComponentName),
+		labels.LabelKeyOrganizationName: normalizeForK8s(build.Namespace),
+		labels.LabelKeyProjectName:      normalizeForK8s(build.Spec.Owner.ProjectName),
+		labels.LabelKeyComponentName:    normalizeForK8s(build.Spec.Owner.ComponentName),
+		labels.LabelKeyBuildName:        build.Name,
+		labels.LabelKeyUUID:             string(build.UID),
+		labels.LabelKeyTarget:           labels.LabelValueBuildTarget,
 	}
 	return labels
 }
