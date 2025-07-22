@@ -39,7 +39,7 @@ func NewBuildService(k8sClient client.Client, buildPlaneService *BuildPlaneServi
 }
 
 // ListBuildTemplates retrieves cluster workflow templates (argo) available for an organization in the buildplane
-func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) ([]argo.ClusterWorkflowTemplate, error) {
+func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) ([]models.BuildTemplateResponse, error) {
 	s.logger.Debug("Listing build templates", "org", orgName)
 
 	// Get the build plane Kubernetes client
@@ -57,14 +57,42 @@ func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) (
 	}
 
 	s.logger.Debug("Found build templates", "count", len(clusterWorkflowTemplates.Items), "org", orgName)
-	return clusterWorkflowTemplates.Items, nil
+
+	var templateResponses []models.BuildTemplateResponse
+	for _, template := range clusterWorkflowTemplates.Items {
+		var parameters []models.BuildTemplateParameter
+		if template.Spec.Arguments.Parameters != nil {
+			for _, param := range template.Spec.Arguments.Parameters {
+				templateParam := models.BuildTemplateParameter{
+					Name:     param.Name,
+					Required: param.Default == nil, // If no default, it's required
+				}
+
+				if param.Default != nil {
+					templateParam.Default = string(*param.Default)
+				}
+
+				parameters = append(parameters, templateParam)
+			}
+		}
+
+		templateResponse := models.BuildTemplateResponse{
+			Name:       template.Name,
+			Parameters: parameters,
+			CreatedAt:  template.CreationTimestamp.Time,
+		}
+
+		templateResponses = append(templateResponses, templateResponse)
+	}
+
+	return templateResponses, nil
 }
 
-// TriggerBuild creates a new build for a component
+// TriggerBuild creates a new build from a component
 func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, componentName, commit string) (*models.BuildResponse, error) {
 	s.logger.Debug("Triggering build", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
 
-	// Get the component to retrieve build configuration
+	// Retrieve component and use that to create the build
 	var component openchoreov1alpha1.ComponentV2
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
@@ -72,7 +100,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	}, &component)
 
 	if err != nil {
-		s.logger.Error("Failed to get component", "error", err)
+		s.logger.Error("Failed to get component", "error", err, "org", orgName, "project", projectName, "component", componentName)
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
@@ -131,7 +159,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	}, nil
 }
 
-// ListBuilds retrieves builds for a component
+// ListBuilds retrieves builds for a component using spec.owner fields instead of labels
 func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, componentName string) ([]models.BuildResponse, error) {
 	s.logger.Debug("Listing builds", "org", orgName, "project", projectName, "component", componentName)
 
@@ -149,7 +177,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 			continue
 		}
 
-		// This commit hash should alway be there since the build is triggered with a commit
+		// This commit hash should always be there since the build is triggered with a commit
 		// If not provided, we can default to "latest" for now.
 		commit := build.Spec.Repository.Revision.Commit
 		if commit == "" {

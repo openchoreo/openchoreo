@@ -106,6 +106,20 @@ type BuildResponse struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
+// BuildTemplateResponse represents a build template (ClusterWorkflowTemplate) in API responses
+type BuildTemplateResponse struct {
+	Name       string                   `json:"name"`
+	Parameters []BuildTemplateParameter `json:"parameters,omitempty"`
+	CreatedAt  time.Time                `json:"createdAt"`
+}
+
+// BuildTemplateParameter represents a parameter of a build template
+type BuildTemplateParameter struct {
+	Name     string `json:"name"`
+	Default  string `json:"default,omitempty"`
+	Required bool   `json:"required,omitempty"`
+}
+
 // Response helper functions
 func SuccessResponse[T any](data T) APIResponse[T] {
 	return APIResponse[T]{
