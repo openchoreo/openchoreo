@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/internal/labels"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,12 +157,12 @@ func makeNamespaceName(build *openchoreov1alpha1.BuildV2) string {
 // makeWorkflowLabels creates labels for the workflow
 func makeWorkflowLabels(build *openchoreov1alpha1.BuildV2) map[string]string {
 	labels := map[string]string{
-		labels.LabelKeyOrganizationName: normalizeForK8s(build.Namespace),
-		labels.LabelKeyProjectName:      normalizeForK8s(build.Spec.Owner.ProjectName),
-		labels.LabelKeyComponentName:    normalizeForK8s(build.Spec.Owner.ComponentName),
-		labels.LabelKeyBuildName:        build.Name,
-		labels.LabelKeyUUID:             string(build.UID),
-		labels.LabelKeyTarget:           labels.LabelValueBuildTarget,
+		dpkubernetes.LabelKeyOrganizationName: build.Namespace,
+		dpkubernetes.LabelKeyProjectName:      build.Spec.Owner.ProjectName,
+		dpkubernetes.LabelKeyComponentName:    build.Spec.Owner.ComponentName,
+		dpkubernetes.LabelKeyBuildName:        build.Name,
+		dpkubernetes.LabelKeyUUID:             string(build.UID),
+		dpkubernetes.LabelKeyTarget:           dpkubernetes.LabelValueBuildTarget,
 	}
 	return labels
 }
