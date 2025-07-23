@@ -47,7 +47,6 @@ fluentBit:
     input:
       name: tail
       tag: "kube.*"
-      # Updated path to include choreo-ci-* namespace logs for build workflows
       path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
       excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
       parser: docker

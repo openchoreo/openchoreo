@@ -104,7 +104,7 @@ func getBuildLogs(params api.LogParams) error {
 
 	// Get the Kubernetes name directly from the wrapper
 	buildK8sName := buildWrapper.GetKubernetesName()
-	buildNamespace := fmt.Sprintf("choreo-ci-%s", params.Organization)
+	buildNamespace := fmt.Sprintf("openchoreo-ci-%s", params.Organization)
 
 	// Get k8s client
 	k8sClient, err := resources.GetClient()

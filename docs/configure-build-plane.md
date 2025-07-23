@@ -4,7 +4,7 @@ This guide walks you through setting up a **Build Plane** in OpenChoreo.
 
 ## Overview
 
-An organization can have only **one Build Plane**, which is responsible for executing build workloads. These workloads run in a dedicated namespace named: `choreo-ci-<your-org>`
+An organization can have only **one Build Plane**, which is responsible for executing build workloads. These workloads run in a dedicated namespace named: `openchoreo-ci-<your-org>`
 
 > [!NOTE]
 > `BuildPlane` CRD support is on the roadmap and will be available in a future release. Currently, the Build Plane runs within a **Data Plane** cluster.
