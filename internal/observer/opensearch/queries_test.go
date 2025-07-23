@@ -5,6 +5,8 @@ package opensearch
 
 import (
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 )
 
 func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {
@@ -22,7 +24,7 @@ func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {
 			VersionIDs:    []string{"version-id-1", "version-id-2"},
 			Limit:         100,
 			SortOrder:     "desc",
-			LogType:       "RUNTIME",
+			LogType:       labels.QueryParamLogTypeRuntime,
 		},
 		BuildID:   "",
 		BuildUUID: "",

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
@@ -124,7 +125,7 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 			Namespace:     "default",
 			Limit:         100,
 			SortOrder:     "desc",
-			LogType:       "RUNTIME",
+			LogType:       labels.QueryParamLogTypeRuntime,
 		},
 		BuildID:   "",
 		BuildUUID: "",

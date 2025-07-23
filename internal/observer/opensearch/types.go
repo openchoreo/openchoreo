@@ -202,11 +202,11 @@ func extractLogLevel(log string) string {
 // ExtractLogType determines the log type from query parameters or defaults to RUNTIME
 func ExtractLogType(logType string) string {
 	switch strings.ToUpper(logType) {
-	case "BUILD":
-		return "BUILD"
-	case "RUNTIME":
-		return "RUNTIME"
+	case labels.QueryParamLogTypeBuild:
+		return labels.QueryParamLogTypeBuild
+	case labels.QueryParamLogTypeRuntime:
+		return labels.QueryParamLogTypeRuntime
 	default:
-		return "RUNTIME" // Default to RUNTIME if no valid type specified
+		return labels.QueryParamLogTypeRuntime // Default to RUNTIME if no valid type specified
 	}
 }

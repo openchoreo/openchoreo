@@ -93,7 +93,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map
 	}
 
 	// Add environment filter only for RUNTIME logs, not for BUILD logs
-	if params.LogType != "BUILD" {
+	if params.LogType != labels.QueryParamLogTypeBuild {
 		environmentFilter := map[string]interface{}{
 			"match": map[string]interface{}{
 				labels.OSEnvironmentID: map[string]interface{}{
@@ -119,7 +119,18 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map
 	}
 
 	// Add type-specific filters based on LogType
-	if params.LogType == "BUILD" {
+	if params.LogType == labels.QueryParamLogTypeBuild {
+		// For BUILD logs, add target filter to identify build logs
+		targetFilter := map[string]interface{}{
+			"match": map[string]interface{}{
+				labels.OSTarget: map[string]interface{}{
+					"query":            labels.TargetBuild,
+					"zero_terms_query": "none",
+				},
+			},
+		}
+		mustConditions = append(mustConditions, targetFilter)
+
 		// For BUILD logs, add BuildID and BuildUUID filters instead of date filter
 		if params.BuildID != "" {
 			buildIDFilter := map[string]interface{}{

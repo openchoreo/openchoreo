@@ -43,7 +43,31 @@ const (
 	BuildID = "build-name"
 
 	// BuildUUID identifies the unique build identifier (UUID)
-	BuildUUID = "build-uuid"
+	BuildUUID = "uuid"
+
+	// Target identifies the target log category (build, runtime, gateway)
+	Target = "target"
+)
+
+// Target value constants for different log types
+const (
+	// TargetBuild identifies build logs
+	TargetBuild = "build"
+
+	// TargetRuntime identifies runtime logs
+	TargetRuntime = "runtime"
+
+	// TargetGateway identifies gateway logs
+	TargetGateway = "gateway"
+)
+
+// Query parameter constants for log types
+const (
+	// QueryParamLogTypeBuild identifies build log queries
+	QueryParamLogTypeBuild = "BUILD"
+
+	// QueryParamLogTypeRuntime identifies runtime log queries
+	QueryParamLogTypeRuntime = "RUNTIME"
 )
 
 // OpenSearch field paths for querying Kubernetes labels in log documents
@@ -63,6 +87,7 @@ const (
 	OSWorkflowName     = KubernetesLabelsPrefix + "." + WorkflowName
 	OSBuildID          = KubernetesLabelsPrefix + "." + BuildID
 	OSBuildUUID        = KubernetesLabelsPrefix + "." + BuildUUID
+	OSTarget           = KubernetesLabelsPrefix + "." + Target
 )
 
 // RequiredLabels are the required labels that must be present on all Choreo components for proper log filtering
