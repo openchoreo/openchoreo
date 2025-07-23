@@ -31,7 +31,7 @@ argo-workflows:
     - argo-build
 
 fluentBit:
-  enabled: true
+  enabled: false
 
   image:
     repository: fluent/fluent-bit
@@ -47,7 +47,8 @@ fluentBit:
     input:
       name: tail
       tag: "kube.*"
-      path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log"
+      # Updated path to include choreo-ci-* namespace logs for build workflows
+      path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
       excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
       parser: docker
       inotifyWatcher: false
