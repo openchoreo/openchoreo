@@ -12,7 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	config "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // APIClient provides HTTP client for OpenChoreo API server
@@ -20,13 +21,6 @@ type APIClient struct {
 	baseURL    string
 	token      string
 	httpClient *http.Client
-}
-
-// ControlPlaneConfig holds control plane connection details
-type ControlPlaneConfig struct {
-	Type     string `yaml:"type"`     // "local" or "remote"
-	Endpoint string `yaml:"endpoint"` // API server URL
-	Token    string `yaml:"token"`    // Optional auth token
 }
 
 // ApplyResponse represents the response from /api/v1/apply
@@ -132,7 +126,7 @@ type ListComponentsResponse struct {
 
 // NewAPIClient creates a new API client with control plane auto-detection
 func NewAPIClient() (*APIClient, error) {
-	cfg, err := DetectControlPlane()
+	cfg, err := getStoredControlPlaneConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect control plane: %w", err)
 	}
@@ -142,15 +136,6 @@ func NewAPIClient() (*APIClient, error) {
 		token:      cfg.Token,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}, nil
-}
-
-// NewAPIClientWithEndpoint creates a new API client with explicit endpoint
-func NewAPIClientWithEndpoint(endpoint, token string) *APIClient {
-	return &APIClient{
-		baseURL:    endpoint,
-		token:      token,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
-	}
 }
 
 // HealthCheck verifies API server connectivity
@@ -276,7 +261,7 @@ func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName str
 		return nil, fmt.Errorf("failed to make list components request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
@@ -340,27 +325,8 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body int
 	return resp, nil
 }
 
-// DetectControlPlane auto-detects the control plane configuration
-func DetectControlPlane() (*ControlPlaneConfig, error) {
-	// 1. Check stored configuration first
-	if cfg, err := getStoredControlPlaneConfig(); err == nil && cfg != nil {
-		return cfg, nil
-	}
-
-	// 2. Check for local development setup
-	if isLocalControlPlane() {
-		return &ControlPlaneConfig{
-			Type:     "local",
-			Endpoint: "http://localhost:8080", // Default local port
-		}, nil
-	}
-
-	// 3. No control plane configuration found
-	return nil, fmt.Errorf("no control plane configuration found. Use 'choreoctl config set-control-plane' to configure remote endpoint or ensure local OpenChoreo API server is running")
-}
-
 // getStoredControlPlaneConfig reads control plane config from stored configuration
-func getStoredControlPlaneConfig() (*ControlPlaneConfig, error) {
+func getStoredControlPlaneConfig() (*configContext.ControlPlane, error) {
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return nil, err
@@ -370,20 +336,5 @@ func getStoredControlPlaneConfig() (*ControlPlaneConfig, error) {
 		return nil, fmt.Errorf("no control plane configured")
 	}
 
-	return &ControlPlaneConfig{
-		Type:     cfg.ControlPlane.Type,
-		Endpoint: cfg.ControlPlane.Endpoint,
-		Token:    cfg.ControlPlane.Token,
-	}, nil
-}
-
-// isLocalControlPlane checks if OpenChoreo API is accessible locally
-func isLocalControlPlane() bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://localhost:8080/health")
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	return cfg.ControlPlane, nil
 }

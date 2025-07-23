@@ -31,8 +31,8 @@ var (
 
 	Version = Command{
 		Use:   "version",
-		Short: "Show the version information",
-		Long:  "Show the version information of the Choreo CLI.",
+		Short: "Print version information",
+		Long:  "Print version information.",
 	}
 
 	Create = Command{
@@ -75,8 +75,8 @@ Examples:
 
 	Apply = Command{
 		Use:   "apply",
-		Short: "Apply Choreo resource configurations",
-		Long: fmt.Sprintf(`Apply a configuration file to create or update Choreo resources.
+		Short: "Apply OpenChoreo resources by file name",
+		Long: fmt.Sprintf(`Apply a configuration file to create or update OpenChoreo resources.
 
 	Examples:
 	  # Apply an organization configuration
@@ -630,8 +630,8 @@ If no organization is specified, you will be prompted to select one interactivel
 	// Delete command definitions
 	Delete = Command{
 		Use:   "delete",
-		Short: "Delete Choreo resources",
-		Long:  "Delete resources in Choreo platform such as organizations, projects, components, etc.",
+		Short: "Delete OpenChoreo resources by file names",
+		Long:  "Delete resources in OpenChoreo platform such as organizations, projects, components, etc.",
 		Example: `  # Delete resources from a YAML file
   choreoctl delete -f resources.yaml`,
 	}
