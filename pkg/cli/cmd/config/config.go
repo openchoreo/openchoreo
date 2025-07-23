@@ -16,16 +16,16 @@ import (
 
 // StoredConfig is the structure to store configuration contexts.
 type StoredConfig struct {
-	CurrentContext string              `yaml:"currentContext"`
-	Clusters       []KubernetesCluster `yaml:"clusters"`
-	Contexts       []Context           `yaml:"contexts"`
+	CurrentContext string        `yaml:"currentContext"`
+	ControlPlane   *ControlPlane `yaml:"controlPlane,omitempty"`
+	Contexts       []Context     `yaml:"contexts"`
 }
 
-// KubernetesCluster defines K8s cluster configuration
-type KubernetesCluster struct {
-	Name       string `yaml:"name"`
-	Kubeconfig string `yaml:"kubeconfig"`
-	Context    string `yaml:"context"`
+// ControlPlane defines OpenChoreo API server configuration
+type ControlPlane struct {
+	Type     string `yaml:"type"`     // "local" or "remote"
+	Endpoint string `yaml:"endpoint"` // API server URL
+	Token    string `yaml:"token,omitempty"`    // Optional auth token
 }
 
 // Context represents a single named configuration context.
@@ -36,7 +36,6 @@ type Context struct {
 	Component    string `yaml:"component,omitempty"`
 	Environment  string `yaml:"environment,omitempty"`
 	DataPlane    string `yaml:"dataPlane,omitempty"`
-	ClusterRef   string `yaml:"clusterRef,omitempty"` // Reference to KubernetesCluster
 }
 
 func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
@@ -52,6 +51,7 @@ func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		newSetContextCmd(impl),
 		newUseContextCmd(impl),
 		newCurrentContextCmd(impl),
+		newSetControlPlaneCmd(impl),
 	)
 	return cmd
 }
@@ -74,8 +74,6 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.Component,
 			flags.DataPlane,
 			flags.Environment,
-			flags.Kubeconfig,
-			flags.KubeContext,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			args := fg.GetArgs()
@@ -83,14 +81,12 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				return fmt.Errorf("context name is required")
 			}
 			return impl.SetContext(api.SetContextParams{
-				Name:           args[0],
-				Organization:   fg.GetString(flags.Organization),
-				Project:        fg.GetString(flags.Project),
-				Component:      fg.GetString(flags.Component),
-				DataPlane:      fg.GetString(flags.DataPlane),
-				Environment:    fg.GetString(flags.Environment),
-				KubeconfigPath: fg.GetString(flags.Kubeconfig),
-				KubeContext:    fg.GetString(flags.KubeContext),
+				Name:         args[0],
+				Organization: fg.GetString(flags.Organization),
+				Project:      fg.GetString(flags.Project),
+				Component:    fg.GetString(flags.Component),
+				DataPlane:    fg.GetString(flags.DataPlane),
+				Environment:  fg.GetString(flags.Environment),
 			})
 		},
 	}).Build()
@@ -122,6 +118,29 @@ func newCurrentContextCmd(impl api.CommandImplementationInterface) *cobra.Comman
 		Command: constants.ConfigCurrentContext,
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.GetCurrentContext()
+		},
+	}).Build()
+}
+
+func newSetControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	return (&builder.CommandBuilder{
+		Command: constants.ConfigSetControlPlane,
+		Flags: []flags.Flag{
+			flags.Endpoint,
+			flags.Token,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			endpoint := fg.GetString(flags.Endpoint)
+			token := fg.GetString(flags.Token)
+			
+			if endpoint == "" {
+				return fmt.Errorf("endpoint is required")
+			}
+			
+			return impl.SetControlPlane(api.SetControlPlaneParams{
+				Endpoint: endpoint,
+				Token:    token,
+			})
 		},
 	}).Build()
 }

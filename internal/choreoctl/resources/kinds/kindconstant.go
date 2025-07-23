@@ -44,6 +44,9 @@ const (
 
 	// DeploymentTrack related errors
 	ErrCreateDeploymentTrack = "failed to create deployment track: %w"
+
+	// Workload related errors
+	ErrCreateWorkload = "failed to create workload: %w"
 )
 
 //
@@ -105,6 +108,9 @@ var (
 
 	// Endpoint table headers
 	HeadersEndpoint = []string{HeaderName, HeaderType, HeaderAddress, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization, HeaderEnvironment}
+
+	// Workload table headers
+	HeadersWorkload = []string{HeaderName, HeaderStatus, HeaderAge, HeaderOrganization}
 )
 
 //
@@ -219,6 +225,9 @@ const (
 
 	// Endpoint success messages
 	FmtEndpointSuccess = "Endpoint '%s' created successfully in component '%s' of project '%s' in organization '%s' for environment '%s'\n"
+
+	// Workload success messages
+	FmtWorkloadSuccess = "Workload created successfully from descriptor '%s'\n"
 )
 
 //

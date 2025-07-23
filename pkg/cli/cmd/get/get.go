@@ -104,7 +104,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	deployableArtifactCmd := (&builder.CommandBuilder{
 		Command: constants.ListDeployableArtifact,
 		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.DeploymentTrack,
-			flags.Build, flags.DockerImage, flags.Output, flags.Interactive},
+			flags.Build, flags.Image, flags.Output, flags.Interactive},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -116,7 +116,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Component:       fg.GetString(flags.Component),
 				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
 				Build:           fg.GetString(flags.Build),
-				DockerImage:     fg.GetString(flags.DockerImage),
+				DockerImage:     fg.GetString(flags.Image),
 				OutputFormat:    fg.GetString(flags.Output),
 				Interactive:     fg.GetBool(flags.Interactive),
 				Name:            name,

@@ -37,10 +37,14 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateLogParams(cmdType, params)
 	case ResourceApply:
 		return validateApplyParams(cmdType, params)
+	case ResourceDelete:
+		return validateDeleteParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
 	case ResourceConfigurationGroup:
 		return validateConfigurationGroupParams(cmdType, params)
+	case ResourceWorkload:
+		return validateWorkloadParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -365,6 +369,21 @@ func validateApplyParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
+// validateDeleteParams validates parameters for delete operations
+func validateDeleteParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdDelete {
+		if p, ok := params.(api.DeleteParams); ok {
+			fields := map[string]string{
+				"file": p.FilePath,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, "", fields)
+			}
+		}
+	}
+	return nil
+}
+
 // Add validation function:
 func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
@@ -401,6 +420,25 @@ func validateConfigurationGroupParams(cmdType CommandType, params interface{}) e
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceConfigurationGroup, fields)
+			}
+		}
+	}
+	return nil
+}
+
+// validateWorkloadParams validates parameters for workload operations
+func validateWorkloadParams(cmdType CommandType, params interface{}) error {
+	switch cmdType {
+	case CmdCreate:
+		if p, ok := params.(api.CreateWorkloadParams); ok {
+			fields := map[string]string{
+				"organization": p.OrganizationName,
+				"project":      p.ProjectName,
+				"component":    p.ComponentName,
+				"image":        p.ImageUrl,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(cmdType, ResourceWorkload, fields)
 			}
 		}
 	}

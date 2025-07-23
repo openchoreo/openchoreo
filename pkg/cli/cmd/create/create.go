@@ -56,16 +56,17 @@ func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	createCmd.AddCommand(
-		newCreateOrganizationCmd(impl),
-		newCreateProjectCmd(impl),
-		newCreateComponentCmd(impl),
-		newCreateBuildCmd(impl),
-		newCreateDeploymentCmd(impl),
-		newCreateDataPlaneCmd(impl),
-		newCreateDeploymentTrackCmd(impl),
-		newCreateEnvironmentCmd(impl),
-		newCreateDeployableArtifactCmd(impl),
-		newCreateDeploymentPipelineCmd(impl),
+		// newCreateOrganizationCmd(impl),
+		// newCreateProjectCmd(impl),
+		// newCreateComponentCmd(impl),
+		// newCreateBuildCmd(impl),
+		// newCreateDeploymentCmd(impl),
+		// newCreateDataPlaneCmd(impl),
+		// newCreateDeploymentTrackCmd(impl),
+		// newCreateEnvironmentCmd(impl),
+		// newCreateDeployableArtifactCmd(impl),
+		// newCreateDeploymentPipelineCmd(impl),
+		newCreateWorkloadCmd(impl),
 	)
 
 	return createCmd
@@ -137,6 +138,30 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				DockerContext:    fg.GetString(flags.DockerContext),
 				BuildpackName:    fg.GetString(flags.BuildpackName),
 				BuildpackVersion: fg.GetString(flags.BuildpackVersion),
+			})
+		},
+	}).Build()
+}
+
+func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	workloadFlags := append(getComponentLevelFlags(),
+		flags.Image,
+		flags.Output,
+		flags.WorkloadDescriptor,
+	)
+
+	return (&builder.CommandBuilder{
+		Command: constants.CreateWorkload,
+		Flags:   workloadFlags,
+		RunE: func(fg *builder.FlagGetter) error {
+			return impl.CreateWorkload(api.CreateWorkloadParams{
+				FilePath:         fg.GetString(flags.WorkloadDescriptor),
+				OrganizationName: fg.GetString(flags.Organization),
+				ProjectName:      fg.GetString(flags.Project),
+				ComponentName:    fg.GetString(flags.Component),
+				ImageUrl:         fg.GetString(flags.Image),
+				OutputPath:       fg.GetString(flags.Output),
+				Interactive:      fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()

@@ -60,8 +60,8 @@ var (
 		Name:  "deployment-track",
 		Usage: messages.FlagDeploymentTrackrDesc,
 	}
-	DockerImage = Flag{
-		Name:  "docker-image",
+	Image = Flag{
+		Name:  "image",
 		Usage: messages.FlagDockerImageDesc,
 	}
 	Name = Flag{
@@ -290,6 +290,11 @@ var (
 		Usage:     messages.DeleteFileFlag,
 	}
 
+	WorkloadDescriptor = Flag{
+		Name:  "descriptor",
+		Usage: messages.WorkloadDescriptorFlag,
+	}
+
 	EnvironmentOrder = Flag{
 		Name:  "environment-order",
 		Usage: messages.FlagEnvironmentOrderDesc,
@@ -298,6 +303,17 @@ var (
 	DeploymentPipeline = Flag{
 		Name:  "deployment-pipeline",
 		Usage: messages.FlagDeploymentPipelineDesc,
+	}
+
+	// Control plane configuration flags
+	Endpoint = Flag{
+		Name:  "endpoint",
+		Usage: "OpenChoreo API server endpoint URL",
+	}
+
+	Token = Flag{
+		Name:  "token",
+		Usage: "Authentication token for remote OpenChoreo API server",
 	}
 )
 

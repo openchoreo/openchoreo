@@ -135,6 +135,24 @@ Examples:
 			messages.DefaultCLIName),
 	}
 
+	CreateWorkload = Command{
+		Use:     "workload",
+		Aliases: []string{"wl"},
+		Short:   "Create a workload from a descriptor file",
+		Long: fmt.Sprintf(`Create a workload from a workload descriptor file.
+
+The workload descriptor (workload.yaml) should be located alongside your source code
+and describes the endpoints and configuration for your workload.
+
+Examples:
+  # Create workload from descriptor
+  %[1]s create workload workload.yaml --organization acme-corp --project online-store --component product-catalog --image myimage:latest
+
+  # Create workload and save to file
+  %[1]s create workload workload.yaml -o acme-corp -p online-store -c product-catalog --image myimage:latest --output workload-cr.yaml`,
+			messages.DefaultCLIName),
+	}
+
 	ListOrganization = Command{
 		Use:     "organization",
 		Aliases: []string{"org", "orgs", "organizations"},
@@ -560,6 +578,18 @@ If no organization is specified, you will be prompted to select one interactivel
 		Long:  "Display the currently active configuration context, including any stored configuration values.",
 		Example: fmt.Sprintf(`  # Display the currently active configuration context
   %[1]s config current-context`, messages.DefaultCLIName),
+	}
+
+	// ConfigSetControlPlane holds usage and help texts for "config set-control-plane" command.
+	ConfigSetControlPlane = Command{
+		Use:   "set-control-plane",
+		Short: "Configure OpenChoreo API server connection",
+		Long:  "Set the OpenChoreo API server endpoint and authentication details for remote connections.",
+		Example: fmt.Sprintf(`  # Set remote control plane endpoint
+  %[1]s config set-control-plane --endpoint https://api.choreo.example.com --token <your-token>
+
+  # Set local control plane (for development)
+  %[1]s config set-control-plane --endpoint http://localhost:8080`, messages.DefaultCLIName),
 	}
 
 	// ------------------------------------------------------------------------

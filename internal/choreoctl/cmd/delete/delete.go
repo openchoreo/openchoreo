@@ -4,287 +4,232 @@
 package delete
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
+	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"gopkg.in/yaml.v3"
 
-	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources/client"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/validation"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // DeleteImpl implements the delete command for Choreo resources
 type DeleteImpl struct{}
 
-// Resource dependency order from leaf to root based on the Choreo resource relationships
-var resourceDeleteOrder = []string{
-	"endpoint",           // Most leaf-level resource
-	"deploymentrevision", // Should be deleted before its parent deployment
-	"deployment",         // Should be deleted before deploymenttrack
-	"deployableartifact", // Should be deleted after deployment but before build
-	"build",              // Should be deleted after deployableartifact but before component
-	"deploymenttrack",    // Should be deleted after deployment but before component
-	"configurationgroup", // Referenced by deployableartifact
-	"component",          // Should be deleted after its child resources
-	"environment",        // Should be deleted after deployment
-	"deploymentpipeline", // Should be deleted after environments
-	"dataplane",          // Should be deleted after environments
-	"project",            // Should be deleted after all components
-	"organization",       // Root level resource, deleted last
-}
-
 // NewDeleteImpl creates a new instance of DeleteImpl
 func NewDeleteImpl() *DeleteImpl {
 	return &DeleteImpl{}
 }
 
-// Delete removes resources specified in the given file
+// Delete removes resources specified in the given file or directory
 func (i *DeleteImpl) Delete(params api.DeleteParams) error {
-	if params.FilePath == "" {
-		return fmt.Errorf("file path is required")
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceDelete, params); err != nil {
+		return err
 	}
 
-	// TODO: Properly fix this, This is a quick fix to support remote URLs for samples
-	isRemoteURL := strings.HasPrefix(params.FilePath, "http://") ||
-		strings.HasPrefix(params.FilePath, "https://")
+	// Create API client with auto-detection
+	apiClient, err := client.NewAPIClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
 
-	var contentBytes []byte
+	// Check API server connectivity
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	if !isRemoteURL {
-		if _, err := os.Stat(params.FilePath); os.IsNotExist(err) {
-			return fmt.Errorf("file %s does not exist", params.FilePath)
+	if err := apiClient.HealthCheck(ctx); err != nil {
+		return fmt.Errorf("OpenChoreo API server not accessible: %w", err)
+	}
+
+	// Discover all resource files to process
+	resourceFiles, err := discoverResourceFiles(params.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to discover resources: %w", err)
+	}
+
+	if len(resourceFiles) == 0 {
+		return fmt.Errorf("no YAML files found in: %s", params.FilePath)
+	}
+
+	totalResources := 0
+
+	// Process each file in reverse order for deletion (dependencies first)
+	for i := len(resourceFiles) - 1; i >= 0; i-- {
+		filePath := resourceFiles[i]
+		fmt.Printf("Processing file: %s\n", filePath)
+
+		// Read resource content
+		content, err := readResourceContent(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read resource file %s: %w", filePath, err)
 		}
 
-		fileBytes, err := os.ReadFile(params.FilePath)
+		// Parse resources from this file
+		resources, err := parseYAMLResources(content)
 		if err != nil {
-			if os.IsPermission(err) {
-				return fmt.Errorf("permission denied: %s", params.FilePath)
+			return fmt.Errorf("failed to parse resources in %s: %w", filePath, err)
+		}
+
+		if len(resources) == 0 {
+			fmt.Printf("  No resources found in %s\n", filePath)
+			continue
+		}
+
+		// Delete each resource in this file (reverse order for dependencies)
+		for j := len(resources) - 1; j >= 0; j-- {
+			resource := resources[j]
+			if err := deleteResource(ctx, apiClient, resource, len(resources)-j, len(resources)); err != nil {
+				return fmt.Errorf("failed to delete resource from %s: %w", filePath, err)
 			}
-			return fmt.Errorf("error reading file: %s", params.FilePath)
 		}
-		contentBytes = fileBytes
-	} else {
-		// Read the file bytes from the remote URL
-		resp, err := http.Get(params.FilePath)
+
+		totalResources += len(resources)
+		fmt.Printf("  Deleted %d resource(s) from %s\n", len(resources), filePath)
+	}
+
+	fmt.Printf("\nSuccessfully deleted %d resource(s) from %d file(s) in: %s\n", totalResources, len(resourceFiles), params.FilePath)
+	return nil
+}
+
+// discoverResourceFiles discovers all YAML files to process (same as apply)
+func discoverResourceFiles(path string) ([]string, error) {
+	// Check if path is a URL
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return []string{path}, nil
+	}
+
+	// Check if path exists
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("path %s does not exist", path)
+		}
+		return nil, fmt.Errorf("error accessing path %s: %w", path, err)
+	}
+
+	// If it's a file, return it directly
+	if !info.IsDir() {
+		return []string{path}, nil
+	}
+
+	// It's a directory - recursively find all YAML files
+	var yamlFiles []string
+	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("failed to GET %s: %w", params.FilePath, err)
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check for YAML file extensions
+		ext := strings.ToLower(filepath.Ext(filePath))
+		if ext == ".yaml" || ext == ".yml" {
+			yamlFiles = append(yamlFiles, filePath)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error walking directory %s: %w", path, err)
+	}
+
+	return yamlFiles, nil
+}
+
+// readResourceContent reads resource content from file or URL (same as apply)
+func readResourceContent(filePath string) ([]byte, error) {
+	isRemoteURL := strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://")
+
+	if isRemoteURL {
+		// Download from remote URL
+		resp, err := http.Get(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download from %s: %w", filePath, err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to GET %s: status code %d", params.FilePath, resp.StatusCode)
+			return nil, fmt.Errorf("failed to download from %s: HTTP %d", filePath, resp.StatusCode)
 		}
 
-		remoteBytes, err := io.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
+	} else {
+		// Read from local file
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("file %s does not exist", filePath)
+		}
+
+		content, err := os.ReadFile(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to read response from %s: %w", params.FilePath, err)
-		}
-		contentBytes = remoteBytes
-	}
-
-	kubeconfig, context, err := config.GetStoredKubeConfigValues()
-	if err != nil {
-		return fmt.Errorf("failed to get kubeconfig values: %w", err)
-	}
-
-	if isMultiDocYAML(contentBytes) {
-		return deleteResourcesInOrder(contentBytes, kubeconfig, context, params.Wait)
-	}
-
-	deleteArgs := []string{"delete", "-f", params.FilePath}
-	if params.Wait {
-		deleteArgs = append(deleteArgs, "--wait")
-	}
-
-	err = executeKubectl(kubeconfig, context, deleteArgs, fmt.Sprintf("Deleting resources from %s", params.FilePath))
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Resources deleted successfully from %s\n", params.FilePath)
-	return nil
-}
-
-// executeKubectl executes kubectl command with the given arguments
-func executeKubectl(kubeconfig, context string, args []string, description string) error {
-	kubectlArgs := []string{
-		"--kubeconfig", kubeconfig,
-		"--context", context,
-	}
-	kubectlArgs = append(kubectlArgs, args...)
-
-	cmd := exec.Command("kubectl", kubectlArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	fmt.Printf("%s...\n", description)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute kubectl command: %w", err)
-	}
-	return nil
-}
-
-// isMultiDocYAML checks if the file contains multiple YAML documents
-func isMultiDocYAML(content []byte) bool {
-	return bytes.Count(content, []byte("---")) > 0
-}
-
-// deleteResourcesInOrder processes multiple resources and deletes them in dependency order
-func deleteResourcesInOrder(fileBytes []byte, kubeconfig, context string, wait bool) error {
-	resources, err := parseResources(fileBytes)
-	if err != nil {
-		return fmt.Errorf("error parsing resources: %w", err)
-	}
-
-	if len(resources) == 0 {
-		return fmt.Errorf("no valid resources found in the file")
-	}
-
-	resourcesByKind := groupResourcesByKind(resources)
-
-	tempDir, err := os.MkdirTemp("", "choreo-delete")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	processedKinds := make(map[string]bool)
-
-	// Process resources according to defined order first
-	for _, kind := range resourceDeleteOrder {
-		lowercaseKind := strings.ToLower(kind)
-		resourcesToDelete, exists := resourcesByKind[lowercaseKind]
-		if !exists {
-			continue
-		}
-
-		fmt.Printf("Deleting %s resources...\n", kind)
-		if err := deleteResourcesOfKind(resourcesToDelete, tempDir, kubeconfig, context, wait); err != nil {
-			return err
-		}
-
-		processedKinds[lowercaseKind] = true
-	}
-
-	// Process any remaining unordered kinds
-	for kind, resourcesToDelete := range resourcesByKind {
-		if processedKinds[kind] {
-			continue
-		}
-
-		fmt.Printf("Deleting %s resources (unordered)...\n", kind)
-		if err := deleteResourcesOfKind(resourcesToDelete, tempDir, kubeconfig, context, wait); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// deleteResourcesOfKind deletes all resources of a specific kind
-func deleteResourcesOfKind(resources []*unstructured.Unstructured, tempDir, kubeconfig, context string, wait bool) error {
-	for _, resource := range resources {
-		tempFile := fmt.Sprintf("%s/%s-%s.yaml", tempDir, strings.ToLower(resource.GetKind()), resource.GetName())
-		resourceYAML, err := unstructuredToYAML(resource)
-		if err != nil {
-			return fmt.Errorf("failed to convert resource to YAML for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
-		}
-
-		if err := os.WriteFile(tempFile, []byte(resourceYAML), 0600); err != nil {
-			return fmt.Errorf("failed to write temporary file for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
-		}
-
-		deleteArgs := []string{"delete", "-f", tempFile}
-		if wait {
-			deleteArgs = append(deleteArgs, "--wait")
-		}
-
-		description := fmt.Sprintf("Deleting %s/%s", resource.GetKind(), resource.GetName())
-		if err := executeKubectl(kubeconfig, context, deleteArgs, description); err != nil {
-			return fmt.Errorf("failed to delete %s/%s: %w", resource.GetKind(), resource.GetName(), err)
-		}
-
-		fmt.Printf("Deleted %s/%s\n", resource.GetKind(), resource.GetName())
-	}
-	return nil
-}
-
-// parseResources parses the YAML file into a list of unstructured resources
-func parseResources(fileBytes []byte) ([]*unstructured.Unstructured, error) {
-	var resources []*unstructured.Unstructured
-	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	reader := bufio.NewReader(bytes.NewReader(fileBytes))
-
-	var buffer bytes.Buffer
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-
-		if strings.HasPrefix(line, "---") || err == io.EOF {
-			if buffer.Len() > 0 {
-				content := strings.TrimSpace(buffer.String())
-				if content != "" {
-					obj := &unstructured.Unstructured{}
-					if _, _, err := decoder.Decode([]byte(content), nil, obj); err == nil {
-						if obj.GetKind() != "" {
-							resources = append(resources, obj)
-						}
-					}
-				}
-				buffer.Reset()
+			if os.IsPermission(err) {
+				return nil, fmt.Errorf("permission denied: %s", filePath)
 			}
+			return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
+		}
+		return content, nil
+	}
+}
 
-			if err == io.EOF {
-				break
-			}
+// parseYAMLResources parses YAML content that may contain multiple documents (same as apply)
+func parseYAMLResources(content []byte) ([]map[string]interface{}, error) {
+	var resources []map[string]interface{}
+
+	// Split by YAML document separator
+	documents := strings.Split(string(content), "---")
+
+	for _, doc := range documents {
+		doc = strings.TrimSpace(doc)
+		if doc == "" {
+			continue // Skip empty documents
+		}
+
+		var resource map[string]interface{}
+		if err := yaml.Unmarshal([]byte(doc), &resource); err != nil {
+			return nil, fmt.Errorf("failed to parse YAML document: %w", err)
+		}
+
+		// Skip if it's an empty resource or missing kind
+		if resource == nil || resource["kind"] == nil {
 			continue
 		}
 
-		buffer.WriteString(line)
+		resources = append(resources, resource)
 	}
 
 	return resources, nil
 }
 
-// groupResourcesByKind groups resources by their lowercase kind
-func groupResourcesByKind(resources []*unstructured.Unstructured) map[string][]*unstructured.Unstructured {
-	result := make(map[string][]*unstructured.Unstructured)
-	for _, res := range resources {
-		kind := strings.ToLower(res.GetKind())
-		result[kind] = append(result[kind], res)
-	}
-	return result
-}
+// deleteResource deletes a single resource using the API client
+func deleteResource(ctx context.Context, apiClient *client.APIClient, resource map[string]interface{}, index, total int) error {
+	kind, _ := resource["kind"].(string)
+	metadata, _ := resource["metadata"].(map[string]interface{})
+	name, _ := metadata["name"].(string)
 
-// unstructuredToYAML converts an unstructured resource back to YAML
-func unstructuredToYAML(obj *unstructured.Unstructured) (string, error) {
-	jsonBytes, err := obj.MarshalJSON()
+	fmt.Printf("Deleting %d/%d: %s/%s...", index, total, kind, name)
+
+	resp, err := apiClient.Delete(ctx, resource)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal resource to JSON: %w", err)
+		fmt.Printf(" FAILED\n")
+		return fmt.Errorf("failed to delete %s/%s: %w", kind, name, err)
 	}
 
-	cmd := exec.Command("kubectl", "get", "-f", "-", "-o", "yaml")
-	cmd.Stdin = bytes.NewReader(jsonBytes)
-	yamlBytes, err := cmd.Output()
-	if err != nil {
-		var stderr []byte
-		// Use errors.As instead of type assertion (addressing errorlint)
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			stderr = exitErr.Stderr
-		}
-		return "", fmt.Errorf("failed to convert resource to YAML: %w\n%s", err, stderr)
+	operation := resp.Data.Operation
+	if resp.Data.Namespace != "" {
+		fmt.Printf(" %s (%s/%s in %s)\n", strings.ToUpper(operation), kind, name, resp.Data.Namespace)
+	} else {
+		fmt.Printf(" %s (%s/%s)\n", strings.ToUpper(operation), kind, name)
 	}
 
-	return string(yamlBytes), nil
+	return nil
 }

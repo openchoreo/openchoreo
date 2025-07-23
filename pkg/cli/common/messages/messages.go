@@ -62,6 +62,7 @@ const (
 	FlagDeployableArtifactDesc = "Deployable artifact name (e.g., product-catalog-artifact)"
 	FlagDeploymentDesc         = "Name of the deployment (e.g., product-catalog-dev-01)"
 	DeleteFileFlag             = "Path to the configuration file to delete (e.g., manifests/deployment.yaml)"
+	WorkloadDescriptorFlag     = "Path to the workload descriptor file (e.g., workload.yaml)"
 	FlagWaitDesc               = "Wait for resources to be deleted before returning"
 	FlagEnvironmentOrderDesc   = "Comma-separated list of environment names in promotion order (e.g., dev,staging,prod)"
 	FlagDeploymentPipelineDesc = "Name of the deployment pipeline (e.g., dev-prod-pipeline)"

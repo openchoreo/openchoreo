@@ -42,6 +42,7 @@ const (
 	OrganizationKind = "Organization"
 	ProjectKind      = "Project"
 	ComponentKind    = "Component"
+	WorkloadKind     = "Workload"
 )
 
 type CRDConfig struct {
@@ -65,6 +66,11 @@ var (
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
 		Kind:    ComponentKind,
+	}
+	WorkloadV1Config = CRDConfig{
+		Group:   ChoreoGroup,
+		Version: V1Alpha1,
+		Kind:    WorkloadKind,
 	}
 	BuildV1Config = CRDConfig{
 		Group:   ChoreoGroup,

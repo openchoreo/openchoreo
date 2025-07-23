@@ -6,10 +6,9 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -37,7 +36,7 @@ func (c *ConfigContextImpl) GetContexts() error {
 	}
 
 	// Create headers and rows for table
-	headers := []string{"", "NAME", "ORGANIZATION", "PROJECT", "COMPONENT", "ENVIRONMENT", "DATAPLANE", "K8S CONFIG", "K8S CONTEXT"}
+	headers := []string{"", "NAME", "ORGANIZATION", "PROJECT", "COMPONENT", "ENVIRONMENT", "DATAPLANE"}
 	rows := make([][]string, 0, len(cfg.Contexts))
 
 	for _, ctx := range cfg.Contexts {
@@ -45,19 +44,6 @@ func (c *ConfigContextImpl) GetContexts() error {
 		marker := " "
 		if cfg.CurrentContext == ctx.Name {
 			marker = "*"
-		}
-
-		// Get cluster details
-		kubeconfig := "-"
-		kubecontext := "-"
-		if ctx.ClusterRef != "" {
-			for _, cluster := range cfg.Clusters {
-				if cluster.Name == ctx.ClusterRef {
-					kubeconfig = formatValueOrPlaceholder(cluster.Kubeconfig)
-					kubecontext = formatValueOrPlaceholder(cluster.Context)
-					break
-				}
-			}
 		}
 
 		// Format row with proper placeholders
@@ -69,8 +55,6 @@ func (c *ConfigContextImpl) GetContexts() error {
 			formatValueOrPlaceholder(ctx.Component),
 			formatValueOrPlaceholder(ctx.Environment),
 			formatValueOrPlaceholder(ctx.DataPlane),
-			kubeconfig,
-			kubecontext,
 		})
 	}
 
@@ -117,20 +101,20 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 		return err
 	}
 
-	// Print cluster info if available
-	if currentCtx.ClusterRef != "" {
-		for _, cluster := range cfg.Clusters {
-			if cluster.Name == currentCtx.ClusterRef {
-				fmt.Println("\nCluster:")
-				clusterHeaders := []string{"PROPERTY", "VALUE"}
-				clusterRows := [][]string{
-					{"Name", formatValueOrPlaceholder(cluster.Name)},
-					{"Kubeconfig", formatValueOrPlaceholder(cluster.Kubeconfig)},
-					{"Context", formatValueOrPlaceholder(cluster.Context)},
-				}
-				return printTable(clusterHeaders, clusterRows)
-			}
+	// Print control plane info if available
+	if cfg.ControlPlane != nil {
+		fmt.Println("\nControl Plane:")
+		cpHeaders := []string{"PROPERTY", "VALUE"}
+		tokenDisplay := "-"
+		if cfg.ControlPlane.Token != "" {
+			tokenDisplay = maskToken(cfg.ControlPlane.Token)
 		}
+		cpRows := [][]string{
+			{"Type", cfg.ControlPlane.Type},
+			{"Endpoint", cfg.ControlPlane.Endpoint},
+			{"Token", tokenDisplay},
+		}
+		return printTable(cpHeaders, cpRows)
 	}
 
 	return nil
@@ -138,124 +122,12 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 
 // SetContext creates or updates a configuration context with the given parameters.
 func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
-	// 1. Load the stored choreo config
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// 2. Fill missing kubeconfig/context from current context if needed
-	c.fillKubeconfigAndContextFromCurrent(cfg, &params)
-
-	// 3. Fall back to default kubeconfig if still unset
-	if err := c.fallbackToDefaultKubeconfig(&params); err != nil {
-		return err
-	}
-
-	// 4. Validate kubeconfig and context
-	if err := c.validateKubeconfigAndContext(&params); err != nil {
-		return err
-	}
-
-	// 5. Reuse or create a cluster reference
-	clusterRef, err := c.getOrCreateCluster(cfg, params)
-	if err != nil {
-		return err
-	}
-
-	// 6. Update or create the context
-	if err := c.updateOrCreateContext(cfg, params, clusterRef); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// fillKubeconfigAndContextFromCurrent updates params with kubeconfig/context from current context if they are missing.
-func (c *ConfigContextImpl) fillKubeconfigAndContextFromCurrent(cfg *configContext.StoredConfig, params *api.SetContextParams) {
-	if params.KubeconfigPath != "" || params.KubeContext != "" {
-		return
-	}
-	if cfg.CurrentContext == "" {
-		return
-	}
-	for _, ctx := range cfg.Contexts {
-		if ctx.Name == cfg.CurrentContext {
-			for _, cluster := range cfg.Clusters {
-				if cluster.Name == ctx.ClusterRef {
-					params.KubeconfigPath = cluster.Kubeconfig
-					params.KubeContext = cluster.Context
-					return
-				}
-			}
-		}
-	}
-}
-
-// fallbackToDefaultKubeconfig sets the default kubeconfig path if none is provided.
-func (c *ConfigContextImpl) fallbackToDefaultKubeconfig(params *api.SetContextParams) error {
-	if params.KubeconfigPath != "" {
-		return nil
-	}
-	defaultPath, err := GetDefaultKubeconfigPath()
-	if err != nil {
-		return fmt.Errorf("failed to get default kubeconfig path: %w", err)
-	}
-	params.KubeconfigPath = defaultPath
-	return nil
-}
-
-// validateKubeconfigAndContext ensures the kubeconfig file is valid and sets context if empty.
-func (c *ConfigContextImpl) validateKubeconfigAndContext(params *api.SetContextParams) error {
-	k8sCfg, err := clientcmd.LoadFromFile(params.KubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to load kubeconfig from %s: %w", params.KubeconfigPath, err)
-	}
-	if params.KubeContext == "" {
-		if k8sCfg.CurrentContext == "" {
-			return fmt.Errorf("no current context in kubeconfig; please specify --kube-context")
-		}
-		params.KubeContext = k8sCfg.CurrentContext
-	}
-	return nil
-}
-
-// getOrCreateCluster reuses or creates a cluster entry for the given kubeconfig and context.
-func (c *ConfigContextImpl) getOrCreateCluster(cfg *configContext.StoredConfig, params api.SetContextParams) (string, error) {
-	absPath, err := filepath.Abs(params.KubeconfigPath)
-	if err != nil {
-		return "", fmt.Errorf("cannot resolve kubeconfig path: %w", err)
-	}
-
-	// Check if a matching cluster already exists
-	for i := range cfg.Clusters {
-		cPath, cErr := filepath.Abs(cfg.Clusters[i].Kubeconfig)
-		if cErr != nil {
-			continue
-		}
-		if cPath == absPath && cfg.Clusters[i].Context == params.KubeContext {
-			// Found exact match, reuse it
-			return cfg.Clusters[i].Name, nil
-		}
-	}
-
-	// Create a new cluster with a unique name
-	clusterName := fmt.Sprintf("cluster-%s", params.KubeContext)
-	newCluster := configContext.KubernetesCluster{
-		Name:       clusterName,
-		Kubeconfig: params.KubeconfigPath,
-		Context:    params.KubeContext,
-	}
-	cfg.Clusters = append(cfg.Clusters, newCluster)
-	return clusterName, nil
-}
-
-// updateOrCreateContext merges or creates the context and saves config.
-func (c *ConfigContextImpl) updateOrCreateContext(
-	cfg *configContext.StoredConfig,
-	params api.SetContextParams,
-	clusterRef string,
-) error {
+	// Create new context
 	newCtx := configContext.Context{
 		Name:         params.Name,
 		Organization: params.Organization,
@@ -263,9 +135,9 @@ func (c *ConfigContextImpl) updateOrCreateContext(
 		Component:    params.Component,
 		Environment:  params.Environment,
 		DataPlane:    params.DataPlane,
-		ClusterRef:   clusterRef,
 	}
 
+	// Update or create the context
 	found := false
 	for i := range cfg.Contexts {
 		if cfg.Contexts[i].Name == params.Name {
@@ -331,41 +203,6 @@ func (c *ConfigContextImpl) UseContext(params api.UseContextParams) error {
 	return nil
 }
 
-// Add helper function to manage clusters
-
-func (c *ConfigContextImpl) AddCluster(cluster *configContext.KubernetesCluster) error {
-	cfg, err := LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Check for duplicate cluster names
-	for _, existing := range cfg.Clusters {
-		if existing.Name == cluster.Name {
-			return fmt.Errorf("cluster %s already exists", cluster.Name)
-		}
-	}
-
-	cfg.Clusters = append(cfg.Clusters, *cluster)
-	return SaveStoredConfig(cfg)
-}
-
-// Add function to get cluster by name
-
-func (c *ConfigContextImpl) GetCluster(name string) (*configContext.KubernetesCluster, error) {
-	cfg, err := LoadStoredConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	for _, cluster := range cfg.Clusters {
-		if cluster.Name == name {
-			return &cluster, nil
-		}
-	}
-	return nil, fmt.Errorf("cluster %s not found", name)
-}
-
 // ApplyContextDefaults loads the stored config and sets default flag values
 // from the current context, if not already provided.
 func ApplyContextDefaults(cmd *cobra.Command) error {
@@ -384,25 +221,13 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// Find current context and its cluster
+	// Find current context
 	var curCtx *configContext.Context
-	var curCluster *configContext.KubernetesCluster
 
 	for _, c := range cfg.Contexts {
 		if c.Name == cfg.CurrentContext {
 			ctxCopy := c // Create copy to avoid pointer to loop variable
 			curCtx = &ctxCopy
-
-			// Find associated cluster
-			if curCtx.ClusterRef != "" {
-				for _, cluster := range cfg.Clusters {
-					if cluster.Name == curCtx.ClusterRef {
-						clusterCopy := cluster
-						curCluster = &clusterCopy
-						break
-					}
-				}
-			}
 			break
 		}
 	}
@@ -417,16 +242,6 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	applyIfNotSet(cmd, flags.Environment.Name, curCtx.Environment)
 	applyIfNotSet(cmd, flags.Component.Name, curCtx.Component)
 	applyIfNotSet(cmd, flags.DataPlane.Name, curCtx.DataPlane)
-
-	// Apply cluster config if available
-	if curCluster != nil {
-		if cmd.Flags().Lookup("kubeconfig") != nil {
-			applyIfNotSet(cmd, "kubeconfig", curCluster.Kubeconfig)
-		}
-		if cmd.Flags().Lookup("context") != nil {
-			applyIfNotSet(cmd, "context", curCluster.Context)
-		}
-	}
 
 	return nil
 }
@@ -447,7 +262,6 @@ type DefaultContextValues struct {
 	Project      string
 	DataPlane    string
 	Environment  string
-	ClusterName  string
 }
 
 // getDefaultContextValues returns the default context values based on
@@ -459,8 +273,14 @@ func getDefaultContextValues() DefaultContextValues {
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
 		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
-		ClusterName:  getEnvOrDefault("CHOREO_DEFAULT_CLUSTER", "default"),
 	}
+}
+
+// getDefaultControlPlaneValues returns the default control plane configuration
+func getDefaultControlPlaneValues() (string, string) {
+	endpoint := getEnvOrDefault("CHOREO_API_ENDPOINT", "http://localhost:8080")
+	token := getEnvOrDefault("CHOREO_API_TOKEN", "")
+	return endpoint, token
 }
 
 // getEnvOrDefault returns the value of the environment variable or the default value if not set
@@ -474,30 +294,16 @@ func getEnvOrDefault(envVar, defaultValue string) string {
 // EnsureContext creates and sets a default context if none exists.
 func EnsureContext() error {
 	if !IsConfigFileExists() {
-		// Get default kubeconfig path and context
-		kubeconfigPath, kubeContext, err := GetDefaultKubeconfigWithContext()
-		if err != nil {
-			return err
-		}
-
 		// Load existing config or create new if not exists
 		cfg, err := LoadStoredConfig()
 		if err != nil {
 			return err
 		}
 
-		// If no contexts exist, create default context with cluster
+		// If no contexts exist, create default context
 		if len(cfg.Contexts) == 0 {
 			// Get default values
 			defaults := getDefaultContextValues()
-
-			// Add default cluster mapping
-			defaultCluster := configContext.KubernetesCluster{
-				Name:       defaults.ClusterName,
-				Kubeconfig: kubeconfigPath,
-				Context:    kubeContext,
-			}
-			cfg.Clusters = append(cfg.Clusters, defaultCluster)
 
 			// Create default context
 			defaultContext := configContext.Context{
@@ -506,12 +312,21 @@ func EnsureContext() error {
 				Project:      defaults.Project,
 				DataPlane:    defaults.DataPlane,
 				Environment:  defaults.Environment,
-				ClusterRef:   defaultCluster.Name,
 			}
 			cfg.Contexts = append(cfg.Contexts, defaultContext)
 
 			// Set as current context
 			cfg.CurrentContext = defaultContext.Name
+
+			// Set default control plane configuration
+			if cfg.ControlPlane == nil {
+				endpoint, token := getDefaultControlPlaneValues()
+				cfg.ControlPlane = &configContext.ControlPlane{
+					Type:     "local",
+					Endpoint: endpoint,
+					Token:    token,
+				}
+			}
 
 			// Save the config file
 			if err := SaveStoredConfig(cfg); err != nil {
@@ -521,4 +336,46 @@ func EnsureContext() error {
 	}
 
 	return nil
+}
+
+// SetControlPlane sets the control plane configuration
+func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Determine control plane type based on endpoint
+	cpType := "remote"
+	if strings.HasPrefix(params.Endpoint, "http://localhost") || strings.HasPrefix(params.Endpoint, "http://127.0.0.1") {
+		cpType = "local"
+	}
+
+	// Create or update control plane configuration
+	cfg.ControlPlane = &configContext.ControlPlane{
+		Type:     cpType,
+		Endpoint: params.Endpoint,
+		Token:    params.Token,
+	}
+
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save control plane config: %w", err)
+	}
+
+	fmt.Printf("Control plane configured successfully:\n")
+	fmt.Printf("  Type: %s\n", cpType)
+	fmt.Printf("  Endpoint: %s\n", params.Endpoint)
+	if params.Token != "" {
+		fmt.Printf("  Token: %s\n", maskToken(params.Token))
+	}
+
+	return nil
+}
+
+// maskToken masks the token for display purposes
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "***"
+	}
+	return token[:4] + "..." + token[len(token)-4:]
 }

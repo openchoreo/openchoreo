@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/environment"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/organization"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/project"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/delete"
 	getbuild "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/build"
 	getcomponent "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/component"
@@ -148,6 +149,11 @@ func (c *CommandImplementation) CreateDeploymentPipeline(params api.CreateDeploy
 	return dpImpl.CreateDeploymentPipeline(params)
 }
 
+func (c *CommandImplementation) CreateWorkload(params api.CreateWorkloadParams) error {
+	workloadImpl := workload.NewCreateWorkloadImpl(constants.WorkloadV1Config)
+	return workloadImpl.CreateWorkload(params)
+}
+
 // Delete Operations
 
 func (c *CommandImplementation) Delete(params api.DeleteParams) error {
@@ -211,6 +217,11 @@ func (c *CommandImplementation) SetContext(params api.SetContextParams) error {
 func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
 	configContextImpl := config.NewConfigContextImpl()
 	return configContextImpl.UseContext(params)
+}
+
+func (c *CommandImplementation) SetControlPlane(params api.SetControlPlaneParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.SetControlPlane(params)
 }
 
 func (c *CommandImplementation) GetDeploymentPipeline(params api.GetDeploymentPipelineParams) error {

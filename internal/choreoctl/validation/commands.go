@@ -16,6 +16,7 @@ const (
 	CmdGet    CommandType = "get"
 	CmdLogs   CommandType = "logs"
 	CmdApply  CommandType = "apply"
+	CmdDelete CommandType = "delete"
 )
 
 // ResourceType represents the resource being managed
@@ -34,8 +35,10 @@ const (
 	ResourceDataPlane          ResourceType = "dataplane"
 	ResourceLogs               ResourceType = "logs"
 	ResourceApply              ResourceType = "apply"
+	ResourceDelete             ResourceType = "delete"
 	ResourceDeploymentPipeline ResourceType = "deploymentpipeline"
 	ResourceConfigurationGroup ResourceType = "configurationgroup"
+	ResourceWorkload           ResourceType = "workload"
 )
 
 // checkRequiredFields verifies if all required fields are populated
@@ -68,16 +71,6 @@ func generateHelpError(cmdType CommandType, resource ResourceType, fields map[st
 		errMsg.WriteString(fmt.Sprintf("  choreoctl %s -h", cmdType))
 	} else {
 		errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s -h", cmdType, resource))
-	}
-
-	// Only show interactive mode for commands that typically support it
-	if cmdType != CmdApply {
-		errMsg.WriteString("\n\nTo use interactive mode:\n")
-		if resource == "" {
-			errMsg.WriteString(fmt.Sprintf("  choreoctl %s --interactive", cmdType))
-		} else {
-			errMsg.WriteString(fmt.Sprintf("  choreoctl %s %s --interactive", cmdType, resource))
-		}
 	}
 
 	return fmt.Errorf("%s", errMsg.String())

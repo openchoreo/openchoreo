@@ -43,7 +43,6 @@ func LoadStoredConfig() (*configContext.StoredConfig, error) {
 	if os.IsNotExist(err) {
 		return &configContext.StoredConfig{
 			Contexts: []configContext.Context{},
-			Clusters: []configContext.KubernetesCluster{},
 		}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
