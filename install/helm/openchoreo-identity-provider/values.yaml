@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/asgardeo/thunder
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.1.0"
+  tag: "0.4.0"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -71,8 +71,9 @@ affinity: {}
 # Application configuration
 config:
   server:
-    hostname: "localhost"
+    hostname: "0.0.0.0"
     port: 8090
+    httpOnly: true # ToDO: disable this when using HTTPS
   
   gateClient:
     hostname: "localhost"
@@ -108,7 +109,7 @@ config:
     certFile: "repository/resources/security/server.cert"
     keyFile: "repository/resources/security/server.key"
 
-# Persistence for Thunder databases
+# Persistence for sqlite database
 persistence:
   database:
     enabled: true

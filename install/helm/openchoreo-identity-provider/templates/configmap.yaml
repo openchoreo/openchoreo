@@ -9,6 +9,7 @@ data:
     server:
       hostname: {{ .Values.config.server.hostname | quote }}
       port: {{ .Values.config.server.port }}
+      http_only: {{ .Values.config.server.httpOnly }}
 
     gate_client:
       hostname: {{ .Values.config.gateClient.hostname | quote }}
