@@ -31,6 +31,10 @@ type ServiceBindingStatus struct {
 	// Conditions represent the latest available observations of the ServiceBinding's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Endpoints contain the status of each endpoint
+	// +optional
+	Endpoints []EndpointStatus `json:"endpoints,omitempty"`
 }
 
 // +kubebuilder:object:root=true

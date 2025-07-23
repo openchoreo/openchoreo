@@ -31,7 +31,7 @@ spec:
           value: "8080"
   endpoints:
     webapp:
-      protocol: TCP
+      type: HTTP
       port: 8080
   connections: { } # How does this look like?
 

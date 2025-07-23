@@ -40,10 +40,30 @@ func makeUniquePorts[T any](
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
 	createPort func(name string, port int32, protocol corev1.Protocol) T,
 ) []T {
+	uniquePorts := make(map[string]struct{})
+
+	// Generator fn for make a unique key to avoid duplicate mappings
+	generatePortKey := func(port int32, t openchoreov1alpha1.EndpointType) string {
+		return fmt.Sprintf("%d-%s", port, toK8SProtocol(t))
+	}
+
 	var result []T
 
-	for epName, endpoint := range endpoints {
-		result = append(result, createPort(epName, endpoint.Port, endpoint.Protocol))
+	// Track the unique ports to avoid duplicates for the same port.
+	// Example: Two REST endpoints with the same port but different base path.
+	// Note the same port can be used for different protocols like TCP and UDP.
+	for _, endpoint := range endpoints {
+		epType := endpoint.Type
+		epPort := endpoint.Port
+
+		key := generatePortKey(epPort, epType)
+		if _, ok := uniquePorts[key]; !ok {
+			uniquePorts[key] = struct{}{}
+			protocol := toK8SProtocol(epType)
+			port := epPort
+			name := makePortNameFromEndpointTemplate(port, protocol)
+			result = append(result, createPort(name, port, protocol))
+		}
 	}
 	return result
 }

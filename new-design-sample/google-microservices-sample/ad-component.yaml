@@ -25,7 +25,7 @@ spec:
           value: "9555"
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 9555
 
 

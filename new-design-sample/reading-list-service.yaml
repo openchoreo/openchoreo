@@ -66,7 +66,7 @@ spec:
   endpoints:
     rest-api:
       port: 8080
-      protocol: TCP
+      type: REST
       schema:
         type: REST
         content: |

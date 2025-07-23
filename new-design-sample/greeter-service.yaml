@@ -43,7 +43,7 @@ spec:
               name: github
   endpoints:
     rest-api:
-      protocol: TCP
+      type: REST
       port: 9090
       schema:
         type: REST

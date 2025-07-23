@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
@@ -150,7 +149,6 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.Crea
 	// Create the base workload structure
 	workload := createBaseWorkload(workloadName, params)
 
-
 	// Add endpoints from descriptor if present
 	if err := addEndpointsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
 		return nil, fmt.Errorf("failed to add endpoints: %w", err)
@@ -168,8 +166,9 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 	workload.Spec.Endpoints = make(map[string]openchoreov1alpha1.WorkloadEndpoint)
 	for _, descriptorEndpoint := range descriptor.Endpoints {
 		endpoint := openchoreov1alpha1.WorkloadEndpoint{
-			Protocol: v1.ProtocolTCP, // Default to TCP
-			Port:     descriptorEndpoint.Port,
+			// TODO: Use descriptorEndpoint.Type to set the type and remove type from schema
+			Type: openchoreov1alpha1.EndpointTypeTCP, // Default to TCP
+			Port: descriptorEndpoint.Port,
 		}
 
 		// Set schema if provided

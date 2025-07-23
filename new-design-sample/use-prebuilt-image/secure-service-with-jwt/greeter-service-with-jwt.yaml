@@ -27,7 +27,7 @@ spec:
       image: ghcr.io/openchoreo/samples/greeter-service:latest
   endpoints:
     greeter:
-      protocol: TCP
+      type: REST
       port: 9090
 
 ---
@@ -44,7 +44,7 @@ spec:
   workloadName: greeter-service
   overrides: {}
   apis:
-    greeter-api:
+    greeter:
       type: REST
       rest:
         backend:

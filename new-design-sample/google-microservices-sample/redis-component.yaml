@@ -23,7 +23,7 @@ spec:
       env:
   endpoints:
     tcp-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 6379
 
 

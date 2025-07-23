@@ -225,9 +225,6 @@ spec:
                           maximum: 65535
                           minimum: 1
                           type: integer
-                        protocol:
-                          description: Network protocol (TCP, UDP, etc.).
-                          type: string
                         schema:
                           description: |-
                             Optional schema for the endpoint.
@@ -238,9 +235,21 @@ spec:
                             type:
                               type: string
                           type: object
+                        type:
+                          description: Type indicates the protocol/technology of the
+                            endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+                          enum:
+                          - HTTP
+                          - REST
+                          - gRPC
+                          - GraphQL
+                          - Websocket
+                          - TCP
+                          - UDP
+                          type: string
                       required:
                       - port
-                      - protocol
+                      - type
                       type: object
                     description: |-
                       Endpoints define simple network endpoints for basic port exposure.
@@ -311,6 +320,111 @@ spec:
                   - message
                   - reason
                   - status
+                  - type
+                  type: object
+                type: array
+              endpoints:
+                description: Endpoints contain the status of each endpoint
+                items:
+                  description: |-
+                    EndpointStatus represents the observed state of an endpoint
+                    Used by ServiceBinding, WebApplicationBinding, and other binding types
+                  properties:
+                    name:
+                      description: Name is the endpoint identifier matching spec.endpoints
+                      type: string
+                    organization:
+                      description: Organization contains access info for organization-level
+                        visibility
+                      properties:
+                        basePath:
+                          description: BasePath is the base URL path (for HTTP-based
+                            endpoints)
+                          type: string
+                        host:
+                          description: Host is the hostname or service name
+                          type: string
+                        port:
+                          description: Port is the port number
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the connection scheme (http, https,
+                            grpc, tcp)
+                          type: string
+                        uri:
+                          description: |-
+                            URI is the computed URI for connecting to the endpoint
+                            This field is automatically generated from host, port, scheme, and basePath
+                            Examples: https://api.example.com:8080/v1, grpc://service:5050, tcp://localhost:9000
+                          type: string
+                      required:
+                      - host
+                      - port
+                      type: object
+                    project:
+                      description: Project contains access info for project-level
+                        visibility
+                      properties:
+                        basePath:
+                          description: BasePath is the base URL path (for HTTP-based
+                            endpoints)
+                          type: string
+                        host:
+                          description: Host is the hostname or service name
+                          type: string
+                        port:
+                          description: Port is the port number
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the connection scheme (http, https,
+                            grpc, tcp)
+                          type: string
+                        uri:
+                          description: |-
+                            URI is the computed URI for connecting to the endpoint
+                            This field is automatically generated from host, port, scheme, and basePath
+                            Examples: https://api.example.com:8080/v1, grpc://service:5050, tcp://localhost:9000
+                          type: string
+                      required:
+                      - host
+                      - port
+                      type: object
+                    public:
+                      description: Public contains access info for public visibility
+                      properties:
+                        basePath:
+                          description: BasePath is the base URL path (for HTTP-based
+                            endpoints)
+                          type: string
+                        host:
+                          description: Host is the hostname or service name
+                          type: string
+                        port:
+                          description: Port is the port number
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the connection scheme (http, https,
+                            grpc, tcp)
+                          type: string
+                        uri:
+                          description: |-
+                            URI is the computed URI for connecting to the endpoint
+                            This field is automatically generated from host, port, scheme, and basePath
+                            Examples: https://api.example.com:8080/v1, grpc://service:5050, tcp://localhost:9000
+                          type: string
+                      required:
+                      - host
+                      - port
+                      type: object
+                    type:
+                      description: Type is the endpoint type (uses EndpointType from
+                        endpoint_types.go)
+                      type: string
+                  required:
+                  - name
                   - type
                   type: object
                 type: array

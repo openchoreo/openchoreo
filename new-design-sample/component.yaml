@@ -82,7 +82,7 @@ spec:
               name: github
   endpoints:
     rest-api:
-      protocol: TCP
+      type: REST
       port: 9090
   connections: { } # How does this look like?
 
@@ -218,7 +218,7 @@ spec:
                   name: github
       endpoints:
         rest-api:
-          protocol: TCP
+          type: TCP
           port: 9090
       connections: { } # How does this look like?
   apis:

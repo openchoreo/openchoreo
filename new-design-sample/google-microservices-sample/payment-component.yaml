@@ -27,7 +27,7 @@ spec:
           value: "50051"
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 50051
 
 

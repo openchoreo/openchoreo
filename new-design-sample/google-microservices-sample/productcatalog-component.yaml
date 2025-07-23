@@ -27,7 +27,7 @@ spec:
           value: "3550"
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 3550
 
 

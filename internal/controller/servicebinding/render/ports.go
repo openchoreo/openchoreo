@@ -40,51 +40,30 @@ func makeUniquePorts[T any](
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
 	createPort func(name string, port int32, protocol corev1.Protocol) T,
 ) []T {
-	// uniquePorts := make(map[string]struct{})
+	uniquePorts := make(map[string]struct{})
 
 	// Generator fn for make a unique key to avoid duplicate mappings
-	// generatePortKey := func(port int32, t openchoreov1alpha1.EndpointType) string {
-	//	return fmt.Sprintf("%d-%s", port, toK8SProtocol(t))
-	//}
+	generatePortKey := func(port int32, t openchoreov1alpha1.EndpointType) string {
+		return fmt.Sprintf("%d-%s", port, toK8SProtocol(t))
+	}
 
 	var result []T
-
-	// TODO: The following code block is commented out because the spec for endpoints is not yet fully defined to be operate at L4 or L7.
 
 	// Track the unique ports to avoid duplicates for the same port.
 	// Example: Two REST endpoints with the same port but different base path.
 	// Note the same port can be used for different protocols like TCP and UDP.
-	// for _, endpoint := range endpoints {
-	//	epType := endpoint.Spec.Type
-	//	var epPort int32
-	//
-	//	// Extract port based on the endpoint type
-	//	switch epType {
-	//	case openchoreov1alpha1.EndpointTypeREST:
-	//		if endpoint.Spec.RESTEndpoint != nil {
-	//			epPort = endpoint.Spec.RESTEndpoint.Backend.Port
-	//		}
-	//	// TODO: Add support for other endpoint types (gRPC, TCP, etc.)
-	//	default:
-	//		continue // Skip unsupported endpoint types
-	//	}
-	//
-	//	if epPort <= 0 {
-	//		continue // Skip invalid ports
-	//	}
-	//
-	//	key := generatePortKey(epPort, epType)
-	//	if _, ok := uniquePorts[key]; !ok {
-	//		uniquePorts[key] = struct{}{}
-	//		protocol := toK8SProtocol(epType)
-	//		port := epPort
-	//		name := makePortNameFromEndpointTemplate(port, protocol)
-	//		result = append(result, createPort(name, port, protocol))
-	//	}
-	//}
+	for _, endpoint := range endpoints {
+		epType := endpoint.Type
+		epPort := endpoint.Port
 
-	for epName, endpoint := range endpoints {
-		result = append(result, createPort(epName, endpoint.Port, endpoint.Protocol))
+		key := generatePortKey(epPort, epType)
+		if _, ok := uniquePorts[key]; !ok {
+			uniquePorts[key] = struct{}{}
+			protocol := toK8SProtocol(epType)
+			port := epPort
+			name := makePortNameFromEndpointTemplate(port, protocol)
+			result = append(result, createPort(name, port, protocol))
+		}
 	}
 	return result
 }

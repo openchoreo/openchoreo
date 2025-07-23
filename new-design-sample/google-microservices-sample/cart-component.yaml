@@ -27,7 +27,7 @@ spec:
           value: "redis-34fb46c8:6379"
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 7070
 
   connections:

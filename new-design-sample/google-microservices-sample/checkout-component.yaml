@@ -40,7 +40,7 @@ spec:
 
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 5050
 
   connections:

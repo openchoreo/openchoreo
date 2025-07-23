@@ -404,8 +404,8 @@ type RestRLOperation struct {
 // Endpoint Status
 // ==============================================================================
 
-// EndpointStatus defines the observed state of Endpoint
-type EndpointStatus struct {
+// EndpointStatusLegacy defines the observed state of Endpoint
+type EndpointStatusLegacy struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 	Address    string             `json:"address,omitempty"`
 }
@@ -423,8 +423,8 @@ type Endpoint struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   EndpointSpec   `json:"spec,omitempty"`
-	Status EndpointStatus `json:"status,omitempty"`
+	Spec   EndpointSpec         `json:"spec,omitempty"`
+	Status EndpointStatusLegacy `json:"status,omitempty"`
 }
 
 func (ep *Endpoint) GetConditions() []metav1.Condition {

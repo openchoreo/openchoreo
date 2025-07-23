@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,9 +30,10 @@ type Container struct {
 
 // WorkloadEndpoint represents a simple network endpoint for basic exposure.
 type WorkloadEndpoint struct {
-	// Network protocol (TCP, UDP, etc.).
+	// Type indicates the protocol/technology of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
 	// +kubebuilder:validation:Required
-	Protocol corev1.Protocol `json:"protocol"`
+	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
+	Type EndpointType `json:"type"`
 
 	// Port number for the endpoint.
 	// +kubebuilder:validation:Required

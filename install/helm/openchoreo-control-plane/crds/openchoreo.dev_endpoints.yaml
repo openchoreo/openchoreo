@@ -713,7 +713,7 @@ spec:
             - type
             type: object
           status:
-            description: EndpointStatus defines the observed state of Endpoint
+            description: EndpointStatusLegacy defines the observed state of Endpoint
             properties:
               address:
                 type: string

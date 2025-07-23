@@ -52,7 +52,7 @@ spec:
 
   endpoints:
     http-endpoint:
-      protocol: TCP
+      type: HTTP
       port: 8080
 
   connections:

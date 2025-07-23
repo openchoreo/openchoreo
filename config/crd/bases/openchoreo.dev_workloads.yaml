@@ -167,9 +167,6 @@ spec:
                       maximum: 65535
                       minimum: 1
                       type: integer
-                    protocol:
-                      description: Network protocol (TCP, UDP, etc.).
-                      type: string
                     schema:
                       description: |-
                         Optional schema for the endpoint.
@@ -180,9 +177,21 @@ spec:
                         type:
                           type: string
                       type: object
+                    type:
+                      description: Type indicates the protocol/technology of the endpoint
+                        (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+                      enum:
+                      - HTTP
+                      - REST
+                      - gRPC
+                      - GraphQL
+                      - Websocket
+                      - TCP
+                      - UDP
+                      type: string
                   required:
                   - port
-                  - protocol
+                  - type
                   type: object
                 description: |-
                   Endpoints define simple network endpoints for basic port exposure.

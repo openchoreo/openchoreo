@@ -6,7 +6,6 @@ package webapplicationbinding
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -142,6 +141,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding
 	if err := r.setReadyStatus(ctx, webApplicationBinding, found); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set ready status: %w", err)
 	}
+
+	// Update endpoint status after resources are ready
+	if err := r.updateEndpointStatus(ctx, webApplicationBinding); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update endpoint status: %w", err)
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -181,88 +186,6 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 
 	release.Spec.Resources = resources
 	return release
-}
-
-// setReadyStatus sets the WebApplicationBinding status to ready if all conditions are met in the Release.
-func (r *Reconciler) setReadyStatus(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, release *openchoreov1alpha1.Release) error {
-	// Count resources by health status
-	totalResources := len(release.Status.Resources)
-	
-	// Handle the case where there are no resources
-	if totalResources == 0 {
-		message := "No resources to deploy"
-		controller.MarkTrueCondition(webApplicationBinding, ConditionReady, ReasonAllResourcesReady, message)
-		return nil
-	}
-	
-	healthyCount := 0
-	progressingCount := 0
-	degradedCount := 0
-	suspendedCount := 0
-
-	// Check all resources using their health status
-	for _, resource := range release.Status.Resources {
-		switch resource.HealthStatus {
-		case openchoreov1alpha1.HealthStatusHealthy:
-			healthyCount++
-		case openchoreov1alpha1.HealthStatusSuspended:
-			suspendedCount++
-		case openchoreov1alpha1.HealthStatusProgressing, openchoreov1alpha1.HealthStatusUnknown:
-			// Treat both progressing and unknown as progressing
-			progressingCount++
-		case openchoreov1alpha1.HealthStatusDegraded:
-			degradedCount++
-		default:
-			// Treat any unrecognized health status as progressing
-			progressingCount++
-		}
-	}
-
-	// Check if all resources are ready (healthy or suspended)
-	allResourcesReady := (healthyCount + suspendedCount) == totalResources
-
-	// Set the ready condition based on resource health status
-	if allResourcesReady {
-		// Use appropriate ready reason
-		if suspendedCount > 0 {
-			message := fmt.Sprintf("All %d resources are ready (%d suspended)", totalResources, suspendedCount)
-			controller.MarkTrueCondition(webApplicationBinding, ConditionReady, ReasonResourcesReadyWithSuspended, message)
-		} else {
-			message := fmt.Sprintf("All %d resources are deployed and healthy", totalResources)
-			controller.MarkTrueCondition(webApplicationBinding, ConditionReady, ReasonAllResourcesReady, message)
-		}
-	} else {
-		// Build a status message with counts
-		var statusParts []string
-		if progressingCount > 0 {
-			statusParts = append(statusParts, fmt.Sprintf("%d/%d progressing", progressingCount, totalResources))
-		}
-		if degradedCount > 0 {
-			statusParts = append(statusParts, fmt.Sprintf("%d/%d degraded", degradedCount, totalResources))
-		}
-		if healthyCount > 0 {
-			statusParts = append(statusParts, fmt.Sprintf("%d/%d healthy", healthyCount, totalResources))
-		}
-		if suspendedCount > 0 {
-			statusParts = append(statusParts, fmt.Sprintf("%d/%d suspended", suspendedCount, totalResources))
-		}
-
-		// Determine reason using priority: Progressing > Degraded
-		var reason controller.ConditionReason
-		var message string
-
-		if progressingCount > 0 {
-			// If any resource is progressing, the whole binding is progressing
-			reason = ReasonResourceHealthProgressing
-		} else {
-			// Only degraded resources
-			reason = ReasonResourceHealthDegraded
-		}
-		message = fmt.Sprintf("Resources status: %s", strings.Join(statusParts, ", "))
-		controller.MarkFalseCondition(webApplicationBinding, ConditionReady, reason, message)
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

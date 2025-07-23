@@ -29,7 +29,7 @@ spec:
           value: "productcatalog-5c8ab466:3550"
   endpoints:
     grpc-endpoint:
-      protocol: TCP
+      type: gRPC
       port: 8080
 
   connections:
