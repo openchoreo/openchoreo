@@ -1,12 +1,6 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 
-// Import types directly to avoid ES module resolution issues
-import {
-  type Project,
-  type Component,
-  type Connection,
-  ConnectionType,
-} from '@wso2/cell-diagram';
+import { Project, Component, Connection } from '@wso2/cell-diagram';
 import { CellDiagramService } from '../../types';
 import {
   DefaultApiClient,
@@ -14,7 +8,6 @@ import {
   Connection as WorkloadConnection,
 } from '@internal/plugin-openchoreo-api';
 
-// Define ComponentType locally to avoid ES module issues
 enum ComponentType {
   SERVICE = 'service',
   WEB_APP = 'web-app',
@@ -26,6 +19,14 @@ enum ComponentType {
   TEST = 'test',
   EXTERNAL_CONSUMER = 'external-consumer',
   SYSTEM_COMPONENT = 'system',
+}
+
+enum ConnectionType {
+  HTTP = 'http',
+  GRPC = 'grpc',
+  WebSocket = 'web-socket',
+  Connector = 'connector',
+  Datastore = 'datastore',
 }
 
 /**
