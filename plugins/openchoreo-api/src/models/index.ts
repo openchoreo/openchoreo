@@ -9,6 +9,7 @@ export * from './ModelsComponent.model';
 export * from './ModelsEnvironment.model';
 export * from './ModelsBuildTemplate.model';
 export * from './ModelsBuild.model';
+export * from './ModelsWorkload.model';
 export * from './requests';
 export * from './responses';
 export * from './observability';

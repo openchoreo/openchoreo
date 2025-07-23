@@ -21,6 +21,27 @@ export interface WorkloadEndpoint {
   schema?: Schema;
 }
 
+export interface ConnectionInjectEnv {
+  name: string;
+  value: string;
+}
+
+export interface ConnectionInject {
+  env?: ConnectionInjectEnv[];
+}
+
+export interface ConnectionParams {
+  componentName: string;
+  endpoint: string;
+  projectName: string;
+}
+
+export interface Connection {
+  inject?: ConnectionInject;
+  params: ConnectionParams;
+  type: string;
+}
+
 export interface WorkloadOwner {
   projectName: string;
   componentName: string;
@@ -55,7 +76,7 @@ export interface ModelsWorkload {
   /**
    * External resource connections
    */
-  connections?: { [key: string]: string };
+  connections?: { [key: string]: Connection };
   /**
    * Current status of the workload
    */

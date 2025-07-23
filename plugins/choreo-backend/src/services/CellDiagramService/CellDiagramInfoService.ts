@@ -1,24 +1,31 @@
-import {
-  LoggerService,
-} from '@backstage/backend-plugin-api';
+import { LoggerService } from '@backstage/backend-plugin-api';
 
 // Import types directly to avoid ES module resolution issues
-import type { Project, Component } from '@wso2/cell-diagram';
+import {
+  type Project,
+  type Component,
+  type Connection,
+  ConnectionType,
+} from '@wso2/cell-diagram';
 import { CellDiagramService } from '../../types';
-import { DefaultApiClient, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
+import {
+  DefaultApiClient,
+  ModelsCompleteComponent,
+  Connection as WorkloadConnection,
+} from '@internal/plugin-openchoreo-api';
 
 // Define ComponentType locally to avoid ES module issues
 enum ComponentType {
-  SERVICE = "service",
-  WEB_APP = "web-app",
-  SCHEDULED_TASK = "scheduled-task",
-  MANUAL_TASK = "manual-task",
-  API_PROXY = "api-proxy",
-  WEB_HOOK = "web-hook",
-  EVENT_HANDLER = "event-handler",
-  TEST = "test",
-  EXTERNAL_CONSUMER = "external-consumer",
-  SYSTEM_COMPONENT = "system"
+  SERVICE = 'service',
+  WEB_APP = 'web-app',
+  SCHEDULED_TASK = 'scheduled-task',
+  MANUAL_TASK = 'manual-task',
+  API_PROXY = 'api-proxy',
+  WEB_HOOK = 'web-hook',
+  EVENT_HANDLER = 'event-handler',
+  TEST = 'test',
+  EXTERNAL_CONSUMER = 'external-consumer',
+  SYSTEM_COMPONENT = 'system',
 }
 
 /**
@@ -91,12 +98,12 @@ export class CellDiagramInfoService implements CellDiagramService {
       }
 
       const components: Component[] = completeComponents
-        .filter(
-          component => {
-            this.logger.info(JSON.stringify(component, null, 2));
-            return component.type === 'Service' || component.type === 'WebApplication';
-          }
-        )
+        .filter(component => {
+          this.logger.info(JSON.stringify(component, null, 2));
+          return (
+            component.type === 'Service' || component.type === 'WebApplication'
+          );
+        })
         .map(component => {
           if (component.type === 'Service') {
             // Extract API information from the Service.apis object
@@ -125,6 +132,12 @@ export class CellDiagramInfoService implements CellDiagramService {
                 };
               },
             );
+            const connections = this.generateConnections(
+              component.workload?.connections,
+              orgName,
+              projectName,
+              completeComponents,
+            );
 
             return {
               id: component.name || '',
@@ -132,8 +145,8 @@ export class CellDiagramInfoService implements CellDiagramService {
               version: '1.0.0',
               type: ComponentType.SERVICE,
               services: services,
-              connections: [],
-            };
+              connections: connections,
+            } as Component;
           }
           if (component.type === 'WebApplication') {
             return {
@@ -159,13 +172,17 @@ export class CellDiagramInfoService implements CellDiagramService {
                   },
                 },
               },
-              connections: [],
-            };
+              connections: this.generateConnections(
+                component.workload?.connections,
+                orgName,
+                projectName,
+                completeComponents,
+              ),
+            } as Component;
           }
           return null;
         })
         .filter((component): component is Component => component !== null);
-
 
       const project: Project = {
         id: projectName,
@@ -185,16 +202,43 @@ export class CellDiagramInfoService implements CellDiagramService {
     }
   }
 
-  /**
-   * Static factory method to create a new CellDiagramInfoService instance.
-   * @param {LoggerService} logger - Logger service instance
-   * @param {string} baseUrl - Base URL of the OpenChoreo API
-   * @returns {CellDiagramInfoService} New service instance
-   */
-  static create(
-    logger: LoggerService,
-    baseUrl: string,
-  ): CellDiagramInfoService {
-    return new CellDiagramInfoService(logger, baseUrl);
+  private generateConnections(
+    connections: { [key: string]: WorkloadConnection } | undefined,
+    orgName: string,
+    projectName: string,
+    completeComponents: ModelsCompleteComponent[],
+  ): Connection[] {
+    if (!connections) {
+      return [];
+    }
+
+    const conns: Connection[] = [];
+    Object.entries(connections).forEach(
+      ([connectionName, connection]: [string, WorkloadConnection]) => {
+        const dependentComponentName = connection.params.componentName;
+        const dependentProjectName = connection.params.projectName;
+
+        // Check if dependent component is within the same project
+        const isInternal = dependentProjectName === projectName;
+        const dependentComponent = completeComponents.find(
+          comp => comp.name === dependentComponentName,
+        );
+
+        const connectionId =
+          isInternal && dependentComponent
+            ? `${orgName}:${projectName}:${dependentComponent.name}:${connection.params.endpoint}`
+            : `${orgName}:${dependentProjectName}:${dependentComponentName}:${connection.params.endpoint}`;
+
+        conns.push({
+          id: connectionId,
+          label: connectionName,
+          type: ConnectionType.HTTP, // TODO Infer based on api response
+          onPlatform: isInternal,
+          tooltip: `Connection to ${dependentComponentName} in ${dependentProjectName}`,
+        });
+      },
+    );
+
+    return conns;
   }
 }

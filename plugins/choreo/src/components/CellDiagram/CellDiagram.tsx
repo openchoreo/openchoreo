@@ -43,7 +43,7 @@ export const CellDiagram = () => {
     <Page themeId="tool">
       <Header title="Architecture Diagram" type="tool">
         <HeaderLabel label="Project" value={entity.metadata.name} />
-      </Header> 
+      </Header>
       <Content>
         <CellView project={cellDiagramData} />
         <Suspense fallback={<Progress />} />
