@@ -24,6 +24,13 @@ type ComponentService struct {
 	logger              *slog.Logger
 }
 
+type PromoteComponentPayload struct {
+	models.PromoteComponentRequest
+	ComponentName string `json:"componentName"`
+	ProjectName   string `json:"projectName"`
+	OrgName       string `json:"orgName"`
+}
+
 // NewComponentService creates a new component service
 func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger) *ComponentService {
 	return &ComponentService{
@@ -418,29 +425,10 @@ func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, pro
 
 // getServiceBinding retrieves a ServiceBinding from the cluster
 func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// List all ServiceBindings in the namespace
-	// Note: Field selectors don't support nested fields, so we'll filter client-side
-	bindingList := &openchoreov1alpha1.ServiceBindingList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
-	}
-
-	if err := s.k8sClient.List(ctx, bindingList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list service bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	var binding *openchoreov1alpha1.ServiceBinding
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			binding = b
-			break
-		}
-	}
-
-	if binding == nil {
-		return nil, ErrBindingNotFound
+	// Use the reusable CR method to get the ServiceBinding
+	binding, err := s.getServiceBindingCR(ctx, orgName, componentName, environment)
+	if err != nil {
+		return nil, err
 	}
 
 	// Convert to response model
@@ -460,7 +448,7 @@ func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, compo
 			response.BindingStatus.Reason = condition.Reason
 			response.BindingStatus.Message = condition.Message
 			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
-			
+
 			// Map condition status and reason to UI-friendly status
 			response.BindingStatus.Status = s.mapConditionToBindingStatus(condition)
 			break
@@ -479,29 +467,10 @@ func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, compo
 
 // getWebApplicationBinding retrieves a WebApplicationBinding from the cluster
 func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// List all WebApplicationBindings in the namespace
-	// Note: Field selectors don't support nested fields, so we'll filter client-side
-	bindingList := &openchoreov1alpha1.WebApplicationBindingList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
-	}
-
-	if err := s.k8sClient.List(ctx, bindingList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list web application bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	var binding *openchoreov1alpha1.WebApplicationBinding
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			binding = b
-			break
-		}
-	}
-
-	if binding == nil {
-		return nil, ErrBindingNotFound
+	// Use the reusable CR method to get the WebApplicationBinding
+	binding, err := s.getWebApplicationBindingCR(ctx, orgName, componentName, environment)
+	if err != nil {
+		return nil, err
 	}
 
 	// Convert to response model
@@ -521,7 +490,7 @@ func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName
 			response.BindingStatus.Reason = condition.Reason
 			response.BindingStatus.Message = condition.Message
 			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
-			
+
 			// Map condition status and reason to UI-friendly status
 			response.BindingStatus.Status = s.mapConditionToBindingStatus(condition)
 			break
@@ -540,29 +509,10 @@ func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName
 
 // getScheduledTaskBinding retrieves a ScheduledTaskBinding from the cluster
 func (s *ComponentService) getScheduledTaskBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// List all ScheduledTaskBindings in the namespace
-	// Note: Field selectors don't support nested fields, so we'll filter client-side
-	bindingList := &openchoreov1alpha1.ScheduledTaskBindingList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
-	}
-
-	if err := s.k8sClient.List(ctx, bindingList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list scheduled task bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	var binding *openchoreov1alpha1.ScheduledTaskBinding
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			binding = b
-			break
-		}
-	}
-
-	if binding == nil {
-		return nil, ErrBindingNotFound
+	// Use the reusable CR method to get the ScheduledTaskBinding
+	binding, err := s.getScheduledTaskBindingCR(ctx, orgName, componentName, environment)
+	if err != nil {
+		return nil, err
 	}
 
 	// Convert to response model
@@ -671,7 +621,7 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 	for _, path := range pipeline.Spec.PromotionPaths {
 		// Add source environment
 		environmentSet[path.SourceEnvironmentRef] = true
-		
+
 		// Add target environments
 		for _, target := range path.TargetEnvironmentRefs {
 			environmentSet[target.Name] = true
@@ -686,6 +636,45 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 
 	s.logger.Debug("Extracted environments from deployment pipeline", "pipeline", pipelineName, "environments", environments)
 	return environments, nil
+}
+
+// PromoteComponent promotes a component from source environment to target environment
+func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteComponentPayload) ([]*models.BindingResponse, error) {
+	s.logger.Debug("Promoting component", "org", req.OrgName, "project", req.ProjectName, "component", req.ComponentName,
+		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
+
+	// Validate that the promotion path is allowed by the deployment pipeline
+	if err := s.validatePromotionPath(ctx, req.OrgName, req.ProjectName, req.SourceEnvironment, req.TargetEnvironment); err != nil {
+		return nil, err
+	}
+
+	// Get the component to determine its type
+	component, err := s.GetComponent(ctx, req.OrgName, req.ProjectName, req.ComponentName, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Create or update the target binding
+	if err := s.createOrUpdateTargetBinding(ctx, req, component.Type); err != nil {
+		return nil, fmt.Errorf("failed to create target binding: %w", err)
+	}
+
+	// Return all bindings for the component after promotion
+	allEnvironments, err := s.getEnvironmentsFromDeploymentPipeline(ctx, req.OrgName, req.ProjectName)
+	if err != nil {
+		s.logger.Warn("Failed to get environments from deployment pipeline, returning empty list", "error", err)
+		allEnvironments = []string{req.SourceEnvironment, req.TargetEnvironment}
+	}
+
+	bindings, err := s.GetComponentBindings(ctx, req.OrgName, req.ProjectName, req.ComponentName, allEnvironments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component bindings after promotion: %w", err)
+	}
+
+	s.logger.Debug("Component promoted successfully", "org", req.OrgName, "project", req.ProjectName, "component", req.ComponentName,
+		"source", req.SourceEnvironment, "target", req.TargetEnvironment, "bindingsCount", len(bindings))
+
+	return bindings, nil
 }
 
 // extractImageFromWorkloadSpec extracts the first container image from the workload spec
@@ -712,24 +701,320 @@ func (s *ComponentService) mapConditionToBindingStatus(condition metav1.Conditio
 	if condition.Status == metav1.ConditionTrue {
 		switch condition.Reason {
 		case "AllResourcesReady":
-			return models.BindingStatusTypeReady  // "Active"
+			return models.BindingStatusTypeReady // "Active"
 		case "ResourcesReadyWithSuspended":
-			return models.BindingStatusTypeSuspended  // "Suspended"
+			return models.BindingStatusTypeSuspended // "Suspended"
 		default:
-			return models.BindingStatusTypeReady  // "Active"
+			return models.BindingStatusTypeReady // "Active"
 		}
 	}
-	
+
 	// Condition status is False
 	switch condition.Reason {
 	case "ResourceHealthProgressing":
 		// Use BindingStatusTypePending which maps to "InProgress" in UI
-		return models.BindingStatusTypePending  // "InProgress"
+		return models.BindingStatusTypePending // "InProgress"
 	case "ResourceHealthDegraded", "ServiceClassNotFound", "APIClassNotFound",
 		"InvalidConfiguration", "ReleaseCreationFailed", "ReleaseUpdateFailed":
-		return models.BindingStatusTypeFailed  // "Failed"
+		return models.BindingStatusTypeFailed // "Failed"
 	default:
 		// For unknown/initial states, use NotYetDeployed
-		return models.BindingStatusTypeInProgress  // "NotYetDeployed"
+		return models.BindingStatusTypeInProgress // "NotYetDeployed"
 	}
+}
+
+// validatePromotionPath validates that the promotion path is allowed by the deployment pipeline
+func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, projectName, sourceEnv, targetEnv string) error {
+	// Get the project to determine the deployment pipeline reference
+	project, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		return err
+	}
+
+	var pipelineName string
+	if project.DeploymentPipeline != "" {
+		pipelineName = project.DeploymentPipeline
+	} else {
+		pipelineName = "default"
+	}
+
+	// Get the deployment pipeline
+	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
+	key := client.ObjectKey{
+		Name:      pipelineName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, pipeline); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrDeploymentPipelineNotFound
+		}
+		return fmt.Errorf("failed to get deployment pipeline: %w", err)
+	}
+
+	// Check if the promotion path is valid
+	for _, path := range pipeline.Spec.PromotionPaths {
+		if path.SourceEnvironmentRef == sourceEnv {
+			for _, target := range path.TargetEnvironmentRefs {
+				if target.Name == targetEnv {
+					s.logger.Debug("Valid promotion path found", "source", sourceEnv, "target", targetEnv)
+					return nil
+				}
+			}
+		}
+	}
+
+	s.logger.Warn("Invalid promotion path", "source", sourceEnv, "target", targetEnv, "pipeline", pipelineName)
+	return ErrInvalidPromotionPath
+}
+
+// createOrUpdateTargetBinding creates or updates the binding in the target environment
+func (s *ComponentService) createOrUpdateTargetBinding(ctx context.Context, req *PromoteComponentPayload, componentType string) error {
+	switch openchoreov1alpha1.ComponentType(componentType) {
+	case openchoreov1alpha1.ComponentTypeService:
+		return s.createOrUpdateServiceBinding(ctx, req)
+	case openchoreov1alpha1.ComponentTypeWebApplication:
+		return s.createOrUpdateWebApplicationBinding(ctx, req)
+	case openchoreov1alpha1.ComponentTypeScheduledTask:
+		return s.createOrUpdateScheduledTaskBinding(ctx, req)
+	default:
+		return fmt.Errorf("unsupported component type: %s", componentType)
+	}
+}
+
+// getServiceBindingCR retrieves a ServiceBinding CR from the cluster
+func (s *ComponentService) getServiceBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.ServiceBinding, error) {
+	// List all ServiceBindings in the namespace and filter by owner and environment
+	bindingList := &openchoreov1alpha1.ServiceBindingList{}
+	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
+		return nil, fmt.Errorf("failed to list service bindings: %w", err)
+	}
+
+	// Find the binding that matches the component and environment
+	for i := range bindingList.Items {
+		b := &bindingList.Items[i]
+		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
+			return b, nil
+		}
+	}
+
+	return nil, ErrBindingNotFound
+}
+
+// createOrUpdateServiceBinding creates or updates a ServiceBinding in the target environment
+func (s *ComponentService) createOrUpdateServiceBinding(ctx context.Context, req *PromoteComponentPayload) error {
+	// Get the source ServiceBinding CR using the new reusable method
+	sourceK8sBinding, err := s.getServiceBindingCR(ctx, req.OrgName, req.ComponentName, req.SourceEnvironment)
+	if err != nil {
+		return fmt.Errorf("failed to get source service binding: %w", err)
+	}
+
+	// First check if there's already a binding for this component in the target environment
+	existingTargetBinding, err := s.getServiceBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
+	var targetBindingName string
+
+	if err != nil && err != ErrBindingNotFound {
+		return fmt.Errorf("failed to check existing target binding: %w", err)
+	}
+
+	if err == ErrBindingNotFound {
+		// No existing binding, generate new name
+		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
+	} else {
+		// Existing binding found, use its name
+		targetBindingName = existingTargetBinding.Name
+	}
+
+	// Create or update the target ServiceBinding
+	targetBinding := &openchoreov1alpha1.ServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      targetBindingName,
+			Namespace: req.OrgName,
+		},
+		Spec: openchoreov1alpha1.ServiceBindingSpec{
+			Owner: openchoreov1alpha1.ServiceOwner{
+				ProjectName:   req.ProjectName,
+				ComponentName: req.ComponentName,
+			},
+			Environment:  req.TargetEnvironment,
+			ClassName:    sourceK8sBinding.Spec.ClassName,
+			WorkloadSpec: sourceK8sBinding.Spec.WorkloadSpec,
+			APIs:         sourceK8sBinding.Spec.APIs,
+		},
+	}
+
+	if existingTargetBinding == nil {
+		// Create new binding
+		if err := s.k8sClient.Create(ctx, targetBinding); err != nil {
+			return fmt.Errorf("failed to create target service binding: %w", err)
+		}
+		s.logger.Debug("Created new ServiceBinding", "name", targetBindingName, "namespace", req.OrgName)
+	} else {
+		// Update existing binding
+		existingTargetBinding.Spec = targetBinding.Spec
+		if err := s.k8sClient.Update(ctx, existingTargetBinding); err != nil {
+			return fmt.Errorf("failed to update target service binding: %w", err)
+		}
+		s.logger.Debug("Updated existing ServiceBinding", "name", targetBindingName, "namespace", req.OrgName)
+	}
+
+	return nil
+}
+
+// getWebApplicationBindingCR retrieves a WebApplicationBinding CR from the cluster
+func (s *ComponentService) getWebApplicationBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.WebApplicationBinding, error) {
+	// List all WebApplicationBindings in the namespace and filter by owner and environment
+	bindingList := &openchoreov1alpha1.WebApplicationBindingList{}
+	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
+		return nil, fmt.Errorf("failed to list web application bindings: %w", err)
+	}
+
+	// Find the binding that matches the component and environment
+	for i := range bindingList.Items {
+		b := &bindingList.Items[i]
+		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
+			return b, nil
+		}
+	}
+
+	return nil, ErrBindingNotFound
+}
+
+// createOrUpdateWebApplicationBinding creates or updates a WebApplicationBinding in the target environment
+func (s *ComponentService) createOrUpdateWebApplicationBinding(ctx context.Context, req *PromoteComponentPayload) error {
+	// Get the source WebApplicationBinding CR using the new reusable method
+	sourceK8sBinding, err := s.getWebApplicationBindingCR(ctx, req.OrgName, req.ComponentName, req.SourceEnvironment)
+	if err != nil {
+		return fmt.Errorf("failed to get source web application binding: %w", err)
+	}
+
+	// First check if there's already a binding for this component in the target environment
+	existingTargetBinding, err := s.getWebApplicationBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
+	var targetBindingName string
+
+	if err != nil && err != ErrBindingNotFound {
+		return fmt.Errorf("failed to check existing target binding: %w", err)
+	}
+
+	if err == ErrBindingNotFound {
+		// No existing binding, generate new name
+		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
+	} else {
+		// Existing binding found, use its name
+		targetBindingName = existingTargetBinding.Name
+	}
+
+	// Create or update the target WebApplicationBinding
+	targetBinding := &openchoreov1alpha1.WebApplicationBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      targetBindingName,
+			Namespace: req.OrgName,
+		},
+		Spec: openchoreov1alpha1.WebApplicationBindingSpec{
+			Owner: openchoreov1alpha1.WebApplicationOwner{
+				ProjectName:   req.ProjectName,
+				ComponentName: req.ComponentName,
+			},
+			Environment:  req.TargetEnvironment,
+			ClassName:    sourceK8sBinding.Spec.ClassName,
+			WorkloadSpec: sourceK8sBinding.Spec.WorkloadSpec,
+			Overrides:    sourceK8sBinding.Spec.Overrides,
+		},
+	}
+
+	if existingTargetBinding == nil {
+		// Create new binding
+		if err := s.k8sClient.Create(ctx, targetBinding); err != nil {
+			return fmt.Errorf("failed to create target web application binding: %w", err)
+		}
+		s.logger.Debug("Created new WebApplicationBinding", "name", targetBindingName, "namespace", req.OrgName)
+	} else {
+		// Update existing binding
+		existingTargetBinding.Spec = targetBinding.Spec
+		if err := s.k8sClient.Update(ctx, existingTargetBinding); err != nil {
+			return fmt.Errorf("failed to update target web application binding: %w", err)
+		}
+		s.logger.Debug("Updated existing WebApplicationBinding", "name", targetBindingName, "namespace", req.OrgName)
+	}
+
+	return nil
+}
+
+// getScheduledTaskBindingCR retrieves a ScheduledTaskBinding CR from the cluster
+func (s *ComponentService) getScheduledTaskBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.ScheduledTaskBinding, error) {
+	// List all ScheduledTaskBindings in the namespace and filter by owner and environment
+	bindingList := &openchoreov1alpha1.ScheduledTaskBindingList{}
+	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
+		return nil, fmt.Errorf("failed to list scheduled task bindings: %w", err)
+	}
+
+	// Find the binding that matches the component and environment
+	for i := range bindingList.Items {
+		b := &bindingList.Items[i]
+		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
+			return b, nil
+		}
+	}
+
+	return nil, ErrBindingNotFound
+}
+
+// createOrUpdateScheduledTaskBinding creates or updates a ScheduledTaskBinding in the target environment
+func (s *ComponentService) createOrUpdateScheduledTaskBinding(ctx context.Context, req *PromoteComponentPayload) error {
+	// Get the source ScheduledTaskBinding CR using the new reusable method
+	sourceK8sBinding, err := s.getScheduledTaskBindingCR(ctx, req.OrgName, req.ComponentName, req.SourceEnvironment)
+	if err != nil {
+		return fmt.Errorf("failed to get source scheduled task binding: %w", err)
+	}
+
+	// First check if there's already a binding for this component in the target environment
+	existingTargetBinding, err := s.getScheduledTaskBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
+	var targetBindingName string
+
+	if err != nil && err != ErrBindingNotFound {
+		return fmt.Errorf("failed to check existing target binding: %w", err)
+	}
+
+	if err == ErrBindingNotFound {
+		// No existing binding, generate new name
+		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
+	} else {
+		// Existing binding found, use its name
+		targetBindingName = existingTargetBinding.Name
+	}
+
+	// Create or update the target ScheduledTaskBinding
+	targetBinding := &openchoreov1alpha1.ScheduledTaskBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      targetBindingName,
+			Namespace: req.OrgName,
+		},
+		Spec: openchoreov1alpha1.ScheduledTaskBindingSpec{
+			Owner: openchoreov1alpha1.ScheduledTaskOwner{
+				ProjectName:   req.ProjectName,
+				ComponentName: req.ComponentName,
+			},
+			Environment:  req.TargetEnvironment,
+			ClassName:    sourceK8sBinding.Spec.ClassName,
+			WorkloadSpec: sourceK8sBinding.Spec.WorkloadSpec,
+			Overrides:    sourceK8sBinding.Spec.Overrides,
+		},
+	}
+
+	if existingTargetBinding == nil {
+		// Create new binding
+		if err := s.k8sClient.Create(ctx, targetBinding); err != nil {
+			return fmt.Errorf("failed to create target scheduled task binding: %w", err)
+		}
+		s.logger.Debug("Created new ScheduledTaskBinding", "name", targetBindingName, "namespace", req.OrgName)
+	} else {
+		// Update existing binding
+		existingTargetBinding.Spec = targetBinding.Spec
+		if err := s.k8sClient.Update(ctx, existingTargetBinding); err != nil {
+			return fmt.Errorf("failed to update target scheduled task binding: %w", err)
+		}
+		s.logger.Debug("Updated existing ScheduledTaskBinding", "name", targetBindingName, "namespace", req.OrgName)
+	}
+
+	return nil
 }

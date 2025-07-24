@@ -75,7 +75,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
 
 	// This is the promotion endpoint...
-	// mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/binding", h.CreateComponentBinding)
+	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
 
 	// Build endpoints
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)

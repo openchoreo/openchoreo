@@ -18,6 +18,7 @@ var (
 	ErrDataPlaneAlreadyExists       = errors.New("dataplane already exists")
 	ErrBindingNotFound              = errors.New("binding not found")
 	ErrDeploymentPipelineNotFound   = errors.New("deployment pipeline not found")
+	ErrInvalidPromotionPath         = errors.New("invalid promotion path")
 )
 
 // Error codes for API responses
@@ -33,6 +34,7 @@ const (
 	CodeDataPlaneExists              = "DATAPLANE_EXISTS"
 	CodeBindingNotFound              = "BINDING_NOT_FOUND"
 	CodeDeploymentPipelineNotFound   = "DEPLOYMENT_PIPELINE_NOT_FOUND"
+	CodeInvalidPromotionPath         = "INVALID_PROMOTION_PATH"
 	CodeInvalidInput                 = "INVALID_INPUT"
 	CodeInternalError                = "INTERNAL_ERROR"
 )

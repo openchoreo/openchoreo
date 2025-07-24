@@ -184,5 +184,78 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	} else {
 		logger.Debug("Retrieved component bindings successfully", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
 	}
-	writeSuccessResponse(w, http.StatusOK, bindings)
+	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
+}
+
+func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("PromoteComponent handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Parse request body
+	var req models.PromoteComponentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+	defer r.Body.Close()
+
+	// Sanitize input
+	req.Sanitize()
+
+	promoteReq := &services.PromoteComponentPayload{
+		PromoteComponentRequest: req,
+		ComponentName:           componentName,
+		ProjectName:             projectName,
+		OrgName:                 orgName,
+	}
+
+	// Call service to promote component
+	bindings, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrDeploymentPipelineNotFound) {
+			logger.Warn("Deployment pipeline not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Deployment pipeline not found", services.CodeDeploymentPipelineNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidPromotionPath) {
+			logger.Warn("Invalid promotion path", "source", req.SourceEnvironment, "target", req.TargetEnvironment)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid promotion path", services.CodeInvalidPromotionPath)
+			return
+		}
+		if errors.Is(err, services.ErrBindingNotFound) {
+			logger.Warn("Source binding not found", "org", orgName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
+			writeErrorResponse(w, http.StatusNotFound, "Source binding not found", services.CodeBindingNotFound)
+			return
+		}
+		logger.Error("Failed to promote component", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Component promoted successfully", "org", orgName, "project", projectName, "component", componentName,
+		"source", req.SourceEnvironment, "target", req.TargetEnvironment, "bindingsCount", len(bindings))
+	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }

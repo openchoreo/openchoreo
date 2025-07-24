@@ -32,6 +32,13 @@ type CreateComponentRequest struct {
 	BuildConfig BuildConfig `json:"buildConfig,omitempty"`
 }
 
+// Promote from one environment to another
+type PromoteComponentRequest struct {
+	SourceEnvironment string `json:"sourceEnv"`
+	TargetEnvironment string `json:"targetEnv"`
+	// TODO Support overrides for the target environment
+}
+
 // CreateEnvironmentRequest represents the request to create a new environment
 type CreateEnvironmentRequest struct {
 	Name         string `json:"name"`
@@ -85,6 +92,12 @@ func (req *CreateDataPlaneRequest) Validate() error {
 	return nil
 }
 
+// Validate validates the PromoteComponentRequest
+func (req *PromoteComponentRequest) Validate() error {
+	// TODO: Implement custom validation using Go stdlib
+	return nil
+}
+
 // Sanitize sanitizes the CreateProjectRequest by trimming whitespace
 func (req *CreateProjectRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
@@ -128,4 +141,10 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.ObserverURL = strings.TrimSpace(req.ObserverURL)
 	req.ObserverUsername = strings.TrimSpace(req.ObserverUsername)
 	req.ObserverPassword = strings.TrimSpace(req.ObserverPassword)
+}
+
+// Sanitize sanitizes the PromoteComponentRequest by trimming whitespace
+func (req *PromoteComponentRequest) Sanitize() {
+	req.SourceEnvironment = strings.TrimSpace(req.SourceEnvironment)
+	req.TargetEnvironment = strings.TrimSpace(req.TargetEnvironment)
 }
