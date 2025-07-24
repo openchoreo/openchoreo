@@ -37,6 +37,7 @@ export const choreoPlugin = createBackendPlugin({
         const environmentInfoService = new EnvironmentInfoService(
           logger,
           openchoreoConfig.get('baseUrl'),
+          openchoreoConfig.getOptional('token'),
         );
 
         const cellDiagramInfoService = new CellDiagramInfoService(

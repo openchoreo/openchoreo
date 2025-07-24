@@ -8,16 +8,27 @@ export interface EnvironmentService {
   }): Promise<Environment[]>;
 }
 
+export interface EndpointInfo {
+  name: string;
+  type: string;
+  url: string;
+  visibility: 'project' | 'organization' | 'public';
+}
+
 export interface Environment {
   name: string;
   deployment: {
-    status: 'success' | 'failed';
-    lastDeployed: string;
+    status: 'success' | 'failed' | 'pending' | 'not-deployed' | 'suspended';
+    lastDeployed?: string;
+    image?: string;
+    statusMessage?: string;
   };
-  endpoint: {
-    url: string;
-    status: 'active' | 'inactive';
-  };
+  endpoints: EndpointInfo[];
+  promotionTargets?: {
+    name: string;
+    requiresApproval?: boolean;
+    isManualApprovalRequired?: boolean;
+  }[];
 }
 
 export type ObjectToFetch = {
