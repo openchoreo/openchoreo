@@ -15,6 +15,7 @@ export const createComponentAction = (config: Config) => {
     branch?: string;
     componentPath?: string;
     buildTemplateName?: string;
+    buildParameters?: Record<string, any>;
   }>({
     id: 'openchoreo:component:create',
     description: 'Create OpenChoreo Component',
@@ -79,6 +80,11 @@ export const createComponentAction = (config: Config) => {
             title: 'Build Template Name',
             description: 'The name of the build template to use (e.g., java-maven, nodejs-npm)',
           },
+          buildParameters: {
+            type: 'object',
+            title: 'Build Parameters',
+            description: 'Parameters specific to the selected build template',
+          },
         },
       },
       output: {
@@ -132,11 +138,21 @@ export const createComponentAction = (config: Config) => {
       // Build configuration for built-in CI
       let buildConfig = undefined;
       if (ctx.input.useBuiltInCI && ctx.input.repoUrl && ctx.input.branch && ctx.input.componentPath && ctx.input.buildTemplateName) {
+        // Convert buildParameters object to array of TemplateParameter
+        let buildTemplateParams = undefined;
+        if (ctx.input.buildParameters && Object.keys(ctx.input.buildParameters).length > 0) {
+          buildTemplateParams = Object.entries(ctx.input.buildParameters).map(([name, value]) => ({
+            name,
+            value: String(value),
+          }));
+        }
+        
         buildConfig = {
           repoUrl: ctx.input.repoUrl,
           repoBranch: ctx.input.branch,
           componentPath: ctx.input.componentPath,
           buildTemplateRef: ctx.input.buildTemplateName,
+          buildTemplateParams,
         };
         ctx.logger.info(`Build configuration created: ${JSON.stringify(buildConfig)}`);
       }

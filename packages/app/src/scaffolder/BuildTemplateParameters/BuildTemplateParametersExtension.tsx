@@ -43,8 +43,8 @@ export const BuildTemplateParameters = ({
   const identityApi = useApi(identityApiRef);
 
   // Get the selected build template and organization from form context
-  const selectedTemplateName = formContext.formData?.build_template_name;
-  const organizationName = formContext.formData?.organization_name;
+  const selectedTemplateName = formContext?.formData?.build_template_name;
+  const organizationName = formContext?.formData?.organization_name;
 
   // Fetch build templates when organization changes
   useEffect(() => {
@@ -245,6 +245,10 @@ export const buildTemplateParametersValidation = (
   validation: any,
   { formContext }: any
 ) => {
+  if (!formContext) {
+    return;
+  }
+  
   const selectedTemplateName = formContext.formData?.build_template_name;
   const buildTemplates: ModelsBuildTemplate[] = formContext.buildTemplates || [];
   

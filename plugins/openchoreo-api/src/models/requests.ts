@@ -63,11 +63,17 @@ export type ProjectsPostRequest = {
  * Build configuration for component creation
  * @public
  */
+export type TemplateParameter = {
+  name: string;
+  value: string;
+};
+
 export type BuildConfig = {
   repoUrl: string;
   repoBranch: string;
   componentPath: string;
   buildTemplateRef: string;
+  buildTemplateParams?: TemplateParameter[];
 };
 
 /**
