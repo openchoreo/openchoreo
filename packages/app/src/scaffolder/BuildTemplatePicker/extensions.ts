@@ -15,6 +15,5 @@ export const BuildTemplatePickerFieldExtension = scaffolderPlugin.provide(
     name: 'BuildTemplatePicker',
     component: BuildTemplatePicker,
     validation: buildTemplatePickerValidation,
-    // schema: BuildTemplatePickerSchema,
   }),
 );

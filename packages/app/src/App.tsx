@@ -12,6 +12,7 @@ import {
 import { ScaffolderPage, scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { ScaffolderFieldExtensions } from '@backstage/plugin-scaffolder-react';
 import { BuildTemplatePickerFieldExtension } from './scaffolder/BuildTemplatePicker';
+import { BuildTemplateParametersFieldExtension } from './scaffolder/BuildTemplateParameters';
 import { orgPlugin } from '@backstage/plugin-org';
 import { SearchPage } from '@backstage/plugin-search';
 import {
@@ -84,6 +85,7 @@ const routes = (
     <Route path="/create" element={<ScaffolderPage />}>
       <ScaffolderFieldExtensions>
         <BuildTemplatePickerFieldExtension />
+        <BuildTemplateParametersFieldExtension />
       </ScaffolderFieldExtensions>
     </Route>
     <Route path="/api-docs" element={<ApiExplorerPage />} />

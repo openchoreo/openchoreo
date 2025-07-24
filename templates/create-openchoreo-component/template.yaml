@@ -55,11 +55,6 @@ spec:
             - WebApplication
             - ScheduledTask
             - APIProxy
-          enumNames:
-            - 'Service is a long running process that exposes one or more APIs.'
-            - 'Web Application is a user-facing application that runs in a web browser.'
-            - 'Scheduled Task is a background job that runs on a schedule.'
-            - 'API Proxy is a service that acts as a gateway to other APIs.'
 
     - title: CI Setup
       required:
@@ -107,19 +102,11 @@ spec:
                     type: string
                     description: Name of the Argo Workflow build template to use
                     ui:field: BuildTemplatePicker
-                  # build_parameters:
-                  #   title: Build Parameters
-                  #   type: array
-                  #   description: Optional parameters to pass to the build template
-                  #   items:
-                  #     type: object
-                  #     properties:
-                  #       name: 
-                  #         title: Parameter Name
-                  #         type: string
-                  #       value:
-                  #         title: Parameter Value
-                  #         type: string
+                  build_parameters:
+                    title: Build Template Parameters
+                    type: object
+                    description: Parameters specific to the selected build template
+                    ui:field: BuildTemplateParameters
                 required:
                   - build_template_name
                   - repo_url
@@ -154,4 +141,4 @@ spec:
         branch: ${{ parameters.branch }}
         componentPath: ${{ parameters.component_path }}
         buildTemplateName: ${{ parameters.build_template_name }}
-        # buildParameters: ${{ parameters.build_parameters }}
+        buildParameters: ${{ parameters.build_parameters }}

@@ -22,7 +22,7 @@ export interface BuildTemplateParameter {
   /**
    * Default value for the parameter
    */
-  defaultValue?: string;
+  default?: string;
   /**
    * Whether the parameter is required
    */

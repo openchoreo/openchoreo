@@ -38,6 +38,10 @@ export const BuildTemplatePicker = ({
     const fetchBuildTemplates = async () => {
       if (!organizationName) {
         setBuildTemplates([]);
+        // Clear templates from form context when no organization
+        if (formContext.buildTemplates) {
+          delete formContext.buildTemplates;
+        }
         return;
       }
 
@@ -70,10 +74,17 @@ export const BuildTemplatePicker = ({
         
         const templates = await response.json();
         setBuildTemplates(templates);
+        
+        // Store templates in form context so other components can access them
+        formContext.buildTemplates = templates;
       } catch (err) {
         setError(`Failed to fetch build templates: ${err}`);
         console.error('Error fetching build templates:', err);
         setBuildTemplates([]);
+        // Clear templates from form context on error
+        if (formContext.buildTemplates) {
+          delete formContext.buildTemplates;
+        }
       } finally {
         setLoading(false);
       }
@@ -84,6 +95,10 @@ export const BuildTemplatePicker = ({
 
   const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
     onChange(event.target.value as string);
+    // Ensure templates are still in form context when selection changes
+    if (buildTemplates.length > 0) {
+      formContext.buildTemplates = buildTemplates;
+    }
   };
 
   return (
@@ -115,8 +130,7 @@ export const BuildTemplatePicker = ({
         )}
         {!loading && buildTemplates.map((template) => (
           <MenuItem key={template.name} value={template.name}>
-            {template.displayName || template.name}
-            {template.description && ` - ${template.description}`}
+            {template.name}
           </MenuItem>
         ))}
       </Select>
