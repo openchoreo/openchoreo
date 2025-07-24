@@ -4,6 +4,11 @@
 package render
 
 import (
+	"bytes"
+	"fmt"
+	"sort"
+	"text/template"
+
 	corev1 "k8s.io/api/core/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -79,7 +84,85 @@ func makeEnvironmentVariables(rCtx Context) []corev1.EnvVar {
 		break // Use only the first container's env vars as this is for the main container
 	}
 
+	// Process connection environment variables
+	connectionEnvVars := makeConnectionEnvironmentVariables(rCtx)
+	k8sEnvVars = append(k8sEnvVars, connectionEnvVars...)
+
 	return k8sEnvVars
+}
+
+func makeConnectionEnvironmentVariables(rCtx Context) []corev1.EnvVar {
+	var k8sEnvVars []corev1.EnvVar
+
+	wls := rCtx.ServiceBinding.Spec.WorkloadSpec
+	
+	// Get connection names and sort them for deterministic ordering
+	var connectionNames []string
+	for name := range wls.Connections {
+		connectionNames = append(connectionNames, name)
+	}
+	sort.Strings(connectionNames)
+	
+	// Process connections in sorted order
+	for _, connectionName := range connectionNames {
+		connection := wls.Connections[connectionName]
+		
+		if connection.Type != openchoreov1alpha1.ConnectionTypeAPI {
+			continue // TODO: Only handle API connections for POC
+		}
+
+		// Get pre-resolved endpoint access from controller
+		resolvedEndpoint, exists := rCtx.ResolvedConnections[connectionName]
+		if !exists {
+			rCtx.AddError(fmt.Errorf("no resolved endpoint for connection %s", connectionName))
+			continue
+		}
+
+		// Convert interface{} to *EndpointAccess
+		endpointAccess, ok := resolvedEndpoint.(*openchoreov1alpha1.EndpointAccess)
+		if !ok {
+			rCtx.AddError(fmt.Errorf("invalid resolved endpoint type for connection %s", connectionName))
+			continue
+		}
+
+		// Process each environment variable injection
+		for _, envVar := range connection.Inject.Env {
+			resolvedValue := processEndpointTemplate(envVar.Value, endpointAccess)
+			k8sEnvVars = append(k8sEnvVars, corev1.EnvVar{
+				Name:  envVar.Name,
+				Value: resolvedValue,
+			})
+		}
+	}
+
+	return k8sEnvVars
+}
+
+func processEndpointTemplate(templateStr string, endpoint *openchoreov1alpha1.EndpointAccess) string {
+	// Create a map with lowercase field names for user convenience
+	data := map[string]string{
+		"host":     endpoint.Host,
+		"port":     fmt.Sprintf("%d", endpoint.Port),
+		"scheme":   endpoint.Scheme,
+		"basePath": endpoint.BasePath,
+		"uri":      endpoint.URI,
+		"url":      endpoint.URI, // Common alias for uri
+	}
+	
+	// Parse and execute the template
+	tmpl, err := template.New("connection").Parse(templateStr)
+	if err != nil {
+		// If template parsing fails, return the original string
+		return templateStr
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// If template execution fails, return the original string
+		return templateStr
+	}
+	
+	return buf.String()
 }
 
 //

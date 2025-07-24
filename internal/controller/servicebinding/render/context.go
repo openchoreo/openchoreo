@@ -10,9 +10,10 @@ import (
 )
 
 type Context struct {
-	ServiceBinding *openchoreov1alpha1.ServiceBinding
-	ServiceClass   *openchoreov1alpha1.ServiceClass
-	APIClasses     map[string]*openchoreov1alpha1.APIClass
+	ServiceBinding      *openchoreov1alpha1.ServiceBinding
+	ServiceClass        *openchoreov1alpha1.ServiceClass
+	APIClasses          map[string]*openchoreov1alpha1.APIClass
+	ResolvedConnections map[string]interface{}
 	// Stores the errors encountered during rendering.
 	errs []error
 }

@@ -25,24 +25,8 @@ spec:
           value: "1"
         - key: PORT
           value: "8080"
-        - key: AD_SERVICE_ADDR
-          value: "ad-70ba3370:9555"
-        - key: CART_SERVICE_ADDR
-          value: "cart-1c42ddc0:7070"
-        - key: CHECKOUT_SERVICE_ADDR
-          value: "checkout-c7761e58:5050"
-        - key: CURRENCY_SERVICE_ADDR
-          value: "currency-466e5b9c:7000"
-        - key: PAYMENT_SERVICE_ADDR
-          value: "payment-040ffd59:50051"
-        - key: RECOMMENDATION_SERVICE_ADDR
-          value: "recommendation-dbfe9375:8080"
-        - key: SHIPPING_SERVICE_ADDR
-          value: "shipping-74006267:50055"
-        - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog-5c8ab466:3550"
         - key: SHOPPING_ASSISTANT_SERVICE_ADDR
-          value: "shoppingassistant-8c4f1b2a:5000"
+          value: "-" # We don't deploy this service. See https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/helm-chart/values.yaml#L218
         - key: CYMBAL_BRANDING
           value: "false"
         - key: FRONTEND_MESSAGE
@@ -136,16 +120,7 @@ spec:
         env:
           - name: PRODUCT_CATALOG_SERVICE_ADDR
             value: "{{ .host }}:{{ .port }}"
-    shoppingassistant:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: shoppingassistant
-        endpoint: http-endpoint
-      inject:
-        env:
-          - name: SHOPPING_ASSISTANT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
+
 
 
 ---

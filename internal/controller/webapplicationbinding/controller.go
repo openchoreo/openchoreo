@@ -35,6 +35,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationbindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=webapplicationclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -93,9 +94,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (rResult c
 func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, webApplicationClass *openchoreov1alpha1.WebApplicationClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Resolve API connections
+	resolvedConnections, err := r.resolveApiConnections(ctx, webApplicationBinding)
+	if err != nil {
+		logger.Error(err, "Failed to resolve API connections")
+		return ctrl.Result{}, err
+	}
+
 	rCtx := render.Context{
 		WebApplicationBinding: webApplicationBinding,
 		WebApplicationClass:   webApplicationClass,
+		ResolvedConnections:   resolvedConnections,
 	}
 
 	release := r.makeRelease(rCtx)
@@ -108,7 +117,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding
 	}
 
 	found := &openchoreov1alpha1.Release{}
-	err := r.Get(ctx, client.ObjectKey{Name: release.Name, Namespace: release.Namespace}, found)
+	err = r.Get(ctx, client.ObjectKey{Name: release.Name, Namespace: release.Namespace}, found)
 	if apierrors.IsNotFound(err) {
 		if err := r.Create(ctx, release); err != nil {
 			err = fmt.Errorf("failed to create release %q: %w", release.Name, err)
@@ -224,4 +233,59 @@ func (r *Reconciler) makeLabels(webApplicationBinding *openchoreov1alpha1.WebApp
 	result[labels.LabelKeyEnvironmentName] = webApplicationBinding.Spec.Environment
 	
 	return result
+}
+
+func (r *Reconciler) resolveApiConnections(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) (map[string]interface{}, error) {
+	results := make(map[string]interface{})
+
+	wls := webApplicationBinding.Spec.WorkloadSpec
+	for connectionName, connection := range wls.Connections {
+		if connection.Type != openchoreov1alpha1.ConnectionTypeAPI {
+			continue // Skip non-API connections for now
+		}
+
+		// Extract parameters
+		targetComponentName := connection.Params["componentName"]
+		targetEndpointName := connection.Params["endpoint"]
+
+		// Find target binding
+		targetBinding, err := r.findTargetServiceBinding(ctx, webApplicationBinding.Namespace, targetComponentName, webApplicationBinding.Spec.Environment)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find target binding for connection %s: %w", connectionName, err)
+		}
+
+		// Extract endpoint from binding status
+		var endpointAccess *openchoreov1alpha1.EndpointAccess
+		for _, ep := range targetBinding.Status.Endpoints {
+			if ep.Name == targetEndpointName {
+				endpointAccess = ep.Project // For POC, assume project-level access
+				break
+			}
+		}
+
+		if endpointAccess == nil {
+			return nil, fmt.Errorf("endpoint %s not found in target binding %s", targetEndpointName, targetComponentName)
+		}
+
+		// Build result map with template variables
+		results[connectionName] = endpointAccess
+	}
+	return results, nil
+}
+
+func (r *Reconciler) findTargetServiceBinding(ctx context.Context, namespace, componentName, environment string) (*openchoreov1alpha1.ServiceBinding, error) {
+	// List all ServiceBindings in the namespace
+	bindingList := &openchoreov1alpha1.ServiceBindingList{}
+	if err := r.List(ctx, bindingList, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list service bindings: %w", err)
+	}
+
+	// Find binding that matches both component name and environment
+	for _, binding := range bindingList.Items {
+		if binding.Spec.Owner.ComponentName == componentName && binding.Spec.Environment == environment {
+			return &binding, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no service binding found for component %s in environment %s", componentName, environment)
 }

@@ -124,10 +124,18 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 	serviceClass *openchoreov1alpha1.ServiceClass, apiClasses map[string]*openchoreov1alpha1.APIClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Resolve API connections
+	resolvedConnections, err := r.resolveApiConnections(ctx, serviceBinding)
+	if err != nil {
+		logger.Error(err, "Failed to resolve API connections")
+		return ctrl.Result{}, err
+	}
+
 	rCtx := render.Context{
-		ServiceBinding: serviceBinding,
-		ServiceClass:   serviceClass,
-		APIClasses:     apiClasses,
+		ServiceBinding:      serviceBinding,
+		ServiceClass:        serviceClass,
+		APIClasses:          apiClasses,
+		ResolvedConnections: resolvedConnections,
 	}
 	release := r.makeRelease(rCtx)
 	if len(rCtx.Errors()) > 0 {
@@ -139,7 +147,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 	}
 
 	found := &openchoreov1alpha1.Release{}
-	err := r.Get(ctx, types.NamespacedName{Name: release.Name, Namespace: release.Namespace}, found)
+	err = r.Get(ctx, types.NamespacedName{Name: release.Name, Namespace: release.Namespace}, found)
 	if apierrors.IsNotFound(err) {
 		if err := r.Create(ctx, release); err != nil {
 			err = fmt.Errorf("failed to create release %q: %w", release.Name, err)
@@ -269,4 +277,59 @@ func (r *Reconciler) makeLabels(serviceBinding *openchoreov1alpha1.ServiceBindin
 	result[labels.LabelKeyEnvironmentName] = serviceBinding.Spec.Environment
 
 	return result
+}
+
+func (r *Reconciler) resolveApiConnections(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding) (map[string]interface{}, error) {
+	results := make(map[string]interface{})
+
+	wls := serviceBinding.Spec.WorkloadSpec
+	for connectionName, connection := range wls.Connections {
+		if connection.Type != openchoreov1alpha1.ConnectionTypeAPI {
+			continue // Skip non-API connections for now
+		}
+
+		// Extract parameters
+		targetComponentName := connection.Params["componentName"]
+		targetEndpointName := connection.Params["endpoint"]
+
+		// Find target binding
+		targetBinding, err := r.findTargetServiceBinding(ctx, serviceBinding.Namespace, targetComponentName, serviceBinding.Spec.Environment)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find target binding for connection %s: %w", connectionName, err)
+		}
+
+		// Extract endpoint from binding status
+		var endpointAccess *openchoreov1alpha1.EndpointAccess
+		for _, ep := range targetBinding.Status.Endpoints {
+			if ep.Name == targetEndpointName {
+				endpointAccess = ep.Project // For POC, assume project-level access
+				break
+			}
+		}
+
+		if endpointAccess == nil {
+			return nil, fmt.Errorf("endpoint %s not found in target binding %s", targetEndpointName, targetComponentName)
+		}
+
+		// Build result map with template variables
+		results[connectionName] = endpointAccess
+	}
+	return results, nil
+}
+
+func (r *Reconciler) findTargetServiceBinding(ctx context.Context, namespace, componentName, environment string) (*openchoreov1alpha1.ServiceBinding, error) {
+	// List all ServiceBindings in the namespace
+	bindingList := &openchoreov1alpha1.ServiceBindingList{}
+	if err := r.List(ctx, bindingList, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list service bindings: %w", err)
+	}
+
+	// Find binding that matches both component name and environment
+	for _, binding := range bindingList.Items {
+		if binding.Spec.Owner.ComponentName == componentName && binding.Spec.Environment == environment {
+			return &binding, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no service binding found for component %s in environment %s", componentName, environment)
 }
