@@ -8,6 +8,8 @@ import {
   OpenChoreoApiResponse,
   OpenChoreoApiSingleResponse,
   BuildConfig,
+  BindingResponse,
+  DeploymentPipelineResponse,
 } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -353,6 +355,105 @@ export class OpenChoreoApiClient {
       return component;
     } catch (error) {
       this.logger?.error(`Failed to fetch component details for ${componentName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async getComponentBindings(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+    environments?: string[],
+  ): Promise<BindingResponse[]> {
+    this.logger?.info(
+      `Fetching bindings for component: ${componentName} in project: ${projectName}, organization: ${orgName}${
+        environments?.length ? ` for environments: ${environments.join(', ')}` : ''
+      }`,
+    );
+
+    try {
+      const response = await this.client.bindingsGet(
+        {
+          orgName,
+          projectName,
+          componentName,
+          environment: environments,
+        },
+        { token: this.token },
+      );
+
+      const rawResponse = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(rawResponse)}`);
+
+      // Check if the response has the expected structure
+      if (rawResponse.success === false) {
+        throw new Error('API request was not successful');
+      }
+
+      // Handle different response formats
+      let bindings: BindingResponse[] = [];
+      
+      if (rawResponse.data && Array.isArray(rawResponse.data)) {
+        // Direct array response (e.g., when component has bindings)
+        bindings = rawResponse.data;
+      } else if (rawResponse.data && rawResponse.data.items && Array.isArray(rawResponse.data.items)) {
+        // Paginated response
+        bindings = rawResponse.data.items;
+      } else if (rawResponse.success && !rawResponse.data) {
+        // Success but no data
+        bindings = [];
+      } else {
+        this.logger?.warn(
+          `Unexpected bindings response structure for component ${componentName}: ${JSON.stringify(rawResponse)}`,
+        );
+        bindings = [];
+      }
+
+      this.logger?.info(
+        `Successfully fetched ${bindings.length} bindings for component: ${componentName}`,
+      );
+
+      return bindings;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch bindings for component ${componentName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  async getProjectDeploymentPipeline(
+    orgName: string,
+    projectName: string,
+  ): Promise<DeploymentPipelineResponse> {
+    this.logger?.info(
+      `Fetching deployment pipeline for project: ${projectName} in organization: ${orgName}`,
+    );
+
+    try {
+      const response = await this.client.projectDeploymentPipelineGet(
+        { orgName, projectName },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<DeploymentPipelineResponse> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const deploymentPipeline = apiResponse.data;
+      this.logger?.info(
+        `Successfully fetched deployment pipeline: ${deploymentPipeline.name} for project: ${projectName} in org: ${orgName}`,
+      );
+
+      return deploymentPipeline;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch deployment pipeline for project ${projectName} in org ${orgName}: ${error}`,
+      );
       throw error;
     }
   }

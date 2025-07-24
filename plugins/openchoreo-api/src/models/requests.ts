@@ -114,6 +114,26 @@ export type BuildsTriggerRequest = {
 };
 
 /**
+ * Request parameters for getting component bindings
+ * @public
+ */
+export type BindingsGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  environment?: string[];
+};
+
+/**
+ * Request parameters for getting project deployment pipeline
+ * @public
+ */
+export type ProjectDeploymentPipelineGetRequest = {
+  orgName: string;
+  projectName: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

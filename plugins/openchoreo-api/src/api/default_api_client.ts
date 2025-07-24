@@ -18,11 +18,15 @@ import {
   BuildsTriggerRequest,
   ProjectsPostRequest,
   ComponentsPostRequest,
+  BindingsGetRequest,
   TypedResponse,
   OpenChoreoApiResponse,
   OpenChoreoApiSingleResponse,
   ComponentGetRequest,
   ModelsCompleteComponent,
+  BindingResponse,
+  ProjectDeploymentPipelineGetRequest,
+  DeploymentPipelineResponse,
 } from '../models';
 
 /**
@@ -295,6 +299,63 @@ export class DefaultApiClient {
       },
       method: 'POST',
       body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Retrieves all bindings for a component
+   * List all bindings of a component
+   */
+  public async bindingsGet(
+    request: BindingsGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<BindingResponse>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings`;
+
+    let uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    // Add environment query parameters if provided
+    if (request.environment && request.environment.length > 0) {
+      const envParams = request.environment
+        .map(env => `environment=${encodeURIComponent(env)}`)
+        .join('&');
+      uri += `?${envParams}`;
+    }
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Retrieves the deployment pipeline for a project
+   * Get project deployment pipeline
+   */
+  public async projectDeploymentPipelineGet(
+    request: ProjectDeploymentPipelineGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<DeploymentPipelineResponse>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/deployment-pipeline`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
     });
   }
 }
