@@ -1,0 +1,20 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default-with-circuit-breaker
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  restPolicy:
+    defaults:
+      circuitBreaker:
+        enabled: true
+        maxConnections: 2
+        maxParallelRequests: 1
+        maxParallelRetries: 1
+    public: {}
+    organization: {}
+{{ end }}

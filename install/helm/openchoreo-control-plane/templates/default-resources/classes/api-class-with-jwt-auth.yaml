@@ -1,0 +1,20 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default-with-jwt-auth
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  restPolicy:
+    defaults:
+      authentication:
+        type: jwt
+        jwt:
+          jwks: "http://openchoreo-identity-provider.openchoreo-identity-system:8090/oauth2/jwks"
+          issuer: "https://openchoreo.example.com"
+    public: {}
+    organization: {}
+{{ end }}

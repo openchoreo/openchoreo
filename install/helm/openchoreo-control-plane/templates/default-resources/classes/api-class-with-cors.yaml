@@ -1,0 +1,21 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default-with-cors
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  restPolicy:
+    defaults:
+      cors:
+        allowOrigins: [ "https://example.com", "https://app.example.com" ]
+        allowMethods: [ "GET", "POST", "PUT", "DELETE" ]
+        allowHeaders: [ "Content-Type", "Authorization" ]
+        exposeHeaders: [ "X-Request-ID" ]
+        maxAge: 86400
+    public: {}
+    organization: {}
+{{ end }}
