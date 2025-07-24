@@ -1,0 +1,247 @@
+# Secure Service with JWT Authentication Sample
+# This sample demonstrates how to deploy a service with JWT authentication using the new CRD design
+
+# ComponentV2 - Defines the component metadata
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    projectName: default
+  type: Service
+
+---
+
+# Workload - Defines the developer contract including container configuration and endpoints
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  containers:
+    main:
+      image: vajiraprabuddhaka/reading-list-api:latest
+      env:
+        - key: LOG_LEVEL
+          value: info
+  endpoints:
+    rest-api:
+      type: REST
+      port: 8080
+      schema:
+        type: REST
+        content: |
+          openapi: 3.0.1
+          info:
+            title: Choreo Reading List
+            description: This is a sample service that manages a list of reading items.
+            contact: {}
+            version: "1.0"
+          servers:
+          - url: http://localhost:8080/api/v1/reading-list
+          paths:
+            /books:
+              get:
+                tags:
+                - books
+                summary: List all the reading list books
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/models.Book'
+              post:
+                tags:
+                - books
+                summary: Add a new book to the reading list
+                requestBody:
+                  description: New book details
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/models.Book'
+                  required: true
+                responses:
+                  "201":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "400":
+                    description: invalid book details
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                  "409":
+                    description: book already exists
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                x-codegen-request-body-name: request
+            /books/{id}:
+              get:
+                tags:
+                - books
+                summary: Get reading list book by id
+                security:
+                  - default:
+                      - read:books 
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+              put:
+                tags:
+                - books
+                summary: Update a reading list book by id
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                requestBody:
+                  description: Updated book details
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/models.Book'
+                  required: true
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "400":
+                    description: invalid book details
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+                x-codegen-request-body-name: request
+              delete:
+                tags:
+                - books
+                summary: Delete a reading list book by id
+                parameters:
+                - name: id
+                  in: path
+                  description: Book ID
+                  required: true
+                  schema:
+                    type: string
+                responses:
+                  "200":
+                    description: successful operation
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/models.Book'
+                  "404":
+                    description: book not found
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/utils.ErrorResponse'
+          components:
+            securitySchemes:
+              default:
+                type: oauth2
+                flows:
+                  implicit:
+                    authorizationUrl: https://test.com
+                    scopes: 
+                      read:books: Grants read access
+            schemas:
+              models.Book:
+                type: object
+                properties:
+                  author:
+                    type: string
+                    example: J. R. R. Tolkien
+                  id:
+                    type: string
+                    example: fe2594d0-ccea-42a2-97ac-0487458b5642
+                  status:
+                    type: object
+                    example: to_read
+                    allOf:
+                    - $ref: '#/components/schemas/models.ReadStatus'
+                  title:
+                    type: string
+                    example: The Lord of the Rings
+              models.ReadStatus:
+                type: string
+                enum:
+                - to_read
+                - reading
+                - read
+                x-enum-varnames:
+                - ReadStatusToRead
+                - ReadStatusReading
+                - ReadStatusRead
+              utils.ErrorResponse:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: error message
+
+---
+
+# Service - Runtime configuration for the service component
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: reading-list-service
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: default
+  workloadName: reading-list-service
+  overrides: {}
+  apis:
+    greeter:
+      type: REST
+      className: default-with-jwt-auth
+      rest:
+        backend:
+          port: 8080
+          basePath: /api/v1/reading-list
+        exposeLevels: [ "Public" ]
