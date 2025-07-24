@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding/render"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a ServiceBinding object
@@ -152,6 +153,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 	}
 
 	desired := found.DeepCopy()
+	desired.Labels = release.Labels
 	desired.Spec = release.Spec
 
 	changed, patchData, err := controller.HasPatchChanges(found, desired)
@@ -186,6 +188,7 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.ServiceBinding.Name,
 			Namespace: rCtx.ServiceBinding.Namespace,
+			Labels:    r.makeLabels(rCtx.ServiceBinding),
 		},
 		Spec: openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
@@ -249,4 +252,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("servicebinding").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for Release resources, merging with ServiceBinding labels.
+func (r *Reconciler) makeLabels(serviceBinding *openchoreov1alpha1.ServiceBinding) map[string]string {
+	// Start with ServiceBinding's existing labels
+	result := make(map[string]string)
+	for k, v := range serviceBinding.Labels {
+		result[k] = v
+	}
+
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = serviceBinding.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = serviceBinding.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = serviceBinding.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = serviceBinding.Spec.Environment
+
+	return result
 }

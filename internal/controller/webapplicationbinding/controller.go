@@ -21,6 +21,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding/render"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a WebApplicationBinding object
@@ -121,6 +122,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding
 	}
 
 	desired := found.DeepCopy()
+	desired.Labels = release.Labels
 	desired.Spec = release.Spec
 
 	changed, patchData, err := controller.HasPatchChanges(found, desired)
@@ -155,6 +157,7 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.WebApplicationBinding.Name,
 			Namespace: rCtx.WebApplicationBinding.Namespace,
+			Labels:    r.makeLabels(rCtx.WebApplicationBinding),
 		},
 		Spec: openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
@@ -204,4 +207,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("webapplicationbinding").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for Release resources, merging with WebApplicationBinding labels.
+func (r *Reconciler) makeLabels(webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) map[string]string {
+	// Start with WebApplicationBinding's existing labels
+	result := make(map[string]string)
+	for k, v := range webApplicationBinding.Labels {
+		result[k] = v
+	}
+	
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = webApplicationBinding.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = webApplicationBinding.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = webApplicationBinding.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = webApplicationBinding.Spec.Environment
+	
+	return result
 }

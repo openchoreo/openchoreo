@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a ScheduledTask object
@@ -77,7 +78,9 @@ func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, schedule
 		},
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, scheduledTaskBinding, func() error {
-		scheduledTaskBinding.Spec = r.makeScheduledTaskBinding(scheduledTask, workload).Spec
+		desired := r.makeScheduledTaskBinding(scheduledTask, workload)
+		scheduledTaskBinding.Labels = desired.Labels
+		scheduledTaskBinding.Spec = desired.Spec
 		return controllerutil.SetControllerReference(scheduledTask, scheduledTaskBinding, r.Scheme)
 	})
 	if err != nil {
@@ -97,6 +100,7 @@ func (r *Reconciler) makeScheduledTaskBinding(scheduledTask *openchoreov1alpha1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scheduledTask.Name,
 			Namespace: scheduledTask.Namespace,
+			Labels:    r.makeLabels(scheduledTask),
 		},
 		Spec: openchoreov1alpha1.ScheduledTaskBindingSpec{
 			Owner: openchoreov1alpha1.ScheduledTaskOwner{
@@ -128,4 +132,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("scheduledtask").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for ScheduledTaskBinding resources, merging with scheduledTask labels.
+func (r *Reconciler) makeLabels(scheduledTask *openchoreov1alpha1.ScheduledTask) map[string]string {
+	// Start with scheduledTask's existing labels
+	result := make(map[string]string)
+	for k, v := range scheduledTask.Labels {
+		result[k] = v
+	}
+	
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = scheduledTask.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = scheduledTask.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = scheduledTask.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings
+	
+	return result
 }

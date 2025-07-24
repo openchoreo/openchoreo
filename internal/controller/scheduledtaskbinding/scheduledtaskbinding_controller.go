@@ -17,6 +17,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding/render"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a ScheduledTaskBinding object
@@ -79,7 +80,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, scheduledTaskBinding 
 			ScheduledTaskBinding: scheduledTaskBinding,
 			ScheduledTaskClass:   scheduledTaskClass,
 		}
-		release.Spec = r.makeRelease(rCtx).Spec
+		desired := r.makeRelease(rCtx)
+		release.Labels = desired.Labels
+		release.Spec = desired.Spec
 		if len(rCtx.Errors()) > 0 {
 			err := rCtx.Error()
 			return err
@@ -104,6 +107,7 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rCtx.ScheduledTaskBinding.Name,
 			Namespace: rCtx.ScheduledTaskBinding.Namespace,
+			Labels:    r.makeLabels(rCtx.ScheduledTaskBinding),
 		},
 		Spec: openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
@@ -140,4 +144,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("scheduledtaskbinding").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for Release resources, merging with ScheduledTaskBinding labels.
+func (r *Reconciler) makeLabels(scheduledTaskBinding *openchoreov1alpha1.ScheduledTaskBinding) map[string]string {
+	// Start with ScheduledTaskBinding's existing labels
+	result := make(map[string]string)
+	for k, v := range scheduledTaskBinding.Labels {
+		result[k] = v
+	}
+	
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = scheduledTaskBinding.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = scheduledTaskBinding.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = scheduledTaskBinding.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = scheduledTaskBinding.Spec.Environment
+	
+	return result
 }

@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Service object
@@ -77,7 +78,9 @@ func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *openc
 		},
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, serviceBinding, func() error {
-		serviceBinding.Spec = r.makeServiceBinding(service, workload).Spec
+		desired := r.makeServiceBinding(service, workload)
+		serviceBinding.Labels = desired.Labels
+		serviceBinding.Spec = desired.Spec
 		return controllerutil.SetControllerReference(service, serviceBinding, r.Scheme)
 	})
 	if err != nil {
@@ -97,6 +100,7 @@ func (r *Reconciler) makeServiceBinding(service *openchoreov1alpha1.Service, wor
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
 			Namespace: service.Namespace,
+			Labels:    r.makeLabels(service),
 		},
 		Spec: openchoreov1alpha1.ServiceBindingSpec{
 			Owner: openchoreov1alpha1.ServiceOwner{
@@ -128,4 +132,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("service").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for ServiceBinding resources, merging with service labels.
+func (r *Reconciler) makeLabels(service *openchoreov1alpha1.Service) map[string]string {
+	// Start with the service's existing labels
+	result := make(map[string]string)
+	for k, v := range service.Labels {
+		result[k] = v
+	}
+
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = service.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = service.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = service.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings
+
+	return result
 }

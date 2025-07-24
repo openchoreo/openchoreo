@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a WebApplication object
@@ -77,7 +78,9 @@ func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webAppl
 		},
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, webApplicationBinding, func() error {
-		webApplicationBinding.Spec = r.makeWebApplicationBinding(webApplication, workload).Spec
+		desired := r.makeWebApplicationBinding(webApplication, workload)
+		webApplicationBinding.Labels = desired.Labels
+		webApplicationBinding.Spec = desired.Spec
 		return controllerutil.SetControllerReference(webApplication, webApplicationBinding, r.Scheme)
 	})
 	if err != nil {
@@ -97,6 +100,7 @@ func (r *Reconciler) makeWebApplicationBinding(webApplication *openchoreov1alpha
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      webApplication.Name,
 			Namespace: webApplication.Namespace,
+			Labels:    r.makeLabels(webApplication),
 		},
 		Spec: openchoreov1alpha1.WebApplicationBindingSpec{
 			Owner: openchoreov1alpha1.WebApplicationOwner{
@@ -128,4 +132,21 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Named("webapplication").
 		Complete(r)
+}
+
+// makeLabels creates standard labels for WebApplicationBinding resources, merging with webApplication labels.
+func (r *Reconciler) makeLabels(webApplication *openchoreov1alpha1.WebApplication) map[string]string {
+	// Start with webApplication's existing labels
+	result := make(map[string]string)
+	for k, v := range webApplication.Labels {
+		result[k] = v
+	}
+	
+	// Add/overwrite component-specific labels
+	result[labels.LabelKeyOrganizationName] = webApplication.Namespace // namespace = organization
+	result[labels.LabelKeyProjectName] = webApplication.Spec.Owner.ProjectName
+	result[labels.LabelKeyComponentName] = webApplication.Spec.Owner.ComponentName
+	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings
+	
+	return result
 }
