@@ -10,6 +10,7 @@ import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildT
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
+import { ObservabilityApiClient } from '@internal/plugin-openchoreo-api';
 
 /**
  * choreoPlugin backend plugin
@@ -60,7 +61,10 @@ export const choreoPlugin = createBackendPlugin({
 
         const runtimeLogsInfoService = new RuntimeLogsInfoService(
           logger,
-          openchoreoConfig.get('observabilityBaseUrl'),
+          new ObservabilityApiClient(
+            openchoreoConfig.get('observabilityBaseUrl'),
+            {},
+          ),
         );
 
         httpRouter.use(

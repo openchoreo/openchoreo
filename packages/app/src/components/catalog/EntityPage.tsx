@@ -222,6 +222,10 @@ const websiteEntityPage = (
       <Environments />
     </EntityLayout.Route>
 
+    <EntityLayout.Route path="/runtime-logs" title="Runtime Logs">
+      <RuntimeLogs />
+    </EntityLayout.Route>
+
     {/* <EntityLayout.Route path="/ci-cd" title="CI/CD">
       {cicdContent}
     </EntityLayout.Route> */}
