@@ -140,3 +140,49 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("Retrieved component successfully", "org", orgName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, component)
 }
+
+func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetComponentBinding handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Extract environments from query parameter (supports multiple values, optional)
+	environments := r.URL.Query()["environment"]
+
+	// Call service to get component bindings
+	bindings, err := h.services.ComponentService.GetComponentBindings(ctx, orgName, projectName, componentName, environments)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		logger.Error("Failed to get component bindings", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	envCount := len(environments)
+	if envCount == 0 {
+		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+	} else {
+		logger.Debug("Retrieved component bindings successfully", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
+	}
+	writeSuccessResponse(w, http.StatusOK, bindings)
+}

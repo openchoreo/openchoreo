@@ -54,6 +54,91 @@ type ComponentResponse struct {
 	BuildConfig    *BuildConfig                           `json:"buildConfig,omitempty"`
 }
 
+type BindingResponse struct {
+	Name          string        `json:"name"`
+	Type          string        `json:"type"`
+	ComponentName string        `json:"componentName"`
+	ProjectName   string        `json:"projectName"`
+	OrgName       string        `json:"orgName"`
+	Environment   string        `json:"environment"`
+	BindingStatus BindingStatus `json:"status"`
+	// Component-specific binding data
+	ServiceBinding        *ServiceBinding        `json:"serviceBinding,omitempty"`
+	WebApplicationBinding *WebApplicationBinding `json:"webApplicationBinding,omitempty"`
+	ScheduledTaskBinding  *ScheduledTaskBinding  `json:"scheduledTaskBinding,omitempty"`
+}
+
+type BindingStatusType string
+
+const (
+	BindingStatusTypePending    BindingStatusType = "InProgress"
+	BindingStatusTypeReady      BindingStatusType = "Active"
+	BindingStatusTypeFailed     BindingStatusType = "Failed"
+	BindingStatusTypeSuspended  BindingStatusType = "Suspended"
+	BindingStatusTypeInProgress BindingStatusType = "NotYetDeployed"
+)
+
+type BindingStatus struct {
+	Reason           string            `json:"reason"`
+	Message          string            `json:"message"`
+	Status           BindingStatusType `json:"status"`
+	LastTransitioned time.Time         `json:"lastTransitioned"`
+}
+
+type ServiceBinding struct {
+	Endpoints []EndpointStatus `json:"endpoints"`
+	Image     string           `json:"image,omitempty"`
+}
+
+type WebApplicationBinding struct {
+	Endpoints []EndpointStatus `json:"endpoints"`
+	Image     string           `json:"image,omitempty"`
+}
+
+type ScheduledTaskBinding struct {
+	Image string `json:"image,omitempty"`
+}
+
+type EndpointStatus struct {
+	Name         string           `json:"name"`
+	Type         string           `json:"type"`
+	Project      *ExposedEndpoint `json:"project,omitempty"`
+	Organization *ExposedEndpoint `json:"organization,omitempty"`
+	Public       *ExposedEndpoint `json:"public,omitempty"`
+}
+
+type ExposedEndpoint struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Scheme   string `json:"scheme,omitempty"`   // gRPC, HTTP, etc.
+	BasePath string `json:"basePath,omitempty"` // For HTTP-based endpoints
+	URI      string `json:"uri,omitempty"`
+}
+
+// DeploymentPipelineResponse represents a deployment pipeline in API responses
+type DeploymentPipelineResponse struct {
+	Name           string          `json:"name"`
+	DisplayName    string          `json:"displayName,omitempty"`
+	Description    string          `json:"description,omitempty"`
+	OrgName        string          `json:"orgName"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	Status         string          `json:"status,omitempty"`
+	PromotionPaths []PromotionPath `json:"promotionPaths,omitempty"`
+}
+
+// PromotionPath represents a promotion path in the deployment pipeline
+type PromotionPath struct {
+	SourceEnvironmentRef  string                 `json:"sourceEnvironmentRef"`
+	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
+}
+
+// TargetEnvironmentRef represents a target environment reference with approval settings
+type TargetEnvironmentRef struct {
+	Name                     string `json:"name"`
+	RequiresApproval         bool   `json:"requiresApproval,omitempty"`
+	IsManualApprovalRequired bool   `json:"isManualApprovalRequired,omitempty"`
+}
+
 // OrganizationResponse represents an organization in API responses
 type OrganizationResponse struct {
 	Name        string    `json:"name"`

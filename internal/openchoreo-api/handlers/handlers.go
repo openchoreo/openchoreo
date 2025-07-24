@@ -39,7 +39,7 @@ func (h *Handler) Routes() http.Handler {
 
 	// Apply endpoint (similar to kubectl apply)
 	mux.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
-	
+
 	// Delete endpoint (similar to kubectl delete)
 	mux.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
 
@@ -65,11 +65,17 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}", h.GetProject)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
 
 	// Component endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
+
+	// This is the promotion endpoint...
+	// mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/binding", h.CreateComponentBinding)
 
 	// Build endpoints
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)

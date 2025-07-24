@@ -11,14 +11,15 @@ import (
 )
 
 type Services struct {
-	ProjectService      *ProjectService
-	ComponentService    *ComponentService
-	OrganizationService *OrganizationService
-	EnvironmentService  *EnvironmentService
-	DataPlaneService    *DataPlaneService
-	BuildService        *BuildService
-	BuildPlaneService   *BuildPlaneService
-	k8sClient           client.Client // Direct access to K8s client for apply operations
+	ProjectService            *ProjectService
+	ComponentService          *ComponentService
+	OrganizationService       *OrganizationService
+	EnvironmentService        *EnvironmentService
+	DataPlaneService          *DataPlaneService
+	BuildService              *BuildService
+	BuildPlaneService         *BuildPlaneService
+	DeploymentPipelineService *DeploymentPipelineService
+	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
@@ -44,15 +45,19 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create build service (depends on build plane service)
 	buildService := NewBuildService(k8sClient, buildPlaneService, k8sBPClientMgr, logger.With("service", "build"))
 
+	// Create deployment pipeline service (depends on project service)
+	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
+
 	return &Services{
-		ProjectService:      projectService,
-		ComponentService:    componentService,
-		OrganizationService: organizationService,
-		EnvironmentService:  environmentService,
-		DataPlaneService:    dataplaneService,
-		BuildService:        buildService,
-		BuildPlaneService:   buildPlaneService,
-		k8sClient:           k8sClient,
+		ProjectService:            projectService,
+		ComponentService:          componentService,
+		OrganizationService:       organizationService,
+		EnvironmentService:        environmentService,
+		DataPlaneService:          dataplaneService,
+		BuildService:              buildService,
+		BuildPlaneService:         buildPlaneService,
+		DeploymentPipelineService: deploymentPipelineService,
+		k8sClient:                 k8sClient,
 	}
 }
 
