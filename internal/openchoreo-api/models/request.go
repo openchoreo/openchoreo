@@ -16,11 +16,18 @@ type CreateProjectRequest struct {
 }
 
 // BuildConfig represents the build configuration for a component
+
+type TemplateParameter struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type BuildConfig struct {
-	RepoUrl          string `json:"repoUrl"`
-	Branch           string `json:"repoBranch"`
-	ComponentPath    string `json:"componentPath"`
-	BuildTemplateRef string `json:"buildTemplateRef"`
+	RepoUrl          string              `json:"repoUrl"`
+	Branch           string              `json:"repoBranch"`
+	ComponentPath    string              `json:"componentPath"`
+	BuildTemplateRef string              `json:"buildTemplateRef"`
+	TemplateParams   []TemplateParameter `json:"buildTemplateParams,omitempty"`
 }
 
 // CreateComponentRequest represents the request to create a new component

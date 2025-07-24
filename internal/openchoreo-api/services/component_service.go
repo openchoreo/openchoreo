@@ -270,6 +270,15 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 
 	// Only add build configuration if it's provided in the request
 	if req.BuildConfig.RepoUrl != "" {
+		// Convert template parameters from request format to Kubernetes format
+		var parameters []openchoreov1alpha1.Parameter
+		for _, param := range req.BuildConfig.TemplateParams {
+			parameters = append(parameters, openchoreov1alpha1.Parameter{
+				Name:  param.Name,
+				Value: param.Value,
+			})
+		}
+
 		componentCR.Spec.Build = openchoreov1alpha1.BuildSpecInComponent{
 			Repository: openchoreov1alpha1.BuildRepository{
 				URL: req.BuildConfig.RepoUrl,
@@ -279,17 +288,8 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 				AppPath: req.BuildConfig.ComponentPath,
 			},
 			TemplateRef: openchoreov1alpha1.TemplateRef{
-				Name: req.BuildConfig.BuildTemplateRef,
-				Parameters: []openchoreov1alpha1.Parameter{
-					{
-						Name:  "language",
-						Value: "go",
-					},
-					{
-						Name:  "language-version",
-						Value: "1.x",
-					},
-				},
+				Name:       req.BuildConfig.BuildTemplateRef,
+				Parameters: parameters,
 			},
 		}
 	}
@@ -310,6 +310,15 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when ComponentV2 adds status conditions
 	status := "Creating"
 
+	// Convert template parameters from Kubernetes format to response format
+	var templateParams []models.TemplateParameter
+	for _, param := range component.Spec.Build.TemplateRef.Parameters {
+		templateParams = append(templateParams, models.TemplateParameter{
+			Name:  param.Name,
+			Value: param.Value,
+		})
+	}
+
 	response := &models.ComponentResponse{
 		Name:        component.Name,
 		DisplayName: component.Annotations[controller.AnnotationKeyDisplayName],
@@ -324,6 +333,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 			Branch:           component.Spec.Build.Repository.Revision.Branch,
 			ComponentPath:    component.Spec.Build.Repository.AppPath,
 			BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
+			TemplateParams:   templateParams,
 		},
 	}
 
