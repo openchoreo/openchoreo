@@ -10,6 +10,7 @@ import {
   BuildConfig,
   BindingResponse,
   DeploymentPipelineResponse,
+  ModelsCompleteComponent
 } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -227,44 +228,15 @@ export class OpenChoreoApiClient {
         { token: this.token }
       );
 
-      // Create a dummy OpenChoreoApiResponse to match the expected structure
-      const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = {
-        success: true,
-        data: {
-          items: [ 
-            {
-              name: 'default-buildpack-template',
-              displayName: 'Default Buildpack Template',
-              description: 'A default build template for Buildpack projects',
-              version: '1.0.0',
-              stack: 'buildpack',
-            },
-            {
-              name: 'default-docker-template',
-              displayName: 'Docker Build Template',
-              description: 'A build template for Docker projects',
-              version: '1.0.0',
-              stack: 'docker',
-            },
-          ],
-          totalCount: 0, // Assuming no pagination for simplicity
-          page: 1,
-          pageSize: 100, // Default page size
-        },
-      };
-
-      
-
-
-      // const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = await response.json();
+      const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
       
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
 
-      const buildTemplates = apiResponse.data.items;
-      this.logger?.info(`Successfully fetched ${buildTemplates.length} build templates for org: ${orgName} (total: ${apiResponse.data.totalCount})`);
+      const buildTemplates = apiResponse.data?.items || [];
+      this.logger?.info(`Successfully fetched ${buildTemplates.length} build templates for org: ${orgName}`);
       
       return buildTemplates;
     } catch (error) {
@@ -382,32 +354,16 @@ export class OpenChoreoApiClient {
         { token: this.token },
       );
 
-      const rawResponse = await response.json();
-      this.logger?.debug(`API response: ${JSON.stringify(rawResponse)}`);
+      const apiResponse: OpenChoreoApiResponse<BindingResponse> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
 
-      // Check if the response has the expected structure
-      if (rawResponse.success === false) {
+      if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
 
-      // Handle different response formats
-      let bindings: BindingResponse[] = [];
-      
-      if (rawResponse.data && Array.isArray(rawResponse.data)) {
-        // Direct array response (e.g., when component has bindings)
-        bindings = rawResponse.data;
-      } else if (rawResponse.data && rawResponse.data.items && Array.isArray(rawResponse.data.items)) {
-        // Paginated response
-        bindings = rawResponse.data.items;
-      } else if (rawResponse.success && !rawResponse.data) {
-        // Success but no data
-        bindings = [];
-      } else {
-        this.logger?.warn(
-          `Unexpected bindings response structure for component ${componentName}: ${JSON.stringify(rawResponse)}`,
-        );
-        bindings = [];
-      }
+      // Extract bindings from paginated data structure
+      const bindings = apiResponse.data?.items || [];
 
       this.logger?.info(
         `Successfully fetched ${bindings.length} bindings for component: ${componentName}`,
@@ -453,6 +409,55 @@ export class OpenChoreoApiClient {
     } catch (error) {
       this.logger?.error(
         `Failed to fetch deployment pipeline for project ${projectName} in org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  async promoteComponent(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+    sourceEnvironment: string,
+    targetEnvironment: string,
+  ): Promise<BindingResponse[]> {
+    this.logger?.info(
+      `Promoting component: ${componentName} from ${sourceEnvironment} to ${targetEnvironment} in project: ${projectName}, organization: ${orgName}`,
+    );
+
+    try {
+      const response = await this.client.componentPromotePost(
+        {
+          orgName,
+          projectName,
+          componentName,
+          promoteComponentRequest: {
+            sourceEnv: sourceEnvironment,
+            targetEnv: targetEnvironment,
+          },
+        },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiResponse<BindingResponse> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      // Extract bindings from paginated data structure
+      const bindings = apiResponse.data?.items || [];
+      
+      this.logger?.info(
+        `Successfully promoted component: ${componentName} from ${sourceEnvironment} to ${targetEnvironment}. Returned ${bindings.length} bindings.`,
+      );
+
+      return bindings;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to promote component ${componentName} from ${sourceEnvironment} to ${targetEnvironment}: ${error}`,
       );
       throw error;
     }

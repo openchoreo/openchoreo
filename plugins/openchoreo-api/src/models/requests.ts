@@ -134,6 +134,26 @@ export type ProjectDeploymentPipelineGetRequest = {
 };
 
 /**
+ * Request body for promoting a component between environments
+ * @public
+ */
+export type PromoteComponentRequest = {
+  sourceEnv: string;
+  targetEnv: string;
+};
+
+/**
+ * Request parameters for promoting a component
+ * @public
+ */
+export type ComponentPromotePostRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  promoteComponentRequest: PromoteComponentRequest;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

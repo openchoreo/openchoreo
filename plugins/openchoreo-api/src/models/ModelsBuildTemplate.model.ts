@@ -1,4 +1,36 @@
 /**
+ * Build template parameter
+ * @public
+ */
+export interface BuildTemplateParameter {
+  /**
+   * Parameter name
+   */
+  name: string;
+  /**
+   * Parameter display name
+   */
+  displayName?: string;
+  /**
+   * Parameter description
+   */
+  description?: string;
+  /**
+   * Parameter type (e.g., string, number, boolean)
+   */
+  type?: string;
+  /**
+   * Default value for the parameter
+   */
+  defaultValue?: string;
+  /**
+   * Whether the parameter is required
+   */
+  required?: boolean;
+}
+
+/**
+ * Build template response from OpenChoreo API
  * @public
  */
 export interface ModelsBuildTemplate {
@@ -7,19 +39,11 @@ export interface ModelsBuildTemplate {
    */
   name: string;
   /**
-   * Display name of the build template
+   * Build template parameters
    */
-  displayName?: string;
+  parameters?: BuildTemplateParameter[];
   /**
-   * Description of the build template
+   * Creation timestamp (ISO 8601 format)
    */
-  description?: string;
-  /**
-   * Version of the build template
-   */
-  version?: string;
-  /**
-   * Technology stack (e.g., java, nodejs, python)
-   */
-  stack?: string;
+  createdAt: string;
 }

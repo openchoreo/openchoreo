@@ -27,6 +27,7 @@ import {
   BindingResponse,
   ProjectDeploymentPipelineGetRequest,
   DeploymentPipelineResponse,
+  ComponentPromotePostRequest,
 } from '../models';
 
 /**
@@ -141,7 +142,7 @@ export class DefaultApiClient {
   public async componentGet(
     request: ComponentGetRequest,
     options?: RequestOptions,
-  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsCompleteComponent>>> {
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsCompleteComponent>>> {
     const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}?include=type,workload`;
 
     const uri = parser.parse(uriTemplate).expand({
@@ -356,6 +357,32 @@ export class DefaultApiClient {
         ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
       },
       method: 'GET',
+    });
+  }
+
+  /**
+   * Promotes a component from source environment to target environment
+   * Returns the list of BindingResponse for all environments after promotion
+   */
+  public async componentPromotePost(
+    request: ComponentPromotePostRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<BindingResponse>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(request.promoteComponentRequest),
     });
   }
 }
