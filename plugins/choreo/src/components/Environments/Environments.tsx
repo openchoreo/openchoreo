@@ -48,6 +48,8 @@ export const Environments = () => {
   const { entity } = useEntity();
   const [environments, setEnvironmentsData] = useState<Environment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promotingTo, setPromotingTo] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const discovery = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
   
@@ -82,6 +84,26 @@ export const Environments = () => {
   return (
     <Page themeId="tool">
       <Content>
+        {notification && (
+          <Box 
+            mb={2} 
+            p={2} 
+            bgcolor={notification.type === 'success' ? '#e8f5e9' : '#ffebee'}
+            borderRadius={1}
+            border={1}
+            borderColor={notification.type === 'success' ? '#4caf50' : '#f44336'}
+          >
+            <Typography 
+              variant="body2" 
+              style={{ 
+                color: notification.type === 'success' ? '#2e7d32' : '#d32f2f',
+                fontWeight: 'bold'
+              }}
+            >
+              {notification.type === 'success' ? '✓ ' : '✗ '}{notification.message}
+            </Typography>
+          </Box>
+        )}
         <Grid container spacing={3}>
           <Grid item xs={12} md={3}>
             <Card>
@@ -267,22 +289,47 @@ export const Environments = () => {
                               variant="contained"
                               color="primary"
                               size="small"
+                              disabled={promotingTo === target.name}
                               onClick={async () => {
                                 try {
+                                  setPromotingTo(target.name);
                                   const result = await promoteToEnvironment(
                                     entity,
                                     discovery,
                                     identityApi,
-                                    target.name.toLowerCase(),
+                                    env.name.toLowerCase(), // source environment
+                                    target.name.toLowerCase(), // target environment
                                   );
-                                  alert(`Promotion started: ${JSON.stringify(result)}`);
+                                  
+                                  // Update environments state with fresh data from promotion result
+                                  setEnvironmentsData(result as Environment[]);
+                                  
+                                  setNotification({
+                                    message: `Component promoted from ${env.name} to ${target.name}`,
+                                    type: 'success'
+                                  });
+                                  
+                                  // Clear notification after 5 seconds
+                                  setTimeout(() => setNotification(null), 5000);
                                 } catch (err) {
-                                  alert(`Error promoting: ${err}`);
+                                  setNotification({
+                                    message: `Error promoting: ${err}`,
+                                    type: 'error'
+                                  });
+                                  
+                                  // Clear notification after 7 seconds for errors
+                                  setTimeout(() => setNotification(null), 7000);
+                                } finally {
+                                  setPromotingTo(null);
                                 }
                               }}
                             >
-                              {env.promotionTargets!.length === 1 ? 'Promote' : `Promote to ${target.name}`}
-                              {target.requiresApproval && ' (Approval Required)'}
+                              {promotingTo === target.name 
+                                ? 'Promoting...' 
+                                : env.promotionTargets!.length === 1 
+                                  ? 'Promote' 
+                                  : `Promote to ${target.name}`}
+                              {target.requiresApproval && !promotingTo && ' (Approval Required)'}
                             </Button>
                           </Box>
                         ))}

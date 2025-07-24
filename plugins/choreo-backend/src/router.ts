@@ -44,6 +44,26 @@ export async function createRouter({
     );
   });
 
+  router.post('/promote-deployment', async (req, res) => {
+    const { sourceEnv, targetEnv, componentName, projectName, orgName } = req.body;
+
+    if (!sourceEnv || !targetEnv || !componentName || !projectName || !orgName) {
+      throw new InputError(
+        'sourceEnv, targetEnv, componentName, projectName and orgName are required in request body',
+      );
+    }
+
+    res.json(
+      await environmentInfoService.promoteComponent({
+        sourceEnvironment: sourceEnv,
+        targetEnvironment: targetEnv,
+        componentName: componentName as string,
+        projectName: projectName as string,
+        organizationName: orgName as string,
+      }),
+    );
+  });
+
   router.get(
     '/cell-diagram',
     async (req: express.Request, res: express.Response) => {

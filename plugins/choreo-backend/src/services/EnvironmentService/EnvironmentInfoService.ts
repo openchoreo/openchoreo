@@ -490,4 +490,66 @@ export class EnvironmentInfoService implements EnvironmentService {
     
     return result;
   }
+
+  /**
+   * Promotes a component from source environment to target environment.
+   * Uses the OpenChoreo API client to perform the promotion and returns updated environment data.
+   *
+   * @param {Object} request - The promotion request parameters
+   * @param {string} request.sourceEnvironment - Source environment name
+   * @param {string} request.targetEnvironment - Target environment name
+   * @param {string} request.componentName - Name of the component to promote
+   * @param {string} request.projectName - Name of the project containing the component
+   * @param {string} request.organizationName - Name of the organization owning the project
+   * @returns {Promise<Environment[]>} Array of environments with updated deployment information
+   * @throws {Error} When there's an error promoting the component
+   */
+  async promoteComponent(request: {
+    sourceEnvironment: string;
+    targetEnvironment: string;
+    componentName: string;
+    projectName: string;
+    organizationName: string;
+  }): Promise<Environment[]> {
+    const startTime = Date.now();
+    try {
+      this.logger.info(
+        `Starting promotion for component: ${request.componentName} from ${request.sourceEnvironment} to ${request.targetEnvironment}`,
+      );
+
+      // Call the promotion API
+      const promotionResult = await this.client.promoteComponent(
+        request.organizationName,
+        request.projectName,
+        request.componentName,
+        request.sourceEnvironment,
+        request.targetEnvironment,
+      );
+
+      this.logger.info(
+        `Promotion completed successfully. Received ${promotionResult.length} binding responses.`,
+      );
+
+      // Fetch fresh environment data to return updated information
+      const refreshedEnvironments = await this.fetchDeploymentInfo({
+        componentName: request.componentName,
+        projectName: request.projectName,
+        organizationName: request.organizationName,
+      });
+
+      const totalTime = Date.now() - startTime;
+      this.logger.info(
+        `Component promotion completed for ${request.componentName}: Total: ${totalTime}ms`,
+      );
+
+      return refreshedEnvironments;
+    } catch (error: unknown) {
+      const totalTime = Date.now() - startTime;
+      this.logger.error(
+        `Error promoting component ${request.componentName} from ${request.sourceEnvironment} to ${request.targetEnvironment} (${totalTime}ms):`,
+        error as Error,
+      );
+      throw error;
+    }
+  }
 }

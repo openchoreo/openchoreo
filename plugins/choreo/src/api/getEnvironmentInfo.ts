@@ -45,25 +45,26 @@ export async function promoteToEnvironment(
   discovery: DiscoveryApi,
   identity: IdentityApi,
   sourceEnvironment: string,
+  targetEnvironment: string,
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.PROMOTE_DEPLOYMENT}`,
   );
-  const component = entity.metadata.labels?.[CHOREO_LABELS.NAME];
-  const project = entity.metadata.labels?.[CHOREO_LABELS.PROJECT];
-  const organization = entity.metadata.labels?.[CHOREO_LABELS.ORGANIZATION];
+  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
+  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     throw new Error('Missing required metadata in entity');
   }
 
   const promoteReq = {
-    environmentToPromote: sourceEnvironment,
+    sourceEnv: sourceEnvironment,
+    targetEnv: targetEnvironment,
     componentName: component,
     projectName: project,
     orgName: organization,
-    deploymentTrack: 'main',
   };
 
   const res = await fetch(backendUrl, {

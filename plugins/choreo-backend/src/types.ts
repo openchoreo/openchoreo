@@ -6,6 +6,14 @@ export interface EnvironmentService {
     componentName: string;
     organizationName: string;
   }): Promise<Environment[]>;
+  
+  promoteComponent(request: {
+    sourceEnvironment: string;
+    targetEnvironment: string;
+    componentName: string;
+    projectName: string;
+    organizationName: string;
+  }): Promise<Environment[]>;
 }
 
 export interface EndpointInfo {
