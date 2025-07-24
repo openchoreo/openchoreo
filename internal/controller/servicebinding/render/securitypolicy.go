@@ -150,24 +150,26 @@ func makeSecurityPolicyForServiceAPI(rCtx Context, apiName string, serviceAPI *o
 		actionDeny := egv1a1.AuthorizationActionDeny
 
 		// Convert RESTOperation.Scopes to []egv1a1.JWTScope
-		jwtScopes := make([]egv1a1.JWTScope, len(mergedPolicy.Authentication.OAuth2.Scopes))
-		for i, scope := range mergedPolicy.Authentication.OAuth2.Scopes {
-			jwtScopes[i] = egv1a1.JWTScope(scope)
-		}
+		if mergedPolicy.Authentication.OAuth2 != nil && len(mergedPolicy.Authentication.OAuth2.Scopes) > 0 {
+			jwtScopes := make([]egv1a1.JWTScope, len(mergedPolicy.Authentication.OAuth2.Scopes))
+			for i, scope := range mergedPolicy.Authentication.OAuth2.Scopes {
+				jwtScopes[i] = egv1a1.JWTScope(scope)
+			}
 
-		securityPolicy.Spec.Authorization = &egv1a1.Authorization{
-			Rules: []egv1a1.AuthorizationRule{
-				{
-					Principal: egv1a1.Principal{
-						JWT: &egv1a1.JWTPrincipal{
-							Provider: "default",
-							Scopes:   jwtScopes,
+			securityPolicy.Spec.Authorization = &egv1a1.Authorization{
+				Rules: []egv1a1.AuthorizationRule{
+					{
+						Principal: egv1a1.Principal{
+							JWT: &egv1a1.JWTPrincipal{
+								Provider: "default",
+								Scopes:   jwtScopes,
+							},
 						},
+						Action: actionAllow,
 					},
-					Action: actionAllow,
 				},
-			},
-			DefaultAction: &actionDeny,
+				DefaultAction: &actionDeny,
+			}
 		}
 	}
 
