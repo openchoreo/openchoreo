@@ -29,7 +29,32 @@ spec:
     grpc-endpoint:
       type: gRPC
       port: 50051
+      schema:
+        type: gRPC
+        content: |
+          syntax = "proto3";
 
+          package hipstershop;
+          
+          service PaymentService {
+              rpc Charge(ChargeRequest) returns (ChargeResponse) {}
+          }
+
+          message CreditCardInfo {
+              string credit_card_number = 1;
+              int32 credit_card_cvv = 2;
+              int32 credit_card_expiration_year = 3;
+              int32 credit_card_expiration_month = 4;
+          }
+
+          message ChargeRequest {
+              Money amount = 1;
+              CreditCardInfo credit_card = 2;
+          }
+
+          message ChargeResponse {
+              string transaction_id = 1;
+          }
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

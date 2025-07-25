@@ -26,7 +26,6 @@ spec:
       type: gRPC
       port: 6379
 
-
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Service
