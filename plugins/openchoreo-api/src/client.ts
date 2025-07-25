@@ -10,7 +10,8 @@ import {
   BuildConfig,
   BindingResponse,
   DeploymentPipelineResponse,
-  ModelsCompleteComponent
+  ModelsCompleteComponent,
+  ModelsWorkload,
 } from './models';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -459,6 +460,65 @@ export class OpenChoreoApiClient {
       this.logger?.error(
         `Failed to promote component ${componentName} from ${sourceEnvironment} to ${targetEnvironment}: ${error}`,
       );
+      throw error;
+    }
+  }
+
+  async getWorkload(orgName: string, projectName: string, componentName: string): Promise<ModelsWorkload> {
+    this.logger?.info(`Fetching workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.workloadGet({
+        orgName,
+        projectName,
+        componentName,
+      }, { token: this.token });
+      
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+      
+      if (!apiResponse.data) {
+        throw new Error('No workload data returned');
+      }
+      
+      this.logger?.info(`Successfully fetched workload for component: ${componentName}`);
+      return apiResponse.data;
+    } catch (error) {
+      this.logger?.error(`Failed to fetch workload for component ${componentName}: ${error}`);
+      throw error;
+    }
+  }
+
+  async updateWorkload(orgName: string, projectName: string, componentName: string, workloadSpec: ModelsWorkload): Promise<ModelsWorkload> {
+    this.logger?.info(`Updating workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
+    
+    try {
+      const response = await this.client.workloadPost({
+        orgName,
+        projectName,
+        componentName,
+        workloadSpec,
+      }, { token: this.token });
+      
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> = await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+      
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+      
+      if (!apiResponse.data) {
+        throw new Error('No workload data returned');
+      }
+      
+      this.logger?.info(`Successfully updated workload for component: ${componentName}`);
+      return apiResponse.data;
+    } catch (error) {
+      this.logger?.error(`Failed to update workload for component ${componentName}: ${error}`);
       throw error;
     }
   }

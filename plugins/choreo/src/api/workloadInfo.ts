@@ -10,7 +10,7 @@ export async function fetchWorkloadInfo(
 ) {
     const { token } = await identity.getCredentials();
     const backendUrl = new URL(
-        `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.COMPONENT_WORKLOAD}`,
+        `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.DEPLOYEMNT_WORKLOAD}`,
       );
     const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
     const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
@@ -29,6 +29,9 @@ export async function fetchWorkloadInfo(
             Authorization: `Bearer ${token}`,
         },
     });
+    if (!res.ok) {
+        throw new Error('Failed to fetch workload info');
+    }
     return res.json();
 }
 
@@ -40,7 +43,7 @@ export async function applyWorkload(
 ) {
     const { token } = await identity.getCredentials();
     const backendUrl = new URL(
-        `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.COMPONENT_WORKLOAD}`,
+        `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.DEPLOYEMNT_WORKLOAD}`,
     );  
     const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
     const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];

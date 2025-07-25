@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+/* eslint-disable no-nested-ternary */
+import React, { useEffect, useState } from 'react';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Content,

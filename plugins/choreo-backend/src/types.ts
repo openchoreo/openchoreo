@@ -1,4 +1,5 @@
-import { Project } from 'choreo-cell-diagram';
+import { Project } from '@wso2/cell-diagram';
+import { ModelsWorkload } from '@internal/plugin-openchoreo-api';
 
 export interface EnvironmentService {
   fetchDeploymentInfo(request: {
@@ -93,6 +94,21 @@ export interface CellDiagramService {
     projectName: string;
     orgName: string;
   }): Promise<Project | undefined>;
+}
+
+export interface WorkloadService {
+  fetchWorkloadInfo(request: {
+    projectName: string;
+    componentName: string;
+    organizationName: string;
+  }): Promise<ModelsWorkload>;
+  
+  applyWorkload(request: {
+    projectName: string;
+    componentName: string;
+    organizationName: string;
+    workloadSpec: ModelsWorkload;
+  }): Promise<any>;
 }
 
 export interface RuntimeLogsService {

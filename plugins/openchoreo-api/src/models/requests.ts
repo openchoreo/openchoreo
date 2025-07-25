@@ -160,6 +160,27 @@ export type ComponentPromotePostRequest = {
 };
 
 /**
+ * Request parameters for getting workload information
+ * @public
+ */
+export type WorkloadGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+};
+
+/**
+ * Request parameters for updating workload configuration
+ * @public
+ */
+export type WorkloadPostRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  workloadSpec: any; // Will be ModelsWorkload but avoiding circular import
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

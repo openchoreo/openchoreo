@@ -23,7 +23,7 @@ export function Workload() {
         const fetchWorkload = async () => {
             setIsLoading(true);
             const response = await fetchWorkloadInfo(entity, discovery, identity);
-            setWorkloadSpec(response.workload);
+            setWorkloadSpec(response);
             setIsLoading(false);
         }
         fetchWorkload();

@@ -4,7 +4,7 @@ import Router from 'express-promise-router';
 import { EnvironmentInfoService } from './services/EnvironmentService/EnvironmentInfoService';
 import { BuildTemplateInfoService } from './services/BuildTemplateService/BuildTemplateInfoService';
 import { BuildInfoService } from './services/BuildService/BuildInfoService';
-import { CellDiagramService } from './types';
+import { CellDiagramService, WorkloadService } from './types';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 
@@ -15,6 +15,7 @@ export async function createRouter({
   buildInfoService,
   componentInfoService,
   runtimeLogsInfoService,
+  workloadInfoService,
 }: {
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
@@ -22,6 +23,7 @@ export async function createRouter({
   buildInfoService: BuildInfoService;
   componentInfoService: ComponentInfoService;
   runtimeLogsInfoService: RuntimeLogsInfoService;
+  workloadInfoService: WorkloadService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -205,6 +207,70 @@ export async function createRouter({
       }
     },
   );
+
+  router.get('/workload', async (req, res) => {
+    const { componentName, projectName, organizationName } = req.query;
+
+    if (!componentName || !projectName || !organizationName) {
+      throw new InputError(
+        'componentName, projectName and organizationName are required query parameters',
+      );
+    }
+
+    try {
+      const result = await workloadInfoService.fetchWorkloadInfo({
+        componentName: componentName as string,
+        projectName: projectName as string,
+        organizationName: organizationName as string,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Workload fetch error:', error);
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          name: error instanceof Error ? error.name : 'UnknownError',
+          ...(error instanceof Error && error.stack && { stack: error.stack }),
+        },
+      });
+    }
+  });
+
+  router.post('/workload', async (req, res) => {
+    const { componentName, projectName, organizationName } = req.query;
+    const workloadSpec = req.body;
+
+    if (!componentName || !projectName || !organizationName) {
+      throw new InputError(
+        'componentName, projectName and organizationName are required query parameters',
+      );
+    }
+
+    if (!workloadSpec) {
+      throw new InputError('Workload specification is required in request body');
+    }
+
+    try {
+      const result = await workloadInfoService.applyWorkload({
+        componentName: componentName as string,
+        projectName: projectName as string,
+        organizationName: organizationName as string,
+        workloadSpec,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Workload apply error:', error);
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          name: error instanceof Error ? error.name : 'UnknownError',
+          ...(error instanceof Error && error.stack && { stack: error.stack }),
+        },
+      });
+    }
+  });
 
   return router;
 }

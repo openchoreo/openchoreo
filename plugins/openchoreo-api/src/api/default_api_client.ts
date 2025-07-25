@@ -28,6 +28,9 @@ import {
   ProjectDeploymentPipelineGetRequest,
   DeploymentPipelineResponse,
   ComponentPromotePostRequest,
+  WorkloadGetRequest,
+  WorkloadPostRequest,
+  ModelsWorkload,
 } from '../models';
 
 /**
@@ -383,6 +386,58 @@ export class DefaultApiClient {
       },
       method: 'POST',
       body: JSON.stringify(request.promoteComponentRequest),
+    });
+  }
+
+  /**
+   * Retrieves workload information for a component
+   * Get workload configuration
+   */
+  public async workloadGet(
+    request: WorkloadGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsWorkload>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workload`;
+  
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Updates workload configuration for a component
+   * Update workload configuration
+   */
+  public async workloadPost(
+    request: WorkloadPostRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsWorkload>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workload`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(request.workloadSpec),
     });
   }
 }

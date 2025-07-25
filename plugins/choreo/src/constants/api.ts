@@ -3,5 +3,5 @@ export const API_ENDPOINTS = {
   PROMOTE_DEPLOYMENT: '/promote-deployment',
   CELL_DIAGRAM: '/cell-diagram',
   RUNTIME_LOGS: '/logs/component',
-  COMPONENT_WORKLOAD: '/component',
+  DEPLOYEMNT_WORKLOAD: '/workload',
 } as const;
