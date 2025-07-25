@@ -25,8 +25,7 @@ spec:
           value: "1"
         - key: PORT
           value: "8080"
-        - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog-5c8ab466:3550"
+
   endpoints:
     grpc-endpoint:
       type: gRPC

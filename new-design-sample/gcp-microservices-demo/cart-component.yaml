@@ -23,8 +23,7 @@ spec:
       env:
         - key: PORT
           value: "7070"
-        - key: REDIS_ADDR
-          value: "redis-34fb46c8:6379"
+
   endpoints:
     grpc-endpoint:
       type: gRPC
