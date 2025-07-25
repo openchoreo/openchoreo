@@ -1,0 +1,78 @@
+{{- if .Values.defaultApplication.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openchoreo-identity-provider.fullname" . }}-post-install
+  labels:
+    {{- include "openchoreo-identity-provider.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: {{ include "openchoreo-identity-provider.fullname" . }}-post-install
+      labels:
+        {{- include "openchoreo-identity-provider.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: post-install-setup
+        image: curlimages/curl:8.4.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          
+          echo "Waiting for identity-provider service to be ready..."
+          max_attempts=60
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f --max-time 5 http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/health/liveness 2>/dev/null; then
+              echo "Identity provider service is responding"
+              break
+            fi
+            
+            echo "Attempt $((attempt + 1))/$max_attempts: Waiting for service to respond..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          if [ $attempt -eq $max_attempts ]; then
+            echo "Timeout waiting for identity-provider service to be ready"
+            exit 1
+          fi
+          
+          # Check if the application already exists
+          echo "Checking if application '{{ .Values.defaultApplication.name }}' already exists..."
+          existing_apps=$(curl -s --max-time 30 'http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications')
+          
+          if echo "$existing_apps" | grep -q '"name":"{{ .Values.defaultApplication.name }}"'; then
+            echo "Application '{{ .Values.defaultApplication.name }}' already exists, skipping creation"
+          else
+            echo "Application does not exist, creating default application..."
+            curl --location 'http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications' \
+              --header 'Content-Type: application/json' \
+              --data '{
+                "name": "{{ .Values.defaultApplication.name }}",
+                "description": "{{ .Values.defaultApplication.description }}",
+                "callback_url": [
+                  "{{ .Values.defaultApplication.callbackUrl }}"
+                ],
+                "supported_grant_types": [
+                  "client_credentials"
+                ],
+                "client_id": "{{ .Values.defaultApplication.clientId }}",
+                "client_secret": "{{ .Values.defaultApplication.clientSecret }}"
+              }' \
+              --fail-with-body \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5
+            
+            echo "Default application created successfully"
+          fi
+{{- end }}

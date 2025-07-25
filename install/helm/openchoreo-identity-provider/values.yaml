@@ -117,3 +117,13 @@ persistence:
     storageClass: "manual"
     accessMode: ReadWriteMany
     size: 1Gi
+
+# Default application creation
+# This is just a sample application that will be used for testing purposes.
+defaultApplication:
+  enabled: true
+  name: "DefaultApplication"
+  description: "Sample Application for testing"
+  callbackUrl: "https://example.com/callback"
+  clientId: "openchoreo-default-client"
+  clientSecret: "openchoreo-default-secret"
