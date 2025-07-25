@@ -11,6 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -93,6 +94,34 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (rResult c
 // reconcileRelease reconciles the Release associated with the WebApplicationBinding.
 func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, webApplicationClass *openchoreov1alpha1.WebApplicationClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+
+	// Handle undeploy case - delete the Release if it exists
+	if webApplicationBinding.Spec.ReleaseState == openchoreov1alpha1.ReleaseStateUndeploy {
+		release := &openchoreov1alpha1.Release{}
+		err := r.Get(ctx, types.NamespacedName{Name: webApplicationBinding.Name, Namespace: webApplicationBinding.Namespace}, release)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Release doesn't exist, mark as undeployed
+				controller.MarkFalseCondition(webApplicationBinding, ConditionReady, ReasonResourcesUndeployed, "Resources undeployed")
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to get Release for undeploy: %w", err)
+		}
+
+		// Only delete it if not already being deleted
+		if release.DeletionTimestamp.IsZero() {
+			// Delete the Release
+			if err := r.Delete(ctx, release); err != nil {
+				err = fmt.Errorf("failed to delete release %q: %w", release.Name, err)
+				controller.MarkFalseCondition(webApplicationBinding, ConditionReady, ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Release exists but is being deleted
+		controller.MarkFalseCondition(webApplicationBinding, ConditionReady, ReasonResourcesUndeployed, "Resources being undeployed")
+		return ctrl.Result{}, nil
+	}
 
 	// Resolve API connections
 	resolvedConnections, err := r.resolveApiConnections(ctx, webApplicationBinding)
@@ -225,13 +254,13 @@ func (r *Reconciler) makeLabels(webApplicationBinding *openchoreov1alpha1.WebApp
 	for k, v := range webApplicationBinding.Labels {
 		result[k] = v
 	}
-	
+
 	// Add/overwrite component-specific labels
 	result[labels.LabelKeyOrganizationName] = webApplicationBinding.Namespace // namespace = organization
 	result[labels.LabelKeyProjectName] = webApplicationBinding.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = webApplicationBinding.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = webApplicationBinding.Spec.Environment
-	
+
 	return result
 }
 

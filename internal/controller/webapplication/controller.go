@@ -79,6 +79,7 @@ func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webAppl
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, webApplicationBinding, func() error {
 		desired := r.makeWebApplicationBinding(webApplication, workload)
+		desired.Spec.ReleaseState = webApplicationBinding.Spec.ReleaseState // Keep the existing release state
 		webApplicationBinding.Labels = desired.Labels
 		webApplicationBinding.Spec = desired.Spec
 		return controllerutil.SetControllerReference(webApplication, webApplicationBinding, r.Scheme)
@@ -141,12 +142,12 @@ func (r *Reconciler) makeLabels(webApplication *openchoreov1alpha1.WebApplicatio
 	for k, v := range webApplication.Labels {
 		result[k] = v
 	}
-	
+
 	// Add/overwrite component-specific labels
 	result[labels.LabelKeyOrganizationName] = webApplication.Namespace // namespace = organization
 	result[labels.LabelKeyProjectName] = webApplication.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = webApplication.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings
-	
+
 	return result
 }

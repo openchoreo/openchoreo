@@ -17,12 +17,14 @@ const (
 // Constants for condition reasons
 
 const (
-	// Reasons for the Ready condition type when status is True
+	// Reasons for the Ready condition based on ReleaseState
 
-	// ReasonAllResourcesReady indicates all resources are deployed and healthy
-	ReasonAllResourcesReady controller.ConditionReason = "AllResourcesReady"
-	// ReasonResourcesReadyWithSuspended indicates all resources are ready (some intentionally suspended)
-	ReasonResourcesReadyWithSuspended controller.ConditionReason = "ResourcesReadyWithSuspended"
+	// ReasonResourcesActive indicates all resources are deployed and actively running (ReleaseState=Active)
+	ReasonResourcesActive controller.ConditionReason = "ResourcesActive"
+	// ReasonResourcesSuspended indicates resources are intentionally suspended (ReleaseState=Suspend)
+	ReasonResourcesSuspended controller.ConditionReason = "ResourcesSuspended"
+	// ReasonResourcesUndeployed indicates resources are intentionally undeployed (ReleaseState=Undeploy)
+	ReasonResourcesUndeployed controller.ConditionReason = "ResourcesUndeployed"
 
 	// Reasons for the Ready condition type when status is False - Resource Health Issues
 
@@ -46,4 +48,6 @@ const (
 	ReasonReleaseCreationFailed controller.ConditionReason = "ReleaseCreationFailed"
 	// ReasonReleaseUpdateFailed indicates failure to update the Release
 	ReasonReleaseUpdateFailed controller.ConditionReason = "ReleaseUpdateFailed"
+	// ReasonReleaseDeletionFailed indicates failure to delete the Release
+	ReasonReleaseDeletionFailed controller.ConditionReason = "ReleaseDeletionFailed"
 )
