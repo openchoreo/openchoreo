@@ -1,0 +1,12 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  annotations:
+    openchoreo.dev/description: GCP Microservice Demo Project
+    openchoreo.dev/display-name: GCP Microservice Demo
+  labels:
+    openchoreo.dev/name: gcp-microservice-demo
+    openchoreo.dev/organization: default
+  name: gcp-microservice-demo
+  namespace: default
+spec:
