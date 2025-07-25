@@ -163,7 +163,8 @@ func makeHostname(rCtx *Context, exposeLevel openchoreov1alpha1.RESTOperationExp
 func makeHTTPRouteName(rCtx *Context, apiName string, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	// Create a unique name for the HTTPRoute using ServiceBinding name, API name and expose level
 	exposeLevelStr := strings.ToLower(string(exposeLevel))
-	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name, apiName, exposeLevelStr, "httproute")
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxServiceNameLength,
+		rCtx.ServiceBinding.Name, apiName, exposeLevelStr, "httproute")
 }
 
 func getGatewayName(exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {

@@ -235,7 +235,8 @@ func convertToEnvoyGatewayCircuitBreaker(circuitBreakerPolicy *openchoreov1alpha
 func makeBackendTrafficPolicyName(rCtx Context, apiName string, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	// Create a unique name for the BackendTrafficPolicy using ServiceBinding name, API name and expose level
 	exposeLevelStr := strings.ToLower(string(exposeLevel))
-	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name, apiName, exposeLevelStr, "btp")
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxServiceNameLength,
+		rCtx.ServiceBinding.Name, apiName, exposeLevelStr, "btp")
 }
 
 func makeBackendTrafficPolicyResourceID(backendTrafficPolicy *egv1a1.BackendTrafficPolicy) string {
