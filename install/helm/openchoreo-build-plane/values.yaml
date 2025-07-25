@@ -1,12 +1,34 @@
 # Global configuration
 global:
-  # Common labels applied to all resources
+  # -- Common labels to add to every resource.
   commonLabels: {}
-  # Default build plane resources and configuration
+  # -- Configuration for the default workflow templates required for building container images.
   defaultResources:
+    # -- If true, applies the workflow templates.
     enabled: true
-    # Container registry endpoint for pushing images
-    registryEndpoint: "registry.openchoreo-data-plane.svc.cluster.local:5000"
+      # -- Container registry configuration
+    registry:
+      # -- Type of registry to use. Supported values: "local", "external".
+      # "local": Deploys a built-in registry managed by data plane Helm chart.
+      # "external": Connects to a pre-existing registry you provide.
+      type: local
+
+      # -- Settings for the built-in registry.
+      # These values are ONLY used if registry.type is "local".
+      local:
+        # -- The internal cluster address used by build pipelines (e.g., Podman) to push images.
+        pushEndpoint: "registry.openchoreo-data-plane.svc.cluster.local:5000"
+
+        # -- The public-facing address used by cluster nodes (kubelet) to pull images.
+        # This could be a NodePort, LoadBalancer, or Ingress address.
+        pullEndpoint: "localhost:30003"
+
+      # -- Settings for using your own external registry.
+      # These values are ONLY used if registry.type is "external".
+      external:
+        # -- The full address of your external registry.
+        # (e.g., "gcr.io/my-project", "docker.io/my-org", "my-harbor.corp:5000")
+        endpoint: ""
 
 # customizing the argo workflows configurations
 argo-workflows:

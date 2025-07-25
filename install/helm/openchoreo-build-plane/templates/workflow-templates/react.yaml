@@ -157,7 +157,33 @@ spec:
         args:
           - |-
             set -e
+
+            #####################################################################
+            # 1. Inputs
+            #####################################################################
             GIT_REVISION={{ "{{" }}inputs.parameters.git-revision{{ "}}" }}
+            IMAGE_NAME={{ "{{" }}workflow.parameters.image-name{{ "}}" }}
+            IMAGE_TAG={{ "{{" }}workflow.parameters.image-tag{{ "}}" }}
+            SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
+
+            #####################################################################
+            # 2. Registry endpoints from Helm values
+            #    - type: "local" or "external"
+            #    - choose the right push/pull endpoints
+            #####################################################################
+            REGISTRY_TYPE="{{ .Values.global.defaultResources.registry.type | default "local" }}"
+
+            if [ "${REGISTRY_TYPE}" = "local" ]; then
+              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.local.pullEndpoint }}"
+              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.local.pushEndpoint }}"
+            else
+              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.external.endpoint }}"
+              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.external.endpoint }}"
+            fi
+
+            #####################################################################
+            # 3. Podman storage configuration
+            #####################################################################
             mkdir -p /etc/containers
             cat <<EOF > /etc/containers/storage.conf
             [storage]
@@ -168,11 +194,19 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            #####################################################################
+            # 4. Load the tarred image and push to the selected registry
+            #####################################################################
             podman load -i /mnt/vol/app-image.tar
-            podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
-            podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
-            echo -n "localhost:30003/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+            podman tag $SRC_IMAGE $REGISTRY_PUSH/$SRC_IMAGE
+            podman push --tls-verify=false $REGISTRY_PUSH/$SRC_IMAGE
+
+            #####################################################################
+            # 5. Emit image reference (for later steps/kubelet pulls)
+            #####################################################################
+            echo -n "$REGISTRY_PULL/$SRC_IMAGE" > /tmp/image.txt
+
         command:
           - sh
           - -c
