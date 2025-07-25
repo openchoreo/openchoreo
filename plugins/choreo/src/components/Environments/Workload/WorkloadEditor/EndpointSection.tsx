@@ -46,7 +46,7 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-const protocolTypes = ['TCP', 'UDP'];
+const protocolTypes = ['TCP', 'UDP', 'HTTP', 'REST', 'gRPC', 'Websocket', 'GraphQL'];
 
 export const EndpointSection: React.FC<EndpointSectionProps> = ({
     endpoints,
@@ -87,16 +87,16 @@ export const EndpointSection: React.FC<EndpointSectionProps> = ({
                                 <Grid container spacing={2}>
                                     <Grid item xs={12} md={6}>
                                         <FormControl fullWidth variant="outlined">
-                                            <InputLabel>Protocol</InputLabel>
+                                            <InputLabel>Type</InputLabel>
                                             <Select
                                                 disabled={disabled}
-                                                value={endpoint.protocol}
-                                                onChange={(e) => onEndpointChange(endpointName, 'protocol', e.target.value)}
-                                                label="Protocol"
+                                                value={endpoint.type}
+                                                onChange={(e) => onEndpointChange(endpointName, 'type', e.target.value)}
+                                                label="Type"
                                             >
-                                                {protocolTypes.map((protocol) => (
-                                                    <MenuItem key={protocol} value={protocol}>
-                                                        {protocol}
+                                                {protocolTypes.map((type) => (
+                                                    <MenuItem key={type} value={type}>
+                                                        {type}
                                                     </MenuItem>
                                                 ))}
                                             </Select>

@@ -9,6 +9,7 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
 import { discoveryApiRef } from '@backstage/core-plugin-api';
 import { identityApiRef } from '@backstage/core-plugin-api';
+import { Alert } from '@material-ui/lab';
 
 export function Workload() {
     const discovery = useApi(discoveryApiRef);
@@ -18,17 +19,23 @@ export function Workload() {
     const [open, setOpen] = React.useState(false);
     const [workloadSpec, setWorkloadSpec] = React.useState<ModelsWorkload | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
 
     useEffect(() => {
         const fetchWorkload = async () => {
-            setIsLoading(true);
-            const response = await fetchWorkloadInfo(entity, discovery, identity);
-            setWorkloadSpec(response);
-            setIsLoading(false);
+            try {
+                setIsLoading(true);
+                const response = await fetchWorkloadInfo(entity, discovery, identity);
+                setWorkloadSpec(response);
+                setIsLoading(false);
+            } catch (e) {
+                setError('Failed to fetch workload info');
+            }
         }
         fetchWorkload();
         return () => {
             setWorkloadSpec(null);
+            setError(null);
         }
     }, [entity, discovery, identity]);
 
@@ -42,20 +49,24 @@ export function Workload() {
     };
 
     const handleDeploy = async () => {
-        console.log("Deploying workload");
         if (!workloadSpec) {
             return;
         }
         const response = await applyWorkload(entity, discovery, identity, workloadSpec);
-        console.log(response);
     };
 
     return (
         <>
-            <Button onClick={toggleDrawer()} variant="contained" color="primary" startIcon={<SettingsIcon />}>
-                Configure & Deploy
-            </Button>
-            {isLoading && <CircularProgress />}
+            <Box display="flex" justifyContent="space-between" flexDirection="column" gridGap={8}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
+                    {isLoading && !error && <CircularProgress />}
+                </Box>
+                {error && <Alert severity="error">{error}</Alert>}
+                <Button onClick={toggleDrawer()} disabled={!!error} variant="contained" color="primary" startIcon={<SettingsIcon />}>
+                    Configure & Deploy
+                </Button>
+            </Box>
+
             <Drawer open={open} onClose={toggleDrawer()} anchor="right">
                 <Box
                     bgcolor={theme.palette.grey[200]}

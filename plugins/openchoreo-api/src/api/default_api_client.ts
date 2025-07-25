@@ -397,7 +397,7 @@ export class DefaultApiClient {
     request: WorkloadGetRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsWorkload>>> {
-    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workload`;
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads`;
   
 
     const uri = parser.parse(uriTemplate).expand({
@@ -423,7 +423,7 @@ export class DefaultApiClient {
     request: WorkloadPostRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsWorkload>>> {
-    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workload`;
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads`;
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
