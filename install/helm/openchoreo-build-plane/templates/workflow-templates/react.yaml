@@ -78,26 +78,44 @@ spec:
           - |-
             set -e
 
-            WORKDIR=/mnt/vol/source
-            CACHE_DIR=/shared/podman/cache
+            WORKDIR="/mnt/vol/source"
+            CACHE_DIR="/shared/podman/cache"
 
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
-            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
+            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"         # e.g. /react-nginx
+            NODE_VERSION="{{ "{{" }}workflow.parameters.node-version{{ "}}" }}"  # e.g. 18
 
-            NODE_VERSION="{{ "{{" }}workflow.parameters.node-version{{ "}}" }}"
+            #####################################################################
+            # 0. Prepare workspace and locate source
+            #####################################################################
+            cd "${WORKDIR}"
+
+            # Remove leading slash from APP_PATH if present
+            APP_PATH_CLEAN=$(echo "$APP_PATH" | sed 's|^/||')
+
+            # Determine source directory - if APP_PATH is specified, use it, otherwise use current directory
+            if [ -n "$APP_PATH_CLEAN" ] && [ -d "$APP_PATH_CLEAN" ]; then
+                SOURCE_DIR="$APP_PATH_CLEAN"
+            else
+                SOURCE_DIR="."
+            fi
+
+            echo "Building from source directory: $SOURCE_DIR"
+            echo "Contents of source directory:"
+            ls -la "$SOURCE_DIR"
 
             #####################################################################
             # 1. Build React: Custom Dockerfile + Nginx
             #####################################################################
-            cat > "$APP_PATH/Dockerfile" <<'EOF'
-            FROM node:$NODE_VERSION-alpine as builder
+            cat > "${SOURCE_DIR}/Dockerfile" <<EOF
+            FROM node:${NODE_VERSION}-alpine AS builder
             RUN npm install -g pnpm
             WORKDIR /app
             COPY . .
-            RUN if [ -f "package-lock.json" ]; then npm ci; \
-                elif [ -f "yarn.lock" ]; then yarn install --frozen-lockfile; \
-                elif [ -f "pnpm-lock.yaml" ]; then pnpm install --frozen-lockfile; \
-                else echo "No lock file found" && exit 1; fi
+            RUN if [ -f "package-lock.json" ]; then npm ci; \\
+                elif [ -f "yarn.lock" ]; then yarn install --frozen-lockfile; \\
+                elif [ -f "pnpm-lock.yaml" ]; then pnpm install --frozen-lockfile; \\
+                else echo "No lock file found, using npm install" && npm install; fi
             RUN npm run build || yarn run build || pnpm run build
 
             FROM nginx:alpine
@@ -105,7 +123,7 @@ spec:
             COPY --from=builder /app/build /usr/share/nginx/html/
             EOF
 
-            cat > "$APP_PATH/default.conf" <<'EOF'
+            cat > "${SOURCE_DIR}/default.conf" <<'EOF'
             server {
               listen 80;
               location / {
@@ -116,7 +134,8 @@ spec:
             }
             EOF
 
-            podman build -t "$IMAGE" -f "$APP_PATH/Dockerfile" "$APP_PATH"
+            # Build using the source directory as context
+            podman build -t "$IMAGE" -f "${SOURCE_DIR}/Dockerfile" "$SOURCE_DIR"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         command:
           - sh
@@ -157,7 +176,7 @@ spec:
             podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
             podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
-            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+            echo -n "localhost:30003/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
         command:
           - sh
           - -c
