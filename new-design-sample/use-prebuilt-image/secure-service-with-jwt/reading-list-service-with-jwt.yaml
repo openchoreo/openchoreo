@@ -5,7 +5,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
-  name: reading-list-service
+  name: reading-list-service-jwt
 spec:
   owner:
     projectName: default
@@ -17,14 +17,14 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: reading-list-service
+  name: reading-list-service-jwt
 spec:
   owner:
-    componentName: reading-list-service
+    componentName: reading-list-service-jwt
     projectName: default
   containers:
     main:
-      image: vajiraprabuddhaka/reading-list-api:latest
+      image: ghcr.io/openchoreo/samples/reading-list-server:latest
       env:
         - key: LOG_LEVEL
           value: info
@@ -229,12 +229,12 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
-  name: reading-list-service
+  name: reading-list-service-jwt
 spec:
   owner:
-    componentName: reading-list-service
+    componentName: reading-list-service-jwt
     projectName: default
-  workloadName: reading-list-service
+  workloadName: reading-list-service-jwt
   overrides: {}
   apis:
     greeter:

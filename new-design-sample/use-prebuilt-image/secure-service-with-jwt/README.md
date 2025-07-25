@@ -74,7 +74,7 @@ kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
    
    Try accessing the API without authentication:
    ```bash
-   curl -k "https://development.choreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books"
+   curl -k "https://development.choreoapis.localhost:8443/default/reading-list-service-jwt/api/v1/reading-list/books"
    ```
    
    This should return a 401 Unauthorized error since JWT authentication is required.
@@ -96,13 +96,13 @@ kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
    ```bash
    # List all books
    curl -k -H "Authorization: Bearer $ACCESS_TOKEN" \
-     https://development.choreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books
+     https://development.choreoapis.localhost:8443/default/reading-list-service-jwt/api/v1/reading-list/books
    
    # Add a new book
    curl -k -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"title":"The Hobbit","author":"J.R.R. Tolkien","status":"to_read"}' \
-     https://development.choreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books
+     https://development.choreoapis.localhost:8443/default/reading-list-service-jwt/api/v1/reading-list/books
    ```
 
 > [!TIP]
