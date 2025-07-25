@@ -6,7 +6,15 @@ import { Entity } from '@backstage/catalog-model';
 import { SchedulerServiceTaskRunner } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { createOpenChoreoApiClient, OpenChoreoApiClient, ModelsProject, ModelsOrganization, ModelsComponent } from '@internal/plugin-openchoreo-api';
+import {
+  createOpenChoreoApiClient,
+  OpenChoreoApiClient,
+  ModelsProject,
+  ModelsOrganization,
+  ModelsComponent,
+  ModelsCompleteComponent,
+  WorkloadEndpoint,
+} from '@internal/plugin-openchoreo-api';
 
 /**
  * Provides entities from OpenChoreo API
@@ -47,17 +55,21 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     }
 
     try {
-      this.logger.info('Fetching organizations and projects from OpenChoreo API');
-      
+      this.logger.info(
+        'Fetching organizations and projects from OpenChoreo API',
+      );
+
       // First, get all organizations
       const organizations = await this.client.getAllOrganizations();
-      this.logger.info(`Found ${organizations.length} organizations from OpenChoreo`);
+      this.logger.info(
+        `Found ${organizations.length} organizations from OpenChoreo`,
+      );
 
       const allEntities: Entity[] = [];
 
       // Create Domain entities for each organization
-      const domainEntities: Entity[] = organizations.map(org => 
-        this.translateOrganizationToDomain(org)
+      const domainEntities: Entity[] = organizations.map(org =>
+        this.translateOrganizationToDomain(org),
       );
       allEntities.push(...domainEntities);
 
@@ -65,29 +77,86 @@ export class OpenChoreoEntityProvider implements EntityProvider {
       for (const org of organizations) {
         try {
           const projects = await this.client.getAllProjects(org.name);
-          this.logger.info(`Found ${projects.length} projects in organization: ${org.name}`);
+          this.logger.info(
+            `Found ${projects.length} projects in organization: ${org.name}`,
+          );
 
-          const systemEntities: Entity[] = projects.map(project => 
-            this.translateProjectToEntity(project, org.name)
+          const systemEntities: Entity[] = projects.map(project =>
+            this.translateProjectToEntity(project, org.name),
           );
           allEntities.push(...systemEntities);
 
           // Get components for each project and create Component entities
           for (const project of projects) {
             try {
-              const components = await this.client.getAllComponents(org.name, project.name);
-              this.logger.info(`Found ${components.length} components in project: ${project.name}`);
-
-              const componentEntities: Entity[] = components.map(component => 
-                this.translateComponentToEntity(component, org.name, project.name)
+              const components = await this.client.getAllComponents(
+                org.name,
+                project.name,
               );
-              allEntities.push(...componentEntities);
+              this.logger.info(
+                `Found ${components.length} components in project: ${project.name}`,
+              );
+
+              for (const component of components) {
+                // If the component is a Service, fetch complete details and create both component and API entities
+                if (component.type === 'Service') {
+                  try {
+                    const completeComponent = await this.client.getComponent(
+                      org.name,
+                      project.name,
+                      component.name,
+                    );
+
+                    // Create component entity with providesApis
+                    const componentEntity =
+                      this.translateServiceComponentToEntity(
+                        completeComponent,
+                        org.name,
+                        project.name,
+                      );
+                    allEntities.push(componentEntity);
+
+                    // Create API entities if endpoints exist
+                    if (completeComponent.workload?.endpoints) {
+                      const apiEntities = this.createApiEntitiesFromWorkload(
+                        completeComponent,
+                        org.name,
+                        project.name,
+                      );
+                      allEntities.push(...apiEntities);
+                    }
+                  } catch (error) {
+                    this.logger.warn(
+                      `Failed to fetch complete component details for ${component.name}: ${error}`,
+                    );
+                    // Fallback to basic component entity
+                    const componentEntity = this.translateComponentToEntity(
+                      component,
+                      org.name,
+                      project.name,
+                    );
+                    allEntities.push(componentEntity);
+                  }
+                } else {
+                  // Create basic component entity for non-Service components
+                  const componentEntity = this.translateComponentToEntity(
+                    component,
+                    org.name,
+                    project.name,
+                  );
+                  allEntities.push(componentEntity);
+                }
+              }
             } catch (error) {
-              this.logger.warn(`Failed to fetch components for project ${project.name} in organization ${org.name}: ${error}`);
+              this.logger.warn(
+                `Failed to fetch components for project ${project.name} in organization ${org.name}: ${error}`,
+              );
             }
           }
         } catch (error) {
-          this.logger.warn(`Failed to fetch projects for organization ${org.name}: ${error}`);
+          this.logger.warn(
+            `Failed to fetch projects for organization ${org.name}: ${error}`,
+          );
         }
       }
 
@@ -100,8 +169,13 @@ export class OpenChoreoEntityProvider implements EntityProvider {
       });
 
       const systemCount = allEntities.filter(e => e.kind === 'System').length;
-      const componentCount = allEntities.filter(e => e.kind === 'Component').length;
-      this.logger.info(`Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components)`);
+      const componentCount = allEntities.filter(
+        e => e.kind === 'Component',
+      ).length;
+      const apiCount = allEntities.filter(e => e.kind === 'API').length;
+      this.logger.info(
+        `Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components, ${apiCount} apis)`,
+      );
     } catch (error) {
       this.logger.error(`Failed to run OpenChoreoEntityProvider: ${error}`);
     }
@@ -110,7 +184,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
   /**
    * Translates a ModelsOrganization from OpenChoreo API to a Backstage Domain entity
    */
-  private translateOrganizationToDomain(organization: ModelsOrganization): Entity {
+  private translateOrganizationToDomain(
+    organization: ModelsOrganization,
+  ): Entity {
     const domainEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Domain',
@@ -143,7 +219,10 @@ export class OpenChoreoEntityProvider implements EntityProvider {
   /**
    * Translates a ModelsProject from OpenChoreo API to a Backstage System entity
    */
-  private translateProjectToEntity(project: ModelsProject, orgName: string): Entity {
+  private translateProjectToEntity(
+    project: ModelsProject,
+    orgName: string,
+  ): Entity {
     const systemEntity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'System',
@@ -176,8 +255,12 @@ export class OpenChoreoEntityProvider implements EntityProvider {
   /**
    * Translates a ModelsComponent from OpenChoreo API to a Backstage Component entity
    */
-  private translateComponentToEntity(component: ModelsComponent, orgName: string, projectName: string): Entity {
-
+  private translateComponentToEntity(
+    component: ModelsComponent,
+    orgName: string,
+    projectName: string,
+    providesApis?: string[],
+  ): Entity {
     let backstageComponentType: string = component.type.toLowerCase(); // e.g., 'service', 'webapp', etc.
     if (component.type === 'WebApplication') {
       backstageComponentType = 'website';
@@ -201,7 +284,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
           'openchoreo.io/organization': orgName,
           'openchoreo.io/created-at': component.createdAt,
           'openchoreo.io/status': component.status,
-          ...(component.repositoryUrl && { 'backstage.io/source-location': `url:${component.repositoryUrl}` }),
+          ...(component.repositoryUrl && {
+            'backstage.io/source-location': `url:${component.repositoryUrl}`,
+          }),
           ...(component.branch && { 'openchoreo.io/branch': component.branch }),
         },
         labels: {
@@ -213,9 +298,192 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         lifecycle: component.status.toLowerCase(), // Map status to lifecycle
         owner: 'guests', // This could be mapped from component metadata
         system: projectName, // Link to the parent system (project)
+        ...(providesApis && providesApis.length > 0 && { providesApis }),
       },
     };
 
     return componentEntity;
+  }
+
+  /**
+   * Translates a ModelsCompleteComponent (Service) to a Backstage Component entity with providesApis
+   */
+  private translateServiceComponentToEntity(
+    completeComponent: ModelsCompleteComponent,
+    orgName: string,
+    projectName: string,
+  ): Entity {
+    // Generate API names for providesApis
+    const providesApis: string[] = [];
+    if (completeComponent.workload?.endpoints) {
+      Object.keys(completeComponent.workload.endpoints).forEach(
+        endpointName => {
+          providesApis.push(`${completeComponent.name}-${endpointName}`);
+        },
+      );
+    }
+
+    // Reuse the base translateComponentToEntity method
+    return this.translateComponentToEntity(
+      completeComponent,
+      orgName,
+      projectName,
+      providesApis,
+    );
+  }
+
+  /**
+   * Creates API entities from a Service component's workload endpoints
+   */
+  private createApiEntitiesFromWorkload(
+    completeComponent: ModelsCompleteComponent,
+    orgName: string,
+    projectName: string,
+  ): Entity[] {
+    const apiEntities: Entity[] = [];
+
+    if (!completeComponent.workload?.endpoints) {
+      return apiEntities;
+    }
+
+    Object.entries(completeComponent.workload.endpoints).forEach(
+      ([endpointName, endpoint]) => {
+        const apiEntity: Entity = {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'API',
+          metadata: {
+            name: `${completeComponent.name}-${endpointName}`,
+            title: `${completeComponent.name} ${endpointName} API`,
+            description: `${endpoint.type} endpoint for ${completeComponent.name} service on port ${endpoint.port}`,
+            tags: ['openchoreo', 'api', endpoint.type.toLowerCase()],
+            annotations: {
+              'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
+              'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
+              'openchoreo.io/component-id': completeComponent.name,
+              'openchoreo.io/endpoint-name': endpointName,
+              'openchoreo.io/endpoint-type': endpoint.type,
+              'openchoreo.io/endpoint-port': endpoint.port.toString(),
+              'openchoreo.io/project': projectName,
+              'openchoreo.io/organization': orgName,
+            },
+            labels: {
+              'openchoreo.io/managed': 'true',
+            },
+          },
+          spec: {
+            type: this.mapWorkloadEndpointTypeToBackstageType(endpoint.type),
+            lifecycle: 'production',
+            owner: 'guests',
+            system: projectName,
+            definition: this.createApiDefinitionFromWorkloadEndpoint(
+              endpoint,
+              endpointName,
+            ),
+          },
+        };
+
+        apiEntities.push(apiEntity);
+      },
+    );
+
+    return apiEntities;
+  }
+
+  /**
+   * Maps WorkloadEndpoint type to Backstage API spec type
+   */
+  private mapWorkloadEndpointTypeToBackstageType(workloadType: string): string {
+    switch (workloadType) {
+      case 'REST':
+      case 'HTTP':
+        return 'openapi';
+      case 'GraphQL':
+        return 'graphql';
+      case 'gRPC':
+        return 'grpc';
+      case 'Websocket':
+        return 'asyncapi';
+      case 'TCP':
+      case 'UDP':
+        return 'openapi'; // Default to openapi for TCP/UDP
+      default:
+        return 'openapi';
+    }
+  }
+
+  /**
+   * Creates API definition from WorkloadEndpoint
+   */
+  private createApiDefinitionFromWorkloadEndpoint(
+    endpoint: WorkloadEndpoint,
+    endpointName: string,
+  ): string {
+    if (endpoint.schema?.content) {
+      return endpoint.schema.content;
+    } else {
+      return 'No schema available';
+    }
+
+    //   // Create a basic definition based on endpoint type
+    //   if (endpoint.type === 'REST' || endpoint.type === 'HTTP') {
+    //     const definition = {
+    //       openapi: '3.0.0',
+    //       info: {
+    //         title: `${endpointName} API`,
+    //         version: '1.0.0',
+    //         description: `${endpoint.type} API endpoint on port ${endpoint.port}`,
+    //       },
+    //       servers: [
+    //         {
+    //           url: `http://localhost:${endpoint.port}`,
+    //           description: `${endpoint.type} server`,
+    //         },
+    //       ],
+    //       paths: {
+    //         '/': {
+    //           get: {
+    //             summary: `${endpoint.type} endpoint`,
+    //             description: `${endpoint.type} endpoint on port ${endpoint.port}`,
+    //             responses: {
+    //               '200': {
+    //                 description: 'Successful response',
+    //               },
+    //             },
+    //           },
+    //         },
+    //       },
+    //     };
+    //     return JSON.stringify(definition, null, 2);
+    //   }
+
+    //   if (endpoint.type === 'GraphQL') {
+    //     const definition = {
+    //       graphql: '1.0.0',
+    //       info: {
+    //         title: `${endpointName} GraphQL API`,
+    //         version: '1.0.0',
+    //         description: `GraphQL API endpoint on port ${endpoint.port}`,
+    //       },
+    //       servers: [
+    //         {
+    //           url: `http://localhost:${endpoint.port}/graphql`,
+    //           description: 'GraphQL server',
+    //         },
+    //       ],
+    //     };
+    //     return JSON.stringify(definition, null, 2);
+    //   }
+
+    //   // Default minimal definition
+    //   const definition = {
+    //     info: {
+    //       title: `${endpointName} API`,
+    //       version: '1.0.0',
+    //       description: `${endpoint.type} endpoint on port ${endpoint.port}`,
+    //     },
+    //     type: endpoint.type,
+    //     port: endpoint.port,
+    //   };
+    //   return JSON.stringify(definition, null, 2);
   }
 }

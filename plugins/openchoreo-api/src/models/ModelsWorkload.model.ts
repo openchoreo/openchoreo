@@ -16,7 +16,8 @@ export interface Schema {
 }
 
 export interface WorkloadEndpoint {
-  protocol: 'TCP' | 'UDP';
+  // It should be WebSocket, not Websocket
+  type: 'TCP' | 'UDP' | 'HTTP' | 'REST' | 'gRPC' | 'Websocket' | 'GraphQL';
   port: number;
   schema?: Schema;
 }
