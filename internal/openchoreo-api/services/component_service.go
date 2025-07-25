@@ -1028,3 +1028,137 @@ func (s *ComponentService) createOrUpdateScheduledTaskBinding(ctx context.Contex
 
 	return nil
 }
+
+// GetComponentWorkloads retrieves workload data for a specific component
+func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (interface{}, error) {
+	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
+
+	// Verify project exists
+	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Verify component exists and belongs to the project
+	component := &openchoreov1alpha1.ComponentV2{}
+	key := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify that the component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Use the WorkloadSpecFetcher to get workload data
+	fetcher := &WorkloadSpecFetcher{}
+	workloadSpec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Workload not found for component", "org", orgName, "project", projectName, "component", componentName)
+			return nil, fmt.Errorf("workload not found for component: %s", componentName)
+		}
+		s.logger.Error("Failed to fetch workload spec", "error", err)
+		return nil, fmt.Errorf("failed to fetch workload spec: %w", err)
+	}
+
+	return workloadSpec, nil
+}
+
+// CreateComponentWorkload creates or updates workload data for a specific component
+func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName, projectName, componentName string, workloadSpec *openchoreov1alpha1.WorkloadSpec) (*openchoreov1alpha1.WorkloadSpec, error) {
+	s.logger.Debug("Creating/updating component workload", "org", orgName, "project", projectName, "component", componentName)
+
+	// Verify project exists
+	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Verify component exists and belongs to the project
+	component := &openchoreov1alpha1.ComponentV2{}
+	key := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify that the component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Check if workload already exists
+	workloadList := &openchoreov1alpha1.WorkloadList{}
+	if err := s.k8sClient.List(ctx, workloadList, client.InNamespace(orgName)); err != nil {
+		return nil, fmt.Errorf("failed to list workloads: %w", err)
+	}
+
+	var existingWorkload *openchoreov1alpha1.Workload
+	for i := range workloadList.Items {
+		workload := &workloadList.Items[i]
+		if workload.Spec.Owner.ComponentName == componentName {
+			existingWorkload = workload
+			break
+		}
+	}
+
+	if existingWorkload != nil {
+		// Update existing workload
+		existingWorkload.Spec = *workloadSpec
+		if err := s.k8sClient.Update(ctx, existingWorkload); err != nil {
+			s.logger.Error("Failed to update workload", "error", err)
+			return nil, fmt.Errorf("failed to update workload: %w", err)
+		}
+		s.logger.Debug("Updated existing workload", "name", existingWorkload.Name, "namespace", orgName)
+		return &existingWorkload.Spec, nil
+	} else {
+		// Create new workload
+		workload := &openchoreov1alpha1.Workload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      componentName + "-workload",
+				Namespace: orgName,
+			},
+			Spec: *workloadSpec,
+		}
+
+		// Ensure the workload has the correct owner
+		workload.Spec.Owner = openchoreov1alpha1.WorkloadOwner{
+			ProjectName:   projectName,
+			ComponentName: componentName,
+		}
+
+		if err := s.k8sClient.Create(ctx, workload); err != nil {
+			s.logger.Error("Failed to create workload", "error", err)
+			return nil, fmt.Errorf("failed to create workload: %w", err)
+		}
+		s.logger.Debug("Created new workload", "name", workload.Name, "namespace", orgName)
+		return &workload.Spec, nil
+	}
+}
