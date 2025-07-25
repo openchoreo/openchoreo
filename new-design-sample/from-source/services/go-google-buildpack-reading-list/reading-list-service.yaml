@@ -9,7 +9,7 @@ spec:
   type: Service
   build:
     repository:
-      appPath: /go-google-buildpack-reading-list-rest-api
+      appPath: /go-reading-list-rest-api
       revision:
         branch: main
       url: https://github.com/wso2/choreo-samples
@@ -27,7 +27,7 @@ spec:
     componentName: reading-list-service
     projectName: default
   repository:
-    appPath: /go-google-buildpack-reading-list-rest-api
+    appPath: /go-reading-list-rest-api
     revision:
       branch: main
     url: https://github.com/wso2/choreo-samples
