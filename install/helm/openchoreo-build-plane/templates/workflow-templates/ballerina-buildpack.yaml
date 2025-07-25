@@ -10,12 +10,6 @@ metadata:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
   entrypoint: build-workflow
-  arguments:
-    parameters:
-      - name: branch
-        default: main
-      - name: commit
-        value: ""
   templates:
     - name: build-workflow
       steps:
@@ -173,7 +167,7 @@ spec:
             podman tag {{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
             podman push --tls-verify=false {{ .Values.global.defaultResources.registryEndpoint }}/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION
 
-            echo -n "{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
+            echo -n "registry.openchoreo-data-plane.svc.cluster.local:5000/{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-$GIT_REVISION" > /tmp/image.txt
         command:
           - sh
           - -c

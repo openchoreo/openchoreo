@@ -1,3 +1,4 @@
+
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
