@@ -1,6 +1,12 @@
 export interface EnvVar {
-  name: string;
+  key: string; // TODO: change to name
   value?: string;
+  valueFrom?: {
+    configurationGroupRef:{
+      name: string;
+      key: string;
+    }
+  };
 }
 
 export interface Container {

@@ -26,6 +26,7 @@ interface EndpointInfo {
   url: string;
   visibility: 'project' | 'organization' | 'public';
 }
+import { Workload } from './Workload/Workload';
 
 interface Environment {
   name: string;
@@ -128,7 +129,7 @@ export const Environments = () => {
                   <Typography color="textSecondary">
                     View and manage deployment environments
                   </Typography>
-
+                  <Workload />
                 </CardContent>
               </Box>
             </Card>
