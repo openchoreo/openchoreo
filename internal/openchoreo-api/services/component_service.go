@@ -180,7 +180,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 			continue
 		}
 
-		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, key)
+		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
 				s.logger.Warn(
