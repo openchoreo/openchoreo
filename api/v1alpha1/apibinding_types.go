@@ -23,6 +23,15 @@ type APIBindingSpec struct {
 	// Environment specifies the target environment for this binding
 	// +kubebuilder:validation:MinLength=1
 	EnvironmentName string `json:"environmentName"`
+
+	// ReleaseState controls the state of the Release created by this binding.
+	// Active: Resources are deployed normally
+	// Suspend: Resources are suspended (scaled to zero or paused)
+	// Undeploy: Resources are removed from the data plane
+	// +kubebuilder:default=Active
+	// +kubebuilder:validation:Enum=Active;Suspend;Undeploy
+	// +optional
+	ReleaseState ReleaseState `json:"releaseState,omitempty"`
 }
 
 // APIBindingStatus defines the observed state of APIBinding.

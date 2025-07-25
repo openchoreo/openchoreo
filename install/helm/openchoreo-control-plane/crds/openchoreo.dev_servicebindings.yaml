@@ -92,6 +92,18 @@ spec:
                 - componentName
                 - projectName
                 type: object
+              releaseState:
+                default: Active
+                description: |-
+                  ReleaseState controls the state of the Release created by this binding.
+                  Active: Resources are deployed normally
+                  Suspend: Resources are suspended (scaled to zero or paused)
+                  Undeploy: Resources are removed from the data plane
+                enum:
+                - Active
+                - Suspend
+                - Undeploy
+                type: string
               workloadSpec:
                 description: WorkloadTemplateSpec defines the desired state of Workload.
                 properties:

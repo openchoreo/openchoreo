@@ -24,6 +24,15 @@ type ServiceBindingSpec struct {
 	WorkloadSpec WorkloadTemplateSpec `json:"workloadSpec"`
 
 	APIs map[string]*ServiceAPI `json:"apis,omitempty"`
+
+	// ReleaseState controls the state of the Release created by this binding.
+	// Active: Resources are deployed normally
+	// Suspend: Resources are suspended (scaled to zero or paused)
+	// Undeploy: Resources are removed from the data plane
+	// +kubebuilder:default=Active
+	// +kubebuilder:validation:Enum=Active;Suspend;Undeploy
+	// +optional
+	ReleaseState ReleaseState `json:"releaseState,omitempty"`
 }
 
 // ServiceBindingStatus defines the observed state of ServiceBinding.

@@ -52,6 +52,18 @@ spec:
                   binding
                 minLength: 1
                 type: string
+              releaseState:
+                default: Active
+                description: |-
+                  ReleaseState controls the state of the Release created by this binding.
+                  Active: Resources are deployed normally
+                  Suspend: Resources are suspended (scaled to zero or paused)
+                  Undeploy: Resources are removed from the data plane
+                enum:
+                - Active
+                - Suspend
+                - Undeploy
+                type: string
             required:
             - apiClassName
             - apiName

@@ -27,6 +27,15 @@ type WebApplicationBindingSpec struct {
 
 	// Overrides contains web application-specific overrides for this binding
 	Overrides map[string]bool `json:"overrides,omitempty"`
+
+	// ReleaseState controls the state of the Release created by this binding.
+	// Active: Resources are deployed normally
+	// Suspend: Resources are suspended (scaled to zero or paused)
+	// Undeploy: Resources are removed from the data plane
+	// +kubebuilder:default=Active
+	// +kubebuilder:validation:Enum=Active;Suspend;Undeploy
+	// +optional
+	ReleaseState ReleaseState `json:"releaseState,omitempty"`
 }
 
 // WebApplicationBindingStatus defines the observed state of WebApplicationBinding.
