@@ -82,11 +82,11 @@ spec:
             CACHE_DIR="/shared/podman/cache"
 
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
-            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"         # e.g. /react-nginx
-            NODE_VERSION="{{ "{{" }}workflow.parameters.node-version{{ "}}" }}"  # e.g. 18
+            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
+            NODE_VERSION="{{ "{{" }}workflow.parameters.node-version{{ "}}" }}"
 
             #####################################################################
-            # 0. Prepare workspace and locate source
+            # 1. Prepare workspace and locate source
             #####################################################################
             cd "${WORKDIR}"
 
@@ -101,11 +101,8 @@ spec:
             fi
 
             echo "Building from source directory: $SOURCE_DIR"
-            echo "Contents of source directory:"
-            ls -la "$SOURCE_DIR"
-
             #####################################################################
-            # 1. Build React: Custom Dockerfile + Nginx
+            # 2. Build React: Custom Dockerfile + Nginx
             #####################################################################
             cat > "${SOURCE_DIR}/Dockerfile" <<EOF
             FROM node:${NODE_VERSION}-alpine AS builder
@@ -115,7 +112,7 @@ spec:
             RUN if [ -f "package-lock.json" ]; then npm ci; \\
                 elif [ -f "yarn.lock" ]; then yarn install --frozen-lockfile; \\
                 elif [ -f "pnpm-lock.yaml" ]; then pnpm install --frozen-lockfile; \\
-                else echo "No lock file found, using npm install" && npm install; fi
+                else echo "No lock file found" && exit 1; fi
             RUN npm run build || yarn run build || pnpm run build
 
             FROM nginx:alpine
@@ -134,7 +131,6 @@ spec:
             }
             EOF
 
-            # Build using the source directory as context
             podman build -t "$IMAGE" -f "${SOURCE_DIR}/Dockerfile" "$SOURCE_DIR"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         command:
