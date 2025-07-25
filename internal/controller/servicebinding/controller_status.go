@@ -22,7 +22,7 @@ func (r *Reconciler) setReadyStatus(ctx context.Context, serviceBinding *opencho
 	// Handle the case where there are no resources
 	if totalResources == 0 {
 		message := "No resources to deploy"
-		controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonAllResourcesReady, message)
+		controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonResourcesActive, message)
 		return nil
 	}
 
@@ -49,19 +49,20 @@ func (r *Reconciler) setReadyStatus(ctx context.Context, serviceBinding *opencho
 		}
 	}
 
-	// Check if all resources are ready (healthy or suspended)
-	allResourcesReady := (healthyCount + suspendedCount) == totalResources
+	// Check ReleaseState and suspended resources
+	if serviceBinding.Spec.ReleaseState == openchoreov1alpha1.ReleaseStateSuspend && suspendedCount > 0 {
+		message := "Resources suspended"
+		controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonResourcesSuspended, message)
+		return nil
+	}
+
+	// Check if all resources are ready (only healthy counts as ready now)
+	allResourcesReady := healthyCount == totalResources
 
 	// Set the ready condition based on resource health status
 	if allResourcesReady {
-		// Use appropriate ready reason
-		if suspendedCount > 0 {
-			message := fmt.Sprintf("All %d resources are ready (%d suspended)", totalResources, suspendedCount)
-			controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonResourcesReadyWithSuspended, message)
-		} else {
-			message := fmt.Sprintf("All %d resources are deployed and healthy", totalResources)
-			controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonAllResourcesReady, message)
-		}
+		message := fmt.Sprintf("All %d resources are deployed and healthy", totalResources)
+		controller.MarkTrueCondition(serviceBinding, ConditionReady, ReasonResourcesActive, message)
 	} else {
 		// Build a status message with counts
 		var statusParts []string

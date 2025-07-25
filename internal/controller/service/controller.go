@@ -79,6 +79,7 @@ func (r *Reconciler) reconcileServiceBinding(ctx context.Context, service *openc
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, serviceBinding, func() error {
 		desired := r.makeServiceBinding(service, workload)
+		desired.Spec.ReleaseState = serviceBinding.Spec.ReleaseState // Keep the existing release state
 		serviceBinding.Labels = desired.Labels
 		serviceBinding.Spec = desired.Spec
 		return controllerutil.SetControllerReference(service, serviceBinding, r.Scheme)

@@ -124,6 +124,34 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 	serviceClass *openchoreov1alpha1.ServiceClass, apiClasses map[string]*openchoreov1alpha1.APIClass) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Handle undeploy case - delete the Release if it exists
+	if serviceBinding.Spec.ReleaseState == openchoreov1alpha1.ReleaseStateUndeploy {
+		release := &openchoreov1alpha1.Release{}
+		err := r.Get(ctx, types.NamespacedName{Name: serviceBinding.Name, Namespace: serviceBinding.Namespace}, release)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// Release doesn't exist, mark as undeployed
+				controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonResourcesUndeployed, "Resources undeployed")
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to get Release for undeploy: %w", err)
+		}
+
+		// Only delete it if not already being deleted
+		if release.DeletionTimestamp.IsZero() {
+			// Delete the Release
+			if err := r.Delete(ctx, release); err != nil {
+				err = fmt.Errorf("failed to delete release %q: %w", release.Name, err)
+				controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Release exists but is being deleted
+		controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonResourcesUndeployed, "Resources being undeployed")
+		return ctrl.Result{}, nil
+	}
+
 	// Resolve API connections
 	resolvedConnections, err := r.resolveApiConnections(ctx, serviceBinding)
 	if err != nil {

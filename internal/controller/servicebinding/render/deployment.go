@@ -7,6 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
@@ -34,6 +35,11 @@ func Deployment(rCtx Context) *openchoreov1alpha1.Resource {
 			Labels:    makeServiceLabels(rCtx),
 		},
 		Spec: *mergedSpec,
+	}
+
+	// Apply to suspend modifications if ReleaseState is Suspend
+	if rCtx.ServiceBinding.Spec.ReleaseState == openchoreov1alpha1.ReleaseStateSuspend {
+		deployment.Spec.Replicas = ptr.To(int32(0))
 	}
 
 	rawExt := &runtime.RawExtension{}
