@@ -86,7 +86,7 @@ kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
    ACCESS_TOKEN=$(kubectl run curl-pod --rm -i --restart=Never --image=curlimages/curl:latest -- \
      sh -c "curl -s --location 'http://openchoreo-identity-provider.openchoreo-identity-system:8090/oauth2/token' \
      --header 'Content-Type: application/x-www-form-urlencoded' \
-     --data 'grant_type=client_credentials&client_id=reading-list-service-client-001&client_secret=reading-list-service-secret-001&scope=reading-list-permission' \
+     --data 'grant_type=client_credentials&client_id=openchoreo-default-client&client_secret=openchoreo-default-secret' \
      | grep -o '\"access_token\":\"[^\"]*' | cut -d'\"' -f4" 2>/dev/null | head -1)
    ```
 
@@ -119,13 +119,4 @@ Remove all resources:
 ```bash
 # Remove service resources
 kubectl delete -f reading-list-service-with-jwt.yaml
-
-# Remove API resource
-kubectl delete api reading-list-api
-
-# Remove API class
-kubectl delete -f api-class.yaml
-
-# Remove application from identity provider
-curl -X DELETE http://localhost:8090/applications/reading-list-service-client-001
 ```
