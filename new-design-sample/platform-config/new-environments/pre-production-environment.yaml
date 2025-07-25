@@ -1,0 +1,15 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  annotations:
+    openchoreo.dev/description: Pre-production environment for testing and validation.
+    openchoreo.dev/display-name: Pre-production Environment
+  labels:
+    openchoreo.dev/name: preproduction
+  name: preproduction
+  namespace: default
+spec:
+  dataPlaneRef: default
+  gateway:
+    dnsPrefix: preprod
+  isProduction: false

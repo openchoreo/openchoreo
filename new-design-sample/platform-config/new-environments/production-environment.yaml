@@ -1,0 +1,15 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  annotations:
+    openchoreo.dev/description: Production environment for live applications.
+    openchoreo.dev/display-name: Production Environment
+  labels:
+    openchoreo.dev/name: production
+  name: production
+  namespace: default
+spec:
+  dataPlaneRef: default
+  gateway:
+    dnsPrefix: prod
+  isProduction: true

@@ -1,0 +1,24 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: DeploymentPipeline
+metadata:
+  annotations:
+    openchoreo.dev/description: Deployment pipeline with dev, qa, pre-prod, and prod environments
+    openchoreo.dev/display-name: Deployment Pipeline
+  labels:
+    openchoreo.dev/name: default
+  name: default
+  namespace: default
+spec:
+  promotionPaths:
+    - sourceEnvironmentRef: development
+      targetEnvironmentRefs:
+        - name: qa
+          requiresApproval: false
+    - sourceEnvironmentRef: qa
+      targetEnvironmentRefs:
+        - name: preproduction
+          requiresApproval: true
+    - sourceEnvironmentRef: preproduction
+      targetEnvironmentRefs:
+        - name: production
+          requiresApproval: true
