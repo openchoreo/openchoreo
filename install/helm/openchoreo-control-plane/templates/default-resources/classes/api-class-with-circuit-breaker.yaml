@@ -12,9 +12,10 @@ spec:
     defaults:
       circuitBreaker:
         enabled: true
-        maxConnections: 2
-        maxParallelRequests: 1
+        maxConnections: 50
+        maxParallelRequests: 50
         maxParallelRetries: 1
+        maxPendingRequests: 20
     public: {}
     organization: {}
 {{ end }}

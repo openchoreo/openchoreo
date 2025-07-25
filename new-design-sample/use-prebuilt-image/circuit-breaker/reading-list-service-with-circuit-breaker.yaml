@@ -5,7 +5,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentV2
 metadata:
-  name: reading-list-service-cors
+  name: reading-list-service-circuit-breaker
 spec:
   owner:
     projectName: default
@@ -17,14 +17,14 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: reading-list-service-cors
+  name: reading-list-service-circuit-breaker
 spec:
   owner:
-    componentName: reading-list-service-cors
+    componentName: reading-list-service-circuit-breaker
     projectName: default
   containers:
     main:
-      image: ghcr.io/openchoreo/samples/reading-list-server:latest
+      image: ghcr.io/openchoreo/samples/reading-list-server-with-delay:latest
       env:
         - key: LOG_LEVEL
           value: info
@@ -229,17 +229,17 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
-  name: reading-list-service-cors
+  name: reading-list-service-circuit-breaker
 spec:
   owner:
-    componentName: reading-list-service-cors
+    componentName: reading-list-service-circuit-breaker
     projectName: default
-  workloadName: reading-list-service-cors
+  workloadName: reading-list-service-circuit-breaker
   overrides: {}
   apis:
     greeter:
       type: REST
-      className: default-with-cors
+      className: default-with-circuit-breaker
       rest:
         backend:
           port: 8080
