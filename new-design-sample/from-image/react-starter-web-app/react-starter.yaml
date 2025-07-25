@@ -1,0 +1,51 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentV2
+metadata:
+  name: react-starter
+spec:
+  owner:
+    projectName: default
+  type: WebApplication
+
+---
+
+# Defines a workload that specifies the developer contract which describes the source code including
+# what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: react-starter
+spec:
+  owner:
+    componentName: react-starter
+    projectName: default
+  containers:
+    main:
+      image: choreoanonymouspullable.azurecr.io/react-spa:v0.9
+      # React apps typically serve on port 8080 or 3000, using 8080 based on the legacy sample
+      args: []
+      env:
+        - key: NODE_ENV
+          value: production
+        - key: PORT
+          value: "8080"
+  endpoints:
+    webapp:
+      type: HTTP
+      port: 8080
+  connections: { } # How does this look like?
+
+---
+
+# WebApplication that specify runtime configuration for the component.
+# This can be either managed by the component controller or manually created by the user.
+apiVersion: openchoreo.dev/v1alpha1
+kind: WebApplication
+metadata:
+  name: react-starter
+spec:
+  owner:
+    componentName: react-starter
+    projectName: default
+  workloadName: react-starter
+  overrides: { }
