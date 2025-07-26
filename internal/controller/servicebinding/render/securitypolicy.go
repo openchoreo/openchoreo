@@ -289,7 +289,8 @@ func convertStringSliceToCIDRs(cidrs []string) []egv1a1.CIDR {
 func makeSecurityPolicyName(rCtx Context, apiName string, exposeLevel openchoreov1alpha1.RESTOperationExposeLevel) string {
 	// Create a unique name for the SecurityPolicy using ServiceBinding name, API name and expose level
 	exposeLevelStr := strings.ToLower(string(exposeLevel))
-	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name, apiName, exposeLevelStr)
+	return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxServiceNameLength,
+		rCtx.ServiceBinding.Name, apiName, exposeLevelStr)
 }
 
 func makeSecurityPolicyResourceID(securityPolicy *egv1a1.SecurityPolicy) string {
