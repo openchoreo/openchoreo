@@ -1135,9 +1135,10 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 		return &existingWorkload.Spec, nil
 	} else {
 		// Create new workload
+		workloadName := componentName + "-workload"
 		workload := &openchoreov1alpha1.Workload{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      componentName + "-workload",
+				Name:      workloadName,
 				Namespace: orgName,
 			},
 			Spec: *workloadSpec,
@@ -1154,6 +1155,148 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			return nil, fmt.Errorf("failed to create workload: %w", err)
 		}
 		s.logger.Debug("Created new workload", "name", workload.Name, "namespace", orgName)
+
+		// Create the appropriate type-specific resource based on component type
+		if err := s.createTypeSpecificResource(ctx, orgName, projectName, componentName, workloadName, component.Spec.Type); err != nil {
+			s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.Type, "error", err)
+			return nil, fmt.Errorf("failed to create type-specific resource: %w", err)
+		}
+
 		return &workload.Spec, nil
 	}
+}
+
+// createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
+func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.ComponentType) error {
+	switch componentType {
+	case openchoreov1alpha1.ComponentTypeService:
+		return s.createServiceResource(ctx, orgName, projectName, componentName, workloadName)
+	case openchoreov1alpha1.ComponentTypeWebApplication:
+		return s.createWebApplicationResource(ctx, orgName, projectName, componentName, workloadName)
+	case openchoreov1alpha1.ComponentTypeScheduledTask:
+		return s.createScheduledTaskResource(ctx, orgName, projectName, componentName, workloadName)
+	default:
+		s.logger.Debug("No type-specific resource needed for component type", "componentType", componentType)
+		return nil
+	}
+}
+
+// createServiceResource creates a Service resource for Service components
+func (s *ComponentService) createServiceResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
+	// Check if service already exists
+	serviceList := &openchoreov1alpha1.ServiceList{}
+	if err := s.k8sClient.List(ctx, serviceList, client.InNamespace(orgName)); err != nil {
+		return fmt.Errorf("failed to list services: %w", err)
+	}
+
+	// Check if service already exists for this component
+	for _, service := range serviceList.Items {
+		if service.Spec.Owner.ComponentName == componentName && service.Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("Service already exists for component", "service", service.Name, "component", componentName)
+			return nil
+		}
+	}
+
+	// Create new service
+	service := &openchoreov1alpha1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentName + "-service",
+			Namespace: orgName,
+		},
+		Spec: openchoreov1alpha1.ServiceSpec{
+			Owner: openchoreov1alpha1.ServiceOwner{
+				ProjectName:   projectName,
+				ComponentName: componentName,
+			},
+			WorkloadName: workloadName,
+			ClassName:    "default",
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, service); err != nil {
+		return fmt.Errorf("failed to create service: %w", err)
+	}
+
+	s.logger.Debug("Created service for component", "service", service.Name, "component", componentName, "workload", workloadName)
+	return nil
+}
+
+// createWebApplicationResource creates a WebApplication resource for WebApplication components
+func (s *ComponentService) createWebApplicationResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
+	// Check if web application already exists
+	webAppList := &openchoreov1alpha1.WebApplicationList{}
+	if err := s.k8sClient.List(ctx, webAppList, client.InNamespace(orgName)); err != nil {
+		return fmt.Errorf("failed to list web applications: %w", err)
+	}
+
+	// Check if web application already exists for this component
+	for _, webApp := range webAppList.Items {
+		if webApp.Spec.Owner.ComponentName == componentName && webApp.Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("WebApplication already exists for component", "webApp", webApp.Name, "component", componentName)
+			return nil
+		}
+	}
+
+	// Create new web application
+	webApp := &openchoreov1alpha1.WebApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentName + "-webapp",
+			Namespace: orgName,
+		},
+		Spec: openchoreov1alpha1.WebApplicationSpec{
+			Owner: openchoreov1alpha1.WebApplicationOwner{
+				ProjectName:   projectName,
+				ComponentName: componentName,
+			},
+			WorkloadName: workloadName,
+			ClassName:    "default",
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, webApp); err != nil {
+		return fmt.Errorf("failed to create web application: %w", err)
+	}
+
+	s.logger.Debug("Created web application for component", "webApp", webApp.Name, "component", componentName, "workload", workloadName)
+	return nil
+}
+
+// createScheduledTaskResource creates a ScheduledTask resource for ScheduledTask components
+func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
+	// Check if scheduled task already exists
+	scheduledTaskList := &openchoreov1alpha1.ScheduledTaskList{}
+	if err := s.k8sClient.List(ctx, scheduledTaskList, client.InNamespace(orgName)); err != nil {
+		return fmt.Errorf("failed to list scheduled tasks: %w", err)
+	}
+
+	// Check if scheduled task already exists for this component
+	for _, scheduledTask := range scheduledTaskList.Items {
+		if scheduledTask.Spec.Owner.ComponentName == componentName && scheduledTask.Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("ScheduledTask already exists for component", "scheduledTask", scheduledTask.Name, "component", componentName)
+			return nil
+		}
+	}
+
+	// Create new scheduled task
+	scheduledTask := &openchoreov1alpha1.ScheduledTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentName + "-task",
+			Namespace: orgName,
+		},
+		Spec: openchoreov1alpha1.ScheduledTaskSpec{
+			Owner: openchoreov1alpha1.ScheduledTaskOwner{
+				ProjectName:   projectName,
+				ComponentName: componentName,
+			},
+			WorkloadName: workloadName,
+			ClassName:    "default",
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, scheduledTask); err != nil {
+		return fmt.Errorf("failed to create scheduled task: %w", err)
+	}
+
+	s.logger.Debug("Created scheduled task for component", "scheduledTask", scheduledTask.Name, "component", componentName, "workload", workloadName)
+	return nil
 }
