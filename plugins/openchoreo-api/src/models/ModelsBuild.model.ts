@@ -31,4 +31,9 @@ export interface ModelsBuild {
    * Date when the build was created (ISO 8601 format)
    */
   createdAt: string;
+  /**
+   * Image name
+   */
+  image?: string;
+
 }

@@ -1,15 +1,16 @@
 import { Drawer, Button, Typography, Box, useTheme, IconButton, CircularProgress } from '@material-ui/core';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import SettingsIcon from '@material-ui/icons/Settings';
 import { WorkloadEditor } from './WorkloadEditor';
 import CloseIcon from '@material-ui/icons/Close';
-import { ModelsWorkload } from '@internal/plugin-openchoreo-api';
+import { ModelsWorkload, ModelsBuild } from '@internal/plugin-openchoreo-api';
 import { applyWorkload, fetchWorkloadInfo } from '../../../api/workloadInfo';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';
 import { discoveryApiRef } from '@backstage/core-plugin-api';
 import { identityApiRef } from '@backstage/core-plugin-api';
 import { Alert } from '@material-ui/lab';
+import { WorkloadProvider } from './WorkloadContext';
 
 export function Workload() {
     const discovery = useApi(discoveryApiRef);
@@ -20,6 +21,8 @@ export function Workload() {
     const [workloadSpec, setWorkloadSpec] = React.useState<ModelsWorkload | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [builds, setBuilds] = useState<ModelsBuild[]>([]);
+    
 
     useEffect(() => {
         const fetchWorkload = async () => {
@@ -27,10 +30,10 @@ export function Workload() {
                 setIsLoading(true);
                 const response = await fetchWorkloadInfo(entity, discovery, identity);
                 setWorkloadSpec(response);
-                setIsLoading(false);
             } catch (e) {
                 setError('Failed to fetch workload info');
             }
+            setIsLoading(false);
         }
         fetchWorkload();
         return () => {
@@ -39,14 +42,46 @@ export function Workload() {
         }
     }, [entity, discovery, identity]);
 
+    useEffect(() => {
+        const fetchBuilds = async () => {
+            try {
+                const componentName = entity.metadata.name;
+                const projectName = entity.metadata.annotations?.['openchoreo.io/project'];
+                const organizationName = entity.metadata.annotations?.['openchoreo.io/organization'];
+
+                // Get authentication token
+                const { token } = await identity.getCredentials();
+
+                // Now fetch the builds
+                const baseUrl = await discovery.getBaseUrl('choreo');
+                if (projectName && organizationName && componentName) {
+                    const response = await fetch(
+                        `${baseUrl}/builds?componentName=${encodeURIComponent(componentName)}&projectName=${encodeURIComponent(projectName)}&organizationName=${encodeURIComponent(organizationName)}`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const buildsData = await response.json();
+                    setBuilds(buildsData);
+                }
+            } catch (err) {
+                // Handle error silently or set an error state if needed
+                setBuilds([]);
+            }
+        };
+        fetchBuilds();
+    }, [entity.metadata.name, entity.metadata.annotations, identity, discovery]);
+
     const toggleDrawer = () => (event: React.KeyboardEvent | React.MouseEvent) => {
         setOpen(!open);
     }
-
-    const handleWorkloadSpecChange = (spec: ModelsWorkload) => {
-        setWorkloadSpec(spec);
-        // You can add additional logic here to save the workload spec or pass it to parent components
-    };
 
     const handleDeploy = async () => {
         if (!workloadSpec) {
@@ -55,14 +90,17 @@ export function Workload() {
         const response = await applyWorkload(entity, discovery, identity, workloadSpec);
     };
 
+    const enableDeploy = ((workloadSpec) || (builds.some(build => build.image))) && !isLoading;
+    const noBuilds = (builds.length === 0 || builds.every(build => !build.image))&& !workloadSpec;
+
     return (
         <>
             <Box display="flex" justifyContent="space-between" flexDirection="column" gridGap={8}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
                     {isLoading && !error && <CircularProgress />}
                 </Box>
-                {error && <Alert severity="error">{error}</Alert>}
-                <Button onClick={toggleDrawer()} disabled={!!error} variant="contained" color="primary" startIcon={<SettingsIcon />}>
+                {error && <Alert severity={noBuilds ? "warning" : "error"}>{noBuilds ? "Build your application first." : error}</Alert>}
+                <Button onClick={toggleDrawer()} disabled={!enableDeploy} variant="contained" color="primary" startIcon={<SettingsIcon />}>
                     Configure & Deploy
                 </Button>
             </Box>
@@ -89,11 +127,16 @@ export function Workload() {
                         borderColor="grey.400"
                     />
                     <Box flex={1} paddingBottom={2} overflow="auto" bgcolor="grey.200">
-                        <WorkloadEditor
-                            onDeploy={handleDeploy}
+                        <WorkloadProvider 
+                            builds={builds} 
                             workloadSpec={workloadSpec}
-                            onWorkloadSpecChange={handleWorkloadSpecChange}
-                        />
+                            setWorkloadSpec={setWorkloadSpec}
+                        >
+                            <WorkloadEditor
+                                entity={entity}
+                                onDeploy={handleDeploy}
+                            />
+                        </WorkloadProvider>
                     </Box>
                 </Box>
             </Drawer>

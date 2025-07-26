@@ -12,12 +12,16 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
+    Select,
+    MenuItem,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import { Container, EnvVar } from '@internal/plugin-openchoreo-api';
+import { formatRelativeTime } from '../../../../utils/timeUtils';
+import { useBuilds } from '../WorkloadContext';
 
 interface ContainerSectionProps {
     containers: { [key: string]: Container };
@@ -52,7 +56,7 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-export const ContainerSection: React.FC<ContainerSectionProps> = ({
+export function ContainerSection({
     containers,
     onContainerChange,
     onEnvVarChange,
@@ -62,8 +66,9 @@ export const ContainerSection: React.FC<ContainerSectionProps> = ({
     onRemoveEnvVar,
     onArrayFieldChange,
     disabled,
-}) => {
+}: ContainerSectionProps) {
     const classes = useStyles();
+    const { builds } = useBuilds();
 
     return (
         <Accordion className={classes.accordion} defaultExpanded>
@@ -94,16 +99,42 @@ export const ContainerSection: React.FC<ContainerSectionProps> = ({
                             <CardContent>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12}>
-                                        <TextField
-                                            label="Image"
-                                            value={container.image}
-                                            onChange={(e) => onContainerChange(containerName, 'image', e.target.value)}
-                                            fullWidth
-                                            variant="outlined"
-                                            required
-                                            placeholder="e.g., nginx:latest"
-                                            disabled={disabled}
-                                        />
+                                        <Box mb={2}>
+                                            {
+                                                builds.length === 0 && container.image ? (
+                                                    <TextField
+                                                        label="Image"
+                                                        value={container.image}
+                                                        onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
+                                                        fullWidth
+                                                        variant="outlined"
+                                                        disabled={disabled}
+                                                    />
+                                                ) : (
+                                                    <Select
+                                                        value={container.image || ''}
+                                                        onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
+                                                        label="Select Image from Builds"
+                                                        variant="outlined"
+                                                        fullWidth
+                                                        disabled={disabled}
+                                                    >
+                                                        <MenuItem value="">
+                                                            <em>None</em>
+                                                        </MenuItem>
+                                                        {builds.filter(build => build.image).map((build) => (
+                                                            build.image && (
+                                                                <MenuItem key={build.image} value={build.image}>
+                                                                    {build.name} ({formatRelativeTime(build.createdAt)})
+                                                                </MenuItem>
+                                                            )
+                                                        ))}
+                                                    </Select>
+
+                                                )
+                                            }
+                                        </Box>
+
                                     </Grid>
                                     <Grid item xs={12} md={6}>
                                         <TextField
@@ -147,24 +178,24 @@ export const ContainerSection: React.FC<ContainerSectionProps> = ({
                                                         fullWidth
                                                         variant="outlined"
                                                         size="small"
-                                                        disabled = {!!envVar.valueFrom || disabled}
+                                                        disabled={!!envVar.valueFrom || disabled}
                                                     />
                                                 </Grid>
                                                 {
                                                     envVar.valueFrom ? (
                                                         <>
-                                                        <Grid item xs={5}>
+                                                            <Grid item xs={5}>
 
-                                                            <Typography variant="body2">
-                                                                {
-                                                                    envVar.valueFrom.configurationGroupRef.name
-                                                                }
-                                                                :
-                                                                {
-                                                                    envVar.valueFrom.configurationGroupRef.key
-                                                                }
-                                                            </Typography>
-                                                        </Grid>
+                                                                <Typography variant="body2">
+                                                                    {
+                                                                        envVar.valueFrom.configurationGroupRef.name
+                                                                    }
+                                                                    :
+                                                                    {
+                                                                        envVar.valueFrom.configurationGroupRef.key
+                                                                    }
+                                                                </Typography>
+                                                            </Grid>
                                                         </>
                                                     ) : (
                                                         <Grid item xs={5}>
@@ -222,4 +253,4 @@ export const ContainerSection: React.FC<ContainerSectionProps> = ({
             </AccordionDetails>
         </Accordion>
     );
-}; 
+} 

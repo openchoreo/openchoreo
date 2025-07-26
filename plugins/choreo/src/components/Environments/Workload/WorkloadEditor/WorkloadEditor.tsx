@@ -4,25 +4,31 @@ import {
     Box,
     Button,
 } from '@material-ui/core';
-import { ModelsWorkload, Container, WorkloadEndpoint, EnvVar } from '@internal/plugin-openchoreo-api';
+import { ModelsWorkload, Container, WorkloadEndpoint, EnvVar, Connection, WorkloadType } from '@internal/plugin-openchoreo-api';
 import { ContainerSection } from './ContainerSection';
 import { EndpointSection } from './EndpointSection';
 import { ConnectionSection } from './ConnectionSection';
 import { Alert } from '@material-ui/lab';
+import { CHOREO_LABELS } from '../../../../constants';
+import { Entity } from '@backstage/catalog-model';
+import { useWorkloadContext } from '../WorkloadContext';
 
 interface WorkloadEditorProps {
-    workloadSpec: ModelsWorkload | null;
-    onWorkloadSpecChange: (workloadSpec: ModelsWorkload) => void;
     onDeploy: () => Promise<void>;
+    entity: Entity;
 }
 
-export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }: WorkloadEditorProps) {
-    const [formData, setFormData] = useState<ModelsWorkload>({
-        name: '',
-        type: 'Service',
+export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
+    const { workloadSpec, setWorkloadSpec } = useWorkloadContext();
+
+    const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
+    const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+
+    const [formData, setFormData] = useState<Omit<ModelsWorkload, 'type'>>({
+        name: entity.metadata.name,
         owner: {
-            projectName: '',
-            componentName: '',
+            projectName: projectName || '',
+            componentName: componentName || '',
         },
         containers: {},
         endpoints: {},
@@ -30,26 +36,34 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
         status: '',
     });
 
+    const [workloadType, setWorkloadType] = useState<WorkloadType>('Service');
     const [isDeploying, setIsDeploying] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (workloadSpec) {
             setFormData(workloadSpec);
+            setWorkloadType(workloadSpec.type);
         }
     }, [workloadSpec]);
+
+    // Helper function to update workload spec
+    const updateWorkloadSpec = (updatedData: Omit<ModelsWorkload, 'type'>) => {
+        setFormData(updatedData);
+        setWorkloadSpec({ ...updatedData, type: workloadType });
+    };
 
     const handleContainerChange = (containerName: string, field: keyof Container, value: any) => {
         const updatedContainers = {
             ...formData.containers,
             [containerName]: {
-                ...formData.containers?.[containerName],
+                ...(formData.containers?.[containerName] || {}),
                 [field]: value,
             } as Container,
         };
         const updatedData = { ...formData, containers: updatedContainers };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const handleDeploy = async () => {
@@ -93,16 +107,20 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
 
     const addContainer = () => {
         const containerName = `container-${Object.keys(formData.containers || {}).length + 1}`;
-        const newContainer: Container = {
-            image: '',
-            command: [],
-            args: [],
-            env: [],
+        const updatedContainers = {
+            ...formData.containers,
+            [containerName]: {
+                name: containerName,
+                image: '',
+                resources: {},
+                env: [],
+                command: [],
+                args: [],
+            } as Container,
         };
-        const updatedContainers = { ...formData.containers, [containerName]: newContainer };
         const updatedData = { ...formData, containers: updatedContainers };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const removeContainer = (containerName: string) => {
@@ -110,7 +128,7 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
         delete updatedContainers[containerName];
         const updatedData = { ...formData, containers: updatedContainers };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const handleEndpointChange = (endpointName: string, field: keyof WorkloadEndpoint, value: any) => {
@@ -123,19 +141,21 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
         };
         const updatedData = { ...formData, endpoints: updatedEndpoints };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const addEndpoint = () => {
         const endpointName = `endpoint-${Object.keys(formData.endpoints || {}).length + 1}`;
-        const newEndpoint: WorkloadEndpoint = {
-            protocol: 'TCP',
-            port: 8080,
+        const updatedEndpoints = {
+            ...formData.endpoints,
+            [endpointName]: {
+                type: 'HTTP',
+                port: 8080,
+            } as WorkloadEndpoint,
         };
-        const updatedEndpoints = { ...formData.endpoints, [endpointName]: newEndpoint };
         const updatedData = { ...formData, endpoints: updatedEndpoints };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const removeEndpoint = (endpointName: string) => {
@@ -143,22 +163,33 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
         delete updatedEndpoints[endpointName];
         const updatedData = { ...formData, endpoints: updatedEndpoints };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
-    const handleConnectionChange = (connectionName: string, value: string) => {
-        const updatedConnections = { ...formData.connections, [connectionName]: value };
+    const handleConnectionChange = (connectionName: string, connection: Connection) => {
+        const updatedConnections = { ...formData.connections, [connectionName]: connection };
         const updatedData = { ...formData, connections: updatedConnections };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const addConnection = () => {
         const connectionName = `connection-${Object.keys(formData.connections || {}).length + 1}`;
-        const updatedConnections = { ...formData.connections, [connectionName]: '' };
+        const newConnection: Connection = {
+            type: '',
+            params: {
+                componentName: '',
+                endpoint: '',
+                projectName: '',
+            },
+            inject: {
+                env: []
+            }
+        };
+        const updatedConnections = { ...formData.connections, [connectionName]: newConnection };
         const updatedData = { ...formData, connections: updatedConnections };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const removeConnection = (connectionName: string) => {
@@ -166,23 +197,13 @@ export function WorkloadEditor({ workloadSpec, onWorkloadSpecChange, onDeploy }:
         delete updatedConnections[connectionName];
         const updatedData = { ...formData, connections: updatedConnections };
         setFormData(updatedData);
-        onWorkloadSpecChange(updatedData);
+        updateWorkloadSpec(updatedData);
     };
 
     const handleArrayFieldChange = (containerName: string, field: 'command' | 'args', value: string) => {
         const arrayValue = value.split(',').map(item => item.trim()).filter(item => item.length > 0);
         handleContainerChange(containerName, field, arrayValue);
     };
-
-    if (!workloadSpec) {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" height={200}>
-                <Typography variant="h6" color="textSecondary">
-                    Loading workload specification...
-                </Typography>
-            </Box>
-        );
-    }
 
     return (
         <Box overflow="hidden">
