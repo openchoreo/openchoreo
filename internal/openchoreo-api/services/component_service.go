@@ -446,7 +446,7 @@ func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, compo
 		Name: binding.Name,
 		Type: "Service",
 		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeInProgress, // Default to "NotYetDeployed"
+			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
 			Reason:  "",
 			Message: "",
 		},
@@ -488,7 +488,7 @@ func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName
 		Name: binding.Name,
 		Type: "WebApplication",
 		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeInProgress, // Default to "NotYetDeployed"
+			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
 			Reason:  "",
 			Message: "",
 		},
@@ -530,7 +530,7 @@ func (s *ComponentService) getScheduledTaskBinding(ctx context.Context, orgName,
 		Name: binding.Name,
 		Type: "ScheduledTask",
 		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeInProgress, // Default to "NotYetDeployed"
+			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
 			Reason:  "",
 			Message: "",
 		},
@@ -539,7 +539,7 @@ func (s *ComponentService) getScheduledTaskBinding(ctx context.Context, orgName,
 	// TODO: ScheduledTaskBinding doesn't have conditions in its status yet
 	// When conditions are added, implement the same status mapping logic as Service and WebApplication bindings
 	// For now, default to NotYetDeployed status
-	response.BindingStatus.Status = models.BindingStatusTypeInProgress
+	response.BindingStatus.Status = models.BindingStatusTypeUndeployed
 
 	// ScheduledTaskBinding doesn't have endpoints, but we still extract the image
 	response.ScheduledTaskBinding = &models.ScheduledTaskBinding{
@@ -709,27 +709,22 @@ func (s *ComponentService) extractImageFromWorkloadSpec(workloadSpec openchoreov
 // mapConditionToBindingStatus maps Kubernetes condition status and reason to UI-friendly binding status
 func (s *ComponentService) mapConditionToBindingStatus(condition metav1.Condition) models.BindingStatusType {
 	if condition.Status == metav1.ConditionTrue {
-		switch condition.Reason {
-		case "AllResourcesReady":
-			return models.BindingStatusTypeReady // "Active"
-		case "ResourcesReadyWithSuspended":
-			return models.BindingStatusTypeSuspended // "Suspended"
-		default:
-			return models.BindingStatusTypeReady // "Active"
-		}
+		return models.BindingStatusTypeReady // "Active"
 	}
 
 	// Condition status is False
 	switch condition.Reason {
+	case "ResourcesSuspended", "ResourcesUndeployed":
+		return models.BindingStatusTypeSuspended // "Suspended"
 	case "ResourceHealthProgressing":
-		// Use BindingStatusTypePending which maps to "InProgress" in UI
-		return models.BindingStatusTypePending // "InProgress"
-	case "ResourceHealthDegraded", "ServiceClassNotFound", "APIClassNotFound",
-		"InvalidConfiguration", "ReleaseCreationFailed", "ReleaseUpdateFailed":
+		// Use BindingStatusTypeInProgress, which maps to "InProgress" in UI
+		return models.BindingStatusTypeInProgress // "InProgress"
+	case "ResourceHealthDegraded", "ServiceClassNotFound", "APIClassNotFound", "WebApplicationClassNotFound", "ScheduledTaskClassNotFound",
+		"InvalidConfiguration", "ReleaseCreationFailed", "ReleaseUpdateFailed", "ReleaseDeletionFailed":
 		return models.BindingStatusTypeFailed // "Failed"
 	default:
 		// For unknown/initial states, use NotYetDeployed
-		return models.BindingStatusTypeInProgress // "NotYetDeployed"
+		return models.BindingStatusTypeUndeployed // "NotYetDeployed"
 	}
 }
 

@@ -71,11 +71,11 @@ type BindingResponse struct {
 type BindingStatusType string
 
 const (
-	BindingStatusTypePending    BindingStatusType = "InProgress"
+	BindingStatusTypeInProgress BindingStatusType = "InProgress"
 	BindingStatusTypeReady      BindingStatusType = "Active"
 	BindingStatusTypeFailed     BindingStatusType = "Failed"
 	BindingStatusTypeSuspended  BindingStatusType = "Suspended"
-	BindingStatusTypeInProgress BindingStatusType = "NotYetDeployed"
+	BindingStatusTypeUndeployed BindingStatusType = "NotYetDeployed"
 )
 
 type BindingStatus struct {
