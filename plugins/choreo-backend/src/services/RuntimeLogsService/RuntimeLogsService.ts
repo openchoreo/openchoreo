@@ -1,6 +1,9 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { RuntimeLogsService, RuntimeLogsResponse } from '../../types';
-import { ObservabilityApiClient, ComponentLogsPostRequest } from '@internal/plugin-openchoreo-api';
+import {
+  ObservabilityApiClient,
+  ComponentLogsPostRequest,
+} from '@internal/plugin-openchoreo-api';
 
 /**
  * Service for fetching runtime logs for components.
@@ -85,7 +88,7 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
         )}`,
       );
 
-      const response = await this.observabilityClient.componentLogsPost(
+      const response = await this.observabilityClient.componentRuntimeLogsPost(
         apiRequest,
       );
 

@@ -47,9 +47,16 @@ export async function createRouter({
   });
 
   router.post('/promote-deployment', async (req, res) => {
-    const { sourceEnv, targetEnv, componentName, projectName, orgName } = req.body;
+    const { sourceEnv, targetEnv, componentName, projectName, orgName } =
+      req.body;
 
-    if (!sourceEnv || !targetEnv || !componentName || !projectName || !orgName) {
+    if (
+      !sourceEnv ||
+      !targetEnv ||
+      !componentName ||
+      !projectName ||
+      !orgName
+    ) {
       throw new InputError(
         'sourceEnv, targetEnv, componentName, projectName and orgName are required in request body',
       );
@@ -179,6 +186,34 @@ export async function createRouter({
       ),
     );
   });
+  router.get('/build-logs', async (req, res) => {
+    const {
+      componentName,
+      buildId,
+      buildUuid,
+      searchPhrase,
+      limit,
+      sortOrder,
+    } = req.query;
+
+    if (!componentName || !buildId || !buildUuid) {
+      throw new InputError(
+        'componentName, buildId and buildUuid are required query parameters',
+      );
+    }
+
+    res.json(
+      await buildInfoService.fetchBuildLogs(
+        componentName as string,
+        buildId as string,
+        buildUuid as string,
+        searchPhrase as string | undefined,
+        limit ? parseInt(limit as string, 10) : undefined,
+        sortOrder as 'asc' | 'desc' | undefined,
+      ),
+    );
+  });
+
   router.post(
     '/logs/component/:componentId',
     async (req: express.Request, res: express.Response) => {

@@ -5,6 +5,7 @@ import {
   RequestOptions,
   TypedResponse,
   ComponentLogsPostRequest,
+  ComponentBuildLogsPostRequest,
   RuntimeLogsResponse,
 } from '../models';
 
@@ -32,7 +33,7 @@ export class ObservabilityApiClient {
    * @param options - Optional request options including authentication
    * @returns Promise containing the logs response
    */
-  public async componentLogsPost(
+  public async componentRuntimeLogsPost(
     request: ComponentLogsPostRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<RuntimeLogsResponse>> {
@@ -49,6 +50,40 @@ export class ObservabilityApiClient {
       ...(request.endTime && { endTime: request.endTime }),
       ...(request.limit !== undefined && { limit: request.limit }),
       ...(request.offset !== undefined && { offset: request.offset }),
+    };
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Fetches build logs for a specific component
+   * @param request - The request parameters for fetching build logs
+   * @param options - Optional request options including authentication
+   * @returns Promise containing the logs response
+   */
+  public async componentBuildLogsPost(
+    request: ComponentBuildLogsPostRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<RuntimeLogsResponse>> {
+    const uriTemplate = `/api/logs/component/{componentId}`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      componentId: request.componentId,
+    });
+
+    const body = {
+      buildId: request.buildId,
+      buildUuid: request.buildUuid,
+      ...(request.searchPhrase !== undefined && { searchPhrase: request.searchPhrase }),
+      ...(request.limit !== undefined && { limit: request.limit }),
+      ...(request.sortOrder && { sortOrder: request.sortOrder }),
     };
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

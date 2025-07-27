@@ -18,6 +18,19 @@ export interface ComponentLogsPostRequest {
 }
 
 /**
+ * Request for fetching component build logs
+ * @public
+ */
+export interface ComponentBuildLogsPostRequest {
+  componentId: string;
+  buildId: string;
+  buildUuid: string;
+  searchPhrase?: string;
+  limit?: number;
+  sortOrder?: 'asc' | 'desc';
+}
+
+/**
  * Response containing runtime logs data
  * @public
  */

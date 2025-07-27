@@ -14,6 +14,7 @@ import {
 } from '@backstage/core-components';
 import { Typography, Button, Box, Paper, Link, IconButton } from '@material-ui/core';
 import { GitHub, CallSplit, FileCopy, Refresh } from '@material-ui/icons';
+import { BuildLogs } from './BuildLogs';
 import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
 import { formatRelativeTime } from '../../utils/timeUtils';
 
@@ -51,6 +52,8 @@ export const Builds = () => {
   const [error, setError] = useState<Error | null>(null);
   const [triggeringBuild, setTriggeringBuild] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedBuild, setSelectedBuild] = useState<ModelsBuild | null>(null);
 
   const getEntityDetails = async () => {
     if (!entity.metadata.name) {
@@ -358,11 +361,20 @@ export const Builds = () => {
         }}
         columns={columns}
         data={builds.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
+        onRowClick={(_, rowData) => {
+          setSelectedBuild(rowData as ModelsBuild);
+          setDrawerOpen(true);
+        }}
         emptyContent={
           <Typography variant="body1">
             No builds found for this component.
           </Typography>
         }
+      />
+      <BuildLogs
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        build={selectedBuild}
       />
     </Box>
   );

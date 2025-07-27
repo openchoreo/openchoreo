@@ -13,7 +13,7 @@ import {
   identityApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
-import { getCellDiagramInfo } from '../../api/getCellDiagramInfo';
+import { getCellDiagramInfo } from '../../api/cellDiagram';
 import { Project } from '@wso2/cell-diagram';
 
 const CellView = lazy(() =>

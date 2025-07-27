@@ -1,4 +1,3 @@
-
 /**
  * @public
  */
@@ -36,4 +35,8 @@ export interface ModelsBuild {
    */
   image?: string;
 
+  /**
+   * unique identifier of build instance
+   */
+  uuid: string;
 }

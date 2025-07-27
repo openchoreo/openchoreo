@@ -6,7 +6,7 @@ import {
   getRuntimeLogs,
   getEnvironments,
   calculateTimeRange,
-} from '../../api/runtime-logs';
+} from '../../api/runtimeLogs';
 import {
   LogEntry,
   Environment,
