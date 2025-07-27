@@ -98,7 +98,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                 Status: {build.status}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
-                Commit: {build.commit?.substring(0, 8) || 'N/A'}
+                Commit: {build.commit?.slice(0, 8) || 'N/A'}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
                 Created: {new Date(build.createdAt).toLocaleString()}

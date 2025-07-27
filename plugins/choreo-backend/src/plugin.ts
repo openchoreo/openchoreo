@@ -87,10 +87,6 @@ export const choreoPlugin = createBackendPlugin({
             workloadInfoService,
           }),
         );
-        httpRouter.addAuthPolicy({
-          path: '/',
-          allow: 'unauthenticated',
-        }); // TODO: Just for testing Remove this
       },
     });
   },
