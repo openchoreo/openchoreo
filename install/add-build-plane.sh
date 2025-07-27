@@ -13,7 +13,7 @@ DEFAULT_BUILDPLANE_KIND_NAME="default"
 
 KUBECONFIG=${KUBECONFIG:-~/.kube/config}
 
-echo -e "\nSetting up Choreo BuildPlane\n"
+echo -e "\nSetting up OpenChoreo BuildPlane\n"
 SEPARATE=false
 if [[ "$1" == "--separate" ]]; then
   SEPARATE=true

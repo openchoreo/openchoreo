@@ -3,12 +3,27 @@ output "cilium_status" {
   value       = helm_release.cilium.status
 }
 
-output "choreo_dataplane_status" {
-  description = "Status of the Choreo DataPlane Helm release"
-  value       = helm_release.choreo-dataplane.status
+output "openchoreo_dataplane_status" {
+  description = "Status of the openchoreo-data-plane Helm release"
+  value       = helm_release.openchoreo-data-plane.status
 }
 
-output "choreo_control_plane_status" {
-  description = "Status of the Choreo ControlPlane Helm release"
-  value       = helm_release.choreo-control-plane.status
+output "openchoreo_control_plane_status" {
+  description = "Status of the openchoreo-control-plane Helm release"
+  value       = helm_release.openchoreo-control-plane.status
+}
+
+output "openchoreo_build_plane_status" {
+  description = "Status of the openchoreo-build-plane Helm release"
+  value       = helm_release.openchoreo-build-plane.status
+}
+
+output "openchoreo_observability_plane_status" {
+  description = "Status of the openchoreo-observability-plane Helm release"
+  value       = var.enable-observability-plane ? helm_release.openchoreo-observability-plane[0].status : "disabled"
+}
+
+output "openchoreo_identity_provider_status" {
+  description = "Status of the openchoreo-identity-provider Helm release"
+  value       = helm_release.openchoreo-identity-provider.status
 }
