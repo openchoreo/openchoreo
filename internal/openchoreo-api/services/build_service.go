@@ -193,6 +193,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 			Commit:        commit,
 			Status:        GetLatestBuildStatus(build.Status.Conditions),
 			CreatedAt:     build.CreationTimestamp.Time,
+			Image:         build.Status.ImageStatus.Image,
 		})
 	}
 

@@ -204,6 +204,7 @@ type BuildResponse struct {
 	Commit        string    `json:"commit,omitempty"`
 	Status        string    `json:"status,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
+	Image         string    `json:"image,omitempty"`
 }
 
 // BuildTemplateResponse represents a build template (ClusterWorkflowTemplate) in API responses

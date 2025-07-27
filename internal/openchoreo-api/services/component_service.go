@@ -1038,7 +1038,7 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 	}
 
 	// Verify component exists and belongs to the project
-	component := &openchoreov1alpha1.ComponentV2{}
+	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
@@ -1088,7 +1088,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	}
 
 	// Verify component exists and belongs to the project
-	component := &openchoreov1alpha1.ComponentV2{}
+	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
