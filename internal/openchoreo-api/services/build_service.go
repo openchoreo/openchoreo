@@ -108,7 +108,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 
 	buildName := fmt.Sprintf("%s-build-%s", componentName, buildID)
 
-	build := &openchoreov1alpha1.BuildV2{
+	build := &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      buildName,
 			Namespace: orgName,
@@ -118,7 +118,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 				labels.LabelKeyComponentName:    componentName,
 			},
 		},
-		Spec: openchoreov1alpha1.BuildV2Spec{
+		Spec: openchoreov1alpha1.BuildSpec{
 			Owner: openchoreov1alpha1.BuildOwner{
 				ProjectName:   projectName,
 				ComponentName: componentName,
@@ -163,7 +163,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, componentName string) ([]models.BuildResponse, error) {
 	s.logger.Debug("Listing builds", "org", orgName, "project", projectName, "component", componentName)
 
-	var builds openchoreov1alpha1.BuildV2List
+	var builds openchoreov1alpha1.BuildList
 	err := s.k8sClient.List(ctx, &builds, client.InNamespace(orgName))
 	if err != nil {
 		s.logger.Error("Failed to list builds", "error", err)

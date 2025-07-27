@@ -38,75 +38,83 @@ spec:
           spec:
             description: BuildSpec defines the desired state of Build.
             properties:
-              autoBuild:
-                type: boolean
-              branch:
-                type: string
-              buildConfiguration:
-                description: BuildConfiguration specifies the build configuration
-                  details
+              owner:
                 properties:
-                  buildpack:
-                    description: Buildpack specifies the buildpack to use
-                    properties:
-                      name:
-                        type: string
-                      version:
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  docker:
-                    description: Docker specifies the Docker-specific build configuration
-                    properties:
-                      context:
-                        description: Context specifies the build context path
-                        type: string
-                      dockerfilePath:
-                        description: DockerfilePath specifies the path to the Dockerfile
-                        type: string
-                    required:
-                    - context
-                    - dockerfilePath
-                    type: object
+                  componentName:
+                    minLength: 1
+                    type: string
+                  projectName:
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
                 type: object
-              buildEnvironment:
+              repository:
+                description: Repository contains the source repository configuration
                 properties:
-                  env:
+                  appPath:
+                    description: AppPath is the path to the application within the
+                      repository
+                    type: string
+                  revision:
+                    description: Revision specifies the revision to build from
+                    properties:
+                      branch:
+                        description: Branch specifies the branch to build from
+                        type: string
+                      commit:
+                        description: Commit specifies the commit hash to build from
+                        type: string
+                    type: object
+                  url:
+                    description: URL is the repository URL
+                    type: string
+                required:
+                - appPath
+                - revision
+                - url
+                type: object
+              templateRef:
+                description: TemplateRef contains the build template reference and
+                  parameters
+                properties:
+                  engine:
+                    description: Engine specifies the build engine
+                    type: string
+                  name:
+                    description: Name is the template name
+                    type: string
+                  parameters:
+                    description: Parameters contains the template parameters
                     items:
+                      description: Parameter defines a template parameter
                       properties:
                         name:
+                          description: Name is the parameter name
                           type: string
                         value:
+                          description: Value is the parameter value
                           type: string
                       required:
                       - name
                       - value
                       type: object
                     type: array
-                  envFrom:
-                    items:
-                      properties:
-                        secretRef:
-                          type: string
-                      required:
-                      - secretRef
-                      type: object
-                    type: array
+                required:
+                - name
                 type: object
-              gitRevision:
-                type: string
-              path:
-                type: string
             required:
-            - buildConfiguration
+            - owner
+            - repository
+            - templateRef
             type: object
           status:
             description: BuildStatus defines the observed state of Build.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of an object's current state.
+                  of the build's current state
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -163,6 +171,7 @@ spec:
                   type: object
                 type: array
               imageStatus:
+                description: ImageStatus contains information about the built image
                 properties:
                   image:
                     type: string
@@ -170,8 +179,6 @@ spec:
                 - image
                 type: object
             type: object
-        required:
-        - spec
         type: object
     served: true
     storage: true

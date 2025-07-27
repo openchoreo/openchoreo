@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package buildv2
+package build
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -156,17 +156,17 @@ func NewRBACCreationFailedCondition(generation int64, message string) metav1.Con
 }
 
 // setBuildInitiatedCondition sets the BuildInitiated condition
-func setBuildInitiatedCondition(build *openchoreov1alpha1.BuildV2) {
+func setBuildInitiatedCondition(build *openchoreov1alpha1.Build) {
 	meta.SetStatusCondition(&build.Status.Conditions, NewBuildInitiatedCondition(build.Generation))
 }
 
 // setBuildTriggeredCondition sets the BuildTriggered condition
-func setBuildTriggeredCondition(build *openchoreov1alpha1.BuildV2) {
+func setBuildTriggeredCondition(build *openchoreov1alpha1.Build) {
 	meta.SetStatusCondition(&build.Status.Conditions, NewBuildTriggeredCondition(build.Generation))
 }
 
 // setBuildCompletedCondition sets the BuildCompleted condition
-func setBuildCompletedCondition(build *openchoreov1alpha1.BuildV2, message string) {
+func setBuildCompletedCondition(build *openchoreov1alpha1.Build, message string) {
 	condition := NewBuildCompletedCondition(build.Generation)
 	if message != "" {
 		condition.Message = message
@@ -175,7 +175,7 @@ func setBuildCompletedCondition(build *openchoreov1alpha1.BuildV2, message strin
 }
 
 // setBuildFailedCondition sets the BuildFailed condition
-func setBuildFailedCondition(build *openchoreov1alpha1.BuildV2, reason controller.ConditionReason, message string) {
+func setBuildFailedCondition(build *openchoreov1alpha1.Build, reason controller.ConditionReason, message string) {
 	condition := NewBuildFailedCondition(build.Generation)
 	if reason != "" {
 		condition.Reason = string(reason)
@@ -187,18 +187,18 @@ func setBuildFailedCondition(build *openchoreov1alpha1.BuildV2, reason controlle
 }
 
 // setBuildInProgressCondition sets the BuildInProgress condition
-func setBuildInProgressCondition(build *openchoreov1alpha1.BuildV2) {
+func setBuildInProgressCondition(build *openchoreov1alpha1.Build) {
 	meta.SetStatusCondition(&build.Status.Conditions, NewBuildInProgressCondition(build.Generation))
 }
 
 // isBuildInitiated checks if the build is initiated
-func isBuildInitiated(build *openchoreov1alpha1.BuildV2) bool {
+func isBuildInitiated(build *openchoreov1alpha1.Build) bool {
 	return meta.IsStatusConditionTrue(build.Status.Conditions, string(ConditionBuildInitiated))
 }
 
 // isBuildCompleted returns true when the Build has **reached a terminal state**
 // (either Succeeded or Failed).  Any “in-progress” or unknown condition returns false.
-func isBuildCompleted(build *openchoreov1alpha1.BuildV2) bool {
+func isBuildCompleted(build *openchoreov1alpha1.Build) bool {
 	cond := meta.FindStatusCondition(build.Status.Conditions, string(ConditionWorkloadUpdated))
 	if cond == nil {
 		return false
@@ -212,7 +212,7 @@ func isBuildCompleted(build *openchoreov1alpha1.BuildV2) bool {
 	return false
 }
 
-func isBuildSucceeded(build *openchoreov1alpha1.BuildV2) bool {
+func isBuildSucceeded(build *openchoreov1alpha1.Build) bool {
 	cond := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildCompleted))
 	if cond == nil {
 		return false
@@ -226,12 +226,12 @@ func isBuildSucceeded(build *openchoreov1alpha1.BuildV2) bool {
 }
 
 // isBuildTriggered checks if the build is triggered
-func isBuildTriggered(build *openchoreov1alpha1.BuildV2) bool {
+func isBuildTriggered(build *openchoreov1alpha1.Build) bool {
 	return meta.IsStatusConditionTrue(build.Status.Conditions, string(ConditionBuildTriggered))
 }
 
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued
-func shouldIgnoreReconcile(build *openchoreov1alpha1.BuildV2) bool {
+func shouldIgnoreReconcile(build *openchoreov1alpha1.Build) bool {
 	// Skip reconciliation if build is already completed (success or failure)
 	if isBuildCompleted(build) {
 		return true

@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package buildv2
+package build
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
-// Reconciler reconciles a BuildV2 object
+// Reconciler reconciles a Build object
 type Reconciler struct {
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
 	client.Client
@@ -31,23 +31,23 @@ type Reconciler struct {
 	Scheme       *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildv2s,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildv2s/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=buildv2s/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=builds,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=builds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=builds/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("buildv2", req.NamespacedName)
+	logger := log.FromContext(ctx).WithValues("build", req.NamespacedName)
 
 	// Fetch the build resource
-	build := &openchoreov1alpha1.BuildV2{}
+	build := &openchoreov1alpha1.Build{}
 	if err := r.Get(ctx, req.NamespacedName, build); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("BuildV2 resource not found, ignoring since object must be deleted")
+			logger.Info("Build resource not found, ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get BuildV2")
+		logger.Error(err, "Failed to get Build")
 		return ctrl.Result{}, err
 	}
 
@@ -145,14 +145,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.BuildV2{}).
-		Named("buildv2").
+		For(&openchoreov1alpha1.Build{}).
+		Named("build").
 		Complete(r)
 }
 
 func (r *Reconciler) updateWorkloadWithBuiltImage(
 	ctx context.Context,
-	build *openchoreov1alpha1.BuildV2,
+	build *openchoreov1alpha1.Build,
 ) error {
 	wlList := &openchoreov1alpha1.WorkloadList{}
 	if err := r.List(
@@ -195,7 +195,7 @@ func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1al
 }
 
 // ensurePrerequisiteResources ensures that all prerequisite resources exist for the workflow
-func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *openchoreov1alpha1.BuildV2, logger logr.Logger) error {
+func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *openchoreov1alpha1.Build, logger logr.Logger) error {
 	// Create namespace
 	namespace := makeNamespace(build)
 	if err := r.ensureResource(ctx, bpClient, namespace, "Namespace", logger); err != nil {
@@ -242,7 +242,7 @@ func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client,
 // Returns (workflow, created, error)
 func (r *Reconciler) ensureWorkflow(
 	ctx context.Context,
-	build *openchoreov1alpha1.BuildV2,
+	build *openchoreov1alpha1.Build,
 	bpClient client.Client,
 ) (*argoproj.Workflow, bool, error) {
 	wf := &argoproj.Workflow{}
@@ -267,7 +267,7 @@ func (r *Reconciler) ensureWorkflow(
 }
 
 // updateBuildStatus updates build status based on workflow status
-func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2, workflow *argoproj.Workflow) (ctrl.Result, error) {
+func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
 	switch workflow.Status.Phase {
 	case argoproj.WorkflowSucceeded:
@@ -320,14 +320,14 @@ func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
 }
 
 // Status update methods
-func (r *Reconciler) updateStatusAndRequeue(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndRequeue(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldBuild, build)
 }
 
-func (r *Reconciler) updateStatusAndReturn(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndReturn(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldBuild, build)
 }
 
-func (r *Reconciler) updateStatusAndRequeueAfter(ctx context.Context, oldBuild, build *openchoreov1alpha1.BuildV2, duration time.Duration) (ctrl.Result, error) {
+func (r *Reconciler) updateStatusAndRequeueAfter(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build, duration time.Duration) (ctrl.Result, error) {
 	return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, oldBuild, build, duration)
 }

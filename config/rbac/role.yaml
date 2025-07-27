@@ -106,7 +106,7 @@ rules:
   - apiclasses
   - apis
   - buildplanes
-  - buildv2s
+  - builds
   - components
   - dataplanes
   - deployableartifacts
@@ -144,7 +144,7 @@ rules:
   - apiclasses/finalizers
   - apis/finalizers
   - buildplanes/finalizers
-  - buildv2s/finalizers
+  - builds/finalizers
   - components/finalizers
   - dataplanes/finalizers
   - deployableartifacts/finalizers
@@ -176,7 +176,7 @@ rules:
   - apiclasses/status
   - apis/status
   - buildplanes/status
-  - buildv2s/status
+  - builds/status
   - components/status
   - dataplanes/status
   - deployableartifacts/status

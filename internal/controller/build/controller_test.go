@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package buildv2
+package build
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-var _ = Describe("BuildV2 Controller", func() {
+var _ = Describe("Build Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -26,13 +26,13 @@ var _ = Describe("BuildV2 Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		buildv2 := &openchoreov1alpha1.BuildV2{}
+		build := &openchoreov1alpha1.Build{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind BuildV2")
-			err := k8sClient.Get(ctx, typeNamespacedName, buildv2)
+			By("creating the custom resource for the Kind Build")
+			err := k8sClient.Get(ctx, typeNamespacedName, build)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &openchoreov1alpha1.BuildV2{
+				resource := &openchoreov1alpha1.Build{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -45,11 +45,11 @@ var _ = Describe("BuildV2 Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &openchoreov1alpha1.BuildV2{}
+			resource := &openchoreov1alpha1.Build{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance BuildV2")
+			By("Cleanup the specific resource instance Build")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {

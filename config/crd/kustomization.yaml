@@ -28,7 +28,7 @@ resources:
   - bases/openchoreo.dev_scheduledtaskclasses.yaml
   - bases/openchoreo.dev_scheduledtaskbindings.yaml
   - bases/openchoreo.dev_releases.yaml
-  - bases/openchoreo.dev_buildv2s.yaml
+  - bases/openchoreo.dev_builds.yaml
   - bases/openchoreo.dev_buildplanes.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

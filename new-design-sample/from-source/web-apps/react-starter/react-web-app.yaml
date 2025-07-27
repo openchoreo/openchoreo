@@ -19,7 +19,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: BuildV2
+kind: Build
 metadata:
   name: react-starter-build-06
   namespace: default

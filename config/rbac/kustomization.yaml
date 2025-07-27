@@ -95,6 +95,6 @@ resources:
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
   - buildplane_viewer_role.yaml
-  - buildv2_admin_role.yaml
-  - buildv2_editor_role.yaml
-  - buildv2_viewer_role.yaml
+  - build_admin_role.yaml
+  - build_editor_role.yaml
+  - build_viewer_role.yaml

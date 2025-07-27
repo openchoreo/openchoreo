@@ -47,7 +47,7 @@ type ComponentOwner struct {
 }
 
 // BuildSpecInComponent defines the build configuration for a component
-// This specification is used to create BuildV2 resources when builds are triggered
+// This specification is used to create Build resources when builds are triggered
 type BuildSpecInComponent struct {
 	// Repository defines the source repository configuration where the component code resides
 	Repository BuildRepository `json:"repository"`

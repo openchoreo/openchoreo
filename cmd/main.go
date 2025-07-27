@@ -26,8 +26,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
+	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
-	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
@@ -372,11 +372,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&buildv2.Reconciler{
+	if err := (&build.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BuildV2")
+		setupLog.Error(err, "unable to create controller", "controller", "Build")
 		os.Exit(1)
 	}
 	if err := (&buildplane.BuildPlaneReconciler{

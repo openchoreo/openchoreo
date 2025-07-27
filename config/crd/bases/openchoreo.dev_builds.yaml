@@ -1,22 +1,23 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: buildv2s.openchoreo.dev
+  name: builds.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: BuildV2
-    listKind: BuildV2List
-    plural: buildv2s
-    singular: buildv2
+    kind: Build
+    listKind: BuildList
+    plural: builds
+    singular: build
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BuildV2 is the Schema for the buildv2s API.
+        description: Build is the Schema for the builds API.
         properties:
           apiVersion:
             description: |-
@@ -36,7 +37,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: BuildV2Spec defines the desired state of BuildV2.
+            description: BuildSpec defines the desired state of Build.
             properties:
               owner:
                 properties:
@@ -110,7 +111,7 @@ spec:
             - templateRef
             type: object
           status:
-            description: BuildV2Status defines the observed state of BuildV2.
+            description: BuildStatus defines the observed state of Build.
             properties:
               conditions:
                 description: Conditions represent the latest available observations

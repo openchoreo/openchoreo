@@ -56,8 +56,8 @@ type BuildOwner struct {
 	ComponentName string `json:"componentName"`
 }
 
-// BuildV2Spec defines the desired state of BuildV2.
-type BuildV2Spec struct {
+// BuildSpec defines the desired state of Build.
+type BuildSpec struct {
 	Owner BuildOwner `json:"owner"`
 
 	// Repository contains the source repository configuration
@@ -67,8 +67,8 @@ type BuildV2Spec struct {
 	TemplateRef TemplateRef `json:"templateRef"`
 }
 
-// BuildV2Status defines the observed state of BuildV2.
-type BuildV2Status struct {
+// BuildStatus defines the observed state of Build.
+type BuildStatus struct {
 	// Conditions represent the latest available observations of the build's current state
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
@@ -81,12 +81,12 @@ type Image struct {
 }
 
 // GetConditions returns the conditions slice
-func (b *BuildV2) GetConditions() []metav1.Condition {
+func (b *Build) GetConditions() []metav1.Condition {
 	return b.Status.Conditions
 }
 
 // SetConditions sets the conditions slice
-func (b *BuildV2) SetConditions(conditions []metav1.Condition) {
+func (b *Build) SetConditions(conditions []metav1.Condition) {
 	b.Status.Conditions = conditions
 }
 
@@ -139,24 +139,24 @@ var SupportedVersions = map[BuildpackName][]string{
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// BuildV2 is the Schema for the buildv2s API.
-type BuildV2 struct {
+// Build is the Schema for the builds API.
+type Build struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BuildV2Spec   `json:"spec,omitempty"`
-	Status BuildV2Status `json:"status,omitempty"`
+	Spec   BuildSpec   `json:"spec,omitempty"`
+	Status BuildStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// BuildV2List contains a list of BuildV2.
-type BuildV2List struct {
+// BuildList contains a list of Build.
+type BuildList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BuildV2 `json:"items"`
+	Items           []Build `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BuildV2{}, &BuildV2List{})
+	SchemeBuilder.Register(&Build{}, &BuildList{})
 }
