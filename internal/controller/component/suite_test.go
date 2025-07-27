@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	// +kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -53,7 +52,7 @@ var _ = BeforeSuite(func() {
 		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
 		// Note that you must have the required binaries setup under the bin directory to perform
 		// the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "tools", "k8s",
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
 			fmt.Sprintf("1.32.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 

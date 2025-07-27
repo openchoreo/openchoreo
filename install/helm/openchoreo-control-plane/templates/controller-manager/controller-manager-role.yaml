@@ -110,7 +110,6 @@ rules:
     - buildplanes
     - buildv2s
     - components
-    - componentv2s
     - dataplanes
     - deployableartifacts
     - deploymentpipelines
@@ -149,7 +148,6 @@ rules:
     - buildplanes/finalizers
     - buildv2s/finalizers
     - components/finalizers
-    - componentv2s/finalizers
     - dataplanes/finalizers
     - deployableartifacts/finalizers
     - deploymentpipelines/finalizers
@@ -182,7 +180,6 @@ rules:
     - buildplanes/status
     - buildv2s/status
     - components/status
-    - componentv2s/status
     - dataplanes/status
     - deployableartifacts/status
     - deploymentpipelines/status

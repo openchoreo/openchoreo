@@ -37,7 +37,7 @@ kubectl apply -f reading-list-service-with-circuit-breaker.yaml
 ```
 
 This creates:
-1. **ComponentV2**: Component metadata defining the service type
+1. **Component**: Component metadata defining the service type
 2. **Workload**: Container configuration with OpenAPI schema and REST endpoints
 3. **Service**: Runtime configuration using the `default-with-circuit-breaker` APIClass
 

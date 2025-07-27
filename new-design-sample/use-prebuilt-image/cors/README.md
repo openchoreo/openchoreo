@@ -1,6 +1,6 @@
 # Reading List Service with CORS Sample
 
-This sample demonstrates how to deploy a reading list service with Cross-Origin Resource Sharing (CORS) enabled using OpenChoreo's new CRD design, showcasing the integration of ComponentV2, Workload, Service, and APIClass resources with CORS policies.
+This sample demonstrates how to deploy a reading list service with Cross-Origin Resource Sharing (CORS) enabled using OpenChoreo's new CRD design, showcasing the integration of Component, Workload, Service, and APIClass resources with CORS policies.
 
 ## Overview
 
@@ -17,7 +17,7 @@ This sample deploys a reading list service and demonstrates how to configure COR
 
 ```
 cors/
-├── reading-list-service-with-cors.yaml  # Developer resources (ComponentV2, Workload, Service)
+├── reading-list-service-with-cors.yaml  # Developer resources (Component, Workload, Service)
 └── README.md                            # This guide
 ```
 
@@ -41,11 +41,11 @@ cors/
    
    Check that all resources were created successfully:
    ```bash
-   kubectl get componentv2,workload,service -l project=default
+   kubectl get component,workload,service -l project=default
    ```
 
 This creates:
-- **ComponentV2** (`reading-list-service-cors`): Component metadata and type definition
+- **Component** (`reading-list-service-cors`): Component metadata and type definition
 - **Workload** (`reading-list-service-cors`): Container configuration with reading list API endpoints
 - **Service** (`reading-list-service-cors`): Runtime service configuration that uses the `default-with-cors` APIClass
 

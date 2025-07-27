@@ -67,7 +67,7 @@ resources:
     namespaced: true
   controller: true
   domain: openchoreo.dev
-  kind: ComponentV2
+  kind: Component
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:

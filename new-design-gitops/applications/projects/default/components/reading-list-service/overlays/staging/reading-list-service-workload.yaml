@@ -4,7 +4,7 @@ metadata:
   name: reading-list-service
   namespace: default
   annotations:
-    choreo.dev/generated-by: componentv2-controller
+    choreo.dev/generated-by: component-controller
     choreo.dev/component: reading-list-service
 spec:
   classRef: go-service-standard

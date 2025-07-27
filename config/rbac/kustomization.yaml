@@ -58,8 +58,6 @@ resources:
   # if you do not want those helpers be installed with your Project.
   - workload_editor_role.yaml
   - workload_viewer_role.yaml
-  - componentv2_editor_role.yaml
-  - componentv2_viewer_role.yaml
   - configurationgroup_editor_role.yaml
   - configurationgroup_viewer_role.yaml
 # For each CRD, "Editor" and "Viewer" roles are scaffolded by

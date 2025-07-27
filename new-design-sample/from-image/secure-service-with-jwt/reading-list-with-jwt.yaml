@@ -1,9 +1,9 @@
 # Secure Service with JWT Authentication Sample
 # This sample demonstrates how to deploy a service with JWT authentication using the new CRD design
 
-# ComponentV2 - Defines the component metadata
+# Component - Defines the component metadata
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentV2
+kind: Component
 metadata:
   name: reading-list-service-jwt
 spec:

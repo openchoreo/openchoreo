@@ -103,7 +103,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	var componentList openchoreov1alpha1.ComponentV2List
+	var componentList openchoreov1alpha1.ComponentList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
 	}
@@ -138,7 +138,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	component := &openchoreov1alpha1.ComponentV2{}
+	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
@@ -216,7 +216,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
 func (s *ComponentService) componentExists(ctx context.Context, orgName, projectName, componentName string) (bool, error) {
-	component := &openchoreov1alpha1.ComponentV2{}
+	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,
@@ -250,7 +250,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		controller.AnnotationKeyDescription: req.Description,
 	}
 
-	componentCR := &openchoreov1alpha1.ComponentV2{
+	componentCR := &openchoreov1alpha1.Component{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Component",
 			APIVersion: "openchoreo.dev/v1alpha1",
@@ -260,7 +260,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Namespace:   orgName,
 			Annotations: annotations,
 		},
-		Spec: openchoreov1alpha1.ComponentV2Spec{
+		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: projectName,
 			},
@@ -301,13 +301,13 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 	return nil
 }
 
-// toComponentResponse converts a ComponentV2 CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.ComponentV2, typeSpecs map[string]interface{}) *models.ComponentResponse {
+// toComponentResponse converts a Component CR to a ComponentResponse
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Component, typeSpecs map[string]interface{}) *models.ComponentResponse {
 	// Extract project name from the component owner
 	projectName := component.Spec.Owner.ProjectName
 
-	// Get status - ComponentV2 doesn't have conditions yet, so default to Creating
-	// This can be enhanced later when ComponentV2 adds status conditions
+	// Get status - Component doesn't have conditions yet, so default to Creating
+	// This can be enhanced later when Component adds status conditions
 	status := "Creating"
 
 	// Convert template parameters from Kubernetes format to response format

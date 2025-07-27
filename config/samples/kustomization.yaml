@@ -4,7 +4,6 @@ resources:
   - openchoreo_v1alpha1_apibinding.yaml
   - openchoreo_v1alpha1_apiclass.yaml
   - openchoreo_v1alpha1_component.yaml
-  - openchoreo_v1alpha1_componentv2.yaml
   - openchoreo_v1alpha1_configurationgroup.yaml
   - openchoreo_v1alpha1_dataplane.yaml
   - openchoreo_v1alpha1_deployableartifact.yaml

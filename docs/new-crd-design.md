@@ -46,7 +46,7 @@ This design aims to provide better abstractions for developers while allowing pl
 * Environment-agnostic (not bound to specific environments)
 * Orchestrates creation of environment-independent Workload, API, and Connection resources
 
-**Current Implementation**: ComponentV2 (`api/v1/componentv2_types.go`)
+**Current Implementation**: Component (`api/v1/component_types.go`)
 
 ### DeploymentTrack
 
@@ -267,7 +267,7 @@ Similar patterns as Service but for scheduled tasks, creating CronJobs instead o
 
 ### Direct Kubernetes Mode
 
-1. Developer applies ComponentV2 CRD and Workload resource
+1. Developer applies Component CRD and Workload resource
 2. Component controller creates component-type-specific resources (Service, ScheduledTask, etc.) if defined inline
 3. Component-type controllers (Service, ScheduledTask, etc.) create their respective Binding resources for development environment
 4. For promotion: manually copy/create additional Bindings for staging/prod environments
@@ -276,7 +276,7 @@ Similar patterns as Service but for scheduled tasks, creating CronJobs instead o
 
 ### GitOps Mode (with Flux)
 
-1. Developer applies ComponentV2 CRD and Workload resource (synced by Flux)
+1. Developer applies Component CRD and Workload resource (synced by Flux)
 2. Component controller generates component-type resource YAMLs (Service, ScheduledTask, etc.) and commits to GitHub
 3. Flux syncs the generated component-type resources to cluster
 4. Component-type controllers generate Binding YAMLs for development environment and commit to GitHub
@@ -293,7 +293,7 @@ Similar patterns as Service but for scheduled tasks, creating CronJobs instead o
 
 * Only used when GitOps feature is enabled
 * Used by Component and component-type controllers (Service, ScheduledTask, etc.) to commit resources to GitOps repository
-* Commits ComponentV2, Workload, component-type resources (Service, ScheduledTask, etc.), and their Binding copies to GitOps repository
+* Commits Component, Workload, component-type resources (Service, ScheduledTask, etc.), and their Binding copies to GitOps repository
 * Supports both mono-repo and multi-repo setups
 * **Note**: Currently under development with security improvements needed
 

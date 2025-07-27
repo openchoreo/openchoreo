@@ -7,10 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func init() {
-	SchemeBuilder.Register(&Component{}, &ComponentList{})
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=comp;comps
@@ -35,10 +31,52 @@ type ComponentList struct {
 
 // ComponentSpec defines the desired state of Component.
 type ComponentSpec struct {
-	// Type of the component that indicates how the component deployed.
-	Type ComponentType `json:"type,omitempty"`
-	// Source the source information of the component where the code or image is retrieved.
-	Source ComponentSource `json:"source,omitempty"`
+	// Owner defines the ownership information for the component
+	Owner ComponentOwner `json:"owner"`
+
+	// Type specifies the component type (e.g., Service, WebApplication, etc.)
+	Type ComponentType `json:"type"`
+
+	// Build defines the build configuration for the component
+	Build BuildSpecInComponent `json:"build,omitempty"`
+}
+
+type ComponentOwner struct {
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+}
+
+// BuildSpecInComponent defines the build configuration for a component
+// This specification is used to create BuildV2 resources when builds are triggered
+type BuildSpecInComponent struct {
+	// Repository defines the source repository configuration where the component code resides
+	Repository BuildRepository `json:"repository"`
+
+	// TemplateRef defines the build template reference and configuration
+	// This references a ClusterWorkflowTemplate in the build plane
+	TemplateRef TemplateRef `json:"templateRef"`
+}
+
+// BuildRepository defines the source repository configuration for component builds
+type BuildRepository struct {
+	// URL is the repository URL where the component source code is located
+	// Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
+	URL string `json:"url"`
+
+	// Revision specifies the default revision configuration for builds
+	// This can be overridden when triggering specific builds
+	Revision BuildRevision `json:"revision"`
+
+	// AppPath is the path to the application within the repository
+	// This is relative to the repository root. Default is "." for root directory
+	AppPath string `json:"appPath"`
+}
+
+// BuildRevision defines the revision specification for component builds
+type BuildRevision struct {
+	// Branch specifies the default branch to build from
+	// This will be used when no specific commit is provided for a build
+	Branch string `json:"branch"`
 }
 
 // ComponentStatus defines the observed state of Component.
@@ -114,4 +152,8 @@ func (p *Component) GetConditions() []metav1.Condition {
 
 func (p *Component) SetConditions(conditions []metav1.Condition) {
 	p.Status.Conditions = conditions
+}
+
+func init() {
+	SchemeBuilder.Register(&Component{}, &ComponentList{})
 }

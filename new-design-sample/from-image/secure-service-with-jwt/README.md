@@ -1,7 +1,7 @@
 # Reading List Service Sample
 
 This sample demonstrates how to deploy a secure reading list service using OpenChoreo's new CRD design,
-showcasing the integration of ComponentV2, Workload, Service, and APIClass resources with JWT authentication.
+showcasing the integration of Component, Workload, Service, and APIClass resources with JWT authentication.
 
 ## Overview
 
@@ -20,7 +20,7 @@ Here you will be creating a new APIClass resource to configure the API managemen
 ```
 secure-service-with-jwt/
 ├── api-class.yaml                 # Platform Engineer resource
-├── greeter-service-with-jwt.yaml  # Developer resources (ComponentV2, Workload, Service, API)
+├── greeter-service-with-jwt.yaml  # Developer resources (Component, Workload, Service, API)
 └── README.md                      # This guide
 ```
 
@@ -44,11 +44,11 @@ secure-service-with-jwt/
 
    Check that all resources were created successfully:
    ```bash
-   kubectl get componentv2,workload,service -l project=default
+   kubectl get component,workload,service -l project=default
    ```
 
 This creates:
-- **ComponentV2** (`greeter-service`): Component metadata and type definition
+- **Component** (`greeter-service`): Component metadata and type definition
 - **Workload** (`reading-list-service`): Container configuration with reading list API endpoints
 - **Service** (`greeter-service`): Runtime service configuration that exposes the API
 

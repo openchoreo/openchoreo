@@ -29,7 +29,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/buildv2"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
-	"github.com/openchoreo/openchoreo/internal/controller/componentv2"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
 	"github.com/openchoreo/openchoreo/internal/controller/deployment"
@@ -217,13 +216,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
 			os.Exit(1)
 		}
-		if err = (&component.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Component")
-			os.Exit(1)
-		}
 		if err = (&deploymenttrack.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
@@ -263,11 +255,11 @@ func main() {
 		}
 	}
 
-	if err = (&componentv2.Reconciler{
+	if err = (&component.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentV2")
+		setupLog.Error(err, "unable to create controller", "controller", "Component")
 		os.Exit(1)
 	}
 

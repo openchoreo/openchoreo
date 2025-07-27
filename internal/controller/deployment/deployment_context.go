@@ -157,11 +157,12 @@ func (r *Reconciler) findContainerImage(ctx context.Context, component *openchor
 		if imageRef.Tag == "" {
 			return "", fmt.Errorf("image tag is not provided")
 		}
-		containerRegistry := component.Spec.Source.ContainerRegistry
-		if containerRegistry == nil {
-			return "", fmt.Errorf("container registry is not provided for the component %s/%s", component.Namespace, component.Name)
-		}
-		return fmt.Sprintf("%s:%s", containerRegistry.ImageName, imageRef.Tag), nil
+		//containerRegistry := component.Spec.Source.ContainerRegistry
+		//if containerRegistry == nil {
+		//	return "", fmt.Errorf("container registry is not provided for the component %s/%s", component.Namespace, component.Name)
+		//}
+		//return fmt.Sprintf("%s:%s", containerRegistry.ImageName, imageRef.Tag), nil
+		return "", nil
 	}
 	return "", fmt.Errorf("one of the build or image reference should be provided")
 }

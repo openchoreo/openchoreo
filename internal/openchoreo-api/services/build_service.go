@@ -92,7 +92,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	s.logger.Debug("Triggering build", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
 
 	// Retrieve component and use that to create the build
-	var component openchoreov1alpha1.ComponentV2
+	var component openchoreov1alpha1.Component
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
 		Namespace: orgName,

@@ -6,26 +6,30 @@ package component
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Reconciler reconciles a Component object
 type Reconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	// IsGitOpsMode indicates whether the controller is running in GitOps mode
+	// In GitOps mode, the controller will not create or update resources directly in the cluster,
+	// but will instead generate the necessary manifests and creates GitCommitRequests to update the Git repository.
+	IsGitOpsMode bool
+	Scheme       *runtime.Scheme
 }
+
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -38,11 +42,10 @@ type Reconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("Reconciling component")
 
-	// Fetch the Component instance
-	component := &openchoreov1alpha1.Component{}
-	if err := r.Get(ctx, req.NamespacedName, component); err != nil {
+	// Fetch the Component instance for this reconcile request
+	comp := &openchoreov1alpha1.Component{}
+	if err := r.Get(ctx, req.NamespacedName, comp); err != nil {
 		if apierrors.IsNotFound(err) {
 			// The Component resource may have been deleted since it triggered the reconcile
 			logger.Info("Component resource not found. Ignoring since it must be deleted.")
@@ -53,59 +56,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Keep a copy of the original object for comparison
-	old := component.DeepCopy()
-
-	// Handle the deletion of the component
-	if !component.DeletionTimestamp.IsZero() {
-		logger.Info("Finalizing component")
-		return r.finalize(ctx, old, component)
-	}
-
-	// Ensure the finalizer is added to the component
-	if finalizerAdded, err := r.ensureFinalizer(ctx, component); err != nil || finalizerAdded {
-		// Return after adding the finalizer to ensure the finalizer is persisted
-		return ctrl.Result{}, err
-	}
-
-	// Handle creation of the component
-	// Check if a condition exists already to determine if this is a first-time creation
-	existingCondition := meta.FindStatusCondition(old.Status.Conditions, controller.TypeCreated)
-	isNewResource := existingCondition == nil
-
-	component.Status.ObservedGeneration = component.Generation
-
-	meta.SetStatusCondition(
-		&component.Status.Conditions,
-		NewComponentCreatedCondition(component.Generation),
-	)
-
-	// Update status if needed
-	if err := controller.UpdateStatusConditions(ctx, r.Client, old, component); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if isNewResource {
-		r.Recorder.Event(component, corev1.EventTypeNormal, "ReconcileComplete", "Successfully created "+component.Name)
-	}
-
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.Recorder == nil {
-		r.Recorder = mgr.GetEventRecorderFor("component-controller")
-	}
-
+	r.IsGitOpsMode = true
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
 		Named("component").
-		// Watch for DeploymentTrack changes to reconcile the component
-		Watches(
-			&openchoreov1alpha1.DeploymentTrack{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.Component](
-				r.Client, controller.GetComponent)),
-		).
 		Complete(r)
 }

@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentV2
+kind: Component
 metadata:
   name: checkout
 spec:
