@@ -260,6 +260,66 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
 
+func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("UpdateComponentBinding handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	bindingName := r.PathValue("bindingName")
+	if orgName == "" || projectName == "" || componentName == "" || bindingName == "" {
+		logger.Warn("Organization name, project name, component name, and binding name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and binding name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Parse request body
+	var req models.UpdateBindingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate the request
+	if err := req.Validate(); err != nil {
+		logger.Warn("Invalid request", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "INVALID_REQUEST")
+		return
+	}
+
+	// Call service to update component binding
+	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, orgName, projectName, componentName, bindingName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrBindingNotFound) {
+			logger.Warn("Binding not found", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			writeErrorResponse(w, http.StatusNotFound, "Binding not found", services.CodeBindingNotFound)
+			return
+		}
+		logger.Error("Failed to update component binding", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Component binding updated successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+	writeSuccessResponse(w, http.StatusOK, binding)
+}
+
 func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)

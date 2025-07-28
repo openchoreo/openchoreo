@@ -86,17 +86,20 @@ type BindingStatus struct {
 }
 
 type ServiceBinding struct {
-	Endpoints []EndpointStatus `json:"endpoints"`
-	Image     string           `json:"image,omitempty"`
+	Endpoints    []EndpointStatus `json:"endpoints"`
+	Image        string           `json:"image,omitempty"`
+	ReleaseState string           `json:"releaseState,omitempty"`
 }
 
 type WebApplicationBinding struct {
-	Endpoints []EndpointStatus `json:"endpoints"`
-	Image     string           `json:"image,omitempty"`
+	Endpoints    []EndpointStatus `json:"endpoints"`
+	Image        string           `json:"image,omitempty"`
+	ReleaseState string           `json:"releaseState,omitempty"`
 }
 
 type ScheduledTaskBinding struct {
-	Image string `json:"image,omitempty"`
+	Image        string `json:"image,omitempty"`
+	ReleaseState string `json:"releaseState,omitempty"`
 }
 
 type EndpointStatus struct {

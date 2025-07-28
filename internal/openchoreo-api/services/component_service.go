@@ -1024,6 +1024,155 @@ func (s *ComponentService) createOrUpdateScheduledTaskBinding(ctx context.Contex
 	return nil
 }
 
+// UpdateComponentBinding updates a component binding
+func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.UpdateBindingRequest) (*models.BindingResponse, error) {
+	s.logger.Debug("Updating component binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+
+	// Verify project exists
+	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		if err == ErrProjectNotFound {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Verify component exists
+	exists, err := s.componentExists(ctx, orgName, projectName, componentName)
+	if err != nil {
+		s.logger.Error("Failed to check component existence", "error", err)
+		return nil, fmt.Errorf("failed to check component existence: %w", err)
+	}
+	if !exists {
+		s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Get the component type to determine which binding type to update
+	component, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	if err != nil {
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Update the appropriate binding based on component type
+	var updatedBinding *models.BindingResponse
+	switch component.Type {
+	case string(openchoreov1alpha1.ComponentTypeService):
+		binding := &openchoreov1alpha1.ServiceBinding{}
+		err = s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      bindingName,
+			Namespace: orgName,
+		}, binding)
+		if err != nil {
+			if client.IgnoreNotFound(err) != nil {
+				s.logger.Error("Failed to get service binding", "error", err)
+				return nil, fmt.Errorf("failed to get service binding: %w", err)
+			}
+			s.logger.Warn("Service binding not found", "binding", bindingName)
+			return nil, ErrBindingNotFound
+		}
+
+		// Update the releaseState
+		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
+
+		if err := s.k8sClient.Update(ctx, binding); err != nil {
+			s.logger.Error("Failed to update service binding", "error", err)
+			return nil, fmt.Errorf("failed to update service binding: %w", err)
+		}
+
+		updatedBinding = &models.BindingResponse{
+			Name:          binding.Name,
+			Type:          string(openchoreov1alpha1.ComponentTypeService),
+			ComponentName: componentName,
+			ProjectName:   projectName,
+			OrgName:       orgName,
+			Environment:   binding.Spec.Environment,
+			ServiceBinding: &models.ServiceBinding{
+				ReleaseState: string(binding.Spec.ReleaseState),
+			},
+		}
+
+	case string(openchoreov1alpha1.ComponentTypeWebApplication):
+		binding := &openchoreov1alpha1.WebApplicationBinding{}
+		err = s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      bindingName,
+			Namespace: orgName,
+		}, binding)
+		if err != nil {
+			if client.IgnoreNotFound(err) != nil {
+				s.logger.Error("Failed to get web application binding", "error", err)
+				return nil, fmt.Errorf("failed to get web application binding: %w", err)
+			}
+			s.logger.Warn("Web application binding not found", "binding", bindingName)
+			return nil, ErrBindingNotFound
+		}
+
+		// Update the releaseState
+		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
+
+		if err := s.k8sClient.Update(ctx, binding); err != nil {
+			s.logger.Error("Failed to update web application binding", "error", err)
+			return nil, fmt.Errorf("failed to update web application binding: %w", err)
+		}
+
+		updatedBinding = &models.BindingResponse{
+			Name:          binding.Name,
+			Type:          string(openchoreov1alpha1.ComponentTypeWebApplication),
+			ComponentName: componentName,
+			ProjectName:   projectName,
+			OrgName:       orgName,
+			Environment:   binding.Spec.Environment,
+			WebApplicationBinding: &models.WebApplicationBinding{
+				ReleaseState: string(binding.Spec.ReleaseState),
+			},
+		}
+
+	case string(openchoreov1alpha1.ComponentTypeScheduledTask):
+		binding := &openchoreov1alpha1.ScheduledTaskBinding{}
+		err = s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      bindingName,
+			Namespace: orgName,
+		}, binding)
+		if err != nil {
+			if client.IgnoreNotFound(err) != nil {
+				s.logger.Error("Failed to get scheduled task binding", "error", err)
+				return nil, fmt.Errorf("failed to get scheduled task binding: %w", err)
+			}
+			s.logger.Warn("Scheduled task binding not found", "binding", bindingName)
+			return nil, ErrBindingNotFound
+		}
+
+		// Update the releaseState
+		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
+
+		if err := s.k8sClient.Update(ctx, binding); err != nil {
+			s.logger.Error("Failed to update scheduled task binding", "error", err)
+			return nil, fmt.Errorf("failed to update scheduled task binding: %w", err)
+		}
+
+		updatedBinding = &models.BindingResponse{
+			Name:          binding.Name,
+			Type:          string(openchoreov1alpha1.ComponentTypeScheduledTask),
+			ComponentName: componentName,
+			ProjectName:   projectName,
+			OrgName:       orgName,
+			Environment:   binding.Spec.Environment,
+			ScheduledTaskBinding: &models.ScheduledTaskBinding{
+				ReleaseState: string(binding.Spec.ReleaseState),
+			},
+		}
+
+	default:
+		s.logger.Error("Unsupported component type", "type", component.Type)
+		return nil, fmt.Errorf("unsupported component type: %s", component.Type)
+	}
+
+	s.logger.Debug("Component binding updated successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+	return updatedBinding, nil
+}
+
 // ComponentObserverResponse represents the response for observer URL requests
 type ComponentObserverResponse struct {
 	ObserverURL      string                    `json:"observerUrl,omitempty"`

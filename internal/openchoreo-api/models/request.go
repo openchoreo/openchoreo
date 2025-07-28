@@ -4,6 +4,7 @@
 package models
 
 import (
+	"errors"
 	"strings"
 )
 
@@ -154,4 +155,35 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 func (req *PromoteComponentRequest) Sanitize() {
 	req.SourceEnvironment = strings.TrimSpace(req.SourceEnvironment)
 	req.TargetEnvironment = strings.TrimSpace(req.TargetEnvironment)
+}
+
+type BindingReleaseState string
+
+const (
+	ReleaseStateActive   BindingReleaseState = "Active"
+	ReleaseStateSuspend  BindingReleaseState = "Suspend"
+	ReleaseStateUndeploy BindingReleaseState = "Undeploy"
+)
+
+// UpdateBindingRequest represents the request to update a component binding
+// Only includes fields that can be updated via PATCH
+type UpdateBindingRequest struct {
+	// ReleaseState controls the state of the Release created by this binding.
+	// Valid values: Active, Suspend, Undeploy
+	ReleaseState BindingReleaseState `json:"releaseState"`
+}
+
+// Validate validates the UpdateBindingRequest
+func (req *UpdateBindingRequest) Validate() error {
+	// Validate releaseState values
+	switch req.ReleaseState {
+	case "Active", "Suspend", "Undeploy":
+		// Valid values
+	case "":
+		// Empty is not allowed for PATCH
+		return errors.New("releaseState is required")
+	default:
+		return errors.New("releaseState must be one of: Active, Suspend, Undeploy")
+	}
+	return nil
 }
