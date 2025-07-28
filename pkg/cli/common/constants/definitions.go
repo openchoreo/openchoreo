@@ -146,10 +146,12 @@ and describes the endpoints and configuration for your workload.
 
 Examples:
   # Create workload from descriptor
-  %[1]s create workload workload.yaml --organization acme-corp --project online-store --component product-catalog --image myimage:latest
+  %[1]s create workload workload.yaml --organization acme-corp --project online-store \
+    --component product-catalog --image myimage:latest
 
   # Create workload and save to file
-  %[1]s create workload workload.yaml -o acme-corp -p online-store -c product-catalog --image myimage:latest --output workload-cr.yaml`,
+  %[1]s create workload workload.yaml -o acme-corp -p online-store -c product-catalog \
+    --image myimage:latest --output workload-cr.yaml`,
 			messages.DefaultCLIName),
 	}
 

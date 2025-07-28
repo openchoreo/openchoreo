@@ -14,7 +14,7 @@ import (
 )
 
 // setReadyStatus sets the WebApplicationBinding status to ready if all conditions are met in the Release.
-func (r *Reconciler) setReadyStatus(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, release *openchoreov1alpha1.Release) error {
+func (r *Reconciler) setReadyStatus(_ context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, release *openchoreov1alpha1.Release) error { //nolint:unparam // Error return for future extensibility
 	// Count resources by health status
 	totalResources := len(release.Status.Resources)
 
@@ -99,8 +99,7 @@ func (r *Reconciler) setReadyStatus(ctx context.Context, webApplicationBinding *
 }
 
 // updateEndpointStatus updates the WebApplicationBinding status with endpoint information
-func (r *Reconciler) updateEndpointStatus(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) error {
-
+func (r *Reconciler) updateEndpointStatus(_ context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) error { //nolint:unparam // Error return for future extensibility
 	// Get endpoints from workload spec
 	workloadEndpoints := webApplicationBinding.Spec.WorkloadSpec.Endpoints
 	if len(workloadEndpoints) == 0 {
@@ -109,7 +108,7 @@ func (r *Reconciler) updateEndpointStatus(ctx context.Context, webApplicationBin
 
 	// For web applications, we typically have one main HTTP endpoint
 	// Web applications are always exposed through the gateway
-	var endpoints []openchoreov1alpha1.EndpointStatus
+	endpoints := make([]openchoreov1alpha1.EndpointStatus, 0, len(workloadEndpoints))
 	for name, ep := range workloadEndpoints {
 		endpointStatus := openchoreov1alpha1.EndpointStatus{
 			Name: name,
@@ -138,6 +137,11 @@ func (r *Reconciler) updateEndpointStatus(ctx context.Context, webApplicationBin
 
 // getSchemeForEndpoint determines the scheme based on endpoint configuration
 func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
+	const (
+		schemeHTTPS = "https"
+		schemeHTTP  = "http"
+	)
+
 	// Use the endpoint type to determine scheme
 	switch ep.Type {
 	case openchoreov1alpha1.EndpointTypeGRPC:
@@ -147,15 +151,15 @@ func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
 	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeREST:
 		// Check if HTTPS based on port
 		if ep.Port == 443 || ep.Port == 8443 {
-			return "https"
+			return schemeHTTPS
 		}
-		return "http"
+		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeGraphQL:
 		// GraphQL typically uses HTTP
 		if ep.Port == 443 || ep.Port == 8443 {
-			return "https"
+			return schemeHTTPS
 		}
-		return "http"
+		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeTCP, openchoreov1alpha1.EndpointTypeUDP:
 		// No scheme for raw TCP/UDP
 		return ""
@@ -167,7 +171,6 @@ func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
 
 func makeEndpointAccess(webApplicationBinding *openchoreov1alpha1.WebApplicationBinding, ep openchoreov1alpha1.WorkloadEndpoint,
 	exposeLevel openchoreov1alpha1.EndpointExposeLevel) *openchoreov1alpha1.EndpointAccess {
-
 	var gatewayPort int32 = 8443 // TODO: Hardcoded for now with kube port-fwd, should be configurable.
 	gatewayScheme := "https"     // TODO: Hardcoded for now, should be configurable
 

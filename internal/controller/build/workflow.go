@@ -58,7 +58,6 @@ func makeWorkflowSpec(build *openchoreov1alpha1.Build) argoproj.WorkflowSpec {
 
 // buildWorkflowParameters constructs the parameters for the workflow
 func buildWorkflowParameters(build *openchoreov1alpha1.Build) []argoproj.Parameter {
-
 	parameters := []argoproj.Parameter{
 		createParameter("project-name", build.Spec.Owner.ProjectName),
 		createParameter("component-name", build.Spec.Owner.ComponentName),

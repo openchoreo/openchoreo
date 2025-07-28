@@ -15,7 +15,7 @@ import (
 )
 
 // setReadyStatus sets the ServiceBinding status to ready if all conditions are met in the Release.
-func (r *Reconciler) setReadyStatus(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding, release *openchoreov1alpha1.Release) error {
+func (r *Reconciler) setReadyStatus(_ context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding, release *openchoreov1alpha1.Release) error { //nolint:unparam // Error return for future extensibility
 	// Count resources by health status
 	totalResources := len(release.Status.Resources)
 
@@ -101,8 +101,7 @@ func (r *Reconciler) setReadyStatus(ctx context.Context, serviceBinding *opencho
 
 // updateEndpointStatus updates the ServiceBinding status with endpoint information
 // TODO: Fix this code
-func (r *Reconciler) updateEndpointStatus(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding) error {
-
+func (r *Reconciler) updateEndpointStatus(_ context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding) error { //nolint:unparam // Error return for future extensibility
 	// Get endpoints from workload spec
 	workloadEndpoints := serviceBinding.Spec.WorkloadSpec.Endpoints
 	if len(workloadEndpoints) == 0 {
@@ -110,7 +109,7 @@ func (r *Reconciler) updateEndpointStatus(ctx context.Context, serviceBinding *o
 	}
 
 	// Build endpoint status for each endpoint
-	var endpoints []openchoreov1alpha1.EndpointStatus
+	endpoints := make([]openchoreov1alpha1.EndpointStatus, 0, len(workloadEndpoints))
 	for name, ep := range workloadEndpoints {
 		endpointStatus := openchoreov1alpha1.EndpointStatus{
 			Name: name,
@@ -125,16 +124,15 @@ func (r *Reconciler) updateEndpointStatus(ctx context.Context, serviceBinding *o
 		// Only HTTP and REST endpoints are supported for expose levels at the moment
 		apiConfig, ok := serviceBinding.Spec.APIs[name]
 		if ok {
-			switch apiConfig.Type {
+			switch apiConfig.Type { //nolint:gocritic // singleCaseSwitch: Designed for multiple endpoint types
 			case openchoreov1alpha1.EndpointTypeREST:
 				for _, level := range apiConfig.RESTEndpoint.ExposeLevels {
 					if level == openchoreov1alpha1.ExposeLevelPublic {
 						endpointStatus.Public = makeEndpointAccess(serviceBinding, ep, *apiConfig, openchoreov1alpha1.EndpointExposeLevelPublic)
 					} else if level == openchoreov1alpha1.ExposeLevelOrganization {
 						endpointStatus.Organization = makeEndpointAccess(serviceBinding, ep, *apiConfig, openchoreov1alpha1.EndpointExposeLevelOrganization)
-					} else if level == openchoreov1alpha1.ExposeLevelProject {
-						// Project-level access is already set above
 					}
+					// Note: Project-level access is already set above
 				}
 			}
 		}
@@ -148,6 +146,11 @@ func (r *Reconciler) updateEndpointStatus(ctx context.Context, serviceBinding *o
 
 // getSchemeForEndpoint determines the scheme based on endpoint configuration
 func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
+	const (
+		schemeHTTPS = "https"
+		schemeHTTP  = "http"
+	)
+
 	// Use the endpoint type to determine scheme
 	switch ep.Type {
 	case openchoreov1alpha1.EndpointTypeGRPC:
@@ -157,15 +160,15 @@ func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
 	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeREST:
 		// Check if HTTPS based on port
 		if ep.Port == 443 || ep.Port == 8443 {
-			return "https"
+			return schemeHTTPS
 		}
-		return "http"
+		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeGraphQL:
 		// GraphQL typically uses HTTP
 		if ep.Port == 443 || ep.Port == 8443 {
-			return "https"
+			return schemeHTTPS
 		}
-		return "http"
+		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeTCP, openchoreov1alpha1.EndpointTypeUDP:
 		// No scheme for raw TCP/UDP
 		return ""
@@ -176,8 +179,8 @@ func getSchemeForEndpoint(ep openchoreov1alpha1.WorkloadEndpoint) string {
 }
 
 func makeEndpointAccess(serviceBinding *openchoreov1alpha1.ServiceBinding, ep openchoreov1alpha1.WorkloadEndpoint,
-	apiConfig openchoreov1alpha1.ServiceAPI, exposeLevel openchoreov1alpha1.EndpointExposeLevel) *openchoreov1alpha1.EndpointAccess {
-
+	apiConfig openchoreov1alpha1.ServiceAPI,
+	exposeLevel openchoreov1alpha1.EndpointExposeLevel) *openchoreov1alpha1.EndpointAccess {
 	var gatewayPort int32 = 8443 // TODO: Hardcoded for now with kube port-fwd, should be configurable.
 	gatewayScheme := "https"     // TODO: Hardcoded for now, should be configurable
 

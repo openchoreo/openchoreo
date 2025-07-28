@@ -83,6 +83,7 @@ func WithResourceAPIClient(apiClient *choreoctlClient.APIClient) ResourceBaseOpt
 }
 
 // CommonResource interface implementations
+
 func (base *ResourceBase) GetNamespace() string {
 	return base.namespace
 }

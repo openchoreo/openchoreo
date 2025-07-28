@@ -15,6 +15,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
+const (
+	defaultPipeline = "default"
+)
+
 // DeploymentPipelineService handles deployment pipeline-related business logic
 type DeploymentPipelineService struct {
 	k8sClient      client.Client
@@ -48,7 +52,7 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 		s.logger.Debug("Using explicit deployment pipeline reference", "pipeline", pipelineName)
 	} else {
 		// No explicit reference, look for default pipeline in the project's namespace
-		pipelineName = "default"
+		pipelineName = defaultPipeline
 		s.logger.Debug("No explicit deployment pipeline reference, using default", "pipeline", pipelineName)
 	}
 
@@ -74,9 +78,9 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 // toDeploymentPipelineResponse converts a DeploymentPipeline CR to a DeploymentPipelineResponse
 func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openchoreov1alpha1.DeploymentPipeline) *models.DeploymentPipelineResponse {
 	// Convert promotion paths
-	var promotionPaths []models.PromotionPath
+	promotionPaths := make([]models.PromotionPath, 0, len(pipeline.Spec.PromotionPaths))
 	for _, path := range pipeline.Spec.PromotionPaths {
-		var targetRefs []models.TargetEnvironmentRef
+		targetRefs := make([]models.TargetEnvironmentRef, 0, len(path.TargetEnvironmentRefs))
 		for _, target := range path.TargetEnvironmentRefs {
 			targetRefs = append(targetRefs, models.TargetEnvironmentRef{
 				Name:                     target.Name,
@@ -91,13 +95,13 @@ func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openc
 	}
 
 	// Determine status from conditions
-	status := "Unknown"
+	status := statusUnknown
 	for _, condition := range pipeline.Status.Conditions {
-		if condition.Type == "Ready" {
+		if condition.Type == statusReady {
 			if condition.Status == "True" {
-				status = "Ready"
+				status = statusReady
 			} else {
-				status = "NotReady"
+				status = statusNotReady
 			}
 			break
 		}

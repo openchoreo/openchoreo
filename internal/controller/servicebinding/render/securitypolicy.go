@@ -20,7 +20,7 @@ import (
 
 // SecurityPolicies renders the SecurityPolicy resources for the given ServiceBinding context.
 func SecurityPolicies(rCtx Context) []*openchoreov1alpha1.Resource {
-	if rCtx.ServiceBinding.Spec.APIs == nil || len(rCtx.ServiceBinding.Spec.APIs) == 0 {
+	if len(rCtx.ServiceBinding.Spec.APIs) == 0 {
 		return nil
 	}
 

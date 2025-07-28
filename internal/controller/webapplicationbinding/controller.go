@@ -124,7 +124,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, webApplicationBinding
 	}
 
 	// Resolve API connections
-	resolvedConnections, err := r.resolveApiConnections(ctx, webApplicationBinding)
+	resolvedConnections, err := r.resolveAPIConnections(ctx, webApplicationBinding)
 	if err != nil {
 		logger.Error(err, "Failed to resolve API connections")
 		return ctrl.Result{}, err
@@ -256,7 +256,7 @@ func (r *Reconciler) makeLabels(webApplicationBinding *openchoreov1alpha1.WebApp
 	}
 
 	// Add/overwrite component-specific labels
-	result[labels.LabelKeyOrganizationName] = webApplicationBinding.Namespace // namespace = organization
+	result[labels.LabelKeyOrganizationName] = webApplicationBinding.Namespace
 	result[labels.LabelKeyProjectName] = webApplicationBinding.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = webApplicationBinding.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = webApplicationBinding.Spec.Environment
@@ -264,7 +264,7 @@ func (r *Reconciler) makeLabels(webApplicationBinding *openchoreov1alpha1.WebApp
 	return result
 }
 
-func (r *Reconciler) resolveApiConnections(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) (map[string]interface{}, error) {
+func (r *Reconciler) resolveAPIConnections(ctx context.Context, webApplicationBinding *openchoreov1alpha1.WebApplicationBinding) (map[string]interface{}, error) {
 	results := make(map[string]interface{})
 
 	wls := webApplicationBinding.Spec.WorkloadSpec

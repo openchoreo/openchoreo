@@ -428,14 +428,14 @@ func validateConfigurationGroupParams(cmdType CommandType, params interface{}) e
 
 // validateWorkloadParams validates parameters for workload operations
 func validateWorkloadParams(cmdType CommandType, params interface{}) error {
-	switch cmdType {
+	switch cmdType { //nolint:gocritic // switch is needed for future extensibility
 	case CmdCreate:
 		if p, ok := params.(api.CreateWorkloadParams); ok {
 			fields := map[string]string{
 				"organization": p.OrganizationName,
 				"project":      p.ProjectName,
 				"component":    p.ComponentName,
-				"image":        p.ImageUrl,
+				"image":        p.ImageURL,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceWorkload, fields)

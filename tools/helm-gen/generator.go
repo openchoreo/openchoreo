@@ -53,15 +53,6 @@ func ensureDir(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
-// Helper function to copy a file
-func copyFile(src, dst string) error {
-	input, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dst, input, 0644)
-}
-
 // controllerDir returns the full path to the controller subdirectory within the helm templates
 func (g *Generator) controllerDir() string {
 	return filepath.Join(g.chartDir, "templates", g.controllerSubDir)

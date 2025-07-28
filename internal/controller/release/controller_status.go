@@ -249,8 +249,10 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	}
 
 	// All replicas are up to date, ready, and available -> healthy
-	if desiredReplicas == updatedReplicas && desiredReplicas == readyReplicas &&
-		desiredReplicas == availableReplicas && unavailableReplicas == 0 {
+	allReplicasMatch := desiredReplicas == updatedReplicas && //nolint:gocritic // badCond: Valid deployment health check logic
+		desiredReplicas == readyReplicas &&
+		desiredReplicas == availableReplicas
+	if allReplicasMatch && unavailableReplicas == 0 {
 		return openchoreov1alpha1.HealthStatusHealthy, nil
 	}
 
@@ -292,7 +294,10 @@ func getStatefulSetHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.He
 	updatedReplicas := statefulSet.Status.UpdatedReplicas
 
 	// All replicas are ready, available, and updated
-	if desiredReplicas == readyReplicas && desiredReplicas == availableReplicas && desiredReplicas == updatedReplicas {
+	allReplicasMatch := desiredReplicas == readyReplicas && //nolint:gocritic // badCond: Valid StatefulSet health check logic
+		desiredReplicas == availableReplicas &&
+		desiredReplicas == updatedReplicas
+	if allReplicasMatch {
 		return openchoreov1alpha1.HealthStatusHealthy, nil
 	}
 

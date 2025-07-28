@@ -149,7 +149,7 @@ func (r *Reconciler) makeLabels(scheduledTask *openchoreov1alpha1.ScheduledTask)
 	}
 
 	// Add/overwrite component-specific labels
-	result[labels.LabelKeyOrganizationName] = scheduledTask.Namespace // namespace = organization
+	result[labels.LabelKeyOrganizationName] = scheduledTask.Namespace
 	result[labels.LabelKeyProjectName] = scheduledTask.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = scheduledTask.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings

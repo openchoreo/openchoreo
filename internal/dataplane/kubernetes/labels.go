@@ -20,7 +20,7 @@ const (
 	LabelKeyBelongTo            = "belong-to"
 	LabelKeyComponentType       = "component-type"
 	LabelKeyVisibility          = "gateway-visibility"
-	
+
 	// LabelKeyUUID stores the Kubernetes UID (metadata.uid) of the resource.
 	LabelKeyUUID = "uuid"
 
@@ -29,6 +29,7 @@ const (
 	LabelKeyTarget = "target"
 
 	// Predefined values for LabelKeyTarget.
+
 	LabelValueBuildTarget   = "build"
 	LabelValueRuntimeTarget = "runtime"
 	LabelValueGatewayTarget = "gateway"

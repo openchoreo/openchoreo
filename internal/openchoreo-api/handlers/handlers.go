@@ -97,12 +97,12 @@ func (h *Handler) Routes() http.Handler {
 // Health handles health check requests
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK")) // Ignore write errors for health checks
 }
 
 // Ready handles readiness check requests
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	// Add readiness checks (K8s connections, etc.)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Ready"))
+	_, _ = w.Write([]byte("Ready")) // Ignore write errors for health checks
 }

@@ -314,12 +314,12 @@ func createNamespacedName(obj *unstructured.Unstructured) types.NamespacedName {
 // getExistingResource checks if a resource exists and returns it
 func (h *Handler) getExistingResource(ctx context.Context, obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	k8sClient := h.services.GetKubernetesClient()
-	
+
 	existing := &unstructured.Unstructured{}
 	existing.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
-	
+
 	namespacedName := createNamespacedName(obj)
 	err := k8sClient.Get(ctx, namespacedName, existing)
-	
+
 	return existing, err
 }

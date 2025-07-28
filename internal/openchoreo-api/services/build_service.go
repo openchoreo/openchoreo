@@ -25,16 +25,16 @@ type BuildService struct {
 	k8sClient         client.Client
 	logger            *slog.Logger
 	buildPlaneService *BuildPlaneService
-	BPClientMgr       *kubernetesClient.KubeMultiClientManager
+	bpClientMgr       *kubernetesClient.KubeMultiClientManager
 }
 
 // NewBuildService creates a new build service
-func NewBuildService(k8sClient client.Client, buildPlaneService *BuildPlaneService, BPClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) *BuildService {
+func NewBuildService(k8sClient client.Client, buildPlaneService *BuildPlaneService, bpClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) *BuildService {
 	return &BuildService{
 		k8sClient:         k8sClient,
 		logger:            logger,
 		buildPlaneService: buildPlaneService,
-		BPClientMgr:       BPClientMgr,
+		bpClientMgr:       bpClientMgr,
 	}
 }
 
@@ -58,9 +58,9 @@ func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) (
 
 	s.logger.Debug("Found build templates", "count", len(clusterWorkflowTemplates.Items), "org", orgName)
 
-	var templateResponses []models.BuildTemplateResponse
+	templateResponses := make([]models.BuildTemplateResponse, 0, len(clusterWorkflowTemplates.Items))
 	for _, template := range clusterWorkflowTemplates.Items {
-		var parameters []models.BuildTemplateParameter
+		parameters := make([]models.BuildTemplateParameter, 0, len(template.Spec.Arguments.Parameters))
 		if template.Spec.Arguments.Parameters != nil {
 			for _, param := range template.Spec.Arguments.Parameters {
 				templateParam := models.BuildTemplateParameter{
@@ -170,7 +170,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 		return nil, fmt.Errorf("failed to list builds: %w", err)
 	}
 
-	var buildResponses []models.BuildResponse
+	buildResponses := make([]models.BuildResponse, 0, len(builds.Items))
 	for _, build := range builds.Items {
 		// Filter by spec.owner fields instead of labels
 		if build.Spec.Owner.ProjectName != projectName || build.Spec.Owner.ComponentName != componentName {
@@ -202,7 +202,7 @@ func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, com
 
 func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
 	if len(buildConditions) == 0 {
-		return "Unknown"
+		return statusUnknown
 	}
 
 	latestCondition := buildConditions[0]
@@ -212,5 +212,5 @@ func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
 		}
 	}
 
-	return string(latestCondition.Reason)
+	return latestCondition.Reason
 }

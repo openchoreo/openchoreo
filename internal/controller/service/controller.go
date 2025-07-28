@@ -150,7 +150,7 @@ func (r *Reconciler) makeLabels(service *openchoreov1alpha1.Service) map[string]
 	}
 
 	// Add/overwrite component-specific labels
-	result[labels.LabelKeyOrganizationName] = service.Namespace // namespace = organization
+	result[labels.LabelKeyOrganizationName] = service.Namespace
 	result[labels.LabelKeyProjectName] = service.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = service.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings

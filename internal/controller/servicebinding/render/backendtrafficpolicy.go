@@ -20,7 +20,7 @@ import (
 
 // BackendTrafficPolicies renders the BackendTrafficPolicy resources for the given ServiceBinding context.
 func BackendTrafficPolicies(rCtx Context) []*openchoreov1alpha1.Resource {
-	if rCtx.ServiceBinding.Spec.APIs == nil || len(rCtx.ServiceBinding.Spec.APIs) == 0 {
+	if len(rCtx.ServiceBinding.Spec.APIs) == 0 {
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func makeBackendTrafficPolicyForServiceAPI(rCtx Context, apiName string, service
 	if mergedPolicy.RateLimit != nil {
 		rateLimit, err := convertToEnvoyGatewayRateLimit(mergedPolicy.RateLimit)
 		if err != nil {
-			rCtx.AddError(fmt.Errorf("failed to convert rate limit for API %s: %v", apiName, err))
+			rCtx.AddError(fmt.Errorf("failed to convert rate limit for API %s: %w", apiName, err))
 			return nil
 		}
 		backendTrafficPolicy.Spec.RateLimit = rateLimit
@@ -144,7 +144,7 @@ func makeBackendTrafficPolicyForServiceAPI(rCtx Context, apiName string, service
 	if mergedPolicy.CircuitBreaker != nil {
 		circuitBreaker, err := convertToEnvoyGatewayCircuitBreaker(mergedPolicy.CircuitBreaker)
 		if err != nil {
-			rCtx.AddError(fmt.Errorf("failed to convert circuit breaker for API %s: %v", apiName, err))
+			rCtx.AddError(fmt.Errorf("failed to convert circuit breaker for API %s: %w", apiName, err))
 			return nil
 		}
 		backendTrafficPolicy.Spec.CircuitBreaker = circuitBreaker
@@ -184,7 +184,7 @@ func convertToEnvoyGatewayRateLimit(rateLimitPolicy *openchoreov1alpha1.RateLimi
 			Rules: []egv1a1.RateLimitRule{
 				{
 					Limit: egv1a1.RateLimitValue{
-						Requests: uint(rateLimitPolicy.Requests),
+						Requests: uint(rateLimitPolicy.Requests), //nolint:gosec // G115: Should be validated by admission controller
 						Unit:     unit,
 					},
 				},
@@ -194,7 +194,7 @@ func convertToEnvoyGatewayRateLimit(rateLimitPolicy *openchoreov1alpha1.RateLimi
 }
 
 // convertToEnvoyGatewayCircuitBreaker converts OpenChoreo CircuitBreakerPolicy to Envoy Gateway CircuitBreaker
-func convertToEnvoyGatewayCircuitBreaker(circuitBreakerPolicy *openchoreov1alpha1.CircuitBreakerPolicy) (*egv1a1.CircuitBreaker, error) {
+func convertToEnvoyGatewayCircuitBreaker(circuitBreakerPolicy *openchoreov1alpha1.CircuitBreakerPolicy) (*egv1a1.CircuitBreaker, error) { //nolint:unparam // Error return for future extensibility
 	if circuitBreakerPolicy == nil || !circuitBreakerPolicy.Enabled {
 		return nil, nil
 	}

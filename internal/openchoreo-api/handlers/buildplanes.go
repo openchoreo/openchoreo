@@ -1,11 +1,13 @@
 package handlers
 
 import (
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"net/http"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 )
 
 // There is only one buildplane per org
+
 func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)

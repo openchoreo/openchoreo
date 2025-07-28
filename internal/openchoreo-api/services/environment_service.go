@@ -45,7 +45,7 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
-	var environments []*models.EnvironmentResponse
+	environments := make([]*models.EnvironmentResponse, 0, len(envList.Items))
 	for _, item := range envList.Items {
 		environments = append(environments, s.toEnvironmentResponse(&item))
 	}
@@ -127,7 +127,7 @@ func (s *EnvironmentService) buildEnvironmentCR(orgName string, req *models.Crea
 	// Set default data plane if not provided
 	dataPlaneRef := req.DataPlaneRef
 	if dataPlaneRef == "" {
-		dataPlaneRef = "default"
+		dataPlaneRef = defaultPipeline
 	}
 
 	// Set default display name if not provided
@@ -176,14 +176,14 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 	description := env.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := "Unknown"
+	status := statusUnknown
 	if len(env.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := env.Status.Conditions[len(env.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = "Ready"
+			status = statusReady
 		} else {
-			status = "NotReady"
+			status = statusNotReady
 		}
 	}
 

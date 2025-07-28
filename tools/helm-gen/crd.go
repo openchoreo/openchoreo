@@ -56,6 +56,6 @@ func (g *Generator) copyCRDFile(src, dst string) error {
 
 	// Remove leading --- if present
 	content = bytes.TrimPrefix(content, []byte("---\n"))
-	
-	return os.WriteFile(dst, content, 0644)
+
+	return os.WriteFile(dst, content, 0644) //nolint:gosec // Generated Helm chart files need to be readable
 }

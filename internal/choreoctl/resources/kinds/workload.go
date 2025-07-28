@@ -36,6 +36,7 @@ func NewWorkloadResource(cfg constants.CRDConfig, org string) (*WorkloadResource
 }
 
 // WithNamespace sets the namespace for the workload resource (usually the organization name)
+
 func (w *WorkloadResource) SetNamespace(namespace string) {
 	w.ResourceBase.SetNamespace(namespace)
 }
@@ -52,7 +53,7 @@ func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error
 	if params.ComponentName == "" {
 		return fmt.Errorf("component name is required (--component)")
 	}
-	if params.ImageUrl == "" {
+	if params.ImageURL == "" {
 		return fmt.Errorf("image URL is required (--image)")
 	}
 
@@ -83,7 +84,7 @@ func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error
 	// Output to file or stdout
 	if params.OutputPath != "" {
 		// Write to file
-		if err := os.WriteFile(params.OutputPath, yamlBytes, 0644); err != nil {
+		if err := os.WriteFile(params.OutputPath, yamlBytes, 0644); err != nil { //nolint:gosec // Generated YAML files are meant to be readable
 			return fmt.Errorf("failed to write output file %s: %w", params.OutputPath, err)
 		}
 		fmt.Printf("Workload CR written to %s\n", params.OutputPath)

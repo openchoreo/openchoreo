@@ -41,7 +41,7 @@ func getComponentLevelFlags() []flags.Flag {
 	)
 }
 
-func getMetadataFlags() []flags.Flag {
+func getMetadataFlags() []flags.Flag { //nolint:unused // Used by temporarily disabled create commands
 	return append(getBasicFlags(),
 		flags.DisplayName,
 		flags.Description,
@@ -72,6 +72,7 @@ func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return createCmd
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateOrganizationCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.CreateOrganization,
@@ -87,6 +88,7 @@ func newCreateOrganizationCmd(impl api.CommandImplementationInterface) *cobra.Co
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	projectFlags := append(getOrgScopedFlags(),
 		flags.DisplayName,
@@ -108,6 +110,7 @@ func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	componentFlags := append(getProjectLevelFlags(),
 		flags.DisplayName,
@@ -159,7 +162,7 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 				OrganizationName: fg.GetString(flags.Organization),
 				ProjectName:      fg.GetString(flags.Project),
 				ComponentName:    fg.GetString(flags.Component),
-				ImageUrl:         fg.GetString(flags.Image),
+				ImageURL:         fg.GetString(flags.Image),
 				OutputPath:       fg.GetString(flags.Output),
 				Interactive:      fg.GetBool(flags.Interactive),
 			})
@@ -167,6 +170,7 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	buildFlags := append(getComponentLevelFlags(),
 		flags.DockerContext,
@@ -208,6 +212,7 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	deployFlags := append(getComponentLevelFlags(),
 		flags.Environment,
@@ -232,6 +237,7 @@ func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Comm
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := append(getMetadataFlags(),
 		flags.KubernetesClusterName,
@@ -269,6 +275,7 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateDeploymentTrackCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	trackFlags := append(getComponentLevelFlags(),
 		flags.APIVersion,
@@ -291,6 +298,7 @@ func newCreateDeploymentTrackCmd(impl api.CommandImplementationInterface) *cobra
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	envFlags := append(getOrgScopedFlags(),
 		flags.DisplayName,
@@ -317,6 +325,7 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	artifactFlags := append(getComponentLevelFlags(),
 		flags.DeploymentTrack,
@@ -338,6 +347,7 @@ func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *co
 	}).Build()
 }
 
+//nolint:unused // Temporarily disabled
 func newCreateDeploymentPipelineCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := []flags.Flag{
 		flags.Organization,

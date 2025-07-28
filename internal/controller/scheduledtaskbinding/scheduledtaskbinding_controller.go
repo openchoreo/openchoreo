@@ -153,12 +153,12 @@ func (r *Reconciler) makeLabels(scheduledTaskBinding *openchoreov1alpha1.Schedul
 	for k, v := range scheduledTaskBinding.Labels {
 		result[k] = v
 	}
-	
+
 	// Add/overwrite component-specific labels
-	result[labels.LabelKeyOrganizationName] = scheduledTaskBinding.Namespace // namespace = organization
+	result[labels.LabelKeyOrganizationName] = scheduledTaskBinding.Namespace
 	result[labels.LabelKeyProjectName] = scheduledTaskBinding.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = scheduledTaskBinding.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = scheduledTaskBinding.Spec.Environment
-	
+
 	return result
 }

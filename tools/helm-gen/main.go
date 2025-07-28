@@ -11,9 +11,17 @@ import (
 
 func main() {
 	var (
-		configDir        = flag.String("config-dir", "./config", "Path to the kubebuilder config directory")
-		chartDir         = flag.String("chart-dir", "./install/helm/openchoreo-control-plane", "Path to the helm chart directory")
-		controllerSubDir = flag.String("controller-subdir", "controller-manager", "Subdirectory within templates for controller resources")
+		configDir = flag.String("config-dir", "./config", "Path to the kubebuilder config directory")
+		chartDir  = flag.String(
+			"chart-dir",
+			"./install/helm/openchoreo-control-plane",
+			"Path to the helm chart directory",
+		)
+		controllerSubDir = flag.String(
+			"controller-subdir",
+			"controller-manager",
+			"Subdirectory within templates for controller resources",
+		)
 	)
 	flag.Parse()
 

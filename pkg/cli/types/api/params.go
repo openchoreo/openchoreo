@@ -339,7 +339,7 @@ type CreateWorkloadParams struct {
 	OrganizationName string
 	ProjectName      string
 	ComponentName    string
-	ImageUrl         string
+	ImageURL         string
 	OutputPath       string
 	Interactive      bool
 }

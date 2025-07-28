@@ -24,7 +24,7 @@ type TemplateParameter struct {
 }
 
 type BuildConfig struct {
-	RepoUrl          string              `json:"repoUrl"`
+	RepoURL          string              `json:"repoUrl"`
 	Branch           string              `json:"repoBranch"`
 	ComponentPath    string              `json:"componentPath"`
 	BuildTemplateRef string              `json:"buildTemplateRef"`
@@ -40,7 +40,7 @@ type CreateComponentRequest struct {
 	BuildConfig BuildConfig `json:"buildConfig,omitempty"`
 }
 
-// Promote from one environment to another
+// PromoteComponentRequest Promote from one environment to another
 type PromoteComponentRequest struct {
 	SourceEnvironment string `json:"sourceEnv"`
 	TargetEnvironment string `json:"targetEnv"`

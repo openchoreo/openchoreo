@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"golang.org/x/exp/slog"
@@ -14,6 +15,13 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+)
+
+const (
+	// TODO: Move these constants to a shared package to avoid duplication
+	statusReady    = "Ready"
+	statusNotReady = "NotReady"
+	statusUnknown  = "Unknown"
 )
 
 // ComponentService handles component-related business logic
@@ -51,7 +59,7 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
@@ -97,7 +105,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -113,7 +121,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		return nil, fmt.Errorf("failed to list components: %w", err)
 	}
 
-	var components []*models.ComponentResponse
+	components := make([]*models.ComponentResponse, 0, len(componentList.Items))
 	for _, item := range componentList.Items {
 		// Only include components that belong to the specified project
 		if item.Spec.Owner.ProjectName == projectName {
@@ -132,7 +140,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -269,7 +277,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 	}
 
 	// Only add build configuration if it's provided in the request
-	if req.BuildConfig.RepoUrl != "" {
+	if req.BuildConfig.RepoURL != "" {
 		// Convert template parameters from request format to Kubernetes format
 		var parameters []openchoreov1alpha1.Parameter
 		for _, param := range req.BuildConfig.TemplateParams {
@@ -281,7 +289,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 
 		componentCR.Spec.Build = openchoreov1alpha1.BuildSpecInComponent{
 			Repository: openchoreov1alpha1.BuildRepository{
-				URL: req.BuildConfig.RepoUrl,
+				URL: req.BuildConfig.RepoURL,
 				Revision: openchoreov1alpha1.BuildRevision{
 					Branch: req.BuildConfig.Branch,
 				},
@@ -311,7 +319,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	status := "Creating"
 
 	// Convert template parameters from Kubernetes format to response format
-	var templateParams []models.TemplateParameter
+	templateParams := make([]models.TemplateParameter, 0, len(component.Spec.Build.TemplateRef.Parameters))
 	for _, param := range component.Spec.Build.TemplateRef.Parameters {
 		templateParams = append(templateParams, models.TemplateParameter{
 			Name:  param.Name,
@@ -329,7 +337,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		CreatedAt:   component.CreationTimestamp.Time,
 		Status:      status,
 		BuildConfig: &models.BuildConfig{
-			RepoUrl:          component.Spec.Build.Repository.URL,
+			RepoURL:          component.Spec.Build.Repository.URL,
 			Branch:           component.Spec.Build.Repository.Revision.Branch,
 			ComponentPath:    component.Spec.Build.Repository.AppPath,
 			BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
@@ -374,12 +382,12 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 		s.logger.Debug("Using environments from deployment pipeline", "environments", environments)
 	}
 
-	var bindings []*models.BindingResponse
+	bindings := make([]*models.BindingResponse, 0, len(environments))
 	for _, environment := range environments {
 		binding, err := s.getComponentBinding(ctx, orgName, projectName, componentName, environment, component.Type)
 		if err != nil {
 			// If binding not found for an environment, skip it rather than failing the entire request
-			if err == ErrBindingNotFound {
+			if errors.Is(err, ErrBindingNotFound) {
 				s.logger.Debug("Binding not found for environment", "environment", environment)
 				continue
 			}
@@ -454,7 +462,7 @@ func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, compo
 
 	// Extract status from conditions and map to UI-friendly status
 	for _, condition := range binding.Status.Conditions {
-		if condition.Type == "Ready" {
+		if condition.Type == statusReady {
 			response.BindingStatus.Reason = condition.Reason
 			response.BindingStatus.Message = condition.Message
 			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
@@ -496,7 +504,7 @@ func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName
 
 	// Extract status from conditions and map to UI-friendly status
 	for _, condition := range binding.Status.Conditions {
-		if condition.Type == "Ready" {
+		if condition.Type == statusReady {
 			response.BindingStatus.Reason = condition.Reason
 			response.BindingStatus.Message = condition.Message
 			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
@@ -551,7 +559,7 @@ func (s *ComponentService) getScheduledTaskBinding(ctx context.Context, orgName,
 
 // convertEndpointStatus converts from Kubernetes endpoint status to API response model
 func (s *ComponentService) convertEndpointStatus(endpoints []openchoreov1alpha1.EndpointStatus) []models.EndpointStatus {
-	var result []models.EndpointStatus
+	result := make([]models.EndpointStatus, 0, len(endpoints))
 
 	for _, ep := range endpoints {
 		endpointStatus := models.EndpointStatus{
@@ -608,7 +616,7 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 	if project.DeploymentPipeline != "" {
 		pipelineName = project.DeploymentPipeline
 	} else {
-		pipelineName = "default"
+		pipelineName = defaultPipeline
 	}
 
 	// Get the deployment pipeline
@@ -639,7 +647,7 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 	}
 
 	// Convert set to slice
-	var environments []string
+	environments := make([]string, 0, len(environmentSet))
 	for env := range environmentSet {
 		environments = append(environments, env)
 	}
@@ -740,7 +748,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 	if project.DeploymentPipeline != "" {
 		pipelineName = project.DeploymentPipeline
 	} else {
-		pipelineName = "default"
+		pipelineName = defaultPipeline
 	}
 
 	// Get the deployment pipeline
@@ -818,11 +826,11 @@ func (s *ComponentService) createOrUpdateServiceBinding(ctx context.Context, req
 	existingTargetBinding, err := s.getServiceBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
 	var targetBindingName string
 
-	if err != nil && err != ErrBindingNotFound {
+	if err != nil && !errors.Is(err, ErrBindingNotFound) {
 		return fmt.Errorf("failed to check existing target binding: %w", err)
 	}
 
-	if err == ErrBindingNotFound {
+	if errors.Is(err, ErrBindingNotFound) {
 		// No existing binding, generate new name
 		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
 	} else {
@@ -897,11 +905,11 @@ func (s *ComponentService) createOrUpdateWebApplicationBinding(ctx context.Conte
 	existingTargetBinding, err := s.getWebApplicationBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
 	var targetBindingName string
 
-	if err != nil && err != ErrBindingNotFound {
+	if err != nil && !errors.Is(err, ErrBindingNotFound) {
 		return fmt.Errorf("failed to check existing target binding: %w", err)
 	}
 
-	if err == ErrBindingNotFound {
+	if errors.Is(err, ErrBindingNotFound) {
 		// No existing binding, generate new name
 		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
 	} else {
@@ -976,11 +984,11 @@ func (s *ComponentService) createOrUpdateScheduledTaskBinding(ctx context.Contex
 	existingTargetBinding, err := s.getScheduledTaskBindingCR(ctx, req.OrgName, req.ComponentName, req.TargetEnvironment)
 	var targetBindingName string
 
-	if err != nil && err != ErrBindingNotFound {
+	if err != nil && !errors.Is(err, ErrBindingNotFound) {
 		return fmt.Errorf("failed to check existing target binding: %w", err)
 	}
 
-	if err == ErrBindingNotFound {
+	if errors.Is(err, ErrBindingNotFound) {
 		// No existing binding, generate new name
 		targetBindingName = fmt.Sprintf("%s-%s", req.ComponentName, req.TargetEnvironment)
 	} else {
@@ -1313,7 +1321,7 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -1363,7 +1371,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -1491,7 +1499,7 @@ func (s *ComponentService) createServiceResource(ctx context.Context, orgName, p
 				ComponentName: componentName,
 			},
 			WorkloadName: workloadName,
-			ClassName:    "default",
+			ClassName:    defaultPipeline,
 		},
 	}
 
@@ -1531,7 +1539,7 @@ func (s *ComponentService) createWebApplicationResource(ctx context.Context, org
 				ComponentName: componentName,
 			},
 			WorkloadName: workloadName,
-			ClassName:    "default",
+			ClassName:    defaultPipeline,
 		},
 	}
 
@@ -1571,7 +1579,7 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 				ComponentName: componentName,
 			},
 			WorkloadName: workloadName,
-			ClassName:    "default",
+			ClassName:    defaultPipeline,
 		},
 	}
 

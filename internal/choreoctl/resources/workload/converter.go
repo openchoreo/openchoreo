@@ -42,7 +42,7 @@ type ConversionParams struct {
 	OrganizationName string
 	ProjectName      string
 	ComponentName    string
-	ImageUrl         string
+	ImageURL         string
 }
 
 // ConvertWorkloadDescriptorToWorkloadCR converts a workload.yaml descriptor to a Workload CR
@@ -105,7 +105,7 @@ func validateConversionParams(params api.CreateWorkloadParams) error {
 	if params.ComponentName == "" {
 		return fmt.Errorf("component name is required")
 	}
-	if params.ImageUrl == "" {
+	if params.ImageURL == "" {
 		return fmt.Errorf("image URL is required")
 	}
 	return nil
@@ -132,7 +132,7 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 	// Set containers separately to match the pattern used elsewhere
 	workload.Spec.Containers = map[string]openchoreov1alpha1.Container{
 		"main": {
-			Image: params.ImageUrl,
+			Image: params.ImageURL,
 		},
 	}
 

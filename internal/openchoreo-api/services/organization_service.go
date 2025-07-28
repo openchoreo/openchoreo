@@ -40,7 +40,7 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 		return nil, fmt.Errorf("failed to list organizations: %w", err)
 	}
 
-	var organizations []*models.OrganizationResponse
+	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
 	for _, item := range orgList.Items {
 		organizations = append(organizations, s.toOrganizationResponse(&item))
 	}
@@ -77,14 +77,14 @@ func (s *OrganizationService) toOrganizationResponse(org *openchoreov1alpha1.Org
 	description := org.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := "Unknown"
+	status := statusUnknown
 	if len(org.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := org.Status.Conditions[len(org.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = "Ready"
+			status = statusReady
 		} else {
-			status = "NotReady"
+			status = statusNotReady
 		}
 	}
 

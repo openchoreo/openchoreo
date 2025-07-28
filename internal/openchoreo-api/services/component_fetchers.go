@@ -7,8 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // ComponentSpecFetcher interface for fetching component-specific specifications
@@ -32,8 +33,6 @@ func NewComponentSpecFetcherRegistry() *ComponentSpecFetcherRegistry {
 	registry.Register(&ServiceSpecFetcher{})
 	registry.Register(&WebApplicationSpecFetcher{})
 	registry.Register(&WorkloadSpecFetcher{})
-	// Future: registry.Register(&ScheduledTaskSpecFetcher{})
-	// Future: registry.Register(&APISpecFetcher{})
 
 	return registry
 }

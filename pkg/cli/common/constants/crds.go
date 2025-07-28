@@ -33,7 +33,7 @@ const (
 type APIVersion string
 
 const (
-	V1 APIVersion = "v1"
+	V1       APIVersion = "v1"
 	V1Alpha1 APIVersion = "v1alpha1"
 )
 

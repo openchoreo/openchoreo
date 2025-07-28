@@ -74,7 +74,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	var projects []*models.ProjectResponse
+	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
 	for _, item := range projectList.Items {
 		projects = append(projects, s.toProjectResponse(&item))
 	}
@@ -128,7 +128,7 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 	// Set default deployment pipeline if not provided
 	deploymentPipeline := req.DeploymentPipeline
 	if deploymentPipeline == "" {
-		deploymentPipeline = "default"
+		deploymentPipeline = defaultPipeline
 	}
 
 	return &openchoreov1alpha1.Project{
@@ -161,14 +161,14 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 	description := project.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := "Unknown"
+	status := statusUnknown
 	if len(project.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := project.Status.Conditions[len(project.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = "Ready"
+			status = statusReady
 		} else {
-			status = "NotReady"
+			status = statusNotReady
 		}
 	}
 

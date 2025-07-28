@@ -204,8 +204,7 @@ func isBuildCompleted(build *openchoreov1alpha1.Build) bool {
 		return false
 	}
 
-	switch cond.Reason {
-	case string(ReasonWorkloadUpdated):
+	if cond.Reason == string(ReasonWorkloadUpdated) {
 		return cond.Status == metav1.ConditionTrue
 	}
 
@@ -218,16 +217,10 @@ func isBuildWorkflowSucceeded(build *openchoreov1alpha1.Build) bool {
 		return false
 	}
 
-	switch cond.Reason {
-	case string(ReasonBuildCompleted):
+	if cond.Reason == string(ReasonBuildCompleted) {
 		return cond.Status == metav1.ConditionTrue
 	}
 	return false
-}
-
-// isBuildTriggered checks if the build is triggered
-func isBuildTriggered(build *openchoreov1alpha1.Build) bool {
-	return meta.IsStatusConditionTrue(build.Status.Conditions, string(ConditionBuildTriggered))
 }
 
 // shouldIgnoreReconcile checks whether the reconcile loop should be continued

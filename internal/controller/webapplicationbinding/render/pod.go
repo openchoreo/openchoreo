@@ -95,18 +95,18 @@ func makeConnectionEnvironmentVariables(rCtx Context) []corev1.EnvVar {
 	var k8sEnvVars []corev1.EnvVar
 
 	wls := rCtx.WebApplicationBinding.Spec.WorkloadSpec
-	
+
 	// Get connection names and sort them for deterministic ordering
-	var connectionNames []string
+	connectionNames := make([]string, 0, len(wls.Connections))
 	for name := range wls.Connections {
 		connectionNames = append(connectionNames, name)
 	}
 	sort.Strings(connectionNames)
-	
+
 	// Process connections in sorted order
 	for _, connectionName := range connectionNames {
 		connection := wls.Connections[connectionName]
-		
+
 		if connection.Type != openchoreov1alpha1.ConnectionTypeAPI {
 			continue // TODO: Only handle API connections for POC
 		}
@@ -148,7 +148,7 @@ func processEndpointTemplate(templateStr string, endpoint *openchoreov1alpha1.En
 		"uri":      endpoint.URI,
 		"url":      endpoint.URI, // Common alias for uri
 	}
-	
+
 	// Parse and execute the template
 	tmpl, err := template.New("connection").Parse(templateStr)
 	if err != nil {
@@ -161,6 +161,6 @@ func processEndpointTemplate(templateStr string, endpoint *openchoreov1alpha1.En
 		// If template execution fails, return the original string
 		return templateStr
 	}
-	
+
 	return buf.String()
 }

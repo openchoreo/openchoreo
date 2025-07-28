@@ -306,6 +306,7 @@ var (
 	}
 
 	// Control plane configuration flags
+
 	Endpoint = Flag{
 		Name:  "endpoint",
 		Usage: "OpenChoreo API server endpoint URL",

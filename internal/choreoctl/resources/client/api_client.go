@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	config "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 

@@ -148,6 +148,7 @@ func readResourceContent(filePath string) ([]byte, error) {
 
 	if isRemoteURL {
 		// Download from remote URL
+		// #nosec G107 - URL is validated to be HTTP/HTTPS and is intentional functionality
 		resp, err := http.Get(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download from %s: %w", filePath, err)
@@ -178,10 +179,9 @@ func readResourceContent(filePath string) ([]byte, error) {
 
 // parseYAMLResources parses YAML content that may contain multiple documents
 func parseYAMLResources(content []byte) ([]map[string]interface{}, error) {
-	var resources []map[string]interface{}
-
 	// Split by YAML document separator
 	documents := strings.Split(string(content), "---")
+	resources := make([]map[string]interface{}, 0, len(documents))
 
 	for _, doc := range documents {
 		doc = strings.TrimSpace(doc)

@@ -223,7 +223,6 @@ type BuildTemplateParameter struct {
 	Default string `json:"default,omitempty"`
 }
 
-// Response helper functions
 func SuccessResponse[T any](data T) APIResponse[T] {
 	return APIResponse[T]{
 		Success: true,

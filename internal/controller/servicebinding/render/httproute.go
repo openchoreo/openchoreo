@@ -20,7 +20,7 @@ import (
 
 // HTTPRoutes renders the HTTPRoute resources for the given ServiceBinding context.
 func HTTPRoutes(rCtx Context) []*openchoreov1alpha1.Resource {
-	if rCtx.ServiceBinding.Spec.APIs == nil || len(rCtx.ServiceBinding.Spec.APIs) == 0 {
+	if len(rCtx.ServiceBinding.Spec.APIs) == 0 {
 		return nil
 	}
 

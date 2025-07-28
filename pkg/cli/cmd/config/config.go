@@ -23,9 +23,9 @@ type StoredConfig struct {
 
 // ControlPlane defines OpenChoreo API server configuration
 type ControlPlane struct {
-	Type     string `yaml:"type"`     // "local" or "remote"
-	Endpoint string `yaml:"endpoint"` // API server URL
-	Token    string `yaml:"token,omitempty"`    // Optional auth token
+	Type     string `yaml:"type"`            // "local" or "remote"
+	Endpoint string `yaml:"endpoint"`        // API server URL
+	Token    string `yaml:"token,omitempty"` // Optional auth token
 }
 
 // Context represents a single named configuration context.
@@ -132,11 +132,11 @@ func newSetControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 		RunE: func(fg *builder.FlagGetter) error {
 			endpoint := fg.GetString(flags.Endpoint)
 			token := fg.GetString(flags.Token)
-			
+
 			if endpoint == "" {
 				return fmt.Errorf("endpoint is required")
 			}
-			
+
 			return impl.SetControlPlane(api.SetControlPlaneParams{
 				Endpoint: endpoint,
 				Token:    token,
