@@ -27,7 +27,12 @@ spec:
               parameters:
                 - name: git-revision
                   value: '{{ "{{" }}steps.clone-step.outputs.parameters.git-revision{{ "}}" }}'
-
+        - - name: workload-create-step
+            template: workload-create-step
+            arguments:
+              parameters:
+                - name: image
+                  value: '{{ "{{" }}steps.push-step.outputs.parameters.image{{ "}}" }}'
     - name: clone-step
       outputs:
         parameters:
@@ -210,7 +215,45 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+    - name: workload-create-step
+      inputs:
+        parameters:
+          - name: image
+      outputs:
+        parameters:
+          - name: workload-cr
+            valueFrom:
+              path: /mnt/vol/workload-cr.yaml
+      container:
+        image: ghcr.io/openchoreo/openchoreo-cli:v0.1
+        command: [ sh, -c ]
+        args:
+          - |-
+            set -e
 
+            #####################################################################
+            # 1. Initialize variables
+            #####################################################################
+            IMAGE={{ "{{" }}inputs.parameters.image{{ "}}" }}
+            PROJECT_NAME={{ "{{" }}workflow.parameters.project-name{{ "}}" }}
+            COMPONENT_NAME={{ "{{" }}workflow.parameters.component-name{{ "}}" }}
+            DESCRIPTOR_PATH="/mnt/vol/source/workload.yaml"
+            OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
+
+            echo "Creating workload with image: $IMAGE"
+
+            #####################################################################
+            # 2. Create workload CR and export to output
+            #####################################################################
+            choreoctl create workload \
+              --project "$PROJECT_NAME" \
+              --component "$COMPONENT_NAME" \
+              --image "$IMAGE" \
+              --descriptor "$DESCRIPTOR_PATH" \
+              -o "$OUTPUT_PATH"
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -225,7 +268,6 @@ spec:
     secondsAfterSuccess: 3600
   volumeClaimTemplates:
     - metadata:
-        creationTimestamp: null
         name: workspace
       spec:
         accessModes:
