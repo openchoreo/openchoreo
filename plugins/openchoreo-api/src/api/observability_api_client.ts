@@ -81,9 +81,12 @@ export class ObservabilityApiClient {
     const body = {
       buildId: request.buildId,
       buildUuid: request.buildUuid,
-      ...(request.searchPhrase !== undefined && { searchPhrase: request.searchPhrase }),
+      logLevels: ['INFO'],
+      logType: 'BUILD',
+      ...(request.searchPhrase !== undefined && {
+        searchPhrase: request.searchPhrase,
+      }),
       ...(request.limit !== undefined && { limit: request.limit }),
-      ...(request.sortOrder && { sortOrder: request.sortOrder }),
     };
 
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {

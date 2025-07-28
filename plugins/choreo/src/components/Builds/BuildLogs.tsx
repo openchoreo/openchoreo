@@ -13,10 +13,7 @@ import {
   discoveryApiRef,
   identityApiRef,
 } from '@backstage/core-plugin-api';
-import type {
-  ModelsBuild,
-  LogEntry,
-} from '@internal/plugin-openchoreo-api';
+import type { ModelsBuild, LogEntry } from '@internal/plugin-openchoreo-api';
 import { fetchBuildLogsForBuild } from '../../api/buildLogs';
 
 interface BuildLogsProps {
@@ -114,7 +111,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                     backgroundColor: '#f5f5f5',
                     fontFamily: 'monospace',
                     fontSize: '12px',
-                    height: '400px',
+                    height: '90%',
                     overflow: 'auto',
                     border: '1px solid #e0e0e0',
                     borderRadius: '4px',
