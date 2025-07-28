@@ -32,12 +32,10 @@ global:
           targetEnvironmentRefs:
             - name: staging
               requiresApproval: false
-            - name: production
-              isManualApprovalRequired: true
         - sourceEnvironmentRef: staging
           targetEnvironmentRefs:
             - name: production
-              requiresApproval: true
+              requiresApproval: false
     project:
       displayName: Default Project
       description: Your first project to get started
