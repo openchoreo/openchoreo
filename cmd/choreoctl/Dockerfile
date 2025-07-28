@@ -1,30 +1,21 @@
-# Build stage
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
-
-WORKDIR /app
-
-COPY ../../go.mod ../../go.sum ./
-RUN go mod download
-
-COPY ../.. .
+# Use distroless for minimal secure image
+FROM gcr.io/distroless/static:nonroot
 
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags="-s -w" -o choreoctl cmd/choreoctl/main.go
+LABEL org.opencontainers.image.source="https://github.com/openchoreo/openchoreo"
+LABEL org.opencontainers.image.description="OpenChoreo CLI"
+LABEL org.opencontainers.image.license="Apache-2.0"
 
-# Runtime stage
-FROM alpine:latest
+# Set working directory in the container
+WORKDIR /
 
-RUN apk add --no-cache ca-certificates
+# Copy the pre-built binary produced by the Makefile into the image
+COPY bin/dist/${TARGETOS}/${TARGETARCH}/openchoreo-api .
 
-# Add non-root user
-RUN adduser -D choreoctl
+# Use non-root user for security (65532 is 'nonroot' user in distroless)
+USER 65532:65532
 
-COPY --from=builder /app/choreoctl /usr/local/bin/choreoctl
-RUN chmod +x /usr/local/bin/choreoctl
-
-USER choreoctl
-
-ENTRYPOINT ["/usr/local/bin/choreoctl"]
+# Entrypoint: run the binary
+ENTRYPOINT ["/choreoctl"]

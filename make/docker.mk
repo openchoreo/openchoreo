@@ -30,9 +30,9 @@ DOCKER_BUILD_IMAGES := \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR)
+	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
-
 
 # Helper functions
 get_dockerfile_path = $(word 2, $(subst :, ,$(filter $(1):%, $(DOCKER_BUILD_IMAGES))))
