@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,6 +67,11 @@ func (r *Reconciler) reconcileWebApplicationBinding(ctx context.Context, webAppl
 		Name:      webApplication.Spec.WorkloadName,
 		Namespace: webApplication.Namespace,
 	}, workload); err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Workload not found for this WebApplication, ignoring WebApplicationBinding reconcile",
+				"workloadName", webApplication.Spec.WorkloadName)
+			return ctrl.Result{}, nil
+		}
 		logger.Error(err, "Failed to get Workload",
 			"workloadName", webApplication.Spec.WorkloadName)
 		return ctrl.Result{}, err

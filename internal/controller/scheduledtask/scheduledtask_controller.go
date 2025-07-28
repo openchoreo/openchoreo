@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,6 +67,11 @@ func (r *Reconciler) reconcileScheduledTaskBinding(ctx context.Context, schedule
 		Name:      scheduledTask.Spec.WorkloadName,
 		Namespace: scheduledTask.Namespace,
 	}, workload); err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Workload not found for this ScheduleTask, ignoring ScheduledTaskBinding reconcile",
+				"workloadName", scheduledTask.Spec.WorkloadName)
+			return ctrl.Result{}, nil
+		}
 		logger.Error(err, "Failed to get Workload",
 			"workloadName", scheduledTask.Spec.WorkloadName)
 		return ctrl.Result{}, err
@@ -141,12 +147,12 @@ func (r *Reconciler) makeLabels(scheduledTask *openchoreov1alpha1.ScheduledTask)
 	for k, v := range scheduledTask.Labels {
 		result[k] = v
 	}
-	
+
 	// Add/overwrite component-specific labels
 	result[labels.LabelKeyOrganizationName] = scheduledTask.Namespace // namespace = organization
 	result[labels.LabelKeyProjectName] = scheduledTask.Spec.Owner.ProjectName
 	result[labels.LabelKeyComponentName] = scheduledTask.Spec.Owner.ComponentName
 	result[labels.LabelKeyEnvironmentName] = "development" // TODO: This should come from the actual environment when creating bindings
-	
+
 	return result
 }
