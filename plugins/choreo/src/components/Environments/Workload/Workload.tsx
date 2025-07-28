@@ -1,6 +1,5 @@
 import { Drawer, Button, Typography, Box, useTheme, IconButton, CircularProgress } from '@material-ui/core';
 import React, { useEffect, useState } from 'react';
-import SettingsIcon from '@material-ui/icons/Settings';
 import { WorkloadEditor } from './WorkloadEditor';
 import CloseIcon from '@material-ui/icons/Close';
 import { ModelsWorkload, ModelsBuild } from '@internal/plugin-openchoreo-api';
@@ -12,7 +11,7 @@ import { identityApiRef } from '@backstage/core-plugin-api';
 import { Alert } from '@material-ui/lab';
 import { WorkloadProvider } from './WorkloadContext';
 
-export function Workload() {
+export function Workload({ onDeployed, isWorking }: { onDeployed: () => Promise<void>, isWorking: boolean }) {
     const discovery = useApi(discoveryApiRef);
     const identity = useApi(identityApiRef);
     const { entity } = useEntity();
@@ -20,9 +19,10 @@ export function Workload() {
     const [open, setOpen] = React.useState(false);
     const [workloadSpec, setWorkloadSpec] = React.useState<ModelsWorkload | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
+    const [isDeploying, setIsDeploying] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [builds, setBuilds] = useState<ModelsBuild[]>([]);
-    
+
 
     useEffect(() => {
         const fetchWorkload = async () => {
@@ -79,7 +79,7 @@ export function Workload() {
         fetchBuilds();
     }, [entity.metadata.name, entity.metadata.annotations, identity, discovery]);
 
-    const toggleDrawer = () => (event: React.KeyboardEvent | React.MouseEvent) => {
+    const toggleDrawer = () => {
         setOpen(!open);
     }
 
@@ -87,11 +87,22 @@ export function Workload() {
         if (!workloadSpec) {
             return;
         }
-        const response = await applyWorkload(entity, discovery, identity, workloadSpec);
+        setIsDeploying(true);
+        try {
+            await applyWorkload(entity, discovery, identity, workloadSpec);
+            setTimeout(async () => {
+                await onDeployed();
+                setOpen(false)
+            }, 3000);
+        } catch (e) {
+            setIsDeploying(false);
+            throw new Error('Failed to deploy workload');
+        }
     };
 
     const enableDeploy = ((workloadSpec) || (builds.some(build => build.image))) && !isLoading;
-    const noBuilds = (builds.length === 0 || builds.every(build => !build.image))&& !workloadSpec;
+    const hasBuils = builds.length > 0 || workloadSpec;
+
 
     return (
         <>
@@ -99,13 +110,13 @@ export function Workload() {
                 <Box display="flex" justifyContent="space-between" alignItems="center" p={2}>
                     {isLoading && !error && <CircularProgress />}
                 </Box>
-                {error && <Alert severity={noBuilds ? "warning" : "error"}>{noBuilds ? "Build your application first." : error}</Alert>}
-                <Button onClick={toggleDrawer()} disabled={!enableDeploy} variant="contained" color="primary" startIcon={<SettingsIcon />}>
+                {!enableDeploy && <Alert severity={!hasBuils ? "error" : "warning"}>{!hasBuils ? error : "Build your application first."}</Alert>}
+                <Button onClick={toggleDrawer} disabled={!enableDeploy || isDeploying || isLoading || isWorking} variant="contained" color="primary">
                     Configure & Deploy
                 </Button>
             </Box>
 
-            <Drawer open={open} onClose={toggleDrawer()} anchor="right">
+            <Drawer open={open} onClose={toggleDrawer} anchor="right">
                 <Box
                     bgcolor={theme.palette.grey[200]}
                     minWidth={theme.spacing(80)}
@@ -118,7 +129,7 @@ export function Workload() {
                         <Typography variant="h6" component="h4">
                             Configure Workload
                         </Typography>
-                        <IconButton onClick={toggleDrawer()} color="default">
+                        <IconButton onClick={toggleDrawer} color="default">
                             <CloseIcon />
                         </IconButton>
                     </Box>
@@ -127,10 +138,11 @@ export function Workload() {
                         borderColor="grey.400"
                     />
                     <Box flex={1} paddingBottom={2} overflow="auto" bgcolor="grey.200">
-                        <WorkloadProvider 
-                            builds={builds} 
+                        <WorkloadProvider
+                            builds={builds}
                             workloadSpec={workloadSpec}
                             setWorkloadSpec={setWorkloadSpec}
+                            isDeploying={isDeploying || isLoading || isWorking}
                         >
                             <WorkloadEditor
                                 entity={entity}

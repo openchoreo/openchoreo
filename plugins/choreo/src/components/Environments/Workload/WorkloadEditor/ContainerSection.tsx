@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     TextField,
     Button,
@@ -12,8 +12,10 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
+    FormControl,
     Select,
     MenuItem,
+    InputLabel,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
@@ -33,6 +35,7 @@ interface ContainerSectionProps {
     onRemoveEnvVar: (containerName: string, envIndex: number) => void;
     onArrayFieldChange: (containerName: string, field: 'command' | 'args', value: string) => void;
     disabled: boolean;
+    singleContainerMode: boolean;
 }
 
 const useStyles = makeStyles((theme) => ({
@@ -66,6 +69,7 @@ export function ContainerSection({
     onRemoveEnvVar,
     onArrayFieldChange,
     disabled,
+    singleContainerMode,
 }: ContainerSectionProps) {
     const classes = useStyles();
     const { builds } = useBuilds();
@@ -84,7 +88,7 @@ export function ContainerSection({
                             <CardHeader
                                 title={
                                     <Box display="flex" alignItems="center" justifyContent="space-between">
-                                        <Typography variant="subtitle1">{containerName}</Typography>
+                                        <Typography variant="subtitle1">{containerName === 'main' ? '' : containerName}</Typography>
                                         <IconButton
                                             onClick={() => onRemoveContainer(containerName)}
                                             color="secondary"
@@ -102,34 +106,40 @@ export function ContainerSection({
                                         <Box mb={2}>
                                             {
                                                 builds.length === 0 && container.image ? (
-                                                    <TextField
-                                                        label="Image"
-                                                        value={container.image}
-                                                        onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
-                                                        fullWidth
-                                                        variant="outlined"
-                                                        disabled={disabled}
-                                                    />
+                                                    <FormControl fullWidth variant="outlined">
+                                                        <InputLabel>Image</InputLabel>
+                                                        <TextField
+                                                            label="Image"
+                                                            value={container.image}
+                                                            onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
+                                                            fullWidth
+                                                            variant="outlined"
+                                                            disabled={disabled}
+                                                        />
+                                                    </FormControl>
                                                 ) : (
-                                                    <Select
-                                                        value={container.image || ''}
-                                                        onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
-                                                        label="Select Image from Builds"
-                                                        variant="outlined"
-                                                        fullWidth
-                                                        disabled={disabled}
-                                                    >
-                                                        <MenuItem value="">
-                                                            <em>None</em>
-                                                        </MenuItem>
-                                                        {builds.filter(build => build.image).map((build) => (
-                                                            build.image && (
-                                                                <MenuItem key={build.image} value={build.image}>
-                                                                    {build.name} ({formatRelativeTime(build.createdAt)})
-                                                                </MenuItem>
-                                                            )
-                                                        ))}
-                                                    </Select>
+                                                    <FormControl fullWidth variant="outlined">
+                                                        <InputLabel>Select Image from Builds</InputLabel>
+                                                        <Select
+                                                            value={container.image || ''}
+                                                            onChange={(e) => onContainerChange(containerName, 'image', e.target.value as string)}
+                                                            label="Select Image from Builds"
+                                                            variant="outlined"
+                                                            fullWidth
+                                                            disabled={disabled}
+                                                        >
+                                                            <MenuItem value="">
+                                                                <em>None</em>
+                                                            </MenuItem>
+                                                            {builds.filter(build => build.image).map((build) => (
+                                                                build.image && (
+                                                                    <MenuItem key={build.image} value={build.image}>
+                                                                        {build.name} ({formatRelativeTime(build.createdAt)})
+                                                                    </MenuItem>
+                                                                )
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
 
                                                 )
                                             }
@@ -239,16 +249,22 @@ export function ContainerSection({
                             </CardContent>
                         </Card>
                     ))}
-                    <Button
-                        startIcon={<AddIcon />}
-                        onClick={onAddContainer}
-                        variant="contained"
-                        color="primary"
-                        className={classes.addButton}
-                        disabled={disabled}
-                    >
-                        Add Container
-                    </Button>
+                    {
+                        (!singleContainerMode || Object.keys(containers).length === 0) && (
+                            <Button
+                                startIcon={<AddIcon />}
+                                onClick={onAddContainer}
+                                variant="contained"
+                                color="primary"
+                                className={classes.addButton}
+                                disabled={disabled}
+                            >
+                                Add Container
+                            </Button>
+                        )
+                    }
+
+
                 </Box>
             </AccordionDetails>
         </Accordion>

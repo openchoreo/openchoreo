@@ -6,11 +6,13 @@ import {
     Box,
     Select,
     MenuItem,
+    FormControl,
+    InputLabel,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { Connection, ModelsWorkload } from '@internal/plugin-openchoreo-api';
-import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { catalogApiRef, useEntity } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model/index';
 import { CHOREO_LABELS } from '../../../../constants';
@@ -49,6 +51,7 @@ export const ConnectionItem: React.FC<ConnectionItemProps> = ({
     const discoveryApi = useApi(discoveryApiRef);
     const identityApi = useApi(identityApiRef);
 
+    const { entity: selectedEntity } = useEntity();
     const [allComponents, setAllComponents] = useState<Entity[]>([]);
     const [endPointList, setEndPointList] = useState<string[]>([]);
 
@@ -70,10 +73,11 @@ export const ConnectionItem: React.FC<ConnectionItemProps> = ({
     useEffect(() => {
         const fetchComponents = async () => {
             const components = await catalogApi.getEntities();
-            setAllComponents(components.items?.filter(entity => entity.kind === 'Component') || []);
+            setAllComponents(components.items?.filter(entity => entity.kind === 'Component' &&
+                !(entity.metadata.name === selectedEntity.metadata.name && entity.metadata.annotations?.[CHOREO_LABELS.PROJECT] === connection.params?.projectName)) || []);
         }
         fetchComponents();
-    }, [catalogApi]);
+    }, [catalogApi, selectedEntity.metadata.name, connection.params?.projectName]);
 
 
     useEffect(() => {
@@ -134,70 +138,80 @@ export const ConnectionItem: React.FC<ConnectionItemProps> = ({
                     </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                    <Select
-                        label="Connection Type"
-                        title="Connection Type"
-                        value={connection.type || ''}
-                        onChange={(e) => handleFieldChange('type', e.target.value as string)}
-                        fullWidth
-                        variant="outlined"
-                        disabled={disabled}
-                    >
-                        <MenuItem value={ConnectionTypes.API}>API</MenuItem>
-                    </Select>
+                    <FormControl fullWidth variant="outlined">
+                        <InputLabel>Connection Type</InputLabel>
+                        <Select
+                            label="Connection Type"
+                            placeholder="Connection Type"
+                            value={connection.type || ''}
+                            onChange={(e) => handleFieldChange('type', e.target.value as string)}
+                            fullWidth
+                            variant="outlined"
+                            disabled={disabled}
+                        >
+                            <MenuItem value={ConnectionTypes.API}>API</MenuItem>
+                        </Select>
+                    </FormControl>
                 </Grid>
 
                 <Grid item xs={6}>
-                    <Select
-                        label="Project Name"
-                        value={connection.params?.projectName || ''}
-                        onChange={(e) => handleFieldChange('params.projectName', e.target.value as string)}
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        disabled={disabled}
-                    >
-                        {projectList.map((project) => {
-                            return (
-                                <MenuItem key={project} value={project}>
-                                    {project}
-                                </MenuItem>
-                            );
-                        })}
-                    </Select>
+                    <FormControl fullWidth variant="outlined">
+                        <InputLabel>Project Name</InputLabel>
+                        <Select
+                            label="Project Name"
+                            value={connection.params?.projectName || ''}
+                            onChange={(e) => handleFieldChange('params.projectName', e.target.value as string)}
+                            fullWidth
+                            variant="outlined"
+                            disabled={disabled}
+                        >
+                            {projectList.map((project) => {
+                                return (
+                                    <MenuItem key={project} value={project}>
+                                        {project}
+                                    </MenuItem>
+                                );
+                            })}
+                        </Select>
+                    </FormControl>
                 </Grid>
                 <Grid item xs={6}>
-                    <Select
-                        label="Component Name"
-                        value={connection.params?.componentName || ''}
-                        onChange={(e) => handleFieldChange('params.componentName', e.target.value as string)}
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        disabled={disabled}
-                    >
-                        {componentsList.map((component) => (
-                            <MenuItem key={component.metadata.name} value={component.metadata.name}>
-                                {component.metadata.name}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                    <FormControl fullWidth variant="outlined">
+                        <InputLabel>Component Name</InputLabel>
+                        <Select
+                            label="Component Name"
+                            value={connection.params?.componentName || ''}
+                            onChange={(e) => handleFieldChange('params.componentName', e.target.value as string)}
+                            fullWidth
+                            variant="outlined"
+                            disabled={disabled}
+                        >
+                            {componentsList.map((component) => (
+                                <MenuItem key={component.metadata.name} value={component.metadata.name}>
+                                    {component.metadata.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Grid>
                 <Grid item xs={5}>
-                    <Select
-                        label="Endpoint"
-                        value={connection.params?.endpoint || ''}
-                        onChange={(e) => handleFieldChange('params.endpoint', e.target.value as string)}
-                        fullWidth
-                        variant="outlined"
-                        disabled={disabled}
-                    >
-                        {endPointList.map((endpoint) => (
-                            <MenuItem key={endpoint} value={endpoint}>
-                                {endpoint}
-                            </MenuItem>
-                        ))}
-                    </Select>
+                    <FormControl fullWidth variant="outlined">
+                        <InputLabel>Endpoint</InputLabel>
+                        <Select
+                            label="Endpoint"
+                            value={connection.params?.endpoint || ''}
+                            onChange={(e) => handleFieldChange('params.endpoint', e.target.value as string)}
+                            fullWidth
+                            variant="outlined"
+                            disabled={disabled}
+                        >
+                            {endPointList.map((endpoint) => (
+                                <MenuItem key={endpoint} value={endpoint}>
+                                    {endpoint}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Grid>
                 <Grid item xs={1}>
                     <IconButton

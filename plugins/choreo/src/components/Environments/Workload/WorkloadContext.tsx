@@ -5,6 +5,7 @@ interface WorkloadContextType {
     builds: ModelsBuild[];
     workloadSpec: ModelsWorkload | null;
     setWorkloadSpec: (spec: ModelsWorkload | null) => void;
+    isDeploying: boolean
 }
 
 const WorkloadContext = createContext<WorkloadContextType | undefined>(undefined);
@@ -14,9 +15,10 @@ export const WorkloadProvider: React.FC<{
     workloadSpec: ModelsWorkload | null;
     setWorkloadSpec: (spec: ModelsWorkload | null) => void;
     children: React.ReactNode; 
-}> = ({ builds, workloadSpec, setWorkloadSpec, children }) => {
+    isDeploying: boolean;
+}> = ({ builds, workloadSpec, setWorkloadSpec, children, isDeploying }) => {
     return (
-        <WorkloadContext.Provider value={{ builds, workloadSpec, setWorkloadSpec }}>
+        <WorkloadContext.Provider value={{ builds, workloadSpec, setWorkloadSpec, isDeploying }}>
             {children}
         </WorkloadContext.Provider>
     );
@@ -28,6 +30,11 @@ export const useWorkloadContext = (): WorkloadContextType => {
         throw new Error('useWorkloadContext must be used within a WorkloadProvider');
     }
     return context;
+};
+
+export const useIsDeploying = () => {
+    const { isDeploying } = useWorkloadContext();
+    return isDeploying;
 };
 
 // Keep backwards compatibility

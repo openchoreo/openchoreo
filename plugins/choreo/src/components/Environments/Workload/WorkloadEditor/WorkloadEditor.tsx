@@ -3,6 +3,7 @@ import {
     Typography,
     Box,
     Button,
+    CircularProgress,
 } from '@material-ui/core';
 import { ModelsWorkload, Container, WorkloadEndpoint, EnvVar, Connection, WorkloadType } from '@internal/plugin-openchoreo-api';
 import { ContainerSection } from './ContainerSection';
@@ -19,7 +20,7 @@ interface WorkloadEditorProps {
 }
 
 export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
-    const { workloadSpec, setWorkloadSpec } = useWorkloadContext();
+    const { workloadSpec, setWorkloadSpec, isDeploying } = useWorkloadContext();
 
     const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
     const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
@@ -37,7 +38,6 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
     });
 
     const [workloadType, setWorkloadType] = useState<WorkloadType>('Service');
-    const [isDeploying, setIsDeploying] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -66,15 +66,27 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
         updateWorkloadSpec(updatedData);
     };
 
+    const containerCount = Object.keys(formData.containers || {}).length;
+    const endpointCount = Object.keys(formData.endpoints || {}).length;
+
     const handleDeploy = async () => {
-        setIsDeploying(true);
+        if (containerCount === 0 && endpointCount === 0) {
+            setError('Please a container and one endpoint');
+            return;
+        }
+        if (containerCount === 0) {
+            setError('Please add a container');
+            return;
+        }
+        if (endpointCount === 0) {
+            setError('Please add at least one endpoint');
+            return;
+        }
         setError(null);
         try {
             await onDeploy();
         } catch (e: any) {
             setError(e.message);
-        } finally {
-            setIsDeploying(false);
         }
     };
 
@@ -106,11 +118,11 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
     };
 
     const addContainer = () => {
-        const containerName = `container-${Object.keys(formData.containers || {}).length + 1}`;
+        const containerName = `container-${Object.keys(formData.containers || {}).length}`;
         const updatedContainers = {
             ...formData.containers,
-            [containerName]: {
-                name: containerName,
+            [Object.keys(formData.containers || {}).length === 0 ? 'main' : containerName]: {
+                name: Object.keys(formData.containers || {}).length === 0 ? 'main' : containerName,
                 image: '',
                 resources: {},
                 env: [],
@@ -204,7 +216,7 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
         const arrayValue = value.split(',').map(item => item.trim()).filter(item => item.length > 0);
         handleContainerChange(containerName, field, arrayValue);
     };
-
+    
     return (
         <Box overflow="hidden">
             <ContainerSection
@@ -217,6 +229,7 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
                 onAddEnvVar={addEnvVar}
                 onRemoveEnvVar={removeEnvVar}
                 onArrayFieldChange={handleArrayFieldChange}
+                singleContainerMode
             />
             <EndpointSection
                 disabled={isDeploying}
@@ -242,7 +255,7 @@ export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
             <Box display="flex" justifyContent="flex-end" margin={2}>
                 <Button disabled={isDeploying} variant="contained" color="primary" onClick={handleDeploy}>
                     Submit & Deploy
-                </Button>
+                </Button>   
             </Box>
         </Box>
     );

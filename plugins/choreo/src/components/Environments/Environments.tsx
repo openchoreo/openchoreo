@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import {
   Content,
@@ -55,23 +55,43 @@ export const Environments = () => {
   const discovery = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
   
+  const fetchEnvironmentsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchEnvironmentInfo(entity, discovery, identityApi);
+      setEnvironmentsData(data as Environment[]);
+    } catch (error) {
+      console.error('Error fetching environment data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [entity, discovery, identityApi]);
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchEnvironmentInfo(entity, discovery, identityApi);
-        setEnvironmentsData(data as Environment[]);
-      } catch (error) {
-        console.error('Error fetching environment data:', error);
-      } finally {
-        setLoading(false);
+    fetchEnvironmentsData();
+  }, [fetchEnvironmentsData]);
+
+  const isWorkloadEditorSupported = entity.metadata.tags?.find(tag => tag === 'webapplication' || tag === 'service');
+  const isPending = environments.some(env => env.deployment.status === 'pending');
+
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (isPending) {
+      intervalId = setInterval(() => {
+        fetchEnvironmentsData();
+      }, 10000); // 10 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
+  }, [isPending, fetchEnvironmentsData]);
 
-    fetchData();
-  }, []);
-
-  if (loading) {
+  if (loading && !isPending) {
     return (
       <Page themeId="tool">
         <Content>
@@ -130,7 +150,7 @@ export const Environments = () => {
                   <Typography color="textSecondary">
                     View and manage deployment environments
                   </Typography>
-                  <Workload />
+                  {isWorkloadEditorSupported && <Workload onDeployed={fetchEnvironmentsData} isWorking={isPending}/>}
                 </CardContent>
               </Box>
             </Card>
