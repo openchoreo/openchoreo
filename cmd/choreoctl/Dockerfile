@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.license="Apache-2.0"
 WORKDIR /
 
 # Copy the pre-built binary produced by the Makefile into the image
-COPY bin/dist/${TARGETOS}/${TARGETARCH}/openchoreo-api .
+COPY bin/dist/${TARGETOS}/${TARGETARCH}/choreoctl .
 
 # Use non-root user for security (65532 is 'nonroot' user in distroless)
 USER 65532:65532
