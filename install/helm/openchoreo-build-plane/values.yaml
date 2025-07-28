@@ -17,7 +17,7 @@ global:
       # These values are ONLY used if registry.type is "local".
       local:
         # -- The internal cluster address used by build pipelines (e.g., Podman) to push images.
-        pushEndpoint: "registry.openchoreo-data-plane.svc.cluster.local:5000"
+        pushEndpoint: "registry.openchoreo-data-plane:5000"
 
         # -- The public-facing address used by cluster nodes (kubelet) to pull images.
         # This could be a NodePort, LoadBalancer, or Ingress address.
