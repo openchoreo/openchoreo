@@ -1,22 +1,5 @@
 #!/bin/bash
 
-# Color codes
-RED="\e[0;31m"
-GREEN="\e[0;32m"
-DARK_YELLOW="\e[0;33m"
-BLUE="\e[0;34m"
-CYAN="\e[0;36m"
-PURPLE="\e[0;35m"
-BOLD="\e[1m"
-RESET="\e[0m"
-
-# Status icons
-ICON_READY="✅"
-ICON_PENDING="⏳"
-ICON_NOT_INSTALLED="⚠️ "
-ICON_ERROR="❌"
-ICON_UNKNOWN="❓"
-
 # Namespace definitions
 CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
@@ -83,7 +66,7 @@ get_component_config() {
         "external_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-external" ;;
         "internal_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-internal" ;;
         "fluent_bit_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/component=fluent-bit" ;;
-        "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
+        "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
         "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
@@ -140,29 +123,16 @@ check_component_status() {
     fi
 }
 
-# Get status icon for a component
-get_status_icon() {
+# Get status text for a component
+get_status_text() {
     local status="$1"
     case "$status" in
-        "ready") echo "${ICON_READY}" ;;
-        "not installed") echo "${ICON_NOT_INSTALLED}" ;;
-        "pending") echo "${ICON_PENDING}" ;;
-        "not started") echo "${ICON_ERROR}" ;;
-        "unknown") echo "${ICON_UNKNOWN}" ;;
-        *) echo "${ICON_ERROR}" ;;
-    esac
-}
-
-# Get status color for a component
-get_status_color() {
-    local status="$1"
-    case "$status" in
-        "ready") echo "${GREEN}" ;;
-        "not installed") echo "${DARK_YELLOW}" ;;
-        "pending") echo "${DARK_YELLOW}" ;;
-        "not started") echo "${RED}" ;;
-        "unknown") echo "${PURPLE}" ;;
-        *) echo "${RED}" ;;
+        "ready") echo "[READY]" ;;
+        "not installed") echo "[NOT_INSTALLED]" ;;
+        "pending") echo "[PENDING]" ;;
+        "not started") echo "[ERROR]" ;;
+        "unknown") echo "[UNKNOWN]" ;;
+        *) echo "[ERROR]" ;;
     esac
 }
 
@@ -170,9 +140,10 @@ get_status_color() {
 print_grouped_components() {
     local context="$1"
 
-    printf "\n%b%b╔══════════════════════════════════════════════════════════════════════╗%b\n" "$BOLD" "$BLUE" "$RESET"
-    printf "%b%b║                     OpenChoreo Component Status                     ║%b\n" "$BOLD" "$BLUE" "$RESET"
-    printf "%b%b╚══════════════════════════════════════════════════════════════════════╝%b\n" "$BOLD" "$BLUE" "$RESET"
+    printf "\n"
+    printf "======================================================================\n"
+    printf "                     OpenChoreo Component Status                     \n"
+    printf "======================================================================\n"
 
     for group in "${group_order[@]}"; do
         local components_str
@@ -182,32 +153,25 @@ print_grouped_components() {
         local group_display_name
         group_display_name=$(get_group_display_name "$group")
 
-        # Determine group color and type
-        local group_color=""
+        # Determine group type
         local group_type=""
         case "$group" in
             "Networking")
-                group_color="${CYAN}"
                 group_type="Infrastructure"
                 ;;
             "Control_Plane")
-                group_color="${BLUE}"
                 group_type="Core"
                 ;;
             "Data_Plane")
-                group_color="${GREEN}"
                 group_type="Core"
                 ;;
             "Build_Plane")
-                group_color="${PURPLE}"
                 group_type="Optional"
                 ;;
             "Identity_Provider")
-                group_color="${DARK_YELLOW}"
                 group_type="Optional"
                 ;;
             "Observability_Plane")
-                group_color="${RED}"
                 group_type="Optional"
                 ;;
         esac
@@ -216,42 +180,40 @@ print_grouped_components() {
         # Calculate the proper line length for consistent borders
         local line_length=65
         local header_padding=""
-        local remaining_length=$((line_length - ${#group_display_name} - ${#group_type} - 6))  # 6 for "┌─ " + " (" + ") "
+        local remaining_length=$((line_length - ${#group_display_name} - ${#group_type} - 6))  # 6 for "+- " + " (" + ") "
         for ((i=0; i<remaining_length; i++)); do
-            header_padding="${header_padding}─"
+            header_padding="${header_padding}-"
         done
 
-        printf "%b%b┌─ %s (%s) %s┐%b\n" "$group_color" "$BOLD" "$group_display_name" "$group_type" "$header_padding" "$RESET"
+        printf "+- %s (%s) %s+\n" "$group_display_name" "$group_type" "$header_padding"
 
         for component in "${components[@]}"; do
             local status
             status=$(check_component_status "$component" "$context")
-            local status_icon
-            status_icon=$(get_status_icon "$status")
-            local status_color
-            status_color=$(get_status_color "$status")
+            local status_text
+            status_text=$(get_status_text "$status")
 
             # Calculate padding for right border alignment
-            local content_length=$((25 + ${#status} + 3))  # 25 for component width, 3 for icon
-            local padding_needed=$((line_length - content_length - 4))  # 4 for "│ " + " │"
+            local content_length=$((25 + ${#status_text} + 1))  # 25 for component width, 1 for space
+            local padding_needed=$((line_length - content_length - 4))  # 4 for "| " + " |"
             local padding=""
             for ((i=0; i<padding_needed; i++)); do
                 padding="${padding} "
             done
 
-            printf "%b│%b %-25s %s %b%s%b%s%b│%b\n" "$group_color" "$RESET" "$component" "$status_icon" "$status_color" "$status" "$RESET" "$padding" "$group_color" "$RESET"
+            printf "| %-25s %s%s|\n" "$component" "$status_text" "$padding"
         done
 
         # Bottom border
         local bottom_line=""
         for ((i=0; i<line_length; i++)); do
-            bottom_line="${bottom_line}─"
+            bottom_line="${bottom_line}-"
         done
-        printf "%b└%s┘%b\n" "$group_color" "$bottom_line" "$RESET"
+        printf "+%s+\n" "$bottom_line"
     done
 
     echo ""
-    printf "%bLegend:%b %s Ready  %s Pending  %sNot Installed  %s Error  %s Unknown\n" "$BOLD" "$RESET" "$ICON_READY" "$ICON_PENDING" "$ICON_NOT_INSTALLED" "$ICON_ERROR" "$ICON_UNKNOWN"
+    printf "======================================================================\n"
 }
 
 # Legacy function for multi-cluster mode
@@ -260,7 +222,8 @@ print_component_status() {
     local header="$2"
     local context="$3"
 
-    echo -e "\n${BLUE}$header${RESET}"
+    echo ""
+    echo "$header"
     printf "\n%-30s %-15s %-15s\n" "Component" "Status" "Type"
     printf "%-30s %-15s %-15s\n" "-----------------------------" "---------------" "---------------"
 
@@ -278,22 +241,7 @@ print_component_status() {
 
         status=$(check_component_status "$component" "$context")
 
-        case "$status" in
-            "ready")
-                color=$GREEN
-                ;;
-            "not installed")
-                color=$DARK_YELLOW
-                ;;
-            "pending" | "not started" | "unknown")
-                color=$RED
-                ;;
-            *)
-                color=$RED
-                ;;
-        esac
-
-        printf "%-30s ${color}%-15s${RESET} %-15s\n" "$component" "$status" "$component_type"
+        printf "%-30s %-15s %-15s\n" "$component" "$status" "$component_type"
     done
 }
 

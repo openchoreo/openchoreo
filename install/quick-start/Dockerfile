@@ -38,8 +38,6 @@ ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
 COPY install/quick-start /app
 
-COPY install/check-status.sh /app/check-status.sh
-
 COPY install/add-default-dataplane.sh /app/add-default-dataplane.sh
 
 COPY install/add-build-plane.sh /app/add-build-plane.sh
