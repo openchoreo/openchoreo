@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -94,14 +95,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
-	if !isBuildSucceeded(build) {
+	if !isBuildWorkflowSucceeded(build) {
 		// Update build status based on workflow status
 		return r.updateBuildStatus(ctx, oldBuild, build, workflow)
 	}
 
-	err = r.updateWorkloadWithBuiltImage(ctx, build)
+	err = r.createWorkloadCR(ctx, build, workflow)
 	if err != nil {
-		logger.Error(err, "Failed to patch workload with image")
+		logger.Error(err, "Failed to create workload CR")
 		meta.SetStatusCondition(&build.Status.Conditions, NewWorkloadUpdateFailedCondition(build.Generation))
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
@@ -148,6 +149,52 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&openchoreov1alpha1.Build{}).
 		Named("build").
 		Complete(r)
+}
+
+func (r *Reconciler) createWorkloadCR(ctx context.Context, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) error {
+	logger := log.FromContext(ctx).WithValues("build", build.Name)
+
+	// Check if workload-create-step exists and succeeded
+	stepInfo := getStepByTemplateName(workflow.Status.Nodes, "workload-create-step")
+	if stepInfo == nil {
+		logger.Info("workload-create-step not found in workflow nodes, skipping workload CR creation")
+		return nil
+	}
+
+	if stepInfo.Phase != argoproj.NodeSucceeded {
+		logger.Info("workload-create-step has not succeeded yet", "phase", stepInfo.Phase)
+		return nil
+	}
+
+	// Extract workload CR YAML from step output
+	workloadCRYAML := getWorkloadCRFromWorkflow(*stepInfo.Outputs)
+	if workloadCRYAML == "" {
+		logger.Error(fmt.Errorf("workload-cr not found in workflow outputs"), "Workload CR not found in workflow outputs")
+		return fmt.Errorf("workload-cr not found in workflow outputs")
+	}
+
+	// Parse the YAML into a Workload object
+	workload := &openchoreov1alpha1.Workload{}
+	if err := yaml.Unmarshal([]byte(workloadCRYAML), workload); err != nil {
+		logger.Error(err, "Failed to unmarshal workload CR YAML")
+		return fmt.Errorf("failed to unmarshal workload CR: %w", err)
+	}
+
+	// Set the namespace to match the build
+	workload.Namespace = build.Namespace
+
+	// Try to create the workload CR
+	if err := r.Create(ctx, workload); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			logger.Info("Workload CR already exists", "name", workload.Name, "namespace", workload.Namespace)
+			return nil
+		}
+		logger.Error(err, "Failed to create workload CR", "name", workload.Name, "namespace", workload.Namespace)
+		return fmt.Errorf("failed to create workload CR: %w", err)
+	}
+
+	logger.Info("Successfully created workload CR", "name", workload.Name, "namespace", workload.Namespace)
+	return nil
 }
 
 func (r *Reconciler) updateWorkloadWithBuiltImage(
@@ -270,6 +317,10 @@ func (r *Reconciler) ensureWorkflow(
 func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
 	switch workflow.Status.Phase {
+	case argoproj.WorkflowRunning:
+		setBuildInProgressCondition(build)
+		// Requeue after 20 seconds to check workflow status
+		return r.updateStatusAndRequeueAfter(ctx, oldBuild, build, 20*time.Second)
 	case argoproj.WorkflowSucceeded:
 		setBuildCompletedCondition(build, "Build completed successfully")
 		stepInfo := getStepByTemplateName(workflow.Status.Nodes, "push-step")
@@ -291,10 +342,6 @@ func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *ope
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
 		setBuildFailedCondition(build, ReasonBuildFailed, "Build workflow failed")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
-	case argoproj.WorkflowRunning:
-		setBuildInProgressCondition(build)
-		// Requeue after 20 seconds to check workflow status
-		return r.updateStatusAndRequeueAfter(ctx, oldBuild, build, 20*time.Second)
 	default:
 		// Workflow is pending or in unknown state, requeue
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
@@ -314,6 +361,15 @@ func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
 	for _, param := range output.Parameters {
 		if param.Name == "image" {
 			return *param.Value
+		}
+	}
+	return ""
+}
+
+func getWorkloadCRFromWorkflow(output argoproj.Outputs) string {
+	for _, param := range output.Parameters {
+		if param.Name == "workload-cr" {
+			return string(*param.Value)
 		}
 	}
 	return ""

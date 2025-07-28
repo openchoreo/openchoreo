@@ -212,7 +212,7 @@ func isBuildCompleted(build *openchoreov1alpha1.Build) bool {
 	return false
 }
 
-func isBuildSucceeded(build *openchoreov1alpha1.Build) bool {
+func isBuildWorkflowSucceeded(build *openchoreov1alpha1.Build) bool {
 	cond := meta.FindStatusCondition(build.Status.Conditions, string(ConditionBuildCompleted))
 	if cond == nil {
 		return false
