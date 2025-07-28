@@ -1039,7 +1039,7 @@ func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, 
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
-		if err == ErrProjectNotFound {
+		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}

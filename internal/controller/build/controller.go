@@ -197,6 +197,7 @@ func (r *Reconciler) createWorkloadCR(ctx context.Context, build *openchoreov1al
 	return nil
 }
 
+//nolint:unused // Temporarily disabled
 func (r *Reconciler) updateWorkloadWithBuiltImage(
 	ctx context.Context,
 	build *openchoreov1alpha1.Build,
