@@ -60,6 +60,8 @@ func makeWorkflowSpec(build *openchoreov1alpha1.Build) argoproj.WorkflowSpec {
 func buildWorkflowParameters(build *openchoreov1alpha1.Build) []argoproj.Parameter {
 
 	parameters := []argoproj.Parameter{
+		createParameter("project-name", build.Spec.Owner.ProjectName),
+		createParameter("component-name", build.Spec.Owner.ComponentName),
 		createParameter("git-repo", build.Spec.Repository.URL),
 		createParameter("app-path", build.Spec.Repository.AppPath),
 		createParameter("image-name", makeImageName(build)),
