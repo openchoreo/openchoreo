@@ -259,3 +259,92 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment, "bindingsCount", len(bindings))
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
+
+func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetComponentObserverURL handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+
+	if orgName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("All path parameters are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization, project, component, and environment names are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Call service to get observer URL
+	observerResponse, err := h.services.ComponentService.GetComponentObserverURL(ctx, orgName, projectName, componentName, environmentName)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Error in retrieving the log URL: Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Error in retrieving the log URL: Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			logger.Warn("Error in retrieving the log URL: Environment not found", "org", orgName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrDataPlaneNotFound) {
+			logger.Warn("Error in retrieving the log URL: DataPlane not found", "org", orgName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: DataPlane not found", services.CodeDataPlaneNotFound)
+			return
+		}
+		logger.Error("Error in retrieving the log URL: Failed to get component observer URL", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Error in retrieving the log URL: Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Retrieved component observer URL successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+	writeSuccessResponse(w, http.StatusOK, observerResponse)
+}
+
+func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetBuildObserverURL handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("All parameters are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization, project, and component names are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Call service to get build observer URL
+	observerResponse, err := h.services.ComponentService.GetBuildObserverURL(ctx, orgName, projectName, componentName)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Error in retrieving the log URL: Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Error in retrieving the log URL: Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
+			return
+		}
+		logger.Error("Error in retrieving the log URL: Failed to get build observer URL", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Error in retrieving the log URL: Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Retrieved build observer URL successfully", "org", orgName, "project", projectName, "component", componentName)
+	writeSuccessResponse(w, http.StatusOK, observerResponse)
+}

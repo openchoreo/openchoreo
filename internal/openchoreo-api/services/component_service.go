@@ -1024,6 +1024,139 @@ func (s *ComponentService) createOrUpdateScheduledTaskBinding(ctx context.Contex
 	return nil
 }
 
+// ComponentObserverResponse represents the response for observer URL requests
+type ComponentObserverResponse struct {
+	ObserverURL      string                    `json:"observerUrl,omitempty"`
+	ConnectionMethod *ObserverConnectionMethod `json:"connectionMethod,omitempty"`
+	Message          string                    `json:"message,omitempty"`
+}
+
+// ObserverConnectionMethod contains the access method for the observer
+type ObserverConnectionMethod struct {
+	Type        string `json:"type,omitempty"`
+	Username    string `json:"username,omitempty"`
+	Password    string `json:"password,omitempty"`
+	BearerToken string `json:"bearerToken,omitempty"`
+}
+
+// GetComponentObserverURL retrieves the observer URL for component runtime logs
+func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName, projectName, componentName, environmentName string) (*ComponentObserverResponse, error) {
+	s.logger.Debug("Getting component observer URL", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+
+	// 1. Verify component exists in project
+	_, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get the environment
+	env := &openchoreov1alpha1.Environment{}
+	envKey := client.ObjectKey{
+		Name:      environmentName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, envKey, env); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Environment not found", "org", orgName, "environment", environmentName)
+			return nil, ErrEnvironmentNotFound
+		}
+		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "environment", environmentName)
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	// 3. Check if environment has a dataplane reference
+	if env.Spec.DataPlaneRef == "" {
+		s.logger.Error("Environment has no dataplane reference", "environment", environmentName)
+		return nil, fmt.Errorf("environment %s has no dataplane reference", environmentName)
+	}
+
+	// 4. Get the DataPlane configuration for the environment
+	dp := &openchoreov1alpha1.DataPlane{}
+	dpKey := client.ObjectKey{
+		Name:      env.Spec.DataPlaneRef,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Error("DataPlane not found", "org", orgName, "dataplane", env.Spec.DataPlaneRef)
+			return nil, ErrDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get dataplane", "error", err, "org", orgName, "dataplane", env.Spec.DataPlaneRef)
+		return nil, fmt.Errorf("failed to get dataplane: %w", err)
+	}
+
+	// 5. Check if observer is configured in the dataplane
+	if dp.Spec.Observer.URL == "" {
+		s.logger.Debug("Observer URL not configured in dataplane", "dataplane", dp.Name)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	// 6. Return observer URL and connection method from DataPlane.Spec.Observer
+	connectionMethod := &ObserverConnectionMethod{
+		Type:     "basic",
+		Username: dp.Spec.Observer.Authentication.BasicAuth.Username,
+		Password: dp.Spec.Observer.Authentication.BasicAuth.Password,
+	}
+
+	return &ComponentObserverResponse{
+		ObserverURL:      dp.Spec.Observer.URL,
+		ConnectionMethod: connectionMethod,
+	}, nil
+}
+
+// GetBuildObserverURL retrieves the observer URL for component build logs
+func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, projectName, componentName string) (*ComponentObserverResponse, error) {
+	s.logger.Debug("Getting build observer URL", "org", orgName, "project", projectName, "component", componentName)
+
+	// 1. Verify component exists in project
+	_, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get BuildPlane configuration for the organization
+	var buildPlanes openchoreov1alpha1.BuildPlaneList
+	err = s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
+	if err != nil {
+		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
+		return nil, fmt.Errorf("failed to list build planes: %w", err)
+	}
+
+	// Check if any build planes exist
+	if len(buildPlanes.Items) == 0 {
+		s.logger.Error("No build planes found", "org", orgName)
+		return nil, fmt.Errorf("no build planes found for organization: %s", orgName)
+	}
+
+	// Get the first build plane (0th index)
+	buildPlane := &buildPlanes.Items[0]
+	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", orgName)
+
+	// 3. Check if observer is configured
+	if buildPlane.Spec.Observer.URL == "" {
+		s.logger.Debug("Observer URL not configured in build plane", "buildPlane", buildPlane.Name)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	// 4. Return observer URL and connection method from BuildPlane.Spec.Observer
+	connectionMethod := &ObserverConnectionMethod{
+		Type:     "basic",
+		Username: buildPlane.Spec.Observer.Authentication.BasicAuth.Username,
+		Password: buildPlane.Spec.Observer.Authentication.BasicAuth.Password,
+	}
+
+	return &ComponentObserverResponse{
+		ObserverURL:      buildPlane.Spec.Observer.URL,
+		ConnectionMethod: connectionMethod,
+	}, nil
+}
+
 // GetComponentWorkloads retrieves workload data for a specific component
 func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (interface{}, error) {
 	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
