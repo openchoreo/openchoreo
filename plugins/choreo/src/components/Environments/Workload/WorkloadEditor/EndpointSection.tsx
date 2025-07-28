@@ -163,4 +163,4 @@ export const EndpointSection: React.FC<EndpointSectionProps> = ({
             </AccordionDetails>
         </Accordion>
     );
-}; 
+};

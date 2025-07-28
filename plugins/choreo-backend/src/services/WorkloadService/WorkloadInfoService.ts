@@ -101,4 +101,4 @@ export class WorkloadInfoService implements WorkloadService {
       throw error;
     }
   }
-} 
+}

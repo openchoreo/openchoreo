@@ -226,4 +226,4 @@ export const ConnectionItem: React.FC<ConnectionItemProps> = ({
             </Grid>
         </Box>
     );
-}; 
+};
