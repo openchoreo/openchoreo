@@ -66,6 +66,32 @@ export async function createRouter({
     );
   });
 
+  router.patch('/update-binding', async (req, res) => {
+    const { componentName, projectName, orgName, bindingName, releaseState } = req.body;
+
+    if (!componentName || !projectName || !orgName || !bindingName || !releaseState) {
+      throw new InputError(
+        'componentName, projectName, orgName, bindingName and releaseState are required in request body',
+      );
+    }
+
+    if (!['Active', 'Suspend', 'Undeploy'].includes(releaseState)) {
+      throw new InputError(
+        'releaseState must be one of: Active, Suspend, Undeploy',
+      );
+    }
+
+    res.json(
+      await environmentInfoService.updateComponentBinding({
+        componentName: componentName as string,
+        projectName: projectName as string,
+        organizationName: orgName as string,
+        bindingName: bindingName as string,
+        releaseState: releaseState as 'Active' | 'Suspend' | 'Undeploy',
+      }),
+    );
+  });
+
   router.get(
     '/cell-diagram',
     async (req: express.Request, res: express.Response) => {

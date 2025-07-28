@@ -19,6 +19,7 @@ import {
   ProjectsPostRequest,
   ComponentsPostRequest,
   BindingsGetRequest,
+  BindingPatchRequest,
   TypedResponse,
   OpenChoreoApiResponse,
   OpenChoreoApiSingleResponse,
@@ -438,6 +439,33 @@ export class DefaultApiClient {
       },
       method: 'POST',
       body: JSON.stringify(request.workloadSpec),
+    });
+  }
+
+  /**
+   * Update a component binding's release state
+   * Update binding release state
+   */
+  public async bindingPatch(
+    request: BindingPatchRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<BindingResponse>>> {
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+      bindingName: request.bindingName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'PATCH',
+      body: JSON.stringify(request.updateBindingRequest),
     });
   }
 }

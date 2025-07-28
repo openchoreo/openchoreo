@@ -19,7 +19,7 @@ import {
   identityApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
-import { fetchEnvironmentInfo, promoteToEnvironment } from '../../api/getEnvironmentInfo';
+import { fetchEnvironmentInfo, promoteToEnvironment, updateComponentBinding } from '../../api/getEnvironmentInfo';
 import { formatRelativeTime } from '../../utils/timeUtils';
 
 interface EndpointInfo {
@@ -34,6 +34,7 @@ import { Refresh } from '@material-ui/icons';
 
 interface Environment {
   name: string;
+  bindingName?: string;
   deployment: {
     status: 'success' | 'failed' | 'pending' | 'not-deployed' | 'suspended';
     lastDeployed?: string;
@@ -54,6 +55,7 @@ export const Environments = () => {
   const [environments, setEnvironmentsData] = useState<Environment[]>([]);
   const [loading, setLoading] = useState(true);
   const [promotingTo, setPromotingTo] = useState<string | null>(null);
+  const [updatingBinding, setUpdatingBinding] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const discovery = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
@@ -308,61 +310,171 @@ export const Environments = () => {
                     </>
                   )}
 
-                  {/* Promotion buttons section - only show if deployment is successful */}
-                  {env.deployment.status === 'success' &&
-                    env.promotionTargets &&
-                    env.promotionTargets.length > 0 && (
+                  {/* Actions section - show if deployment is successful or suspended */}
+                  {((env.deployment.status === 'success' && env.promotionTargets && env.promotionTargets.length > 0) ||
+                    ((env.deployment.status === 'success' || env.deployment.status === 'suspended') && env.bindingName)) && (
                       <Box mt={3}>
-                        {env.promotionTargets.map((target, index) => (
-                          <Box key={target.name} mb={index < env.promotionTargets!.length - 1 ? 2 : 0}>
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              size="small"
-                              disabled={promotingTo === target.name}
-                              onClick={async () => {
-                                try {
-                                  setPromotingTo(target.name);
-                                  const result = await promoteToEnvironment(
-                                    entity,
-                                    discovery,
-                                    identityApi,
-                                    env.name.toLowerCase(), // source environment
-                                    target.name.toLowerCase(), // target environment
-                                  );
+                        {/* Multiple promotion targets - stack vertically */}
+                        {env.deployment.status === 'success' &&
+                          env.promotionTargets &&
+                          env.promotionTargets.length > 1 && 
+                          env.promotionTargets.map((target, index) => (
+                            <Box key={target.name} mb={index < env.promotionTargets!.length - 1 ? 2 : 
+                              ((env.deployment.status === 'success' || env.deployment.status === 'suspended') && env.bindingName) ? 2 : 0}>
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                disabled={promotingTo === target.name}
+                                onClick={async () => {
+                                  try {
+                                    setPromotingTo(target.name);
+                                    const result = await promoteToEnvironment(
+                                      entity,
+                                      discovery,
+                                      identityApi,
+                                      env.name.toLowerCase(), // source environment
+                                      target.name.toLowerCase(), // target environment
+                                    );
 
-                                  // Update environments state with fresh data from promotion result
-                                  setEnvironmentsData(result as Environment[]);
+                                    // Update environments state with fresh data from promotion result
+                                    setEnvironmentsData(result as Environment[]);
 
-                                  setNotification({
-                                    message: `Component promoted from ${env.name} to ${target.name}`,
-                                    type: 'success'
-                                  });
+                                    setNotification({
+                                      message: `Component promoted from ${env.name} to ${target.name}`,
+                                      type: 'success'
+                                    });
 
-                                  // Clear notification after 5 seconds
-                                  setTimeout(() => setNotification(null), 5000);
-                                } catch (err) {
-                                  setNotification({
-                                    message: `Error promoting: ${err}`,
-                                    type: 'error'
-                                  });
+                                    // Clear notification after 5 seconds
+                                    setTimeout(() => setNotification(null), 5000);
+                                  } catch (err) {
+                                    setNotification({
+                                      message: `Error promoting: ${err}`,
+                                      type: 'error'
+                                    });
 
-                                  // Clear notification after 7 seconds for errors
-                                  setTimeout(() => setNotification(null), 7000);
-                                } finally {
-                                  setPromotingTo(null);
-                                }
-                              }}
-                            >
-                              {promotingTo === target.name
-                                ? 'Promoting...'
-                                : env.promotionTargets!.length === 1
-                                  ? 'Promote'
+                                    // Clear notification after 7 seconds for errors
+                                    setTimeout(() => setNotification(null), 7000);
+                                  } finally {
+                                    setPromotingTo(null);
+                                  }
+                                }}
+                              >
+                                {promotingTo === target.name
+                                  ? 'Promoting...'
                                   : `Promote to ${target.name}`}
-                              {target.requiresApproval && !promotingTo && ' (Approval Required)'}
-                            </Button>
+                                {target.requiresApproval && !promotingTo && ' (Approval Required)'}
+                              </Button>
+                            </Box>
+                          ))}
+
+                        {/* Single promotion target and suspend button - show in same row */}
+                        {((env.deployment.status === 'success' && env.promotionTargets && env.promotionTargets.length === 1) ||
+                          ((env.deployment.status === 'success' || env.deployment.status === 'suspended') && env.bindingName)) && (
+                          <Box display="flex" flexWrap="wrap">
+                            {/* Single promotion button */}
+                            {env.deployment.status === 'success' &&
+                              env.promotionTargets &&
+                              env.promotionTargets.length === 1 && (
+                              <Button
+                                style={{ marginRight: '8px' }}
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                disabled={promotingTo === env.promotionTargets[0].name}
+                                onClick={async () => {
+                                  try {
+                                    setPromotingTo(env.promotionTargets![0].name);
+                                    const result = await promoteToEnvironment(
+                                      entity,
+                                      discovery,
+                                      identityApi,
+                                      env.name.toLowerCase(), // source environment
+                                      env.promotionTargets![0].name.toLowerCase(), // target environment
+                                    );
+
+                                    // Update environments state with fresh data from promotion result
+                                    setEnvironmentsData(result as Environment[]);
+
+                                    setNotification({
+                                      message: `Component promoted from ${env.name} to ${env.promotionTargets![0].name}`,
+                                      type: 'success'
+                                    });
+
+                                    // Clear notification after 5 seconds
+                                    setTimeout(() => setNotification(null), 5000);
+                                  } catch (err) {
+                                    setNotification({
+                                      message: `Error promoting: ${err}`,
+                                      type: 'error'
+                                    });
+
+                                    // Clear notification after 7 seconds for errors
+                                    setTimeout(() => setNotification(null), 7000);
+                                  } finally {
+                                    setPromotingTo(null);
+                                  }
+                                }}
+                              >
+                                {promotingTo === env.promotionTargets[0].name
+                                  ? 'Promoting...'
+                                  : 'Promote'}
+                                {env.promotionTargets[0].requiresApproval && !promotingTo && ' (Approval Required)'}
+                              </Button>
+                            )}
+                            
+                            {/* Suspend/Re-deploy button */}
+                            {(env.deployment.status === 'success' || env.deployment.status === 'suspended') && 
+                             env.bindingName && (
+                              <Button
+                                variant="outlined"
+                                color={env.deployment.status === 'suspended' ? 'primary' : 'default'}
+                                size="small"
+                                disabled={updatingBinding === env.name}
+                                onClick={async () => {
+                                  try {
+                                    setUpdatingBinding(env.name);
+                                    const newState = env.deployment.status === 'suspended' ? 'Active' : 'Suspend';
+                                    await updateComponentBinding(
+                                      entity,
+                                      discovery,
+                                      identityApi,
+                                      env.bindingName!,
+                                      newState,
+                                    );
+
+                                    // Refresh the environments data
+                                    await fetchEnvironmentsData();
+
+                                    setNotification({
+                                      message: `Deployment ${newState === 'Active' ? 're-deployed' : 'suspended'} successfully`,
+                                      type: 'success'
+                                    });
+
+                                    // Clear notification after 5 seconds
+                                    setTimeout(() => setNotification(null), 5000);
+                                  } catch (err) {
+                                    setNotification({
+                                      message: `Error updating deployment: ${err}`,
+                                      type: 'error'
+                                    });
+
+                                    // Clear notification after 7 seconds for errors
+                                    setTimeout(() => setNotification(null), 7000);
+                                  } finally {
+                                    setUpdatingBinding(null);
+                                  }
+                                }}
+                              >
+                                {updatingBinding === env.name
+                                  ? 'Updating...'
+                                  : env.deployment.status === 'suspended'
+                                    ? 'Re-deploy'
+                                    : 'Suspend'}
+                              </Button>
+                            )}
                           </Box>
-                        ))}
+                        )}
                       </Box>
                     )}
                 </CardContent>

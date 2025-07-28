@@ -111,7 +111,7 @@ export function Workload({ onDeployed, isWorking }: { onDeployed: () => Promise<
                     {isLoading && !error && <CircularProgress />}
                 </Box>
                 {!enableDeploy && <Alert severity={!hasBuils ? "error" : "warning"}>{!hasBuils ? error : "Build your application first."}</Alert>}
-                <Button onClick={toggleDrawer} disabled={!enableDeploy || isDeploying || isLoading || isWorking} variant="contained" color="primary">
+                <Button onClick={toggleDrawer} disabled={!enableDeploy || isDeploying || isLoading || isWorking} variant="contained" color="primary" size="small">
                     Configure & Deploy
                 </Button>
             </Box>

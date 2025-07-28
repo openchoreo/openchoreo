@@ -340,6 +340,7 @@ export class EnvironmentInfoService implements EnvironmentService {
 
     const transformedEnv: Environment = {
       name: envName,
+      bindingName: binding?.name,
       deployment: {
         status: deploymentStatus,
         lastDeployed,
@@ -547,6 +548,68 @@ export class EnvironmentInfoService implements EnvironmentService {
       const totalTime = Date.now() - startTime;
       this.logger.error(
         `Error promoting component ${request.componentName} from ${request.sourceEnvironment} to ${request.targetEnvironment} (${totalTime}ms):`,
+        error as Error,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Updates a component binding's release state (Active, Suspend, or Undeploy).
+   * Uses the OpenChoreo API client to update the binding and returns updated environment data.
+   *
+   * @param {Object} request - The update request parameters
+   * @param {string} request.componentName - Name of the component 
+   * @param {string} request.projectName - Name of the project containing the component
+   * @param {string} request.organizationName - Name of the organization owning the project
+   * @param {string} request.bindingName - Name of the binding to update
+   * @param {'Active' | 'Suspend' | 'Undeploy'} request.releaseState - The new release state
+   * @returns {Promise<Environment[]>} Array of environments with updated deployment information
+   * @throws {Error} When there's an error updating the binding
+   */
+  async updateComponentBinding(request: {
+    componentName: string;
+    projectName: string;
+    organizationName: string;
+    bindingName: string;
+    releaseState: 'Active' | 'Suspend' | 'Undeploy';
+  }): Promise<Environment[]> {
+    const startTime = Date.now();
+    try {
+      this.logger.info(
+        `Starting binding update for component: ${request.componentName}, binding: ${request.bindingName}, new state: ${request.releaseState}`,
+      );
+
+      // Call the update binding API
+      await this.client.updateComponentBinding(
+        request.organizationName,
+        request.projectName,
+        request.componentName,
+        request.bindingName,
+        request.releaseState,
+      );
+
+      this.logger.info(
+        `Binding update completed successfully for ${request.bindingName}.`,
+      );
+
+      // Fetch fresh environment data to return updated information
+      const refreshedEnvironments = await this.fetchDeploymentInfo({
+        componentName: request.componentName,
+        projectName: request.projectName,
+        organizationName: request.organizationName,
+      });
+
+      const totalTime = Date.now() - startTime;
+      this.logger.info(
+        `Component binding update completed for ${request.componentName}: Total: ${totalTime}ms`,
+      );
+
+      return refreshedEnvironments;
+    } catch (error: unknown) {
+      const totalTime = Date.now() - startTime;
+      this.logger.error(
+        `Error updating binding ${request.bindingName} for component ${request.componentName} (${totalTime}ms):`,
         error as Error,
       );
       throw error;

@@ -15,6 +15,14 @@ export interface EnvironmentService {
     projectName: string;
     organizationName: string;
   }): Promise<Environment[]>;
+  
+  updateComponentBinding(request: {
+    componentName: string;
+    projectName: string;
+    organizationName: string;
+    bindingName: string;
+    releaseState: 'Active' | 'Suspend' | 'Undeploy';
+  }): Promise<Environment[]>;
 }
 
 export interface EndpointInfo {
@@ -26,6 +34,7 @@ export interface EndpointInfo {
 
 export interface Environment {
   name: string;
+  bindingName?: string;
   deployment: {
     status: 'success' | 'failed' | 'pending' | 'not-deployed' | 'suspended';
     lastDeployed?: string;

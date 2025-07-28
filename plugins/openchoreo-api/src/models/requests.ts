@@ -181,6 +181,26 @@ export type WorkloadPostRequest = {
 };
 
 /**
+ * Request body for updating a component binding
+ * @public
+ */
+export type UpdateBindingRequest = {
+  releaseState: 'Active' | 'Suspend' | 'Undeploy';
+};
+
+/**
+ * Request parameters for updating a component binding
+ * @public
+ */
+export type BindingPatchRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  bindingName: string;
+  updateBindingRequest: UpdateBindingRequest;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

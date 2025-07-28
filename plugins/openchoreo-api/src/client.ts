@@ -522,4 +522,51 @@ export class OpenChoreoApiClient {
       throw error;
     }
   }
+
+  async updateComponentBinding(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+    bindingName: string,
+    releaseState: 'Active' | 'Suspend' | 'Undeploy',
+  ): Promise<BindingResponse> {
+    this.logger?.info(
+      `Updating binding: ${bindingName} for component: ${componentName} in project: ${projectName}, organization: ${orgName} to state: ${releaseState}`,
+    );
+
+    try {
+      const response = await this.client.bindingPatch(
+        {
+          orgName,
+          projectName,
+          componentName,
+          bindingName,
+          updateBindingRequest: {
+            releaseState,
+          },
+        },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<BindingResponse> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const binding = apiResponse.data;
+      this.logger?.info(
+        `Successfully updated binding: ${bindingName} to state: ${releaseState}`,
+      );
+
+      return binding;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to update binding ${bindingName} for component ${componentName}: ${error}`,
+      );
+      throw error;
+    }
+  }
 }
