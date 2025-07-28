@@ -19,7 +19,6 @@ Here you will be creating a new APIClass resource to configure the API managemen
 
 ```
 secure-service-with-jwt/
-├── api-class.yaml                 # Platform Engineer resource
 ├── greeter-service-with-jwt.yaml  # Developer resources (Component, Workload, Service, API)
 └── README.md                      # This guide
 ```
@@ -30,14 +29,14 @@ secure-service-with-jwt/
 
    Examine the service resources that will be deployed:
    ```bash
-   cat reading-list-service-with-jwt.yaml
+   cat reading-list-service-with-jwt-auth.yaml
    ```
 
 2. **Deploy the Reading List Service**
 
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-jwt.yaml
+   kubectl apply -f reading-list-service-with-jwt-auth.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -118,5 +117,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f reading-list-service-with-jwt.yaml
+kubectl delete -f reading-list-service-with-jwt-auth.yaml
 ```
