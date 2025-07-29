@@ -76,6 +76,12 @@ jobs:
           name: manager
           path: bin/dist/**/manager
 
+      - name: Upload openchoreo-api binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: openchoreo-api
+          path: bin/dist/**/openchoreo-api
+
       - name: Upload observer binaries
         uses: actions/upload-artifact@v4
         with:
@@ -108,6 +114,12 @@ jobs:
           name: manager
           path: bin/dist
 
+      - name: Download openchoreo-api binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: openchoreo-api
+          path: bin/dist
+
       - name: Download observer binaries
         uses: actions/download-artifact@v4
         with:
@@ -121,6 +133,8 @@ jobs:
           chmod +x bin/dist/linux/arm64/choreoctl
           chmod +x bin/dist/linux/amd64/manager
           chmod +x bin/dist/linux/arm64/manager
+          chmod +x bin/dist/linux/amd64/openchoreo-api
+          chmod +x bin/dist/linux/arm64/openchoreo-api
           chmod +x bin/dist/linux/amd64/observer
           chmod +x bin/dist/linux/arm64/observer
 
