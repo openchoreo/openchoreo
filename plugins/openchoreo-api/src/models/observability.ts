@@ -22,7 +22,9 @@ export interface ComponentLogsPostRequest {
  * @public
  */
 export interface ComponentBuildLogsPostRequest {
-  componentId: string;
+  orgName: string;
+  projectName: string;
+  componentName: string;
   buildId: string;
   buildUuid: string;
   searchPhrase?: string;
@@ -57,4 +59,16 @@ export interface LogEntry {
   podId: string;
   containerName: string;
   labels: Record<string, string>;
+}
+
+/**
+ * Observer URL data and connection details
+ * @public
+ */
+export interface ObserverUrlData {
+  observerUrl: string;
+  connectionMethod: {
+    username: string;
+    password: string;
+  };
 }

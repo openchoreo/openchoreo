@@ -51,3 +51,22 @@ export type ProjectsGetResponse = TypedResponse<OpenChoreoApiResponse<any>>;
  * @public
  */
 export type ProjectsPostResponse = TypedResponse<OpenChoreoApiSingleResponse<any>>;
+
+/**
+ * Connection method configuration for observer URL
+ * @public
+ */
+export interface ConnectionMethod {
+  type: string;
+  username: string;
+  password: string;
+}
+
+/**
+ * Observer URL data response
+ * @public
+ */
+export interface ObserverUrlData {
+  observerUrl: string;
+  connectionMethod: ConnectionMethod;
+}

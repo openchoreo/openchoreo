@@ -44,7 +44,6 @@ export type ComponentGetRequest = {
   orgName: string;
   projectName: string;
   componentName: string;
-  
 };
 
 /**
@@ -198,6 +197,27 @@ export type BindingPatchRequest = {
   componentName: string;
   bindingName: string;
   updateBindingRequest: UpdateBindingRequest;
+};
+
+/**
+ * Request parameters for getting observer URL for a component in an environment
+ * @public
+ */
+export type RuntimeLogsObserverUrlGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
+  environmentName: string;
+};
+
+/**
+ * Request parameters for getting build observer URL for a component
+ * @public
+ */
+export type BuildObserverUrlGetRequest = {
+  orgName: string;
+  projectName: string;
+  componentName: string;
 };
 
 /**

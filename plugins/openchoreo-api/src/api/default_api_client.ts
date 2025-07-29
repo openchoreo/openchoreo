@@ -32,6 +32,9 @@ import {
   WorkloadGetRequest,
   WorkloadPostRequest,
   ModelsWorkload,
+  RuntimeLogsObserverUrlGetRequest,
+  BuildObserverUrlGetRequest,
+  ObserverUrlData,
 } from '../models';
 
 /**
@@ -146,7 +149,9 @@ export class DefaultApiClient {
   public async componentGet(
     request: ComponentGetRequest,
     options?: RequestOptions,
-  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsCompleteComponent>>> {
+  ): Promise<
+    TypedResponse<OpenChoreoApiSingleResponse<ModelsCompleteComponent>>
+  > {
     const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}?include=type,workload`;
 
     const uri = parser.parse(uriTemplate).expand({
@@ -347,7 +352,9 @@ export class DefaultApiClient {
   public async projectDeploymentPipelineGet(
     request: ProjectDeploymentPipelineGetRequest,
     options?: RequestOptions,
-  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<DeploymentPipelineResponse>>> {
+  ): Promise<
+    TypedResponse<OpenChoreoApiSingleResponse<DeploymentPipelineResponse>>
+  > {
     const uriTemplate = `/orgs/{orgName}/projects/{projectName}/deployment-pipeline`;
 
     const uri = parser.parse(uriTemplate).expand({
@@ -399,7 +406,6 @@ export class DefaultApiClient {
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ModelsWorkload>>> {
     const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads`;
-  
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
@@ -439,6 +445,57 @@ export class DefaultApiClient {
       },
       method: 'POST',
       body: JSON.stringify(request.workloadSpec),
+    });
+  }
+
+  /**
+   * Retrieves the observer URL for a component in a specific environment
+   * Get observer URL for component environment
+   */
+  public async runtimeLogsObserverUrlGet(
+    request: RuntimeLogsObserverUrlGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ObserverUrlData>>> {
+    const uriTemplate = `/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+      environmentName: request.environmentName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Retrieves the build observer URL for a component
+   * Get build observer URL for component
+   */
+  public async buildObserverUrlGet(
+    request: BuildObserverUrlGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ObserverUrlData>>> {
+    const uriTemplate = `/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/build-observer-url`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+      projectName: request.projectName,
+      componentName: request.componentName,
+    });
+
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
     });
   }
 
