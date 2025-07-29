@@ -40,9 +40,9 @@ spec:
     name: docker
     parameters:
       - name: docker-context
-        value: /greeting-service-go
+        value: /service-go-greeter
       - name: dockerfile-path
-        value: /greeting-service-go/Dockerfile
+        value: /service-go-greeter/Dockerfile
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
