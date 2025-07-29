@@ -171,9 +171,7 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.Crea
 	}
 
 	// Add connections from descriptor if present
-	if err := addConnectionsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
-		return nil, fmt.Errorf("failed to add connections: %w", err)
-	}
+	addConnectionsFromDescriptor(workload, descriptor)
 
 	return workload, nil
 }
@@ -215,9 +213,9 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 }
 
 // addConnectionsFromDescriptor adds connections from the descriptor to the workload
-func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor, descriptorPath string) error {
+func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor) {
 	if len(descriptor.Connections) == 0 {
-		return nil
+		return
 	}
 
 	workload.Spec.Connections = make(map[string]openchoreov1alpha1.WorkloadConnection)
@@ -241,7 +239,6 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 
 		workload.Spec.Connections[descriptorConnection.Name] = connection
 	}
-	return nil
 }
 
 // CreateBasicWorkload creates a basic Workload CR without reading from a descriptor file
