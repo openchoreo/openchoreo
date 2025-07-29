@@ -166,8 +166,7 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 	workload.Spec.Endpoints = make(map[string]openchoreov1alpha1.WorkloadEndpoint)
 	for _, descriptorEndpoint := range descriptor.Endpoints {
 		endpoint := openchoreov1alpha1.WorkloadEndpoint{
-			// TODO: Use descriptorEndpoint.Type to set the type and remove type from schema
-			Type: openchoreov1alpha1.EndpointTypeTCP, // Default to TCP
+			Type: openchoreov1alpha1.EndpointType(descriptorEndpoint.Type),
 			Port: descriptorEndpoint.Port,
 		}
 
