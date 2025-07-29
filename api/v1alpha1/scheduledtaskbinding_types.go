@@ -20,6 +20,7 @@ type ScheduledTaskBindingSpec struct {
 	Environment string `json:"environment"`
 
 	// ClassName is the name of the scheduled task class that provides the scheduled task-specific deployment configuration.
+	// +kubebuilder:default=default
 	ClassName string `json:"className"`
 
 	// WorkloadSpec contains the copied workload specification for this environment-specific binding

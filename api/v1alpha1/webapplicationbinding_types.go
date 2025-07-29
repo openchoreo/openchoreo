@@ -20,6 +20,7 @@ type WebApplicationBindingSpec struct {
 	Environment string `json:"environment"`
 
 	// ClassName is the name of the web application class that provides the web application-specific deployment configuration.
+	// +kubebuilder:default=default
 	ClassName string `json:"className"`
 
 	// WorkloadSpec contains the copied workload specification for this environment-specific binding

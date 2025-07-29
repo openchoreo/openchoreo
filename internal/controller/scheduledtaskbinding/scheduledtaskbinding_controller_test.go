@@ -29,15 +29,35 @@ var _ = Describe("ScheduledTaskBinding Controller", func() {
 		scheduledtaskbinding := &openchoreov1alpha1.ScheduledTaskBinding{}
 
 		BeforeEach(func() {
+			By("creating the ScheduledTaskClass")
+			scheduledTaskClass := &openchoreov1alpha1.ScheduledTaskClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+			}
+			err := k8sClient.Create(ctx, scheduledTaskClass)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
 			By("creating the custom resource for the Kind ScheduledTaskBinding")
-			err := k8sClient.Get(ctx, typeNamespacedName, scheduledtaskbinding)
+			err = k8sClient.Get(ctx, typeNamespacedName, scheduledtaskbinding)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &openchoreov1alpha1.ScheduledTaskBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreov1alpha1.ScheduledTaskBindingSpec{
+						Owner: openchoreov1alpha1.ScheduledTaskOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Environment:  "test-env",
+						ClassName:    "default",
+						WorkloadSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

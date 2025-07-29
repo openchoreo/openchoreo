@@ -29,15 +29,35 @@ var _ = Describe("ServiceBinding Controller", func() {
 		servicebinding := &openchoreov1alpha1.ServiceBinding{}
 
 		BeforeEach(func() {
+			By("creating the ServiceClass")
+			serviceClass := &openchoreov1alpha1.ServiceClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+			}
+			err := k8sClient.Create(ctx, serviceClass)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
 			By("creating the custom resource for the Kind ServiceBinding")
-			err := k8sClient.Get(ctx, typeNamespacedName, servicebinding)
+			err = k8sClient.Get(ctx, typeNamespacedName, servicebinding)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &openchoreov1alpha1.ServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreov1alpha1.ServiceBindingSpec{
+						Owner: openchoreov1alpha1.ServiceOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Environment:  "test-env",
+						ClassName:    "default",
+						WorkloadSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

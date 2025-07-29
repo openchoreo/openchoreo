@@ -37,7 +37,12 @@ var _ = Describe("Component Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreov1alpha1.ComponentSpec{
+						Owner: openchoreov1alpha1.ComponentOwner{
+							ProjectName: "test-project",
+						},
+						Type: openchoreov1alpha1.ComponentTypeService,
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

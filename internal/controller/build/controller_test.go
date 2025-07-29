@@ -37,7 +37,22 @@ var _ = Describe("Build Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreov1alpha1.BuildSpec{
+						Owner: openchoreov1alpha1.BuildOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Repository: openchoreov1alpha1.Repository{
+							URL: "https://github.com/test/repo",
+							Revision: openchoreov1alpha1.Revision{
+								Branch: "main",
+							},
+							AppPath: "/",
+						},
+						TemplateRef: openchoreov1alpha1.TemplateRef{
+							Name: "test-template",
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

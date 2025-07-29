@@ -29,15 +29,35 @@ var _ = Describe("WebApplicationBinding Controller", func() {
 		webapplicationbinding := &openchoreov1alpha1.WebApplicationBinding{}
 
 		BeforeEach(func() {
+			By("creating the WebApplicationClass")
+			webApplicationClass := &openchoreov1alpha1.WebApplicationClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+			}
+			err := k8sClient.Create(ctx, webApplicationClass)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
 			By("creating the custom resource for the Kind WebApplicationBinding")
-			err := k8sClient.Get(ctx, typeNamespacedName, webapplicationbinding)
+			err = k8sClient.Get(ctx, typeNamespacedName, webapplicationbinding)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &openchoreov1alpha1.WebApplicationBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreov1alpha1.WebApplicationBindingSpec{
+						Owner: openchoreov1alpha1.WebApplicationOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Environment:  "test-env",
+						ClassName:    "default",
+						WorkloadSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

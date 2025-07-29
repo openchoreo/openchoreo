@@ -19,6 +19,7 @@ type ServiceBindingSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
 	// ClassName is the name of the service class that provides the service-specific deployment configuration.
+	// +kubebuilder:default=default
 	ClassName string `json:"className"`
 
 	WorkloadSpec WorkloadTemplateSpec `json:"workloadSpec"`
