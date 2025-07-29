@@ -20,9 +20,10 @@ import (
 // WorkloadDescriptor represents the structure of a workload.yaml file
 // This is the developer-maintained descriptor alongside source code
 type WorkloadDescriptor struct {
-	APIVersion string                       `yaml:"apiVersion"`
-	Metadata   WorkloadDescriptorMetadata   `yaml:"metadata"`
-	Endpoints  []WorkloadDescriptorEndpoint `yaml:"endpoints,omitempty"`
+	APIVersion  string                         `yaml:"apiVersion"`
+	Metadata    WorkloadDescriptorMetadata     `yaml:"metadata"`
+	Endpoints   []WorkloadDescriptorEndpoint   `yaml:"endpoints,omitempty"`
+	Connections []WorkloadDescriptorConnection `yaml:"connections,omitempty"`
 }
 
 type WorkloadDescriptorMetadata struct {
@@ -35,6 +36,22 @@ type WorkloadDescriptorEndpoint struct {
 	Port       int32  `yaml:"port"`
 	Context    string `yaml:"context,omitempty"`
 	SchemaFile string `yaml:"schemaFile,omitempty"`
+}
+
+type WorkloadDescriptorConnection struct {
+	Name   string                             `yaml:"name"`
+	Type   string                             `yaml:"type"`
+	Params map[string]string                  `yaml:"params,omitempty"`
+	Inject WorkloadDescriptorConnectionInject `yaml:"inject"`
+}
+
+type WorkloadDescriptorConnectionInject struct {
+	Env []WorkloadDescriptorConnectionEnvVar `yaml:"env"`
+}
+
+type WorkloadDescriptorConnectionEnvVar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
 }
 
 // ConversionParams holds the parameters needed for workload conversion
@@ -126,13 +143,13 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 				ProjectName:   params.ProjectName,
 				ComponentName: params.ComponentName,
 			},
-		},
-	}
-
-	// Set containers separately to match the pattern used elsewhere
-	workload.Spec.Containers = map[string]openchoreov1alpha1.Container{
-		"main": {
-			Image: params.ImageURL,
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Containers: map[string]openchoreov1alpha1.Container{
+					"main": {
+						Image: params.ImageURL,
+					},
+				},
+			},
 		},
 	}
 
@@ -152,6 +169,11 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.Crea
 	// Add endpoints from descriptor if present
 	if err := addEndpointsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
 		return nil, fmt.Errorf("failed to add endpoints: %w", err)
+	}
+
+	// Add connections from descriptor if present
+	if err := addConnectionsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
+		return nil, fmt.Errorf("failed to add connections: %w", err)
 	}
 
 	return workload, nil
@@ -189,6 +211,36 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 		}
 
 		workload.Spec.Endpoints[descriptorEndpoint.Name] = endpoint
+	}
+	return nil
+}
+
+// addConnectionsFromDescriptor adds connections from the descriptor to the workload
+func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor, descriptorPath string) error {
+	if len(descriptor.Connections) == 0 {
+		return nil
+	}
+
+	workload.Spec.Connections = make(map[string]openchoreov1alpha1.WorkloadConnection)
+	for _, descriptorConnection := range descriptor.Connections {
+		// Convert environment variables
+		envVars := make([]openchoreov1alpha1.WorkloadConnectionEnvVar, len(descriptorConnection.Inject.Env))
+		for i, envVar := range descriptorConnection.Inject.Env {
+			envVars[i] = openchoreov1alpha1.WorkloadConnectionEnvVar{
+				Name:  envVar.Name,
+				Value: envVar.Value,
+			}
+		}
+
+		connection := openchoreov1alpha1.WorkloadConnection{
+			Type:   descriptorConnection.Type,
+			Params: descriptorConnection.Params,
+			Inject: openchoreov1alpha1.WorkloadConnectionInject{
+				Env: envVars,
+			},
+		}
+
+		workload.Spec.Connections[descriptorConnection.Name] = connection
 	}
 	return nil
 }
