@@ -7,6 +7,19 @@ spec:
   owner:
     projectName: default
   type: Service
+  build:
+    repository:
+      appPath: /service-go-greeter
+      revision:
+        branch: main
+      url: https://github.com/openchoreo/sample-workloads
+    templateRef:
+      name: docker
+      parameters:
+        - name: docker-context
+          value: /service-go-greeter
+        - name: dockerfile-path
+          value: /service-go-greeter/Dockerfile
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -19,10 +32,10 @@ spec:
     componentName: greeting-service
     projectName: default
   repository:
-    appPath: /greeting-service-go
+    appPath: /service-go-greeter
     revision:
       branch: main
-    url: https://github.com/wso2/choreo-samples
+    url: https://github.com/openchoreo/sample-workloads
   templateRef:
     name: docker
     parameters:
@@ -30,50 +43,6 @@ spec:
         value: /greeting-service-go
       - name: dockerfile-path
         value: /greeting-service-go/Dockerfile
-
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: greeting-service
-spec:
-  owner:
-    componentName: greeting-service
-    projectName: default
-  containers:
-    main:
-      image: "test:latest"
-      command:
-        - ./go-greeter
-      args:
-        - --port
-        - "9090"
-  endpoints:
-    rest-api:
-      type: REST
-      port: 9090
-      schema:
-        type: REST
-        content: |
-          openapi: 3.0.0
-          info:
-              title: Greeter API
-              version: v1
-          paths:
-              /greet:
-              get:
-                  summary: Greet a user
-                  responses:
-                  '200':
-                      description: A greeting message
-                      content:
-                      application/json:
-                          schema:
-                          type: object
-                          properties:
-                              message:
-                              type: string
-                              example: Hello, World!
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -86,7 +55,6 @@ spec:
     projectName: default
   workloadName: greeting-service
   className: default
-  overrides: { }
   apis:
     greeter-api:
       type: REST
