@@ -215,7 +215,7 @@ export class ObservabilityApiClient {
       const observerData: ObserverUrlData = responseData.data;
       const baseUrl = observerData.observerUrl;
 
-      if (baseUrl == undefined) {
+      if (baseUrl === undefined) {
         return { baseUrl, available: false };
       }
 
