@@ -243,7 +243,9 @@ spec:
             IMAGE={{ "{{" }}inputs.parameters.image{{ "}}" }}
             PROJECT_NAME={{ "{{" }}workflow.parameters.project-name{{ "}}" }}
             COMPONENT_NAME={{ "{{" }}workflow.parameters.component-name{{ "}}" }}
-            DESCRIPTOR_PATH="/mnt/vol/source/workload.yaml"
+            APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
+
+            DESCRIPTOR_PATH="/mnt/vol/source$APP_PATH/workload.yaml"
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
             echo "Creating workload with image: $IMAGE"
