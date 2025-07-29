@@ -27,6 +27,17 @@ export async function getRuntimeLogs(
     }/${component}`,
   );
 
+  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+
+  if (project && organization) {
+    const queryParams = new URLSearchParams({
+      orgName: organization,
+      projectName: project,
+    });
+    backendUrl.search = queryParams.toString();
+  }
+
   const requestBody = {
     environmentId: params.environmentId,
     logLevels: params.logLevels,
@@ -45,13 +56,20 @@ export async function getRuntimeLogs(
     body: JSON.stringify(requestBody),
   });
 
+  const data = await response.json();
+
+  // Check if observability is disabled
+  if (response.ok && data.message === 'observability is disabled') {
+    throw new Error('Observability is not enabled for this component');
+  }
+
   if (!response.ok) {
     throw new Error(
       `Failed to fetch runtime logs: ${response.status} ${response.statusText}`,
     );
   }
 
-  return await response.json();
+  return data;
 }
 
 export async function getEnvironments(

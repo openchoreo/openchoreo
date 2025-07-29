@@ -11,7 +11,10 @@ import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 import { WorkloadInfoService } from './services/WorkloadService/WorkloadInfoService';
-import { ObservabilityApiClient } from '@internal/plugin-openchoreo-api';
+import {
+  DefaultApiClient,
+  ObservabilityApiClient,
+} from '@internal/plugin-openchoreo-api';
 
 /**
  * choreoPlugin backend plugin
@@ -54,7 +57,6 @@ export const choreoPlugin = createBackendPlugin({
         const buildInfoService = new BuildInfoService(
           logger,
           openchoreoConfig.get('baseUrl'),
-          openchoreoConfig.get('observabilityBaseUrl'),
         );
 
         const componentInfoService = new ComponentInfoService(
@@ -65,7 +67,7 @@ export const choreoPlugin = createBackendPlugin({
         const runtimeLogsInfoService = new RuntimeLogsInfoService(
           logger,
           new ObservabilityApiClient(
-            openchoreoConfig.get('observabilityBaseUrl'),
+            new DefaultApiClient(openchoreoConfig.get('baseUrl'), {}),
             {},
           ),
         );

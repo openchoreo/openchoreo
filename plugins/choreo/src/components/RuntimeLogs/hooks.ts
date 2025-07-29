@@ -72,7 +72,7 @@ export function useRuntimeLogs(
         const currentOffset = reset ? 0 : pagination.offset;
 
         const response = await getRuntimeLogs(entity, discovery, identity, {
-          environmentId: filters.environmentId,
+          environmentId: filters.environmentId.toLowerCase(),
           logLevels: filters.logLevel,
           startTime,
           endTime,

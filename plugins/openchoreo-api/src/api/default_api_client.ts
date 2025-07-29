@@ -456,7 +456,7 @@ export class DefaultApiClient {
     request: RuntimeLogsObserverUrlGetRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ObserverUrlData>>> {
-    const uriTemplate = `/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url`;
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url`;
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
@@ -482,7 +482,7 @@ export class DefaultApiClient {
     request: BuildObserverUrlGetRequest,
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ObserverUrlData>>> {
-    const uriTemplate = `/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/build-observer-url`;
+    const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url`;
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,
@@ -493,7 +493,6 @@ export class DefaultApiClient {
     return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
       headers: {
         'Content-Type': 'application/json',
-        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
       },
       method: 'GET',
     });

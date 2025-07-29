@@ -3,6 +3,7 @@ import { RuntimeLogsService, RuntimeLogsResponse } from '../../types';
 import {
   ObservabilityApiClient,
   ComponentLogsPostRequest,
+  ObservabilityNotConfiguredError,
 } from '@internal/plugin-openchoreo-api';
 
 /**
@@ -21,17 +22,6 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
     this.observabilityClient = observabilityClient;
   }
 
-  static create(
-    logger: LoggerService,
-    observabilityBaseUrl: string,
-  ): RuntimeLogsInfoService {
-    const observabilityClient = new ObservabilityApiClient(
-      observabilityBaseUrl,
-      {},
-    );
-    return new RuntimeLogsInfoService(logger, observabilityClient);
-  }
-
   /**
    * Fetches runtime logs for a specific component.
    * This method retrieves logs based on the provided filters including log levels,
@@ -48,15 +38,19 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
    * @returns {Promise<RuntimeLogsResponse>} Response containing logs array, total count, and timing
    * @throws {Error} When there's an error fetching data from the API
    */
-  async fetchRuntimeLogs(request: {
-    componentId: string;
-    environmentId: string;
-    logLevels?: string[];
-    startTime?: string;
-    endTime?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<RuntimeLogsResponse> {
+  async fetchRuntimeLogs(
+    request: {
+      componentId: string;
+      environmentId: string;
+      logLevels?: string[];
+      startTime?: string;
+      endTime?: string;
+      limit?: number;
+      offset?: number;
+    },
+    orgName: string,
+    projectName: string,
+  ): Promise<RuntimeLogsResponse> {
     try {
       const {
         componentId,
@@ -90,6 +84,8 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
 
       const response = await this.observabilityClient.componentRuntimeLogsPost(
         apiRequest,
+        orgName,
+        projectName,
       );
 
       if (!response.ok) {
@@ -117,6 +113,13 @@ export class RuntimeLogsInfoService implements RuntimeLogsService {
         tookMs: logsData.tookMs || 0,
       };
     } catch (error: unknown) {
+      if (error instanceof ObservabilityNotConfiguredError) {
+        this.logger.info(
+          `Observability not configured for component ${request.componentId}`,
+        );
+        throw error;
+      }
+
       this.logger.error(
         `Error fetching runtime logs for component ${request.componentId}:`,
         error as Error,

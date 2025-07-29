@@ -3,8 +3,10 @@ import {
   OpenChoreoApiClient,
   ModelsBuild,
   ObservabilityApiClient,
+  DefaultApiClient,
   ComponentBuildLogsPostRequest,
   RuntimeLogsResponse,
+  ObservabilityNotConfiguredError,
 } from '@internal/plugin-openchoreo-api';
 
 export class BuildInfoService {
@@ -12,15 +14,12 @@ export class BuildInfoService {
   private observabilityApiClient: ObservabilityApiClient;
   private baseUrl: string;
 
-  constructor(
-    logger: LoggerService,
-    baseUrl: string,
-    observabilityClientUrl: string,
-  ) {
+  constructor(logger: LoggerService, baseUrl: string) {
     this.logger = logger;
     this.baseUrl = baseUrl;
+    const defaultApiClient = new DefaultApiClient(baseUrl, {});
     this.observabilityApiClient = new ObservabilityApiClient(
-      observabilityClientUrl,
+      defaultApiClient,
       {},
     );
   }
@@ -88,7 +87,9 @@ export class BuildInfoService {
   }
 
   async fetchBuildLogs(
-    componentId: string,
+    orgName: string,
+    projectName: string,
+    componentName: string,
     buildId: string,
     buildUuid: string,
     searchPhrase?: string,
@@ -96,12 +97,14 @@ export class BuildInfoService {
     sortOrder?: 'asc' | 'desc',
   ): Promise<RuntimeLogsResponse> {
     this.logger.info(
-      `Fetching build logs for component: ${componentId}, build: ${buildId}`,
+      `Fetching build logs for component: ${componentName}, build: ${buildId}`,
     );
 
     try {
       const apiRequest: ComponentBuildLogsPostRequest = {
-        componentId,
+        orgName,
+        projectName,
+        componentName,
         buildId,
         buildUuid,
         ...(searchPhrase && { searchPhrase }),
@@ -110,7 +113,7 @@ export class BuildInfoService {
       };
 
       this.logger.info(
-        `Sending build logs request for component ${componentId} with parameters: ${JSON.stringify(
+        `Sending build logs request for component ${componentName} with parameters: ${JSON.stringify(
           apiRequest,
         )}`,
       );
@@ -122,7 +125,7 @@ export class BuildInfoService {
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(
-          `Failed to fetch build logs for component ${componentId}: ${response.status} ${response.statusText}`,
+          `Failed to fetch build logs for component ${componentName}: ${response.status} ${response.statusText}`,
           { error: errorText },
         );
         throw new Error(
@@ -135,7 +138,7 @@ export class BuildInfoService {
       this.logger.info(
         `Successfully fetched ${
           logsData.logs?.length || 0
-        } build logs for component ${componentId}`,
+        } build logs for component ${componentName}`,
       );
 
       return {
@@ -144,8 +147,15 @@ export class BuildInfoService {
         tookMs: logsData.tookMs || 0,
       };
     } catch (error: unknown) {
+      if (error instanceof ObservabilityNotConfiguredError) {
+        this.logger.info(
+          `Observability not configured for component ${componentName}`,
+        );
+        throw error;
+      }
+      
       this.logger.error(
-        `Error fetching build logs for component ${componentId}:`,
+        `Error fetching build logs for component ${componentName}:`,
         error as Error,
       );
       throw error;

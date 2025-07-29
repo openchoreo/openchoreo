@@ -7,7 +7,7 @@ export interface EnvironmentService {
     componentName: string;
     organizationName: string;
   }): Promise<Environment[]>;
-  
+
   promoteComponent(request: {
     sourceEnvironment: string;
     targetEnvironment: string;
@@ -121,16 +121,20 @@ export interface WorkloadService {
 }
 
 export interface RuntimeLogsService {
-  fetchRuntimeLogs(request: {
-    componentId: string;
-    namespace: string;
-    environmentId: string;
-    logLevels?: string[];
-    startTime?: string;
-    endTime?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<RuntimeLogsResponse>;
+  fetchRuntimeLogs(
+    request: {
+      componentId: string;
+      namespace: string;
+      environmentId: string;
+      logLevels?: string[];
+      startTime?: string;
+      endTime?: string;
+      limit?: number;
+      offset?: number;
+    },
+    orgName: string,
+    projectName: string,
+  ): Promise<RuntimeLogsResponse>;
 }
 
 export interface LogEntry {

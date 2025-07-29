@@ -6,6 +6,8 @@ import type {
 
 export interface BuildLogsParams {
   componentName: string;
+  projectName: string;
+  orgName: string;
   buildId: string;
   buildUuid: string;
   limit?: number;
@@ -26,6 +28,8 @@ export async function getBuildLogs(
   url.searchParams.set('buildUuid', params.buildUuid);
   url.searchParams.set('limit', (params.limit || 100).toString());
   url.searchParams.set('sortOrder', params.sortOrder || 'desc');
+  url.searchParams.set('projectName', params.projectName);
+  url.searchParams.set('orgName', params.orgName);
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -37,7 +41,18 @@ export async function getBuildLogs(
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  if (
+    data.success &&
+    data.data?.message === 'observability-logs have not been configured'
+  ) {
+    throw new Error(
+      "Observability has not been configured so build logs aren't available",
+    );
+  }
+
+  return data;
 }
 
 export async function fetchBuildLogsForBuild(
@@ -53,6 +68,8 @@ export async function fetchBuildLogsForBuild(
     componentName: build.componentName,
     buildId: build.name,
     buildUuid: build.uuid,
+    projectName: build.projectName,
+    orgName: build.orgName,
     limit: 100,
     sortOrder: 'desc',
   };

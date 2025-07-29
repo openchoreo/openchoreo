@@ -125,14 +125,24 @@ export const RuntimeLogs = () => {
     updateFilters(newFilters);
   };
 
-  const renderError = (error: string) => (
-    <Alert severity="error" className={classes.errorContainer}>
-      <Typography variant="body1">{error}</Typography>
-      <Button onClick={handleRefresh} color="inherit" size="small">
-        Retry
-      </Button>
-    </Alert>
-  );
+  const renderError = (error: string) => {
+    const isObservabilityDisabled = error.includes('Observability is not enabled');
+    
+    return (
+      <Alert severity={isObservabilityDisabled ? "info" : "error"} className={classes.errorContainer}>
+        <Typography variant="body1">
+          {isObservabilityDisabled 
+            ? "Observability is not enabled for this component. Please enable observability to view runtime logs." 
+            : error}
+        </Typography>
+        {!isObservabilityDisabled && (
+          <Button onClick={handleRefresh} color="inherit" size="small">
+            Retry
+          </Button>
+        )}
+      </Alert>
+    );
+  };
 
   if (environmentsError) {
     return (

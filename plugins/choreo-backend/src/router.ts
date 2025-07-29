@@ -7,6 +7,7 @@ import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { CellDiagramService, WorkloadService } from './types';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
+import { ObservabilityNotConfiguredError } from '@internal/plugin-openchoreo-api';
 
 export async function createRouter({
   environmentInfoService,
@@ -191,8 +192,8 @@ export async function createRouter({
       componentName,
       buildId,
       buildUuid,
-      searchPhrase,
-      limit,
+      projectName,
+      orgName,
       sortOrder,
     } = req.query;
 
@@ -202,22 +203,31 @@ export async function createRouter({
       );
     }
 
-    res.json(
-      await buildInfoService.fetchBuildLogs(
+    try {
+      const result = await buildInfoService.fetchBuildLogs(
+        orgName as string,
+        projectName as string,
         componentName as string,
         buildId as string,
         buildUuid as string,
-        searchPhrase as string | undefined,
-        limit ? parseInt(limit as string, 10) : undefined,
-        sortOrder as 'asc' | 'desc' | undefined,
-      ),
-    );
+      );
+      res.json(result);
+    } catch (error: unknown) {
+      if (error instanceof ObservabilityNotConfiguredError) {
+        return res.status(200).json({
+          message: "Observability hasn't been configured",
+        });
+      }
+      throw error;
+    }
   });
 
+  // Runtime logs
   router.post(
     '/logs/component/:componentId',
     async (req: express.Request, res: express.Response) => {
       const { componentId } = req.params;
+      const { orgName, projectName } = req.query;
       const { environmentId, logLevels, startTime, endTime, limit, offset } =
         req.body;
 
@@ -229,18 +239,28 @@ export async function createRouter({
       }
 
       try {
-        const result = await runtimeLogsInfoService.fetchRuntimeLogs({
-          componentId,
-          environmentId,
-          logLevels,
-          startTime,
-          endTime,
-          limit,
-          offset,
-        });
+        const result = await runtimeLogsInfoService.fetchRuntimeLogs(
+          {
+            componentId,
+            environmentId,
+            logLevels,
+            startTime,
+            endTime,
+            limit,
+            offset,
+          },
+          orgName as string,
+          projectName as string,
+        );
 
         res.json(result);
       } catch (error: unknown) {
+        if (error instanceof ObservabilityNotConfiguredError) {
+          return res.status(200).json({
+            message: 'observability is disabled',
+          });
+        }
+
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred';
 
