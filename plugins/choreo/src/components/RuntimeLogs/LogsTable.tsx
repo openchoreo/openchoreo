@@ -64,7 +64,6 @@ export const LogsTable: React.FC<LogsTableProps> = ({
   hasMore,
   totalCount,
   loadingRef,
-  onRetry,
 }) => {
   const classes = useStyles();
 
@@ -142,7 +141,7 @@ export const LogsTable: React.FC<LogsTableProps> = ({
             {hasMore && (
               <TableRow>
                 <TableCell colSpan={6}>
-                  <Box className={classes.loadingContainer} ref={loadingRef}>
+                  <div className={classes.loadingContainer} ref={loadingRef}>
                     {loading ? (
                       <Box display="flex" alignItems="center">
                         <CircularProgress size={20} />
@@ -155,7 +154,7 @@ export const LogsTable: React.FC<LogsTableProps> = ({
                         Scroll to load more logs
                       </Typography>
                     )}
-                  </Box>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

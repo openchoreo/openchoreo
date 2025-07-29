@@ -5,7 +5,6 @@ import {
   ModelsEnvironment,
   OpenChoreoApiClient,
   BindingResponse,
-  BindingStatusType,
 } from '@internal/plugin-openchoreo-api';
 
 /**

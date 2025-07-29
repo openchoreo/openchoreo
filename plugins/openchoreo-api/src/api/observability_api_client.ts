@@ -162,7 +162,6 @@ export class ObservabilityApiClient {
     orgName: string,
     projectName: string,
     componentName: string,
-    options?: RequestOptions,
   ): Promise<{ baseUrl: string | undefined; available: boolean }> {
     const cacheKey = this.getBuildCacheKey(orgName, projectName, componentName);
     const cached = this.buildLogsObserverUrlCache.get(cacheKey);
@@ -184,10 +183,7 @@ export class ObservabilityApiClient {
         componentName,
       };
 
-      const response = await this.defaultApiClient.buildObserverUrlGet(
-        request,
-        options,
-      );
+      const response = await this.defaultApiClient.buildObserverUrlGet(request);
 
       let responseData;
       try {
@@ -328,7 +324,6 @@ export class ObservabilityApiClient {
         request.orgName,
         request.projectName,
         request.componentName,
-        options,
       );
 
       if (!available) {

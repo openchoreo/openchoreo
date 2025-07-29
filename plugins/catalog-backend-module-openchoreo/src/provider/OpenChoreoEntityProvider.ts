@@ -377,7 +377,6 @@ export class OpenChoreoEntityProvider implements EntityProvider {
             system: projectName,
             definition: this.createApiDefinitionFromWorkloadEndpoint(
               endpoint,
-              endpointName,
             ),
           },
         };
@@ -416,7 +415,6 @@ export class OpenChoreoEntityProvider implements EntityProvider {
    */
   private createApiDefinitionFromWorkloadEndpoint(
     endpoint: WorkloadEndpoint,
-    endpointName: string,
   ): string {
     if (endpoint.schema?.content) {
       return endpoint.schema.content;

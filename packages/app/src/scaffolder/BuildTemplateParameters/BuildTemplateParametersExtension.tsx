@@ -28,11 +28,9 @@ export const BuildTemplateParametersSchema = {
 export const BuildTemplateParameters = ({
   onChange,
   rawErrors,
-  required,
   formData,
   formContext,
   idSchema,
-  schema,
 }: FieldExtensionComponentProps<Record<string, any>>) => {
   const [parameters, setParameters] = useState<BuildTemplateParameter[]>([]);
   const [values, setValues] = useState<Record<string, any>>(formData || {});

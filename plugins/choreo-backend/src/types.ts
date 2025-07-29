@@ -15,7 +15,7 @@ export interface EnvironmentService {
     projectName: string;
     organizationName: string;
   }): Promise<Environment[]>;
-  
+
   updateComponentBinding(request: {
     componentName: string;
     projectName: string;
@@ -111,7 +111,7 @@ export interface WorkloadService {
     componentName: string;
     organizationName: string;
   }): Promise<ModelsWorkload>;
-  
+
   applyWorkload(request: {
     projectName: string;
     componentName: string;

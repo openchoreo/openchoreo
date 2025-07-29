@@ -480,7 +480,6 @@ export class DefaultApiClient {
    */
   public async buildObserverUrlGet(
     request: BuildObserverUrlGetRequest,
-    options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiSingleResponse<ObserverUrlData>>> {
     const uriTemplate = `/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url`;
 

@@ -194,7 +194,6 @@ export async function createRouter({
       buildUuid,
       projectName,
       orgName,
-      sortOrder,
     } = req.query;
 
     if (!componentName || !buildId || !buildUuid) {
@@ -211,7 +210,7 @@ export async function createRouter({
         buildId as string,
         buildUuid as string,
       );
-      res.json(result);
+      return res.json(result);
     } catch (error: unknown) {
       if (error instanceof ObservabilityNotConfiguredError) {
         return res.status(200).json({
@@ -253,7 +252,7 @@ export async function createRouter({
           projectName as string,
         );
 
-        res.json(result);
+        return res.json(result);
       } catch (error: unknown) {
         if (error instanceof ObservabilityNotConfiguredError) {
           return res.status(200).json({
