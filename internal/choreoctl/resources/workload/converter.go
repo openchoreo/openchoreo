@@ -11,7 +11,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8syaml "sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -32,10 +31,10 @@ type WorkloadDescriptorMetadata struct {
 
 type WorkloadDescriptorEndpoint struct {
 	Name       string `yaml:"name"`
-	Type       string `yaml:"type"`
 	Port       int32  `yaml:"port"`
-	Context    string `yaml:"context,omitempty"`
+	Type       string `yaml:"type"`
 	SchemaFile string `yaml:"schemaFile,omitempty"`
+	Context    string `yaml:"context,omitempty"`
 }
 
 type WorkloadDescriptorConnection struct {
@@ -261,8 +260,36 @@ func CreateBasicWorkload(params api.CreateWorkloadParams) (*openchoreov1alpha1.W
 	return workload, nil
 }
 
-// ConvertWorkloadCRToYAML converts a Workload CR to clean YAML bytes using Kubernetes YAML library
+// ConvertWorkloadCRToYAML converts a Workload CR to clean YAML bytes with proper field ordering
 func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, error) {
-	// Use the Kubernetes YAML library which provides cleaner output similar to kubectl -o yaml
-	return k8syaml.Marshal(workload)
+	// Create a custom structure to control field ordering
+	type orderedWorkload struct {
+		APIVersion string `yaml:"apiVersion"`
+		Kind       string `yaml:"kind"`
+		Metadata   struct {
+			Name string `yaml:"name"`
+		} `yaml:"metadata"`
+		Spec struct {
+			Owner       openchoreov1alpha1.WorkloadOwner                 `yaml:"owner"`
+			Containers  map[string]openchoreov1alpha1.Container          `yaml:"containers,omitempty"`
+			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `yaml:"endpoints,omitempty"`
+			Connections map[string]openchoreov1alpha1.WorkloadConnection `yaml:"connections,omitempty"`
+		} `yaml:"spec"`
+		Status openchoreov1alpha1.WorkloadStatus `yaml:"status,omitempty"`
+	}
+
+	// Create the ordered structure
+	ordered := orderedWorkload{
+		APIVersion: workload.APIVersion,
+		Kind:       workload.Kind,
+		Status:     workload.Status,
+	}
+	ordered.Metadata.Name = workload.Name
+	ordered.Spec.Owner = workload.Spec.Owner
+	ordered.Spec.Containers = workload.Spec.Containers
+	ordered.Spec.Endpoints = workload.Spec.Endpoints
+	ordered.Spec.Connections = workload.Spec.Connections
+
+	// Marshal with gopkg.in/yaml.v3 for better control
+	return yaml.Marshal(ordered)
 }
