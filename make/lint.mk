@@ -6,7 +6,7 @@
 ALL_GO_FILES := $(shell \
 	find . -type f -name '*.go' \
 		! -path './internal/dataplane/kubernetes/types/*' \
-		! -path './api/v1/zz_generated.deepcopy.go' \
+		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
 	| sort)
 
 # Path to your tool (update if different)
