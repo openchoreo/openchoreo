@@ -12,6 +12,8 @@ backend:
   # auth:
   #   keys:
   #     - secret: ${BACKEND_SECRET}
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: true # TODO: Remove this when added auth properly
   baseUrl: http://localhost:7007
   listen:
     port: 7007
@@ -72,8 +74,8 @@ scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
 
 openchoreo:
-  baseUrl: http://localhost:8080/api/v1
-  observabilityBaseUrl: http://localhost:9090
+  baseUrl: ${OPENCHOREO_API_URL}
+  observabilityBaseUrl: ${OPENCHOREO_OBS_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
   schedule:
     frequency: 30 # seconds between runs (default: 30)

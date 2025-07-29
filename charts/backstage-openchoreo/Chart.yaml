@@ -1,0 +1,26 @@
+apiVersion: v2
+name: backstage-openchoreo
+description: A Helm chart for deploying Backstage with OpenChoreo plugins
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+home: https://github.com/wso2/backstage-plugins
+keywords:
+  - backstage
+  - openchoreo
+  - idp
+  - developer-portal
+maintainers:
+  - name: WSO2
+    url: https://wso2.com
+sources:
+  - https://github.com/wso2/backstage-plugins
+dependencies:
+  - name: backstage
+    version: "2.6.0"
+    repository: "https://backstage.github.io/charts"
+  - name: common
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: 2.10.0
+annotations:
+  category: Developer Tools

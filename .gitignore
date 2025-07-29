@@ -38,6 +38,9 @@ dist-types
 # Temporary change files created by Vim
 *.swp
 
+# Helm packaged files
+*.tgz
+
 # MkDocs build output
 site
 

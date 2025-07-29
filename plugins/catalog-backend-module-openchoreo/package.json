@@ -37,7 +37,8 @@
     "@backstage/cli": "^0.32.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "config.d.ts"
   ],
   "configSchema": "config.d.ts"
 }
