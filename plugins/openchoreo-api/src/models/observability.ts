@@ -67,8 +67,5 @@ export interface LogEntry {
  */
 export interface ObserverUrlData {
   observerUrl: string;
-  connectionMethod: {
-    username: string;
-    password: string;
-  };
+  connectionMethod: ConnectionMethod;
 }
