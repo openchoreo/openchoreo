@@ -5,8 +5,8 @@
 set +e
 
 # Configuration
-IMAGE_NAME=${IMAGE_NAME:-"backstage-openchoreo"}
-IMAGE_TAG=${IMAGE_TAG:-"latest"}
+IMAGE_NAME=${IMAGE_NAME:-"backstage-demo"}
+IMAGE_TAG=${IMAGE_TAG:-"latest-dev"}
 REGISTRY=${REGISTRY:-""}
 
 # Build the full image name

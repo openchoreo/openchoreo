@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 env:
-  CHART_PATH: charts/backstage-openchoreo
+  CHART_PATH: charts/backstage-demo
   REGISTRY: ghcr.io
   CHART_REGISTRY: oci://ghcr.io/openchoreo
 
@@ -99,7 +99,7 @@ jobs:
       - name: Push Helm chart to OCI registry
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          CHART_PACKAGE="./charts-package/backstage-openchoreo-${VERSION}.tgz"
+          CHART_PACKAGE="./charts-package/backstage-demo-${VERSION}.tgz"
           helm push "${CHART_PACKAGE}" ${{ env.CHART_REGISTRY }}
 
       - name: Create GitHub Release

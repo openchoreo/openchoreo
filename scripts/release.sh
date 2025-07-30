@@ -7,7 +7,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CHART_PATH="${ROOT_DIR}/charts/backstage-openchoreo"
+CHART_PATH="${ROOT_DIR}/charts/backstage-demo"
 VERSION_FILE="${ROOT_DIR}/VERSION"
 
 # Colors for output

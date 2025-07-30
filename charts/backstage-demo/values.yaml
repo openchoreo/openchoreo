@@ -1,4 +1,4 @@
-# Default values for backstage-openchoreo.
+# Default values for backstage-demo.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -7,8 +7,8 @@ backstage:
   backstage:
     image:
       registry: "ghcr.io"
-      repository: "openchoreo/backstage-plugins"
-      tag: "0.1.1"
+      repository: "openchoreo/backstage-demo"
+      tag: "0.0.0-latest-dev"
       pullPolicy: IfNotPresent
 
     # Resource limits and requests
@@ -25,7 +25,7 @@ backstage:
       - name: OPENCHOREO_API_URL
         value: "http://api-server.openchoreo-control-plane.svc.cluster.local:8080/api/v1"
       - name: OPENCHOREO_OBS_URL
-        value: "http://openchoreo-observability:9090"
+        value: "http://observer.openchoreo-observability-plane.svc.cluster.local:8080"
       - name: BACKEND_SECRET
         valueFrom:
           secretKeyRef:

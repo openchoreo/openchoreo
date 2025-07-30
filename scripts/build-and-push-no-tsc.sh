@@ -5,7 +5,7 @@
 set +e
 
 # Configuration
-IMAGE_NAME=${IMAGE_NAME:-"backstage-openchoreo"}
+IMAGE_NAME=${IMAGE_NAME:-"backstage-demo"}
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
 REGISTRY=${REGISTRY:-""}
 

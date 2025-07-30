@@ -1,5 +1,5 @@
 apiVersion: v2
-name: backstage-plugins
+name: backstage-demo
 description: A Helm chart for deploying Backstage with OpenChoreo plugins
 type: application
 version: 0.0.0-latest-dev
@@ -11,8 +11,8 @@ keywords:
   - idp
   - developer-portal
 maintainers:
-  - name: WSO2
-    url: https://wso2.com
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/backstage-plugins
 sources:
   - https://github.com/openchoreo/backstage-plugins
 dependencies:
