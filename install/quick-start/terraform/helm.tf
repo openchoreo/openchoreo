@@ -71,3 +71,18 @@ resource "helm_release" "openchoreo-identity-provider" {
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
 }
+
+resource "helm_release" "openchoreo-backstage-demo" {
+  name             = "openchoreo-backstage-demo"
+  namespace        = var.control-plane-namespace
+  create_namespace = true
+  repository       = "oci://ghcr.io/openchoreo/helm-charts"
+  chart           = "backstage-demo"
+  wait            = false
+  timeout         = 1800 # 30 minutes
+  depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
+  set {
+    name  = "backstage.service.type"
+    value = "NodePort"
+  }
+}

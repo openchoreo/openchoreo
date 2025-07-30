@@ -27,3 +27,8 @@ output "openchoreo_identity_provider_status" {
   description = "Status of the openchoreo-identity-provider Helm release"
   value       = helm_release.openchoreo-identity-provider.status
 }
+
+output "openchoreo_backstage_plugin_status" {
+  description = "Status of the openchoreo-backstage-plugin Helm release"
+  value       = helm_release.openchoreo-backstage-demo.status
+}
