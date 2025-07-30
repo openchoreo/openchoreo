@@ -173,7 +173,7 @@ export function useInfiniteScroll(
 
 export function useFilters() {
   const [filters, setFilters] = useState<RuntimeLogsFilters>({
-    logLevel: LOG_LEVELS,
+    logLevel: [],
     environmentId: '',
     timeRange: '1h',
   });
@@ -187,7 +187,7 @@ export function useFilters() {
 
   const resetFilters = useCallback(() => {
     setFilters({
-      logLevel: LOG_LEVELS,
+      logLevel: [],
       environmentId: '',
       timeRange: '1h',
     });
