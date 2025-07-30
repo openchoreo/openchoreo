@@ -11,7 +11,7 @@ spec:
     repository:
       appPath: /webapp-react-nginx
       revision:
-        branch: master
+        branch: main
       url: https://github.com/openchoreo/sample-workloads
     templateRef:
       name: react
@@ -29,7 +29,7 @@ spec:
   repository:
     appPath: /webapp-react-nginx
     revision:
-      branch: master
+      branch: main
     url: https://github.com/openchoreo/sample-workloads
   templateRef:
     name: react
