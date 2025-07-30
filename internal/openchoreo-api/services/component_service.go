@@ -1414,6 +1414,8 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 		}
 	}
 
+	var workloadName string
+	
 	if existingWorkload != nil {
 		// Update existing workload
 		existingWorkload.Spec = *workloadSpec
@@ -1422,10 +1424,10 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			return nil, fmt.Errorf("failed to update workload: %w", err)
 		}
 		s.logger.Debug("Updated existing workload", "name", existingWorkload.Name, "namespace", orgName)
-		return &existingWorkload.Spec, nil
+		workloadName = existingWorkload.Name
 	} else {
 		// Create new workload
-		workloadName := componentName + "-workload"
+		workloadName = componentName + "-workload"
 		workload := &openchoreov1alpha1.Workload{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      workloadName,
@@ -1445,15 +1447,15 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			return nil, fmt.Errorf("failed to create workload: %w", err)
 		}
 		s.logger.Debug("Created new workload", "name", workload.Name, "namespace", orgName)
-
-		// Create the appropriate type-specific resource based on component type
-		if err := s.createTypeSpecificResource(ctx, orgName, projectName, componentName, workloadName, component.Spec.Type); err != nil {
-			s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.Type, "error", err)
-			return nil, fmt.Errorf("failed to create type-specific resource: %w", err)
-		}
-
-		return &workload.Spec, nil
 	}
+
+	// Create the appropriate type-specific resource based on component type if it doesn't exist
+	if err := s.createTypeSpecificResource(ctx, orgName, projectName, componentName, workloadName, component.Spec.Type); err != nil {
+		s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.Type, "error", err)
+		return nil, fmt.Errorf("failed to create type-specific resource: %w", err)
+	}
+
+	return workloadSpec, nil
 }
 
 // createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
