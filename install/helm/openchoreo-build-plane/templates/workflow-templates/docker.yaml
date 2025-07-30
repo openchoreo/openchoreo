@@ -198,7 +198,7 @@ spec:
             valueFrom:
               path: /mnt/vol/workload-cr.yaml
       container:
-        image: "ghcr.io/openchoreo/openchoreo-cli:{{.Chart.AppVersion }}"
+        image: ghcr.io/openchoreo/podman-runner:v1.0
         command: [ sh, -c ]
         args:
           - |-
@@ -212,23 +212,47 @@ spec:
             COMPONENT_NAME={{ "{{" }}workflow.parameters.component-name{{ "}}" }}
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
 
-            DESCRIPTOR_PATH="/mnt/vol/source$APP_PATH/workload.yaml"
+            # robust join: add "/" only if APP_PATH is non-empty, and strip any leading "/"
+            DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
+
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
-            echo "Creating workload with image: $IMAGE"
+            echo "Creating workload with image: ${IMAGE}"
+            echo "Using descriptor: ${DESCRIPTOR_PATH}"
 
             #####################################################################
-            # 2. Create workload CR and export to output
+            # 2. Podman storage configuration
             #####################################################################
-            choreoctl create workload \
-              --project "$PROJECT_NAME" \
-              --component "$COMPONENT_NAME" \
-              --image "$IMAGE" \
-              --descriptor "$DESCRIPTOR_PATH" \
-              -o "$OUTPUT_PATH"
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            #####################################################################
+            # 3. Create workload CR and export to output
+            #####################################################################
+            podman run --rm --network=none \
+            -v $DESCRIPTOR_PATH:/app:rw -w /app \
+            ghcr.io/openchoreo/openchoreo-cli:{{ .Chart.AppVersion }} \
+              create workload \
+              --project "${PROJECT_NAME}" \
+              --component "${COMPONENT_NAME}" \
+              --image "${IMAGE}" \
+              --descriptor "workload.yaml" \
+              -o "workload-cr.yaml"
+
+            # Copy output CR to the shared volume
+            cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
         volumeMounts:
           - name: workspace
             mountPath: /mnt/vol
+        securityContext:
+          privileged: true
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
