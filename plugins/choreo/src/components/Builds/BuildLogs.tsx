@@ -7,6 +7,7 @@ import {
   Divider,
   CircularProgress,
 } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
 import { Close } from '@material-ui/icons';
 import {
   useApi,
@@ -16,6 +17,27 @@ import {
 import type { ModelsBuild, LogEntry } from '@internal/plugin-openchoreo-api';
 import { fetchBuildLogsForBuild } from '../../api/buildLogs';
 
+const useStyles = makeStyles(theme => ({
+  logsContainer: {
+    backgroundColor: theme.palette.background.default,
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    height: '90%',
+    overflow: 'auto',
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: theme.shape.borderRadius,
+    whiteSpace: 'pre-wrap',
+  },
+  timestampText: {
+    fontSize: '11px',
+    color: theme.palette.text.secondary,
+  },
+  logText: {
+    fontSize: '12px',
+    color: theme.palette.text.primary,
+  },
+}));
+
 interface BuildLogsProps {
   open: boolean;
   onClose: () => void;
@@ -23,6 +45,7 @@ interface BuildLogsProps {
 }
 
 export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
+  const classes = useStyles();
   const discoveryApi = useApi(discoveryApiRef);
   const identityApi = useApi(identityApiRef);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -107,16 +130,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                 </Typography>
                 <Box
                   p={2}
-                  style={{
-                    backgroundColor: '#f5f5f5',
-                    fontFamily: 'monospace',
-                    fontSize: '12px',
-                    height: '90%',
-                    overflow: 'auto',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '4px',
-                    whiteSpace: 'pre-wrap',
-                  }}
+                  className={classes.logsContainer}
                 >
                   {loading ? (
                     <Box
@@ -139,13 +153,13 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                       <Box key={index} style={{ marginBottom: '4px' }}>
                         <Typography
                           variant="body2"
-                          style={{ fontSize: '11px', color: '#666' }}
+                          className={classes.timestampText}
                         >
                           [{new Date(logEntry.timestamp).toLocaleTimeString()}]
                         </Typography>
                         <Typography
                           variant="body2"
-                          style={{ fontSize: '12px' }}
+                          className={classes.logText}
                         >
                           {logEntry.log}
                         </Typography>
