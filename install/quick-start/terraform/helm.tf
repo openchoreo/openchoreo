@@ -4,6 +4,7 @@ resource "helm_release" "cilium" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "cilium"
+  version         = var.openchoreo_version
   timeout         = 1800 # 30 minutes
   depends_on = [kind_cluster.kind_openchoreo, null_resource.connect_container_to_kind_network]
 }
@@ -14,6 +15,7 @@ resource "helm_release" "openchoreo-data-plane" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "openchoreo-data-plane"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -33,6 +35,7 @@ resource "helm_release" "openchoreo-control-plane" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "openchoreo-control-plane"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -44,6 +47,7 @@ resource "helm_release" "openchoreo-build-plane" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "openchoreo-build-plane"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -56,6 +60,7 @@ resource "helm_release" "openchoreo-observability-plane" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "openchoreo-observability-plane"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -67,6 +72,7 @@ resource "helm_release" "openchoreo-identity-provider" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "openchoreo-identity-provider"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]
@@ -78,6 +84,7 @@ resource "helm_release" "openchoreo-backstage-demo" {
   create_namespace = true
   repository       = "oci://ghcr.io/openchoreo/helm-charts"
   chart           = "backstage-demo"
+  version         = var.openchoreo_version
   wait            = false
   timeout         = 1800 # 30 minutes
   depends_on = [helm_release.cilium, null_resource.connect_container_to_kind_network]

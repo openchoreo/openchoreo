@@ -45,3 +45,9 @@ variable "enable-observability-plane" {
   type        = bool
   default     = false
 }
+
+variable "openchoreo_version" {
+  description = "Version of OpenChoreo Helm charts to deploy (optional)"
+  type        = string
+  default     = null
+}
