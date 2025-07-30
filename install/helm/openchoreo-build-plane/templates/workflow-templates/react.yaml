@@ -231,7 +231,7 @@ spec:
             valueFrom:
               path: /mnt/vol/workload-cr.yaml
       container:
-        image: ghcr.io/openchoreo/openchoreo-cli:v0.1
+        image: "ghcr.io/openchoreo/openchoreo-cli:{{.Chart.AppVersion }}"
         command: [ sh, -c ]
         args:
           - |-

@@ -198,7 +198,7 @@ spec:
             valueFrom:
               path: /mnt/vol/workload-cr.yaml
       container:
-        image: ghcr.io/openchoreo/openchoreo-cli:v0.1
+        image: "ghcr.io/openchoreo/openchoreo-cli:{{.Chart.AppVersion }}"
         command: [ sh, -c ]
         args:
           - |-
@@ -214,7 +214,7 @@ spec:
 
             DESCRIPTOR_PATH="/mnt/vol/source$APP_PATH/workload.yaml"
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
-            
+
             echo "Creating workload with image: $IMAGE"
 
             #####################################################################
