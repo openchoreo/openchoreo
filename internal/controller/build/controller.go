@@ -23,6 +23,11 @@ import (
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
+const (
+	// ControllerName is the name of the controller managing Build resources
+	ControllerName = "build-controller"
+)
+
 // Reconciler reconciles a Build object
 type Reconciler struct {
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
@@ -100,7 +105,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateBuildStatus(ctx, oldBuild, build, workflow)
 	}
 
-	err = r.createWorkloadCR(ctx, build, workflow)
+	err = r.applyWorkloadCR(ctx, build, workflow)
 	if err != nil {
 		logger.Error(err, "Failed to create workload CR")
 		meta.SetStatusCondition(&build.Status.Conditions, NewWorkloadUpdateFailedCondition(build.Generation))
@@ -151,7 +156,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) createWorkloadCR(ctx context.Context, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) error {
+func (r *Reconciler) applyWorkloadCR(ctx context.Context, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) error {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
 
 	// Check if workload-create-step exists and succeeded
@@ -183,17 +188,13 @@ func (r *Reconciler) createWorkloadCR(ctx context.Context, build *openchoreov1al
 	// Set the namespace to match the build
 	workload.Namespace = build.Namespace
 
-	// Try to create the workload CR
-	if err := r.Create(ctx, workload); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			logger.Info("Workload CR already exists", "name", workload.Name, "namespace", workload.Namespace)
-			return nil
-		}
-		logger.Error(err, "Failed to create workload CR", "name", workload.Name, "namespace", workload.Namespace)
-		return fmt.Errorf("failed to create workload CR: %w", err)
+	// Use server-side apply to create or update the workload
+	if err := r.Patch(ctx, workload, client.Apply, client.FieldOwner(ControllerName), client.ForceOwnership); err != nil {
+		logger.Error(err, "Failed to apply workload CR", "name", workload.Name, "namespace", workload.Namespace)
+		return fmt.Errorf("failed to apply workload CR: %w", err)
 	}
 
-	logger.Info("Successfully created workload CR", "name", workload.Name, "namespace", workload.Namespace)
+	logger.Info("Successfully applied workload CR", "name", workload.Name, "namespace", workload.Namespace)
 	return nil
 }
 
