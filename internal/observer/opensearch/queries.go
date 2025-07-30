@@ -83,11 +83,8 @@ func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []stri
 func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{
 		{
-			"match": map[string]interface{}{
-				labels.OSComponentID: map[string]interface{}{
-					"query":            params.ComponentID,
-					"zero_terms_query": "none",
-				},
+			"term": map[string]interface{}{
+				labels.OSComponentID + ".keyword": params.ComponentID,
 			},
 		},
 	}
@@ -95,11 +92,8 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map
 	// Add environment filter only for RUNTIME logs, not for BUILD logs
 	if params.LogType != labels.QueryParamLogTypeBuild {
 		environmentFilter := map[string]interface{}{
-			"match": map[string]interface{}{
-				labels.OSEnvironmentID: map[string]interface{}{
-					"query":            params.EnvironmentID,
-					"zero_terms_query": "none",
-				},
+			"term": map[string]interface{}{
+				labels.OSEnvironmentID + ".keyword": params.EnvironmentID,
 			},
 		}
 		mustConditions = append(mustConditions, environmentFilter)
