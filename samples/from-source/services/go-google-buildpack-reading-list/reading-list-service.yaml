@@ -43,7 +43,7 @@ spec:
   owner:
     componentName: reading-list-service
     projectName: default
-  workloadName: reading-list-service-workload
+  workloadName: go-reading-list-service
   className: default
   apis:
     reading-list-api: 

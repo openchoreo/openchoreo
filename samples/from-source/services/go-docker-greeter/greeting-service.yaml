@@ -53,7 +53,7 @@ spec:
   owner:
     componentName: greeting-service
     projectName: default
-  workloadName: greeting-service
+  workloadName: go-greeter-service
   className: default
   apis:
     greeter-api:

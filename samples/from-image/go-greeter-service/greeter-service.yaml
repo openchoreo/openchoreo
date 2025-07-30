@@ -97,115 +97,13 @@ spec:
     componentName: greeter-service
     projectName: default
   workloadName: greeter-service
-  className: go-service-standard
   overrides: { }
   apis:
     greeter-api: # Should we go with map type or array type?
       type: REST
-      className: greeter-service-rest-api-standard
       rest:
         backend:
           port: 9090
           basePath: /greeter
         exposeLevels: [ "Organization", "Public" ]
 ---
-# Defines the APIClass for the REST API exposed by the service.
-apiVersion: openchoreo.dev/v1alpha1
-kind: APIClass
-metadata:
-  name: greeter-service-rest-api-standard
-spec:
-  restPolicy:
-    defaults:
-      rateLimit:
-        requests: 5
-        window: "1m"
-      authentication:
-        type: jwt
-        jwt:
-          jwks: "https://dev-tfsf6412a2bn011a.us.auth0.com/.well-known/jwks.json"
-          issuer: "https://dev-tfsf6412a2bn011a.us.auth0.com/"
-          audience: ["openchoreo:greeter:service"]
-        oauth2:
-          scopes: ["greet"]
-          tokenUrl: "https://dev-tfsf6412a2bn011a.us.auth0.com/oauth/token"
-      cors:
-        allowOrigins: ["https://example.com", "https://app.example.com"]
-        allowMethods: ["GET", "POST", "PUT", "DELETE"]
-        allowHeaders: ["Content-Type", "Authorization"]
-        exposeHeaders: ["X-Request-ID"]
-        maxAge: 86400
-      circuitBreaker:
-        enabled: true
-        maxConnections: 2
-    public:
-      rateLimit:
-        requests: 5
-        window: "1h"
-      security:
-        requireTLS: true
-        minTLSVersion: "1.3"
-    organization:
-      rateLimit:
-        requests: 5000
-        window: "1h"
----
-# Defines PE level configuration for the service component.
-# Individual component types will have their own classes. E.g., ScheduledTaskClass, WebApplicationClass, etc.
-apiVersion: openchoreo.dev/v1alpha1
-kind: ServiceClass
-metadata:
-  name: go-service-standard
-spec:
-  deploymentTemplate:
-    replicas: 1
-    strategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxSurge: 1
-        maxUnavailable: 0
-    template:
-      metadata:
-        labels:
-          reloader.stakater.com/auto: "true"
-      spec:
-        containers:
-          - name: main
-            env:
-              - name: LOG_TYPE
-                value: "json"
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-          - name: sidecar
-            image: busybox:latest
-            command: [ "/bin/sh", "-c" ]
-            args:
-              - |
-                echo "Exposing metrics on port 12001";
-                # Simulate long-running metrics server
-                while true; do nc -lk -p 12001 -e echo "metrics 1"; done
-            ports:
-              - name: metrics
-                containerPort: 12001
-            resources:
-              requests:
-                cpu: 200m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-            readinessProbe:
-              tcpSocket:
-                port: metrics
-              initialDelaySeconds: 5
-              periodSeconds: 10
-  serviceTemplate:
-    ports:
-      - name: metrics-http
-        port: 12001
-        targetPort: 12001

@@ -44,7 +44,7 @@ spec:
   owner:
     componentName: patient-management-service
     projectName: default
-  workloadName: patient-management-service-workload
+  workloadName: ballerina-patient-management-service
   className: default
   apis:
     reading-list-api: 
