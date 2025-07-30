@@ -184,7 +184,7 @@ func getStringValue(m map[string]interface{}, key string) string {
 func extractLogLevel(log string) string {
 	log = strings.ToUpper(log)
 
-	logLevels := []string{"ERROR", "FATAL", "SEVERE", "WARN", "WARNING", "INFO", "DEBUG"}
+	logLevels := []string{"ERROR", "FATAL", "SEVERE", "WARN", "WARNING", "INFO", "DEBUG", "UNDEFINED"}
 
 	for _, level := range logLevels {
 		if strings.Contains(log, level) {
@@ -196,7 +196,7 @@ func extractLogLevel(log string) string {
 		}
 	}
 
-	return "INFO" // Default to INFO if no level found
+	return "UNDEFINED" // Default to INFO if no level found
 }
 
 // ExtractLogType determines the log type from query parameters or defaults to RUNTIME
