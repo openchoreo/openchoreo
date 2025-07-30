@@ -49,12 +49,12 @@ const useStyles = makeStyles(theme => ({
     color: theme.palette.info.contrastText,
   },
   debugChip: {
-    backgroundColor: theme.palette.grey[400],
-    color: theme.palette.getContrastText(theme.palette.grey[400]),
+    backgroundColor: theme.palette.action.disabled,
+    color: theme.palette.text.secondary,
   },
   undefinedChip: {
-    backgroundColor: theme.palette.grey[300],
-    color: theme.palette.getContrastText(theme.palette.grey[300]),
+    backgroundColor: theme.palette.action.disabledBackground,
+    color: theme.palette.text.disabled,
   },
   logMessage: {
     fontFamily: 'monospace',
@@ -84,7 +84,7 @@ const useStyles = makeStyles(theme => ({
   },
   expandedContent: {
     padding: theme.spacing(2),
-    backgroundColor: theme.palette.grey[50],
+    backgroundColor: theme.palette.background.default,
     borderRadius: theme.shape.borderRadius,
   },
   metadataSection: {
@@ -116,10 +116,10 @@ const useStyles = makeStyles(theme => ({
     fontFamily: 'monospace',
     fontSize: '0.875rem',
     whiteSpace: 'pre-wrap',
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor: theme.palette.background.paper,
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
-    border: `1px solid ${theme.palette.grey[300]}`,
+    border: `1px solid ${theme.palette.divider}`,
     maxHeight: '200px',
     overflow: 'auto',
   },

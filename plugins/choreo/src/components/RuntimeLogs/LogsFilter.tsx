@@ -32,15 +32,23 @@ const useStyles = makeStyles((theme) => ({
   },
   errorLevel: {
     color: theme.palette.error.main,
+    fontWeight: 500,
   },
   warnLevel: {
     color: theme.palette.warning.main,
+    fontWeight: 500,
   },
   infoLevel: {
     color: theme.palette.info.main,
+    fontWeight: 500,
   },
   debugLevel: {
     color: theme.palette.text.secondary,
+    fontWeight: 500,
+  },
+  undefinedLevel: {
+    color: theme.palette.text.disabled,
+    fontWeight: 500,
   },
 }));
 
@@ -87,6 +95,8 @@ export const LogsFilter: React.FC<LogsFilterProps> = ({
         return classes.infoLevel;
       case 'DEBUG':
         return classes.debugLevel;
+      case 'UNDEFINED':
+        return classes.undefinedLevel;
       default:
         return '';
     }

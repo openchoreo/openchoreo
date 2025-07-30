@@ -25,7 +25,7 @@ const useStyles = makeStyles(theme => ({
   },
   headerCell: {
     fontWeight: 'bold',
-    backgroundColor: theme.palette.grey[100],
+    backgroundColor: theme.palette.background.paper,
     position: 'sticky',
     top: 0,
     zIndex: 1,
