@@ -212,13 +212,12 @@ spec:
             COMPONENT_NAME={{ "{{" }}workflow.parameters.component-name{{ "}}" }}
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
 
-            # robust join: add "/" only if APP_PATH is non-empty, and strip any leading "/"
             DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
 
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
             echo "Creating workload with image: ${IMAGE}"
-            echo "Using descriptor: ${DESCRIPTOR_PATH}"
+            echo "Using descriptor in: ${DESCRIPTOR_PATH}"
 
             #####################################################################
             # 2. Podman storage configuration
