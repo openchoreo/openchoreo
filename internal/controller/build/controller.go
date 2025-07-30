@@ -276,7 +276,6 @@ func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client,
 	err := bpClient.Create(ctx, obj)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			logger.V(1).Info("Resource already exists", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return nil
 		}
 		logger.Error(err, "Failed to create resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
