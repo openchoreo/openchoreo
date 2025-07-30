@@ -15,6 +15,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	buildcontroller "github.com/openchoreo/openchoreo/internal/controller/build"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -205,12 +206,26 @@ func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
 		return statusUnknown
 	}
 
-	latestCondition := buildConditions[0]
-	for _, condition := range buildConditions {
-		if condition.LastTransitionTime.Time.After(latestCondition.LastTransitionTime.Time) {
-			latestCondition = condition
+	// Define the order of priority for build conditions (latest to earliest)
+	// WorkloadUpdated > BuildCompleted > BuildTriggered > BuildInitiated
+	conditionOrder := []string{
+		string(buildcontroller.ConditionWorkloadUpdated),
+		string(buildcontroller.ConditionBuildCompleted),
+		string(buildcontroller.ConditionBuildTriggered),
+		string(buildcontroller.ConditionBuildInitiated),
+	}
+
+	// Find the latest condition based on priority order
+	for _, conditionType := range conditionOrder {
+		for _, condition := range buildConditions {
+			if condition.Type == conditionType {
+				if condition.Type == string(buildcontroller.ConditionWorkloadUpdated) && condition.Status == metav1.ConditionTrue {
+					return "Completed"
+				}
+				return condition.Reason
+			}
 		}
 	}
 
-	return latestCondition.Reason
+	return statusUnknown
 }
