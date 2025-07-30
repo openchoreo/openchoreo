@@ -42,7 +42,7 @@ COPY install/add-default-dataplane.sh /app/add-default-dataplane.sh
 
 COPY install/add-build-plane.sh /app/add-build-plane.sh
 
-COPY samples/deploying-applications/use-prebuilt-image/react-spa-webapp/react-starter.yaml /app/react-starter.yaml
+COPY samples/from-image/react-starter-web-app/react-starter.yaml /app/react-starter.yaml
 
 COPY samples/ /app/samples
 
