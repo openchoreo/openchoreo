@@ -11,6 +11,7 @@ import {
   Button,
   IconButton,
 } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { StatusOK, StatusError } from '@backstage/core-components';
@@ -36,6 +37,75 @@ interface EndpointInfo {
 import { Workload } from './Workload/Workload';
 import { Refresh } from '@material-ui/icons';
 
+const useStyles = makeStyles(theme => ({
+  notificationBox: {
+    padding: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid`,
+  },
+  successNotification: {
+    backgroundColor: theme.palette.success.light,
+    borderColor: theme.palette.success.main,
+    color: theme.palette.success.dark,
+  },
+  errorNotification: {
+    backgroundColor: theme.palette.error.light,
+    borderColor: theme.palette.error.main,
+    color: theme.palette.error.dark,
+  },
+  setupCard: {
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+    padding: theme.spacing(1),
+    borderRadius: theme.shape.borderRadius,
+  },
+  deploymentStatusBox: {
+    padding: theme.spacing(1),
+    borderRadius: theme.shape.borderRadius,
+    marginTop: theme.spacing(2),
+  },
+  successStatus: {
+    backgroundColor: theme.palette.success.light,
+    color: theme.palette.success.dark,
+  },
+  errorStatus: {
+    backgroundColor: theme.palette.error.light,
+    color: theme.palette.error.dark,
+  },
+  warningStatus: {
+    backgroundColor: theme.palette.warning.light,
+    color: theme.palette.warning.dark,
+  },
+  defaultStatus: {
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+  },
+  imageContainer: {
+    backgroundColor: theme.palette.background.paper,
+    padding: theme.spacing(1.5),
+    borderRadius: theme.spacing(3),
+    border: `1px solid ${theme.palette.divider}`,
+    boxShadow: theme.shadows[2],
+    marginTop: theme.spacing(1),
+  },
+  endpointLink: {
+    color: theme.palette.primary.main,
+    textDecoration: 'underline',
+    display: 'block',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: '0.875rem',
+  },
+  timeIcon: {
+    fontSize: '1rem',
+    color: theme.palette.text.secondary,
+    marginLeft: theme.spacing(1),
+    marginRight: theme.spacing(1),
+  },
+}));
+
 interface Environment {
   name: string;
   bindingName?: string;
@@ -54,6 +124,7 @@ interface Environment {
 }
 
 export const Environments = () => {
+  const classes = useStyles();
   const { entity } = useEntity();
   const [environments, setEnvironmentsData] = useState<Environment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,21 +198,15 @@ export const Environments = () => {
       <Content>
         {notification && (
           <Box
-            mb={2}
-            p={2}
-            bgcolor={notification.type === 'success' ? '#e8f5e9' : '#ffebee'}
-            borderRadius={1}
-            border={1}
-            borderColor={
-              notification.type === 'success' ? '#4caf50' : '#f44336'
-            }
+            className={`${classes.notificationBox} ${
+              notification.type === 'success'
+                ? classes.successNotification
+                : classes.errorNotification
+            }`}
           >
             <Typography
               variant="body2"
-              style={{
-                color: notification.type === 'success' ? '#2e7d32' : '#d32f2f',
-                fontWeight: 'bold',
-              }}
+              style={{ fontWeight: 'bold' }}
             >
               {notification.type === 'success' ? '✓ ' : '✗ '}
               {notification.message}
@@ -152,12 +217,7 @@ export const Environments = () => {
           <Grid item xs={12} md={3}>
             <Card>
               {/* Make this card color different from the others */}
-              <Box
-                bgcolor="grey.200"
-                color="text.primary"
-                padding={1}
-                borderRadius={1}
-              >
+              <Box className={classes.setupCard}>
                 <CardContent>
                   <Typography variant="h6" component="h4">
                     Set up
@@ -213,14 +273,7 @@ export const Environments = () => {
                       <Typography variant="body2" color="textSecondary">
                         Deployed
                       </Typography>
-                      <AccessTimeIcon
-                        style={{
-                          fontSize: '1rem',
-                          color: 'rgba(0, 0, 0, 0.54)',
-                          marginLeft: '8px',
-                          marginRight: '8px',
-                        }}
-                      />
+                      <AccessTimeIcon className={classes.timeIcon} />
                       <Typography variant="body2" color="textSecondary">
                         {formatRelativeTime(env.deployment.lastDeployed)}
                       </Typography>
@@ -229,35 +282,22 @@ export const Environments = () => {
                   <Box
                     display="flex"
                     alignItems="center"
-                    mt={2}
-                    bgcolor={
+                    className={`${classes.deploymentStatusBox} ${
                       env.deployment.status === 'success'
-                        ? '#e8f5e9'
+                        ? classes.successStatus
                         : env.deployment.status === 'failed'
-                        ? '#ffebee'
+                        ? classes.errorStatus
                         : env.deployment.status === 'pending'
-                        ? '#fff3e0'
+                        ? classes.warningStatus
                         : env.deployment.status === 'suspended'
-                        ? '#fff8e1'
-                        : 'grey.200'
-                    }
-                    padding={1}
-                    borderRadius={1}
+                        ? classes.warningStatus
+                        : classes.defaultStatus
+                    }`}
                   >
                     <Typography variant="body2" color="textSecondary">
                       Deployment Status:{' '}
                       <span
                         style={{
-                          color:
-                            env.deployment.status === 'success'
-                              ? '#2e7d32'
-                              : env.deployment.status === 'failed'
-                              ? '#d32f2f'
-                              : env.deployment.status === 'pending'
-                              ? '#f57c00'
-                              : env.deployment.status === 'suspended'
-                              ? '#f57f17'
-                              : 'inherit',
                           fontWeight:
                             env.deployment.status === 'success'
                               ? 'bold'
@@ -294,12 +334,7 @@ export const Environments = () => {
                       <Box
                         display="flex"
                         alignItems="center"
-                        mt={1}
-                        bgcolor="white"
-                        padding={1.5}
-                        borderRadius={3}
-                        border="1px solid #e0e0e0"
-                        boxShadow="0 2px 4px rgba(0,0,0,0.1)"
+                        className={classes.imageContainer}
                       >
                         <Typography
                           variant="body2"
@@ -333,15 +368,7 @@ export const Environments = () => {
                                 href={endpoint.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  color: '#1976d2',
-                                  textDecoration: 'underline',
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  fontSize: '0.875rem',
-                                }}
+                                className={classes.endpointLink}
                               >
                                 {endpoint.url}
                               </a>
