@@ -3,6 +3,8 @@
  * @public
  */
 
+import { ConnectionMethod } from './responses';
+
 /**
  * Request for fetching component logs
  * @public

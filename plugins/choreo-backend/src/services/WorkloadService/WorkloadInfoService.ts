@@ -3,7 +3,6 @@ import { WorkloadService } from '../../types';
 import {
   OpenChoreoApiClient,
   ModelsWorkload,
-  DefaultApiClient,
 } from '@internal/plugin-openchoreo-api';
 
 /**
@@ -13,12 +12,10 @@ import {
 export class WorkloadInfoService implements WorkloadService {
   private readonly logger: LoggerService;
   private readonly client: OpenChoreoApiClient;
-  private readonly defaultClient: DefaultApiClient;
 
   public constructor(logger: LoggerService, baseUrl: string, token?: string) {
     this.logger = logger;
     this.client = new OpenChoreoApiClient(baseUrl, token, logger);
-    this.defaultClient = new DefaultApiClient(baseUrl, {});
   }
 
   static create(

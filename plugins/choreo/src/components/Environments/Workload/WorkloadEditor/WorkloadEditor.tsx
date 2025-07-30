@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Typography,
     Box,
     Button,
-    CircularProgress,
 } from '@material-ui/core';
 import { ModelsWorkload, Container, WorkloadEndpoint, EnvVar, Connection, WorkloadType } from '@internal/plugin-openchoreo-api';
 import { ContainerSection } from './ContainerSection';
