@@ -87,6 +87,7 @@ spec:
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
 
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
+            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
 
             #####################################################################
             # 1. Podman daemon + storage.conf
@@ -124,6 +125,7 @@ spec:
             # 3. Build with Ballerina Buildpacks
             #####################################################################
             ensure_cached "$BUILDER" "$CACHE_DIR/ballerina-builder.tar"
+            ensure_cached "$RUN_IMAGE" "$CACHE_DIR/ballerina-run.tar"
 
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
