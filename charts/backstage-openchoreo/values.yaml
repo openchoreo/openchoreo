@@ -8,7 +8,7 @@ backstage:
     image:
       registry: "ghcr.io"
       repository: "openchoreo/backstage-plugins"
-      tag: "latest"
+      tag: "0.1.1"
       pullPolicy: IfNotPresent
 
     # Resource limits and requests

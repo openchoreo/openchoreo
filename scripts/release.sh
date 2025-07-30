@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CHART_PATH="${ROOT_DIR}/charts/backstage-openchoreo"
+VERSION_FILE="${ROOT_DIR}/VERSION"
 
 # Colors for output
 RED='\033[0;31m'
@@ -16,21 +17,20 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: $0 [OPTIONS] VERSION"
+    echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Creates a new release with the specified version."
+    echo "Creates a new release using the version from the VERSION file."
     echo ""
     echo "OPTIONS:"
     echo "  -h, --help     Show this help message"
     echo "  -d, --dry-run  Show what would be done without making changes"
     echo ""
-    echo "VERSION:"
-    echo "  Semantic version (e.g., 1.0.0, 1.2.3-beta.1)"
+    echo "The version is read from the VERSION file in the repository root."
+    echo "Update the VERSION file first, then run this script."
     echo ""
     echo "Examples:"
-    echo "  $0 1.0.0"
-    echo "  $0 1.2.3-beta.1"
-    echo "  $0 --dry-run 2.0.0"
+    echo "  $0"
+    echo "  $0 --dry-run"
 }
 
 log_info() {
@@ -74,27 +74,21 @@ check_main_branch() {
     fi
 }
 
-update_chart_version() {
-    local version=$1
-    local dry_run=$2
-    
-    log_info "Updating Chart.yaml version to $version"
-    
-    if [[ "$dry_run" == "true" ]]; then
-        log_info "[DRY RUN] Would update version in $CHART_PATH/Chart.yaml"
-        log_info "[DRY RUN] Would update appVersion in $CHART_PATH/Chart.yaml"
-        log_info "[DRY RUN] Would update image tag in $CHART_PATH/values.yaml"
-    else
-        # Update Chart.yaml
-        sed -i.bak "s/^version:.*/version: $version/" "$CHART_PATH/Chart.yaml"
-        sed -i.bak "s/^appVersion:.*/appVersion: \"$version\"/" "$CHART_PATH/Chart.yaml"
-        
-        # Update values.yaml image tag
-        sed -i.bak "s/tag: \".*\"/tag: \"v$version\"/" "$CHART_PATH/values.yaml"
-        
-        # Remove backup files
-        rm -f "$CHART_PATH/Chart.yaml.bak" "$CHART_PATH/values.yaml.bak"
+read_version_file() {
+    if [[ ! -f "$VERSION_FILE" ]]; then
+        log_error "VERSION file not found at $VERSION_FILE"
+        log_error "Please create a VERSION file with the desired version number"
+        exit 1
     fi
+    
+    local version=$(cat "$VERSION_FILE" | tr -d '\n\r')
+    
+    if [[ -z "$version" ]]; then
+        log_error "VERSION file is empty"
+        exit 1
+    fi
+    
+    echo "$version"
 }
 
 create_git_tag() {
@@ -108,13 +102,6 @@ create_git_tag() {
         log_info "[DRY RUN] Would create git tag: $tag"
         log_info "[DRY RUN] Would push tag to origin"
     else
-        git add "$CHART_PATH/Chart.yaml" "$CHART_PATH/values.yaml"
-        git commit -m "Release version $version
-
-- Update chart version to $version
-- Update appVersion to $version  
-- Update image tag to v$version"
-        
         git tag -a "$tag" -m "Release $version"
         
         log_info "Tag $tag created locally"
@@ -125,7 +112,6 @@ create_git_tag() {
 
 main() {
     local dry_run=false
-    local version=""
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -144,24 +130,16 @@ main() {
                 exit 1
                 ;;
             *)
-                if [[ -z "$version" ]]; then
-                    version=$1
-                else
-                    log_error "Multiple versions specified"
-                    print_usage
-                    exit 1
-                fi
-                shift
+                log_error "Unexpected argument: $1"
+                log_error "This script reads the version from the VERSION file"
+                print_usage
+                exit 1
                 ;;
         esac
     done
     
-    # Validate arguments
-    if [[ -z "$version" ]]; then
-        log_error "Version is required"
-        print_usage
-        exit 1
-    fi
+    # Read version from file
+    local version=$(read_version_file)
     
     validate_version "$version"
     
@@ -179,10 +157,7 @@ main() {
         exit 1
     fi
     
-    log_info "Creating release for version $version"
-    
-    # Update versions
-    update_chart_version "$version" "$dry_run"
+    log_info "Creating release for version $version (from VERSION file)"
     
     # Create git tag
     create_git_tag "$version" "$dry_run"
@@ -190,9 +165,8 @@ main() {
     if [[ "$dry_run" != "true" ]]; then
         log_info "Release $version prepared successfully!"
         log_info "Next steps:"
-        log_info "1. Review the changes: git show HEAD"
-        log_info "2. Push the tag: git push origin v$version"
-        log_info "3. Monitor GitHub Actions for Docker and Helm releases"
+        log_info "1. Push the tag: git push origin v$version"
+        log_info "2. Monitor GitHub Actions for Docker and Helm releases"
     fi
 }
 

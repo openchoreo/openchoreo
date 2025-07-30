@@ -2,10 +2,8 @@ name: Build and Push Multi-arch Docker Image
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - 'v*'
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
@@ -47,7 +45,9 @@ jobs:
         id: tag
         run: |
           if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "IMAGE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            # Extract tag and remove 'v' prefix if present
+            TAG=${GITHUB_REF#refs/tags/}
+            echo "IMAGE_TAG=${TAG#v}" >> $GITHUB_OUTPUT
           elif [[ $GITHUB_REF == refs/heads/main ]]; then
             echo "IMAGE_TAG=latest" >> $GITHUB_OUTPUT
           else

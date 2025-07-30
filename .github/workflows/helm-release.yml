@@ -3,13 +3,7 @@ name: Helm Chart Release
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Chart version to release (e.g., 1.0.0)'
-        required: true
-        type: string
+      - 'v*.*.*'
 
 env:
   CHART_PATH: charts/backstage-openchoreo
@@ -28,6 +22,16 @@ jobs:
         with:
           version: 'v3.12.0'
 
+      - name: Add Helm repositories
+        run: |
+          helm repo add backstage https://backstage.github.io/charts
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      - name: Build chart dependencies
+        run: |
+          helm dependency build ${{ env.CHART_PATH }}
+
       - name: Lint Helm chart
         run: |
           helm lint ${{ env.CHART_PATH }}
@@ -35,10 +39,6 @@ jobs:
       - name: Validate chart templates
         run: |
           helm template test-release ${{ env.CHART_PATH }} --dry-run
-
-      - name: Test chart installation (dry-run)
-        run: |
-          helm install test-release ${{ env.CHART_PATH }} --dry-run --debug
 
   release:
     needs: validate-and-test
@@ -69,23 +69,27 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            # Extract version from git tag (remove 'v' prefix)
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            # Read version from VERSION file or extract from git tag
+            if [[ -f "VERSION" ]]; then
+              VERSION=$(cat VERSION)
+            else
+              VERSION="${GITHUB_REF#refs/tags/v}"
+            fi
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "APP_VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Update Chart.yaml versions
+      - name: Update Chart.yaml versions (temporary)
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
           
-          # Update chart version and appVersion in Chart.yaml
-          sed -i "s/^version:.*/version: ${VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" ${{ env.CHART_PATH }}/Chart.yaml
+          # Temporarily update chart version and appVersion in Chart.yaml (not committed)
+          sed -i "s/0.0.0-latest-dev/${VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
+          sed -i "s/latest-dev/${APP_VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
           
-          # Update image tag in values.yaml to match the Docker image version
-          sed -i "s/tag: \".*\"/tag: \"v${APP_VERSION}\"/" ${{ env.CHART_PATH }}/values.yaml
+          # Update image tag in values.yaml to match the Docker image version (without 'v' prefix)
+          sed -i "s/tag: \".*\"/tag: \"${APP_VERSION}\"/" ${{ env.CHART_PATH }}/values.yaml
 
       - name: Package Helm chart
         run: |
@@ -108,10 +112,3 @@ jobs:
           prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Chart.yaml for next development
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          # Reset versions for development
-          git checkout ${{ env.CHART_PATH }}/Chart.yaml
-          git checkout ${{ env.CHART_PATH }}/values.yaml
