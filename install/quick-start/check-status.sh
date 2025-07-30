@@ -18,12 +18,13 @@ get_component_group() {
         "Build_Plane") echo "build_plane" ;;
         "Identity_Provider") echo "identity_provider" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
+        "Backstage_Demo") echo "backstage" ;;
         *) echo "" ;;
     esac
 }
 
 # Group order for display (using underscores for bash compatibility)
-group_order=("Networking" "Control_Plane" "Data_Plane" "Build_Plane" "Identity_Provider" "Observability_Plane")
+group_order=("Networking" "Control_Plane" "Data_Plane" "Build_Plane" "Identity_Provider" "Observability_Plane" "Backstage_Demo")
 
 # Group display names
 get_group_display_name() {
@@ -35,6 +36,7 @@ get_group_display_name() {
         "Build_Plane") echo "Build Plane" ;;
         "Identity_Provider") echo "Identity Provider" ;;
         "Observability_Plane") echo "Observability Plane" ;;
+        "Backstage_Demo") echo "Backstage Demo" ;;
         *) echo "$group" ;;
     esac
 }
@@ -49,7 +51,7 @@ components_dp=(
 
 # Core vs optional component classification
 core_components=("cilium" "cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "envoy_gateway" "external_gateway" "internal_gateway" "fluent_bit_dp")
-optional_components=("build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer")
+optional_components=("build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer" "backstage")
 
 # Function to get component configuration (namespace:label)
 get_component_config() {
@@ -71,6 +73,7 @@ get_component_config() {
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
         "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
+        "backstage") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=backstage" ;;
         *) echo "unknown:unknown" ;;
     esac
 }
@@ -172,6 +175,9 @@ print_grouped_components() {
                 group_type="Optional"
                 ;;
             "Observability_Plane")
+                group_type="Optional"
+                ;;
+            "Backstage_Demo")
                 group_type="Optional"
                 ;;
         esac
