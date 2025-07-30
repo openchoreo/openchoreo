@@ -52,6 +52,10 @@ const useStyles = makeStyles(theme => ({
     backgroundColor: theme.palette.grey[400],
     color: theme.palette.getContrastText(theme.palette.grey[400]),
   },
+  undefinedChip: {
+    backgroundColor: theme.palette.grey[300],
+    color: theme.palette.getContrastText(theme.palette.grey[300]),
+  },
   logMessage: {
     fontFamily: 'monospace',
     fontSize: '0.875rem',
@@ -139,6 +143,8 @@ export const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
         return classes.infoChip;
       case 'DEBUG':
         return classes.debugChip;
+      case 'UNDEFINED':
+        return classes.undefinedChip;
       default:
         return '';
     }
