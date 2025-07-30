@@ -75,7 +75,6 @@ scaffolder:
 
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
-  observabilityBaseUrl: ${OPENCHOREO_OBS_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
   schedule:
     frequency: 30 # seconds between runs (default: 30)
