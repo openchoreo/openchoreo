@@ -48,14 +48,15 @@ while true; do
   sleep 5
 done
 
-echo "Waiting for pods to be ready..."
+echo "Waiting for WebApplicationBinding to be ready with public URL..."
 
 while true; do
-  # Look for pods with correct labels across all namespaces
-  POD_READY=$(kubectl get pods --all-namespaces -l component-name=react-starter,environment-name=development,organization-name=default -o json 2>/dev/null | jq -r '.items[] | select(.status.phase == "Running") | select(.status.conditions[]? | select(.type == "Ready" and .status == "True")) | .metadata.name' | head -n 1)
+  # Check if the binding is ready and has public endpoint URL
+  READY_CONDITION=$(kubectl get webapplicationbinding "$BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="Ready") | .status')
+  PUBLIC_URL=$(kubectl get webapplicationbinding "$BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.endpoints[]? | select(.type=="HTTP") | .public.uri')
 
-  if [[ -n "$POD_READY" ]] && [[ "$POD_READY" != "null" ]]; then
-    echo "✅ Pod is ready: $POD_READY"
+  if [[ "$READY_CONDITION" == "True" ]] && [[ -n "$PUBLIC_URL" ]] && [[ "$PUBLIC_URL" != "null" ]]; then
+    echo "✅ WebApplicationBinding is ready!"
     break
   fi
 
@@ -63,5 +64,5 @@ while true; do
 done
 
 echo "✅ Web application is ready!"
-echo "🌍 You can now access the Sample Web Application at: https://react-starter-development.choreoapps.localhost:8443/"
+echo "🌍 You can now access the Sample Web Application at: $PUBLIC_URL"
 echo "   Open this URL in your browser to see the React starter application."
