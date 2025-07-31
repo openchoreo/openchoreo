@@ -26,7 +26,7 @@ main() {
     local CHOREO_DIR=~/.choreoctl
     local CHOREO_BIN_DIR=$CHOREO_DIR/bin
     local CHOREO_CLI_EXEC=$CHOREO_BIN_DIR/choreoctl
-    local DIST_DIR="dist/choreoctl"
+    local DIST_DIR="bin/dist"
 
     mkdir -p $CHOREO_BIN_DIR
 
@@ -37,7 +37,7 @@ main() {
     fi
 
     # Check if binary exists for current platform
-    local PLATFORM_DIR="$DIST_DIR/$OS-$ARCH"
+    local PLATFORM_DIR="$DIST_DIR/$OS/$ARCH"
     if [ ! -d "$PLATFORM_DIR" ]; then
         echo "Error: No binary found for $OS-$ARCH platform"
         exit 1
@@ -86,7 +86,6 @@ export PATH=$CHOREO_DIR/bin:\${PATH}\\
 
         # Try to update PATH in current session
         export CHOREOCTL_DIR=$CHOREO_DIR
-        export PATH=$CHOREO_DIR/bin:${PATH}
 
         # Check if it's accessible in current session
         if command -v choreoctl >/dev/null 2>&1; then
