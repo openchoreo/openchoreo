@@ -17,12 +17,13 @@ To get started, you’ll need:
 Run the following command to start the dev container and launch a terminal session within it:
 
 ```shell
-docker run --rm -it --name choreo-quick-start \
+docker run --rm -it --name openchoreo-quick-start \
 -v /var/run/docker.sock:/var/run/docker.sock \
--v choreo-state:/state \
+-v openchoreo-state:/state \
 -v tf-state:/app/terraform \
 --network bridge \
 -p 8443:8443 \
+-p 7007:7007 \
 ghcr.io/openchoreo/quick-start:latest
 
 ```
@@ -41,26 +42,68 @@ To begin the installation, run:
 
 Once the installation is complete, you will see the following confirmation message:
 ```text
-Choreo Installation Status: Single-Cluster Mode
-Using current context: kind-choreo-quick-start
+======================================================================
+                     OpenChoreo Component Status                     
+======================================================================
 
-Single Cluster Components
++- Networking (Infrastructure) -----------------------------------+
+| cilium                    [READY]                            |
++-----------------------------------------------------------------+
 
-Component                 Status         
-------------------------  ---------------
-cilium                    ready
-vault                     ready
-argo                      ready
-cert_manager              ready
-choreo_controller         ready
-choreo_image_registry     ready
-envoy_gateway             ready
-redis                     ready
-external_gateway          ready
-internal_gateway          ready
++- Control Plane (Core) ------------------------------------------+
+| cert_manager_cp           [READY]                            |
+| controller_manager        [READY]                            |
+| api_server                [READY]                            |
++-----------------------------------------------------------------+
 
-Overall Status: READY
-🎉 Choreo has been successfully installed and is ready to use!
++- Data Plane (Core) ---------------------------------------------+
+| vault                     [READY]                            |
+| registry                  [READY]                            |
+| redis                     [READY]                            |
+| envoy_gateway             [READY]                            |
+| external_gateway          [PENDING]                          |
+| internal_gateway          [PENDING]                          |
+| fluent_bit_dp             [PENDING]                          |
++-----------------------------------------------------------------+
+
++- Build Plane (Optional) ----------------------------------------+
+| build_plane               [READY]                            |
++-----------------------------------------------------------------+
+
++- Identity Provider (Optional) ----------------------------------+
+| identity_provider         [READY]                            |
++-----------------------------------------------------------------+
+
++- Observability Plane (Optional) --------------------------------+
+| opensearch                [NOT_INSTALLED]                    |
+| opensearch_dashboard      [NOT_INSTALLED]                    |
+| observer                  [NOT_INSTALLED]                    |
++-----------------------------------------------------------------+
+
++- Backstage Demo (Optional) -------------------------------------+
+| backstage                 [READY]                            |
++-----------------------------------------------------------------+
+
+======================================================================
+
+Setting up OpenChoreo DataPlane
+
+Running in single-cluster mode using context 'kind-openchoreo-quick-start'
+kind-openchoreo-quick-start
+
+Applying DataPlane to context: kind-openchoreo-quick-start
+dataplane.openchoreo.dev/default created
+
+DataPlane applied to 'default' successfully!
+
+Setting up OpenChoreo BuildPlane
+
+kind-openchoreo-quick-start
+
+Applying BuildPlane to context: kind-openchoreo-quick-start
+buildplane.openchoreo.dev/default created
+
+BuildPlane applied to 'default' successfully!
 ```
 
 > [!NOTE]
