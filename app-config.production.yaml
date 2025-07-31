@@ -56,6 +56,10 @@ catalog:
         target: /app/templates/create-openchoreo-project/template.yaml
         rules:
           - allow: [Template]
+      - type: file
+        target: /app/examples/org.yaml
+        rules:
+          - allow: [User, Group]
 
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
