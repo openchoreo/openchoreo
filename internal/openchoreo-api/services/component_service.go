@@ -1415,7 +1415,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	}
 
 	var workloadName string
-	
+
 	if existingWorkload != nil {
 		// Update existing workload
 		existingWorkload.Spec = *workloadSpec
