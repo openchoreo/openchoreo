@@ -62,7 +62,7 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
     OpenChoreo requires a DataPlane to deploy and manage its resources.
 
    ```sh
-   bash ./install/add-default-dataplane.sh
+   bash ./install/add-default-data-plane.sh
    ```
 
 6. Run controller manager locally (for development):

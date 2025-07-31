@@ -124,7 +124,7 @@ Once you are done with the installation, you can try out our [samples](../sample
 
 ## Add Default DataPlane
 
-OpenChoreo requires a DataPlane to deploy and manage its resources. You can add the default DataPlane by running the script provided in the repository ([script](../install/add-default-dataplane.sh)).
+OpenChoreo requires a DataPlane to deploy and manage its resources. You can add the default DataPlane by running the script provided in the repository ([script](../install/add-default-data-plane.sh)).
 
 Run the following command:
 

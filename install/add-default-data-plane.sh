@@ -80,7 +80,6 @@ metadata:
   labels:
     openchoreo.dev/name: $DATAPLANE_KIND_NAME
     openchoreo.dev/organization: default
-    openchoreo.dev/build-plane: "true"
   name: $DATAPLANE_KIND_NAME
   namespace: default
 spec:
