@@ -4,6 +4,7 @@
 
 # Backstage configuration (passed to backstage dependency)
 backstage:
+  fullnameOverride: "backstage-demo"
   backstage:
     image:
       registry: "ghcr.io"
