@@ -37,7 +37,7 @@ In this section, you'll learn how to set up a [kind](https://kind.sigs.k8s.io/) 
 Run the following command to create your kind cluster using ([kind config](../install/kind/kind-config.yaml)).
 
 ```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
+curl -s https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/kind-config.yaml | kind create cluster --config=-
 ```
 
 #### Install Cilium
@@ -46,7 +46,7 @@ Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To d
 
 Run the following command to install Cilium:
 ```shell
-helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --namespace "choreo-system" --create-namespace --timeout 30m
+helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --version 0.0.0-latest-dev --create-namespace --namespace cilium --wait
 ```
 
 [//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
@@ -70,14 +70,17 @@ OpenChoreo can be installed on any Kubernetes cluster using the official Helm ch
 1. Install OpenChoreo using Helm. Run the following two Helm commands to install OpenChoreo into your cluster:
 
     ```shell
-    helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
-    --kube-context kind-choreo --namespace "choreo-system" --create-namespace --timeout 30m
+    helm install control-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-control-plane \
+      --create-namespace --namespace openchoreo-control-plane \
+      --timeout=10m
     ```
 
     ```shell
-    helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-    --kube-context kind-choreo  --namespace "choreo-system" --create-namespace --timeout 30m \
-    --set certmanager.enabled=false --set certmanager.crds.enabled=false
+    helm install data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
+      --create-namespace --namespace openchoreo-data-plane \
+      --timeout=10m \
+      --set cert-manager.enabled=false \
+      --set cert-manager.crds.enabled=false
     ```
 
 2. Once OpenChoreo is installed, verify the installation status using the provided script ([script](../install/check-status.sh)):
@@ -97,7 +100,7 @@ OpenChoreo requires a DataPlane to deploy and manage its resources. You can add 
 Run the following command:
 
 ```shell
-bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh)
+curl -s https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh | bash
 ```
 
 > [!IMPORTANT]
@@ -105,6 +108,44 @@ bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/ins
 > credentials and create the DataPlane kind yourself.
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
+
+## Install OpenChoreo Build Plane (Optional)
+
+Install the OpenChoreo build plane using the following helm install command for CI/CD capabilities using Argo Workflows. This will create the `openchoreo-build-plane` namespace automatically:
+
+```shell
+helm install build-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-build-plane \
+  --create-namespace --namespace openchoreo-build-plane --timeout=10m
+```
+
+Wait for the build plane components to be ready:
+
+```shell
+kubectl get pods -n openchoreo-build-plane
+```
+
+You should see pods for:
+- `argo-workflow-controller-*` (Running)
+
+### Configure BuildPlane
+
+Register the build plane with the control plane by running:
+
+```shell
+curl -s https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-build-plane.sh | bash
+```
+
+This script will:
+- Detect single-cluster mode automatically
+- Extract cluster credentials from your kubeconfig
+- Create a BuildPlane resource in the default namespace
+- Configure the build plane connection to the control plane
+
+Verify that the BuildPlane was created:
+
+```shell
+kubectl get buildplane -n default
+```
 
 ## Install the choreoctl
 
@@ -194,7 +235,7 @@ Once you successfully [installed OpenChoreo](#install-openchoreo) into your clus
 You can see the service using the following command.
 
 ```shell
-kubectl --context=kind-choreo get svc choreo-external-gateway -n choreo-system
+kubectl --context=kind-openchoreo get svc choreo-external-gateway -n openchoreo-data-plane
 ```
 
 You will see an output similar to the following:
@@ -225,13 +266,13 @@ sudo $(which cloud-provider-kind)
 Then you could find the load balancer IP for your external-gateway service as follows.
 
 ```shell
-kubectl --context=kind-choreo get svc -n choreo-system | grep choreo-external-gateway
+kubectl --context=kind-openchoreo get svc -n openchoreo-data-plane | grep choreo-external-gateway
 ```
 
 ```shell
 # to find the LoadBalancer-IP
 # <name> should be replaced with the service name found in the previous step.
-$ kubectl --context=kind-choreo get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+$ kubectl --context=kind-openchoreo get svc/<name> -n openchoreo-data-plane -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
 Then you can use this IP address to access the components you create in OpenChoreo via the external gateway.
@@ -241,12 +282,12 @@ Then you can use this IP address to access the components you create in OpenChor
 Run the following command to do port-forwarding from your host machine to the `choreo-external-gateway` service.
 
 ```shell
-kubectl --context=kind-choreo port-forward svc/choreo-external-gateway -n choreo-system 443:443
+kubectl --context=kind-openchoreo port-forward svc/choreo-external-gateway -n openchoreo-data-plane 443:443
 ```
 
 > [!TIP]
 > If you have an existing service listening on port 443, or any permission issues, you may encounter issues when attempting port forwarding. To avoid conflicts, consider changing the port as needed.
-> Ex: `kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443`
+> Ex: `kubectl port-forward svc/choreo-external-gateway -n openchoreo-data-plane 8443:443`
 
 > [!NOTE]
 > You may need to add entries to `/etc/hosts` to access components through the external gateway, as it relies on the hostname for request routing.
