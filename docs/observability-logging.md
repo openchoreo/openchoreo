@@ -8,14 +8,10 @@ OpenChoreo provides observability for both developers and platform engineers. Th
 
 1. In a single cluster setup
 ```
-helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-   --kube-context kind-choreo \
-   --namespace "choreo-system" \
-   --create-namespace \
-   --set certmanager.enabled=false \
-   --set observability.logging.enabled=true \
-   --set observer.image.tag=latest-dev \
-   --timeout 30m
+helm install observability-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-observability-plane \
+  --version 0.0.0-latest-dev \
+  --create-namespace --namespace openchoreo-observability-plane \
+  --timeout=10m
 ```
 
 2. In a multicluster setup
@@ -73,32 +69,50 @@ and the values for these templates can be found at
 Once the dataplane helm chart has been installed, you can verify whether the necessary componenets are up and running with the following command. 
 
 ```
-kubectl get pods -n choreo-system
+kubectl get pods -n openchoreo-observability-plane
 ```
 
-You should see pods with names as follows:
+You should see pods for:
+- `opensearch-0` (Running) - Log storage backend
+- `opensearch-dashboard-*` (Running) - Visualization dashboard
+- `observer-*` (Running) - Log processing service
+
+Note: The OpenSearch pod may take several minutes to start as it downloads a large image (~1GB).
+
+Verify all pods are ready:
+
+```bash
+kubectl wait --for=condition=Ready pod --all -n openchoreo-observability-plane --timeout=600s
 ```
-choreo-system choreo-dataplane-fluent-bit-xxxx    
-choreo-system choreo-dataplane-opensearch-0
-choreo-system choreo-dataplane-opensearch-dashboard-xxxxx-xxxxx
-```  
+
+Verify FluentBit is sending logs to OpenSearch:
+
+```bash
+# Check if kubernetes indices are being created
+kubectl exec -n openchoreo-observability-plane opensearch-0 -- curl -s "http://localhost:9200/_cat/indices?v" | grep kubernetes
+
+# Check recent log count
+kubectl exec -n openchoreo-observability-plane opensearch-0 -- curl -s "http://localhost:9200/kubernetes-*/_count" | jq '.count'
+```
+
+If the indices exist and the count is greater than 0, FluentBit is successfully collecting and storing logs.
+
 
 ## Viewing logs on the Opensearch Dashboard
- 1. Get the pod name for opensearch dashboard. You can execute the following  and get it. 
 
-    ```
-    kubectl get pods -n choreo-system
-    ```
+1. To access the OpenSearch Dashboard:
 
- 2. Do a port forward for the dashboard as follows
- 
-    ```
-    kubectl port-forward pod/<dashboard-pod-name> 5601:5601 -n choreo-system
-    ```
- 
- 3. Copy the following on your browser as the url
+```bash
+# Port forward the dashboard in background and open browser
+kubectl port-forward -n openchoreo-observability-plane svc/opensearch-dashboard 5601:5601 > /dev/null 2>&1 & sleep 2 && open http://localhost:5601
 
-    `http://localhost:5601`
+# Or if you prefer to manually open the browser:
+kubectl port-forward -n openchoreo-observability-plane svc/opensearch-dashboard 5601:5601 > /dev/null 2>&1 & sleep 2
+# Then access in browser at http://localhost:5601
+
+# To stop the port-forward when done:
+pkill -f "kubectl port-forward.*opensearch-dashboard.*5601:5601"
+```
 
  4. Once opensearch loads, on the home page click on "Discover" under the Opensearch Dashboards menu section. You will see a button indicating "Create Index Patterns" - click this.
 

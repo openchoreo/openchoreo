@@ -83,7 +83,7 @@ get_component_config() {
         "external_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-external" ;;
         "internal_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-internal" ;;
         "fluent_bit_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/component=fluent-bit" ;;
-        "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
+        "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
         "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
