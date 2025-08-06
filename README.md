@@ -127,11 +127,11 @@ In this section, we explain how the OpenChoreo abstractions for platform enginee
 
 ## Getting Started
 
-The easiest way to try OpenChoreo is by following the **[Quick Start Guide](./docs/quick-start-guide.md)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
+The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
-For a deeper understanding of OpenChoreo’s architecture, see **[Choreo Concepts](./docs/choreo-concepts.md)**.
+For a deeper understanding of OpenChoreo’s architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/core-concepts/concepts-and-abstractions/)**.
 
-Visit **[Installation Guide](./docs/install-guide.md)** to learn more about installation methods.
+Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/single-cluster/)** to learn more about installation methods.
 
 ## Samples
 
