@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import { ReactNode, FC, createContext, useContext } from 'react';
 import { ModelsBuild, ModelsWorkload } from '@internal/plugin-openchoreo-api';
 
 interface WorkloadContextType {
@@ -10,11 +10,11 @@ interface WorkloadContextType {
 
 const WorkloadContext = createContext<WorkloadContextType | undefined>(undefined);
 
-export const WorkloadProvider: React.FC<{ 
+export const WorkloadProvider: FC<{ 
     builds: ModelsBuild[]; 
     workloadSpec: ModelsWorkload | null;
     setWorkloadSpec: (spec: ModelsWorkload | null) => void;
-    children: React.ReactNode; 
+    children: ReactNode; 
     isDeploying: boolean;
 }> = ({ builds, workloadSpec, setWorkloadSpec, children, isDeploying }) => {
     return (

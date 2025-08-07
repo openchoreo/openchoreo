@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import {
     TextField,
     Select,
@@ -48,7 +48,7 @@ const useStyles = makeStyles((theme) => ({
 
 const protocolTypes = ['TCP', 'UDP', 'HTTP', 'REST', 'gRPC', 'Websocket', 'GraphQL'];
 
-export const EndpointSection: React.FC<EndpointSectionProps> = ({
+export const EndpointSection: FC<EndpointSectionProps> = ({
     endpoints,
     onEndpointChange,
     onAddEndpoint,

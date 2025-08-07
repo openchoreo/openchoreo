@@ -1,5 +1,5 @@
 import { Drawer, Button, Typography, Box, useTheme, IconButton, CircularProgress } from '@material-ui/core';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WorkloadEditor } from './WorkloadEditor';
 import CloseIcon from '@material-ui/icons/Close';
 import { ModelsWorkload, ModelsBuild } from '@internal/plugin-openchoreo-api';
@@ -16,11 +16,11 @@ export function Workload({ onDeployed, isWorking }: { onDeployed: () => Promise<
     const identity = useApi(identityApiRef);
     const { entity } = useEntity();
     const theme = useTheme();
-    const [open, setOpen] = React.useState(false);
-    const [workloadSpec, setWorkloadSpec] = React.useState<ModelsWorkload | null>(null);
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [isDeploying, setIsDeploying] = React.useState(false);
-    const [error, setError] = React.useState<string | null>(null);
+    const [open, setOpen] = useState(false);
+    const [workloadSpec, setWorkloadSpec] = useState<ModelsWorkload | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isDeploying, setIsDeploying] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [builds, setBuilds] = useState<ModelsBuild[]>([]);
 
 

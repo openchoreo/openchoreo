@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import type { FieldValidation } from '@rjsf/utils';
 import { FormControl, InputLabel, Select, MenuItem, CircularProgress, FormHelperText } from '@material-ui/core';
@@ -93,7 +93,7 @@ export const BuildTemplatePicker = ({
     fetchBuildTemplates();
   }, [organizationName, discoveryApi]);
 
-  const handleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+  const handleChange = (event: ChangeEvent<{ value: unknown }>) => {
     onChange(event.target.value as string);
     // Ensure templates are still in form context when selection changes
     if (buildTemplates.length > 0) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import {
     Button,
     Typography,
@@ -30,7 +30,7 @@ const useStyles = makeStyles((theme) => ({
     },
 }));
 
-export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
+export const ConnectionSection: FC<ConnectionSectionProps> = ({
     connections,
     onConnectionChange,
     onAddConnection,

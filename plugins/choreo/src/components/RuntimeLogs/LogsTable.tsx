@@ -1,4 +1,4 @@
-import React from 'react';
+import { RefObject, FC } from 'react';
 import {
   Table,
   TableHead,
@@ -54,11 +54,11 @@ interface LogsTableProps {
   loading: boolean;
   hasMore: boolean;
   totalCount: number;
-  loadingRef: React.RefObject<HTMLDivElement>;
+  loadingRef: RefObject<HTMLDivElement>;
   onRetry?: () => void;
 }
 
-export const LogsTable: React.FC<LogsTableProps> = ({
+export const LogsTable: FC<LogsTableProps> = ({
   logs,
   loading,
   hasMore,

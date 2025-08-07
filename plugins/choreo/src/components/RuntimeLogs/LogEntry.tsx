@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { FC, MouseEvent, useState } from 'react';
 import {
   TableRow,
   TableCell,
@@ -129,7 +129,7 @@ interface LogEntryProps {
   log: LogEntryType;
 }
 
-export const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
+export const LogEntry: FC<LogEntryProps> = ({ log }) => {
   const classes = useStyles();
   const [expanded, setExpanded] = useState(false);
 
@@ -158,7 +158,7 @@ export const LogEntry: React.FC<LogEntryProps> = ({ log }) => {
     return podId.length > 8 ? `${podId.substring(0, 8)}...` : podId;
   };
 
-  const handleCopyLog = (event: React.MouseEvent) => {
+  const handleCopyLog = (event: MouseEvent) => {
     event.stopPropagation();
     navigator.clipboard.writeText(log.log).catch(error => {
       console.error('Failed to copy log to clipboard:', error);

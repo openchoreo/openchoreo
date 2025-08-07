@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { Content, Page } from '@backstage/core-components';
 import {

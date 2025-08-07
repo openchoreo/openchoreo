@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     IconButton,
     Grid,
@@ -39,7 +39,7 @@ enum ConnectionTypes {
     API = 'api',
 }
 
-export const ConnectionItem: React.FC<ConnectionItemProps> = ({
+export const ConnectionItem: FC<ConnectionItemProps> = ({
     connectionName,
     connection,
     onConnectionChange,

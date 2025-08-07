@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC, ChangeEvent } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -60,7 +60,7 @@ interface LogsFilterProps {
   disabled?: boolean;
 }
 
-export const LogsFilter: React.FC<LogsFilterProps> = ({
+export const LogsFilter: FC<LogsFilterProps> = ({
   filters,
   onFiltersChange,
   environments,
@@ -77,11 +77,11 @@ export const LogsFilter: React.FC<LogsFilterProps> = ({
     onFiltersChange({ logLevel: newLogLevels });
   };
 
-  const handleEnvironmentChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+  const handleEnvironmentChange = (event: ChangeEvent<{ value: unknown }>) => {
     onFiltersChange({ environmentId: event.target.value as string });
   };
 
-  const handleTimeRangeChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+  const handleTimeRangeChange = (event: ChangeEvent<{ value: unknown }>) => {
     onFiltersChange({ timeRange: event.target.value as string });
   };
 
