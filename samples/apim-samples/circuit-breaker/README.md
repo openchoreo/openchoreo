@@ -33,7 +33,7 @@ circuit-breaker/
 Apply the sample configuration to deploy a reading list service with circuit breaker protection:
 
 ```bash
-kubectl apply -f reading-list-service-with-circuit-breaker.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/circuit-breaker/reading-list-service-with-circuit-breaker.yaml
 ```
 
 This creates:
@@ -233,5 +233,5 @@ During load testing, you should observe:
 Remove the deployed resources:
 
 ```bash
-kubectl delete -f reading-list-service-with-circuit-breaker.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/circuit-breaker/reading-list-service-with-circuit-breaker.yaml
 ```

@@ -36,7 +36,7 @@ secure-service-with-jwt/
 
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-jwt-auth.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-with-jwt-auth.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -117,5 +117,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f reading-list-service-with-jwt-auth.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-with-jwt-auth.yaml
 ```

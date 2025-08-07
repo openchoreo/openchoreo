@@ -46,7 +46,7 @@ google-microservices-sample/
 From the repository root, deploy the project and all microservices components:
 
 ```bash
-kubectl apply -f new-design-sample/gcp-microservices-demo/
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
 ```
 
 This will create the project and deploy all the microservices using official Google Container Registry images.
@@ -84,5 +84,5 @@ Stop the port forwarding and remove all resources:
 pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
-kubectl delete -f new-design-sample/gcpgcp-microservices-demo-demo/
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
 ```

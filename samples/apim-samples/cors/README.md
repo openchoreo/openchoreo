@@ -34,7 +34,7 @@ cors/
    
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-cors.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/cors/reading-list-service-with-cors.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -247,5 +247,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f reading-list-service-with-cors.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/cors/reading-list-service-with-cors.yaml
 ```
