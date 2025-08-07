@@ -13,7 +13,10 @@ import {
   StatusRunning,
 } from '@backstage/core-components';
 import { Typography, Button, Box, Paper, Link, IconButton } from '@material-ui/core';
-import { GitHub, CallSplit, FileCopy, Refresh } from '@material-ui/icons';
+import GitHub from '@material-ui/icons/GitHub';
+import CallSplit from '@material-ui/icons/CallSplit';
+import FileCopy from '@material-ui/icons/FileCopy';
+import Refresh from '@material-ui/icons/Refresh';
 import { BuildLogs } from './BuildLogs';
 import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
 import { formatRelativeTime } from '../../utils/timeUtils';

@@ -33,7 +33,9 @@ export const CellDiagram = () => {
       try {
         const data = await getCellDiagramInfo(entity, discovery, identityApi);
         setCellDiagramData(data as Project);
-      } catch (error) {}
+      } catch (error) {
+        // Error handling could be added here if needed
+      }
     };
 
     fetchData();

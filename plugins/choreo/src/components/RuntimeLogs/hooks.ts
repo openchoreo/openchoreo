@@ -131,7 +131,7 @@ export function useInfiniteScroll(
 
   useEffect(() => {
     if (loading || !hasMore) {
-      return;
+      return () => {};
     }
 
     if (observerRef.current) {

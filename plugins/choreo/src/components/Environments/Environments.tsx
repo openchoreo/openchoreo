@@ -35,7 +35,7 @@ interface EndpointInfo {
   visibility: 'project' | 'organization' | 'public';
 }
 import { Workload } from './Workload/Workload';
-import { Refresh } from '@material-ui/icons';
+import Refresh from '@material-ui/icons/Refresh';
 
 const useStyles = makeStyles(theme => ({
   notificationBox: {
