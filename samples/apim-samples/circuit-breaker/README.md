@@ -55,8 +55,8 @@ kubectl port-forward service/choreo-external-gateway 8443:8443 -n openchoreo-dat
 ```
 
 The service will be available at:
-```
-https://development.choreoapis.localhost:8443/default/reading-list-service-circuit-breaker/api/v1/reading-list/books
+```bash
+kubectl get servicebinding reading-list-service-circuit-breaker -o jsonpath='{.status.endpoints[0].public.uri}'
 ```
 
 ## Step 3: Test Circuit Breaker Functionality
@@ -70,12 +70,13 @@ First, verify the service works under normal conditions:
 
 ```bash
 # Add a book to the reading list
-curl -k -X POST https://development.choreoapis.localhost:8443/default/reading-list-service-circuit-breaker/api/v1/reading-list/books \
+curl -k -X POST  \
   -H "Content-Type: application/json" \
-  -d '{"title":"The Hobbit","author":"J.R.R. Tolkien","status":"to_read"}'
+  -d '{"title":"The Hobbit","author":"J.R.R. Tolkien","status":"to_read"}' \
+  "$(kubectl get servicebinding reading-list-service-circuit-breaker -o jsonpath='{.status.endpoints[0].public.uri}')/books"
 
 # Retrieve all books
-curl -k https://development.choreoapis.localhost:8443/default/reading-list-service-circuit-breaker/api/v1/reading-list/books
+curl -k "$(kubectl get servicebinding reading-list-service-circuit-breaker -o jsonpath='{.status.endpoints[0].public.uri}')/books"
 ```
 
 You should see successful responses with the book data.
@@ -93,7 +94,7 @@ for i in $(seq 1 100); do
   (for j in $(seq 1 10); do 
     start_time=$(date +%s.%N)
     response_code=$(curl -k -s -w "%{http_code}" -o /dev/null \
-      https://development.choreoapis.localhost:8443/default/reading-list-service-circuit-breaker/api/v1/reading-list/books 2>/dev/null)
+      "$(kubectl get servicebinding reading-list-service-circuit-breaker -o jsonpath='{.status.endpoints[0].public.uri}')/books" 2>/dev/null)
     end_time=$(date +%s.%N)
     response_time=$(echo "$end_time - $start_time" | bc -l 2>/dev/null || echo "0")
     timestamp=$(date +%s)
@@ -180,7 +181,7 @@ After the load test completes, wait a moment and test normal operation again:
 
 ```bash
 # Test that service recovers after load subsides
-curl -k https://development.choreoapis.localhost:8443/default/reading-list-service-circuit-breaker/api/v1/reading-list/books
+curl -k "$(kubectl get servicebinding reading-list-service-circuit-breaker -o jsonpath='{.status.endpoints[0].public.uri}')/books"
 ```
 
 The service should return to normal operation once the circuit breaker allows traffic through again.

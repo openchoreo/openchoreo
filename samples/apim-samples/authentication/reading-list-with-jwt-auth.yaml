@@ -29,7 +29,7 @@ spec:
         - key: LOG_LEVEL
           value: info
   endpoints:
-    rest-api:
+    reading-list-api:
       type: REST
       port: 8080
       schema:
@@ -237,7 +237,7 @@ spec:
   workloadName: reading-list-service-jwt
   overrides: {}
   apis:
-    greeter:
+    reading-list-api:
       type: REST
       className: default-with-jwt-auth
       rest:

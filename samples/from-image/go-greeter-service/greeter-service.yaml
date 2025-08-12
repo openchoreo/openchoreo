@@ -42,7 +42,7 @@ spec:
               key: pat
               name: github
   endpoints:
-    rest-api:
+    greeter-api:
       type: REST
       port: 9090
       schema:
