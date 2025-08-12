@@ -21,7 +21,6 @@ import (
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	engines "github.com/openchoreo/openchoreo/internal/controller/build/engines"
-	"github.com/openchoreo/openchoreo/internal/controller/build/engines/argo"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
@@ -36,7 +35,7 @@ type Reconciler struct {
 	// IsGitOpsMode indicates whether the controller is running in GitOps mode
 	IsGitOpsMode bool
 	Scheme       *runtime.Scheme
-	engine       *engines.Builder
+	engine       *Builder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=builds,verbs=get;list;watch;create;update;patch;delete
@@ -125,11 +124,10 @@ const (
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.engine == nil {
-		r.engine = engines.NewBuilder(r.Client, kubernetesClient.NewManager())
+		r.engine = NewBuilder(r.Client, kubernetesClient.NewManager())
 
 		// Register build engines here to avoid circular imports
-		argoEngine := argo.NewEngine()
-		r.engine.RegisterBuildEngine(argoEngine)
+		r.engine.registerBuildEngines()
 	}
 
 	ctx := context.Background()
