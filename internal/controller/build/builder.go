@@ -1,16 +1,18 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package engines
+package build
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 	"github.com/openchoreo/openchoreo/internal/controller/build/engines/argo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -22,7 +24,7 @@ type Builder struct {
 	client       client.Client
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
 	logger       logr.Logger
-	buildEngines map[string]BuildEngine
+	buildEngines map[string]engines.BuildEngine
 }
 
 // NewBuilder creates a new build service
@@ -31,7 +33,7 @@ func NewBuilder(client client.Client, k8sClientMgr *kubernetesClient.KubeMultiCl
 		client:       client,
 		k8sClientMgr: k8sClientMgr,
 		logger:       log.Log.WithName("build-service"),
-		buildEngines: make(map[string]BuildEngine),
+		buildEngines: make(map[string]engines.BuildEngine),
 	}
 
 	// Register available build engines
@@ -66,7 +68,7 @@ func (s *Builder) EnsurePrerequisites(ctx context.Context, build *openchoreov1al
 	return nil
 }
 
-func (s *Builder) CreateBuild(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (*BuildCreationResponse, error) {
+func (s *Builder) CreateBuild(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (*engines.BuildCreationResponse, error) {
 	// Determine build engine
 	engineName := s.determineBuildEngine(build)
 	buildEngine, exists := s.buildEngines[engineName]
@@ -118,19 +120,19 @@ func (s *Builder) ProcessBuild(ctx context.Context, build *openchoreov1alpha1.Bu
 }
 
 // GetBuildStatus returns the current status of a build
-func (s *Builder) GetBuildStatus(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (BuildStatus, error) {
+func (s *Builder) GetBuildStatus(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (engines.BuildStatus, error) {
 	// Determine build engine
 	engineName := s.determineBuildEngine(build)
 	buildEngine, exists := s.buildEngines[engineName]
 	if !exists {
-		return BuildStatus{}, fmt.Errorf("unsupported build engine: %s", engineName)
+		return engines.BuildStatus{}, fmt.Errorf("unsupported build engine: %s", engineName)
 	}
 
 	return buildEngine.GetBuildStatus(ctx, bpClient, build)
 }
 
 // ExtractBuildArtifacts extracts artifacts from a completed build
-func (s *Builder) ExtractBuildArtifacts(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (*BuildArtifacts, error) {
+func (s *Builder) ExtractBuildArtifacts(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) (*engines.BuildArtifacts, error) {
 	// Determine build engine
 	engineName := s.determineBuildEngine(build)
 	buildEngine, exists := s.buildEngines[engineName]
@@ -142,7 +144,7 @@ func (s *Builder) ExtractBuildArtifacts(ctx context.Context, build *openchoreov1
 }
 
 // CreateWorkloadFromArtifacts creates a workload CR from build artifacts
-func (s *Builder) CreateWorkloadFromArtifacts(ctx context.Context, build *openchoreov1alpha1.Build, artifacts *BuildArtifacts) error {
+func (s *Builder) CreateWorkloadFromArtifacts(ctx context.Context, build *openchoreov1alpha1.Build, artifacts *engines.BuildArtifacts) error {
 	logger := s.logger.WithValues("build", build.Name)
 
 	if artifacts.WorkloadCR == "" {
@@ -173,16 +175,16 @@ func (s *Builder) CreateWorkloadFromArtifacts(ctx context.Context, build *opench
 }
 
 // UpdateBuildStatusConditions updates build status based on current build status
-func (s *Builder) UpdateBuildStatusConditions(build *openchoreov1alpha1.Build, status BuildStatus, artifacts *BuildArtifacts) {
+func (s *Builder) UpdateBuildStatusConditions(build *openchoreov1alpha1.Build, status engines.BuildStatus, artifacts *engines.BuildArtifacts) {
 	switch status.Phase {
-	case BuildPhaseRunning:
+	case engines.BuildPhaseRunning:
 		s.setBuildInProgressCondition(build)
-	case BuildPhaseSucceeded:
+	case engines.BuildPhaseSucceeded:
 		s.setBuildCompletedCondition(build, "Build completed successfully")
 		if artifacts != nil && artifacts.Image != "" {
 			build.Status.ImageStatus.Image = artifacts.Image
 		}
-	case BuildPhaseFailed, BuildPhaseUnknown:
+	case engines.BuildPhaseFailed, engines.BuildPhaseUnknown:
 		s.setBuildFailedCondition(build, "BuildFailed", status.Message)
 	}
 }
