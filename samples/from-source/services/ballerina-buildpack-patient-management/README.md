@@ -1,5 +1,3 @@
-[//]: # (TODO: Update Ballerina builder image with the correct run image)
-
 # Patient Management Service (Mediflow)
 
 ## Overview
@@ -62,12 +60,12 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 
    Health check
    ```bash
-    curl -k https://dev.openchoreoapis.localhost:8443/default/patient-management-service/mediflow/health
+    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/health"
    ```
 
    Add a new patient
    ```bash
-   curl -k -X POST https://dev.openchoreoapis.localhost:8443/default/patient-management-service/mediflow/patients \
+   curl -k -X POST "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients" \
    -H "Content-Type: application/json" \
    -d '{
    "name": "Alice",
@@ -78,12 +76,12 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 
    Retrieve a patient by name
    ```bash
-    curl -k https://dev.openchoreoapis.localhost:8443/default/patient-management-service/mediflow/patients/Alice
+    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients/Alice"
    ```
 
    List all patients
    ```bash
-    curl -k https://dev.openchoreoapis.localhost:8443/default/patient-management-service/mediflow/patients
+    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients"
    ```
 
 ## Clean Up

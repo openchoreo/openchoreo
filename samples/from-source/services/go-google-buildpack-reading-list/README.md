@@ -60,7 +60,7 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
    Add a new book:
 
    ```bash
-   curl -k -X POST https://dev.openchoreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books \
+   curl -k -X POST "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books" \
    -H "Content-Type: application/json" \
    -d '{
    "id": "12",
@@ -73,13 +73,13 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
    Retrieve the book by ID:
 
    ```bash
-   curl -k https://dev.openchoreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books/12
+   curl -k "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12"
    ```
 
    Update a new book:
 
    ```bash
-   curl -k -X PUT https://dev.openchoreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books/12 \
+   curl -k -X PUT "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12" \
    -H "Content-Type: application/json" \
    -d '{
    "title": "The Catcher in the Rye",
@@ -91,13 +91,13 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
    Delete a book by ID:
 
    ```bash
-   curl -k -X DELETE https://dev.openchoreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books/12
+   curl -k -X DELETE "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12"
    ```
 
    Delete all books:
 
    ```bash
-   curl -k https://dev.openchoreoapis.localhost:8443/default/reading-list-service/api/v1/reading-list/books
+   curl -k "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books"
    ```
 
 ## Clean Up
