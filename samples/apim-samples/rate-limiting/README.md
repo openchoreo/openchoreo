@@ -69,12 +69,12 @@ kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
    Make a few requests to verify the service is working:
    ```bash
    # List all books
-   curl -k "https://development.choreoapis.localhost:8443/default/reading-list-service-rate-limit/api/v1/reading-list/books"
+   curl -k "$(kubectl get servicebinding reading-list-service-rate-limit -o jsonpath='{.status.endpoints[0].public.uri}')/books"
    
    # Add a new book
    curl -k -X POST -H "Content-Type: application/json" \
      -d '{"title":"The Hobbit","author":"J.R.R. Tolkien","status":"to_read"}' \
-     "https://development.choreoapis.localhost:8443/default/reading-list-service-rate-limit/api/v1/reading-list/books"
+     "$(kubectl get servicebinding reading-list-service-rate-limit -o jsonpath='{.status.endpoints[0].public.uri}')/books"
    ```
 
 2. **Test Rate Limiting**
@@ -114,7 +114,7 @@ Wait for about a minute and try making requests again:
 ```bash
 # Wait 60+ seconds, then test again
 sleep 65
-curl -k "https://development.choreoapis.localhost:8443/default/reading-list-service-rate-limit/api/v1/reading-list/books"
+curl -k "$(kubectl get servicebinding reading-list-service-rate-limit -o jsonpath='{.status.endpoints[0].public.uri}')/books"
 ```
 
 The requests should succeed again as the rate limit window has reset.
