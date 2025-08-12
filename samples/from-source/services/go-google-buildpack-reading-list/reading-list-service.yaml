@@ -37,7 +37,7 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
-  name: reading-list-service-service
+  name: reading-list-service
   namespace: default
 spec:
   owner:

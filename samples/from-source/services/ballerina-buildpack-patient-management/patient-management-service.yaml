@@ -38,7 +38,7 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Service
 metadata:
-  name: patient-management-service-service
+  name: patient-management-service
   namespace: default
 spec:
   owner:
@@ -47,7 +47,7 @@ spec:
   workloadName: ballerina-patient-management-service
   className: default
   apis:
-    reading-list-api: 
+    patient-management-api:
       type: REST
       className: default
       rest:

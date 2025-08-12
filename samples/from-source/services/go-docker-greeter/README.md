@@ -39,12 +39,12 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 
    Greet
    ```bash
-    curl -k "https://dev.openchoreoapis.localhost:8443/default/greeting-service/greeter/greet"
+    curl -k "$(kubectl get servicebinding greeting-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet"
    ```
 
    Greet with name
    ```bash
-   curl -k "https://dev.openchoreoapis.localhost:8443/default/greeting-service/greeter/greet?name=Alice"
+   curl -k "$(kubectl get servicebinding greeting-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet?name=Alice"
    ```
 
 ## Clean Up
