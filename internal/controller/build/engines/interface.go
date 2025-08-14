@@ -29,7 +29,7 @@ type BuildEngine interface {
 	ExtractBuildArtifacts(ctx context.Context, client client.Client, build *openchoreov1alpha1.Build) (*BuildArtifacts, error)
 }
 
-// BuildInfo contains information about a created build
+// BuildCreationResponse contains information about a created build
 type BuildCreationResponse struct {
 	// ID is the unique identifier for the build
 	ID string

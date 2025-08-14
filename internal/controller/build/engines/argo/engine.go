@@ -42,25 +42,25 @@ func (e *Engine) EnsurePrerequisites(ctx context.Context, client client.Client, 
 
 	// Create namespace
 	namespace := utils.MakeNamespace(build)
-	if err := e.ensureResource(ctx, client, namespace, "Namespace", logger); err != nil {
+	if err := engines.EnsureResource(ctx, client, namespace, "Namespace", logger); err != nil {
 		return fmt.Errorf("failed to ensure namespace: %w", err)
 	}
 
 	// Create service account
 	serviceAccount := e.makeServiceAccount(build)
-	if err := e.ensureResource(ctx, client, serviceAccount, "ServiceAccount", logger); err != nil {
+	if err := engines.EnsureResource(ctx, client, serviceAccount, "ServiceAccount", logger); err != nil {
 		return fmt.Errorf("failed to ensure service account: %w", err)
 	}
 
 	// Create role
 	role := e.makeRole(build)
-	if err := e.ensureResource(ctx, client, role, "Role", logger); err != nil {
+	if err := engines.EnsureResource(ctx, client, role, "Role", logger); err != nil {
 		return fmt.Errorf("failed to ensure role: %w", err)
 	}
 
 	// Create role binding
 	roleBinding := e.makeRoleBinding(build)
-	if err := e.ensureResource(ctx, client, roleBinding, "RoleBinding", logger); err != nil {
+	if err := engines.EnsureResource(ctx, client, roleBinding, "RoleBinding", logger); err != nil {
 		return fmt.Errorf("failed to ensure role binding: %w", err)
 	}
 
@@ -125,35 +125,20 @@ func (e *Engine) ExtractBuildArtifacts(ctx context.Context, client client.Client
 	artifacts := &engines.BuildArtifacts{}
 
 	// Extract image from push-step
-	if pushStep := e.getStepByTemplateName(workflow.Status.Nodes, "push-step"); pushStep != nil {
+	if pushStep := e.getStepByTemplateName(workflow.Status.Nodes, engines.StepPush); pushStep != nil {
 		if image := e.getImageNameFromWorkflow(*pushStep.Outputs); image != "" {
 			artifacts.Image = string(image)
 		}
 	}
 
 	// Extract workload CR from workload-create-step
-	if workloadStep := e.getStepByTemplateName(workflow.Status.Nodes, "workload-create-step"); workloadStep != nil {
+	if workloadStep := e.getStepByTemplateName(workflow.Status.Nodes, engines.StepWorkloadCreate); workloadStep != nil {
 		if workloadStep.Phase == argoproj.NodeSucceeded {
 			artifacts.WorkloadCR = e.getWorkloadCRFromWorkflow(*workloadStep.Outputs)
 		}
 	}
 
 	return artifacts, nil
-}
-
-// ensureResource creates a resource if it doesn't exist
-func (e *Engine) ensureResource(ctx context.Context, client client.Client, obj client.Object, resourceType string, logger logr.Logger) error {
-	err := client.Create(ctx, obj)
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			logger.V(1).Info("Resource already exists", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return nil
-		}
-		logger.Error(err, "Failed to create resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-		return err
-	}
-	logger.Info("Created resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-	return nil
 }
 
 // convertArgoPhase converts Argo workflow phase to generic build phase
@@ -170,7 +155,6 @@ func (e *Engine) convertArgoPhase(phase argoproj.WorkflowPhase) engines.BuildPha
 	}
 }
 
-// Helper methods moved from original workflow.go
 func (e *Engine) getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStatus {
 	for _, node := range nodes {
 		if node.TemplateName == step {
