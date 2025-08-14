@@ -21,17 +21,13 @@ const (
 
 // Build condition reasons
 const (
-	ReasonBuildInitiated          controller.ConditionReason = "BuildInitiated"
-	ReasonBuildTriggered          controller.ConditionReason = "BuildTriggered"
-	ReasonBuildCompleted          controller.ConditionReason = "BuildCompleted"
-	ReasonBuildFailed             controller.ConditionReason = "BuildFailed"
-	ReasonBuildInProgress         controller.ConditionReason = "BuildInProgress"
-	ReasonWorkflowCreated         controller.ConditionReason = "WorkflowCreated"
-	ReasonWorkflowCreationFailed  controller.ConditionReason = "WorkflowCreationFailed"
-	ReasonNamespaceCreationFailed controller.ConditionReason = "NamespaceCreationFailed"
-	ReasonRBACCreationFailed      controller.ConditionReason = "RBACCreationFailed"
-	ReasonWorkloadUpdated         controller.ConditionReason = "WorkloadUpdated"
-	ReasonWorkloadUpdateFailed    controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonBuildInitiated       controller.ConditionReason = "BuildInitiated"
+	ReasonBuildTriggered       controller.ConditionReason = "BuildTriggered"
+	ReasonBuildCompleted       controller.ConditionReason = "BuildCompleted"
+	ReasonBuildFailed          controller.ConditionReason = "BuildFailed"
+	ReasonBuildInProgress      controller.ConditionReason = "BuildInProgress"
+	ReasonWorkloadUpdated      controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed controller.ConditionReason = "WorkloadUpdateFailed"
 )
 
 // NewBuildInitiatedCondition creates a new BuildInitiated condition
@@ -107,50 +103,6 @@ func NewWorkloadUpdateFailedCondition(generation int64) metav1.Condition {
 		Status:             metav1.ConditionFalse,
 		Reason:             string(ReasonWorkloadUpdateFailed),
 		Message:            "Failed to update workload with the new built image",
-		ObservedGeneration: generation,
-	}
-}
-
-// NewWorkflowCreatedCondition creates a new WorkflowCreated condition
-func NewWorkflowCreatedCondition(generation int64) metav1.Condition {
-	return metav1.Condition{
-		Type:               string(ConditionBuildTriggered),
-		Status:             metav1.ConditionTrue,
-		Reason:             string(ReasonWorkflowCreated),
-		Message:            "Build workflow created successfully",
-		ObservedGeneration: generation,
-	}
-}
-
-// NewWorkflowCreationFailedCondition creates a new WorkflowCreationFailed condition
-func NewWorkflowCreationFailedCondition(generation int64, message string) metav1.Condition {
-	return metav1.Condition{
-		Type:               string(ConditionBuildCompleted),
-		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonWorkflowCreationFailed),
-		Message:            message,
-		ObservedGeneration: generation,
-	}
-}
-
-// NewNamespaceCreationFailedCondition creates a new NamespaceCreationFailed condition
-func NewNamespaceCreationFailedCondition(generation int64, message string) metav1.Condition {
-	return metav1.Condition{
-		Type:               string(ConditionBuildCompleted),
-		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonNamespaceCreationFailed),
-		Message:            message,
-		ObservedGeneration: generation,
-	}
-}
-
-// NewRBACCreationFailedCondition creates a new RBACCreationFailed condition
-func NewRBACCreationFailedCondition(generation int64, message string) metav1.Condition {
-	return metav1.Condition{
-		Type:               string(ConditionBuildCompleted),
-		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonRBACCreationFailed),
-		Message:            message,
 		ObservedGeneration: generation,
 	}
 }
