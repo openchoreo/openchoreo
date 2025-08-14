@@ -193,9 +193,6 @@ func (s *Builder) UpdateBuildStatusConditions(build *openchoreov1alpha1.Build, s
 func (s *Builder) determineBuildEngine(build *openchoreov1alpha1.Build) string {
 	// For now, always use argo. In the future, this could be determined by:
 	// - build.Spec.TemplateRef.Engine
-	// - build annotations
-	// - organization/project defaults
-	// - build plane configuration
 	if build.Spec.TemplateRef.Engine != "" {
 		return build.Spec.TemplateRef.Engine
 	}
@@ -227,7 +224,6 @@ func (s *Builder) GetBuildPlaneClient(ctx context.Context, buildPlane *openchore
 	return bpClient, nil
 }
 
-// Helper methods for setting conditions
 func (s *Builder) setBuildInProgressCondition(build *openchoreov1alpha1.Build) {
 	condition := NewBuildInProgressCondition(build.Generation)
 	meta.SetStatusCondition(&build.Status.Conditions, condition)

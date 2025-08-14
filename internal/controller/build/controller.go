@@ -21,7 +21,6 @@ import (
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	engines "github.com/openchoreo/openchoreo/internal/controller/build/engines"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 const (
@@ -239,35 +238,6 @@ func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1al
 	return bpClient, nil
 }
 
-// ensurePrerequisiteResources ensures that all prerequisite resources exist for the workflow
-func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *openchoreov1alpha1.Build, logger logr.Logger) error {
-	// Create namespace
-	namespace := makeNamespace(build)
-	if err := r.ensureResource(ctx, bpClient, namespace, "Namespace", logger); err != nil {
-		return fmt.Errorf("failed to ensure namespace: %w", err)
-	}
-
-	// Create service account
-	serviceAccount := makeServiceAccount(build)
-	if err := r.ensureResource(ctx, bpClient, serviceAccount, "ServiceAccount", logger); err != nil {
-		return fmt.Errorf("failed to ensure service account: %w", err)
-	}
-
-	// Create role
-	role := makeRole(build)
-	if err := r.ensureResource(ctx, bpClient, role, "Role", logger); err != nil {
-		return fmt.Errorf("failed to ensure role: %w", err)
-	}
-
-	// Create role binding
-	roleBinding := makeRoleBinding(build)
-	if err := r.ensureResource(ctx, bpClient, roleBinding, "RoleBinding", logger); err != nil {
-		return fmt.Errorf("failed to ensure role binding: %w", err)
-	}
-
-	return nil
-}
-
 // ensureResource creates a resource if it doesn't exist, ignoring "already exists" errors
 func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client, obj client.Object, resourceType string, logger logr.Logger) error {
 	err := bpClient.Create(ctx, obj)
@@ -280,34 +250,6 @@ func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client,
 	}
 	logger.Info("Created resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
 	return nil
-}
-
-// ensureWorkflow fetches the Argo Workflow; if it doesn't exist it creates one.
-// Returns (workflow, created, error)
-func (r *Reconciler) ensureWorkflow(
-	ctx context.Context,
-	build *openchoreov1alpha1.Build,
-	bpClient client.Client,
-) (*argoproj.Workflow, bool, error) {
-	wf := &argoproj.Workflow{}
-	err := bpClient.Get(ctx,
-		client.ObjectKey{Name: makeWorkflowName(build), Namespace: makeNamespaceName(build)},
-		wf,
-	)
-
-	if err == nil || apierrors.IsAlreadyExists(err) {
-		return wf, false, nil
-	}
-
-	if !apierrors.IsNotFound(err) {
-		return nil, false, err
-	}
-
-	wf = makeArgoWorkflow(build)
-	if err := bpClient.Create(ctx, wf); err != nil {
-		return nil, false, err
-	}
-	return wf, true, nil
 }
 
 // updateBuildStatus updates build status based on workflow status
@@ -343,33 +285,6 @@ func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *ope
 		// Workflow is pending or in unknown state, requeue
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
-}
-
-func getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStatus {
-	for _, node := range nodes {
-		if node.TemplateName == step {
-			return &node
-		}
-	}
-	return nil
-}
-
-func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
-	for _, param := range output.Parameters {
-		if param.Name == "image" {
-			return *param.Value
-		}
-	}
-	return ""
-}
-
-func getWorkloadCRFromWorkflow(output argoproj.Outputs) string {
-	for _, param := range output.Parameters {
-		if param.Name == "workload-cr" {
-			return string(*param.Value)
-		}
-	}
-	return ""
 }
 
 // Status update methods
