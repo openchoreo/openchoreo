@@ -46,25 +46,62 @@ fi
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
 echo "$CLUSTER_NAME"
+
 # Try to get base64-encoded values directly
 CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}")
 CLIENT_CERT=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate-data}")
 CLIENT_KEY=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key-data}")
+USER_TOKEN=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.token}")
 
-# Fallback: encode file contents
+# Fallback: encode file contents for CA cert
 if [ -z "$CA_CERT" ]; then
   CA_PATH=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority}")
-  CA_CERT=$(base64 "$CA_PATH" | tr -d '\n')
+  if [ -n "$CA_PATH" ] && [ -f "$CA_PATH" ]; then
+    CA_CERT=$(base64 "$CA_PATH" | tr -d '\n')
+  fi
 fi
 
+# Fallback: encode file contents for client cert and key
 if [ -z "$CLIENT_CERT" ]; then
   CERT_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate}")
-  CLIENT_CERT=$(base64 "$CERT_PATH" | tr -d '\n')
+  if [ -n "$CERT_PATH" ] && [ -f "$CERT_PATH" ]; then
+    CLIENT_CERT=$(base64 "$CERT_PATH" | tr -d '\n')
+  fi
 fi
 
 if [ -z "$CLIENT_KEY" ]; then
   KEY_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key}")
-  CLIENT_KEY=$(base64 "$KEY_PATH" | tr -d '\n')
+  if [ -n "$KEY_PATH" ] && [ -f "$KEY_PATH" ]; then
+    CLIENT_KEY=$(base64 "$KEY_PATH" | tr -d '\n')
+  fi
+fi
+
+# Determine authentication method
+AUTH_TYPE=""
+AUTH_CONFIG=""
+
+if [ -n "$CLIENT_CERT" ] && [ -n "$CLIENT_KEY" ]; then
+  # Use certificate-based authentication
+  AUTH_TYPE="cert"
+  AUTH_CONFIG="cert:
+        clientCertData: $CLIENT_CERT
+        clientKeyData: $CLIENT_KEY"
+  echo "Using certificate-based authentication"
+elif [ -n "$USER_TOKEN" ]; then
+  # Use bearer token authentication
+  AUTH_TYPE="bearer"
+  AUTH_CONFIG="bearer:
+        tokenData: $USER_TOKEN"
+  echo "Using bearer token authentication"
+else
+  echo -e "\n${RED}Error: No valid authentication method found. Need either client certificates or user token in the kube config.${RESET}"
+  exit 1
+fi
+
+# Validate CA certificate is available
+if [ -z "$CA_CERT" ]; then
+  echo -e "\n${RED}Error: CA certificate is required but not found in kubeconfig.${RESET}"
+  exit 1
 fi
 
 # Apply the DataPlane manifest in the target context
@@ -90,12 +127,13 @@ spec:
     organizationVirtualHost: openchoreoapis.internal
     publicVirtualHost: openchoreoapis.localhost
   kubernetesCluster:
-    name: $CLUSTER_NAME
-    credentials:
-      apiServerURL: $SERVER_URL
-      caCert: $CA_CERT
-      clientCert: $CLIENT_CERT
-      clientKey: $CLIENT_KEY
+    connection:
+      server: $SERVER_URL
+      tls:
+        caData: $CA_CERT
+    auth:
+      type: $AUTH_TYPE
+      $AUTH_CONFIG
 EOF
 then
     echo -e "\n${GREEN}DataPlane applied to 'default' successfully!${RESET}"
