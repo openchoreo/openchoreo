@@ -60,38 +60,100 @@ spec:
                 description: KubernetesCluster defines the target Kubernetes cluster
                   where workloads should be deployed.
                 properties:
-                  credentials:
-                    description: Credentials contains the authentication details for
-                      accessing the Kubernetes API server.
+                  auth:
+                    description: Auth contains the authentication configuration
                     properties:
-                      apiServerURL:
-                        description: APIServerURL is the URL of the Kubernetes API
-                          server.
-                        type: string
-                      caCert:
-                        description: CACert is the base64-encoded CA certificate used
-                          to verify the server's certificate.
-                        type: string
-                      clientCert:
-                        description: ClientCert is the base64-encoded client certificate
-                          used for authentication.
-                        type: string
-                      clientKey:
-                        description: ClientKey is the base64-encoded private key corresponding
-                          to the client certificate.
+                      bearer:
+                        description: Bearer contains the bearer token authentication
+                          configuration
+                        properties:
+                          tokenData:
+                            description: TokenData is the raw token string (fallback
+                              option)
+                            type: string
+                          tokenSecretRef:
+                            description: TokenSecretRef is a reference to a secret
+                              containing the bearer token
+                            type: string
+                        required:
+                        - tokenSecretRef
+                        type: object
+                      cert:
+                        description: Cert contains the certificate-based authentication
+                          configuration
+                        properties:
+                          clientCertData:
+                            description: ClientCertData is the base64-encoded client
+                              certificate (fallback option)
+                            type: string
+                          clientCertSecretRef:
+                            description: ClientCertSecretRef is a reference to a secret
+                              containing the client certificate
+                            type: string
+                          clientKeyData:
+                            description: ClientKeyData is the base64-encoded client
+                              private key (fallback option)
+                            type: string
+                          clientKeySecretRef:
+                            description: ClientKeySecretRef is a reference to a secret
+                              containing the client private key
+                            type: string
+                        required:
+                        - clientCertSecretRef
+                        - clientKeySecretRef
+                        type: object
+                      oidc:
+                        description: OIDC contains the OIDC authentication configuration
+                        properties:
+                          config:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              Configuration map for OIDC settings
+                              This is a placeholder for OIDC configuration which can be expanded based on requirements
+                            type: object
+                        type: object
+                      type:
+                        allOf:
+                        - enum:
+                          - cert
+                          - bearer
+                          - oidc
+                        - enum:
+                          - cert
+                          - bearer
+                          - oidc
+                        description: 'Type specifies the authentication method: cert,
+                          bearer, or oidc'
                         type: string
                     required:
-                    - apiServerURL
-                    - caCert
-                    - clientCert
-                    - clientKey
+                    - type
                     type: object
-                  name:
-                    description: Name of the Kubernetes cluster
-                    type: string
+                  connection:
+                    description: Connection contains the server connection details
+                    properties:
+                      server:
+                        description: Server is the URL of the Kubernetes API server
+                        type: string
+                      tls:
+                        description: TLS contains the TLS configuration for the connection
+                        properties:
+                          caData:
+                            description: CAData is the base64-encoded CA certificate
+                              (fallback option)
+                            type: string
+                          caSecretRef:
+                            description: CASecretRef is a reference to a secret containing
+                              the CA certificate
+                            type: string
+                        type: object
+                    required:
+                    - server
+                    - tls
+                    type: object
                 required:
-                - credentials
-                - name
+                - auth
+                - connection
                 type: object
               observer:
                 description: Observer specifies the configuration for the Observer

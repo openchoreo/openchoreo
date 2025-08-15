@@ -7,27 +7,89 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// AuthType represents the authentication method for Kubernetes cluster access
+// +kubebuilder:validation:Enum=cert;bearer;oidc
+type AuthType string
+
+const (
+	// AuthTypeCert represents certificate-based authentication (mTLS)
+	AuthTypeCert AuthType = "cert"
+	// AuthTypeBearer represents bearer token authentication
+	AuthTypeBearer AuthType = "bearer"
+	// AuthTypeOIDC represents OIDC authentication
+	AuthTypeOIDC AuthType = "oidc"
+)
 
 // KubernetesClusterSpec defines the configuration for the target Kubernetes cluster
 type KubernetesClusterSpec struct {
-	// Name of the Kubernetes cluster
-	Name string `json:"name"`
-	// Credentials contains the authentication details for accessing the Kubernetes API server.
-	Credentials APIServerCredentials `json:"credentials"`
+	// Connection contains the server connection details
+	Connection KubernetesConnection `json:"connection"`
+	// Auth contains the authentication configuration
+	Auth KubernetesAuth `json:"auth"`
 }
 
-// APIServerCredentials holds the TLS credentials to connect securely with a Kubernetes API server.
-type APIServerCredentials struct {
-	// APIServerURL is the URL of the Kubernetes API server.
-	APIServerURL string `json:"apiServerURL"`
-	// CACert is the base64-encoded CA certificate used to verify the server's certificate.
-	CACert string `json:"caCert"`
-	// ClientCert is the base64-encoded client certificate used for authentication.
-	ClientCert string `json:"clientCert"`
-	// ClientKey is the base64-encoded private key corresponding to the client certificate.
-	ClientKey string `json:"clientKey"`
+// KubernetesConnection defines the connection details for the Kubernetes API server
+type KubernetesConnection struct {
+	// Server is the URL of the Kubernetes API server
+	Server string `json:"server"`
+	// TLS contains the TLS configuration for the connection
+	TLS KubernetesTLS `json:"tls"`
+}
+
+// KubernetesTLS defines the TLS configuration for the Kubernetes connection
+type KubernetesTLS struct {
+	// CASecretRef is a reference to a secret containing the CA certificate
+	// +optional
+	CASecretRef string `json:"caSecretRef,omitempty"`
+	// CAData is the base64-encoded CA certificate (fallback option)
+	// +optional
+	CAData string `json:"caData,omitempty"`
+}
+
+// KubernetesAuth defines the authentication configuration for the Kubernetes cluster
+type KubernetesAuth struct {
+	// Type specifies the authentication method: cert, bearer, or oidc
+	// +kubebuilder:validation:Enum=cert;bearer;oidc
+	Type AuthType `json:"type"`
+	// Cert contains the certificate-based authentication configuration
+	// +optional
+	Cert *KubernetesCertAuth `json:"cert,omitempty"`
+	// Bearer contains the bearer token authentication configuration
+	// +optional
+	Bearer *KubernetesBearerAuth `json:"bearer,omitempty"`
+	// OIDC contains the OIDC authentication configuration
+	// +optional
+	OIDC *KubernetesOIDCAuth `json:"oidc,omitempty"`
+}
+
+// KubernetesCertAuth defines certificate-based authentication (mTLS)
+type KubernetesCertAuth struct {
+	// ClientCertSecretRef is a reference to a secret containing the client certificate
+	ClientCertSecretRef string `json:"clientCertSecretRef"`
+	// ClientKeySecretRef is a reference to a secret containing the client private key
+	ClientKeySecretRef string `json:"clientKeySecretRef"`
+	// ClientCertData is the base64-encoded client certificate (fallback option)
+	// +optional
+	ClientCertData string `json:"clientCertData,omitempty"`
+	// ClientKeyData is the base64-encoded client private key (fallback option)
+	// +optional
+	ClientKeyData string `json:"clientKeyData,omitempty"`
+}
+
+// KubernetesBearerAuth defines bearer token authentication
+type KubernetesBearerAuth struct {
+	// TokenSecretRef is a reference to a secret containing the bearer token
+	TokenSecretRef string `json:"tokenSecretRef"`
+	// TokenData is the raw token string (fallback option)
+	// +optional
+	TokenData string `json:"tokenData,omitempty"`
+}
+
+// KubernetesOIDCAuth defines OIDC authentication configuration
+type KubernetesOIDCAuth struct {
+	// Configuration map for OIDC settings
+	// This is a placeholder for OIDC configuration which can be expanded based on requirements
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // GatewaySpec defines the gateway configuration for the data plane
