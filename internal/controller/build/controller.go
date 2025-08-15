@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +19,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	engines "github.com/openchoreo/openchoreo/internal/controller/build/engines"
+	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 )
 
 const (
@@ -236,20 +235,6 @@ func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1al
 		return nil, err
 	}
 	return bpClient, nil
-}
-
-// ensureResource creates a resource if it doesn't exist, ignoring "already exists" errors
-func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client, obj client.Object, resourceType string, logger logr.Logger) error {
-	err := bpClient.Create(ctx, obj)
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		logger.Error(err, "Failed to create resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-		return err
-	}
-	logger.Info("Created resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-	return nil
 }
 
 // updateBuildStatus updates build status based on workflow status
