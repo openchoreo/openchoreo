@@ -6,7 +6,6 @@ package argo
 import (
 	"context"
 	"fmt"
-	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 	"github.com/openchoreo/openchoreo/internal/controller/build/utils"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
