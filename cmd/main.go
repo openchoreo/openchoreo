@@ -50,7 +50,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
@@ -172,9 +171,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize dataPlane client manager
-	dpClientMgr := dpKubernetes.NewManager()
-
 	// -----------------------------------------------------------------------------
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
@@ -195,9 +191,8 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&environment.Reconciler{
-			Client:      mgr.GetClient(),
-			DpClientMgr: dpClientMgr,
-			Scheme:      mgr.GetScheme(),
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			os.Exit(1)
@@ -231,17 +226,15 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&deployment.Reconciler{
-			Client:      mgr.GetClient(),
-			DpClientMgr: dpClientMgr,
-			Scheme:      mgr.GetScheme(),
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
 			os.Exit(1)
 		}
 		if err = (&endpoint.Reconciler{
-			Client:      mgr.GetClient(),
-			DpClientMgr: dpClientMgr,
-			Scheme:      mgr.GetScheme(),
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 			os.Exit(1)
@@ -364,9 +357,8 @@ func main() {
 	}
 
 	if err = (&release.Reconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		DpClientMgr: dpClientMgr,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
 		os.Exit(1)
