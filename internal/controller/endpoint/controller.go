@@ -6,6 +6,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,15 +24,14 @@ import (
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes/visibility"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Endpoint object
 type Reconciler struct {
 	client.Client
-	DpClientMgr *dpKubernetes.KubeClientManager
-	Scheme      *runtime.Scheme
-	recorder    record.EventRecorder
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme       *runtime.Scheme
+	recorder     record.EventRecorder
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -185,6 +185,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.recorder = mgr.GetEventRecorderFor("endpoint-controller")
 	}
 
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
+	}
+
 	if err := r.setupDataPlaneRefIndex(context.Background(), mgr); err != nil {
 		return fmt.Errorf("failed to setup dataPlane reference index: %w", err)
 	}
@@ -213,7 +217,12 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 	}
 
 	// Get the DP client using the credentials from the dataplane
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	dpClient, err := kubernetesClient.GetK8sClient(
+		r.k8sClientMgr,
+		dataplaneRes.Namespace,
+		dataplaneRes.Name,
+		dataplaneRes.Spec.KubernetesCluster,
+	)
 	if err != nil {
 		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)

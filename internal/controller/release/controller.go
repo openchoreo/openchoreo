@@ -6,6 +6,7 @@ package release
 import (
 	"context"
 	"fmt"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"math/rand"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -32,8 +32,8 @@ const (
 // Reconciler reconciles a Release object
 type Reconciler struct {
 	client.Client
-	DpClientMgr *dpKubernetes.KubeClientManager
-	Scheme      *runtime.Scheme
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme       *runtime.Scheme
 }
 
 // TODO: Optimize to apply resource only if spec has changed
@@ -161,7 +161,7 @@ func (r *Reconciler) getDPClient(ctx context.Context, environmentName string) (c
 	}
 
 	// Get the dataplane client
-	dpClient, err := r.DpClientMgr.GetClient(dataplane.Name, dataplane.Spec.KubernetesCluster.Credentials)
+	dpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, dataplane.Namespace, dataplane.Name, dataplane.Spec.KubernetesCluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataplane.Name, err)
 	}
@@ -520,6 +520,10 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Release{}).
 		Named("release").

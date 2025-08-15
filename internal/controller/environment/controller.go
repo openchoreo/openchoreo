@@ -6,6 +6,7 @@ package environment
 import (
 	"context"
 	"fmt"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,15 +22,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/environment/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reconciler reconciles a Environment object
 type Reconciler struct {
 	client.Client
-	DpClientMgr *dpKubernetes.KubeClientManager
-	Scheme      *runtime.Scheme
-	Recorder    record.EventRecorder
+	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme       *runtime.Scheme
+	Recorder     record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -101,6 +101,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("environment-controller")
 	}
 
+	if r.k8sClientMgr == nil {
+		r.k8sClientMgr = kubernetesClient.NewManager()
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Environment{}).
 		Named("environment").
@@ -128,7 +132,12 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	dpClient, err := dpKubernetes.GetDPClient(r.DpClientMgr, dataplaneRes)
+	dpClient, err := kubernetesClient.GetK8sClient(
+		r.k8sClientMgr,
+		dataplaneRes.Namespace,
+		dataplaneRes.Name,
+		dataplaneRes.Spec.KubernetesCluster,
+	)
 	if err != nil {
 		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
