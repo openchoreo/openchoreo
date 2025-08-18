@@ -1,5 +1,5 @@
 import { Entity } from "@backstage/catalog-model/index";
-import { API_ENDPOINTS, CHOREO_LABELS } from "../constants";
+import { API_ENDPOINTS, CHOREO_ANNOTATIONS } from "../constants";
 import { DiscoveryApi, IdentityApi } from "@backstage/core-plugin-api";
 import { ModelsWorkload } from "@internal/plugin-openchoreo-api";
 
@@ -12,9 +12,9 @@ export async function fetchWorkloadInfo(
     const backendUrl = new URL(
         `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.DEPLOYEMNT_WORKLOAD}`,
       );
-    const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-    const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
-    const organizationName = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+    const componentName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+    const projectName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
+    const organizationName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
     if (!componentName || !projectName || !organizationName) {
         throw new Error('Missing required labels');
     }
@@ -45,9 +45,9 @@ export async function applyWorkload(
     const backendUrl = new URL(
         `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.DEPLOYEMNT_WORKLOAD}`,
     );  
-    const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-    const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
-    const organizationName = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+    const componentName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+    const projectName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
+    const organizationName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
     if (!componentName || !projectName || !organizationName) {
         throw new Error('Missing required labels');
     }

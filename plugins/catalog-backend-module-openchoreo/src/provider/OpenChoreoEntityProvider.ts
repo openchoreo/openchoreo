@@ -15,6 +15,7 @@ import {
   ModelsCompleteComponent,
   WorkloadEndpoint,
 } from '@internal/plugin-openchoreo-api';
+import { CHOREO_ANNOTATIONS, CHOREO_LABELS } from '@internal/plugin-choreo';
 
 /**
  * Provides entities from OpenChoreo API
@@ -199,13 +200,13 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         annotations: {
           'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
           'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
-          'openchoreo.io/organization-id': organization.name,
-          'openchoreo.io/namespace': organization.namespace,
-          'openchoreo.io/created-at': organization.createdAt,
-          'openchoreo.io/status': organization.status,
+          [CHOREO_ANNOTATIONS.ORGANIZATION]: organization.name,
+          [CHOREO_ANNOTATIONS.NAMESPACE]: organization.namespace,
+          [CHOREO_ANNOTATIONS.CREATED_AT]: organization.createdAt,
+          [CHOREO_ANNOTATIONS.STATUS]: organization.status,
         },
         labels: {
-          'openchoreo.io/managed': 'true',
+          [CHOREO_LABELS.MANAGED]: 'true',
         },
       },
       spec: {
@@ -235,8 +236,8 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         annotations: {
           'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
           'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
-          'openchoreo.io/project-id': project.name,
-          'openchoreo.io/organization': orgName,
+          [CHOREO_ANNOTATIONS.PROJECT_ID]: project.name,
+          [CHOREO_ANNOTATIONS.ORGANIZATION]: orgName,
         },
         labels: {
           'openchoreo.io/managed': 'true',
@@ -278,19 +279,19 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         annotations: {
           'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
           'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
-          'openchoreo.io/component-id': component.name,
-          'openchoreo.io/component-type': component.type,
-          'openchoreo.io/project': projectName,
-          'openchoreo.io/organization': orgName,
-          'openchoreo.io/created-at': component.createdAt,
-          'openchoreo.io/status': component.status,
+          [CHOREO_ANNOTATIONS.COMPONENT]: component.name,
+          [CHOREO_ANNOTATIONS.COMPONENT_TYPE]: component.type,
+          [CHOREO_ANNOTATIONS.PROJECT]: projectName,
+          [CHOREO_ANNOTATIONS.ORGANIZATION]: orgName,
+          [CHOREO_ANNOTATIONS.CREATED_AT]: component.createdAt,
+          [CHOREO_ANNOTATIONS.STATUS]: component.status,
           ...(component.repositoryUrl && {
             'backstage.io/source-location': `url:${component.repositoryUrl}`,
           }),
-          ...(component.branch && { 'openchoreo.io/branch': component.branch }),
+          ...(component.branch && { [CHOREO_ANNOTATIONS.BRANCH]: component.branch }),
         },
         labels: {
-          'openchoreo.io/managed': 'true',
+          [CHOREO_LABELS.MANAGED]: 'true',
         },
       },
       spec: {
@@ -359,12 +360,12 @@ export class OpenChoreoEntityProvider implements EntityProvider {
             annotations: {
               'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
               'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
-              'openchoreo.io/component-id': completeComponent.name,
-              'openchoreo.io/endpoint-name': endpointName,
-              'openchoreo.io/endpoint-type': endpoint.type,
-              'openchoreo.io/endpoint-port': endpoint.port.toString(),
-              'openchoreo.io/project': projectName,
-              'openchoreo.io/organization': orgName,
+              [CHOREO_ANNOTATIONS.COMPONENT]: completeComponent.name,
+              [CHOREO_ANNOTATIONS.ENDPOINT_NAME]: endpointName,
+              [CHOREO_ANNOTATIONS.ENDPOINT_TYPE]: endpoint.type,
+              [CHOREO_ANNOTATIONS.ENDPOINT_PORT]: endpoint.port.toString(),
+              [CHOREO_ANNOTATIONS.PROJECT]: projectName,
+              [CHOREO_ANNOTATIONS.ORGANIZATION]: orgName,
             },
             labels: {
               'openchoreo.io/managed': 'true',

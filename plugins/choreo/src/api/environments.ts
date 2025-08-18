@@ -1,6 +1,6 @@
 import { Entity } from '@backstage/catalog-model/index';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
-import { CHOREO_LABELS, API_ENDPOINTS } from '../constants';
+import { CHOREO_ANNOTATIONS, API_ENDPOINTS } from '../constants';
 
 export async function fetchEnvironmentInfo(
   entity: Entity,
@@ -11,10 +11,10 @@ export async function fetchEnvironmentInfo(
   const backendUrl = new URL(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.ENVIRONMENT_INFO}`,
   );
-  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+  const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+  const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
   const organization =
-    entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+    entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
   if (!project || !component || !organization) {
     console.log('Missing required labels:', {
       project,
@@ -51,9 +51,9 @@ export async function promoteToEnvironment(
   const backendUrl = new URL(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.PROMOTE_DEPLOYMENT}`,
   );
-  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+  const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+  const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
+  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     throw new Error('Missing required metadata in entity');
@@ -95,9 +95,9 @@ export async function updateComponentBinding(
   const backendUrl = new URL(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.UPDATE_BINDING}`,
   );
-  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+  const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+  const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
+  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     throw new Error('Missing required metadata in entity');

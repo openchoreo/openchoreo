@@ -1,6 +1,6 @@
 import { Entity } from '@backstage/catalog-model/index';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
-import { CHOREO_LABELS } from '../constants/labels';
+import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api/src/types/labels';
 import { API_ENDPOINTS } from '../constants/api';
 import {
   LogsResponse,
@@ -15,7 +15,7 @@ export async function getRuntimeLogs(
   params: RuntimeLogsParams,
 ): Promise<LogsResponse> {
   const { token } = await identity.getCredentials();
-  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT]; // TODO: Inconsistent entity labels
+  const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT]; // TODO: Inconsistent entity labels
 
   if (!component) {
     throw new Error('Component name not found in entity labels');
@@ -27,8 +27,8 @@ export async function getRuntimeLogs(
     }/${component}`,
   );
 
-  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+  const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
+  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (project && organization) {
     const queryParams = new URLSearchParams({
@@ -82,10 +82,10 @@ export async function getEnvironments(
     `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.ENVIRONMENT_INFO}`,
   );
 
-  const component = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-  const project = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+  const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+  const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
   const organization =
-    entity.metadata.annotations?.[CHOREO_LABELS.ORGANIZATION];
+    entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     return [];

@@ -15,7 +15,7 @@ import { Connection, ModelsWorkload } from '@internal/plugin-openchoreo-api';
 import { catalogApiRef, useEntity } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model/index';
-import { CHOREO_LABELS } from '../../../../constants';
+import { CHOREO_ANNOTATIONS } from '../../../../constants';
 import { fetchWorkloadInfo } from '../../../../api/workloadInfo';
 
 interface ConnectionItemProps {
@@ -57,7 +57,7 @@ export const ConnectionItem: FC<ConnectionItemProps> = ({
 
     const projectList = useMemo(() => {
         return allComponents.reduce((acc, component) => {
-            const projectName = component.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+            const projectName = component.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
             if (projectName && !acc.includes(projectName)) {
                 acc.push(projectName);
             }
@@ -66,7 +66,7 @@ export const ConnectionItem: FC<ConnectionItemProps> = ({
     }, [allComponents]);
 
     const componentsList = useMemo(() => {
-        return allComponents.filter(component => component.metadata.annotations?.[CHOREO_LABELS.PROJECT] === connection.params?.projectName)
+        return allComponents.filter(component => component.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT] === connection.params?.projectName)
     }, [allComponents, connection.params?.projectName]);
 
 
@@ -74,7 +74,7 @@ export const ConnectionItem: FC<ConnectionItemProps> = ({
         const fetchComponents = async () => {
             const components = await catalogApi.getEntities();
             setAllComponents(components.items?.filter(entity => entity.kind === 'Component' &&
-                !(entity.metadata.name === selectedEntity.metadata.name && entity.metadata.annotations?.[CHOREO_LABELS.PROJECT] === connection.params?.projectName)) || []);
+                !(entity.metadata.name === selectedEntity.metadata.name && entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT] === connection.params?.projectName)) || []);
         }
         fetchComponents();
     }, [catalogApi, selectedEntity.metadata.name, connection.params?.projectName]);
@@ -83,7 +83,7 @@ export const ConnectionItem: FC<ConnectionItemProps> = ({
     useEffect(() => {
 
         const fetchEndPoints = async () => {
-            const component = allComponents.find(entity => entity.metadata.name === connection.params?.componentName && entity.metadata.annotations?.[CHOREO_LABELS.PROJECT] === connection.params?.projectName);
+            const component = allComponents.find(entity => entity.metadata.name === connection.params?.componentName && entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT] === connection.params?.projectName);
             if (component) {
                 try {
                     const toWorkload: ModelsWorkload = await fetchWorkloadInfo(component, discoveryApi, identityApi);
@@ -123,7 +123,7 @@ export const ConnectionItem: FC<ConnectionItemProps> = ({
             const initialComponent = componentsList[0];
             if (initialComponent) {
                 handleFieldChange('params.componentName', initialComponent.metadata.name);
-                handleFieldChange('params.projectName', initialComponent.metadata.annotations?.[CHOREO_LABELS.PROJECT] || '');
+                handleFieldChange('params.projectName', initialComponent.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT] || '');
             }
         }
     }, [componentsList, connection.params?.projectName, handleFieldChange]);

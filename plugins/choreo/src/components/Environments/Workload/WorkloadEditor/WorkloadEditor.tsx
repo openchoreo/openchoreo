@@ -8,7 +8,7 @@ import { ContainerSection } from './ContainerSection';
 import { EndpointSection } from './EndpointSection';
 import { ConnectionSection } from './ConnectionSection';
 import { Alert } from '@material-ui/lab';
-import { CHOREO_LABELS } from '../../../../constants';
+import { CHOREO_ANNOTATIONS } from '../../../../constants';
 import { Entity } from '@backstage/catalog-model';
 import { useWorkloadContext } from '../WorkloadContext';
 
@@ -20,8 +20,8 @@ interface WorkloadEditorProps {
 export function WorkloadEditor({ onDeploy, entity }: WorkloadEditorProps) {
     const { workloadSpec, setWorkloadSpec, isDeploying } = useWorkloadContext();
 
-    const componentName = entity.metadata.annotations?.[CHOREO_LABELS.COMPONENT];
-    const projectName = entity.metadata.annotations?.[CHOREO_LABELS.PROJECT];
+    const componentName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
+    const projectName = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
 
     const [formData, setFormData] = useState<Omit<ModelsWorkload, 'type'>>({
         name: entity.metadata.name,
