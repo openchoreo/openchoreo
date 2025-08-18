@@ -18,7 +18,7 @@ import {
   identityApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
-import { Entity } from '@backstage/catalog-model/index';
+import { Entity } from '@backstage/catalog-model';
 import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
 import { fetchWorkloadInfo } from '../../../../api/workloadInfo';
 

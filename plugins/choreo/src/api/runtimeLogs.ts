@@ -1,4 +1,4 @@
-import { Entity } from '@backstage/catalog-model/index';
+import { Entity } from '@backstage/catalog-model';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
 import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
 import { API_ENDPOINTS } from '../constants/api';
