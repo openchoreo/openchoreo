@@ -12,8 +12,8 @@ import {
   IconButton,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import FileCopyIcon from '@material-ui/icons/FileCopy';
+import AccessTimeIcon from '@material-ui/icons/AccessTime';
 
 import {
   discoveryApiRef,
@@ -377,7 +377,7 @@ export const Environments = () => {
                                   // You could add a toast notification here
                                 }}
                               >
-                                <ContentCopyIcon fontSize="small" />
+                                <FileCopyIcon fontSize="small" />
                               </IconButton>
                             </Box>
                           </Box>
