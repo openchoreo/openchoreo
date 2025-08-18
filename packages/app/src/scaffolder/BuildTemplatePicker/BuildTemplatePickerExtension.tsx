@@ -79,7 +79,6 @@ export const BuildTemplatePicker = ({
         formContext.buildTemplates = templates;
       } catch (err) {
         setError(`Failed to fetch build templates: ${err}`);
-        console.error('Error fetching build templates:', err);
         setBuildTemplates([]);
         // Clear templates from form context on error
         if (formContext.buildTemplates) {
@@ -91,7 +90,7 @@ export const BuildTemplatePicker = ({
     };
 
     fetchBuildTemplates();
-  }, [organizationName, discoveryApi]);
+  }, [organizationName, discoveryApi, formContext, identityApi]);
 
   const handleChange = (event: ChangeEvent<{ value: unknown }>) => {
     onChange(event.target.value as string);

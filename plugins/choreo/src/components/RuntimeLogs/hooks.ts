@@ -12,7 +12,6 @@ import {
   Environment,
   RuntimeLogsFilters,
   RuntimeLogsPagination,
-  LOG_LEVELS,
 } from './types';
 
 export function useEnvironments() {
@@ -72,7 +71,10 @@ export function useRuntimeLogs(
         const currentOffset = reset ? 0 : pagination.offset;
 
         const response = await getRuntimeLogs(entity, discovery, identity, {
-          environmentId: typeof filters.environmentId === 'string' ? filters.environmentId.toLowerCase() : '',
+          environmentId:
+            typeof filters.environmentId === 'string'
+              ? filters.environmentId.toLowerCase()
+              : '',
           logLevels: filters.logLevel,
           startTime,
           endTime,
@@ -94,14 +96,14 @@ export function useRuntimeLogs(
         setLoading(false);
       }
     },
-    [entity, discovery, identity, filters, pagination],
+    [entity, discovery, identity, filters, pagination, loading], // TODO: Verify this array
   );
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
       fetchLogs(false);
     }
-  }, [fetchLogs, hasMore]);
+  }, [fetchLogs, hasMore, loading]);
 
   const refresh = useCallback(() => {
     setLogs([]);

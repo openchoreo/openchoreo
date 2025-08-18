@@ -25,7 +25,9 @@
   },
   "dependencies": {
     "@backstage/backend-plugin-api": "^1.3.0",
-    "@backstage/plugin-scaffolder-node": "^0.8.1"
+    "@backstage/config": "^1.3.3",
+    "@backstage/plugin-scaffolder-node": "^0.8.1",
+    "@internal/plugin-openchoreo-api": "workspace:^"
   },
   "devDependencies": {
     "@backstage/cli": "^0.32.0",

@@ -1,6 +1,7 @@
 import { Entity } from '@backstage/catalog-model/index';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
-import { CHOREO_ANNOTATIONS, API_ENDPOINTS } from '../constants';
+import { API_ENDPOINTS } from '../constants';
+import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api'
 
 export async function getCellDiagramInfo(
   entity: Entity,
@@ -16,7 +17,7 @@ export async function getCellDiagramInfo(
     entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !organization) {
-    console.log('Missing required labels:', { project, organization });
+    // TODO: Improve logging
     return [];
   }
   const params = new URLSearchParams({

@@ -14,7 +14,6 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { StatusOK, StatusError } from '@backstage/core-components';
 
 import {
   discoveryApiRef,
@@ -143,7 +142,7 @@ export const Environments = () => {
       const data = await fetchEnvironmentInfo(entity, discovery, identityApi);
       setEnvironmentsData(data as Environment[]);
     } catch (error) {
-      console.error('Error fetching environment data:', error);
+      // TODO: Log this error
     } finally {
       setLoading(false);
     }

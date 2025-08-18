@@ -52,32 +52,83 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBuildLogs = async (selectedBuild: ModelsBuild) => {
-    setLoading(true);
-    setError(null);
-    setLogs([]);
-
-    try {
-      const logsData = await fetchBuildLogsForBuild(
-        discoveryApi,
-        identityApi,
-        selectedBuild,
-      );
-      setLogs(logsData.logs || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch build logs',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchBuildLogs = async (selectedBuild: ModelsBuild) => {
+      setLoading(true);
+      setError(null);
+      setLogs([]);
+
+      try {
+        const logsData = await fetchBuildLogsForBuild(
+          discoveryApi,
+          identityApi,
+          selectedBuild,
+        );
+        setLogs(logsData.logs || []);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch build logs',
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (open && build) {
       fetchBuildLogs(build);
     }
-  }, [open, build]);
+  }, [discoveryApi,identityApi, open, build]);
+
+  const renderLogsContent = () => {
+    if (loading) {
+      return (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          height="100%"
+        >
+          <CircularProgress size={24} />
+          <Typography variant="body2" style={{ marginLeft: '8px' }}>
+            Loading logs...
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Typography variant="body2" color="error">
+          Error: {error}
+        </Typography>
+      );
+    }
+
+    if (logs.length === 0) {
+      return (
+        <Typography variant="body2">
+          No logs available for this build
+        </Typography>
+      );
+    }
+
+    return logs.map((logEntry, index) => (
+      <Box key={index} style={{ marginBottom: '4px' }}>
+        <Typography
+          variant="body2"
+          className={classes.timestampText}
+        >
+          [{new Date(logEntry.timestamp).toLocaleTimeString()}]
+        </Typography>
+        <Typography
+          variant="body2"
+          className={classes.logText}
+        >
+          {logEntry.log}
+        </Typography>
+      </Box>
+    ));
+  };
 
   return (
     <Drawer
@@ -132,44 +183,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                   p={2}
                   className={classes.logsContainer}
                 >
-                  {loading ? (
-                    <Box
-                      display="flex"
-                      justifyContent="center"
-                      alignItems="center"
-                      height="100%"
-                    >
-                      <CircularProgress size={24} />
-                      <Typography variant="body2" style={{ marginLeft: '8px' }}>
-                        Loading logs...
-                      </Typography>
-                    </Box>
-                  ) : error ? (
-                    <Typography variant="body2" color="error">
-                      Error: {error}
-                    </Typography>
-                  ) : logs.length > 0 ? (
-                    logs.map((logEntry, index) => (
-                      <Box key={index} style={{ marginBottom: '4px' }}>
-                        <Typography
-                          variant="body2"
-                          className={classes.timestampText}
-                        >
-                          [{new Date(logEntry.timestamp).toLocaleTimeString()}]
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          className={classes.logText}
-                        >
-                          {logEntry.log}
-                        </Typography>
-                      </Box>
-                    ))
-                  ) : (
-                    <Typography variant="body2">
-                      No logs available for this build
-                    </Typography>
-                  )}
+                  {renderLogsContent()}
                 </Box>
               </Box>
             </Box>

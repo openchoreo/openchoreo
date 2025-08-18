@@ -1,6 +1,7 @@
 import { Entity } from '@backstage/catalog-model/index';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
-import { CHOREO_ANNOTATIONS, API_ENDPOINTS } from '../constants';
+import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
+import {API_ENDPOINTS} from '../constants'
 
 export async function fetchEnvironmentInfo(
   entity: Entity,
@@ -16,11 +17,7 @@ export async function fetchEnvironmentInfo(
   const organization =
     entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
   if (!project || !component || !organization) {
-    console.log('Missing required labels:', {
-      project,
-      organization,
-      component,
-    });
+    // TODO: improve logging
     return [];
   }
   const params = new URLSearchParams({

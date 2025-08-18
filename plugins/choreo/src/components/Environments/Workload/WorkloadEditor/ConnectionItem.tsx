@@ -15,7 +15,7 @@ import { Connection, ModelsWorkload } from '@internal/plugin-openchoreo-api';
 import { catalogApiRef, useEntity } from '@backstage/plugin-catalog-react';
 import { discoveryApiRef, identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model/index';
-import { CHOREO_ANNOTATIONS } from '../../../../constants';
+import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
 import { fetchWorkloadInfo } from '../../../../api/workloadInfo';
 
 interface ConnectionItemProps {

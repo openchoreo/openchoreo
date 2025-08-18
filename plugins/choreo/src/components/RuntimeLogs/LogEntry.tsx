@@ -160,8 +160,8 @@ export const LogEntry: FC<LogEntryProps> = ({ log }) => {
 
   const handleCopyLog = (event: MouseEvent) => {
     event.stopPropagation();
-    navigator.clipboard.writeText(log.log).catch(error => {
-      console.error('Failed to copy log to clipboard:', error);
+    navigator.clipboard.writeText(log.log).catch(_ => {
+      // TODO: Add error handling
     });
   };
 

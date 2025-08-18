@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useApi, discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -58,7 +58,7 @@ export const Builds = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedBuild, setSelectedBuild] = useState<ModelsBuild | null>(null);
 
-  const getEntityDetails = async () => {
+  const getEntityDetails = useCallback(async () => {
     if (!entity.metadata.name) {
       throw new Error('Component name not found');
     }
@@ -96,9 +96,9 @@ export const Builds = () => {
     const organizationName = typeof organizationValue === 'string' ? organizationValue : String(organizationValue);
 
     return { componentName, projectName, organizationName };
-  };
+  },[entity, catalogApi]);
 
-  const fetchComponentDetails = async () => {
+  const fetchComponentDetails = useCallback(async () => {
     try {
       const { componentName, projectName, organizationName } = await getEntityDetails();
       
@@ -125,9 +125,9 @@ export const Builds = () => {
     } catch (err) {
       setError(err as Error);
     }
-  };
+  }, [discoveryApi, identityApi, getEntityDetails]);
 
-  const fetchBuilds = async () => {
+  const fetchBuilds = useCallback(async () => {
     try {
       const { componentName, projectName, organizationName } = await getEntityDetails();
       
@@ -156,7 +156,7 @@ export const Builds = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ discoveryApi, identityApi, getEntityDetails]);
 
   const triggerBuild = async () => {
     setTriggeringBuild(true);
@@ -206,11 +206,16 @@ export const Builds = () => {
   };
 
   useEffect(() => {
+    let ignore = false
     const fetchData = async () => {
       await Promise.all([fetchComponentDetails(), fetchBuilds()]);
     };
-    fetchData();
-  }, [entity, discoveryApi, catalogApi, identityApi]);
+    if (!ignore) fetchData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [entity, discoveryApi, catalogApi, identityApi, fetchComponentDetails, fetchBuilds]);
 
   if (loading) {
     return <Progress />;

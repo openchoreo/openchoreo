@@ -80,7 +80,6 @@ export const BuildTemplateParameters = ({
         const templates = await response.json();
         setBuildTemplates(templates);
       } catch (err) {
-        console.error('Error fetching build templates:', err);
         setBuildTemplates([]);
       } finally {
         setLoading(false);
@@ -93,11 +92,13 @@ export const BuildTemplateParameters = ({
   // Update parameters when template selection or templates change
   useEffect(() => {
     if (selectedTemplateName && buildTemplates.length > 0) {
-      const selectedTemplate = buildTemplates.find(t => t.name === selectedTemplateName);
-      
+      const selectedTemplate = buildTemplates.find(
+        t => t.name === selectedTemplateName,
+      );
+
       if (selectedTemplate?.parameters) {
         setParameters(selectedTemplate.parameters);
-        
+
         // Initialize default values for new parameters
         const newValues: Record<string, any> = { ...values };
         selectedTemplate.parameters.forEach(param => {
@@ -113,7 +114,7 @@ export const BuildTemplateParameters = ({
     } else {
       setParameters([]);
     }
-  }, [selectedTemplateName, buildTemplates]);
+  }, [selectedTemplateName, buildTemplates, onChange, values]);
 
   const handleFieldChange = (paramName: string, value: any) => {
     const newValues = { ...values, [paramName]: value };
@@ -126,12 +127,18 @@ export const BuildTemplateParameters = ({
     const fieldId = `${idSchema?.$id}-${param.name}`;
     
     switch (param.type) {
-      case 'boolean':
-        const booleanHelperText = param.description 
-          ? `${param.description}${param.default ? ` (Default: ${param.default})` : ''}` 
-          : param.default 
-          ? `Default value: ${param.default}`
-          : undefined;
+      case 'boolean': {
+        let booleanHelperText: string | undefined;
+        if (param.description) {
+          booleanHelperText = param.description;
+          if (param.default) {
+            booleanHelperText += ` (Default: ${param.default})`;
+          }
+        } else if (param.default) {
+          booleanHelperText = `Default value: ${param.default}`;
+        } else {
+          booleanHelperText = undefined;
+        }
         
         return (
           <Box>
@@ -152,6 +159,7 @@ export const BuildTemplateParameters = ({
             )}
           </Box>
         );
+      }
       
       case 'number':
         return (

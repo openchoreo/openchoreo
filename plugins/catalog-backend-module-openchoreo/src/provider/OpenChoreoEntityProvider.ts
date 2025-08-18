@@ -15,7 +15,7 @@ import {
   ModelsCompleteComponent,
   WorkloadEndpoint,
 } from '@internal/plugin-openchoreo-api';
-import { CHOREO_ANNOTATIONS, CHOREO_LABELS } from '@internal/plugin-choreo';
+import { CHOREO_ANNOTATIONS, CHOREO_LABELS } from '@internal/plugin-openchoreo-api';
 
 /**
  * Provides entities from OpenChoreo API
@@ -419,9 +419,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
   ): string {
     if (endpoint.schema?.content) {
       return endpoint.schema.content;
-    } else {
-      return 'No schema available';
     }
+    return 'No schema available';
+    
 
     //   // Create a basic definition based on endpoint type
     //   if (endpoint.type === 'REST' || endpoint.type === 'HTTP') {

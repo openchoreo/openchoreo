@@ -8,7 +8,7 @@ import { ContainerSection } from './ContainerSection';
 import { EndpointSection } from './EndpointSection';
 import { ConnectionSection } from './ConnectionSection';
 import { Alert } from '@material-ui/lab';
-import { CHOREO_ANNOTATIONS } from '../../../../constants';
+import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
 import { Entity } from '@backstage/catalog-model';
 import { useWorkloadContext } from '../WorkloadContext';
 
