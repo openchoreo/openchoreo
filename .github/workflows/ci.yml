@@ -2,10 +2,10 @@ name: PR Builder
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - "**/*.md"
-      - "LICENSE"
+      - '**/*.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 # Avoid running multiple builds for the same PR.
@@ -14,49 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: ESLint (STATIC ANALYSIS)
+  build:
+    name: PR Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [22]
-        yarn-version: [latest]
-    steps:
-      - name: ⬇Checkout
-        id: checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup node
-        id: setup-node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
-
-      - name: Install Dependencies
-        id: install-dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Build Project
-        id: build
-        run: yarn build:all
-
-      - name: Lint Files
-        id: lint-files
-        run: yarn lint:all
-
-      - name: Check Prettier
-        id: check-prettier
-        run: yarn prettier --check .
-
-  typecheck:
-    name: ʦ Typecheck (STATIC ANALYSIS)
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [lts/*]
         yarn-version: [latest]
     steps:
       - name: Checkout
@@ -74,11 +37,19 @@ jobs:
 
       - name: Install Dependencies
         id: install-dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
+
+      - name: Check Type Errors
+        run: yarn tsc
 
       - name: Build Project
         id: build
         run: yarn build:all
 
-      - name: Check Type Errors
-        run: yarn tsc
+      - name: Lint Files
+        id: lint-files
+        run: yarn lint:all
+
+      - name: Check Prettier
+        id: check-prettier
+        run: yarn prettier --check .

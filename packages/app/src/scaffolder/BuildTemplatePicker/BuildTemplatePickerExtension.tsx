@@ -90,8 +90,8 @@ export const BuildTemplatePicker = ({
         }
 
         const templates = await response.json();
-        setBuildTemplates(templates);
-
+        if (!ignore) setBuildTemplates(templates);
+        
         // Store templates in form context so other components can access them
         formContext.buildTemplates = templates;
       } catch (err) {
