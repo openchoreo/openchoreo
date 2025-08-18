@@ -46,6 +46,7 @@ export const BuildTemplateParameters = ({
 
   // Fetch build templates when organization changes
   useEffect(() => {
+    let ignore = false
     const fetchBuildTemplates = async () => {
       if (!organizationName) {
         setBuildTemplates([]);
@@ -78,7 +79,7 @@ export const BuildTemplateParameters = ({
         }
         
         const templates = await response.json();
-        setBuildTemplates(templates);
+        if (!ignore) setBuildTemplates(templates);
       } catch (err) {
         setBuildTemplates([]);
       } finally {
@@ -88,7 +89,7 @@ export const BuildTemplateParameters = ({
 
     fetchBuildTemplates();
     return () => {
-      setBuildTemplates([]);
+      ignore = true
     };
   }, [organizationName, discoveryApi, identityApi]);
 

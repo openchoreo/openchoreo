@@ -35,6 +35,7 @@ export const BuildTemplatePicker = ({
   const organizationName = formContext.formData?.organization_name;
 
   useEffect(() => {
+    let ignore = false
     const fetchBuildTemplates = async () => {
       if (!organizationName) {
         setBuildTemplates([]);
@@ -73,7 +74,7 @@ export const BuildTemplatePicker = ({
         }
         
         const templates = await response.json();
-        setBuildTemplates(templates);
+        if (!ignore) setBuildTemplates(templates);
         
         // Store templates in form context so other components can access them
         formContext.buildTemplates = templates;
@@ -91,7 +92,7 @@ export const BuildTemplatePicker = ({
 
     fetchBuildTemplates();
     return () => {
-      setBuildTemplates([]);
+      ignore = true
     };
   }, [organizationName, discoveryApi, formContext, identityApi]);
 
