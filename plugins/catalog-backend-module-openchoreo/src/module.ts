@@ -23,9 +23,11 @@ export const catalogModuleOpenchoreo = createBackendModule({
       },
       async init({ catalog, config, logger, scheduler }) {
         const openchoreoConfig = config.getOptionalConfig('openchoreo');
-        const frequency = openchoreoConfig?.getOptionalNumber('schedule.frequency') ?? 30;
-        const timeout = openchoreoConfig?.getOptionalNumber('schedule.timeout') ?? 120;
-        
+        const frequency =
+          openchoreoConfig?.getOptionalNumber('schedule.frequency') ?? 30;
+        const timeout =
+          openchoreoConfig?.getOptionalNumber('schedule.timeout') ?? 120;
+
         const taskRunner = scheduler.createScheduledTaskRunner({
           frequency: { seconds: frequency },
           timeout: { seconds: timeout },

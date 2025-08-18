@@ -203,10 +203,7 @@ export const Environments = () => {
                 : classes.errorNotification
             }`}
           >
-            <Typography
-              variant="body2"
-              style={{ fontWeight: 'bold' }}
-            >
+            <Typography variant="body2" style={{ fontWeight: 'bold' }}>
               {notification.type === 'success' ? '✓ ' : '✗ '}
               {notification.message}
             </Typography>

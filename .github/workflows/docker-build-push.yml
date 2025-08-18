@@ -71,7 +71,7 @@ jobs:
         env:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: pr-${{ github.event.number }}
-          REGISTRY: ""
+          REGISTRY: ''
         run: |
           chmod +x scripts/build-and-push-no-tsc.sh
           ./scripts/build-and-push-no-tsc.sh

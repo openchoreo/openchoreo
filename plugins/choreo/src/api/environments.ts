@@ -1,7 +1,7 @@
 import { Entity } from '@backstage/catalog-model/index';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
 import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
-import {API_ENDPOINTS} from '../constants'
+import { API_ENDPOINTS } from '../constants';
 
 export async function fetchEnvironmentInfo(
   entity: Entity,
@@ -46,11 +46,14 @@ export async function promoteToEnvironment(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.PROMOTE_DEPLOYMENT}`,
+    `${await discovery.getBaseUrl('choreo')}${
+      API_ENDPOINTS.PROMOTE_DEPLOYMENT
+    }`,
   );
   const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
   const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
+  const organization =
+    entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     throw new Error('Missing required metadata in entity');
@@ -94,7 +97,8 @@ export async function updateComponentBinding(
   );
   const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
   const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
+  const organization =
+    entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (!project || !component || !organization) {
     throw new Error('Missing required metadata in entity');

@@ -153,7 +153,7 @@ export class BuildInfoService {
         );
         throw error;
       }
-      
+
       this.logger.error(
         `Error fetching build logs for component ${componentName}:`,
         error as Error,

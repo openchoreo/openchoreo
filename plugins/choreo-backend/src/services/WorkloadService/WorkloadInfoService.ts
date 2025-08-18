@@ -48,12 +48,12 @@ export class WorkloadInfoService implements WorkloadService {
       this.logger.info(
         `Fetching workload info for component: ${componentName} in project: ${projectName}, org: ${organizationName}`,
       );
-        const workload = await this.client.getWorkload(
-          organizationName,
-          projectName,
-          componentName,
-        );
-        return workload;
+      const workload = await this.client.getWorkload(
+        organizationName,
+        projectName,
+        componentName,
+      );
+      return workload;
     } catch (error) {
       this.logger.error(`Failed to fetch workload info: ${error}`);
       throw new Error('Failed to fetch workload info', { cause: error });
@@ -77,7 +77,8 @@ export class WorkloadInfoService implements WorkloadService {
     organizationName: string;
     workloadSpec: ModelsWorkload;
   }): Promise<any> {
-    const { projectName, componentName, organizationName, workloadSpec } = request;
+    const { projectName, componentName, organizationName, workloadSpec } =
+      request;
 
     try {
       this.logger.info(

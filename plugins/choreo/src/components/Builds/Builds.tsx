@@ -1,5 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useApi, discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  useApi,
+  discoveryApiRef,
+  identityApiRef,
+} from '@backstage/core-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
@@ -12,13 +16,23 @@ import {
   StatusPending,
   StatusRunning,
 } from '@backstage/core-components';
-import { Typography, Button, Box, Paper, Link, IconButton } from '@material-ui/core';
+import {
+  Typography,
+  Button,
+  Box,
+  Paper,
+  Link,
+  IconButton,
+} from '@material-ui/core';
 import GitHub from '@material-ui/icons/GitHub';
 import CallSplit from '@material-ui/icons/CallSplit';
 import FileCopy from '@material-ui/icons/FileCopy';
 import Refresh from '@material-ui/icons/Refresh';
 import { BuildLogs } from './BuildLogs';
-import type { ModelsBuild, ModelsCompleteComponent } from '@internal/plugin-openchoreo-api';
+import type {
+  ModelsBuild,
+  ModelsCompleteComponent,
+} from '@internal/plugin-openchoreo-api';
 import { formatRelativeTime } from '../../utils/timeUtils';
 
 const BuildStatusComponent = ({ status }: { status?: string }) => {
@@ -27,22 +41,27 @@ const BuildStatusComponent = ({ status }: { status?: string }) => {
   }
 
   const normalizedStatus = status.toLowerCase();
-  
-  if (normalizedStatus.includes('succeed') || normalizedStatus.includes('success')) {
+
+  if (
+    normalizedStatus.includes('succeed') ||
+    normalizedStatus.includes('success')
+  ) {
     return <StatusOK>Success</StatusOK>;
   }
-  
+
   if (normalizedStatus.includes('fail') || normalizedStatus.includes('error')) {
     return <StatusError>Failed</StatusError>;
   }
-  
-  if (normalizedStatus.includes('running') || normalizedStatus.includes('progress')) {
+
+  if (
+    normalizedStatus.includes('running') ||
+    normalizedStatus.includes('progress')
+  ) {
     return <StatusRunning>Running</StatusRunning>;
   }
-  
+
   return <StatusPending>{status}</StatusPending>;
 };
-
 
 export const Builds = () => {
   const { entity } = useEntity();
@@ -50,7 +69,8 @@ export const Builds = () => {
   const catalogApi = useApi(catalogApiRef);
   const identityApi = useApi(identityApiRef);
   const [builds, setBuilds] = useState<ModelsBuild[]>([]);
-  const [componentDetails, setComponentDetails] = useState<ModelsCompleteComponent | null>(null);
+  const [componentDetails, setComponentDetails] =
+    useState<ModelsCompleteComponent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [triggeringBuild, setTriggeringBuild] = useState(false);
@@ -64,7 +84,7 @@ export const Builds = () => {
     }
 
     const componentName = entity.metadata.name;
-    
+
     // Get project name from spec.system
     const systemValue = entity.spec?.system;
     if (!systemValue) {
@@ -72,12 +92,13 @@ export const Builds = () => {
     }
 
     // Convert system value to string (it could be string or object)
-    const projectName = typeof systemValue === 'string' ? systemValue : String(systemValue);
+    const projectName =
+      typeof systemValue === 'string' ? systemValue : String(systemValue);
 
     // Fetch the project entity to get the organization
     const projectEntityRef = `system:default/${projectName}`;
     const projectEntity = await catalogApi.getEntityByRef(projectEntityRef);
-    
+
     if (!projectEntity) {
       throw new Error(`Project entity not found: ${projectEntityRef}`);
     }
@@ -85,39 +106,52 @@ export const Builds = () => {
     // Get organization from the project entity's spec.domain or annotations
     let organizationValue = projectEntity.spec?.domain;
     if (!organizationValue) {
-      organizationValue = projectEntity.metadata.annotations?.['openchoreo.io/organization'];
+      organizationValue =
+        projectEntity.metadata.annotations?.['openchoreo.io/organization'];
     }
-    
+
     if (!organizationValue) {
-      throw new Error(`Organization name not found in project entity: ${projectEntityRef}`);
+      throw new Error(
+        `Organization name not found in project entity: ${projectEntityRef}`,
+      );
     }
 
     // Convert organization value to string (it could be string or object)
-    const organizationName = typeof organizationValue === 'string' ? organizationValue : String(organizationValue);
+    const organizationName =
+      typeof organizationValue === 'string'
+        ? organizationValue
+        : String(organizationValue);
 
     return { componentName, projectName, organizationName };
-  },[entity, catalogApi]);
+  }, [entity, catalogApi]);
 
   const fetchComponentDetails = useCallback(async () => {
     try {
-      const { componentName, projectName, organizationName } = await getEntityDetails();
-      
+      const { componentName, projectName, organizationName } =
+        await getEntityDetails();
+
       // Get authentication token
       const { token } = await identityApi.getCredentials();
 
       // Fetch component details
       const baseUrl = await discoveryApi.getBaseUrl('choreo');
       const componentResponse = await fetch(
-        `${baseUrl}/component?componentName=${encodeURIComponent(componentName)}&projectName=${encodeURIComponent(projectName)}&organizationName=${encodeURIComponent(organizationName)}`,
+        `${baseUrl}/component?componentName=${encodeURIComponent(
+          componentName,
+        )}&projectName=${encodeURIComponent(
+          projectName,
+        )}&organizationName=${encodeURIComponent(organizationName)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!componentResponse.ok) {
-        throw new Error(`HTTP ${componentResponse.status}: ${componentResponse.statusText}`);
+        throw new Error(
+          `HTTP ${componentResponse.status}: ${componentResponse.statusText}`,
+        );
       }
 
       const componentData = await componentResponse.json();
@@ -129,20 +163,25 @@ export const Builds = () => {
 
   const fetchBuilds = useCallback(async () => {
     try {
-      const { componentName, projectName, organizationName } = await getEntityDetails();
-      
+      const { componentName, projectName, organizationName } =
+        await getEntityDetails();
+
       // Get authentication token
       const { token } = await identityApi.getCredentials();
 
       // Now fetch the builds
       const baseUrl = await discoveryApi.getBaseUrl('choreo');
       const response = await fetch(
-        `${baseUrl}/builds?componentName=${encodeURIComponent(componentName)}&projectName=${encodeURIComponent(projectName)}&organizationName=${encodeURIComponent(organizationName)}`,
+        `${baseUrl}/builds?componentName=${encodeURIComponent(
+          componentName,
+        )}&projectName=${encodeURIComponent(
+          projectName,
+        )}&organizationName=${encodeURIComponent(organizationName)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -156,13 +195,14 @@ export const Builds = () => {
     } finally {
       setLoading(false);
     }
-  }, [ discoveryApi, identityApi, getEntityDetails]);
+  }, [discoveryApi, identityApi, getEntityDetails]);
 
   const triggerBuild = async () => {
     setTriggeringBuild(true);
     try {
-      const { componentName, projectName, organizationName } = await getEntityDetails();
-      
+      const { componentName, projectName, organizationName } =
+        await getEntityDetails();
+
       // Get authentication token
       const { token } = await identityApi.getCredentials();
 
@@ -206,7 +246,7 @@ export const Builds = () => {
   };
 
   useEffect(() => {
-    let ignore = false
+    let ignore = false;
     const fetchData = async () => {
       await Promise.all([fetchComponentDetails(), fetchBuilds()]);
     };
@@ -215,7 +255,14 @@ export const Builds = () => {
     return () => {
       ignore = true;
     };
-  }, [entity, discoveryApi, catalogApi, identityApi, fetchComponentDetails, fetchBuilds]);
+  }, [
+    entity,
+    discoveryApi,
+    catalogApi,
+    identityApi,
+    fetchComponentDetails,
+    fetchBuilds,
+  ]);
 
   if (loading) {
     return <Progress />;
@@ -234,7 +281,9 @@ export const Builds = () => {
     {
       title: 'Status',
       field: 'status',
-      render: (row: any) => <BuildStatusComponent status={(row as ModelsBuild).status} />,
+      render: (row: any) => (
+        <BuildStatusComponent status={(row as ModelsBuild).status} />
+      ),
     },
     {
       title: 'Commit',
@@ -245,7 +294,9 @@ export const Builds = () => {
           <Typography variant="body2" style={{ fontFamily: 'monospace' }}>
             {build.commit.substring(0, 8)}
           </Typography>
-        ) : 'N/A';
+        ) : (
+          'N/A'
+        );
       },
     },
     {
@@ -259,11 +310,11 @@ export const Builds = () => {
     const baseUrl = component.buildConfig?.repoUrl || component.repositoryUrl;
     const branch = component.buildConfig?.repoBranch || component.branch;
     const componentPath = component.buildConfig?.componentPath;
-    
+
     if (!componentPath) {
       return baseUrl;
     }
-    
+
     const separator = baseUrl.endsWith('/') ? '' : '/';
     return `${baseUrl}${separator}tree/${branch}/${componentPath}`;
   };
@@ -296,8 +347,14 @@ export const Builds = () => {
             <Typography variant="body2" color="textSecondary" gutterBottom>
               Source
             </Typography>
-            <Box display="flex" alignItems="center" style={{ marginBottom: '8px' }}>
-              <GitHub style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
+            <Box
+              display="flex"
+              alignItems="center"
+              style={{ marginBottom: '8px' }}
+            >
+              <GitHub
+                style={{ fontSize: '16px', marginRight: '6px', color: '#666' }}
+              />
               <Link
                 href={getRepositoryUrl(componentDetails)}
                 target="_blank"
@@ -308,18 +365,32 @@ export const Builds = () => {
               </Link>
               <IconButton
                 size="small"
-                onClick={() => copyToClipboard(getRepositoryUrl(componentDetails))}
+                onClick={() =>
+                  copyToClipboard(getRepositoryUrl(componentDetails))
+                }
                 style={{ marginLeft: '8px', padding: '4px' }}
                 title="Copy URL to clipboard"
               >
                 <FileCopy style={{ fontSize: '14px', color: '#666' }} />
               </IconButton>
             </Box>
-            <Box display="flex" alignItems="center" justifyContent="space-between" style={{ marginBottom: '8px' }}>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="space-between"
+              style={{ marginBottom: '8px' }}
+            >
               <Box display="flex" alignItems="center">
-                <CallSplit style={{ fontSize: '16px', marginRight: '6px', color: '#666' }} />
+                <CallSplit
+                  style={{
+                    fontSize: '16px',
+                    marginRight: '6px',
+                    color: '#666',
+                  }}
+                />
                 <Typography variant="body2">
-                  {componentDetails.buildConfig?.repoBranch || componentDetails.branch}
+                  {componentDetails.buildConfig?.repoBranch ||
+                    componentDetails.branch}
                 </Typography>
               </Box>
               <Box display="flex">
@@ -333,11 +404,7 @@ export const Builds = () => {
                 >
                   {triggeringBuild ? 'Building...' : 'Build Latest'}
                 </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {}}
-                >
+                <Button variant="outlined" size="small" onClick={() => {}}>
                   Show Commits
                 </Button>
               </Box>
@@ -362,13 +429,16 @@ export const Builds = () => {
             </IconButton>
           </Box>
         }
-        options={{ 
-          search: true, 
+        options={{
+          search: true,
           paging: true,
-          sorting: true
+          sorting: true,
         }}
         columns={columns}
-        data={builds.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
+        data={builds.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )}
         onRowClick={(_, rowData) => {
           setSelectedBuild(rowData as ModelsBuild);
           setDrawerOpen(true);

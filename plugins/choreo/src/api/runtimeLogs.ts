@@ -28,7 +28,8 @@ export async function getRuntimeLogs(
   );
 
   const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
-  const organization = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
+  const organization =
+    entity.metadata.annotations?.[CHOREO_ANNOTATIONS.ORGANIZATION];
 
   if (project && organization) {
     const queryParams = new URLSearchParams({

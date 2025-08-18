@@ -2,7 +2,7 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: create-openchoreo-project
-  title: Create OpenChoreo Project 
+  title: Create OpenChoreo Project
   description: This template creates a new OpenChoreo project.
   tags:
     - openchoreo

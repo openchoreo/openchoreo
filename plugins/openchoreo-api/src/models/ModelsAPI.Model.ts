@@ -1,7 +1,7 @@
 export enum EndpointType {
   REST = 'rest',
   GRPC = 'grpc',
-  TCP = 'tcp'
+  TCP = 'tcp',
 }
 
 export enum HTTPMethod {
@@ -11,13 +11,13 @@ export enum HTTPMethod {
   DELETE = 'DELETE',
   PATCH = 'PATCH',
   HEAD = 'HEAD',
-  OPTIONS = 'OPTIONS'
+  OPTIONS = 'OPTIONS',
 }
 
 export enum RESTOperationExposeLevel {
   Project = 'Project',
   Organization = 'Organization',
-  Public = 'Public'
+  Public = 'Public',
 }
 
 export interface HTTPBackend {

@@ -13,9 +13,11 @@ export interface OpenChoreoConfig {
  * Read OpenChoreo configuration from Backstage config
  * @public
  */
-export function readOpenChoreoConfigFromConfig(config: Config): OpenChoreoConfig {
+export function readOpenChoreoConfigFromConfig(
+  config: Config,
+): OpenChoreoConfig {
   const openChoreoConfig = config.getConfig('openchoreo');
-  
+
   return {
     baseUrl: openChoreoConfig.getString('baseUrl'),
     token: openChoreoConfig.getOptionalString('token'),

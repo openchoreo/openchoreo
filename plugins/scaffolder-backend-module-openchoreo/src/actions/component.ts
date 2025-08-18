@@ -3,13 +3,13 @@ import { OpenChoreoApiClient } from '@internal/plugin-openchoreo-api';
 import { Config } from '@backstage/config';
 
 export const createComponentAction = (config: Config) => {
-  return createTemplateAction<{ 
-    orgName: string; 
-    projectName: string; 
-    componentName: string; 
-    displayName?: string; 
-    description?: string; 
-    componentType: string; 
+  return createTemplateAction<{
+    orgName: string;
+    projectName: string;
+    componentName: string;
+    displayName?: string;
+    description?: string;
+    componentType: string;
     useBuiltInCI?: boolean;
     repoUrl?: string;
     branch?: string;
@@ -33,7 +33,8 @@ export const createComponentAction = (config: Config) => {
           projectName: {
             type: 'string',
             title: 'Project Name',
-            description: 'The name of the project where the component will be created',
+            description:
+              'The name of the project where the component will be created',
           },
           componentName: {
             type: 'string',
@@ -53,7 +54,8 @@ export const createComponentAction = (config: Config) => {
           componentType: {
             type: 'string',
             title: 'Component Type',
-            description: 'The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)',
+            description:
+              'The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)',
           },
           useBuiltInCI: {
             type: 'boolean',
@@ -63,7 +65,8 @@ export const createComponentAction = (config: Config) => {
           repoUrl: {
             type: 'string',
             title: 'Repository URL',
-            description: 'The URL of the repository containing the component source code',
+            description:
+              'The URL of the repository containing the component source code',
           },
           branch: {
             type: 'string',
@@ -73,12 +76,14 @@ export const createComponentAction = (config: Config) => {
           componentPath: {
             type: 'string',
             title: 'Component Path',
-            description: 'The path within the repository where the component source code is located',
+            description:
+              'The path within the repository where the component source code is located',
           },
           buildTemplateName: {
             type: 'string',
             title: 'Build Template Name',
-            description: 'The name of the build template to use (e.g., java-maven, nodejs-npm)',
+            description:
+              'The name of the build template to use (e.g., java-maven, nodejs-npm)',
           },
           buildParameters: {
             type: 'object',
@@ -109,7 +114,9 @@ export const createComponentAction = (config: Config) => {
       },
     },
     async handler(ctx) {
-      ctx.logger.info(`Creating component with parameters: ${JSON.stringify(ctx.input)}`);
+      ctx.logger.info(
+        `Creating component with parameters: ${JSON.stringify(ctx.input)}`,
+      );
 
       // Extract organization name from domain format (e.g., "domain:default/default-org" -> "default-org")
       const extractOrgName = (fullOrgName: string): string => {
@@ -125,28 +132,43 @@ export const createComponentAction = (config: Config) => {
 
       const orgName = extractOrgName(ctx.input.orgName);
       const projectName = extractProjectName(ctx.input.projectName);
-      
-      ctx.logger.info(`Extracted organization name: ${orgName} from ${ctx.input.orgName}`);
-      ctx.logger.info(`Extracted project name: ${projectName} from ${ctx.input.projectName}`);
+
+      ctx.logger.info(
+        `Extracted organization name: ${orgName} from ${ctx.input.orgName}`,
+      );
+      ctx.logger.info(
+        `Extracted project name: ${projectName} from ${ctx.input.projectName}`,
+      );
 
       // Get the base URL from configuration
       const baseUrl = config.getString('openchoreo.baseUrl');
-      
+
       // Create a new instance of the OpenChoreoApiClient
       const client = new OpenChoreoApiClient(baseUrl, '', ctx.logger);
-      
+
       // Build configuration for built-in CI
       let buildConfig = undefined;
-      if (ctx.input.useBuiltInCI && ctx.input.repoUrl && ctx.input.branch && ctx.input.componentPath && ctx.input.buildTemplateName) {
+      if (
+        ctx.input.useBuiltInCI &&
+        ctx.input.repoUrl &&
+        ctx.input.branch &&
+        ctx.input.componentPath &&
+        ctx.input.buildTemplateName
+      ) {
         // Convert buildParameters object to array of TemplateParameter
         let buildTemplateParams = undefined;
-        if (ctx.input.buildParameters && Object.keys(ctx.input.buildParameters).length > 0) {
-          buildTemplateParams = Object.entries(ctx.input.buildParameters).map(([name, value]) => ({
-            name,
-            value: String(value),
-          }));
+        if (
+          ctx.input.buildParameters &&
+          Object.keys(ctx.input.buildParameters).length > 0
+        ) {
+          buildTemplateParams = Object.entries(ctx.input.buildParameters).map(
+            ([name, value]) => ({
+              name,
+              value: String(value),
+            }),
+          );
         }
-        
+
         buildConfig = {
           repoUrl: ctx.input.repoUrl,
           repoBranch: ctx.input.branch,
@@ -154,35 +176,31 @@ export const createComponentAction = (config: Config) => {
           buildTemplateRef: ctx.input.buildTemplateName,
           buildTemplateParams,
         };
-        ctx.logger.info(`Build configuration created: ${JSON.stringify(buildConfig)}`);
-      }
-      
-      try {
-        const response = await client.createComponent(
-          orgName,
-          projectName,
-          {
-            name: ctx.input.componentName,
-            displayName: ctx.input.displayName,
-            description: ctx.input.description,
-            type: ctx.input.componentType,
-            buildConfig,
-          }
+        ctx.logger.info(
+          `Build configuration created: ${JSON.stringify(buildConfig)}`,
         );
+      }
+
+      try {
+        const response = await client.createComponent(orgName, projectName, {
+          name: ctx.input.componentName,
+          displayName: ctx.input.displayName,
+          description: ctx.input.description,
+          type: ctx.input.componentType,
+          buildConfig,
+        });
 
         ctx.logger.info(
           `Component created successfully: ${JSON.stringify(response)}`,
         );
-        
+
         // Set outputs for the scaffolder
         ctx.output('componentName', response.name);
         ctx.output('projectName', projectName);
         ctx.output('organizationName', orgName);
       } catch (error) {
         ctx.logger.error(`Error creating component: ${error}`);
-        throw new Error(
-          `Failed to create component: ${error}`,
-        );
+        throw new Error(`Failed to create component: ${error}`);
       }
     },
   });

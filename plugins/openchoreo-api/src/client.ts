@@ -222,42 +222,54 @@ export class OpenChoreoApiClient {
 
   async getAllBuildTemplates(orgName: string): Promise<ModelsBuildTemplate[]> {
     this.logger?.info(`Fetching build templates for organization: ${orgName}`);
-    
+
     try {
       const response = await this.client.buildTemplatesGet(
         { orgName },
-        { token: this.token }
+        { token: this.token },
       );
 
-      const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> = await response.json();
+      const apiResponse: OpenChoreoApiResponse<ModelsBuildTemplate> =
+        await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
 
       const buildTemplates = apiResponse.data?.items || [];
-      this.logger?.info(`Successfully fetched ${buildTemplates.length} build templates for org: ${orgName}`);
-      
+      this.logger?.info(
+        `Successfully fetched ${buildTemplates.length} build templates for org: ${orgName}`,
+      );
+
       return buildTemplates;
     } catch (error) {
-      this.logger?.error(`Failed to fetch build templates for org ${orgName}: ${error}`);
+      this.logger?.error(
+        `Failed to fetch build templates for org ${orgName}: ${error}`,
+      );
       throw error;
     }
   }
 
-  async getAllBuilds(orgName: string, projectName: string, componentName: string): Promise<ModelsBuild[]> {
-    this.logger?.info(`Fetching builds for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
-    
+  async getAllBuilds(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+  ): Promise<ModelsBuild[]> {
+    this.logger?.info(
+      `Fetching builds for component: ${componentName} in project: ${projectName}, organization: ${orgName}`,
+    );
+
     try {
       const response = await this.client.buildsGet(
         { orgName, projectName, componentName },
-        { token: this.token }
+        { token: this.token },
       );
 
-      const apiResponse: OpenChoreoApiResponse<ModelsBuild> = await response.json();
+      const apiResponse: OpenChoreoApiResponse<ModelsBuild> =
+        await response.json();
       this.logger?.info(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
@@ -268,27 +280,41 @@ export class OpenChoreoApiClient {
       }
 
       const builds = apiResponse.data.items;
-      this.logger?.info(`Successfully fetched ${builds.length} builds for component: ${componentName} (total: ${apiResponse.data.totalCount})`);
-      
+      this.logger?.info(
+        `Successfully fetched ${builds.length} builds for component: ${componentName} (total: ${apiResponse.data.totalCount})`,
+      );
+
       return builds;
     } catch (error) {
-      this.logger?.error(`Failed to fetch builds for component ${componentName}: ${error}`);
+      this.logger?.error(
+        `Failed to fetch builds for component ${componentName}: ${error}`,
+      );
       throw error;
     }
   }
 
-  async triggerBuild(orgName: string, projectName: string, componentName: string, commit?: string): Promise<ModelsBuild> {
-    this.logger?.info(`Triggering build for component: ${componentName} in project: ${projectName}, organization: ${orgName}${commit ? ` with commit: ${commit}` : ''}`);
-    
+  async triggerBuild(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+    commit?: string,
+  ): Promise<ModelsBuild> {
+    this.logger?.info(
+      `Triggering build for component: ${componentName} in project: ${projectName}, organization: ${orgName}${
+        commit ? ` with commit: ${commit}` : ''
+      }`,
+    );
+
     try {
       const response = await this.client.buildsPost(
         { orgName, projectName, componentName, commit },
-        { token: this.token }
+        { token: this.token },
       );
 
-      const apiResponse: OpenChoreoApiSingleResponse<ModelsBuild> = await response.json();
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsBuild> =
+        await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
@@ -297,37 +323,51 @@ export class OpenChoreoApiClient {
         throw new Error('No build data returned');
       }
 
-      this.logger?.info(`Successfully triggered build for component: ${componentName}, build name: ${apiResponse.data.name}`);
-      
+      this.logger?.info(
+        `Successfully triggered build for component: ${componentName}, build name: ${apiResponse.data.name}`,
+      );
+
       return apiResponse.data;
     } catch (error) {
-      this.logger?.error(`Failed to trigger build for component ${componentName}: ${error}`);
+      this.logger?.error(
+        `Failed to trigger build for component ${componentName}: ${error}`,
+      );
       throw error;
     }
   }
 
-  async getComponent(orgName: string, projectName: string, componentName: string): Promise<ModelsCompleteComponent> {
-    this.logger?.info(`Fetching component details for: ${componentName} in project: ${projectName}, organization: ${orgName}`);
-    
+  async getComponent(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+  ): Promise<ModelsCompleteComponent> {
+    this.logger?.info(
+      `Fetching component details for: ${componentName} in project: ${projectName}, organization: ${orgName}`,
+    );
+
     try {
       const response = await this.client.componentGet({
         orgName,
         projectName,
         componentName,
       });
-      
+
       const apiResponse = await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
-      
+
       const component = apiResponse.data;
-      this.logger?.info(`Successfully fetched component details for: ${componentName}`);
+      this.logger?.info(
+        `Successfully fetched component details for: ${componentName}`,
+      );
       return component;
     } catch (error) {
-      this.logger?.error(`Failed to fetch component details for ${componentName}: ${error}`);
+      this.logger?.error(
+        `Failed to fetch component details for ${componentName}: ${error}`,
+      );
       throw error;
     }
   }
@@ -340,7 +380,9 @@ export class OpenChoreoApiClient {
   ): Promise<BindingResponse[]> {
     this.logger?.info(
       `Fetching bindings for component: ${componentName} in project: ${projectName}, organization: ${orgName}${
-        environments?.length ? ` for environments: ${environments.join(', ')}` : ''
+        environments?.length
+          ? ` for environments: ${environments.join(', ')}`
+          : ''
       }`,
     );
 
@@ -450,7 +492,7 @@ export class OpenChoreoApiClient {
 
       // Extract bindings from paginated data structure
       const bindings = apiResponse.data?.items || [];
-      
+
       this.logger?.info(
         `Successfully promoted component: ${componentName} from ${sourceEnvironment} to ${targetEnvironment}. Returned ${bindings.length} bindings.`,
       );
@@ -464,61 +506,90 @@ export class OpenChoreoApiClient {
     }
   }
 
-  async getWorkload(orgName: string, projectName: string, componentName: string): Promise<ModelsWorkload> {
-    this.logger?.info(`Fetching workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
-    
+  async getWorkload(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+  ): Promise<ModelsWorkload> {
+    this.logger?.info(
+      `Fetching workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`,
+    );
+
     try {
-      const response = await this.client.workloadGet({
-        orgName,
-        projectName,
-        componentName,
-      }, { token: this.token });
-      
-      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> = await response.json();
+      const response = await this.client.workloadGet(
+        {
+          orgName,
+          projectName,
+          componentName,
+        },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> =
+        await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
-      
+
       if (!apiResponse.data) {
         throw new Error('No workload data returned');
       }
-      
-      this.logger?.info(`Successfully fetched workload for component: ${componentName}`);
+
+      this.logger?.info(
+        `Successfully fetched workload for component: ${componentName}`,
+      );
       return apiResponse.data;
     } catch (error) {
-      this.logger?.error(`Failed to fetch workload for component ${componentName}: ${error}`);
+      this.logger?.error(
+        `Failed to fetch workload for component ${componentName}: ${error}`,
+      );
       throw error;
     }
   }
 
-  async updateWorkload(orgName: string, projectName: string, componentName: string, workloadSpec: ModelsWorkload): Promise<ModelsWorkload> {
-    this.logger?.info(`Updating workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`);
-    
+  async updateWorkload(
+    orgName: string,
+    projectName: string,
+    componentName: string,
+    workloadSpec: ModelsWorkload,
+  ): Promise<ModelsWorkload> {
+    this.logger?.info(
+      `Updating workload for component: ${componentName} in project: ${projectName}, organization: ${orgName}`,
+    );
+
     try {
-      const response = await this.client.workloadPost({
-        orgName,
-        projectName,
-        componentName,
-        workloadSpec,
-      }, { token: this.token });
-      
-      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> = await response.json();
+      const response = await this.client.workloadPost(
+        {
+          orgName,
+          projectName,
+          componentName,
+          workloadSpec,
+        },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiSingleResponse<ModelsWorkload> =
+        await response.json();
       this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
-      
+
       if (!apiResponse.success) {
         throw new Error('API request was not successful');
       }
-      
+
       if (!apiResponse.data) {
         throw new Error('No workload data returned');
       }
-      
-      this.logger?.info(`Successfully updated workload for component: ${componentName}`);
+
+      this.logger?.info(
+        `Successfully updated workload for component: ${componentName}`,
+      );
       return apiResponse.data;
     } catch (error) {
-      this.logger?.error(`Failed to update workload for component ${componentName}: ${error}`);
+      this.logger?.error(
+        `Failed to update workload for component ${componentName}: ${error}`,
+      );
       throw error;
     }
   }

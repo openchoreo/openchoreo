@@ -65,7 +65,7 @@ spec:
           description: OpenChoreo provides built-in CI capabilities for building components. Enable this to use the built-in CI.
           type: boolean
           ui:widget: radio
-      
+
       dependencies:
         useBuiltInCI:
           allOf:

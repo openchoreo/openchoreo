@@ -99,7 +99,12 @@ export interface ScheduledTaskBinding {
  * Binding status type values
  * @public
  */
-export type BindingStatusType = 'InProgress' | 'Active' | 'Failed' | 'Suspended' | 'NotYetDeployed';
+export type BindingStatusType =
+  | 'InProgress'
+  | 'Active'
+  | 'Failed'
+  | 'Suspended'
+  | 'NotYetDeployed';
 
 /**
  * Binding status information

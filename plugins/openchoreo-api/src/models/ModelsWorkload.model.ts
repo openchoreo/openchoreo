@@ -2,10 +2,10 @@ export interface EnvVar {
   key: string; // TODO: change to name
   value?: string;
   valueFrom?: {
-    configurationGroupRef:{
+    configurationGroupRef: {
       name: string;
       key: string;
-    }
+    };
   };
 }
 
@@ -54,7 +54,11 @@ export interface WorkloadOwner {
   componentName: string;
 }
 
-export type WorkloadType = 'Service' | 'ManualTask' | 'ScheduledTask' | 'WebApplication';
+export type WorkloadType =
+  | 'Service'
+  | 'ManualTask'
+  | 'ScheduledTask'
+  | 'WebApplication';
 
 /**
  * @public

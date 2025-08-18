@@ -12,4 +12,4 @@ export {
   ObservabilityNotConfiguredError,
 } from './api';
 export * from './models';
-export * from './types/labels'
+export * from './types/labels';

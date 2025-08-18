@@ -17,7 +17,7 @@ Add the OpenChoreo configuration to your `app-config.yaml`:
 ```yaml
 openchoreo:
   baseUrl: http://localhost:8080/api/v1
-  token: ${OPENCHOREO_TOKEN}  # optional: for authentication
+  token: ${OPENCHOREO_TOKEN} # optional: for authentication
 ```
 
 ## Usage

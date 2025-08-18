@@ -10,7 +10,7 @@ export interface ModelsProject {
    * Organization name to which the project belongs
    */
   orgName: string;
-    /**
+  /**
    * Display name of the organization
    */
   displayName: string;

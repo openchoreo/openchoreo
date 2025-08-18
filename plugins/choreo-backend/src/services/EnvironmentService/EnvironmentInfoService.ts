@@ -51,13 +51,19 @@ export class EnvironmentInfoService implements EnvironmentService {
   }): Promise<Environment[]> {
     const startTime = Date.now();
     try {
-      this.logger.info(`Starting environment fetch for component: ${request.componentName}`);
-      
+      this.logger.info(
+        `Starting environment fetch for component: ${request.componentName}`,
+      );
+
       // Fetch environments, bindings and deployment pipeline in parallel with individual timing
       const createTimedPromise = <T>(promise: Promise<T>, name: string) => {
         const start = Date.now();
         return promise
-          .then(result => ({ type: name, result, duration: Date.now() - start }))
+          .then(result => ({
+            type: name,
+            result,
+            duration: Date.now() - start,
+          }))
           .catch(error => {
             const duration = Date.now() - start;
             if (name === 'bindings') {
@@ -74,42 +80,47 @@ export class EnvironmentInfoService implements EnvironmentService {
             throw error;
           });
       };
-      
+
       const environmentsPromise = createTimedPromise(
         this.defaultClient.environmentsGet({
           orgName: request.organizationName,
         }),
-        'environments'
+        'environments',
       );
-      
+
       const bindingsPromise = createTimedPromise(
         this.client.getComponentBindings(
           request.organizationName,
           request.projectName,
           request.componentName,
         ),
-        'bindings'
+        'bindings',
       );
-      
+
       const pipelinePromise = createTimedPromise(
         this.client.getProjectDeploymentPipeline(
           request.organizationName,
           request.projectName,
         ),
-        'pipeline'
+        'pipeline',
       );
 
       const fetchStart = Date.now();
-      const [environmentsResult, bindingsResult, pipelineResult] = await Promise.all([
-        environmentsPromise,
-        bindingsPromise, 
-        pipelinePromise
-      ]);
+      const [environmentsResult, bindingsResult, pipelineResult] =
+        await Promise.all([
+          environmentsPromise,
+          bindingsPromise,
+          pipelinePromise,
+        ]);
       const fetchEnd = Date.now();
 
       // Log individual timings
-      this.logger.info(`API call timings - Environments: ${environmentsResult.duration}ms, Bindings: ${bindingsResult.duration}ms, Pipeline: ${pipelineResult.duration}ms`);
-      this.logger.info(`Total parallel API calls completed in ${fetchEnd - fetchStart}ms`);
+      this.logger.info(
+        `API call timings - Environments: ${environmentsResult.duration}ms, Bindings: ${bindingsResult.duration}ms, Pipeline: ${pipelineResult.duration}ms`,
+      );
+      this.logger.info(
+        `Total parallel API calls completed in ${fetchEnd - fetchStart}ms`,
+      );
 
       const environmentsResponse = environmentsResult.result;
       const bindings = bindingsResult.result;
@@ -138,16 +149,16 @@ export class EnvironmentInfoService implements EnvironmentService {
         deploymentPipeline,
       );
       const transformEnd = Date.now();
-      
+
       const totalTime = Date.now() - startTime;
       this.logger.info(
         `Environment fetch completed for ${request.componentName}: ` +
-        `Individual API calls (Env: ${environmentsResult.duration}ms, Bind: ${bindingsResult.duration}ms, Pipeline: ${pipelineResult.duration}ms), ` +
-        `Parallel execution: ${fetchEnd - fetchStart}ms, ` +
-        `Transform: ${transformEnd - transformStart}ms, ` +
-        `Total: ${totalTime}ms`
+          `Individual API calls (Env: ${environmentsResult.duration}ms, Bind: ${bindingsResult.duration}ms, Pipeline: ${pipelineResult.duration}ms), ` +
+          `Parallel execution: ${fetchEnd - fetchStart}ms, ` +
+          `Transform: ${transformEnd - transformStart}ms, ` +
+          `Total: ${totalTime}ms`,
       );
-      
+
       return result;
     } catch (error: unknown) {
       const totalTime = Date.now() - startTime;
@@ -168,7 +179,7 @@ export class EnvironmentInfoService implements EnvironmentService {
     const envMap = new Map<string, ModelsEnvironment>();
     const envNameMap = new Map<string, string>(); // lowercase -> actual name
     const bindingsByEnv = new Map<string, BindingResponse>();
-    
+
     // Build environment maps
     for (const env of environmentData) {
       const displayName = env.displayName || env.name;
@@ -179,20 +190,27 @@ export class EnvironmentInfoService implements EnvironmentService {
 
     // Build bindings map by environment
     for (const binding of bindings) {
-      const envName = envNameMap.get(binding.environment.toLowerCase()) || binding.environment;
+      const envName =
+        envNameMap.get(binding.environment.toLowerCase()) ||
+        binding.environment;
       bindingsByEnv.set(envName, binding);
     }
 
     // If no pipeline data, use default ordering
     if (!deploymentPipeline || !deploymentPipeline.promotionPaths) {
       this.logger.info('No deployment pipeline found, using default ordering');
-      return this.transformEnvironmentDataWithBindingsOnly(environmentData, bindingsByEnv);
+      return this.transformEnvironmentDataWithBindingsOnly(
+        environmentData,
+        bindingsByEnv,
+      );
     }
 
     // Build promotion map from pipeline data (normalized to actual env names)
     const promotionMap = new Map<string, any[]>();
     for (const path of deploymentPipeline.promotionPaths) {
-      const sourceEnv = envNameMap.get(path.sourceEnvironmentRef.toLowerCase()) || path.sourceEnvironmentRef;
+      const sourceEnv =
+        envNameMap.get(path.sourceEnvironmentRef.toLowerCase()) ||
+        path.sourceEnvironmentRef;
       const targets = path.targetEnvironmentRefs.map((ref: any) => ({
         ...ref,
         name: envNameMap.get(ref.name.toLowerCase()) || ref.name,
@@ -205,18 +223,18 @@ export class EnvironmentInfoService implements EnvironmentService {
       deploymentPipeline.promotionPaths,
       envNameMap,
     );
-    
+
     // Transform environments in pipeline order
     const orderedEnvironments: Environment[] = [];
     const processedEnvs = new Set<string>();
-    
+
     for (const envName of orderedEnvNames) {
       const envData = envMap.get(envName);
       if (envData && !processedEnvs.has(envName)) {
         processedEnvs.add(envName);
         const binding = bindingsByEnv.get(envName);
         const promotionTargets = promotionMap.get(envName);
-        
+
         const transformedEnv = this.createEnvironmentFromBinding(
           envData,
           binding,
@@ -232,7 +250,9 @@ export class EnvironmentInfoService implements EnvironmentService {
       const envName = env.displayName || env.name;
       if (!processedEnvs.has(envName)) {
         const binding = bindingsByEnv.get(envName);
-        orderedEnvironments.push(this.createEnvironmentFromBinding(env, binding));
+        orderedEnvironments.push(
+          this.createEnvironmentFromBinding(env, binding),
+        );
       }
     }
 
@@ -245,11 +265,16 @@ export class EnvironmentInfoService implements EnvironmentService {
     promotionTargets?: any[],
   ): Environment {
     const envName = envData.displayName || envData.name;
-    
+
     // Extract endpoints from binding
     const endpoints: EndpointInfo[] = [];
     let image: string | undefined;
-    let deploymentStatus: 'success' | 'failed' | 'pending' | 'not-deployed' | 'suspended' = 'not-deployed';
+    let deploymentStatus:
+      | 'success'
+      | 'failed'
+      | 'pending'
+      | 'not-deployed'
+      | 'suspended' = 'not-deployed';
     let statusMessage: string | undefined;
     let lastDeployed: string | undefined;
 
@@ -287,12 +312,15 @@ export class EnvironmentInfoService implements EnvironmentService {
       }
 
       // Extract endpoints
-      const bindingEndpoints = binding.webApplicationBinding?.endpoints || 
-                               binding.serviceBinding?.endpoints || [];
-      
+      const bindingEndpoints =
+        binding.webApplicationBinding?.endpoints ||
+        binding.serviceBinding?.endpoints ||
+        [];
+
       // Check if this is a WebApplication component
-      const isWebApp = binding.type === 'WebApplication' || binding.webApplicationBinding;
-      
+      const isWebApp =
+        binding.type === 'WebApplication' || binding.webApplicationBinding;
+
       for (const endpoint of bindingEndpoints) {
         if (isWebApp) {
           // For WebApplication components, only show public endpoints
@@ -300,7 +328,11 @@ export class EnvironmentInfoService implements EnvironmentService {
             endpoints.push({
               name: endpoint.name,
               type: endpoint.type,
-              url: endpoint.public.uri || `${endpoint.public.scheme}://${endpoint.public.host}:${endpoint.public.port}${endpoint.public.basePath || ''}`,
+              url:
+                endpoint.public.uri ||
+                `${endpoint.public.scheme}://${endpoint.public.host}:${
+                  endpoint.public.port
+                }${endpoint.public.basePath || ''}`,
               visibility: 'public',
             });
           }
@@ -311,7 +343,11 @@ export class EnvironmentInfoService implements EnvironmentService {
             endpoints.push({
               name: endpoint.name,
               type: endpoint.type,
-              url: endpoint.public.uri || `${endpoint.public.scheme}://${endpoint.public.host}:${endpoint.public.port}${endpoint.public.basePath || ''}`,
+              url:
+                endpoint.public.uri ||
+                `${endpoint.public.scheme}://${endpoint.public.host}:${
+                  endpoint.public.port
+                }${endpoint.public.basePath || ''}`,
               visibility: 'public',
             });
           }
@@ -320,7 +356,13 @@ export class EnvironmentInfoService implements EnvironmentService {
             endpoints.push({
               name: endpoint.name,
               type: endpoint.type,
-              url: endpoint.organization.uri || `${endpoint.organization.scheme}://${endpoint.organization.host}:${endpoint.organization.port}${endpoint.organization.basePath || ''}`,
+              url:
+                endpoint.organization.uri ||
+                `${endpoint.organization.scheme}://${
+                  endpoint.organization.host
+                }:${endpoint.organization.port}${
+                  endpoint.organization.basePath || ''
+                }`,
               visibility: 'organization',
             });
           }
@@ -329,7 +371,11 @@ export class EnvironmentInfoService implements EnvironmentService {
             endpoints.push({
               name: endpoint.name,
               type: endpoint.type,
-              url: endpoint.project.uri || `${endpoint.project.scheme}://${endpoint.project.host}:${endpoint.project.port}${endpoint.project.basePath || ''}`,
+              url:
+                endpoint.project.uri ||
+                `${endpoint.project.scheme}://${endpoint.project.host}:${
+                  endpoint.project.port
+                }${endpoint.project.basePath || ''}`,
               visibility: 'project',
             });
           }
@@ -351,13 +397,11 @@ export class EnvironmentInfoService implements EnvironmentService {
 
     // Add promotion targets if they exist
     if (promotionTargets && promotionTargets.length > 0) {
-      transformedEnv.promotionTargets = promotionTargets.map(
-        (ref: any) => ({
-          name: ref.name,
-          requiresApproval: ref.requiresApproval,
-          isManualApprovalRequired: ref.isManualApprovalRequired,
-        }),
-      );
+      transformedEnv.promotionTargets = promotionTargets.map((ref: any) => ({
+        name: ref.name,
+        requiresApproval: ref.requiresApproval,
+        isManualApprovalRequired: ref.isManualApprovalRequired,
+      }));
     }
 
     return transformedEnv;
@@ -374,7 +418,6 @@ export class EnvironmentInfoService implements EnvironmentService {
     });
   }
 
-
   private getEnvironmentOrder(
     promotionPaths: any[],
     envNameMap: Map<string, string>,
@@ -382,52 +425,55 @@ export class EnvironmentInfoService implements EnvironmentService {
     // Build a proper dependency graph
     const graph = new Map<string, Set<string>>();
     const allEnvs = new Set<string>();
-    
+
     // Initialize graph and collect all environments
     for (const path of promotionPaths) {
-      const source = envNameMap.get(path.sourceEnvironmentRef.toLowerCase()) || path.sourceEnvironmentRef;
+      const source =
+        envNameMap.get(path.sourceEnvironmentRef.toLowerCase()) ||
+        path.sourceEnvironmentRef;
       allEnvs.add(source);
-      
+
       if (!graph.has(source)) {
         graph.set(source, new Set());
       }
-      
+
       for (const target of path.targetEnvironmentRefs) {
-        const targetName = envNameMap.get(target.name.toLowerCase()) || target.name;
+        const targetName =
+          envNameMap.get(target.name.toLowerCase()) || target.name;
         allEnvs.add(targetName);
         graph.get(source)!.add(targetName);
       }
     }
-    
+
     // Kahn's algorithm for topological sort
     const inDegree = new Map<string, number>();
     const queue: string[] = [];
     const result: string[] = [];
-    
+
     // Initialize in-degrees
     for (const env of allEnvs) {
       inDegree.set(env, 0);
     }
-    
+
     // Calculate in-degrees
     for (const [_, targets] of graph) {
       for (const target of targets) {
         inDegree.set(target, (inDegree.get(target) || 0) + 1);
       }
     }
-    
+
     // Find nodes with no incoming edges
     for (const [env, degree] of inDegree) {
       if (degree === 0) {
         queue.push(env);
       }
     }
-    
+
     // Process queue
     while (queue.length > 0) {
       const current = queue.shift()!;
       result.push(current);
-      
+
       const neighbors = graph.get(current) || new Set();
       for (const neighbor of neighbors) {
         const newDegree = (inDegree.get(neighbor) || 0) - 1;
@@ -437,57 +483,57 @@ export class EnvironmentInfoService implements EnvironmentService {
         }
       }
     }
-    
+
     // If we have a specific order preference for environments with same level, apply it
     // This ensures Development -> Staging -> Production order when they're at the same level
     const preferredOrder = ['Development', 'Staging', 'Production'];
-    
+
     // Group environments by their level in the DAG
     const levels = new Map<string, number>();
     const visited = new Set<string>();
-    
+
     const calculateLevel = (env: string, level: number = 0): number => {
       if (visited.has(env)) return levels.get(env) || 0;
       visited.add(env);
       levels.set(env, level);
-      
+
       const neighbors = graph.get(env) || new Set();
       for (const neighbor of neighbors) {
         calculateLevel(neighbor, level + 1);
       }
       return level;
     };
-    
+
     // Calculate levels for all environments
     for (const env of result) {
       if (!visited.has(env)) {
         calculateLevel(env);
       }
     }
-    
+
     // Sort by level first, then by preferred order
     result.sort((a, b) => {
       const levelA = levels.get(a) || 0;
       const levelB = levels.get(b) || 0;
-      
+
       if (levelA !== levelB) {
         return levelA - levelB;
       }
-      
+
       // Same level, use preferred order
       const indexA = preferredOrder.indexOf(a);
       const indexB = preferredOrder.indexOf(b);
-      
+
       if (indexA !== -1 && indexB !== -1) {
         return indexA - indexB;
       }
-      
+
       if (indexA !== -1) return -1;
       if (indexB !== -1) return 1;
-      
+
       return a.localeCompare(b);
     });
-    
+
     return result;
   }
 
@@ -558,7 +604,7 @@ export class EnvironmentInfoService implements EnvironmentService {
    * Uses the OpenChoreo API client to update the binding and returns updated environment data.
    *
    * @param {Object} request - The update request parameters
-   * @param {string} request.componentName - Name of the component 
+   * @param {string} request.componentName - Name of the component
    * @param {string} request.projectName - Name of the project containing the component
    * @param {string} request.organizationName - Name of the organization owning the project
    * @param {string} request.bindingName - Name of the binding to update

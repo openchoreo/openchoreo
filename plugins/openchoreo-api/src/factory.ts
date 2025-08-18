@@ -7,13 +7,16 @@ import { readOpenChoreoConfigFromConfig } from './config';
  * Create an OpenChoreoApiClient from Backstage configuration
  * @public
  */
-export function createOpenChoreoApiClient(config: Config, logger?: LoggerService): OpenChoreoApiClient {
+export function createOpenChoreoApiClient(
+  config: Config,
+  logger?: LoggerService,
+): OpenChoreoApiClient {
   const openChoreoConfig = readOpenChoreoConfigFromConfig(config);
-  
+
   return new OpenChoreoApiClient(
     openChoreoConfig.baseUrl,
     openChoreoConfig.token,
-    logger
+    logger,
   );
 }
 
@@ -26,5 +29,9 @@ export function createOpenChoreoApiClientFromOptions(options: {
   token?: string;
   logger?: LoggerService;
 }): OpenChoreoApiClient {
-  return new OpenChoreoApiClient(options.baseUrl, options.token, options.logger);
+  return new OpenChoreoApiClient(
+    options.baseUrl,
+    options.token,
+    options.logger,
+  );
 }

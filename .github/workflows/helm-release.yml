@@ -83,11 +83,11 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           APP_VERSION="${{ steps.version.outputs.APP_VERSION }}"
-          
+
           # Temporarily update chart version and appVersion in Chart.yaml (not committed)
           sed -i "s/0.0.0-latest-dev/${VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
           sed -i "s/latest-dev/${APP_VERSION}/" ${{ env.CHART_PATH }}/Chart.yaml
-          
+
           # Update image tag in values.yaml to match the Docker image version (without 'v' prefix)
           sed -i "s/tag: \".*\"/tag: \"${APP_VERSION}\"/" ${{ env.CHART_PATH }}/values.yaml
 

@@ -1,8 +1,8 @@
 import { scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { createScaffolderFieldExtension } from '@backstage/plugin-scaffolder-react';
-import { 
+import {
   BuildTemplateParameters,
-  buildTemplateParametersValidation
+  buildTemplateParametersValidation,
 } from './BuildTemplateParametersExtension';
 
 export const BuildTemplateParametersFieldExtension = scaffolderPlugin.provide(

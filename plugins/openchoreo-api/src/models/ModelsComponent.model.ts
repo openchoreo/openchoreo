@@ -1,7 +1,7 @@
-import { ModelsService } from "./ModelsService.model";
-import { ModelsWebApplication } from "./ModelsWebApplication.model";
-import { ModelsWorkload } from "./ModelsWorkload.model";
-import { BuildConfig } from "./requests";
+import { ModelsService } from './ModelsService.model';
+import { ModelsWebApplication } from './ModelsWebApplication.model';
+import { ModelsWorkload } from './ModelsWorkload.model';
+import { BuildConfig } from './requests';
 
 /**
  * @public
@@ -54,7 +54,7 @@ export interface ModelsComponent {
 }
 
 export interface ModelsCompleteComponent extends ModelsComponent {
-  workload?: ModelsWorkload
-  service?: ModelsService
-  webApplication?: ModelsWebApplication
+  workload?: ModelsWorkload;
+  service?: ModelsService;
+  webApplication?: ModelsWebApplication;
 }

@@ -13,9 +13,14 @@ import {
 } from '@material-ui/core';
 import { Skeleton } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
-import { RuntimeLogsFilters, Environment, LOG_LEVELS, TIME_RANGE_OPTIONS } from './types';
+import {
+  RuntimeLogsFilters,
+  Environment,
+  LOG_LEVELS,
+  TIME_RANGE_OPTIONS,
+} from './types';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(theme => ({
   filterContainer: {
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2),
@@ -73,7 +78,7 @@ export const LogsFilter: FC<LogsFilterProps> = ({
     const newLogLevels = filters.logLevel.includes(level)
       ? filters.logLevel.filter(l => l !== level)
       : [...filters.logLevel, level];
-    
+
     onFiltersChange({ logLevel: newLogLevels });
   };
 
@@ -111,7 +116,7 @@ export const LogsFilter: FC<LogsFilterProps> = ({
               Log Levels
             </Typography>
             <FormGroup>
-              {LOG_LEVELS.map((level) => (
+              {LOG_LEVELS.map(level => (
                 <FormControlLabel
                   key={level}
                   control={
@@ -123,9 +128,7 @@ export const LogsFilter: FC<LogsFilterProps> = ({
                     />
                   }
                   label={
-                    <span className={getLogLevelClassName(level)}>
-                      {level}
-                    </span>
+                    <span className={getLogLevelClassName(level)}>{level}</span>
                   }
                 />
               ))}
@@ -144,7 +147,7 @@ export const LogsFilter: FC<LogsFilterProps> = ({
                   value={filters.environmentId}
                   onChange={handleEnvironmentChange}
                 >
-                  {environments.map((env) => (
+                  {environments.map(env => (
                     <MenuItem key={env.id} value={env.id}>
                       {env.name}
                     </MenuItem>
@@ -163,7 +166,7 @@ export const LogsFilter: FC<LogsFilterProps> = ({
                 value={filters.timeRange}
                 onChange={handleTimeRangeChange}
               >
-                {TIME_RANGE_OPTIONS.map((option) => (
+                {TIME_RANGE_OPTIONS.map(option => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
                   </MenuItem>

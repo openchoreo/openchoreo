@@ -5,7 +5,7 @@ This repository contains Backstage plugins for integrating with [OpenChoreo](htt
 ## Features
 
 - **Environment Management**: View and manage application environments and workloads
-- **Cell Diagrams**: Visualize system architecture and component relationships  
+- **Cell Diagrams**: Visualize system architecture and component relationships
 - **Runtime Logs**: Real-time log viewing and filtering capabilities
 - **Build Integration**: Track builds and deployment pipelines
 - **Scaffolding**: Templates for creating OpenChoreo projects and components
@@ -57,7 +57,7 @@ openchoreo:
   token: ${OPENCHOREO_TOKEN} # optional
   schedule:
     frequency: 30 # seconds between catalog syncs
-    timeout: 120  # request timeout
+    timeout: 120 # request timeout
 
 # GitHub integration (optional)
 integrations:
@@ -104,13 +104,13 @@ yarn tsc            # TypeScript check
 To develop individual plugins in isolation:
 
 ```bash
-yarn workspace {plugin-name} start 
+yarn workspace {plugin-name} start
 ```
 
 example
 
 ```bash
-yarn workspace @internal/plugin-choreo-backend start 
+yarn workspace @internal/plugin-choreo-backend start
 ```
 
 Create new plugins:

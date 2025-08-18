@@ -4,12 +4,12 @@
 
 # Backstage configuration (passed to backstage dependency)
 backstage:
-  fullnameOverride: "backstage-demo"
+  fullnameOverride: 'backstage-demo'
   backstage:
     image:
-      registry: "ghcr.io"
-      repository: "openchoreo/backstage-demo"
-      tag: "0.0.0-latest-dev"
+      registry: 'ghcr.io'
+      repository: 'openchoreo/backstage-demo'
+      tag: '0.0.0-latest-dev'
       pullPolicy: IfNotPresent
 
     # Resource limits and requests
@@ -24,14 +24,13 @@ backstage:
     # Extra environment variables
     extraEnvVars:
       - name: OPENCHOREO_API_URL
-        value: "http://api-server.openchoreo-control-plane.svc.cluster.local:8080/api/v1"
+        value: 'http://api-server.openchoreo-control-plane.svc.cluster.local:8080/api/v1'
       - name: OPENCHOREO_OBS_URL
-        value: "http://observer.openchoreo-observability-plane.svc.cluster.local:8080"
+        value: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080'
       - name: BACKEND_SECRET
         valueFrom:
           secretKeyRef:
             name: backstage-secrets
             key: backend-secret
-
 # Backend authentication secret (leave empty to auto-generate)
 # backendSecret: "your-custom-backend-secret"

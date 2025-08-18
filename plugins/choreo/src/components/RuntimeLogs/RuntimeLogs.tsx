@@ -1,10 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-} from '@material-ui/core';
+import { Box, Typography, Button, Paper } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
 import Refresh from '@material-ui/icons/Refresh';
@@ -125,13 +120,18 @@ export const RuntimeLogs = () => {
   };
 
   const renderError = (error: string) => {
-    const isObservabilityDisabled = error.includes('Observability is not enabled');
-    
+    const isObservabilityDisabled = error.includes(
+      'Observability is not enabled',
+    );
+
     return (
-      <Alert severity={isObservabilityDisabled ? "info" : "error"} className={classes.errorContainer}>
+      <Alert
+        severity={isObservabilityDisabled ? 'info' : 'error'}
+        className={classes.errorContainer}
+      >
         <Typography variant="body1">
-          {isObservabilityDisabled 
-            ? "Observability is not enabled for this component. Please enable observability to view runtime logs." 
+          {isObservabilityDisabled
+            ? 'Observability is not enabled for this component. Please enable observability to view runtime logs.'
             : error}
         </Typography>
         {!isObservabilityDisabled && (

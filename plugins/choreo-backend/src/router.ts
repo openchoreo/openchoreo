@@ -75,9 +75,16 @@ export async function createRouter({
   });
 
   router.patch('/update-binding', async (req, res) => {
-    const { componentName, projectName, orgName, bindingName, releaseState } = req.body;
+    const { componentName, projectName, orgName, bindingName, releaseState } =
+      req.body;
 
-    if (!componentName || !projectName || !orgName || !bindingName || !releaseState) {
+    if (
+      !componentName ||
+      !projectName ||
+      !orgName ||
+      !bindingName ||
+      !releaseState
+    ) {
       throw new InputError(
         'componentName, projectName, orgName, bindingName and releaseState are required in request body',
       );
@@ -188,13 +195,8 @@ export async function createRouter({
     );
   });
   router.get('/build-logs', async (req, res) => {
-    const {
-      componentName,
-      buildId,
-      buildUuid,
-      projectName,
-      orgName,
-    } = req.query;
+    const { componentName, buildId, buildUuid, projectName, orgName } =
+      req.query;
 
     if (!componentName || !buildId || !buildUuid) {
       throw new InputError(
@@ -303,7 +305,7 @@ export async function createRouter({
         projectName: projectName as string,
         organizationName: organizationName as string,
       });
-      
+
       res.json(result);
     } catch (error) {
       console.error('Workload fetch error:', error);
@@ -328,7 +330,9 @@ export async function createRouter({
     }
 
     if (!workloadSpec) {
-      throw new InputError('Workload specification is required in request body');
+      throw new InputError(
+        'Workload specification is required in request body',
+      );
     }
 
     try {
@@ -338,7 +342,7 @@ export async function createRouter({
         organizationName: organizationName as string,
         workloadSpec,
       });
-      
+
       res.json(result);
     } catch (error) {
       console.error('Workload apply error:', error);

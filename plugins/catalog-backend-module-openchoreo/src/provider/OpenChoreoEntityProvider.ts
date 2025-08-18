@@ -15,7 +15,10 @@ import {
   ModelsCompleteComponent,
   WorkloadEndpoint,
 } from '@internal/plugin-openchoreo-api';
-import { CHOREO_ANNOTATIONS, CHOREO_LABELS } from '@internal/plugin-openchoreo-api';
+import {
+  CHOREO_ANNOTATIONS,
+  CHOREO_LABELS,
+} from '@internal/plugin-openchoreo-api';
 
 /**
  * Provides entities from OpenChoreo API
@@ -288,7 +291,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
           ...(component.repositoryUrl && {
             'backstage.io/source-location': `url:${component.repositoryUrl}`,
           }),
-          ...(component.branch && { [CHOREO_ANNOTATIONS.BRANCH]: component.branch }),
+          ...(component.branch && {
+            [CHOREO_ANNOTATIONS.BRANCH]: component.branch,
+          }),
         },
         labels: {
           [CHOREO_LABELS.MANAGED]: 'true',
@@ -376,9 +381,7 @@ export class OpenChoreoEntityProvider implements EntityProvider {
             lifecycle: 'production',
             owner: 'guests',
             system: projectName,
-            definition: this.createApiDefinitionFromWorkloadEndpoint(
-              endpoint,
-            ),
+            definition: this.createApiDefinitionFromWorkloadEndpoint(endpoint),
           },
         };
 
@@ -421,7 +424,6 @@ export class OpenChoreoEntityProvider implements EntityProvider {
       return endpoint.schema.content;
     }
     return 'No schema available';
-    
 
     //   // Create a basic definition based on endpoint type
     //   if (endpoint.type === 'REST' || endpoint.type === 'HTTP') {

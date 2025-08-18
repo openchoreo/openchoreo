@@ -1,8 +1,19 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import type { FieldValidation } from '@rjsf/utils';
-import { FormControl, InputLabel, Select, MenuItem, CircularProgress, FormHelperText } from '@material-ui/core';
-import { useApi, discoveryApiRef, identityApiRef } from '@backstage/core-plugin-api';
+import {
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  FormHelperText,
+} from '@material-ui/core';
+import {
+  useApi,
+  discoveryApiRef,
+  identityApiRef,
+} from '@backstage/core-plugin-api';
 import type { ModelsBuildTemplate } from '@internal/plugin-openchoreo-api';
 
 /*
@@ -25,7 +36,9 @@ export const BuildTemplatePicker = ({
   uiSchema,
   schema,
 }: FieldExtensionComponentProps<string>) => {
-  const [buildTemplates, setBuildTemplates] = useState<ModelsBuildTemplate[]>([]);
+  const [buildTemplates, setBuildTemplates] = useState<ModelsBuildTemplate[]>(
+    [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const discoveryApi = useApi(discoveryApiRef);
@@ -57,25 +70,28 @@ export const BuildTemplatePicker = ({
 
       setLoading(true);
       setError(null);
-      
+
       try {
         const { token } = await identityApi.getCredentials();
         const baseUrl = await discoveryApi.getBaseUrl('choreo');
         const response = await fetch(
-          `${baseUrl}/build-templates?organizationName=${encodeURIComponent(orgName)}`, {
+          `${baseUrl}/build-templates?organizationName=${encodeURIComponent(
+            orgName,
+          )}`,
+          {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const templates = await response.json();
-        if (!ignore) setBuildTemplates(templates);
-        
+        setBuildTemplates(templates);
+
         // Store templates in form context so other components can access them
         formContext.buildTemplates = templates;
       } catch (err) {
@@ -105,8 +121,8 @@ export const BuildTemplatePicker = ({
   };
 
   return (
-    <FormControl 
-      fullWidth 
+    <FormControl
+      fullWidth
       margin="normal"
       error={!!rawErrors?.length}
       required={required}
@@ -128,14 +144,17 @@ export const BuildTemplatePicker = ({
         )}
         {!loading && buildTemplates.length === 0 && !error && (
           <MenuItem disabled>
-            {organizationName ? 'No build templates available' : 'Select an organization first'}
+            {organizationName
+              ? 'No build templates available'
+              : 'Select an organization first'}
           </MenuItem>
         )}
-        {!loading && buildTemplates.map((template) => (
-          <MenuItem key={template.name} value={template.name}>
-            {template.name}
-          </MenuItem>
-        ))}
+        {!loading &&
+          buildTemplates.map(template => (
+            <MenuItem key={template.name} value={template.name}>
+              {template.name}
+            </MenuItem>
+          ))}
       </Select>
       {error && <FormHelperText>{error}</FormHelperText>}
       {rawErrors?.length ? (

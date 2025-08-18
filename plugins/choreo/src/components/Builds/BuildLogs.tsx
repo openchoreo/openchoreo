@@ -77,7 +77,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
     if (open && build) {
       fetchBuildLogs(build);
     }
-  }, [discoveryApi,identityApi, open, build]);
+  }, [discoveryApi, identityApi, open, build]);
 
   const renderLogsContent = () => {
     if (loading) {
@@ -114,16 +114,10 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
 
     return logs.map((logEntry, index) => (
       <Box key={index} style={{ marginBottom: '4px' }}>
-        <Typography
-          variant="body2"
-          className={classes.timestampText}
-        >
+        <Typography variant="body2" className={classes.timestampText}>
           [{new Date(logEntry.timestamp).toLocaleTimeString()}]
         </Typography>
-        <Typography
-          variant="body2"
-          className={classes.logText}
-        >
+        <Typography variant="body2" className={classes.logText}>
           {logEntry.log}
         </Typography>
       </Box>
@@ -179,10 +173,7 @@ export const BuildLogs = ({ open, onClose, build }: BuildLogsProps) => {
                 <Typography variant="subtitle2" gutterBottom>
                   Logs:
                 </Typography>
-                <Box
-                  p={2}
-                  className={classes.logsContainer}
-                >
+                <Box p={2} className={classes.logsContainer}>
                   {renderLogsContent()}
                 </Box>
               </Box>
