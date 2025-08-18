@@ -90,6 +90,9 @@ export const BuildTemplatePicker = ({
     };
 
     fetchBuildTemplates();
+    return () => {
+      setBuildTemplates([]);
+    };
   }, [organizationName, discoveryApi, formContext, identityApi]);
 
   const handleChange = (event: ChangeEvent<{ value: unknown }>) => {

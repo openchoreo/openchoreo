@@ -87,6 +87,9 @@ export const BuildTemplateParameters = ({
     };
 
     fetchBuildTemplates();
+    return () => {
+      setBuildTemplates([]);
+    };
   }, [organizationName, discoveryApi, identityApi]);
 
   // Update parameters when template selection or templates change
