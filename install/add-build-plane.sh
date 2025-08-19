@@ -41,7 +41,6 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
-echo "$CLUSTER_NAME"
 
 # Try to get base64-encoded values directly
 CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}")
@@ -73,21 +72,20 @@ if [ -z "$CLIENT_KEY" ]; then
 fi
 
 # Determine authentication method
-AUTH_TYPE=""
 AUTH_CONFIG=""
 
 if [ -n "$CLIENT_CERT" ] && [ -n "$CLIENT_KEY" ]; then
-  # Use certificate-based authentication
-  AUTH_TYPE="cert"
-  AUTH_CONFIG="cert:
-        clientCertData: $CLIENT_CERT
-        clientKeyData: $CLIENT_KEY"
-  echo "Using certificate-based authentication"
+  # Use mTLS authentication
+  AUTH_CONFIG="mtls:
+        clientCert:
+          value: $CLIENT_CERT
+        clientKey:
+          value: $CLIENT_KEY"
+  echo "Using mTLS authentication"
 elif [ -n "$USER_TOKEN" ]; then
   # Use bearer token authentication
-  AUTH_TYPE="bearer"
-  AUTH_CONFIG="bearer:
-        tokenData: $USER_TOKEN"
+  AUTH_CONFIG="bearerToken:
+        value: $USER_TOKEN"
   echo "Using bearer token authentication"
 else
   echo -e "\n${RED}Error: No valid authentication method found. Need either client certificates or user token in the kube config.${RESET}"
@@ -114,12 +112,11 @@ metadata:
   namespace: default
 spec:
   kubernetesCluster:
-    connection:
-      server: $SERVER_URL
-      tls:
-        caData: $CA_CERT
+    server: $SERVER_URL
+    tls:
+      ca:
+        value: $CA_CERT
     auth:
-      type: $AUTH_TYPE
       $AUTH_CONFIG
 EOF
 then
