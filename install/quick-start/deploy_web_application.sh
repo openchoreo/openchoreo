@@ -63,6 +63,20 @@ while true; do
   sleep 5
 done
 
+echo "Waiting for WebApplicationRelease deployment to be available..."
+
+while true; do
+  # Check if the release has Deployment with MinimumReplicasAvailable condition
+  DEPLOYMENT_AVAILABLE=$(kubectl get release -l "openchoreo.dev/component=react-starter" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.items[]?.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status')
+
+  if [[ "$DEPLOYMENT_AVAILABLE" == "True" ]]; then
+    echo "✅ WebApplicationRelease deployment is available!"
+    break
+  fi
+
+  sleep 5
+done
+
 echo "✅ Web application is ready!"
 echo "🌍 You can now access the Sample Web Application at: $PUBLIC_URL"
 echo "   Open this URL in your browser to see the React starter application."

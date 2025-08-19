@@ -1,64 +1,162 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-container_id="$(cat /etc/hostname)"
+# Get the absolute path of the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Check if the "kind" network exists
-if docker network inspect kind &>/dev/null; then
-  # Check if the container is already connected
-  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${container_id}")" = "null" ]; then
-    docker network connect "kind" "${container_id}"
-    echo "Connected container ${container_id} to kind network."
-  else
-    echo "Container ${container_id} is already connected to kind network."
-  fi
+# Source helper functions
+source "${SCRIPT_DIR}/install-helpers.sh"
+
+# Parse command line arguments
+ENABLE_OBSERVABILITY=false
+SKIP_STATUS_CHECK=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --enable-observability)
+            ENABLE_OBSERVABILITY=true
+            shift
+            ;;
+        --skip-status-check)
+            SKIP_STATUS_CHECK=true
+            shift
+            ;;
+        --openchoreo-version)
+            OPENCHOREO_VERSION="$2"
+            export OPENCHOREO_VERSION
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --enable-observability    Enable OpenChoreo Observability Plane"
+            echo "  --skip-status-check       Skip the status check at the end"
+            echo "  --openchoreo-version VER  Specify OpenChoreo version to install"
+            echo "  --help, -h                Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                                    # Install with defaults"
+            echo "  $0 --enable-observability             # Install with observability plane"
+            echo "  $0 --openchoreo-version v1.2.3        # Install specific version"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+log_info "Starting OpenChoreo installation..."
+log_info "Configuration:"
+log_info "  Cluster Name: $CLUSTER_NAME"
+log_info "  Node Image: $NODE_IMAGE"
+log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
+if [[ -n "$OPENCHOREO_VERSION" ]]; then
+    log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
 else
-  echo "Docker network 'kind' does not exist. Skipping connection."
+    log_info "  OpenChoreo Version: latest"
+fi
+log_info "  Enable Observability: $ENABLE_OBSERVABILITY"
+
+# Verify prerequisites
+verify_prerequisites
+
+# Step 1: Connect container to kind network
+connect_to_kind_network
+
+# Step 2: Create Kind cluster
+create_kind_cluster
+
+# Step 3: Setup kubeconfig
+setup_kubeconfig
+
+# Step 4: Install Cilium (networking)
+install_cilium
+
+# Step 5: Install OpenChoreo Control Plane
+install_control_plane
+
+# Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
+log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
+
+# Start installations in background
+install_data_plane &
+DATA_PLANE_PID=$!
+
+install_build_plane &
+BUILD_PLANE_PID=$!
+
+install_identity_provider &
+IDENTITY_PROVIDER_PID=$!
+
+# Wait for all installations to complete
+log_info "Waiting for parallel installations to complete..."
+wait $DATA_PLANE_PID
+DATA_PLANE_EXIT=$?
+
+wait $BUILD_PLANE_PID
+BUILD_PLANE_EXIT=$?
+
+wait $IDENTITY_PROVIDER_PID
+IDENTITY_PROVIDER_EXIT=$?
+
+# Check if any installation failed
+if [[ $DATA_PLANE_EXIT -ne 0 ]]; then
+    log_error "Data Plane installation failed with exit code $DATA_PLANE_EXIT"
+    exit 1
 fi
 
-terraform -chdir=terraform init -upgrade
-terraform -chdir=terraform apply -auto-approve
-
-echo "Finding external gateway nodeport..."
-NODEPORT_EG=$(kubectl get svc -n openchoreo-data-plane -l gateway.envoyproxy.io/owning-gateway-name=gateway-external \
-  -o jsonpath='{.items[0].spec.ports[0].nodePort}')
-
-if [[ -z "$NODEPORT_EG" ]]; then
-  echo "Error: Could not retrieve NodePort."
-  exit 1
+if [[ $BUILD_PLANE_EXIT -ne 0 ]]; then
+    log_error "Build Plane installation failed with exit code $BUILD_PLANE_EXIT"
+    exit 1
 fi
 
-echo "Setting up a port-forwarding proxy from 8443 to the gateway NodePort..."
-
-socat TCP-LISTEN:8443,fork TCP:openchoreo-quick-start-worker:$NODEPORT_EG &
-
-echo "Finding backstage nodeport..."
-NODEPORT_BACKSTAGE=$(kubectl get svc -n openchoreo-control-plane -l app.kubernetes.io/component=backstage \
-  -o jsonpath='{.items[0].spec.ports[0].nodePort}')
-
-if [[ -z "$NODEPORT_BACKSTAGE" ]]; then
-  echo "Error: Could not retrieve NodePort."
-  exit 1
+if [[ $IDENTITY_PROVIDER_EXIT -ne 0 ]]; then
+    log_error "Identity Provider installation failed with exit code $IDENTITY_PROVIDER_EXIT"
+    exit 1
 fi
 
-echo "Setting up a port-forwarding proxy from 7007 to the gateway NodePort..."
+log_info "All parallel installations completed successfully"
 
-socat TCP-LISTEN:7007,fork TCP:openchoreo-quick-start-worker:$NODEPORT_BACKSTAGE &
-
-# enable choreoctl auto-completion
-if [ -f /state/kube/config-internal.yaml ]; then
-  echo "Enabling choreoctl auto-completion..."
-  /usr/local/bin/choreoctl completion bash > /usr/local/bin/choreoctl-completion
-  chmod +x /usr/local/bin/choreoctl-completion
-  echo "source /usr/local/bin/choreoctl-completion" >> /etc/profile
+# Step 9: Install OpenChoreo Observability Plane (optional)
+if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    install_observability_plane
 fi
 
-bash ./check-status.sh
+# Step 10: Install Backstage Demo
+install_backstage_demo
 
-# add default dataplane
-bash ./add-default-dataplane.sh --single-cluster
+# Step 11: Setup port forwarding
+setup_port_forwarding
 
-# add default BuildPlane
-bash ./add-build-plane.sh
+# Step 12: Setup choreoctl auto-completion
+setup_choreoctl_completion
+
+# Step 13: Check installation status
+if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
+    bash "${SCRIPT_DIR}/check-status.sh"
+fi
+
+# Step 14: Add default dataplane
+if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
+    bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
+else
+    log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
+fi
+
+# Step 15: Add default BuildPlane
+if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
+    bash "${SCRIPT_DIR}/add-build-plane.sh"
+else
+    log_warning "add-build-plane.sh not found, skipping build plane configuration"
+fi
+
+log_success "OpenChoreo installation completed successfully!"
+log_info "Access URLs:"
+log_info "  External Gateway: https://localhost:8443"
+log_info "  Backstage Demo: http://localhost:7007"
 
 exec /bin/bash -l
