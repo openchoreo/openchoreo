@@ -73,110 +73,88 @@ func (m *KubeMultiClientManager) GetClient(key string, kubernetesCluster opencho
 // buildRESTConfig constructs a REST config from the KubernetesClusterSpec
 func buildRESTConfig(kubernetesCluster openchoreov1alpha1.KubernetesClusterSpec) (*rest.Config, error) {
 	restCfg := &rest.Config{
-		Host: kubernetesCluster.Connection.Server,
+		Host: kubernetesCluster.Server,
 	}
 
 	// Configure TLS
-	if err := configureTLS(restCfg, kubernetesCluster.Connection.TLS); err != nil {
+	if err := configureTLS(restCfg, &kubernetesCluster.TLS); err != nil {
 		return nil, fmt.Errorf("failed to configure TLS: %w", err)
 	}
 
-	// Configure authentication based on type
-	switch kubernetesCluster.Auth.Type {
-	case openchoreov1alpha1.AuthTypeCert:
-		if err := configureCertAuth(restCfg, kubernetesCluster.Auth.Cert); err != nil {
-			return nil, fmt.Errorf("failed to configure certificate authentication: %w", err)
+	// Configure authentication with priority: mTLS > bearerToken > OIDC
+	if kubernetesCluster.Auth.MTLS != nil {
+		if err := configureMTLSAuth(restCfg, kubernetesCluster.Auth.MTLS); err != nil {
+			return nil, fmt.Errorf("failed to configure mTLS authentication: %w", err)
 		}
-	case openchoreov1alpha1.AuthTypeBearer:
-		if err := configureBearerAuth(restCfg, kubernetesCluster.Auth.Bearer); err != nil {
-			return nil, fmt.Errorf("failed to configure bearer authentication: %w", err)
+	} else if kubernetesCluster.Auth.BearerToken != nil {
+		if err := configureBearerAuth(restCfg, kubernetesCluster.Auth.BearerToken); err != nil {
+			return nil, fmt.Errorf("failed to configure bearer token authentication: %w", err)
 		}
-	case openchoreov1alpha1.AuthTypeOIDC:
-		if err := configureOIDCAuth(restCfg, kubernetesCluster.Auth.OIDC); err != nil {
-			return nil, fmt.Errorf("failed to configure OIDC authentication: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported authentication type: %s", kubernetesCluster.Auth.Type)
+	} else {
+		return nil, fmt.Errorf("no supported authentication method configured")
 	}
 
 	return restCfg, nil
 }
 
 // configureTLS sets up TLS configuration
-func configureTLS(restCfg *rest.Config, tls openchoreov1alpha1.KubernetesTLS) error {
-	// TODO: Add support for CASecretRef - fetch CA certificate from Kubernetes secret
-	// when tls.CASecretRef is provided, retrieve the secret and extract the CA certificate
-
-	// For now, only handle inline CA data (not secret refs)
-	if tls.CAData != "" {
-		caCert, err := base64.StdEncoding.DecodeString(tls.CAData)
+func configureTLS(restCfg *rest.Config, tls *openchoreov1alpha1.KubernetesTLS) error {
+	// Only handle inline CA data for now
+	if tls != nil && tls.CA.Value != "" {
+		// Decode base64 encoded CA certificate
+		caCert, err := base64.StdEncoding.DecodeString(tls.CA.Value)
 		if err != nil {
-			return fmt.Errorf("failed to decode CA cert: %w", err)
+			return fmt.Errorf("failed to decode base64 CA certificate: %w", err)
 		}
 		restCfg.TLSClientConfig.CAData = caCert
 	}
+
 	return nil
 }
 
-// configureCertAuth sets up certificate-based authentication
-func configureCertAuth(restCfg *rest.Config, certAuth *openchoreov1alpha1.KubernetesCertAuth) error {
-	if certAuth == nil {
-		return fmt.Errorf("certificate authentication config is nil")
+// configureMTLSAuth sets up mutual TLS authentication
+func configureMTLSAuth(restCfg *rest.Config, mtlsAuth *openchoreov1alpha1.MTLSAuth) error {
+	if mtlsAuth == nil {
+		return fmt.Errorf("mTLS authentication config is nil")
 	}
 
-	// TODO: Add support for ClientCertSecretRef and ClientKeySecretRef
-	// Priority: 1. Secret references (ClientCertSecretRef, ClientKeySecretRef)
-	//          2. Fallback to inline data (ClientCertData, ClientKeyData)
-
-	// For now, only handle inline cert/key data (not secret refs)
-	if certAuth.ClientCertData != "" && certAuth.ClientKeyData != "" {
-		clientCert, err := base64.StdEncoding.DecodeString(certAuth.ClientCertData)
-		if err != nil {
-			return fmt.Errorf("failed to decode client cert: %w", err)
-		}
-		clientKey, err := base64.StdEncoding.DecodeString(certAuth.ClientKeyData)
-		if err != nil {
-			return fmt.Errorf("failed to decode client key: %w", err)
-		}
-		restCfg.TLSClientConfig.CertData = clientCert
-		restCfg.TLSClientConfig.KeyData = clientKey
-	} else {
-		return fmt.Errorf("client certificate data and key data are required for certificate authentication")
+	// Get client certificate (only inline value for now)
+	if mtlsAuth.ClientCert.Value == "" {
+		return fmt.Errorf("client certificate value is required for mTLS authentication")
 	}
+	clientCertData, err := base64.StdEncoding.DecodeString(mtlsAuth.ClientCert.Value)
+	if err != nil {
+		return fmt.Errorf("failed to decode base64 client certificate: %w", err)
+	}
+
+	// Get client key (only inline value for now)
+	if mtlsAuth.ClientKey.Value == "" {
+		return fmt.Errorf("client key value is required for mTLS authentication")
+	}
+	clientKeyData, err := base64.StdEncoding.DecodeString(mtlsAuth.ClientKey.Value)
+	if err != nil {
+		return fmt.Errorf("failed to decode base64 client key: %w", err)
+	}
+
+	restCfg.TLSClientConfig.CertData = clientCertData
+	restCfg.TLSClientConfig.KeyData = clientKeyData
 
 	return nil
 }
 
 // configureBearerAuth sets up bearer token authentication
-func configureBearerAuth(restCfg *rest.Config, bearerAuth *openchoreov1alpha1.KubernetesBearerAuth) error {
+func configureBearerAuth(restCfg *rest.Config, bearerAuth *openchoreov1alpha1.ValueFrom) error {
 	if bearerAuth == nil {
-		return fmt.Errorf("bearer authentication config is nil")
+		return fmt.Errorf("bearer token authentication config is nil")
 	}
 
-	// TODO: Add support for TokenSecretRef
-	// Priority: 1. Secret reference (TokenSecretRef)
-	//          2. Fallback to inline data (TokenData)
-
-	// For now, only handle inline token data (not secret refs)
-	if bearerAuth.TokenData != "" {
-		restCfg.BearerToken = bearerAuth.TokenData
-	} else {
-		return fmt.Errorf("token data is required for bearer authentication")
+	// Only handle inline token value for now
+	if bearerAuth.Value == "" {
+		return fmt.Errorf("bearer token value is required for bearer token authentication")
 	}
 
+	restCfg.BearerToken = bearerAuth.Value
 	return nil
-}
-
-// configureOIDCAuth sets up OIDC authentication
-func configureOIDCAuth(restCfg *rest.Config, oidcAuth *openchoreov1alpha1.KubernetesOIDCAuth) error {
-	if oidcAuth == nil {
-		return fmt.Errorf("OIDC authentication config is nil")
-	}
-
-	// TODO: Implement OIDC authentication configuration
-	// For now, this is a placeholder implementation
-	// OIDC configuration would typically require more complex setup
-	return fmt.Errorf("OIDC authentication is not yet implemented")
 }
 
 // makeClientKey generates a unique key for the client cache.
