@@ -1,7 +1,7 @@
 import { Entity } from '@backstage/catalog-model';
 import { DiscoveryApi, IdentityApi } from '@backstage/core-plugin-api';
 import { API_ENDPOINTS } from '../constants';
-import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
+import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-api';
 
 export async function getCellDiagramInfo(
   entity: Entity,

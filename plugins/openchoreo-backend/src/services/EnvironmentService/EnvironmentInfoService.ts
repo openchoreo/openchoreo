@@ -5,7 +5,7 @@ import {
   ModelsEnvironment,
   OpenChoreoApiClient,
   BindingResponse,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /**
  * Service for managing and retrieving environment-related information for deployments.

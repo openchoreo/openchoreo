@@ -11,7 +11,7 @@ import {
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
-import { Connection, ModelsWorkload } from '@internal/plugin-openchoreo-api';
+import { Connection, ModelsWorkload } from '@openchoreo/backstage-plugin-api';
 import { catalogApiRef, useEntity } from '@backstage/plugin-catalog-react';
 import {
   discoveryApiRef,
@@ -19,7 +19,7 @@ import {
   useApi,
 } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model';
-import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
+import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-api';
 import { fetchWorkloadInfo } from '../../../../api/workloadInfo';
 
 interface ConnectionItemProps {

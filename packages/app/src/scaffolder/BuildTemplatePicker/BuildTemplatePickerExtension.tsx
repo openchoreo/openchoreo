@@ -14,7 +14,7 @@ import {
   discoveryApiRef,
   identityApiRef,
 } from '@backstage/core-plugin-api';
-import type { ModelsBuildTemplate } from '@internal/plugin-openchoreo-api';
+import type { ModelsBuildTemplate } from '@openchoreo/backstage-plugin-api';
 
 /*
  Schema for the Custom Field Explorer

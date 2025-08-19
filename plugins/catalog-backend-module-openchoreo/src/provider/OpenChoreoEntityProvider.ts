@@ -14,11 +14,11 @@ import {
   ModelsComponent,
   ModelsCompleteComponent,
   WorkloadEndpoint,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 import {
   CHOREO_ANNOTATIONS,
   CHOREO_LABELS,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /**
  * Provides entities from OpenChoreo API

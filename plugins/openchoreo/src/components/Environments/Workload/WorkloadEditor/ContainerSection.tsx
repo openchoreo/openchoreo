@@ -20,7 +20,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import { Container, EnvVar } from '@internal/plugin-openchoreo-api';
+import { Container, EnvVar } from '@openchoreo/backstage-plugin-api';
 import { formatRelativeTime } from '../../../../utils/timeUtils';
 import { useBuilds } from '../WorkloadContext';
 

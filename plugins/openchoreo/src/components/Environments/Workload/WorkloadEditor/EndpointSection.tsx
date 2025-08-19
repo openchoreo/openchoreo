@@ -21,7 +21,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import DeleteIcon from '@material-ui/icons/Delete';
 import AddIcon from '@material-ui/icons/Add';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import { WorkloadEndpoint } from '@internal/plugin-openchoreo-api';
+import { WorkloadEndpoint } from '@openchoreo/backstage-plugin-api';
 
 interface EndpointSectionProps {
   endpoints: { [key: string]: WorkloadEndpoint };

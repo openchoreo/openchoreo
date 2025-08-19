@@ -7,12 +7,12 @@ import {
   EnvVar,
   Connection,
   WorkloadType,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 import { ContainerSection } from './ContainerSection';
 import { EndpointSection } from './EndpointSection';
 import { ConnectionSection } from './ConnectionSection';
 import { Alert } from '@material-ui/lab';
-import { CHOREO_ANNOTATIONS } from '@internal/plugin-openchoreo-api';
+import { CHOREO_ANNOTATIONS } from '@openchoreo/backstage-plugin-api';
 import { Entity } from '@backstage/catalog-model';
 import { useWorkloadContext } from '../WorkloadContext';
 

@@ -62,7 +62,7 @@ import {
   CellDiagram,
   RuntimeLogs,
   Builds,
-} from '@internal/plugin-openchoreo';
+} from '@openchoreo/backstage-plugin';
 
 const techdocsContent = (
   <EntityTechdocsContent>

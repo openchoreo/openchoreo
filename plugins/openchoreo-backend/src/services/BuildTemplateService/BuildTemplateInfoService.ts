@@ -2,7 +2,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import {
   OpenChoreoApiClient,
   ModelsBuildTemplate,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 export class BuildTemplateInfoService {
   private logger: LoggerService;

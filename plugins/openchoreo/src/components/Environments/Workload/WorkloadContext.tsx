@@ -1,5 +1,5 @@
 import { ReactNode, FC, createContext, useContext } from 'react';
-import { ModelsBuild, ModelsWorkload } from '@internal/plugin-openchoreo-api';
+import { ModelsBuild, ModelsWorkload } from '@openchoreo/backstage-plugin-api';
 
 interface WorkloadContextType {
   builds: ModelsBuild[];

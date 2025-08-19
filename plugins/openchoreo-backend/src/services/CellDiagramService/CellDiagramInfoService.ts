@@ -6,7 +6,7 @@ import {
   DefaultApiClient,
   ModelsCompleteComponent,
   Connection as WorkloadConnection,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 enum ComponentType {
   SERVICE = 'service',

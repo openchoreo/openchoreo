@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from 'react';
 import { WorkloadEditor } from './WorkloadEditor';
 import CloseIcon from '@material-ui/icons/Close';
-import { ModelsWorkload, ModelsBuild } from '@internal/plugin-openchoreo-api';
+import { ModelsWorkload, ModelsBuild } from '@openchoreo/backstage-plugin-api';
 import { applyWorkload, fetchWorkloadInfo } from '../../../api/workloadInfo';
 import { useEntity } from '@backstage/plugin-catalog-react';
 import { useApi } from '@backstage/core-plugin-api';

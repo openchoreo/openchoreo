@@ -1,5 +1,5 @@
 import { Project } from '@wso2/cell-diagram';
-import { ModelsWorkload } from '@internal/plugin-openchoreo-api';
+import { ModelsWorkload } from '@openchoreo/backstage-plugin-api';
 
 export interface EnvironmentService {
   fetchDeploymentInfo(request: {

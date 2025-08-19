@@ -14,7 +14,7 @@ import { WorkloadInfoService } from './services/WorkloadService/WorkloadInfoServ
 import {
   DefaultApiClient,
   ObservabilityApiClient,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /**
  * choreoPlugin backend plugin

@@ -17,7 +17,7 @@ import {
 import type {
   ModelsBuildTemplate,
   BuildTemplateParameter,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /*
  Schema for the Build Template Parameters Field

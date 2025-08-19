@@ -4,7 +4,7 @@ import {
   ObservabilityApiClient,
   ComponentLogsPostRequest,
   ObservabilityNotConfiguredError,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /**
  * Service for fetching runtime logs for components.

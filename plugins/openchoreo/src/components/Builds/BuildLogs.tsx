@@ -14,7 +14,7 @@ import {
   discoveryApiRef,
   identityApiRef,
 } from '@backstage/core-plugin-api';
-import type { ModelsBuild, LogEntry } from '@internal/plugin-openchoreo-api';
+import type { ModelsBuild, LogEntry } from '@openchoreo/backstage-plugin-api';
 import { fetchBuildLogsForBuild } from '../../api/buildLogs';
 
 const useStyles = makeStyles(theme => ({

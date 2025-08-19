@@ -3,7 +3,7 @@ import { WorkloadService } from '../../types';
 import {
   OpenChoreoApiClient,
   ModelsWorkload,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 /**
  * Service for managing and retrieving workload information.

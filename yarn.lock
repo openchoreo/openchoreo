@@ -8213,107 +8213,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@internal/plugin-catalog-backend-module-openchoreo@workspace:^, @internal/plugin-catalog-backend-module-openchoreo@workspace:plugins/catalog-backend-module-openchoreo":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-catalog-backend-module-openchoreo@workspace:plugins/catalog-backend-module-openchoreo"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.3.0"
-    "@backstage/backend-test-utils": "npm:^1.3.1"
-    "@backstage/catalog-client": "npm:^1.9.1"
-    "@backstage/catalog-model": "npm:^1.7.3"
-    "@backstage/cli": "npm:^0.32.0"
-    "@backstage/config": "npm:^1.3.2"
-    "@backstage/plugin-catalog-node": "npm:^1.16.3"
-    "@backstage/plugin-permission-common": "npm:^0.8.4"
-    "@internal/plugin-openchoreo-api": "npm:*"
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-openchoreo-api@npm:*, @internal/plugin-openchoreo-api@npm:^0.1.0, @internal/plugin-openchoreo-api@workspace:^, @internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.4.0"
-    "@backstage/cli": "npm:^0.32.0"
-    "@backstage/config": "npm:^1.3.2"
-    cross-fetch: "npm:^4.1.0"
-    uri-template: "npm:^2.0.0"
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-openchoreo-backend@workspace:^, @internal/plugin-openchoreo-backend@workspace:plugins/openchoreo-backend":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-openchoreo-backend@workspace:plugins/openchoreo-backend"
-  dependencies:
-    "@backstage/backend-defaults": "npm:^0.8.2"
-    "@backstage/backend-plugin-api": "npm:^1.2.1"
-    "@backstage/backend-test-utils": "npm:^1.3.1"
-    "@backstage/catalog-client": "npm:^1.9.1"
-    "@backstage/cli": "npm:^0.31.0"
-    "@backstage/config": "npm:^1.3.2"
-    "@backstage/errors": "npm:^1.2.7"
-    "@backstage/plugin-catalog-node": "npm:^1.16.1"
-    "@backstage/plugin-kubernetes-backend": "npm:^0.19.5"
-    "@backstage/plugin-kubernetes-node": "npm:^0.2.5"
-    "@backstage/plugin-permission-common": "npm:^0.8.4"
-    "@internal/plugin-openchoreo-api": "npm:^0.1.0"
-    "@types/express": "npm:^4.17.6"
-    "@types/supertest": "npm:^2.0.12"
-    "@wso2/cell-diagram": "npm:0.2.0"
-    express: "npm:^4.17.1"
-    express-promise-router: "npm:^4.1.0"
-    supertest: "npm:^6.2.4"
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-openchoreo@workspace:^, @internal/plugin-openchoreo@workspace:plugins/openchoreo":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-openchoreo@workspace:plugins/openchoreo"
-  dependencies:
-    "@backstage/catalog-model": "npm:^1.7.3"
-    "@backstage/cli": "npm:^0.31.0"
-    "@backstage/core-app-api": "npm:^1.16.0"
-    "@backstage/core-components": "npm:^0.17.0"
-    "@backstage/core-plugin-api": "npm:^1.10.5"
-    "@backstage/dev-utils": "npm:^1.1.8"
-    "@backstage/plugin-catalog-react": "npm:^1.17.0"
-    "@backstage/test-utils": "npm:^1.7.6"
-    "@backstage/theme": "npm:^0.6.4"
-    "@internal/plugin-openchoreo-api": "workspace:^"
-    "@material-ui/core": "npm:^4.9.13"
-    "@material-ui/icons": "npm:^4.11.3"
-    "@material-ui/lab": "npm:^4.0.0-alpha.61"
-    "@testing-library/dom": "npm:^9.0.0"
-    "@testing-library/jest-dom": "npm:^6.0.0"
-    "@testing-library/react": "npm:^14.0.0"
-    "@testing-library/user-event": "npm:^14.0.0"
-    "@types/pathfinding": "npm:^0"
-    "@types/react": "npm:^18.0.0"
-    "@wso2/cell-diagram": "npm:0.2.0"
-    msw: "npm:^1.0.0"
-    pathfinding: "npm:^0.4.18"
-    paths-js: "npm:^0.4.11"
-    react-router-dom: "npm:^6.3.0"
-    react-use: "npm:^17.2.4"
-  peerDependencies:
-    react: ^18.0.0
-    react-dom: ^18.0.0
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-scaffolder-backend-module-openchoreo@workspace:^, @internal/plugin-scaffolder-backend-module-openchoreo@workspace:plugins/scaffolder-backend-module-openchoreo":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-scaffolder-backend-module-openchoreo@workspace:plugins/scaffolder-backend-module-openchoreo"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.3.0"
-    "@backstage/cli": "npm:^0.32.0"
-    "@backstage/config": "npm:^1.3.3"
-    "@backstage/plugin-scaffolder-node": "npm:^0.8.1"
-    "@backstage/plugin-scaffolder-node-test-utils": "npm:^0.2.1"
-    "@internal/plugin-openchoreo-api": "workspace:^"
-  languageName: unknown
-  linkType: soft
-
 "@internationalized/date@npm:^3.8.0":
   version: 3.8.0
   resolution: "@internationalized/date@npm:3.8.0"
@@ -10755,6 +10654,107 @@ __metadata:
   checksum: 10c0/eb7a552bdc7d19fc2229373014b745399497c139301c71b8c889027620d74783fb483f661c204ac350e4942bb6661db7613dc08fce901902514e2800d67e1b77
   languageName: node
   linkType: hard
+
+"@openchoreo/backstage-plugin-api@npm:*, @openchoreo/backstage-plugin-api@npm:^0.1.0, @openchoreo/backstage-plugin-api@workspace:^, @openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.4.0"
+    "@backstage/cli": "npm:^0.32.0"
+    "@backstage/config": "npm:^1.3.2"
+    cross-fetch: "npm:^4.1.0"
+    uri-template: "npm:^2.0.0"
+  languageName: unknown
+  linkType: soft
+
+"@openchoreo/backstage-plugin-backend@npm:^0.1.0, @openchoreo/backstage-plugin-backend@workspace:plugins/openchoreo-backend":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-backend@workspace:plugins/openchoreo-backend"
+  dependencies:
+    "@backstage/backend-defaults": "npm:^0.8.2"
+    "@backstage/backend-plugin-api": "npm:^1.2.1"
+    "@backstage/backend-test-utils": "npm:^1.3.1"
+    "@backstage/catalog-client": "npm:^1.9.1"
+    "@backstage/cli": "npm:^0.31.0"
+    "@backstage/config": "npm:^1.3.2"
+    "@backstage/errors": "npm:^1.2.7"
+    "@backstage/plugin-catalog-node": "npm:^1.16.1"
+    "@backstage/plugin-kubernetes-backend": "npm:^0.19.5"
+    "@backstage/plugin-kubernetes-node": "npm:^0.2.5"
+    "@backstage/plugin-permission-common": "npm:^0.8.4"
+    "@openchoreo/backstage-plugin-api": "npm:^0.1.0"
+    "@types/express": "npm:^4.17.6"
+    "@types/supertest": "npm:^2.0.12"
+    "@wso2/cell-diagram": "npm:0.2.0"
+    express: "npm:^4.17.1"
+    express-promise-router: "npm:^4.1.0"
+    supertest: "npm:^6.2.4"
+  languageName: unknown
+  linkType: soft
+
+"@openchoreo/backstage-plugin-catalog-backend-module@npm:^0.1.0, @openchoreo/backstage-plugin-catalog-backend-module@workspace:plugins/catalog-backend-module-openchoreo":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-catalog-backend-module@workspace:plugins/catalog-backend-module-openchoreo"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.3.0"
+    "@backstage/backend-test-utils": "npm:^1.3.1"
+    "@backstage/catalog-client": "npm:^1.9.1"
+    "@backstage/catalog-model": "npm:^1.7.3"
+    "@backstage/cli": "npm:^0.32.0"
+    "@backstage/config": "npm:^1.3.2"
+    "@backstage/plugin-catalog-node": "npm:^1.16.3"
+    "@backstage/plugin-permission-common": "npm:^0.8.4"
+    "@openchoreo/backstage-plugin-api": "npm:*"
+  languageName: unknown
+  linkType: soft
+
+"@openchoreo/backstage-plugin-scaffolder-backend-module@npm:^0.1.0, @openchoreo/backstage-plugin-scaffolder-backend-module@workspace:plugins/scaffolder-backend-module-openchoreo":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-scaffolder-backend-module@workspace:plugins/scaffolder-backend-module-openchoreo"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.3.0"
+    "@backstage/cli": "npm:^0.32.0"
+    "@backstage/config": "npm:^1.3.3"
+    "@backstage/plugin-scaffolder-node": "npm:^0.8.1"
+    "@backstage/plugin-scaffolder-node-test-utils": "npm:^0.2.1"
+    "@openchoreo/backstage-plugin-api": "workspace:^"
+  languageName: unknown
+  linkType: soft
+
+"@openchoreo/backstage-plugin@npm:^0.1.0, @openchoreo/backstage-plugin@workspace:plugins/openchoreo":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin@workspace:plugins/openchoreo"
+  dependencies:
+    "@backstage/catalog-model": "npm:^1.7.3"
+    "@backstage/cli": "npm:^0.31.0"
+    "@backstage/core-app-api": "npm:^1.16.0"
+    "@backstage/core-components": "npm:^0.17.0"
+    "@backstage/core-plugin-api": "npm:^1.10.5"
+    "@backstage/dev-utils": "npm:^1.1.8"
+    "@backstage/plugin-catalog-react": "npm:^1.17.0"
+    "@backstage/test-utils": "npm:^1.7.6"
+    "@backstage/theme": "npm:^0.6.4"
+    "@material-ui/core": "npm:^4.9.13"
+    "@material-ui/icons": "npm:^4.11.3"
+    "@material-ui/lab": "npm:^4.0.0-alpha.61"
+    "@openchoreo/backstage-plugin-api": "npm:^0.1.0"
+    "@testing-library/dom": "npm:^9.0.0"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^14.0.0"
+    "@testing-library/user-event": "npm:^14.0.0"
+    "@types/pathfinding": "npm:^0"
+    "@types/react": "npm:^18.0.0"
+    "@wso2/cell-diagram": "npm:0.2.0"
+    msw: "npm:^1.0.0"
+    pathfinding: "npm:^0.4.18"
+    paths-js: "npm:^0.4.11"
+    react-router-dom: "npm:^6.3.0"
+    react-use: "npm:^17.2.4"
+  peerDependencies:
+    react: ^18.0.0
+    react-dom: ^18.0.0
+  languageName: unknown
+  linkType: soft
 
 "@opentelemetry/api@npm:^1.3.0, @opentelemetry/api@npm:^1.4.0, @opentelemetry/api@npm:^1.9.0":
   version: 1.9.0
@@ -16026,10 +16026,10 @@ __metadata:
     "@backstage/plugin-user-settings": "npm:^0.8.21"
     "@backstage/test-utils": "npm:^1.7.7"
     "@backstage/theme": "npm:^0.6.5"
-    "@internal/plugin-openchoreo": "workspace:^"
-    "@internal/plugin-openchoreo-api": "workspace:^"
     "@material-ui/core": "npm:^4.12.2"
     "@material-ui/icons": "npm:^4.9.1"
+    "@openchoreo/backstage-plugin": "npm:^0.1.0"
+    "@openchoreo/backstage-plugin-api": "npm:^0.1.0"
     "@playwright/test": "npm:^1.32.3"
     "@testing-library/dom": "npm:^9.0.0"
     "@testing-library/jest-dom": "npm:^6.0.0"
@@ -16694,9 +16694,9 @@ __metadata:
     "@backstage/plugin-search-backend-module-techdocs": "npm:^0.4.1"
     "@backstage/plugin-search-backend-node": "npm:^1.3.10"
     "@backstage/plugin-techdocs-backend": "npm:^2.0.1"
-    "@internal/plugin-catalog-backend-module-openchoreo": "workspace:^"
-    "@internal/plugin-openchoreo-backend": "workspace:^"
-    "@internal/plugin-scaffolder-backend-module-openchoreo": "workspace:^"
+    "@openchoreo/backstage-plugin-backend": "npm:^0.1.0"
+    "@openchoreo/backstage-plugin-catalog-backend-module": "npm:^0.1.0"
+    "@openchoreo/backstage-plugin-scaffolder-backend-module": "npm:^0.1.0"
     app: "link:../app"
     better-sqlite3: "npm:^9.0.0"
     node-gyp: "npm:^10.0.0"

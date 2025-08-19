@@ -49,9 +49,7 @@ backend.add(import('@backstage/plugin-search-backend-module-pg'));
 backend.add(import('@backstage/plugin-search-backend-module-catalog'));
 backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 
-// kubernetes
-backend.add(import('@backstage/plugin-kubernetes-backend'));
-backend.add(import('@internal/plugin-openchoreo-backend'));
-backend.add(import('@internal/plugin-catalog-backend-module-openchoreo'));
-backend.add(import('@internal/plugin-scaffolder-backend-module-openchoreo'));
+backend.add(import('@openchoreo/backstage-plugin-backend'));
+backend.add(import('@openchoreo/backstage-plugin-catalog-backend-module'));
+backend.add(import('@openchoreo/backstage-plugin-scaffolder-backend-module'));
 backend.start();

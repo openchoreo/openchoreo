@@ -1,5 +1,5 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import { OpenChoreoApiClient } from '@internal/plugin-openchoreo-api';
+import { OpenChoreoApiClient } from '@openchoreo/backstage-plugin-api';
 import { Config } from '@backstage/config';
 
 export const createProjectAction = (config: Config) => {

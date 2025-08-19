@@ -7,7 +7,7 @@ import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { CellDiagramService, WorkloadService } from './types';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
-import { ObservabilityNotConfiguredError } from '@internal/plugin-openchoreo-api';
+import { ObservabilityNotConfiguredError } from '@openchoreo/backstage-plugin-api';
 
 export async function createRouter({
   environmentInfoService,

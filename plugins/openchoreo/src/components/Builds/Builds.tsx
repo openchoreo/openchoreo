@@ -32,7 +32,7 @@ import { BuildLogs } from './BuildLogs';
 import type {
   ModelsBuild,
   ModelsCompleteComponent,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 import { formatRelativeTime } from '../../utils/timeUtils';
 
 const BuildStatusComponent = ({ status }: { status?: string }) => {

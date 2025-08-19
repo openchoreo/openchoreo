@@ -7,7 +7,7 @@ import {
   ComponentBuildLogsPostRequest,
   RuntimeLogsResponse,
   ObservabilityNotConfiguredError,
-} from '@internal/plugin-openchoreo-api';
+} from '@openchoreo/backstage-plugin-api';
 
 export class BuildInfoService {
   private logger: LoggerService;
