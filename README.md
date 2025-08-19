@@ -110,7 +110,7 @@ yarn workspace {plugin-name} start
 example
 
 ```bash
-yarn workspace @internal/plugin-choreo-backend start
+yarn workspace @openchoreo/backstage-plugin-backend start
 ```
 
 Create new plugins:
@@ -121,11 +121,27 @@ yarn new
 
 ## Available Plugins
 
-- **`@internal/plugin-choreo`** - Frontend UI components
-- **`@internal/plugin-choreo-backend`** - Backend API services
-- **`@internal/plugin-openchoreo-api`** - Shared API client library
-- **`@internal/plugin-catalog-backend-module-openchoreo`** - Catalog entity provider
-- **`@internal/plugin-scaffolder-backend-module-openchoreo`** - Scaffolder actions
+- **`@openchoreo/backstage-plugin`** - Frontend UI components
+- **`@openchoreo/backstage-plugin-backend`** - Backend API services  
+- **`@openchoreo/backstage-plugin-api`** - Shared API client library
+- **`@openchoreo/backstage-plugin-catalog-backend-module`** - Catalog entity provider
+- **`@openchoreo/backstage-plugin-scaffolder-backend-module`** - Scaffolder actions
+
+## Installation
+
+The plugins are published to GitHub Packages. To install them in your Backstage application:
+
+```bash
+# Configure npm to use GitHub Packages for @openchoreo scope
+echo "@openchoreo:registry=https://npm.pkg.github.com" >> .npmrc
+
+# Install the plugins you need
+yarn add @openchoreo/backstage-plugin
+yarn add @openchoreo/backstage-plugin-backend
+yarn add @openchoreo/backstage-plugin-api
+```
+
+Note: You'll need a GitHub personal access token with `packages:read` permission to install from GitHub Packages.
 
 ## Documentation
 

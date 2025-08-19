@@ -2,6 +2,10 @@
   "name": "root",
   "version": "1.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openchoreo/backstage-plugins.git"
+  },
   "engines": {
     "node": "20 || 22"
   },

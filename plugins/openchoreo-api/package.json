@@ -2,14 +2,20 @@
   "name": "@openchoreo/backstage-plugin-api",
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "description": "Node.js library for the openchoreo-api plugin",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openchoreo/backstage-plugins.git",
+    "directory": "plugins/openchoreo-api"
+  },
   "publishConfig": {
     "access": "public",
     "main": "dist/index.cjs.js",
-    "types": "dist/index.d.ts"
+    "types": "dist/index.d.ts",
+    "registry": "https://npm.pkg.github.com"
   },
   "backstage": {
     "role": "node-library"
