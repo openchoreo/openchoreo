@@ -89,7 +89,7 @@ func (d *DataPlaneResource) PrintTableItems(dataPlanes []resources.ResourceWrapp
 		dataPlane := wrapper.Resource
 		rows = append(rows, []string{
 			wrapper.LogicalName,
-			dataPlane.Spec.KubernetesCluster.Name,
+			dataPlane.Name,
 			d.GetStatus(dataPlane),
 			d.GetAge(dataPlane),
 			dataPlane.GetLabels()[constants.LabelOrganization],
@@ -142,13 +142,25 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 			},
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
+			Registry: openchoreov1alpha1.Registry{
+				Prefix: "registry.openchoreo-data-plane:5000",
+			},
 			KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
-				Name: params.KubernetesClusterName,
-				Credentials: openchoreov1alpha1.APIServerCredentials{
-					APIServerURL: params.APIServerURL,
-					CACert:       params.CACert,
-					ClientCert:   params.ClientCert,
-					ClientKey:    params.ClientKey,
+				Server: params.APIServerURL,
+				TLS: openchoreov1alpha1.KubernetesTLS{
+					CA: openchoreov1alpha1.ValueFrom{
+						Value: params.CACert,
+					},
+				},
+				Auth: openchoreov1alpha1.KubernetesAuth{
+					MTLS: &openchoreov1alpha1.MTLSAuth{
+						ClientCert: openchoreov1alpha1.ValueFrom{
+							Value: params.ClientCert,
+						},
+						ClientKey: openchoreov1alpha1.ValueFrom{
+							Value: params.ClientKey,
+						},
+					},
 				},
 			},
 			Gateway: openchoreov1alpha1.GatewaySpec{
@@ -157,6 +169,9 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 			},
 		},
 	}
+
+	// TODO: Add observer configuration support to CreateDataPlaneParams
+	// Observer configuration will be added when the params struct is updated
 
 	// Create the dataplane using the base create method
 	if err := d.Create(dataPlane); err != nil {

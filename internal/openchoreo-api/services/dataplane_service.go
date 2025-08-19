@@ -142,12 +142,21 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 			SecretRef: req.RegistrySecretRef,
 		},
 		KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
-			Name: req.KubernetesClusterName,
-			Credentials: openchoreov1alpha1.APIServerCredentials{
-				APIServerURL: req.APIServerURL,
-				CACert:       req.CACert,
-				ClientCert:   req.ClientCert,
-				ClientKey:    req.ClientKey,
+			Server: req.APIServerURL,
+			TLS: openchoreov1alpha1.KubernetesTLS{
+				CA: openchoreov1alpha1.ValueFrom{
+					Value: req.CACert,
+				},
+			},
+			Auth: openchoreov1alpha1.KubernetesAuth{
+				MTLS: &openchoreov1alpha1.MTLSAuth{
+					ClientCert: openchoreov1alpha1.ValueFrom{
+						Value: req.ClientCert,
+					},
+					ClientKey: openchoreov1alpha1.ValueFrom{
+						Value: req.ClientKey,
+					},
+				},
 			},
 		},
 		Gateway: openchoreov1alpha1.GatewaySpec{
@@ -197,14 +206,14 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	description := dp.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := statusUnknown
+	status := "Unknown"
 	if len(dp.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := dp.Status.Conditions[len(dp.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
+			status = "Ready"
 		} else {
-			status = statusNotReady
+			status = "NotReady"
 		}
 	}
 
@@ -215,8 +224,8 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Description:             description,
 		RegistryPrefix:          dp.Spec.Registry.Prefix,
 		RegistrySecretRef:       dp.Spec.Registry.SecretRef,
-		KubernetesClusterName:   dp.Spec.KubernetesCluster.Name,
-		APIServerURL:            dp.Spec.KubernetesCluster.Credentials.APIServerURL,
+		KubernetesClusterName:   dp.Name,
+		APIServerURL:            dp.Spec.KubernetesCluster.Server,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
 		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 		CreatedAt:               dp.CreationTimestamp.Time,
