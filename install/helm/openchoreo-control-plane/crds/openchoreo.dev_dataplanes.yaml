@@ -59,38 +59,78 @@ spec:
                 description: KubernetesCluster defines the target Kubernetes cluster
                   where workloads should be deployed.
                 properties:
-                  credentials:
-                    description: Credentials contains the authentication details for
-                      accessing the Kubernetes API server.
+                  auth:
+                    description: Auth contains the authentication configuration
                     properties:
-                      apiServerURL:
-                        description: APIServerURL is the URL of the Kubernetes API
-                          server.
-                        type: string
-                      caCert:
-                        description: CACert is the base64-encoded CA certificate used
-                          to verify the server's certificate.
-                        type: string
-                      clientCert:
-                        description: ClientCert is the base64-encoded client certificate
-                          used for authentication.
-                        type: string
-                      clientKey:
-                        description: ClientKey is the base64-encoded private key corresponding
-                          to the client certificate.
-                        type: string
-                    required:
-                    - apiServerURL
-                    - caCert
-                    - clientCert
-                    - clientKey
+                      bearerToken:
+                        description: BearerToken contains the bearer token authentication
+                          configuration
+                        properties:
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
+                            type: string
+                          value:
+                            description: Value is the inline value (optional fallback)
+                            type: string
+                        type: object
+                      mtls:
+                        description: MTLS contains the certificate-based authentication
+                          configuration
+                        properties:
+                          clientCert:
+                            description: ClientCert contains the client certificate
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                type: string
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
+                            type: object
+                          clientKey:
+                            description: ClientKey contains the client private key
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                type: string
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
+                            type: object
+                        required:
+                        - clientCert
+                        - clientKey
+                        type: object
                     type: object
-                  name:
-                    description: Name of the Kubernetes cluster
+                  server:
+                    description: Server is the URL of the Kubernetes API server
                     type: string
+                  tls:
+                    description: TLS contains the TLS configuration for the connection
+                    properties:
+                      ca:
+                        description: CA contains the CA certificate configuration
+                        properties:
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
+                            type: string
+                          value:
+                            description: Value is the inline value (optional fallback)
+                            type: string
+                        type: object
+                    required:
+                    - ca
+                    type: object
                 required:
-                - credentials
-                - name
+                - auth
+                - server
+                - tls
                 type: object
               observer:
                 description: Observer specifies the configuration for the Observer

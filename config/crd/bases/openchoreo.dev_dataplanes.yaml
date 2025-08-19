@@ -63,97 +63,75 @@ spec:
                   auth:
                     description: Auth contains the authentication configuration
                     properties:
-                      bearer:
-                        description: Bearer contains the bearer token authentication
+                      bearerToken:
+                        description: BearerToken contains the bearer token authentication
                           configuration
                         properties:
-                          tokenData:
-                            description: TokenData is the raw token string (fallback
-                              option)
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
                             type: string
-                          tokenSecretRef:
-                            description: TokenSecretRef is a reference to a secret
-                              containing the bearer token
+                          value:
+                            description: Value is the inline value (optional fallback)
                             type: string
-                        required:
-                        - tokenSecretRef
                         type: object
-                      cert:
-                        description: Cert contains the certificate-based authentication
+                      mtls:
+                        description: MTLS contains the certificate-based authentication
                           configuration
                         properties:
-                          clientCertData:
-                            description: ClientCertData is the base64-encoded client
-                              certificate (fallback option)
-                            type: string
-                          clientCertSecretRef:
-                            description: ClientCertSecretRef is a reference to a secret
-                              containing the client certificate
-                            type: string
-                          clientKeyData:
-                            description: ClientKeyData is the base64-encoded client
-                              private key (fallback option)
-                            type: string
-                          clientKeySecretRef:
-                            description: ClientKeySecretRef is a reference to a secret
-                              containing the client private key
-                            type: string
-                        required:
-                        - clientCertSecretRef
-                        - clientKeySecretRef
-                        type: object
-                      oidc:
-                        description: OIDC contains the OIDC authentication configuration
-                        properties:
-                          config:
-                            additionalProperties:
-                              type: string
-                            description: |-
-                              Configuration map for OIDC settings
-                              This is a placeholder for OIDC configuration which can be expanded based on requirements
+                          clientCert:
+                            description: ClientCert contains the client certificate
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                type: string
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
                             type: object
+                          clientKey:
+                            description: ClientKey contains the client private key
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                type: string
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
+                            type: object
+                        required:
+                        - clientCert
+                        - clientKey
                         type: object
-                      type:
-                        allOf:
-                        - enum:
-                          - cert
-                          - bearer
-                          - oidc
-                        - enum:
-                          - cert
-                          - bearer
-                          - oidc
-                        description: 'Type specifies the authentication method: cert,
-                          bearer, or oidc'
-                        type: string
-                    required:
-                    - type
                     type: object
-                  connection:
-                    description: Connection contains the server connection details
+                  server:
+                    description: Server is the URL of the Kubernetes API server
+                    type: string
+                  tls:
+                    description: TLS contains the TLS configuration for the connection
                     properties:
-                      server:
-                        description: Server is the URL of the Kubernetes API server
-                        type: string
-                      tls:
-                        description: TLS contains the TLS configuration for the connection
+                      ca:
+                        description: CA contains the CA certificate configuration
                         properties:
-                          caData:
-                            description: CAData is the base64-encoded CA certificate
-                              (fallback option)
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
                             type: string
-                          caSecretRef:
-                            description: CASecretRef is a reference to a secret containing
-                              the CA certificate
+                          value:
+                            description: Value is the inline value (optional fallback)
                             type: string
                         type: object
                     required:
-                    - server
-                    - tls
+                    - ca
                     type: object
                 required:
                 - auth
-                - connection
+                - server
+                - tls
                 type: object
               observer:
                 description: Observer specifies the configuration for the Observer
