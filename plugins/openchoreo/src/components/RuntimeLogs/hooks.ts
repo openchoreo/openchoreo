@@ -56,14 +56,16 @@ export function useRuntimeLogs(
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const loadingRef = useRef(false);
 
   const fetchLogs = useCallback(
     async (reset: boolean = false) => {
-      if (loading || !filters.environmentId) {
+      if (loadingRef.current || !filters.environmentId) {
         return;
       }
 
       try {
+        loadingRef.current = true;
         setLoading(true);
         setError(null);
 
@@ -93,10 +95,11 @@ export function useRuntimeLogs(
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch logs');
       } finally {
-        setLoading(false);
+        loadingRef.current = false;
+        setLoading(false)
       }
     },
-    [entity, discovery, identity, filters, pagination, loading], // TODO: Verify this array
+    [entity, discovery, identity, filters, pagination], // TODO: Verify this array
   );
 
   const loadMore = useCallback(() => {
