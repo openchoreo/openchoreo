@@ -96,7 +96,7 @@ export function useRuntimeLogs(
         setError(err instanceof Error ? err.message : 'Failed to fetch logs');
       } finally {
         loadingRef.current = false;
-        setLoading(false)
+        setLoading(false);
       }
     },
     [entity, discovery, identity, filters, pagination], // TODO: Verify this array

@@ -14,7 +14,6 @@
     "role": "backend-plugin",
     "pluginId": "openchoreo",
     "pluginPackages": [
-      "@internal/plugin-openchoreo",
       "@internal/plugin-openchoreo-backend"
     ]
   },

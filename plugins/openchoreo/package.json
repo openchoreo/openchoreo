@@ -14,8 +14,7 @@
     "role": "frontend-plugin",
     "pluginId": "plugin-openchoreo",
     "pluginPackages": [
-      "@internal/plugin-openchoreo",
-      "@internal/plugin-openchoreo-backend"
+      "@internal/plugin-openchoreo"
     ]
   },
   "sideEffects": false,
