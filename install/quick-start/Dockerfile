@@ -40,6 +40,9 @@ COPY bin/dist/${TARGETOS}/${TARGETARCH}/choreoctl /usr/local/bin/choreoctl
 
 ENV PATH="/usr/local/bin:${PATH}"
 
+# Set custom shell prompt with meaningful hostname
+RUN echo 'export PS1="openchoreo-quick-start:\w# "' >> /etc/profile
+
 WORKDIR /app
 
 ENTRYPOINT ["/app/startup.sh"]
