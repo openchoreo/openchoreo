@@ -6,7 +6,6 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/endpoint/integrations/kubernetes"

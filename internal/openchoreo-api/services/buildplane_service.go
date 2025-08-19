@@ -70,7 +70,7 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 	buildPlaneClient, err := kubernetesClient.GetK8sClient(
 		s.bpClientMgr,
 		orgName,
-		buildPlane.Spec.KubernetesCluster.Name,
+		buildPlane.Name,
 		buildPlane.Spec.KubernetesCluster,
 	)
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 		return nil, fmt.Errorf("failed to create build plane client: %w", err)
 	}
 
-	s.logger.Debug("Created build plane client", "org", orgName, "cluster", buildPlane.Spec.KubernetesCluster.Name)
+	s.logger.Debug("Created build plane client", "org", orgName, "cluster", buildPlane.Name)
 	return buildPlaneClient, nil
 }
 
@@ -118,8 +118,8 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			Namespace:             buildPlane.Namespace,
 			DisplayName:           displayName,
 			Description:           description,
-			KubernetesClusterName: buildPlane.Spec.KubernetesCluster.Name,
-			APIServerURL:          buildPlane.Spec.KubernetesCluster.Credentials.APIServerURL,
+			KubernetesClusterName: buildPlane.Name,
+			APIServerURL:          buildPlane.Spec.KubernetesCluster.Server,
 			ObserverURL:           observerURL,
 			ObserverUsername:      observerUsername,
 			CreatedAt:             buildPlane.CreationTimestamp.Time,

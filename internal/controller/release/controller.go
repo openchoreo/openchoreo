@@ -6,7 +6,6 @@ package release
 import (
 	"context"
 	"fmt"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"math/rand"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 

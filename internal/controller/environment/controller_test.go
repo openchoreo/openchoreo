@@ -15,11 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	org "github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
-	dpKubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -36,7 +36,7 @@ var _ = Describe("Environment Controller", func() {
 		},
 	}
 
-	dpClientMgr := dpKubernetes.NewManager()
+	k8sClientMgr := kubernetesClient.NewManager()
 
 	BeforeEach(func() {
 		By("Creating and reconciling organization resource", func() {
@@ -119,10 +119,10 @@ var _ = Describe("Environment Controller", func() {
 
 		By("Reconciling the environment resource", func() {
 			envReconciler := &Reconciler{
-				Client:      k8sClient,
-				DpClientMgr: dpClientMgr,
-				Scheme:      k8sClient.Scheme(),
-				Recorder:    record.NewFakeRecorder(100),
+				Client:       k8sClient,
+				k8sClientMgr: k8sClientMgr,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
 			}
 			result, err := envReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: envNamespacedName,
@@ -149,10 +149,10 @@ var _ = Describe("Environment Controller", func() {
 
 		By("Reconciling the environment resource after deletion - attempt 1 to update status conditions", func() {
 			envReconciler := &Reconciler{
-				Client:      k8sClient,
-				DpClientMgr: dpClientMgr,
-				Scheme:      k8sClient.Scheme(),
-				Recorder:    record.NewFakeRecorder(100),
+				Client:       k8sClient,
+				k8sClientMgr: k8sClientMgr,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
 			}
 			result, err := envReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: envNamespacedName,
