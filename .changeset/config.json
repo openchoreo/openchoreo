@@ -6,7 +6,7 @@
   "linked": [
     [
       "@openchoreo/backstage-plugin",
-      "@openchoreo/backstage-plugin-backend", 
+      "@openchoreo/backstage-plugin-backend",
       "@openchoreo/backstage-plugin-api",
       "@openchoreo/backstage-plugin-catalog-backend-module",
       "@openchoreo/backstage-plugin-scaffolder-backend-module"
@@ -15,8 +15,5 @@
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "app",
-    "backend"
-  ]
+  "ignore": ["app", "backend"]
 }

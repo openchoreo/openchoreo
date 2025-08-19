@@ -122,7 +122,7 @@ yarn new
 ## Available Plugins
 
 - **`@openchoreo/backstage-plugin`** - Frontend UI components
-- **`@openchoreo/backstage-plugin-backend`** - Backend API services  
+- **`@openchoreo/backstage-plugin-backend`** - Backend API services
 - **`@openchoreo/backstage-plugin-api`** - Shared API client library
 - **`@openchoreo/backstage-plugin-catalog-backend-module`** - Catalog entity provider
 - **`@openchoreo/backstage-plugin-scaffolder-backend-module`** - Scaffolder actions
