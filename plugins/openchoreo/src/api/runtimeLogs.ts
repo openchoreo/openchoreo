@@ -22,7 +22,7 @@ export async function getRuntimeLogs(
   }
 
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${
+    `${await discovery.getBaseUrl('openchoreo')}${
       API_ENDPOINTS.RUNTIME_LOGS
     }/${component}`,
   );
@@ -80,7 +80,9 @@ export async function getEnvironments(
 ): Promise<Environment[]> {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.ENVIRONMENT_INFO}`,
+    `${await discovery.getBaseUrl('openchoreo')}${
+      API_ENDPOINTS.ENVIRONMENT_INFO
+    }`,
   );
 
   const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];

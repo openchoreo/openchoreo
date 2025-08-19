@@ -8,7 +8,7 @@ import {
 } from './routes';
 
 export const choreoPlugin = createPlugin({
-  id: 'choreo',
+  id: 'openchoreo',
 });
 
 // Component page tab

@@ -68,7 +68,7 @@ export function Workload({
         const { token } = await identity.getCredentials();
 
         // Now fetch the builds
-        const baseUrl = await discovery.getBaseUrl('choreo');
+        const baseUrl = await discovery.getBaseUrl('openchoreo');
         if (projectName && organizationName && componentName) {
           const response = await fetch(
             `${baseUrl}/builds?componentName=${encodeURIComponent(

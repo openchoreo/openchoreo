@@ -10,7 +10,7 @@ export async function getCellDiagramInfo(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.CELL_DIAGRAM}`,
+    `${await discovery.getBaseUrl('openchoreo')}${API_ENDPOINTS.CELL_DIAGRAM}`,
   );
   const project = entity.metadata.name;
   const organization =

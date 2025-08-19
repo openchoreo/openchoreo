@@ -22,7 +22,7 @@ import {
  * @public
  */
 export const choreoPlugin = createBackendPlugin({
-  pluginId: 'choreo',
+  pluginId: 'openchoreo',
   register(env) {
     env.registerInit({
       deps: {

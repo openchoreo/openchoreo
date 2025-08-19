@@ -62,7 +62,7 @@ import {
   CellDiagram,
   RuntimeLogs,
   Builds,
-} from '@internal/plugin-choreo';
+} from '@internal/plugin-openchoreo';
 
 const techdocsContent = (
   <EntityTechdocsContent>

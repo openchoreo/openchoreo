@@ -6,6 +6,6 @@ createDevApp()
   .addPage({
     element: <Environments />,
     title: 'Root Page',
-    path: '/choreo',
+    path: '/openchoreo',
   })
   .render();

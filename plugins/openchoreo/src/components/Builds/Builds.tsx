@@ -134,7 +134,7 @@ export const Builds = () => {
       const { token } = await identityApi.getCredentials();
 
       // Fetch component details
-      const baseUrl = await discoveryApi.getBaseUrl('choreo');
+      const baseUrl = await discoveryApi.getBaseUrl('openchoreo');
       const componentResponse = await fetch(
         `${baseUrl}/component?componentName=${encodeURIComponent(
           componentName,
@@ -170,7 +170,7 @@ export const Builds = () => {
       const { token } = await identityApi.getCredentials();
 
       // Now fetch the builds
-      const baseUrl = await discoveryApi.getBaseUrl('choreo');
+      const baseUrl = await discoveryApi.getBaseUrl('openchoreo');
       const response = await fetch(
         `${baseUrl}/builds?componentName=${encodeURIComponent(
           componentName,
@@ -207,7 +207,7 @@ export const Builds = () => {
       const { token } = await identityApi.getCredentials();
 
       // Trigger the build
-      const baseUrl = await discoveryApi.getBaseUrl('choreo');
+      const baseUrl = await discoveryApi.getBaseUrl('openchoreo');
       const response = await fetch(`${baseUrl}/builds`, {
         method: 'POST',
         headers: {

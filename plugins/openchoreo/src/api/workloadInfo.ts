@@ -11,7 +11,7 @@ export async function fetchWorkloadInfo(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${
+    `${await discovery.getBaseUrl('openchoreo')}${
       API_ENDPOINTS.DEPLOYEMNT_WORKLOAD
     }`,
   );
@@ -48,7 +48,7 @@ export async function applyWorkload(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${
+    `${await discovery.getBaseUrl('openchoreo')}${
       API_ENDPOINTS.DEPLOYEMNT_WORKLOAD
     }`,
   );

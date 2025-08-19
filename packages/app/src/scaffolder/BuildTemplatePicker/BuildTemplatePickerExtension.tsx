@@ -73,7 +73,7 @@ export const BuildTemplatePicker = ({
 
       try {
         const { token } = await identityApi.getCredentials();
-        const baseUrl = await discoveryApi.getBaseUrl('choreo');
+        const baseUrl = await discoveryApi.getBaseUrl('openchoreo');
         const response = await fetch(
           `${baseUrl}/build-templates?organizationName=${encodeURIComponent(
             orgName,

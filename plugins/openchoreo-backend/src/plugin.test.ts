@@ -17,12 +17,12 @@ describe('plugin', () => {
       features: [choreoPlugin],
     });
 
-    await request(server).get('/api/choreo/todos').expect(200, {
+    await request(server).get('/api/openchoreo/todos').expect(200, {
       items: [],
     });
 
     const createRes = await request(server)
-      .post('/api/choreo/todos')
+      .post('/api/openchoreo/todos')
       .send({ title: 'My Todo' });
 
     expect(createRes.status).toBe(201);
@@ -36,13 +36,13 @@ describe('plugin', () => {
     const createdTodoItem = createRes.body;
 
     await request(server)
-      .get('/api/choreo/todos')
+      .get('/api/openchoreo/todos')
       .expect(200, {
         items: [createdTodoItem],
       });
 
     await request(server)
-      .get(`/api/choreo/todos/${createdTodoItem.id}`)
+      .get(`/api/openchoreo/todos/${createdTodoItem.id}`)
       .expect(200, createdTodoItem);
   });
 
@@ -71,7 +71,7 @@ describe('plugin', () => {
     });
 
     const createRes = await request(server)
-      .post('/api/choreo/todos')
+      .post('/api/openchoreo/todos')
       .send({ title: 'My Todo', entityRef: 'component:default/my-component' });
 
     expect(createRes.status).toBe(201);

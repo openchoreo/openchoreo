@@ -7987,9 +7987,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@internal/plugin-choreo-backend@workspace:^, @internal/plugin-choreo-backend@workspace:plugins/choreo-backend":
+"@internal/plugin-openchoreo-api@npm:*, @internal/plugin-openchoreo-api@npm:^0.1.0, @internal/plugin-openchoreo-api@workspace:^, @internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api":
   version: 0.0.0-use.local
-  resolution: "@internal/plugin-choreo-backend@workspace:plugins/choreo-backend"
+  resolution: "@internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.4.0"
+    "@backstage/cli": "npm:^0.32.0"
+    "@backstage/config": "npm:^1.3.2"
+    cross-fetch: "npm:^4.1.0"
+    uri-template: "npm:^2.0.0"
+  languageName: unknown
+  linkType: soft
+
+"@internal/plugin-openchoreo-backend@workspace:^, @internal/plugin-openchoreo-backend@workspace:plugins/openchoreo-backend":
+  version: 0.0.0-use.local
+  resolution: "@internal/plugin-openchoreo-backend@workspace:plugins/openchoreo-backend"
   dependencies:
     "@backstage/backend-defaults": "npm:^0.8.2"
     "@backstage/backend-plugin-api": "npm:^1.2.1"
@@ -8012,9 +8024,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@internal/plugin-choreo@workspace:^, @internal/plugin-choreo@workspace:plugins/choreo":
+"@internal/plugin-openchoreo@workspace:^, @internal/plugin-openchoreo@workspace:plugins/openchoreo":
   version: 0.0.0-use.local
-  resolution: "@internal/plugin-choreo@workspace:plugins/choreo"
+  resolution: "@internal/plugin-openchoreo@workspace:plugins/openchoreo"
   dependencies:
     "@backstage/catalog-model": "npm:^1.7.3"
     "@backstage/cli": "npm:^0.31.0"
@@ -8044,18 +8056,6 @@ __metadata:
   peerDependencies:
     react: ^18.0.0
     react-dom: ^18.0.0
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-openchoreo-api@npm:*, @internal/plugin-openchoreo-api@npm:^0.1.0, @internal/plugin-openchoreo-api@workspace:^, @internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-openchoreo-api@workspace:plugins/openchoreo-api"
-  dependencies:
-    "@backstage/backend-plugin-api": "npm:^1.4.0"
-    "@backstage/cli": "npm:^0.32.0"
-    "@backstage/config": "npm:^1.3.2"
-    cross-fetch: "npm:^4.1.0"
-    uri-template: "npm:^2.0.0"
   languageName: unknown
   linkType: soft
 
@@ -15784,7 +15784,7 @@ __metadata:
     "@backstage/plugin-user-settings": "npm:^0.8.21"
     "@backstage/test-utils": "npm:^1.7.7"
     "@backstage/theme": "npm:^0.6.5"
-    "@internal/plugin-choreo": "workspace:^"
+    "@internal/plugin-openchoreo": "workspace:^"
     "@internal/plugin-openchoreo-api": "workspace:^"
     "@material-ui/core": "npm:^4.12.2"
     "@material-ui/icons": "npm:^4.9.1"
@@ -16453,7 +16453,7 @@ __metadata:
     "@backstage/plugin-search-backend-node": "npm:^1.3.10"
     "@backstage/plugin-techdocs-backend": "npm:^2.0.1"
     "@internal/plugin-catalog-backend-module-openchoreo": "workspace:^"
-    "@internal/plugin-choreo-backend": "workspace:^"
+    "@internal/plugin-openchoreo-backend": "workspace:^"
     "@internal/plugin-scaffolder-backend-module-openchoreo": "workspace:^"
     app: "link:../app"
     better-sqlite3: "npm:^9.0.0"

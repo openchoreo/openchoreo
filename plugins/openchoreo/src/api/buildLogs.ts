@@ -20,7 +20,7 @@ export async function getBuildLogs(
   params: BuildLogsParams,
 ): Promise<RuntimeLogsResponse> {
   const { token } = await identity.getCredentials();
-  const baseUrl = await discovery.getBaseUrl('choreo');
+  const baseUrl = await discovery.getBaseUrl('openchoreo');
 
   const url = new URL(`${baseUrl}/build-logs`);
   url.searchParams.set('componentName', params.componentName);

@@ -10,7 +10,9 @@ export async function fetchEnvironmentInfo(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.ENVIRONMENT_INFO}`,
+    `${await discovery.getBaseUrl('openchoreo')}${
+      API_ENDPOINTS.ENVIRONMENT_INFO
+    }`,
   );
   const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
   const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];
@@ -46,7 +48,7 @@ export async function promoteToEnvironment(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${
+    `${await discovery.getBaseUrl('openchoreo')}${
       API_ENDPOINTS.PROMOTE_DEPLOYMENT
     }`,
   );
@@ -93,7 +95,9 @@ export async function updateComponentBinding(
 ) {
   const { token } = await identity.getCredentials();
   const backendUrl = new URL(
-    `${await discovery.getBaseUrl('choreo')}${API_ENDPOINTS.UPDATE_BINDING}`,
+    `${await discovery.getBaseUrl('openchoreo')}${
+      API_ENDPOINTS.UPDATE_BINDING
+    }`,
   );
   const component = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.COMPONENT];
   const project = entity.metadata.annotations?.[CHOREO_ANNOTATIONS.PROJECT];

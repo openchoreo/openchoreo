@@ -1,6 +1,6 @@
-# choreo
+# openchoreo
 
-Welcome to the choreo plugin!
+Welcome to the openchoreo plugin!
 
 _This plugin was created through the Backstage CLI_
 

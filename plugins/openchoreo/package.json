@@ -1,5 +1,5 @@
 {
-  "name": "@internal/plugin-choreo",
+  "name": "@internal/plugin-openchoreo",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "private": true,
@@ -11,7 +11,12 @@
     "types": "dist/index.d.ts"
   },
   "backstage": {
-    "role": "frontend-plugin"
+    "role": "frontend-plugin",
+    "pluginId": "plugin-openchoreo",
+    "pluginPackages": [
+      "@internal/plugin-openchoreo",
+      "@internal/plugin-openchoreo-backend"
+    ]
   },
   "sideEffects": false,
   "scripts": {
