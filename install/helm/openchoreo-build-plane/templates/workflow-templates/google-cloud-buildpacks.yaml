@@ -5,7 +5,7 @@ metadata:
   name: google-cloud-buildpacks
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-weight": "15"
   labels:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
