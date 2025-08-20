@@ -15,7 +15,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
-	"github.com/openchoreo/openchoreo/internal/controller/build/utils"
+	"github.com/openchoreo/openchoreo/internal/controller/build/names"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
@@ -41,7 +41,7 @@ func (e *Engine) EnsurePrerequisites(ctx context.Context, client client.Client, 
 	logger := e.logger.WithValues("build", build.Name)
 
 	// Create namespace
-	namespace := utils.MakeNamespace(build)
+	namespace := engines.MakeNamespace(build)
 	if err := engines.EnsureResource(ctx, client, namespace, "Namespace", logger); err != nil {
 		return fmt.Errorf("failed to ensure namespace: %w", err)
 	}
@@ -93,8 +93,8 @@ func (e *Engine) GetBuildStatus(ctx context.Context, client client.Client, build
 	workflow := &argoproj.Workflow{}
 	err := client.Get(ctx,
 		types.NamespacedName{
-			Name:      utils.MakeWorkflowName(build),
-			Namespace: utils.MakeNamespaceName(build),
+			Name:      names.MakeWorkflowName(build),
+			Namespace: names.MakeNamespaceName(build),
 		},
 		workflow,
 	)
@@ -113,8 +113,8 @@ func (e *Engine) ExtractBuildArtifacts(ctx context.Context, client client.Client
 	workflow := &argoproj.Workflow{}
 	err := client.Get(ctx,
 		types.NamespacedName{
-			Name:      utils.MakeWorkflowName(build),
-			Namespace: utils.MakeNamespaceName(build),
+			Name:      names.MakeWorkflowName(build),
+			Namespace: names.MakeNamespaceName(build),
 		},
 		workflow,
 	)

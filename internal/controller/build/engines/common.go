@@ -5,6 +5,10 @@ package engines
 
 import (
 	"context"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/names"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,4 +35,14 @@ func EnsureResource(ctx context.Context, client client.Client, obj client.Object
 	}
 	logger.Info("Created resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
 	return nil
+}
+
+// MakeNamespace creates a namespace for the build
+func MakeNamespace(build *openchoreov1alpha1.Build) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   names.MakeNamespaceName(build),
+			Labels: names.MakeWorkflowLabels(build),
+		},
+	}
 }

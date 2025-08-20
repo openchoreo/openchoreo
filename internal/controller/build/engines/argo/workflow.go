@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller/build/utils"
+	"github.com/openchoreo/openchoreo/internal/controller/build/names"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
@@ -23,9 +23,9 @@ const (
 func (e *Engine) makeArgoWorkflow(build *openchoreov1alpha1.Build) *argoproj.Workflow {
 	workflow := &argoproj.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.MakeWorkflowName(build),
-			Namespace: utils.MakeNamespaceName(build),
-			Labels:    utils.MakeWorkflowLabels(build),
+			Name:      names.MakeWorkflowName(build),
+			Namespace: names.MakeNamespaceName(build),
+			Labels:    names.MakeWorkflowLabels(build),
 		},
 		Spec: e.makeWorkflowSpec(build),
 	}
@@ -38,7 +38,7 @@ func (e *Engine) makeWorkflowSpec(build *openchoreov1alpha1.Build) argoproj.Work
 
 	return argoproj.WorkflowSpec{
 		PodMetadata: &argoproj.Metadata{
-			Labels: utils.MakeWorkflowLabels(build),
+			Labels: names.MakeWorkflowLabels(build),
 		},
 		ServiceAccountName: WorkflowServiceAccountName,
 		WorkflowTemplateRef: &argoproj.WorkflowTemplateRef{
@@ -58,8 +58,8 @@ func (e *Engine) buildWorkflowParameters(build *openchoreov1alpha1.Build) []argo
 		e.createParameter("component-name", build.Spec.Owner.ComponentName),
 		e.createParameter("git-repo", build.Spec.Repository.URL),
 		e.createParameter("app-path", build.Spec.Repository.AppPath),
-		e.createParameter("image-name", utils.MakeImageName(build)),
-		e.createParameter("image-tag", utils.MakeImageTag(build)),
+		e.createParameter("image-name", names.MakeImageName(build)),
+		e.createParameter("image-tag", names.MakeImageTag(build)),
 	}
 
 	commit := build.Spec.Repository.Revision.Commit
@@ -101,8 +101,8 @@ func (e *Engine) makeServiceAccount(build *openchoreov1alpha1.Build) *corev1.Ser
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowServiceAccountName,
-			Namespace: utils.MakeNamespaceName(build),
-			Labels:    utils.MakeWorkflowLabels(build),
+			Namespace: names.MakeNamespaceName(build),
+			Labels:    names.MakeWorkflowLabels(build),
 		},
 	}
 }
@@ -112,8 +112,8 @@ func (e *Engine) makeRole(build *openchoreov1alpha1.Build) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowRoleName,
-			Namespace: utils.MakeNamespaceName(build),
-			Labels:    utils.MakeWorkflowLabels(build),
+			Namespace: names.MakeNamespaceName(build),
+			Labels:    names.MakeWorkflowLabels(build),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -130,13 +130,13 @@ func (e *Engine) makeRoleBinding(build *openchoreov1alpha1.Build) *rbacv1.RoleBi
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      WorkflowRoleBindingName,
-			Namespace: utils.MakeNamespaceName(build),
+			Namespace: names.MakeNamespaceName(build),
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      WorkflowServiceAccountName,
-				Namespace: utils.MakeNamespaceName(build),
+				Namespace: names.MakeNamespaceName(build),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
