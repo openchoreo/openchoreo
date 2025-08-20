@@ -206,14 +206,14 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	description := dp.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := "Unknown"
+	status := statusUnknown
 	if len(dp.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := dp.Status.Conditions[len(dp.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = "Ready"
+			status = statusReady
 		} else {
-			status = "NotReady"
+			status = statusNotReady
 		}
 	}
 
