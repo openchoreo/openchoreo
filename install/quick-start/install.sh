@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --help, -h                Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                    # Install with defaults"
+            echo "  $0                                    # Install with defaults (latest version)"
             echo "  $0 --enable-observability             # Install with observability plane"
             echo "  $0 --openchoreo-version v1.2.3        # Install specific version"
             exit 0
