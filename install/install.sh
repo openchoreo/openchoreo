@@ -152,7 +152,6 @@ fi
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  External Gateway: Use 'kubectl port-forward' to access services"
-log_info "  Backstage Demo: Use 'kubectl port-forward' to access Backstage"
 log_info ""
 log_info "To access services locally, use:"
 log_info "  kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443"
