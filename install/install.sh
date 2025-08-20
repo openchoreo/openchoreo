@@ -1,35 +1,159 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -eo pipefail
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
+# Get the absolute path of the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# Source helper functions (create local version without container dependencies)
+source "${SCRIPT_DIR}/install-helpers-local.sh"
 
-# Function to install a Helm chart and wait until it's ready
-install_helm_chart() {
-  local chart_dir=$1
-  local release_name=$2
-  local namespace=$3
-  local extra_args=$4
+# Parse command line arguments
+ENABLE_OBSERVABILITY=false
+SKIP_STATUS_CHECK=false
 
-  echo "Installing Helm chart: $release_name from $chart_dir..."
-  helm dependency update "$chart_dir"
-  helm upgrade --install "$release_name" "$chart_dir" \
-    --namespace "$namespace" \
-    --create-namespace \
-    --timeout 30m \
-    $extra_args
-}
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --enable-observability)
+            ENABLE_OBSERVABILITY=true
+            shift
+            ;;
+        --skip-status-check)
+            SKIP_STATUS_CHECK=true
+            shift
+            ;;
+        --openchoreo-version)
+            OPENCHOREO_VERSION="$2"
+            export OPENCHOREO_VERSION
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --enable-observability    Enable OpenChoreo Observability Plane"
+            echo "  --skip-status-check       Skip the status check at the end"
+            echo "  --openchoreo-version VER  Specify OpenChoreo version to install"
+            echo "  --help, -h                Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                                    # Install with defaults (latest version)"
+            echo "  $0 --enable-observability             # Install with observability plane"
+            echo "  $0 --openchoreo-version v1.2.3        # Install specific version"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
-# Install Cilium
-install_helm_chart "$SCRIPT_DIR/helm/cilium" "cilium" "choreo-system"
+log_info "Starting OpenChoreo local installation..."
+log_info "Configuration:"
+log_info "  Cluster Name: $CLUSTER_NAME"
+log_info "  Node Image: $NODE_IMAGE"
+log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
+if [[ -n "$OPENCHOREO_VERSION" ]]; then
+    log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
+else
+    log_info "  OpenChoreo Version: latest"
+fi
+log_info "  Enable Observability: $ENABLE_OBSERVABILITY"
 
-# Install Choreo Control Plane
-install_helm_chart "$SCRIPT_DIR/helm/choreo-control-plane" "choreo-cp" "choreo-system"
+# Verify prerequisites
+verify_prerequisites
 
-# Install Choreo Data Plane (disable Cert Manager since it's already installed by the control plane)
-install_helm_chart "$SCRIPT_DIR/helm/choreo-dataplane" "choreo-dp" "choreo-system" \
-  "--set certmanager.enabled=false"
+# Step 1: Create Kind cluster
+create_kind_cluster
 
-echo "Helm charts have been installed successfully!"
-echo "Please note: the full installation process may take several minutes to complete."
+# Step 2: Setup kubeconfig
+setup_kubeconfig
+
+# Step 3: Install Cilium (networking)
+install_cilium
+
+# Step 4: Install OpenChoreo Control Plane
+install_control_plane
+
+# Step 5-7: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
+log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
+
+# Start installations in background
+install_data_plane &
+DATA_PLANE_PID=$!
+
+install_build_plane &
+BUILD_PLANE_PID=$!
+
+install_identity_provider &
+IDENTITY_PROVIDER_PID=$!
+
+# Wait for all installations to complete
+log_info "Waiting for parallel installations to complete..."
+wait $DATA_PLANE_PID
+DATA_PLANE_EXIT=$?
+
+wait $BUILD_PLANE_PID
+BUILD_PLANE_EXIT=$?
+
+wait $IDENTITY_PROVIDER_PID
+IDENTITY_PROVIDER_EXIT=$?
+
+# Check if any installation failed
+if [[ $DATA_PLANE_EXIT -ne 0 ]]; then
+    log_error "Data Plane installation failed with exit code $DATA_PLANE_EXIT"
+    exit 1
+fi
+
+if [[ $BUILD_PLANE_EXIT -ne 0 ]]; then
+    log_error "Build Plane installation failed with exit code $BUILD_PLANE_EXIT"
+    exit 1
+fi
+
+if [[ $IDENTITY_PROVIDER_EXIT -ne 0 ]]; then
+    log_error "Identity Provider installation failed with exit code $IDENTITY_PROVIDER_EXIT"
+    exit 1
+fi
+
+log_info "All parallel installations completed successfully"
+
+# Step 8: Install OpenChoreo Observability Plane (optional)
+if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    install_observability_plane
+fi
+
+# Step 10: Setup choreoctl auto-completion
+setup_choreoctl_completion
+
+# Step 11: Check installation status
+if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
+    if [[ -f "${SCRIPT_DIR}/quick-start/check-status.sh" ]]; then
+        bash "${SCRIPT_DIR}/quick-start/check-status.sh"
+    else
+        log_warning "check-status.sh not found, skipping status check"
+    fi
+fi
+
+# Step 12: Add default dataplane
+if [[ -f "${SCRIPT_DIR}/quick-start/add-default-dataplane.sh" ]]; then
+    bash "${SCRIPT_DIR}/quick-start/add-default-dataplane.sh" --single-cluster
+else
+    log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
+fi
+
+# Step 13: Add default BuildPlane
+if [[ -f "${SCRIPT_DIR}/quick-start/add-build-plane.sh" ]]; then
+    bash "${SCRIPT_DIR}/quick-start/add-build-plane.sh"
+else
+    log_warning "add-build-plane.sh not found, skipping build plane configuration"
+fi
+
+log_success "OpenChoreo installation completed successfully!"
+log_info "Access URLs:"
+log_info "  External Gateway: Use 'kubectl port-forward' to access services"
+log_info "  Backstage Demo: Use 'kubectl port-forward' to access Backstage"
+log_info ""
+log_info "To access services locally, use:"
+log_info "  kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443"
+log_info "  kubectl port-forward -n openchoreo-control-plane svc/backstage 7007:7007"
