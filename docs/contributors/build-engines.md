@@ -1,6 +1,6 @@
 # OpenChoreo Build Engines
 
-This document describes the pluggable build engine architecture in OpenChoreo and provides a practical, high-level guide for adding new build engines without including implementation code.
+This document describes the pluggable build engine architecture in OpenChoreo and provides a practical, high-level guide for adding new build engines.
 
 ## Overview
 
@@ -168,7 +168,7 @@ spec:
         value: ./Dockerfile
 ```
 
-## Adding a New Build Engine (no code required in this doc)
+## Adding a New Build Engine
 
 Follow this checklist to add a new engine implementation:
 
