@@ -8,7 +8,7 @@ version: 0.0.0-latest-dev
 appVersion: "latest-dev"
 
 home: https://github.com/openchoreo/openchoreo
-icon: https://openchoreo.dev/img/openchoreo_logo.svg
+icon: https://openchoreo.dev/img/openchoreo-logo.svg
 sources:
   - https://github.com/openchoreo/openchoreo
 keywords:

@@ -129,7 +129,7 @@ In this section, we explain how the OpenChoreo abstractions for platform enginee
 
 The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
-For a deeper understanding of OpenChoreo’s architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/core-concepts/concepts-and-abstractions/)**.
+For a deeper understanding of OpenChoreo's architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/category/concepts/)**.
 
 Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/single-cluster/)** to learn more about installation methods.
 
@@ -137,8 +137,9 @@ Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/single-
 
 Explore hands-on examples to help you configure and deploy your applications using OpenChoreo.
 
-- **[Configuring Choreo](./samples/configuring-choreo/)** – Set up organizations, environments, data planes, and deployment pipelines.
-- **[Deploying Applications](./samples/deploying-applications/)** – Deploy services, web apps, and scheduled tasks.
+- **[Platform Configuration](./samples/platform-config/)** – Set up deployment pipelines and environments.
+- **[Deploy from Source](./samples/from-source/)** – Deploy services and web apps from source code.
+- **[Deploy from Image](./samples/from-image/)** – Deploy pre-built container images.
 
 Check out the **[Samples Directory](./samples/)** for more details.
 
