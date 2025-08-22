@@ -26,8 +26,6 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
   CONTEXT=$(kubectl config current-context)
   TARGET_CONTEXT=$CONTEXT
   DATAPLANE_KIND_NAME=$DEFAULT_DATAPLANE_KIND_NAME
-  NODE_NAME_PREFIX=${CONTEXT#kind-}
-  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
   echo "Running in single-cluster mode using context '$CONTEXT'"
 else
   read -p "Enter DataPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
@@ -35,8 +33,6 @@ else
   TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
 
   echo -e "\nUsing Kubernetes context '$CONTEXT' as DataPlane."
-  NODE_NAME_PREFIX=${CONTEXT#kind-}
-  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
 
   read -p "Enter DataPlane kind name (default: $DEFAULT_DATAPLANE_KIND_NAME): " INPUT_DATAPLANE_NAME
   DATAPLANE_KIND_NAME=${INPUT_DATAPLANE_NAME:-$DEFAULT_DATAPLANE_KIND_NAME}
@@ -45,6 +41,7 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
+SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
 echo " "
 
 # Try to get base64-encoded values directly
