@@ -12,14 +12,6 @@ This sample deploys a reading list service and demonstrates how to configure rat
 - The `kubectl` CLI tool installed
 - Make sure you have the `jq` command-line JSON processor installed for parsing responses
 
-## File Structure
-
-```
-rate-limiting/
-├── reading-list-service-with-rate-limit.yaml  # Developer resources (Component, Workload, Service)
-└── README.md                                  # This guide
-```
-
 ## Step 1: Deploy the Service (Developer)
 
 1. **Review the Service Configuration**
@@ -40,7 +32,7 @@ rate-limiting/
    
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,service -l project=default
+   kubectl get component,workload,services.openchoreo.dev
    ```
 
 This creates:
@@ -53,7 +45,7 @@ This creates:
 Port forward the OpenChoreo gateway service to access it locally:
 
 ```bash
-kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
+kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 ```
 
 ## Step 3: Test the Rate Limiting
