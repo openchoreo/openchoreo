@@ -13,7 +13,7 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
-    "build-image": "docker buildx build ../.. -f Dockerfile --platform linux/arm64,linux/amd64 --tag backstage "
+    "build-image": "docker buildx build ../.. -f Dockerfile --platform linux/arm64,linux/amd64 --tag backstage"
   },
   "dependencies": {
     "@backstage/backend-defaults": "^0.9.0",
