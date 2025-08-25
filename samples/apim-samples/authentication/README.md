@@ -10,18 +10,9 @@ Here you will be creating a new APIClass resource to configure the API managemen
 
 ## Pre-requisites
 
-- Kubernetes cluster with OpenChoreo installed
-- OpenChoreo default identity provider installed
+- Kubernetes cluster with OpenChoreo and the default identity provider installed (Follow our [installation](https://openchoreo.dev/docs/category/installation/) guides for more information)
 - The `kubectl` CLI tool installed
 - Make sure you have the `jq` command-line JSON processor installed for parsing responses
-
-## File Structure
-
-```
-secure-service-with-jwt/
-├── greeter-service-with-jwt.yaml  # Developer resources (Component, Workload, Service, API)
-└── README.md                      # This guide
-```
 
 ## Step 1: Deploy the Service (Developer)
 
@@ -43,7 +34,7 @@ secure-service-with-jwt/
 
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,service -l project=default
+   kubectl get component,workload,service
    ```
 
 This creates:
@@ -56,7 +47,7 @@ This creates:
 Port forward the OpenChoreo gateway service to access it locally:
 
 ```bash
-kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
+kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 ```
 
 ## Step 3: Test the Secured Service
@@ -83,7 +74,7 @@ kubectl port-forward -n choreo-system svc/choreo-external-gateway 8443:443 &
    Retrieve an access token using the client credentials you configured earlier:
    ```bash
    ACCESS_TOKEN=$(kubectl run curl-pod --rm -i --restart=Never --image=curlimages/curl:latest -- \
-     sh -c "curl -s --location 'http://openchoreo-identity-provider.openchoreo-identity-system:8090/oauth2/token' \
+     sh -c "curl -s --location 'http://identity-provider.openchoreo-identity-system.svc.cluster.local:8090/oauth2/token' \
      --header 'Content-Type: application/x-www-form-urlencoded' \
      --data 'grant_type=client_credentials&client_id=openchoreo-default-client&client_secret=openchoreo-default-secret' \
      | grep -o '\"access_token\":\"[^\"]*' | cut -d'\"' -f4" 2>/dev/null | head -1)
