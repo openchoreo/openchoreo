@@ -27,6 +27,9 @@ maintainers:
   - name: OpenChoreo Team
     url: https://github.com/openchoreo/openchoreo
 dependencies:
+  - name: openchoreo-common
+    version: "0.0.0-latest-dev"
+    repository: "file://../openchoreo-common"
   - name: vault
     version: 0.29.1
     repository: "https://helm.releases.hashicorp.com"

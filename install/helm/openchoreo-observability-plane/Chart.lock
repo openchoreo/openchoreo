@@ -1,0 +1,6 @@
+dependencies:
+- name: openchoreo-common
+  repository: file://../openchoreo-common
+  version: 0.0.0-latest-dev
+digest: sha256:5e21776ed566ae9e0dfed56d1d5eec7e61917bc26b3a21eee9304312a936767f
+generated: "2025-08-27T18:04:28.111782+05:30"

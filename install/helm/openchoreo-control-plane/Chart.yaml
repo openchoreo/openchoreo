@@ -24,6 +24,9 @@ maintainers:
     url: https://github.com/openchoreo/openchoreo
 
 dependencies:
+  - name: openchoreo-common
+    version: "0.0.0-latest-dev"
+    repository: "file://../openchoreo-common"
   - name: cert-manager
     repository: https://charts.jetstack.io
     condition: cert-manager.enabled

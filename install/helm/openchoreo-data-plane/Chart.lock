@@ -1,4 +1,7 @@
 dependencies:
+- name: openchoreo-common
+  repository: file://../openchoreo-common
+  version: 0.0.0-latest-dev
 - name: vault
   repository: https://helm.releases.hashicorp.com
   version: 0.29.1
@@ -11,5 +14,5 @@ dependencies:
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.16.2
-digest: sha256:937ee41d26a39d8400481d659e741a33a2a202eb7f6169f81bc06e83703aa043
-generated: "2025-07-13T20:01:50.270075+05:30"
+digest: sha256:df2411f1698d51c77fe97545cd87c6fed596094078912f7c7b6fe59ddd931deb
+generated: "2025-08-27T18:04:00.876581+05:30"

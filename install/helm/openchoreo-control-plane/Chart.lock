@@ -1,6 +1,9 @@
 dependencies:
+- name: openchoreo-common
+  repository: file://../openchoreo-common
+  version: 0.0.0-latest-dev
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.16.2
-digest: sha256:3355cf281dbbfda4f89395d8690ef95e76e8cf38769bcf4fbcb5b1c3650d49f0
-generated: "2025-07-13T15:19:18.792798+05:30"
+digest: sha256:a56f648df093283186c79c2991398631af64777888fe12306af3eaae8d0db56f
+generated: "2025-08-27T18:03:49.187904+05:30"

@@ -1,0 +1,22 @@
+apiVersion: v2
+name: openchoreo-common
+description: A Helm library chart containing shared templates for OpenChoreo charts
+type: library
+
+# Version strategy: latest-dev for development, replaced by CI for releases
+version: 0.0.0-latest-dev
+
+home: https://github.com/openchoreo/openchoreo
+icon: https://openchoreo.dev/img/openchoreo-logo.svg
+sources:
+  - https://github.com/openchoreo/openchoreo
+keywords:
+  - openchoreo
+  - internal-developer-platform
+  - idp
+  - kubernetes
+  - helm
+  - library
+maintainers:
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/openchoreo

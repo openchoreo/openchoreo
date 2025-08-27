@@ -1,9 +1,12 @@
 dependencies:
+- name: openchoreo-common
+  repository: file://../openchoreo-common
+  version: 0.0.0-latest-dev
 - name: backstage
   repository: https://backstage.github.io/charts
   version: 2.6.0
 - name: common
   repository: oci://registry-1.docker.io/bitnamicharts
   version: 2.10.0
-digest: sha256:402f96ef99b3e9ca6046ec40155b8ae1e7f9a20dbc58b865c1b9ce959103b3a1
-generated: "2025-07-28T17:48:57.113955+05:30"
+digest: sha256:5d7a2c995a0ee735b92d2751aaa0f285fee7315330f69987c68d43b781e1a8a3
+generated: "2025-08-27T18:00:22.946825+05:30"
