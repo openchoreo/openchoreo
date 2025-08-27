@@ -128,7 +128,7 @@ setup_choreoctl_completion
 
 # Step 11: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
-    if [[ -f "${SCRIPT_DIR}/quick-start/check-status.sh" ]]; then
+    if [[ -f "${SCRIPT_DIR}/check-status.sh" ]]; then
         bash "${SCRIPT_DIR}/quick-start/check-status.sh"
     else
         log_warning "check-status.sh not found, skipping status check"
