@@ -1,0 +1,9 @@
+dependencies:
+- name: backstage
+  repository: https://backstage.github.io/charts
+  version: 2.6.0
+- name: common
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.10.0
+digest: sha256:402f96ef99b3e9ca6046ec40155b8ae1e7f9a20dbc58b865c1b9ce959103b3a1
+generated: "2025-07-28T17:48:57.113955+05:30"
