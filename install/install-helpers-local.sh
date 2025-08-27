@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Helper functions for OpenChoreo local installation
-# Adapted from quick-start/install-helpers.sh for local development
 
 set -eo pipefail
 
