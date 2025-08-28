@@ -34,13 +34,13 @@ Here you will be creating a new APIClass resource to configure the API managemen
 
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,service
+   kubectl get component,workload,services.openchoreo.dev reading-list-service-jwt
    ```
 
 This creates:
-- **Component** (`greeter-service`): Component metadata and type definition
-- **Workload** (`reading-list-service`): Container configuration with reading list API endpoints
-- **Service** (`greeter-service`): Runtime service configuration that exposes the API
+- **Component** (`reading-list-service-jwt`): Component metadata and type definition
+- **Workload** (`reading-list-service-jwt`): Container configuration with reading list API endpoints
+- **Service** (`reading-list-service-jwt`): Runtime service configuration that exposes the API
 
 ## Step 2: Expose the API Gateway
 
