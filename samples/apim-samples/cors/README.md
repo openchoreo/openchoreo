@@ -33,7 +33,7 @@ This sample deploys a reading list service and demonstrates how to configure COR
    
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,services.openchoreo.dev
+   kubectl get component,workload,services.openchoreo.dev reading-list-service-cors
    ```
 
 This creates:

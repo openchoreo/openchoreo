@@ -27,20 +27,20 @@ Here you will be creating a new APIClass resource to configure the API managemen
 
    Apply the service resources:
    ```bash
-   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-with-jwt-auth.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-service-with-jwt-auth.yaml
    ```
 
 3. **Verify Service Deployment**
 
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,service
+   kubectl get component,workload,services.openchoreo.dev reading-list-service-jwt
    ```
 
 This creates:
-- **Component** (`greeter-service`): Component metadata and type definition
-- **Workload** (`reading-list-service`): Container configuration with reading list API endpoints
-- **Service** (`greeter-service`): Runtime service configuration that exposes the API
+- **Component** (`reading-list-service-jwt`): Component metadata and type definition
+- **Workload** (`reading-list-service-jwt`): Container configuration with reading list API endpoints
+- **Service** (`reading-list-service-jwt`): Runtime service configuration that exposes the API
 
 ## Step 2: Expose the API Gateway
 
@@ -108,5 +108,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-with-jwt-auth.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/apim-samples/authentication/reading-list-service-with-jwt-auth.yaml
 ```
