@@ -16,6 +16,10 @@ spec:
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 8 }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
       - name: opensearch
         image: "{{ .Values.opensearch.image.repository }}:{{ .Values.opensearch.image.tag }}"
