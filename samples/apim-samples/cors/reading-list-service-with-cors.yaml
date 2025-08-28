@@ -1,5 +1,5 @@
-# Secure Service with JWT Authentication Sample
-# This sample demonstrates how to deploy a service with JWT authentication using the new CRD design
+# Service with CORS Support Sample
+# This sample demonstrates how to deploy a service with CORS (Cross-Origin Resource Sharing) configuration using the new CRD design
 
 # Component - Defines the component metadata
 apiVersion: openchoreo.dev/v1alpha1

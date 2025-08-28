@@ -1,5 +1,5 @@
-# Secure Service with JWT Authentication Sample
-# This sample demonstrates how to deploy a service with JWT authentication using the new CRD design
+# Service with Rate Limiting Sample
+# This sample demonstrates how to deploy a service with rate limiting configuration using the new CRD design
 
 # Component - Defines the component metadata
 apiVersion: openchoreo.dev/v1alpha1

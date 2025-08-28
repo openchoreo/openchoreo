@@ -32,7 +32,7 @@ This sample deploys a reading list service and demonstrates how to configure rat
    
    Check that all resources were created successfully:
    ```bash
-   kubectl get component,workload,services.openchoreo.dev
+   kubectl get component,workload,services.openchoreo.dev reading-list-service-rate-limit
    ```
 
 This creates:
