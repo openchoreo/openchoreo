@@ -13,7 +13,7 @@ spec:
       authentication:
         type: jwt
         jwt:
-          jwks: "http://openchoreo-identity-provider.openchoreo-identity-system:8090/oauth2/jwks"
+          jwks: "http://identity-provider.openchoreo-identity-system.svc.cluster.local:8090/oauth2/jwks"
           issuer: "https://openchoreo.example.com"
     public: {}
     organization: {}
