@@ -67,7 +67,7 @@ observer:
   
   image:
     repository: ghcr.io/openchoreo/observer
-    tag: latest-dev
+    tag: ""  # If no value is set, use Chart.AppVersion
     pullPolicy: IfNotPresent
   
   service:
