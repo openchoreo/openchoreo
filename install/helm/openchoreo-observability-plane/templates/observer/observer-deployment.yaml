@@ -45,7 +45,7 @@ spec:
             - ALL
       containers:
       - name: observer
-        image: "{{ if .Values.observer.image }}{{ .Values.observer.image.repository | default "ghcr.io/openchoreo/observer" }}:{{ .Values.observer.image.tag | default "latest-dev" }}{{ else }}ghcr.io/openchoreo/observer:latest-dev{{ end }}"
+        image: "{{ if .Values.observer.image }}{{ .Values.observer.image.repository | default "ghcr.io/openchoreo/observer" }}:{{ .Values.observer.image.tag | default .Chart.AppVersion }}{{ else }}ghcr.io/openchoreo/observer:{{ .Chart.AppVersion }}{{ end }}"
         imagePullPolicy: {{ if .Values.observer.image }}{{ .Values.observer.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
         ports:
         - name: http

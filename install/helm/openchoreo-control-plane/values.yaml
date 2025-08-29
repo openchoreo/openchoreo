@@ -93,7 +93,7 @@ openchoreoApi:
   enabled: true
   image: "ghcr.io/openchoreo/openchoreo-api"
   imagePullPolicy: Always
-  tag: "latest-dev"
+  tag: "" # If no value is set, use Chart.AppVersion
   replicas: 1
   resources:
     requests:
