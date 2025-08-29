@@ -11,7 +11,6 @@ backstage:
       repository: 'openchoreo/backstage-demo'
       tag: 'latest-dev'
       pullPolicy: IfNotPresent
-
     # Resource limits and requests
     resources:
       limits:
@@ -20,7 +19,6 @@ backstage:
       requests:
         cpu: 250m
         memory: 512Mi
-
     # Extra environment variables
     extraEnvVars:
       - name: OPENCHOREO_API_URL

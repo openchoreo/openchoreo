@@ -37,6 +37,13 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		  $(YQ) eval '.controllerManager.manager.imagePullPolicy = "$(HELM_CONTROLLER_IMAGE_PULL_POLICY)"' -i $$VALUES_FILE; \
 		fi \
 	fi
+	@# Update backstage image tag for openchoreo-backstage chart
+	@if [ ${CHART_NAME} == "openchoreo-backstage" ]; then \
+		VALUES_FILE=$(CHART_PATH)/values.yaml; \
+		if [ -f "$$VALUES_FILE" ]; then \
+		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
+		fi \
+	fi
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)
 

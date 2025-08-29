@@ -18,7 +18,7 @@ spec:
       serviceAccountName: {{ .Values.controllerManager.name }}
       containers:
       - name: openchoreo-api
-        image: "{{ .Values.openchoreoApi.image }}:{{ .Values.openchoreoApi.tag }}"
+        image: "{{ .Values.openchoreoApi.image }}:{{ .Values.openchoreoApi.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openchoreoApi.imagePullPolicy }}
         ports:
         - containerPort: 8080
