@@ -46,7 +46,19 @@ google-microservices-sample/
 From the repository root, deploy the project and all microservices components:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/
+kubectl apply -f \
+  https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/ad-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/cart-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/checkout-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/currency-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/email-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/frontend-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/payment-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/productcatalog-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/recommendation-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/redis-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/shipping-component.yaml
 ```
 
 This will create the project and deploy all the microservices using official Google Container Registry images.
@@ -84,5 +96,17 @@ Stop the port forwarding and remove all resources:
 pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/
+kubectl delete -f \
+  https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/ad-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/cart-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/checkout-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/currency-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/email-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/frontend-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/payment-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/productcatalog-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/recommendation-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/redis-component.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/gcp-microservices-demo/shipping-component.yaml
 ```
