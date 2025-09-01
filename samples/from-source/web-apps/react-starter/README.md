@@ -12,7 +12,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/webapp-react-nginx
 The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```
 
 > [!NOTE]
@@ -70,5 +70,5 @@ Stop the port forwarding and remove all resources:
 pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
-kubectl delete https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```

@@ -42,7 +42,7 @@ https://github.com/wso2/choreo-samples/tree/main/patient-management-service
 The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f new-design-sample/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
 
 > [!NOTE]
@@ -93,5 +93,5 @@ Stop the port forwarding and remove all resources:
 pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
-kubectl delete -f new-design-sample/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```

@@ -18,7 +18,7 @@ Features:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
 ```
 
 > [!NOTE]
@@ -121,5 +121,5 @@ Example schedules:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
 ```

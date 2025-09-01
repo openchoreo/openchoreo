@@ -27,7 +27,7 @@ Here you will be creating a new APIClass resource to configure the API managemen
 
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-jwt-auth.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/authentication/reading-list-service-with-jwt-auth.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -108,5 +108,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f reading-list-service-with-jwt-auth.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/authentication/reading-list-service-with-jwt-auth.yaml
 ```
