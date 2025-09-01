@@ -20,7 +20,7 @@ Exposed REST endpoints:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/go-greeter-service/greeter-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-image/go-greeter-service/greeter-service.yaml
 ```
 
 > [!NOTE]
@@ -69,5 +69,5 @@ Stop the port forwarding and remove all resources:
 pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
-kubectl delete -f greeter-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/from-image/go-greeter-service/greeter-service.yaml
 ```

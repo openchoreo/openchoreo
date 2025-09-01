@@ -33,7 +33,7 @@ When thresholds are exceeded, the circuit breaker will:
 
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-circuit-breaker.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/circuit-breaker/reading-list-service-with-circuit-breaker.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -191,5 +191,5 @@ During load testing, you should observe:
 Remove the deployed resources:
 
 ```bash
-kubectl delete -f reading-list-service-with-circuit-breaker.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/circuit-breaker/reading-list-service-with-circuit-breaker.yaml
 ```

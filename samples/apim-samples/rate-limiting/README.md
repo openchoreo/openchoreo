@@ -25,7 +25,7 @@ This sample deploys a reading list service and demonstrates how to configure rat
    
    Apply the service resources:
    ```bash
-   kubectl apply -f reading-list-service-with-rate-limit.yaml
+   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/rate-limiting/reading-list-service-with-rate-limit.yaml
    ```
 
 3. **Verify Service Deployment**
@@ -117,5 +117,5 @@ Remove all resources:
 
 ```bash
 # Remove service resources
-kubectl delete -f reading-list-service-with-rate-limit.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.3/samples/apim-samples/rate-limiting/reading-list-service-with-rate-limit.yaml
 ```
