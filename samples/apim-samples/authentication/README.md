@@ -71,14 +71,31 @@ kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
 
 2. **Get Access Token**
 
-   Retrieve an access token using the client credentials you configured earlier:
-   ```bash
-   ACCESS_TOKEN=$(kubectl run curl-pod --rm -i --restart=Never --image=curlimages/curl:latest -- \
-     sh -c "curl -s --location 'http://identity-provider.openchoreo-identity-system.svc.cluster.local:8090/oauth2/token' \
-     --header 'Content-Type: application/x-www-form-urlencoded' \
-     --data 'grant_type=client_credentials&client_id=openchoreo-default-client&client_secret=openchoreo-default-secret' \
-     | grep -o '\"access_token\":\"[^\"]*' | cut -d'\"' -f4" 2>/dev/null | head -1)
-   ```
+   Retrieve an access token using the default client credentials. You can use a temporary pod to run the curl command as follows:
+      
+   <details>
+   <summary>Bash/Zsh</summary>
+   
+     ```bash
+     ACCESS_TOKEN=$(kubectl run curl-pod --rm -i --restart=Never --image=curlimages/curl:latest -- \
+       sh -c "curl -s --location 'http://identity-provider.openchoreo-identity-system.svc.cluster.local:8090/oauth2/token' \
+       --header 'Content-Type: application/x-www-form-urlencoded' \
+       --data 'grant_type=client_credentials&client_id=openchoreo-default-client&client_secret=openchoreo-default-secret' \
+       | grep -o '\"access_token\":\"[^\"]*' | cut -d'\"' -f4" 2>/dev/null | head -1)
+     ```
+   </details>
+   
+   <details>
+   <summary>Fish Shell</summary>
+   
+     ```fish
+     set ACCESS_TOKEN (kubectl run curl-pod --rm -i --restart=Never --image=curlimages/curl:latest -- \
+       sh -c "curl -s --location 'http://identity-provider.openchoreo-identity-system.svc.cluster.local:8090/oauth2/token' \
+       --header 'Content-Type: application/x-www-form-urlencoded' \
+       --data 'grant_type=client_credentials&client_id=openchoreo-default-client&client_secret=openchoreo-default-secret' \
+       | grep -o '\"access_token\":\"[^\"]*' | cut -d'\"' -f4" 2>/dev/null | head -1)
+     ```
+   </details>
 
 3. **Test Authenticated Access**
 
