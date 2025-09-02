@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,7 +19,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 )
 
 const (
@@ -30,11 +29,11 @@ const (
 
 // Reconciler reconciles a Build object
 type Reconciler struct {
-	k8sClientMgr *kubernetesClient.KubeMultiClientManager
 	client.Client
 	// IsGitOpsMode indicates whether the controller is running in GitOps mode
 	IsGitOpsMode bool
 	Scheme       *runtime.Scheme
+	engine       *Builder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=builds,verbs=get;list;watch;create;update;patch;delete
@@ -85,27 +84,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Create prerequisite resources (namespace, RBAC)
-	if err := r.ensurePrerequisiteResources(ctx, bpClient, build, logger); err != nil {
+	if err := r.engine.EnsurePrerequisites(ctx, build, bpClient); err != nil {
 		logger.Error(err, "Error ensuring prerequisite resources")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
 	}
 
-	workflow, created, err := r.ensureWorkflow(ctx, build, bpClient)
+	buildResponse, err := r.engine.CreateBuild(ctx, build, bpClient)
 	if err != nil {
 		logger.Error(err, "cannot ensure workflow")
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
-	if created {
+	if buildResponse.Created {
 		setBuildTriggeredCondition(build)
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
 	if !isBuildWorkflowSucceeded(build) {
 		// Update build status based on workflow status
-		return r.updateBuildStatus(ctx, oldBuild, build, workflow)
+		return r.updateBuildStatus(ctx, oldBuild, build, bpClient)
 	}
 
-	err = r.applyWorkloadCR(ctx, build, workflow)
+	err = r.applyWorkloadCR(ctx, build, bpClient)
 	if err != nil {
 		logger.Error(err, "Failed to create workload CR")
 		meta.SetStatusCondition(&build.Status.Conditions, NewWorkloadUpdateFailedCondition(build.Generation))
@@ -122,8 +121,11 @@ const (
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.k8sClientMgr == nil {
-		r.k8sClientMgr = kubernetesClient.NewManager()
+	if r.engine == nil {
+		r.engine = NewBuilder(r.Client, kubernetesClient.NewManager())
+
+		// Register build engines here to avoid circular imports
+		r.engine.registerBuildEngines()
 	}
 
 	ctx := context.Background()
@@ -156,31 +158,23 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *Reconciler) applyWorkloadCR(ctx context.Context, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) error {
+func (r *Reconciler) applyWorkloadCR(ctx context.Context, build *openchoreov1alpha1.Build, bpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
 
-	// Check if workload-create-step exists and succeeded
-	stepInfo := getStepByTemplateName(workflow.Status.Nodes, "workload-create-step")
-	if stepInfo == nil {
-		logger.Info("workload-create-step not found in workflow nodes, skipping workload CR creation")
-		return nil
+	buildArtifacts, err := r.engine.ExtractBuildArtifacts(ctx, build, bpClient)
+	if err != nil {
+		logger.Error(err, "Failed to extract build artifacts")
+		return fmt.Errorf("failed to extract build artifacts: %w", err)
 	}
 
-	if stepInfo.Phase != argoproj.NodeSucceeded {
-		logger.Info("workload-create-step has not succeeded yet", "phase", stepInfo.Phase)
+	if buildArtifacts.WorkloadCR == "" {
+		logger.Info("No workload CR found in build artifacts, waiting workload creation step to be completed")
 		return nil
-	}
-
-	// Extract workload CR YAML from step output
-	workloadCRYAML := getWorkloadCRFromWorkflow(*stepInfo.Outputs)
-	if workloadCRYAML == "" {
-		logger.Error(fmt.Errorf("workload-cr not found in workflow outputs"), "Workload CR not found in workflow outputs")
-		return fmt.Errorf("workload-cr not found in workflow outputs")
 	}
 
 	// Parse the YAML into a Workload object
 	workload := &openchoreov1alpha1.Workload{}
-	if err := yaml.Unmarshal([]byte(workloadCRYAML), workload); err != nil {
+	if err := yaml.Unmarshal([]byte(buildArtifacts.WorkloadCR), workload); err != nil {
 		logger.Error(err, "Failed to unmarshal workload CR YAML")
 		return fmt.Errorf("failed to unmarshal workload CR: %w", err)
 	}
@@ -234,7 +228,7 @@ func (r *Reconciler) updateWorkloadWithBuiltImage(
 }
 
 func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := r.engine.GetBuildPlaneClient(ctx, buildPlane)
 	if err != nil {
 		logger := log.FromContext(ctx)
 		logger.Error(err, "Failed to get build plane client")
@@ -243,137 +237,39 @@ func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1al
 	return bpClient, nil
 }
 
-// ensurePrerequisiteResources ensures that all prerequisite resources exist for the workflow
-func (r *Reconciler) ensurePrerequisiteResources(ctx context.Context, bpClient client.Client, build *openchoreov1alpha1.Build, logger logr.Logger) error {
-	// Create namespace
-	namespace := makeNamespace(build)
-	if err := r.ensureResource(ctx, bpClient, namespace, "Namespace", logger); err != nil {
-		return fmt.Errorf("failed to ensure namespace: %w", err)
-	}
-
-	// Create service account
-	serviceAccount := makeServiceAccount(build)
-	if err := r.ensureResource(ctx, bpClient, serviceAccount, "ServiceAccount", logger); err != nil {
-		return fmt.Errorf("failed to ensure service account: %w", err)
-	}
-
-	// Create role
-	role := makeRole(build)
-	if err := r.ensureResource(ctx, bpClient, role, "Role", logger); err != nil {
-		return fmt.Errorf("failed to ensure role: %w", err)
-	}
-
-	// Create role binding
-	roleBinding := makeRoleBinding(build)
-	if err := r.ensureResource(ctx, bpClient, roleBinding, "RoleBinding", logger); err != nil {
-		return fmt.Errorf("failed to ensure role binding: %w", err)
-	}
-
-	return nil
-}
-
-// ensureResource creates a resource if it doesn't exist, ignoring "already exists" errors
-func (r *Reconciler) ensureResource(ctx context.Context, bpClient client.Client, obj client.Object, resourceType string, logger logr.Logger) error {
-	err := bpClient.Create(ctx, obj)
-	if err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
-		}
-		logger.Error(err, "Failed to create resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-		return err
-	}
-	logger.Info("Created resource", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
-	return nil
-}
-
-// ensureWorkflow fetches the Argo Workflow; if it doesn't exist it creates one.
-// Returns (workflow, created, error)
-func (r *Reconciler) ensureWorkflow(
-	ctx context.Context,
-	build *openchoreov1alpha1.Build,
-	bpClient client.Client,
-) (*argoproj.Workflow, bool, error) {
-	wf := &argoproj.Workflow{}
-	err := bpClient.Get(ctx,
-		client.ObjectKey{Name: makeWorkflowName(build), Namespace: makeNamespaceName(build)},
-		wf,
-	)
-
-	if err == nil || apierrors.IsAlreadyExists(err) {
-		return wf, false, nil
-	}
-
-	if !apierrors.IsNotFound(err) {
-		return nil, false, err
-	}
-
-	wf = makeArgoWorkflow(build)
-	if err := bpClient.Create(ctx, wf); err != nil {
-		return nil, false, err
-	}
-	return wf, true, nil
-}
-
 // updateBuildStatus updates build status based on workflow status
-func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build, workflow *argoproj.Workflow) (ctrl.Result, error) {
+func (r *Reconciler) updateBuildStatus(ctx context.Context, oldBuild, build *openchoreov1alpha1.Build, bpClient client.Client) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("build", build.Name)
-	switch workflow.Status.Phase {
-	case argoproj.WorkflowRunning:
+	buildStatus, err := r.engine.GetBuildStatus(ctx, build, bpClient)
+	if err != nil {
+		logger.Error(err, "Failed to get build status")
+		return r.updateStatusAndRequeue(ctx, oldBuild, build)
+	}
+	switch buildStatus.Phase {
+	case engines.BuildPhaseRunning:
 		setBuildInProgressCondition(build)
 		// Requeue after 20 seconds to check workflow status
 		return r.updateStatusAndRequeueAfter(ctx, oldBuild, build, 20*time.Second)
-	case argoproj.WorkflowSucceeded:
+	case engines.BuildPhaseSucceeded:
 		setBuildCompletedCondition(build, "Build completed successfully")
-		stepInfo := getStepByTemplateName(workflow.Status.Nodes, "push-step")
-		if stepInfo == nil {
-			logger.Error(fmt.Errorf("push-step not found in workflow nodes"), "Push step not found")
+		buildArtifacts, err := r.engine.ExtractBuildArtifacts(ctx, build, bpClient)
+		if err != nil {
+			logger.Error(err, "Failed to extract build artifacts")
 			return r.updateStatusAndRequeue(ctx, oldBuild, build)
 		}
-		image := getImageNameFromWorkflow(*stepInfo.Outputs)
-		if image == "" {
-			logger.Error(fmt.Errorf("image not found in workflow outputs"), "Image not found in workflow outputs")
-			return r.updateStatusAndRequeue(ctx, oldBuild, build)
-		}
-		build.Status.ImageStatus.Image = string(image)
+		build.Status.ImageStatus.Image = buildArtifacts.Image
 		if err := r.Status().Update(ctx, build); err != nil {
 			logger.Error(err, "Failed to update build status")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
-	case argoproj.WorkflowFailed, argoproj.WorkflowError:
+	case engines.BuildPhaseFailed:
 		setBuildFailedCondition(build, ReasonBuildFailed, "Build workflow failed")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
 	default:
 		// Workflow is pending or in unknown state, requeue
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
-}
-
-func getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStatus {
-	for _, node := range nodes {
-		if node.TemplateName == step {
-			return &node
-		}
-	}
-	return nil
-}
-
-func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
-	for _, param := range output.Parameters {
-		if param.Name == "image" {
-			return *param.Value
-		}
-	}
-	return ""
-}
-
-func getWorkloadCRFromWorkflow(output argoproj.Outputs) string {
-	for _, param := range output.Parameters {
-		if param.Name == "workload-cr" {
-			return string(*param.Value)
-		}
-	}
-	return ""
 }
 
 // Status update methods
