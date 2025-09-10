@@ -143,7 +143,7 @@ else
 fi
 
 # Step 13: Add default BuildPlane
-if [[ -f "${SCRIPT_DIR}/quick-start/add-build-plane.sh" ]]; then
+if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-build-plane.sh"
 else
     log_warning "add-build-plane.sh not found, skipping build plane configuration"
