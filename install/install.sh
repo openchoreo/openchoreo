@@ -137,7 +137,7 @@ fi
 
 # Step 12: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
-    bash "${SCRIPT_DIR}/quick-start/add-default-dataplane.sh" --single-cluster
+    bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
 else
     log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
 fi
