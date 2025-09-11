@@ -71,25 +71,39 @@ registry:
   storage:
     size: 2Gi
 
-# customizing the envoy gateway configurations
-gateway-helm:
-  config:
-    envoyGateway:
-      rateLimit:
-        backend:
-          type: Redis
-          redis:
-            url: redis:6379
-  # -- Resource limits and requests for the gateway
-  deployment:
-    envoyGateway:
-      resources:
-        limits:
-          cpu: 200m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
+wso2-kgw:
+  idp:
+    enabled: false
+  certmanager:
+    enabled: false
+    enableClusterIssuer: false
+    enableRootCa: false
+    issuerKind: Issuer
+    issuerName: wso2-kgw-issuer
+  postgresql:
+    enabled: false
+  envoy:
+    config:
+      envoyGateway:
+        extensionManager:
+          service:
+            fqdn:
+              hostname: envoy-gateway-extension-server-service.openchoreo-data-plane.svc.cluster.local
+              port: 5005
+        rateLimit:
+          backend:
+            type: Redis
+            redis:
+              url: redis-master.openchoreo-data-plane.svc.cluster.local:6379
+  wso2:
+    kgw:
+      dp:
+        enabled: true
+        commonController:
+          deployment:
+            replicas: 0 # Temporarily setting to 0 until we properly implement API management
+        configdeployer:
+          enabled: false
 
 # customizing the cert-manager configurations
 cert-manager:
