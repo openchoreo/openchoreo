@@ -4,7 +4,7 @@ metadata:
   name: {{ include "openchoreo-data-plane.fullname" . }}-serving-cert
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-weight": "0"
   labels:
   {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
 spec:
