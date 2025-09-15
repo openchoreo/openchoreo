@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openchoreo-controllers
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: openchoreo-controllers
+    app.kubernetes.io/component: controller-manager
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller-manager
+      app.kubernetes.io/name: openchoreo-control-plane
+  namespaceSelector:
+    matchNames:
+      - openchoreo-control-plane
+  endpoints:
+    - port: https
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings:
+        # Add OpenChoreo specific labels
+        - sourceLabels: [__name__]
+          regex: 'controller_runtime_.*'
+          targetLabel: component
+          replacement: 'openchoreo-controller'
+        - sourceLabels: [__name__]
+          regex: 'workqueue_.*'
+          targetLabel: component  
+          replacement: 'openchoreo-controller'
+        - sourceLabels: [__name__]
+          regex: 'rest_client_.*'
+          targetLabel: component
+          replacement: 'openchoreo-controller'
+        # Preserve important controller metrics
+        - sourceLabels: [__name__]
+          regex: '(controller_runtime_reconcile_total|controller_runtime_reconcile_errors_total|controller_runtime_reconcile_time_seconds|workqueue_depth|workqueue_adds_total|rest_client_requests_total|process_cpu_seconds_total|process_resident_memory_bytes|go_memstats_alloc_bytes)'
+          action: keep

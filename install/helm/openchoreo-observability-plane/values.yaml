@@ -83,3 +83,88 @@ observer:
     requests:
       cpu: 100m
       memory: 128Mi
+
+# Prometheus configuration
+prometheus:
+  # Use public registries instead of ACR for Kind deployment
+  global:
+    imageRegistry: ""
+    imagePullSecrets: []
+  
+  # Disable features not needed for local development
+  grafana:
+    enabled: false
+  
+  # Alertmanager configuration
+  alertmanager:
+    enabled: false
+    alertmanagerSpec:
+      # Remove topology constraints for Kind
+      topologySpreadConstraints: []
+      # Use Kind storage class
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 2Gi
+    
+  # Basic Kubernetes monitoring
+  kubeApiServer:
+    enabled: false
+  kubelet:
+    enabled: true
+  kubeControllerManager:
+    enabled: false
+  coreDns:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeStateMetrics:
+    enabled: true
+  kubeScheduler:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  nodeExporter:
+    enabled: false
+    
+  # Prometheus Operator configuration
+  prometheusOperator:
+    kubeletService:
+      enabled: false
+  
+  # Prometheus instance configuration
+  prometheus:
+    prometheusSpec:
+      # Remove topology constraints for Kind
+      topologySpreadConstraints: []
+      # Use Kind storage class
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi
+  
+  # Kube-state-metrics configuration for Kind
+  kube-state-metrics:
+    # Remove topology constraints for Kind
+    topologySpreadConstraints: []
+    # Enable Choreo pod labels as metrics
+    metricLabelsAllowlist:
+      - "pods=[component-name,environment-name,organization-name,project-name]"
+    # Ensure kube_pod_labels metric is collected
+    metricAllowlist:
+      - kube_pod_labels
+      - kube_pod_info
+      - kube_pod_status_phase
+      - kube_pod_container_resource_requests
+      - kube_pod_container_resource_limits
+  
