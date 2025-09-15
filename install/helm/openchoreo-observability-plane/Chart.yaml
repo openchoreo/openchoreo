@@ -28,27 +28,7 @@ maintainers:
     url: https://github.com/openchoreo/openchoreo
 
 dependencies:
-  - name: data-prepper
-    repository: https://opensearch-project.github.io/helm-charts/
-    version: 0.3.1
-    condition: data-prepper.enabled
-  - name: fluent-bit
-    alias: fluentBit
-    repository: https://fluent.github.io/helm-charts
-    version: 0.54.0
-    condition: fluentBit.enabled
   - name: kube-prometheus-stack
-    alias: prometheus
+    version: 76.0.0
     repository: https://prometheus-community.github.io/helm-charts
-    version: 78.3.0
-    condition: prometheus.enabled
-  - name: opensearch
-    alias: openSearch
-    repository: https://opensearch-project.github.io/helm-charts/
-    version: 3.3.0
-    condition: openSearch.enabled
-  - name: opensearch-dashboards
-    alias: openSearchDashboards
-    repository: https://opensearch-project.github.io/helm-charts/
-    version: 3.3.0
-    condition: openSearchDashboards.enabled
+    alias: prometheus
