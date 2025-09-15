@@ -1,0 +1,64 @@
+# Default values for cilium.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+cilium:
+  encryption:
+    enabled: true
+    type: wireguard
+  envoyConfig:
+    enabled: false
+  envoy:
+    enabled: false
+  nodePort:
+    enabled: true
+  priorityClassName: system-node-critical
+  hubble:
+    enabled: true
+    metrics:
+      enabled:
+        - dns
+        - drop
+        - tcp
+        - flow
+        - port-distribution
+        - icmp
+        - http
+      serviceMonitor:
+        enabled: true
+    relay:
+      enabled: false
+    ui:
+      enabled: false
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 250m
+    requests:
+      memory: 124Mi
+      cpu: 100m
+  operator:
+    replicas: 1
+    rollOutPods: true
+    resources:
+      limits:
+        memory: 128Mi
+        cpu: 100m
+      requests:
+        memory: 64Mi
+        cpu: 50m
+    unmanagedPodWatcher:
+      restart: true
+    priorityClassName: system-cluster-critical
+  startupProbe:
+    failureThreshold: 600
+  policyEnforcementMode: default
+  l7Proxy: true
+  # Enable L7 policy enforcement and monitoring
+  policyAuditMode: false
+  routingMode: tunnel
+  kubeProxyReplacement: false
+  rollOutCiliumPods: true
+waitJob:
+  enabled: true
+  image: bitnamilegacy/kubectl:1.33.4
