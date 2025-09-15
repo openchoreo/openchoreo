@@ -14,6 +14,18 @@ cilium:
     enabled: true
   priorityClassName: system-node-critical
   hubble:
+    enabled: true
+    metrics:
+      enabled:
+        - dns
+        - drop
+        - tcp
+        - flow
+        - port-distribution
+        - icmp
+        - http
+      serviceMonitor:
+        enabled: true
     relay:
       enabled: false
     ui:
@@ -41,6 +53,9 @@ cilium:
   startupProbe:
     failureThreshold: 600
   policyEnforcementMode: default
+  l7Proxy: true
+  # Enable L7 policy enforcement and monitoring
+  policyAuditMode: false
   routingMode: tunnel
   kubeProxyReplacement: false
   rollOutCiliumPods: true
