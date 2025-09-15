@@ -125,6 +125,22 @@ cert-manager:
         cpu: 50m
         memory: 64Mi
 
+# Customizing Cilium L7 HTTP visibility configurations
+cilium:
+  l7HttpVisibility:
+    enabled: false  # Enable to collect detailed HTTP metrics for Choreo components
+    componentSelector: {}  # Additional labels to select specific components
+    ingressPorts:
+      - port: "9090"  # Default service port for Choreo components
+        protocol: "TCP"
+    egressPorts:
+      - port: "80"    # HTTP outbound
+        protocol: "TCP"
+      - port: "443"   # HTTPS outbound  
+        protocol: "TCP"
+      - port: "9090"  # Service-to-service communication
+        protocol: "TCP"
+
 # Customizing overall observability configurations
 observability:
   logging:
