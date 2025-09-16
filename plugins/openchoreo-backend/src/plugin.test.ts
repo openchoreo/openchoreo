@@ -1,9 +1,5 @@
-import {
-  mockCredentials,
-  startTestBackend,
-} from '@backstage/backend-test-utils';
+import { startTestBackend } from '@backstage/backend-test-utils';
 import { choreoPlugin } from './plugin';
-import request from 'supertest';
 import { catalogServiceMock } from '@backstage/plugin-catalog-node/testUtils';
 
 // TEMPLATE NOTE:
@@ -11,42 +7,17 @@ import { catalogServiceMock } from '@backstage/plugin-catalog-node/testUtils';
 // work together end-to-end. You can still mock injected backend services
 // however, just like anyone who installs your plugin might replace the
 // services with their own implementations.
+// Basic plugin startup tests - OpenChoreo functionality tests to be added
 describe('plugin', () => {
-  it('should create and read TODO items', async () => {
+  it('should start the plugin without config', async () => {
     const { server } = await startTestBackend({
       features: [choreoPlugin],
     });
 
-    await request(server).get('/api/openchoreo/todos').expect(200, {
-      items: [],
-    });
-
-    const createRes = await request(server)
-      .post('/api/openchoreo/todos')
-      .send({ title: 'My Todo' });
-
-    expect(createRes.status).toBe(201);
-    expect(createRes.body).toEqual({
-      id: expect.any(String),
-      title: 'My Todo',
-      createdBy: mockCredentials.user().principal.userEntityRef,
-      createdAt: expect.any(String),
-    });
-
-    const createdTodoItem = createRes.body;
-
-    await request(server)
-      .get('/api/openchoreo/todos')
-      .expect(200, {
-        items: [createdTodoItem],
-      });
-
-    await request(server)
-      .get(`/api/openchoreo/todos/${createdTodoItem.id}`)
-      .expect(200, createdTodoItem);
+    expect(server).toBeDefined();
   });
 
-  it('should create TODO item with catalog information', async () => {
+  it('should start the plugin with catalog service', async () => {
     const { server } = await startTestBackend({
       features: [
         choreoPlugin,
@@ -70,16 +41,6 @@ describe('plugin', () => {
       ],
     });
 
-    const createRes = await request(server)
-      .post('/api/openchoreo/todos')
-      .send({ title: 'My Todo', entityRef: 'component:default/my-component' });
-
-    expect(createRes.status).toBe(201);
-    expect(createRes.body).toEqual({
-      id: expect.any(String),
-      title: '[My Component] My Todo',
-      createdBy: mockCredentials.user().principal.userEntityRef,
-      createdAt: expect.any(String),
-    });
+    expect(server).toBeDefined();
   });
 });

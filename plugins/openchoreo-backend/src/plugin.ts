@@ -36,7 +36,12 @@ export const choreoPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
       },
       async init({ logger, config, httpRouter }) {
-        const openchoreoConfig = config.getConfig('openchoreo'); // Make optional
+        const openchoreoConfig = config.getOptionalConfig('openchoreo');
+
+        if (!openchoreoConfig) {
+          logger.info('OpenChoreo plugin disabled - no configuration found');
+          return;
+        }
 
         const environmentInfoService = new EnvironmentInfoService(
           logger,
