@@ -1,0 +1,76 @@
+{{- if .Values.observability.metrics.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-gateway-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envoy-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: openchoreo-data-plane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "openchoreo-data-plane.chart" . }}
+    release: observability-plane  # Required for Prometheus discovery
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: envoy-gateway
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: "19001"
+    path: /stats/prometheus
+    interval: 15s
+    scheme: http
+    metricRelabelings:
+    # Keep only HTTP-related metrics
+    - action: keep
+      regex: 'envoy_(http_|cluster_|listener_).*'
+      sourceLabels: [__name__]
+    # Add component labels from Envoy cluster names
+    - action: replace
+      regex: 'outbound\|9090\|.*\|(.*)-.*'
+      replacement: '${1}'
+      sourceLabels: [envoy_cluster_name]
+      targetLabel: component_name
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor  
+metadata:
+  name: envoy-proxy-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envoy-proxy
+    app.kubernetes.io/component: proxy
+    app.kubernetes.io/part-of: openchoreo-data-plane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "openchoreo-data-plane.chart" . }}
+    release: observability-plane  # Required for Prometheus discovery
+spec:
+  selector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: gateway-external
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: "19000"
+    path: /stats/prometheus
+    interval: 15s
+    scheme: http
+    metricRelabelings:
+    # Keep only HTTP-related metrics
+    - action: keep
+      regex: 'envoy_(http_|cluster_|listener_).*'
+      sourceLabels: [__name__]
+    # Add component labels from upstream cluster names
+    - action: replace
+      regex: 'outbound\|.*\|(.*-[a-f0-9]+)\..*'
+      replacement: '${1}'
+      sourceLabels: [envoy_cluster_name]
+      targetLabel: backend_service
+{{- end }}

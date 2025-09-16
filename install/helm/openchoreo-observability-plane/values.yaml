@@ -142,6 +142,9 @@ prometheus:
     prometheusSpec:
       # Remove topology constraints for Kind
       topologySpreadConstraints: []
+      # Enable flexible ServiceMonitor discovery across all namespaces
+      serviceMonitorSelector: {}
+      serviceMonitorNamespaceSelector: {}
       # Use Kind storage class
       storageSpec:
         volumeClaimTemplate:

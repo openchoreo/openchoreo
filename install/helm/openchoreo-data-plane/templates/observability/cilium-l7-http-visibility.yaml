@@ -1,4 +1,4 @@
-{{- if .Values.cilium.l7HttpVisibility.enabled }}
+{{- if .Values.observability.metrics.enabled }}
 ---
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy

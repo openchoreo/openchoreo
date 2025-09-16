@@ -128,10 +128,12 @@ cert-manager:
 # Customizing Cilium L7 HTTP visibility configurations
 cilium:
   l7HttpVisibility:
-    enabled: false  # Enable to collect detailed HTTP metrics for Choreo components
+    enabled: false  # Controlled by observability.metrics.enabled
     componentSelector: {}  # Additional labels to select specific components
     ingressPorts:
       - port: "9090"  # Default service port for Choreo components
+        protocol: "TCP"
+      - port: "8080"  # Additional port for components like greeter-service
         protocol: "TCP"
     egressPorts:
       - port: "80"    # HTTP outbound
@@ -143,6 +145,9 @@ cilium:
 
 # Customizing overall observability configurations
 observability:
+  # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
+  metrics:
+    enabled: false  # Enable after observability-plane is installed
   logging:
     enabled: false
     publishers:

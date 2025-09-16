@@ -25,7 +25,9 @@ cilium:
         - icmp
         - http
       serviceMonitor:
-        enabled: true
+        enabled: false  # Disabled by default - enable after Observability-plane is installed
+        labels:
+          release: observability-plane  # Required for Prometheus discovery
     relay:
       enabled: false
     ui:
