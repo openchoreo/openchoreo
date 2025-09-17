@@ -11,6 +11,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 )
 
 // OpenSearchClient interface for testing
@@ -20,12 +21,13 @@ type OpenSearchClient interface {
 	HealthCheck(ctx context.Context) error
 }
 
-// LoggingService provides logging functionality
+// LoggingService provides logging and metrics functionality
 type LoggingService struct {
-	osClient     OpenSearchClient
-	queryBuilder *opensearch.QueryBuilder
-	config       *config.Config
-	logger       *slog.Logger
+	osClient       OpenSearchClient
+	queryBuilder   *opensearch.QueryBuilder
+	metricsService *prometheus.MetricsService
+	config         *config.Config
+	logger         *slog.Logger
 }
 
 // LogResponse represents the response structure for log queries
@@ -36,12 +38,13 @@ type LogResponse struct {
 }
 
 // NewLoggingService creates a new logging service instance
-func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *slog.Logger) *LoggingService {
+func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, cfg *config.Config, logger *slog.Logger) *LoggingService {
 	return &LoggingService{
-		osClient:     osClient,
-		queryBuilder: opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
-		config:       cfg,
-		logger:       logger,
+		osClient:       osClient,
+		queryBuilder:   opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
+		metricsService: metricsService,
+		config:         cfg,
+		logger:         logger,
 	}
 }
 
@@ -227,4 +230,30 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 
 	s.logger.Debug("Health check passed")
 	return nil
+}
+
+// GetComponentHTTPMetrics retrieves HTTP performance metrics for a component
+func (s *LoggingService) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.HTTPMetrics, error) {
+	req := prometheus.MetricsRequest{
+		ComponentID:   componentID,
+		EnvironmentID: environmentID,
+		ProjectID:     projectID,
+		StartTime:     startTime,
+		EndTime:       endTime,
+	}
+	
+	return s.metricsService.GetHTTPMetrics(ctx, req)
+}
+
+// GetComponentResourceMetrics retrieves resource usage metrics for a component
+func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.ResourceMetrics, error) {
+	req := prometheus.MetricsRequest{
+		ComponentID:   componentID,
+		EnvironmentID: environmentID,
+		ProjectID:     projectID,
+		StartTime:     startTime,
+		EndTime:       endTime,
+	}
+	
+	return s.metricsService.GetResourceMetrics(ctx, req)
 }

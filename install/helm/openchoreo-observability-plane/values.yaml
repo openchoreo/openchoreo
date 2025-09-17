@@ -76,6 +76,11 @@ observer:
   
   logLevel: info
   
+  prometheus:
+    # Prometheus server address (will be constructed from helm release name)
+    address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
+    timeout: 30s
+  
   resources:
     limits:
       cpu: 500m
