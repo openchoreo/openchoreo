@@ -80,6 +80,27 @@ gateway-helm:
           type: Redis
           redis:
             url: redis:6379
+      # Enable metrics on all interfaces for Prometheus scraping
+      provider:
+        kubernetes:
+          envoyDeployment:
+            patch:
+              type: StrategicMerge
+              value:
+                spec:
+                  template:
+                    spec:
+                      containers:
+                      - name: envoy
+                        # Override default admin config to listen on all interfaces
+                        args:
+                        - --config-yaml
+                        - |
+                          admin:
+                            address:
+                              socket_address:
+                                address: 0.0.0.0
+                                port_value: 19000
   # -- Resource limits and requests for the gateway
   deployment:
     envoyGateway:
