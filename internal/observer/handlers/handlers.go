@@ -30,13 +30,13 @@ const (
 	ErrorCodeInternalError    = "OBS-L-25"
 
 	// Error messages
-	ErrorMsgComponentIDRequired      = "Component ID is required"
-	ErrorMsgProjectIDRequired        = "Project ID is required"
-	ErrorMsgOrganizationIDRequired   = "Organization ID is required"
-	ErrorMsgInvalidRequestFormat     = "Invalid request format"
-	ErrorMsgFailedToRetrieveLogs     = "Failed to retrieve logs"
-	ErrorMsgFailedToRetrieveMetrics  = "Failed to retrieve metrics"
-	ErrorMsgInvalidTimeFormat        = "Invalid time format"
+	ErrorMsgComponentIDRequired     = "Component ID is required"
+	ErrorMsgProjectIDRequired       = "Project ID is required"
+	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
+	ErrorMsgInvalidRequestFormat    = "Invalid request format"
+	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
+	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
+	ErrorMsgInvalidTimeFormat       = "Invalid time format"
 )
 
 // Handler contains the HTTP handlers for the logging API
