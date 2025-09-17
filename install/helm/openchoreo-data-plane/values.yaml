@@ -112,10 +112,22 @@ cert-manager:
         cpu: 50m
         memory: 64Mi
 
+
+# Customizing overall observability configurations
+observability:
+  # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
+  metrics:
+    enabled: false  # Enable after observability-plane is installed
+  logging:
+    enabled: false  # Enable after observability-plane is installed
+    publishers:
+      fluentbit:
+        enabled: true
+
 # Customizing Cilium L7 HTTP visibility configurations
+# Note: L7 HTTP visibility is controlled by observability.metrics.enabled
 cilium:
   l7HttpVisibility:
-    enabled: false  # Controlled by observability.metrics.enabled
     componentSelector: {}  # Additional labels to select specific components
     ingressPorts:
       - port: "9090"  # Default service port for Choreo components
@@ -129,17 +141,6 @@ cilium:
         protocol: "TCP"
       - port: "9090"  # Service-to-service communication
         protocol: "TCP"
-
-# Customizing overall observability configurations
-observability:
-  # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
-  metrics:
-    enabled: false  # Enable after observability-plane is installed
-  logging:
-    enabled: false
-    publishers:
-      fluentbit:
-        enabled: true
 
 
 # Customizing Fluent Bit configurations
