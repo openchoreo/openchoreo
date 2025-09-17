@@ -11,7 +11,7 @@
 2025-06-12
 
 **Status**:  
-Submitted
+Approved
 
 **Related Issues/PRs**:  
 [Issue #245 – openchoreo/openchoreo](https://github.com/openchoreo/openchoreo/issues/245)

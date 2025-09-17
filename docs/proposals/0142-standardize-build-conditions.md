@@ -10,7 +10,7 @@
 2025-04-07
 
 **Status**:  
-Implemented
+Approved
 
 **Related Issues/PRs**:  
 https://github.com/openchoreo/openchoreo/issues/142
