@@ -2,7 +2,7 @@
 name: "Release"
 about: "Checklist for creating a new release"
 title: "Release: v<MAJOR>.<MINOR>.<PATCH>"
-labels: "Type/Release"
+labels: "type/release"
 type: Task
 ---
 

@@ -1,7 +1,7 @@
 name: New Task
 description: Create a new task to track the work that needs to be done
 labels:
-  - Type/Task
+  - type/task
 type: Task
 body:
   - type: textarea
