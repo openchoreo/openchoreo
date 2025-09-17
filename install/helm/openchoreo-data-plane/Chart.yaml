@@ -35,10 +35,9 @@ dependencies:
     repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
     version: "1.4.0"
     condition: secrets-store-csi-driver.enabled
-  - name: kubernetes-gateway-helm
-    alias: wso2-kgw
-    repository: "https://github.com/wso2/apk/releases/download/2.0.0-alpha2"
-    version: "2.0.0-alpha2"
+  - name: gateway-helm
+    repository: "oci://registry-1.docker.io/envoyproxy"
+    version: 1.2.3
   - name: cert-manager
     repository: https://charts.jetstack.io
     condition: cert-manager.enabled

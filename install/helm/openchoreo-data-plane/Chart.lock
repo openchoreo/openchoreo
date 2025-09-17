@@ -5,11 +5,11 @@ dependencies:
 - name: secrets-store-csi-driver
   repository: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
   version: 1.4.0
-- name: kubernetes-gateway-helm
-  repository: https://github.com/wso2/apk/releases/download/2.0.0-alpha2
-  version: 2.0.0-alpha2
+- name: gateway-helm
+  repository: oci://registry-1.docker.io/envoyproxy
+  version: 1.2.3
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.16.2
-digest: sha256:9d664ac9fe0450967b440d3478c67f9b1549d088c5cb58a83c279f4a17145616
-generated: "2025-09-11T09:50:42.8826+05:30"
+digest: sha256:937ee41d26a39d8400481d659e741a33a2a202eb7f6169f81bc06e83703aa043
+generated: "2025-09-17T14:24:57.619961+05:30"
