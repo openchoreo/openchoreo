@@ -50,7 +50,7 @@ func main() {
 
 	// Initialize Prometheus client
 	promClient := prometheus.NewClient(&cfg.Prometheus, logger)
-	
+
 	// Initialize metrics service
 	metricsService := prometheus.NewMetricsService(promClient, logger)
 
@@ -71,7 +71,7 @@ func main() {
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
-	
+
 	// API routes - Metrics
 	mux.HandleFunc("POST /api/metrics/component/{componentId}/http", handler.GetComponentHTTPMetrics)
 	mux.HandleFunc("POST /api/metrics/component/{componentId}/usage", handler.GetComponentResourceMetrics)

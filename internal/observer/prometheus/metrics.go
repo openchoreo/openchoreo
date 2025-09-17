@@ -57,7 +57,7 @@ func NewMetricsService(client *Client, logger *slog.Logger) *MetricsService {
 }
 
 // prometheusLabelName converts Kubernetes label names to Prometheus metric label names
-// e.g., "component-name" becomes "label_component_name" 
+// e.g., "component-name" becomes "label_component_name"
 func prometheusLabelName(kubernetesLabel string) string {
 	return "label_" + strings.ReplaceAll(kubernetesLabel, "-", "_")
 }
@@ -78,9 +78,9 @@ func (s *MetricsService) GetHTTPMetrics(ctx context.Context, req MetricsRequest)
 	// Build the component-filtered HTTP query using label constants
 	// Convert Kubernetes label names to Prometheus metric label names
 	componentLabel := prometheusLabelName(labels.ComponentID)
-	projectLabel := prometheusLabelName(labels.ProjectID) 
+	projectLabel := prometheusLabelName(labels.ProjectID)
 	environmentLabel := prometheusLabelName(labels.EnvironmentID)
-	
+
 	baseQuery := fmt.Sprintf(`hubble_http_requests_total * on(destination_workload) group_left(%s,%s,%s) (
 		label_replace(
 			kube_pod_info * on(namespace,pod) group_left(%s,%s,%s) kube_pod_labels{%s="%s",%s="%s",%s="%s"},
@@ -174,8 +174,8 @@ func (s *MetricsService) GetResourceMetrics(ctx context.Context, req MetricsRequ
 	componentLabel := prometheusLabelName(labels.ComponentID)
 	projectLabel := prometheusLabelName(labels.ProjectID)
 	environmentLabel := prometheusLabelName(labels.EnvironmentID)
-	
-	labelFilter := fmt.Sprintf(`kube_pod_labels{%s="%s",%s="%s",%s="%s"}`,
+
+	labelFilter := fmt.Sprintf(`kube_pod_labels{%s=%q,%s=%q,%s=%q}`,
 		componentLabel, req.ComponentID, projectLabel, req.ProjectID, environmentLabel, req.EnvironmentID)
 
 	// Query CPU usage using label constants

@@ -241,7 +241,7 @@ func (s *LoggingService) GetComponentHTTPMetrics(ctx context.Context, componentI
 		StartTime:     startTime,
 		EndTime:       endTime,
 	}
-	
+
 	return s.metricsService.GetHTTPMetrics(ctx, req)
 }
 
@@ -254,6 +254,6 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 		StartTime:     startTime,
 		EndTime:       endTime,
 	}
-	
+
 	return s.metricsService.GetResourceMetrics(ctx, req)
 }
