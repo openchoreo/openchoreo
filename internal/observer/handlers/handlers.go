@@ -113,8 +113,8 @@ type OrganizationLogsRequest struct {
 
 // MetricsRequest represents the request body for metrics queries
 type MetricsRequest struct {
-	StartTime     string `json:"startTime" validate:"required"`
-	EndTime       string `json:"endTime" validate:"required"`
+	StartTime     string `json:"startTime,omitempty"`
+	EndTime       string `json:"endTime,omitempty"`
 	EnvironmentID string `json:"environmentId" validate:"required"`
 	ProjectID     string `json:"projectId" validate:"required"`
 }
@@ -358,19 +358,26 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Parse time parameters
-	startTime, err := time.Parse(time.RFC3339, req.StartTime)
-	if err != nil {
-		h.logger.Error("Failed to parse start time", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-		return
+	// Parse time parameters (optional)
+	var startTime, endTime time.Time
+	var err error
+	
+	if req.StartTime != "" {
+		startTime, err = time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			h.logger.Error("Failed to parse start time", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+			return
+		}
 	}
 
-	endTime, err := time.Parse(time.RFC3339, req.EndTime)
-	if err != nil {
-		h.logger.Error("Failed to parse end time", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-		return
+	if req.EndTime != "" {
+		endTime, err = time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			h.logger.Error("Failed to parse end time", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+			return
+		}
 	}
 
 	// Execute query
@@ -400,19 +407,26 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Parse time parameters
-	startTime, err := time.Parse(time.RFC3339, req.StartTime)
-	if err != nil {
-		h.logger.Error("Failed to parse start time", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-		return
+	// Parse time parameters (optional)
+	var startTime, endTime time.Time
+	var err error
+	
+	if req.StartTime != "" {
+		startTime, err = time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			h.logger.Error("Failed to parse start time", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+			return
+		}
 	}
 
-	endTime, err := time.Parse(time.RFC3339, req.EndTime)
-	if err != nil {
-		h.logger.Error("Failed to parse end time", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-		return
+	if req.EndTime != "" {
+		endTime, err = time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			h.logger.Error("Failed to parse end time", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+			return
+		}
 	}
 
 	// Execute query
