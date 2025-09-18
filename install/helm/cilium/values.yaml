@@ -46,4 +46,4 @@ cilium:
   rollOutCiliumPods: true
 waitJob:
   enabled: true
-  image: bitnamilegacy/kubectl:latest
+  image: bitnamilegacy/kubectl:1.33.4

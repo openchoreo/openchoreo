@@ -38,7 +38,7 @@ images=(
   "quay.io/jetstack/cert-manager-controller:v1.16.2"
   "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
   "quay.io/jetstack/cert-manager-webhook:v1.16.2"
-  "docker.io/bitnamilegacy/kubectl:latest"
+  "docker.io/bitnamilegacy/kubectl:1.33.4"
 )
 
 for image in "${images[@]}"; do
