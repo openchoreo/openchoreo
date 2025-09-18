@@ -361,7 +361,7 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 	// Parse time parameters (optional)
 	var startTime, endTime time.Time
 	var err error
-	
+
 	if req.StartTime != "" {
 		startTime, err = time.Parse(time.RFC3339, req.StartTime)
 		if err != nil {
@@ -410,7 +410,7 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	// Parse time parameters (optional)
 	var startTime, endTime time.Time
 	var err error
-	
+
 	if req.StartTime != "" {
 		startTime, err = time.Parse(time.RFC3339, req.StartTime)
 		if err != nil {
