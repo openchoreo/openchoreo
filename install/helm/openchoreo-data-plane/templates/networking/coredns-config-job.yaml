@@ -9,7 +9,7 @@ spec:
       serviceAccountName: coredns-apply-sa
       containers:
         - name: kubectl
-          image: bitnami/kubectl:latest
+          image: alpine/k8s:1.28.2
           command:
             - /bin/sh
             - -c
