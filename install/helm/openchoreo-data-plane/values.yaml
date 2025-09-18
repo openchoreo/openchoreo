@@ -5,7 +5,7 @@ global:
 
 kubernetesClusterDomain: cluster.local
 waitJob:
-  image: alpine/k8s:1.28.2
+  image: bitnamilegacy/kubectl:latest
 
 # customizing the vault configurations
 vault:

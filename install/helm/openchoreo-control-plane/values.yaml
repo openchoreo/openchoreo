@@ -84,7 +84,7 @@ webhookService:
       targetPort: 9443
   type: ClusterIP
 waitJob:
-  image: alpine/k8s:1.28.2
+  image: bitnamilegacy/kubectl:latest
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true

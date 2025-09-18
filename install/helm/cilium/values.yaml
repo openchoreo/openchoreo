@@ -46,4 +46,4 @@ cilium:
   rollOutCiliumPods: true
 waitJob:
   enabled: true
-  image: alpine/k8s:1.28.2
+  image: bitnamilegacy/kubectl:latest

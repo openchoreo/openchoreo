@@ -14,7 +14,7 @@ spec:
       serviceAccountName: wait-for-crds
       containers:
       - name: wait-for-crds
-        image: alpine/k8s:1.28.2
+        image: bitnamilegacy/kubectl:latest
         command:
         - /bin/bash
         - -c
