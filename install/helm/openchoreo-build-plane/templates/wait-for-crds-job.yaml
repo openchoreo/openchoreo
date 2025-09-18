@@ -14,7 +14,7 @@ spec:
       serviceAccountName: wait-for-crds
       containers:
       - name: wait-for-crds
-        image: bitnami/kubectl:latest
+        image: bitnamilegacy/kubectl:1.33.4
         command:
         - /bin/bash
         - -c
