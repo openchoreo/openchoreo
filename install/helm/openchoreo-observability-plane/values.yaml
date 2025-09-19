@@ -191,8 +191,6 @@ prometheus:
                 storage: 2Gi
     
   # Basic Kubernetes monitoring
-  kubeApiServer:
-    enabled: false
   kubelet:
     enabled: true
   kubeControllerManager:
