@@ -1,0 +1,52 @@
+{{- if .Values.cilium.hubble.metrics.serviceMonitor.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-metrics
+    app.kubernetes.io/name: hubble-metrics
+    app.kubernetes.io/component: hubble-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Values.cilium.hubble.metrics.serviceMonitor.labels.release | default "observability-plane" }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9965"
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    k8s-app: cilium
+  ports:
+  - name: hubble-metrics
+    port: 9965
+    protocol: TCP
+    targetPort: 9965
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble-metrics
+  namespace: openchoreo-observability-plane
+  labels:
+    app.kubernetes.io/name: hubble-metrics
+    app.kubernetes.io/component: hubble-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Values.cilium.hubble.metrics.serviceMonitor.labels.release | default "observability-plane" }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: hubble-metrics
+  endpoints:
+  - port: hubble-metrics
+    path: /metrics
+    interval: 30s
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,34 @@
+{{- if .Values.observability.metrics.enabled }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: l7-http-visibility-for-openchoreo-components
+spec:
+  endpointSelector:
+    matchExpressions:
+    - key: component-name
+      operator: Exists
+  ingress:
+  - fromEndpoints: []
+    toPorts:
+    {{- range .Values.cilium.l7HttpVisibility.ingressPorts }}
+    - ports:
+      - port: {{ .port | quote }}
+        protocol: {{ .protocol | default "TCP" }}
+      rules:
+        http:
+        - {}
+    {{- end }}
+  egress:
+  - toEndpoints: []
+    toPorts:
+    {{- range .Values.cilium.l7HttpVisibility.egressPorts }}
+    - ports:
+      - port: {{ .port | quote }}
+        protocol: {{ .protocol | default "TCP" }}
+      rules:
+        http:
+        - {}
+    {{- end }}
+{{- end }}
