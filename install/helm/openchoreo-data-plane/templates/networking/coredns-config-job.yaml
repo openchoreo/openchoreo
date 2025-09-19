@@ -2,52 +2,27 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: apply-coredns-configmap
-  namespace: default
+  namespace: {{ .Release.Namespace }}
 spec:
   template:
     spec:
       serviceAccountName: coredns-apply-sa
       containers:
         - name: kubectl
-          image: bitnamilegacy/kubectl:1.33.4
+          image: {{ .Values.waitJob.image }}
+          imagePullPolicy: IfNotPresent
           command:
-            - /bin/sh
-            - -c
-            - |
-              cat <<EOF | kubectl apply -f -
-              apiVersion: v1
-              data:
-                Corefile: |
-                  .:53 {
-                      errors
-                      health {
-                          lameduck 5s
-                      }
-                      ready
-
-                      rewrite name regex (.+\.)?choreoapis\.internal openchoreo-internal-gateway.{{ .Release.Namespace }}.svc.cluster.local
-
-                      kubernetes cluster.local in-addr.arpa ip6.arpa {
-                          pods insecure
-                          fallthrough in-addr.arpa ip6.arpa
-                          ttl 30
-                      }
-                      prometheus :9153
-                      forward . /etc/resolv.conf {
-                          max_concurrent 1000
-                      }
-                      cache 30 {
-                          disable success cluster.local
-                          disable denial cluster.local
-                      }
-                      loop
-                      reload
-                      loadbalance
-                  }
-              kind: ConfigMap
-              metadata:
-                name: coredns
-                namespace: kube-system
-              EOF
+          - kubectl
+          args:
+          - apply
+          - -f
+          - /config/coredns-configmap.yaml
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: coredns-config
       restartPolicy: Never
   backoffLimit: 4

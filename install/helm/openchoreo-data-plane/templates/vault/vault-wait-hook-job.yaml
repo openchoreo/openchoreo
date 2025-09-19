@@ -15,13 +15,14 @@ spec:
           image: {{ .Values.waitJob.image }}
           imagePullPolicy: IfNotPresent
           command:
-            - /bin/sh
-            - -c
-            - |
-              echo "Waiting for vault to be ready..."
-              kubectl wait --namespace {{ .Release.Namespace }} \
-              --for=condition=Ready pods \
-              -l app.kubernetes.io/name=hashicorp-vault,component=server \
-              --timeout=900s
+            - kubectl
+          args:
+            - wait
+            - --namespace={{ .Release.Namespace }}
+            - --for=condition=Ready
+            - pods
+            - -l
+            - app.kubernetes.io/name=hashicorp-vault,component=server
+            - --timeout=900s
       restartPolicy: Never
   backoffLimit: 5

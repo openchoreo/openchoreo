@@ -16,14 +16,15 @@ spec:
           image: {{ .Values.waitJob.image }}
           imagePullPolicy: IfNotPresent
           command:
-            - /bin/sh
-            - -c
-            - |
-              echo "Waiting for openchoreo controller to be ready..."
-              kubectl wait --namespace {{ .Release.Namespace }} \
-              --for=condition=Ready pod \
-              -l app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager \
-              --timeout=900s
+            - kubectl
+          args:
+            - wait
+            - --namespace={{ .Release.Namespace }}
+            - --for=condition=Ready
+            - pod
+            - -l
+            - app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager
+            - --timeout=900s
       restartPolicy: Never
   backoffLimit: 5
 {{ end }}

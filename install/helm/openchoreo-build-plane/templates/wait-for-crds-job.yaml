@@ -14,33 +14,17 @@ spec:
       serviceAccountName: wait-for-crds
       containers:
       - name: wait-for-crds
-        image: bitnamilegacy/kubectl:1.33.4
+        image: {{ .Values.global.waitJob.image }}
+        imagePullPolicy: IfNotPresent
         command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          echo "Waiting for Argo Workflows CRDs to be ready..."
-          
-          # Wait for ClusterWorkflowTemplate CRD
-          until kubectl get crd clusterworkflowtemplates.argoproj.io >/dev/null 2>&1; do
-            echo "Waiting for ClusterWorkflowTemplate CRD..."
-            sleep 5
-          done
-          
-          # Wait for WorkflowTemplate CRD  
-          until kubectl get crd workflowtemplates.argoproj.io >/dev/null 2>&1; do
-            echo "Waiting for WorkflowTemplate CRD..."
-            sleep 5
-          done
-          
-          # Wait for Workflow CRD
-          until kubectl get crd workflows.argoproj.io >/dev/null 2>&1; do
-            echo "Waiting for Workflow CRD..."
-            sleep 5
-          done
-          
-          echo "All Argo Workflows CRDs are ready!"
+          - kubectl
+        args:
+          - wait
+          - --for=condition=Established
+          - crd/clusterworkflowtemplates.argoproj.io
+          - crd/workflowtemplates.argoproj.io
+          - crd/workflows.argoproj.io
+          - --timeout=300s
   backoffLimit: 10
 ---
 apiVersion: v1

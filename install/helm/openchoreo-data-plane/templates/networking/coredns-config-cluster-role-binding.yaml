@@ -5,7 +5,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: coredns-apply-sa
-    namespace: default
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
   name: coredns-configmap-role
