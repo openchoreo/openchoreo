@@ -3,7 +3,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
-  name: l7-http-visibility-for-choreo-components
+  name: l7-http-visibility-for-openchoreo-components
 spec:
   endpointSelector:
     matchExpressions:
