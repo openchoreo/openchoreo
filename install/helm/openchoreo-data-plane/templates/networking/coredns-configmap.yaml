@@ -3,6 +3,10 @@ kind: ConfigMap
 metadata:
   name: coredns-config
   namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 data:
   coredns-configmap.yaml: |
     apiVersion: v1
