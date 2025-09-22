@@ -1,0 +1,59 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: choreo-component-metrics-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: choreo-component-metrics-rules
+    app.kubernetes.io/component: prometheus-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
+    release: {{ .Release.Name }}
+spec:
+  groups:
+    - name: choreo.container_metrics
+      interval: 30s
+      rules:
+        # Container CPU usage with business labels
+        - record: choreo_component_cpu_usage_seconds_total
+          expr: |
+            sum by (label_organization_name, label_project_name, label_environment_name, label_component_name) (
+              container_cpu_usage_seconds_total{container!=""}
+              * on (pod, namespace) group_left (label_organization_name, label_project_name, label_environment_name, label_component_name)
+                kube_pod_labels{label_component_name!=""}
+            )
+        
+        # Container memory usage with business labels
+        - record: choreo_component_memory_working_set_bytes
+          expr: |
+            sum by (label_organization_name, label_project_name, label_environment_name, label_component_name) (
+              container_memory_working_set_bytes{container!=""}
+              * on (pod, namespace) group_left (label_organization_name, label_project_name, label_environment_name, label_component_name)
+                kube_pod_labels{label_component_name!=""}
+            )
+
+    - name: choreo.http_metrics
+      interval: 30s
+      rules:
+        # Component HTTP metrics with business labels - join Hubble and kube-state-metrics
+        - record: choreo_component_http_requests_total_rate_2m  
+          expr: |
+            sum by (component_name, label_project_name, label_environment_name, label_organization_name) (
+              (
+                label_replace(
+                  rate(hubble_http_requests_total{reporter="server", destination=~".*-.*"}[2m]),
+                  "component_name", "$1", "destination", "(.*)-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+                )
+              )
+              * ON (component_name) GROUP_LEFT (label_project_name, label_environment_name, label_organization_name)
+              (
+                group by (component_name, label_project_name, label_environment_name, label_organization_name) (
+                  label_replace(
+                    kube_pod_labels{label_component_name!=""},
+                    "component_name", "$1", "label_component_name", "(.*)"
+                  )
+                )
+              )
+            )
