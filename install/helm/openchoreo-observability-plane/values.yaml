@@ -192,7 +192,7 @@ prometheus:
     
   # Basic Kubernetes monitoring
   kubelet:
-    enabled: true
+    enabled: false
   kubeControllerManager:
     enabled: false
   coreDns:
@@ -236,9 +236,11 @@ prometheus:
   kube-state-metrics:
     # Remove topology constraints for Kind
     topologySpreadConstraints: []
-    # Enable Choreo pod labels as metrics
+    # Monitor all namespaces to include dp-* namespaces
+    namespaces: ""
+    # Enable Choreo pod labels as metrics (hyphens in Kubernetes become underscores in metrics)
     metricLabelsAllowlist:
-      - "pods=[component-name,environment-name,organization-name,project-name]"
+      - "pods=[component_name,environment_name,organization_name,project_name]"
     # Ensure kube_pod_labels metric is collected
     metricAllowlist:
       - kube_pod_labels

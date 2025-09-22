@@ -1,45 +1,4 @@
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: openchoreo-application-workloads
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/name: openchoreo-application-workloads
-    app.kubernetes.io/component: workload-metrics
-    app.kubernetes.io/part-of: kube-prometheus-stack
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
-spec:
-  jobLabel: app.kubernetes.io/name
-  selector:
-    matchLabels:
-      # Target services created by OpenChoreo ServiceBinding/WebApplicationBinding
-      openchoreo.dev/managed-by: release-controller
-  namespaceSelector: {}
-  endpoints:
-    - port: ep-9090-tcp
-      path: /metrics
-      interval: 30s
-      scrapeTimeout: 10s
-      metricRelabelings:
-        # Add OpenChoreo context labels from service labels
-        - sourceLabels: [__meta_kubernetes_service_label_organization_name]
-          targetLabel: openchoreo_organization
-        - sourceLabels: [__meta_kubernetes_service_label_project_name]
-          targetLabel: openchoreo_project
-        - sourceLabels: [__meta_kubernetes_service_label_component_name]
-          targetLabel: openchoreo_component
-        - sourceLabels: [__meta_kubernetes_service_label_environment_name]
-          targetLabel: openchoreo_environment
-        - sourceLabels: [__meta_kubernetes_service_label_openchoreo_dev_release_name]
-          targetLabel: openchoreo_release
-        # Keep application-specific metrics
-        - sourceLabels: [__name__]
-          regex: '(http_requests_total|http_request_duration_seconds|http_requests_in_flight|process_cpu_seconds_total|process_resident_memory_bytes|go_memstats_alloc_bytes)'
-          action: keep
----
-# ServiceMonitor for cAdvisor metrics (container resource usage)
+# ServiceMonitor for cAdvisor metrics (container resource usage) via kubelet
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -52,8 +11,10 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
+    release: {{ .Release.Name }}
 spec:
   jobLabel: app.kubernetes.io/name
+  # Target the kubelet service we need to create
   selector:
     matchLabels:
       k8s-app: kubelet
@@ -70,20 +31,7 @@ spec:
       interval: 30s
       scrapeTimeout: 10s
       metricRelabelings:
-        # Filter to only OpenChoreo workload containers by namespace pattern
-        - sourceLabels: [namespace]
-          regex: 'dp-.*'
-          action: keep
-        # Add OpenChoreo context from pod labels (via Kubernetes metadata)
-        - sourceLabels: [__meta_kubernetes_pod_label_organization_name]
-          targetLabel: openchoreo_organization
-        - sourceLabels: [__meta_kubernetes_pod_label_project_name] 
-          targetLabel: openchoreo_project
-        - sourceLabels: [__meta_kubernetes_pod_label_component_name]
-          targetLabel: openchoreo_component
-        - sourceLabels: [__meta_kubernetes_pod_label_environment_name]
-          targetLabel: openchoreo_environment
-        # Keep important container resource metrics
+        # Only keep container metrics
         - sourceLabels: [__name__]
-          regex: '(container_cpu_usage_seconds_total|container_memory_usage_bytes|container_memory_working_set_bytes|container_fs_usage_bytes|container_network_receive_bytes_total|container_network_transmit_bytes_total)'
+          regex: 'container_.*'
           action: keep
