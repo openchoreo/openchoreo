@@ -12,49 +12,6 @@ metadata:
     helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
 spec:
   groups:
-    - name: openchoreo.controllers
-      interval: 30s
-      rules:
-        # Controller reconciliation rates
-        - record: openchoreo:controller_reconcile_rate5m
-          expr: |
-            rate(controller_runtime_reconcile_total{component="openchoreo-controller"}[5m])
-        
-        # Controller error rates
-        - record: openchoreo:controller_error_rate5m
-          expr: |
-            rate(controller_runtime_reconcile_errors_total{component="openchoreo-controller"}[5m])
-        
-        # Controller error percentage
-        - record: openchoreo:controller_error_percentage5m
-          expr: |
-            (
-              rate(controller_runtime_reconcile_errors_total{component="openchoreo-controller"}[5m])
-              / 
-              rate(controller_runtime_reconcile_total{component="openchoreo-controller"}[5m])
-            ) * 100
-        
-        # Controller reconcile duration p95
-        - record: openchoreo:controller_reconcile_duration_p95
-          expr: |
-            histogram_quantile(0.95, 
-              rate(controller_runtime_reconcile_time_seconds_bucket{component="openchoreo-controller"}[5m])
-            )
-        
-        # Workqueue depth per controller
-        - record: openchoreo:controller_workqueue_depth
-          expr: |
-            workqueue_depth{component="openchoreo-controller"}
-        
-        # Controller resource usage
-        - record: openchoreo:controller_cpu_usage
-          expr: |
-            rate(process_cpu_seconds_total{component="openchoreo-controller"}[5m])
-        
-        - record: openchoreo:controller_memory_usage_bytes
-          expr: |
-            process_resident_memory_bytes{component="openchoreo-controller"}
-        
     - name: openchoreo.workloads
       interval: 30s 
       rules:
