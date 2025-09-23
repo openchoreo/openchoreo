@@ -9,7 +9,7 @@ dependencies:
   repository: oci://registry-1.docker.io/envoyproxy
   version: 1.2.3
 - name: cert-manager
-  repository: oci://quay.io/jetstack/charts/cert-manager
+  repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:937ee41d26a39d8400481d659e741a33a2a202eb7f6169f81bc06e83703aa043
-generated: "2025-09-17T14:24:57.619961+05:30"
+digest: sha256:3972396d04ecb68d5d94cda6024bedcd756ec8b70900435cb005630aff5c59b8
+generated: "2025-09-23T15:12:32.5921223+05:30"
