@@ -25,6 +25,6 @@ maintainers:
 
 dependencies:
   - name: cert-manager
-    repository: https://charts.jetstack.io
+    repository: oci://quay.io/jetstack/charts/cert-manager
     condition: cert-manager.enabled
     version: "v1.16.2"
