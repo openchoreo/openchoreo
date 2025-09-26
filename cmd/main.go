@@ -47,6 +47,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
+	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/service"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
@@ -56,6 +57,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	"github.com/openchoreo/openchoreo/internal/version"
@@ -76,6 +78,7 @@ func init() {
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
+	utilruntime.Must(esv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -419,6 +422,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
+		os.Exit(1)
+	}
+	if err = (&secretreference.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SecretReference")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

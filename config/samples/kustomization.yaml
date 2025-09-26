@@ -28,4 +28,5 @@ resources:
   - openchoreo_v1alpha1_workload.yaml
   - openchoreo_v1alpha1_build.yaml
   - openchoreo_v1alpha1_buildplane.yaml
+  - openchoreo_v1alpha1_secretreference.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
