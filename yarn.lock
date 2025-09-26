@@ -8168,6 +8168,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openchoreo/backstage-design-system@workspace:^, @openchoreo/backstage-design-system@workspace:packages/design-system":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-design-system@workspace:packages/design-system"
+  dependencies:
+    "@backstage/cli": "npm:^0.32.0"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+  languageName: unknown
+  linkType: soft
+
 "@openchoreo/backstage-plugin-api@npm:*, @openchoreo/backstage-plugin-api@npm:^0.2.0, @openchoreo/backstage-plugin-api@workspace:^, @openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api":
   version: 0.0.0-use.local
   resolution: "@openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api"
@@ -14841,6 +14850,7 @@ __metadata:
     "@backstage/ui": "npm:^0.6.0"
     "@material-ui/core": "npm:^4.12.2"
     "@material-ui/icons": "npm:^4.9.1"
+    "@openchoreo/backstage-design-system": "workspace:^"
     "@openchoreo/backstage-plugin": "npm:^0.2.0"
     "@openchoreo/backstage-plugin-api": "npm:^0.2.0"
     "@playwright/test": "npm:^1.32.3"

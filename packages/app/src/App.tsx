@@ -38,6 +38,11 @@ import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
 import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
+import {
+  OpenChoreoIcon,
+  openChoreoTheme,
+} from '@openchoreo/backstage-design-system';
+import { UnifiedThemeProvider } from '@backstage/theme';
 
 const app = createApp({
   apis,
@@ -61,6 +66,17 @@ const app = createApp({
   components: {
     SignInPage: props => <SignInPage {...props} auto providers={['guest']} />,
   },
+  themes: [
+    {
+      id: 'openchoreo-theme',
+      title: 'OpenChoreo Theme',
+      variant: 'dark',
+      icon: <OpenChoreoIcon />,
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={openChoreoTheme} children={children} />
+      ),
+    },
+  ]
 });
 
 const routes = (
