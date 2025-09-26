@@ -1,7 +1,13 @@
 
 export const OpenChoreoIcon = () => {
   return (
-    <svg width="24" height="24" viewBox="-2 -4 127 134" xmlns="http://www.w3.org/2000/svg">
+    <svg 
+      width="24" 
+      height="24" 
+      viewBox="0 0 127 134" 
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ flexShrink: 0 }}
+    >
       <defs>
         <style>
           {`.cls-1{fill:#e4e8ef;}.cls-2{fill:#0480fd;}`}

@@ -1,8 +1,18 @@
 import {
   createUnifiedTheme,
 } from '@backstage/theme';
+import Gilmer from '../assets/fonts/Gilmer/gilmer-regular.woff2';
 
+const GilmerFont = {
+  fontFamily: 'Gilmer',
+  fontStyle: 'normal',
+  src: `
+    local('Gilmer'),
+    url(${Gilmer}) format('woff2'),
+  `,
+};
 export const openChoreoTheme = createUnifiedTheme({
+  fontFamily: 'Gilmer',
   palette: {
     primary: {
       light: '#a6B3ff',
@@ -116,7 +126,7 @@ export const openChoreoTheme = createUnifiedTheme({
     },
     h3: {
       fontSize: 22,
-      fontWeight: 500,
+      fontWeight: 600,
       marginBottom: 8,
     },
     h4: {
@@ -133,6 +143,21 @@ export const openChoreoTheme = createUnifiedTheme({
       fontSize: 12,
       fontWeight: 600,
       marginBottom: 8,
+    },
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        '@font-face': [GilmerFont],
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          fontWeight: 400,
+        },
+      },
     },
   },
 });

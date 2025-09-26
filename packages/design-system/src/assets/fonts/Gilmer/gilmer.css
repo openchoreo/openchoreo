@@ -1,0 +1,83 @@
+/*
+Font: 		Gilmer
+Style: 		Regular
+URL: 		https://www.youworkforthem.com/font/T9758/gilmer
+Foundry: 	Piotr Lapa
+Foundry: 	https://www.youworkforthem.com/designer/1166/piotr-lapa
+Copyright:	Copyright © 2018 by Piotr _apa. All rights reserved.
+Version: 	17
+Created:	August 17, 2018
+License: 	https://www.youworkforthem.com/font-license
+License: 	The WebFont(s) listed in this document must follow the YouWorkForThem
+			WebFont license rules. All other parties are strictly restricted
+			from using the WebFonts(s) listed without a purchased license.
+			All details above must always remain unaltered and visible in your CSS.
+*/
+
+@font-face {
+    font-family: 'Gilmer';
+    src: url('gilmer-regular.eot');
+    src:
+        url('gilmer-regular.eot?#iefix') format('embedded-opentype'),
+        url('gilmer-regular.woff2') format('woff2'),
+        url('gilmer-regular.woff') format('woff'),
+        url('gilmer-regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/*
+Font: 		Gilmer
+Style: 		Medium
+URL: 		https://www.youworkforthem.com/font/T9758/gilmer
+Foundry: 	Piotr Lapa
+Foundry: 	https://www.youworkforthem.com/designer/1166/piotr-lapa
+Copyright:	Copyright © 2018 by Piotr _apa. All rights reserved.
+Version: 	17
+Created:	August 17, 2018
+License: 	https://www.youworkforthem.com/font-license
+License: 	The WebFont(s) listed in this document must follow the YouWorkForThem
+			WebFont license rules. All other parties are strictly restricted
+			from using the WebFonts(s) listed without a purchased license.
+			All details above must always remain unaltered and visible in your CSS.
+*/
+
+@font-face {
+    font-family: 'Gilmer';
+    src: url('gilmer-medium.eot');
+    src:
+        url('gilmer-medium.eot?#iefix') format('embedded-opentype'),
+        url('gilmer-medium.woff2') format('woff2'),
+        url('gilmer-medium.woff') format('woff'),
+        url('gilmer-medium.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}
+
+/*
+Font: 		Gilmer
+Style: 		Bold
+URL: 		https://www.youworkforthem.com/font/T9758/gilmer
+Foundry: 	Piotr Lapa
+Foundry: 	https://www.youworkforthem.com/designer/1166/piotr-lapa
+Copyright:	Copyright © 2018 by Piotr _apa. All rights reserved.
+Version: 	17
+Created:	August 17, 2018
+License: 	https://www.youworkforthem.com/font-license
+License: 	The WebFont(s) listed in this document must follow the YouWorkForThem
+			WebFont license rules. All other parties are strictly restricted
+			from using the WebFonts(s) listed without a purchased license.
+			All details above must always remain unaltered and visible in your CSS.
+*/
+
+@font-face {
+    font-family: 'Gilmer';
+    src: url('gilmer-bold.eot');
+    src:
+        url('gilmer-bold.eot?#iefix') format('embedded-opentype'),
+        url('gilmer-bold.woff2') format('woff2'),
+        url('gilmer-bold.woff') format('woff'),
+        url('gilmer-bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
