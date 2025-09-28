@@ -149,6 +149,22 @@ export const openChoreoTheme = createUnifiedTheme({
     },
   }),
   components: {
+    BackstageHeader: {
+      styleOverrides: {
+        header: {
+          backgroundColor: '#5567d5',
+          backgroundImage: 'none',
+        },
+      },
+    },
+    BackstageItemCardHeader: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#5567d5',
+          backgroundImage: 'none!important',
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         '@font-face': [GilmerFont],
