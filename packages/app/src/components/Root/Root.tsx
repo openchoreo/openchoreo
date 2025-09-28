@@ -24,6 +24,9 @@ import {
   Link,
 } from '@backstage/core-components';
 import MenuIcon from '@material-ui/icons/Menu';
+import { IconButton } from '@material-ui/core';
+import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
+import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
@@ -36,22 +39,49 @@ const useSidebarLogoStyles = makeStyles({
     flexFlow: 'row nowrap',
     alignItems: 'center',
     marginBottom: -14,
+    position: 'relative',
   },
   link: {
     width: sidebarConfig.drawerWidthClosed,
     marginLeft: 24,
   },
+  toggleButton: {
+    display: 'none',
+    position: 'absolute',
+    right: -20,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    backgroundColor: 'white',
+    border: '1px solid #e0e0e0',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    zIndex: 1000,
+    '&:hover': {
+      backgroundColor: '#f5f5f5',
+    },
+  },
 });
 
 const SidebarLogo = () => {
   const classes = useSidebarLogoStyles();
-  const { isOpen } = useSidebarOpenState();
+  const { isOpen, setOpen } = useSidebarOpenState();
+
+  const handleToggle = () => {
+    setOpen(!isOpen);
+  };
 
   return (
     <div className={classes.root}>
       <Link to="/" underline="none" className={classes.link} aria-label="Home">
         {isOpen ? <LogoFull /> : <LogoIcon />}
       </Link>
+      <IconButton
+        className={classes.toggleButton}
+        onClick={handleToggle}
+        size="small"
+        aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+      >
+        {isOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+      </IconButton>
     </div>
   );
 };
