@@ -1,10 +1,22 @@
----
-title: Modular OpenChoreo Architecture
-author: @lakwarus
-Reviewers: @sameerajayasoma, @binura-g, @manjulaRathnayaka
-status: Draft
-created: 2025-09-29
-issue: 0482
+# Modular architecture for OpenChoreo
+
+**author**:
+@lakwarus
+
+**Reviewers**: 
+@sameerajayasoma
+@binura-g
+@manjulaRathnayaka
+
+**status**: 
+Draft
+
+**created**: 
+2025-09-29
+
+**issue**: 
+[Issue #0482 – openchoreo/openchoreo](https://github.com/openchoreo/openchoreo/discussions/482)
+
 ---
 
 # Summary
