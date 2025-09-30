@@ -74,7 +74,7 @@ func makeExternalSecret(rCtx Context, secretRef *openchoreov1alpha1.SecretRefere
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: namespace,
-			Labels:    makeServiceLabels(rCtx),
+			Labels:    makeWebApplicationLabels(rCtx),
 		},
 		Spec: esov1.ExternalSecretSpec{
 			SecretStoreRef: esov1.SecretStoreRef{
@@ -114,12 +114,12 @@ func makeExternalSecret(rCtx Context, secretRef *openchoreov1alpha1.SecretRefere
 }
 
 func makeExternalSecretResourceID(rCtx Context, secretRefName string) string {
-	return fmt.Sprintf("%s-externalsecret-%s", rCtx.ServiceBinding.Name, secretRefName)
+	return fmt.Sprintf("%s-externalsecret-%s", rCtx.WebApplicationBinding.Name, secretRefName)
 }
 
 // makeImagePullSecretName generates a K8s-compliant name for image pull secrets
-// Includes ServiceBinding name to prevent collisions when multiple components
+// Includes WebApplicationBinding name to prevent collisions when multiple components
 // in the same namespace reference the same SecretReference
 func makeImagePullSecretName(rCtx Context, secretRefName string) string {
-	return dpkubernetes.GenerateK8sName(rCtx.ServiceBinding.Name, secretRefName)
+	return dpkubernetes.GenerateK8sName(rCtx.WebApplicationBinding.Name, secretRefName)
 }

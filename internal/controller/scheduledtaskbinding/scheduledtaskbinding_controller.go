@@ -31,6 +31,9 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtaskbindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=scheduledtaskclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -57,7 +60,45 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if res, err := r.reconcileRelease(ctx, scheduledTaskBinding, scheduledTaskClass); err != nil || res.Requeue {
+	// Fetch Environment to get DataPlane reference
+	environment := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Namespace: scheduledTaskBinding.Namespace,
+		Name:      scheduledTaskBinding.Spec.Environment,
+	}, environment); err != nil {
+		logger.Error(err, "Failed to get Environment", "Environment", scheduledTaskBinding.Spec.Environment)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch DataPlane and image pull SecretReferences if configured
+	var dataPlane *openchoreov1alpha1.DataPlane
+	imagePullSecretReferences := make(map[string]*openchoreov1alpha1.SecretReference)
+
+	if environment.Spec.DataPlaneRef != "" {
+		dataPlane = &openchoreov1alpha1.DataPlane{}
+		if err := r.Get(ctx, client.ObjectKey{
+			Namespace: scheduledTaskBinding.Namespace,
+			Name:      environment.Spec.DataPlaneRef,
+		}, dataPlane); err != nil {
+			logger.Error(err, "Failed to get DataPlane", "DataPlane", environment.Spec.DataPlaneRef)
+			return ctrl.Result{}, err
+		}
+
+		// Fetch image pull SecretReferences from DataPlane's ImagePullSecretRefs
+		for _, secretRefName := range dataPlane.Spec.ImagePullSecretRefs {
+			secretRef := &openchoreov1alpha1.SecretReference{}
+			if err := r.Get(ctx, client.ObjectKey{
+				Namespace: scheduledTaskBinding.Namespace,
+				Name:      secretRefName,
+			}, secretRef); err != nil {
+				logger.Error(err, "Failed to get image pull SecretReference", "SecretReference", secretRefName)
+				return ctrl.Result{}, err
+			}
+			imagePullSecretReferences[secretRefName] = secretRef
+		}
+	}
+
+	if res, err := r.reconcileRelease(ctx, scheduledTaskBinding, scheduledTaskClass, dataPlane, imagePullSecretReferences); err != nil || res.Requeue {
 		return res, err
 	}
 
@@ -65,7 +106,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // reconcileRelease reconciles the Release associated with the ScheduledTaskBinding.
-func (r *Reconciler) reconcileRelease(ctx context.Context, scheduledTaskBinding *openchoreov1alpha1.ScheduledTaskBinding, scheduledTaskClass *openchoreov1alpha1.ScheduledTaskClass) (ctrl.Result, error) {
+func (r *Reconciler) reconcileRelease(ctx context.Context, scheduledTaskBinding *openchoreov1alpha1.ScheduledTaskBinding,
+	scheduledTaskClass *openchoreov1alpha1.ScheduledTaskClass, dataPlane *openchoreov1alpha1.DataPlane,
+	imagePullSecretReferences map[string]*openchoreov1alpha1.SecretReference) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	release := &openchoreov1alpha1.Release{
@@ -77,8 +120,10 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, scheduledTaskBinding 
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		rCtx := render.Context{
-			ScheduledTaskBinding: scheduledTaskBinding,
-			ScheduledTaskClass:   scheduledTaskClass,
+			ScheduledTaskBinding:      scheduledTaskBinding,
+			ScheduledTaskClass:        scheduledTaskClass,
+			DataPlane:                 dataPlane,
+			ImagePullSecretReferences: imagePullSecretReferences,
 		}
 		desired := r.makeRelease(rCtx)
 		release.Labels = desired.Labels
@@ -119,6 +164,13 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 	}
 
 	var resources []openchoreov1alpha1.Resource
+
+	// Add ExternalSecret resources FIRST (so secrets exist when job tries to pull images)
+	if res := render.ExternalSecrets(rCtx); res != nil {
+		for _, externalSecret := range res {
+			resources = append(resources, *externalSecret)
+		}
+	}
 
 	// Add CronJob resource for scheduled execution
 	if res := render.CronJob(rCtx); res != nil {

@@ -40,12 +40,12 @@ func makeServicePodSpec(rCtx Context) *corev1.PodSpec {
 
 // makeImagePullSecrets creates imagePullSecret references for the pod spec
 func makeImagePullSecrets(rCtx Context) []corev1.LocalObjectReference {
-	var imagePullSecrets []corev1.LocalObjectReference
-
 	// Skip if no DataPlane or no image pull secrets configured
 	if rCtx.DataPlane == nil || len(rCtx.DataPlane.Spec.ImagePullSecretRefs) == 0 {
-		return imagePullSecrets
+		return nil
 	}
+
+	imagePullSecrets := make([]corev1.LocalObjectReference, 0, len(rCtx.DataPlane.Spec.ImagePullSecretRefs))
 
 	// Add a reference for each secret that will be created by ExternalSecret
 	for _, secretRefName := range rCtx.DataPlane.Spec.ImagePullSecretRefs {
