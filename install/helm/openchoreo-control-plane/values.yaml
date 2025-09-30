@@ -84,7 +84,7 @@ webhookService:
       targetPort: 9443
   type: ClusterIP
 waitJob:
-  image: bitnamilegacy/kubectl:1.33.4
+  image: rancher/kubectl:v1.32.9
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
