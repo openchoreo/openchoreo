@@ -37,7 +37,19 @@ var _ = Describe("SecretReference Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreodevv1alpha1.SecretReferenceSpec{
+						Template: openchoreodevv1alpha1.SecretTemplate{
+							Type: "kubernetes.io/dockerconfigjson",
+						},
+						Data: []openchoreodevv1alpha1.SecretDataSource{
+							{
+								SecretKey: ".dockerconfigjson",
+								RemoteRef: openchoreodevv1alpha1.RemoteReference{
+									Key: "secret/data/docker/hub",
+								},
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
