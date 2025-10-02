@@ -27,3 +27,11 @@ dependencies:
   - name: argo-workflows
     repository: "https://argoproj.github.io/argo-helm"
     version: 0.45.2
+  - name: vault
+    version: 0.29.1
+    repository: "https://helm.releases.hashicorp.com"
+    condition: vault.enabled
+  - name: external-secrets
+    version: 0.19.2
+    repository: "https://charts.external-secrets.io"
+    condition: external-secrets.enabled

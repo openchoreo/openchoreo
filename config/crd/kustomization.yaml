@@ -30,6 +30,7 @@ resources:
   - bases/openchoreo.dev_releases.yaml
   - bases/openchoreo.dev_builds.yaml
   - bases/openchoreo.dev_buildplanes.yaml
+  - bases/openchoreo.dev_secretreferences.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

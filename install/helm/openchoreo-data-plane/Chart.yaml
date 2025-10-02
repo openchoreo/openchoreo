@@ -35,6 +35,10 @@ dependencies:
     repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
     version: "1.4.0"
     condition: secrets-store-csi-driver.enabled
+  - name: external-secrets
+    version: 0.19.2
+    repository: "https://charts.external-secrets.io"
+    condition: external-secrets.enabled
   - name: gateway-helm
     repository: "oci://registry-1.docker.io/envoyproxy"
     version: 1.2.3

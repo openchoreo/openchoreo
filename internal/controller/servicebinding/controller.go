@@ -35,6 +35,9 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=servicebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=serviceclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -112,7 +115,63 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 	}
 
-	if res, err := r.reconcileRelease(ctx, serviceBinding, serviceClass, apiClasses); err != nil || res.Requeue {
+	// Fetch Environment to get DataPlane reference
+	environment := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Namespace: serviceBinding.Namespace,
+		Name:      serviceBinding.Spec.Environment,
+	}, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Environment %q not found", serviceBinding.Spec.Environment)
+			controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonEnvironmentNotFound, msg)
+			logger.Error(err, msg)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Environment", "Environment", serviceBinding.Spec.Environment)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch DataPlane and image pull SecretReferences if configured
+	var dataPlane *openchoreov1alpha1.DataPlane
+	imagePullSecretReferences := make(map[string]*openchoreov1alpha1.SecretReference)
+
+	if environment.Spec.DataPlaneRef != "" {
+		dataPlane = &openchoreov1alpha1.DataPlane{}
+		if err := r.Get(ctx, client.ObjectKey{
+			Namespace: serviceBinding.Namespace,
+			Name:      environment.Spec.DataPlaneRef,
+		}, dataPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
+				controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonDataPlaneNotFound, msg)
+				logger.Error(err, msg)
+				return ctrl.Result{}, nil
+			}
+			logger.Error(err, "Failed to get DataPlane", "DataPlane", environment.Spec.DataPlaneRef)
+			return ctrl.Result{}, err
+		}
+
+		// Fetch image pull SecretReferences from DataPlane's ImagePullSecretRefs
+		for _, secretRefName := range dataPlane.Spec.ImagePullSecretRefs {
+			secretRef := &openchoreov1alpha1.SecretReference{}
+			if err := r.Get(ctx, client.ObjectKey{
+				Namespace: serviceBinding.Namespace,
+				Name:      secretRefName,
+			}, secretRef); err != nil {
+				if apierrors.IsNotFound(err) {
+					msg := fmt.Sprintf("Image pull SecretReference %q not found", secretRefName)
+					controller.MarkFalseCondition(serviceBinding, ConditionReady, ReasonSecretReferenceNotFound, msg)
+					logger.Error(err, msg)
+					return ctrl.Result{}, nil
+				}
+				logger.Error(err, "Failed to get image pull SecretReference", "SecretReference", secretRefName)
+				return ctrl.Result{}, err
+			}
+			imagePullSecretReferences[secretRefName] = secretRef
+		}
+	}
+
+	if res, err := r.reconcileRelease(ctx, serviceBinding, serviceClass, apiClasses, dataPlane, imagePullSecretReferences); err != nil || res.Requeue {
 		return res, err
 	}
 
@@ -121,7 +180,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 // reconcileRelease reconciles the Release associated with the ServiceBinding.
 func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openchoreov1alpha1.ServiceBinding,
-	serviceClass *openchoreov1alpha1.ServiceClass, apiClasses map[string]*openchoreov1alpha1.APIClass) (ctrl.Result, error) {
+	serviceClass *openchoreov1alpha1.ServiceClass, apiClasses map[string]*openchoreov1alpha1.APIClass,
+	dataPlane *openchoreov1alpha1.DataPlane, imagePullSecretReferences map[string]*openchoreov1alpha1.SecretReference) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Handle undeploy case - delete the Release if it exists
@@ -160,10 +220,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, serviceBinding *openc
 	}
 
 	rCtx := render.Context{
-		ServiceBinding:      serviceBinding,
-		ServiceClass:        serviceClass,
-		APIClasses:          apiClasses,
-		ResolvedConnections: resolvedConnections,
+		ServiceBinding:            serviceBinding,
+		ServiceClass:              serviceClass,
+		APIClasses:                apiClasses,
+		ResolvedConnections:       resolvedConnections,
+		DataPlane:                 dataPlane,
+		ImagePullSecretReferences: imagePullSecretReferences,
 	}
 	release := r.makeRelease(rCtx)
 	if len(rCtx.Errors()) > 0 {
@@ -236,6 +298,13 @@ func (r *Reconciler) makeRelease(rCtx render.Context) *openchoreov1alpha1.Releas
 	}
 
 	var resources []openchoreov1alpha1.Resource
+
+	// Add ExternalSecret resources FIRST (so secrets exist when deployment tries to pull images)
+	if res := render.ExternalSecrets(rCtx); res != nil {
+		for _, externalSecret := range res {
+			resources = append(resources, *externalSecret)
+		}
+	}
 
 	// Add Deployment resource
 	if res := render.Deployment(rCtx); res != nil {

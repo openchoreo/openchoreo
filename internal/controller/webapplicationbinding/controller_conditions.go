@@ -39,6 +39,12 @@ const (
 	ReasonWebApplicationClassNotFound controller.ConditionReason = "WebApplicationClassNotFound"
 	// ReasonAPIClassNotFound indicates a referenced APIClass doesn't exist
 	ReasonAPIClassNotFound controller.ConditionReason = "APIClassNotFound"
+	// ReasonEnvironmentNotFound indicates the referenced Environment doesn't exist
+	ReasonEnvironmentNotFound controller.ConditionReason = "EnvironmentNotFound"
+	// ReasonDataPlaneNotFound indicates the referenced DataPlane doesn't exist
+	ReasonDataPlaneNotFound controller.ConditionReason = "DataPlaneNotFound"
+	// ReasonSecretReferenceNotFound indicates a referenced SecretReference doesn't exist
+	ReasonSecretReferenceNotFound controller.ConditionReason = "SecretReferenceNotFound"
 	// ReasonInvalidConfiguration indicates the binding configuration is invalid
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 

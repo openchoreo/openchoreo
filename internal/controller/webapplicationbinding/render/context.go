@@ -10,11 +10,13 @@ import (
 )
 
 type Context struct {
-	WebApplicationBinding *openchoreov1alpha1.WebApplicationBinding
-	WebApplicationClass   *openchoreov1alpha1.WebApplicationClass
-	Component             *openchoreov1alpha1.Component
-	Environment           *openchoreov1alpha1.Environment
-	ResolvedConnections   map[string]interface{}
+	WebApplicationBinding     *openchoreov1alpha1.WebApplicationBinding
+	WebApplicationClass       *openchoreov1alpha1.WebApplicationClass
+	Component                 *openchoreov1alpha1.Component
+	Environment               *openchoreov1alpha1.Environment
+	ResolvedConnections       map[string]interface{}
+	DataPlane                 *openchoreov1alpha1.DataPlane
+	ImagePullSecretReferences map[string]*openchoreov1alpha1.SecretReference
 
 	// Stores the errors encountered during rendering.
 	errs []error

@@ -41,6 +41,36 @@ var _ = Describe("ScheduledTaskBinding Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
+			By("creating the test DataPlane")
+			dataplane := &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dataplane",
+					Namespace: "default",
+				},
+				Spec: openchoreov1alpha1.DataPlaneSpec{
+					// Minimal required fields for DataPlane
+				},
+			}
+			err = k8sClient.Create(ctx, dataplane)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("creating the test Environment")
+			environment := &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-env",
+					Namespace: "default",
+				},
+				Spec: openchoreov1alpha1.EnvironmentSpec{
+					DataPlaneRef: "test-dataplane",
+				},
+			}
+			err = k8sClient.Create(ctx, environment)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
 			By("creating the custom resource for the Kind ScheduledTaskBinding")
 			err = k8sClient.Get(ctx, typeNamespacedName, scheduledtaskbinding)
 			if err != nil && errors.IsNotFound(err) {

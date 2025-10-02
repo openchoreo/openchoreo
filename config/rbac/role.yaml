@@ -122,6 +122,7 @@ rules:
   - scheduledtaskbindings
   - scheduledtaskclasses
   - scheduledtasks
+  - secretreferences
   - servicebindings
   - serviceclasses
   - services
@@ -160,6 +161,7 @@ rules:
   - scheduledtaskbindings/finalizers
   - scheduledtaskclasses/finalizers
   - scheduledtasks/finalizers
+  - secretreferences/finalizers
   - servicebindings/finalizers
   - serviceclasses/finalizers
   - services/finalizers
@@ -192,6 +194,7 @@ rules:
   - scheduledtaskbindings/status
   - scheduledtaskclasses/status
   - scheduledtasks/status
+  - secretreferences/status
   - servicebindings/status
   - serviceclasses/status
   - services/status

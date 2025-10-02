@@ -125,6 +125,11 @@ cert-manager:
         cpu: 50m
         memory: 64Mi
 
+# customizing the external-secrets configurations
+external-secrets:
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
 # Customizing overall observability configurations
 observability:
   logging:

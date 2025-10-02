@@ -55,6 +55,13 @@ spec:
                 - organizationVirtualHost
                 - publicVirtualHost
                 type: object
+              imagePullSecretRefs:
+                description: |-
+                  ImagePullSecretRefs contains references to SecretReference resources
+                  These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments
+                items:
+                  type: string
+                type: array
               kubernetesCluster:
                 description: KubernetesCluster defines the target Kubernetes cluster
                   where workloads should be deployed.
@@ -163,8 +170,10 @@ spec:
                 - url
                 type: object
               registry:
-                description: Registry contains the configuration required to pull
-                  images from a container registry.
+                description: |-
+                  Registry contains the configuration required to pull images from a container registry.
+                  Deprecated: Use ImagePullSecretRefs instead for authentication.
+                  This field is kept for backward compatibility.
                 properties:
                   prefix:
                     description: Prefix specifies the registry domain and namespace
@@ -178,6 +187,17 @@ spec:
                     type: string
                 required:
                 - prefix
+                type: object
+              secretStoreRef:
+                description: SecretStoreRef specifies the ESO ClusterSecretStore to
+                  use in the data plane
+                properties:
+                  name:
+                    description: Name of the ClusterSecretStore resource in the data
+                      plane cluster
+                    type: string
+                required:
+                - name
                 type: object
             required:
             - gateway
