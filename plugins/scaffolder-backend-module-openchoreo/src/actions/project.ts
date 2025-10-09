@@ -1,65 +1,24 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { OpenChoreoApiClient } from '@openchoreo/backstage-plugin-api';
 import { Config } from '@backstage/config';
+import { z } from 'zod';
 
 export const createProjectAction = (config: Config) => {
-  return createTemplateAction<{
-    orgName: string;
-    projectName: string;
-    displayName?: string;
-    description?: string;
-    deploymentPipeline?: string;
-  }>({
+  return createTemplateAction({
     id: 'openchoreo:project:create',
     description: 'Create OpenChoreo Project',
     schema: {
-      input: {
-        required: ['orgName', 'projectName'],
-        type: 'object',
-        properties: {
-          orgName: {
-            type: 'string',
-            title: 'Organization Name',
-            description:
-              'The name of the organization to create the project in',
-          },
-          projectName: {
-            type: 'string',
-            title: 'Project Name',
-            description: 'The name of the project to create',
-          },
-          displayName: {
-            type: 'string',
-            title: 'Display Name',
-            description: 'The display name of the project',
-          },
-          description: {
-            type: 'string',
-            title: 'Description',
-            description: 'The description of the project',
-          },
-          deploymentPipeline: {
-            type: 'string',
-            title: 'Deployment Pipeline',
-            description: 'The deployment pipeline for the project',
-          },
-        },
-      },
-      output: {
-        type: 'object',
-        properties: {
-          projectName: {
-            type: 'string',
-            title: 'Project Name',
-            description: 'The name of the created project',
-          },
-          organizationName: {
-            type: 'string',
-            title: 'Organization Name',
-            description: 'The organization where the project was created',
-          },
-        },
-      },
+      input: (zImpl: typeof z) => zImpl.object({
+        orgName: zImpl.string().describe('The name of the organization to create the project in'),
+        projectName: zImpl.string().describe('The name of the project to create'),
+        displayName: zImpl.string().optional().describe('The display name of the project'),
+        description: zImpl.string().optional().describe('The description of the project'),
+        deploymentPipeline: zImpl.string().optional().describe('The deployment pipeline for the project'),
+      }),
+      output: (zImpl: typeof z) => zImpl.object({
+        projectName: zImpl.string().describe('The name of the created project'),
+        organizationName: zImpl.string().describe('The organization where the project was created'),
+      }),
     },
     async handler(ctx) {
       ctx.logger.info(

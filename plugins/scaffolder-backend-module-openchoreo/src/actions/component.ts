@@ -1,117 +1,32 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { OpenChoreoApiClient } from '@openchoreo/backstage-plugin-api';
 import { Config } from '@backstage/config';
+import { z } from 'zod';
 
 export const createComponentAction = (config: Config) => {
-  return createTemplateAction<{
-    orgName: string;
-    projectName: string;
-    componentName: string;
-    displayName?: string;
-    description?: string;
-    componentType: string;
-    useBuiltInCI?: boolean;
-    repoUrl?: string;
-    branch?: string;
-    componentPath?: string;
-    buildTemplateName?: string;
-    buildParameters?: Record<string, any>;
-  }>({
+  return createTemplateAction({
     id: 'openchoreo:component:create',
     description: 'Create OpenChoreo Component',
     schema: {
-      input: {
-        required: ['orgName', 'projectName', 'componentName', 'componentType'],
-        type: 'object',
-        properties: {
-          orgName: {
-            type: 'string',
-            title: 'Organization Name',
-            description:
-              'The name of the organization where the component will be created',
-          },
-          projectName: {
-            type: 'string',
-            title: 'Project Name',
-            description:
-              'The name of the project where the component will be created',
-          },
-          componentName: {
-            type: 'string',
-            title: 'Component Name',
-            description: 'The name of the component to create',
-          },
-          displayName: {
-            type: 'string',
-            title: 'Display Name',
-            description: 'The display name of the component',
-          },
-          description: {
-            type: 'string',
-            title: 'Description',
-            description: 'The description of the component',
-          },
-          componentType: {
-            type: 'string',
-            title: 'Component Type',
-            description:
-              'The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)',
-          },
-          useBuiltInCI: {
-            type: 'boolean',
-            title: 'Use Built-in CI',
-            description: 'Whether to use built-in CI in OpenChoreo',
-          },
-          repoUrl: {
-            type: 'string',
-            title: 'Repository URL',
-            description:
-              'The URL of the repository containing the component source code',
-          },
-          branch: {
-            type: 'string',
-            title: 'Branch',
-            description: 'The branch of the repository to use',
-          },
-          componentPath: {
-            type: 'string',
-            title: 'Component Path',
-            description:
-              'The path within the repository where the component source code is located',
-          },
-          buildTemplateName: {
-            type: 'string',
-            title: 'Build Template Name',
-            description:
-              'The name of the build template to use (e.g., java-maven, nodejs-npm)',
-          },
-          buildParameters: {
-            type: 'object',
-            title: 'Build Parameters',
-            description: 'Parameters specific to the selected build template',
-          },
-        },
-      },
-      output: {
-        type: 'object',
-        properties: {
-          componentName: {
-            type: 'string',
-            title: 'Component Name',
-            description: 'The name of the created component',
-          },
-          projectName: {
-            type: 'string',
-            title: 'Project Name',
-            description: 'The project where the component was created',
-          },
-          organizationName: {
-            type: 'string',
-            title: 'Organization Name',
-            description: 'The organization where the component was created',
-          },
-        },
-      },
+      input: (zImpl: typeof z) => zImpl.object({
+        orgName: zImpl.string().describe('The name of the organization where the component will be created'),
+        projectName: zImpl.string().describe('The name of the project where the component will be created'),
+        componentName: zImpl.string().describe('The name of the component to create'),
+        displayName: zImpl.string().optional().describe('The display name of the component'),
+        description: zImpl.string().optional().describe('The description of the component'),
+        componentType: zImpl.string().describe('The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)'),
+        useBuiltInCI: zImpl.boolean().optional().describe('Whether to use built-in CI in OpenChoreo'),
+        repoUrl: zImpl.string().optional().describe('The URL of the repository containing the component source code'),
+        branch: zImpl.string().optional().describe('The branch of the repository to use'),
+        componentPath: zImpl.string().optional().describe('The path within the repository where the component source code is located'),
+        buildTemplateName: zImpl.string().optional().describe('The name of the build template to use (e.g., java-maven, nodejs-npm)'),
+        buildParameters: zImpl.record(zImpl.any()).optional().describe('Parameters specific to the selected build template'),
+      }),
+      output: (zImpl: typeof z) => zImpl.object({
+        componentName: zImpl.string().describe('The name of the created component'),
+        projectName: zImpl.string().describe('The project where the component was created'),
+        organizationName: zImpl.string().describe('The organization where the component was created'),
+      }),
     },
     async handler(ctx) {
       ctx.logger.info(
