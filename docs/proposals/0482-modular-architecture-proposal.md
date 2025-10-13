@@ -9,10 +9,13 @@
 @manjulaRathnayaka
 
 **status**: 
-Draft
+Accepted
 
 **created**: 
 2025-09-29
+
+**updated**
+2025-10-13
 
 **issue**: 
 [Issue #0482 – openchoreo/openchoreo](https://github.com/openchoreo/openchoreo/discussions/482)
@@ -137,41 +140,109 @@ A modular OpenChoreo addresses these issues by:
 
 ---
 
-## Why Not Just Vanilla Kubernetes?
+### Why Choreo Secure Core Matters
 
-- **Abstraction:**  
-  - *Vanilla K8s:* Infrastructure-level primitives (pods, YAML).  
-  - *OpenChoreo Secure Core:* Enterprise-ready abstractions (Org, Project, Component, Environment).  
+The Secure Core is designed as the **lowest barrier to entry** into the OpenChoreo ecosystem.  
+It offers a **better-than-vanilla Kubernetes experience** — secure by default, modular by design — without forcing adoption of CI/CD or multi-environment pipelines on day one.
 
-- **Zero Trust Security:**  
-  - *Vanilla K8s:* Must configure manually.  
-  - *OpenChoreo Secure Core:* Built-in Zero Trust (Cilium Edition).  
+#### Strategic Rationale
+- **Minimize Adoption Friction:**  
+  Start with a secure, production-ready cluster that integrates with existing pipelines.  
+- **Support Real Production Use Cases:**  
+  Secure Core can run production workloads out of the box.  
+- **Progressive Expansion:**  
+  Add advanced modules (Observability, Governance, Security) as maturity grows.  
 
-- **Multi-Environment Support:**  
-  - *Vanilla K8s:* Namespaces + pipelines.  
-  - *OpenChoreo Secure Core:* CRDs for structured environments.  
+---
 
-- **Enterprise Support:**  
-  - *Vanilla K8s + Cilium:* DIY or expensive vendor contracts.  
-  - *OpenChoreo Secure Core:* Community-supported OSS (with commercial support available separately).  
+## Planes and Deployment Model
+
+### Motivation for Planes
+As OpenChoreo evolves into a modular and scalable architecture, it needs a flexible deployment model that can adapt to different organizational needs and scales.  
+
+To achieve this, OpenChoreo introduces the concept of **Planes** — logical deployment boundaries that allow modules to be deployed:
+- On the same Kubernetes cluster (co-located),
+- On separate Kubernetes clusters (isolated),
+- Or shared across multiple clusters.
+
+This provides flexibility in balancing **security**, **cost**, and **operational scalability**, without complicating the user experience.
+
+---
+
+### What Is a Plane
+A **Plane** is a named grouping for one or more modules that share similar operational characteristics — such as scaling behavior, resource isolation, or control boundaries.  
+
+Typical planes include:
+- **Control Plane** – Runs the OpenChoreo API, registry, and control services.  
+- **Data Plane** – Hosts user workloads, ingress gateways, and runtime components.  
+- **Observability Plane** – Runs backend observability services (log collection, metrics aggregation, tracing, indexing).  
+
+Each plane may correspond to a separate Kubernetes cluster or be co-located depending on the deployment footprint and scale.
+
+---
+
+### Plane-Aware Module Deployment
+
+Each module declares a `plane` property indicating where it should be deployed.  
+Operators can override or customize this placement to suit their topology.
+
+**Examples:**
+
+- **Choreo Observe (Observability Plane)**  
+  - Runs all backend services for logs, metrics, and tracing aggregation.  
+  - Dashboards may run elsewhere, but raw telemetry data is stored and processed within the Observability Plane.  
+  - A single Observability Plane can serve multiple Data Planes — a **cost-effective pattern** compared to running separate observability stacks per Data Plane.
+
+- **Choreo Build (CI Plane)**  
+  - Can run on the **Data Plane** or a **dedicated CI Plane** for isolation or scale.  
+  - Example: Enterprises can deploy CI pipelines in a separate CI Plane for resource isolation.
+
+- **Choreo Elastic (Autoscaling Plane)**  
+  - Must run within the **Data Plane**, since it directly interacts with runtime workloads and scaling controllers.
+
+---
+
+### Deployment Flexibility
+
+| **Pattern** | **Description** |
+|--------------|-----------------|
+| **Single-Plane (Simple)** | All modules run on one Data Plane cluster — ideal for minimal setups. |
+| **Multi-Plane (Intermediate)** | Separate Control and Data Plane clusters, with optional Observability Plane. |
+| **Shared-Observability (Advanced)** | One Observability Plane serves multiple Data Planes to reduce cost and centralize telemetry. |
+| **Fully Isolated (Enterprise)** | Each plane (Control, Data, CI, Observability) runs independently for scale, compliance, and security. |
+
+---
+
+### Operator Benefits
+- **Flexibility:** Deploy modules where they fit best (shared or isolated).  
+- **Cost Efficiency:** Share Observability Plane across multiple Data Planes.  
+- **Security & Isolation:** Separate build, runtime, and monitoring concerns.  
+- **Progressive Adoption:** Start with a single-plane setup, scale to multi-plane later.
+
+---
+
+### Summary
+The **Plane** abstraction makes OpenChoreo topology-aware and future-ready.  
+By defining clear deployment boundaries (Control, Data, CI, Observability, etc.), OpenChoreo can scale horizontally across clusters while maintaining operational simplicity.  
+This aligns perfectly with the modular philosophy — **start minimal, expand progressively, deploy intelligently.**
 
 ---
 
 ## Add-On Modules
 
-| **Module** | **Name** | **Description** | **Cilium Edition** | **Generic Edition** |
-|------------|----------|-----------------|---------------------|----------------------|
-| CD | OpenChoreo CD Plane | GitOps-driven Continuous Delivery (Argo CD). | ✅ | ✅ |
-| CI | OpenChoreo Build Plane | CI pipelines, build packs, container scans. | ✅ | ✅ |
-| Observability | OpenChoreo Observe Plane | Logs, metrics, tracing, cell diagrams. | ✅ Full | ⚠️ Basic only |
-| API Gateway | OpenChoreo API Gateway Plane | External & internal API management. | ✅ | ✅ |
-| Automation | OpenChoreo Automate Plane | General-purpose pipelines. | ✅ | ✅ |
-| Elasticity | OpenChoreo Elastic Plane | Autoscaling & scale-to-zero (KEDA). | ✅ | ✅ |
-| Governance | OpenChoreo Guard Plane | Compliance, egress control, approvals. | ✅ | ❌ |
-| Registry | OpenChoreo Registry Plane | Embedded/external registry (Harbor). | ✅ | ✅ |
-| Vault | OpenChoreo Vault Plane | Secret management (Vault/OpenBao). | ✅ | ✅ |
-| AI Gateway | OpenChoreo AI Gateway Plane | Secure LLM/AI inference APIs. | ✅ | ✅ |
-| AI Intelligence | OpenChoreo Intelligence Plane | AI-powered ops/dev workflows. | ✅ | ✅ |
+| **Module** | **Description** | **Tech Stack** | **Cilium Edition** | **Generic Edition** |
+|-------------|-----------------|----------------|--------------------|---------------------|
+| **Choreo CD** | GitOps-driven continuous delivery | Argo CD | ✅ | ✅ |
+| **Choreo Build (CI)** | CI pipeline integration (builds & scans) | Argo Workflows, Argo Events | ✅ | ✅ |
+| **Choreo Observe** | Unified metrics, logs, and traces | FluentBit, OpenSearch, Prometheus, Thanos, Velero | ✅ (Advanced) | ⚠️ (Common) |
+| **Choreo Edge (API Gateway)** | External + internal API management | Envoy, Choreo API Mgmt | ✅ | ✅ |
+| **Choreo Automate** | General-purpose pipelines | Argo Workflows + Events | ✅ | ✅ |
+| **Choreo Elastic** | Autoscaling & scale-to-zero | KEDA | ✅ | ✅ |
+| **Choreo Guard** | Governance & compliance | Cilium policies, workflows | ✅ | ❌ |
+| **Choreo Registry** | Container registry | Harbor / Distribution | ✅ | ✅ |
+| **Choreo Vault** | Secret management | HashiCorp Vault / OpenBao | ✅ | ✅ |
+| **Choreo AI Gateway** | Secure LLM/AI inference APIs | WSO2 AI GW | ✅ | ✅ |
+| **Choreo Intelligence** | AI-powered developer & ops insights | (Future) | ✅ | ✅ |
 
 ---
 
