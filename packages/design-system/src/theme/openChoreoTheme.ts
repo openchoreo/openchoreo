@@ -3,6 +3,48 @@ import {
   createBaseThemeOptions,
 } from '@backstage/theme';
 import Gilmer from '../assets/fonts/Gilmer/gilmer-regular.woff2';
+import { alpha } from '@material-ui/core';
+
+// Color constants for reuse
+const colors = {
+  primary: {
+    light: '#a6B3ff',
+    main: '#5567d5',
+    dark: '#4d5ec0',
+  },
+  secondary: {
+    light: '#f7f8fb',
+    main: '#8d91a3',
+    dark: '#40404b',
+  },
+  error: {
+    light: '#fceded',
+    main: '#fe523c',
+    dark: '#d64733',
+  },
+  warning: {
+    light: '#fff5eb',
+    main: '#ff9d52',
+    dark: '#ff9133',
+  },
+  success: {
+    light: '#effdf2',
+    main: '#36b475',
+    dark: '#05a26b',
+  },
+  grey: {
+    100: '#e6e7ec',
+    200: '#cbcedb',
+  },
+  indigo: {
+    100: "#f0f1fb",
+    200: "#ccd1f2"
+  },
+  common: {
+    black: '#1d2028',
+    white: '#ffffff',
+  },
+};
 
 const GilmerFont = {
   fontFamily: 'Gilmer',
@@ -16,39 +58,7 @@ export const openChoreoTheme = createUnifiedTheme({
   ...createBaseThemeOptions({
     fontFamily: 'Gilmer',
     palette: {
-      primary: {
-        light: '#a6B3ff',
-        main: '#5567d5',
-        dark: '#4d5ec0',
-      },
-      secondary: {
-        light: '#f7f8fb',
-        main: '#8d91a3',
-        dark: '#40404b',
-      },
-      error: {
-        light: '#fceded',
-        main: '#fe523c',
-        dark: '#d64733',
-      },
-      warning: {
-        light: '#fff5eb',
-        main: '#ff9d52',
-        dark: '#ff9133',
-      },
-      success: {
-        light: '#effdf2',
-        main: '#36b475',
-        dark: '#05a26b',
-      },
-      grey: {
-        100: '#e6e7ec',
-        200: '#cbcedb',
-      },
-      common: {
-        black: '#1d2028',
-        white: '#ffffff',
-      },
+      ...colors,
       // Backstage-specific palette additions
       status: {
         ok: '#36b475',
@@ -168,6 +178,9 @@ export const openChoreoTheme = createUnifiedTheme({
     MuiCssBaseline: {
       styleOverrides: {
         '@font-face': [GilmerFont],
+        '[class*="BackstageSidebarDivider-root"]': {
+          opacity: 0.2,
+        },
       },
     },
     MuiButton: {
@@ -175,6 +188,132 @@ export const openChoreoTheme = createUnifiedTheme({
         root: {
           textTransform: 'none',
           fontWeight: 400,
+        },
+      },
+    },
+    MuiTypography: {
+      styleOverrides: {
+        "body1": {
+          "fontSize": 13,
+          "fontWeight": "normal",
+          "fontStretch": "normal",
+          "fontStyle": "normal",
+          "lineHeight": 1.53846154,
+          "letterSpacing": "normal"
+        },
+        "body2": {
+          "fontSize": 12,
+          "fontWeight": "normal",
+          "fontStretch": "normal",
+          "fontStyle": "normal",
+          "lineHeight": 1.33333,
+          "letterSpacing": "normal"
+        },
+      },
+    },
+    BackstageTableHeader: {
+      styleOverrides: {
+        header: {
+          textTransform: 'none',
+          color: '#8d91a3!important',
+          fontWeight: 500,
+          fontSize: 14,
+          borderTop: 'none',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          padding: '8px 16px 8px 20px !important',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        variant: 'outlined',
+      },
+      styleOverrides: {
+        root: {
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: `${colors.primary.light} !important`,
+          },
+        },
+      },
+    },
+    MuiFormControl: {
+      defaultProps: {
+        variant: 'outlined',
+      },
+    },
+    MuiSelect: {
+      defaultProps: {
+        variant: 'outlined',
+      },
+    },
+    MuiInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.secondary.light,
+          border: `1px solid transparent`,
+          transition: 'all 0.3s',
+          borderRadius: 4,
+          padding: '2px 4px',
+          color: 'inherit',
+          fontSize: 13,
+          '&:before': {
+            display: 'none',
+          },
+          '&:after': {
+            display: 'none',
+          },
+          '&:hover:not(.Mui-disabled):before': {
+            display: 'none',
+          },
+          '&:hover:not(.Mui-focused)': {
+            borderColor: colors.indigo[200],
+          },
+          '&.Mui-focused': {
+            borderColor: colors.primary.light,
+          },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        notchedOutline: {
+          backgroundColor: colors.common.white,
+          borderColor: colors.grey[100],
+          boxShadow: `0 1px 2px -1px ${alpha(
+            colors.common.black,
+            0.08
+          )}, 0 -3px 9px 0 ${alpha(colors.common.black, 0.04)} inset`,
+          borderRadius: 5,
+          '$root:hover &': {
+            borderColor: `${colors.indigo[200]} `,
+          },
+          '$root.Mui-focused &': {
+            borderColor: `${colors.primary.light}`,
+            borderWidth: '1px',
+          },
+          '$root.Mui-error &': {
+            borderColor: `${colors.error.main}`,
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          padding: 4,
+          fontSize: 'inherit',
         },
       },
     },
