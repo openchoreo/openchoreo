@@ -8,25 +8,77 @@ export const createComponentAction = (config: Config) => {
     id: 'openchoreo:component:create',
     description: 'Create OpenChoreo Component',
     schema: {
-      input: (zImpl: typeof z) => zImpl.object({
-        orgName: zImpl.string().describe('The name of the organization where the component will be created'),
-        projectName: zImpl.string().describe('The name of the project where the component will be created'),
-        componentName: zImpl.string().describe('The name of the component to create'),
-        displayName: zImpl.string().optional().describe('The display name of the component'),
-        description: zImpl.string().optional().describe('The description of the component'),
-        componentType: zImpl.string().describe('The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)'),
-        useBuiltInCI: zImpl.boolean().optional().describe('Whether to use built-in CI in OpenChoreo'),
-        repoUrl: zImpl.string().optional().describe('The URL of the repository containing the component source code'),
-        branch: zImpl.string().optional().describe('The branch of the repository to use'),
-        componentPath: zImpl.string().optional().describe('The path within the repository where the component source code is located'),
-        buildTemplateName: zImpl.string().optional().describe('The name of the build template to use (e.g., java-maven, nodejs-npm)'),
-        buildParameters: zImpl.record(zImpl.any()).optional().describe('Parameters specific to the selected build template'),
-      }),
-      output: (zImpl: typeof z) => zImpl.object({
-        componentName: zImpl.string().describe('The name of the created component'),
-        projectName: zImpl.string().describe('The project where the component was created'),
-        organizationName: zImpl.string().describe('The organization where the component was created'),
-      }),
+      input: (zImpl: typeof z) =>
+        zImpl.object({
+          orgName: zImpl
+            .string()
+            .describe(
+              'The name of the organization where the component will be created',
+            ),
+          projectName: zImpl
+            .string()
+            .describe(
+              'The name of the project where the component will be created',
+            ),
+          componentName: zImpl
+            .string()
+            .describe('The name of the component to create'),
+          displayName: zImpl
+            .string()
+            .optional()
+            .describe('The display name of the component'),
+          description: zImpl
+            .string()
+            .optional()
+            .describe('The description of the component'),
+          componentType: zImpl
+            .string()
+            .describe(
+              'The type of the component (e.g., Service, WebApp, ScheduledTask, APIProxy)',
+            ),
+          useBuiltInCI: zImpl
+            .boolean()
+            .optional()
+            .describe('Whether to use built-in CI in OpenChoreo'),
+          repoUrl: zImpl
+            .string()
+            .optional()
+            .describe(
+              'The URL of the repository containing the component source code',
+            ),
+          branch: zImpl
+            .string()
+            .optional()
+            .describe('The branch of the repository to use'),
+          componentPath: zImpl
+            .string()
+            .optional()
+            .describe(
+              'The path within the repository where the component source code is located',
+            ),
+          buildTemplateName: zImpl
+            .string()
+            .optional()
+            .describe(
+              'The name of the build template to use (e.g., java-maven, nodejs-npm)',
+            ),
+          buildParameters: zImpl
+            .record(zImpl.any())
+            .optional()
+            .describe('Parameters specific to the selected build template'),
+        }),
+      output: (zImpl: typeof z) =>
+        zImpl.object({
+          componentName: zImpl
+            .string()
+            .describe('The name of the created component'),
+          projectName: zImpl
+            .string()
+            .describe('The project where the component was created'),
+          organizationName: zImpl
+            .string()
+            .describe('The organization where the component was created'),
+        }),
     },
     async handler(ctx) {
       ctx.logger.info(
