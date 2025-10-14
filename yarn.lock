@@ -8168,23 +8168,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openchoreo/backstage-design-system@workspace:packages/design-system":
-  version: 0.0.0-use.local
-  resolution: "@openchoreo/backstage-design-system@workspace:packages/design-system"
-  dependencies:
-    "@backstage/cli": "npm:^0.34.3"
-    "@backstage/theme": "npm:^0.6.8"
-    "@material-ui/core": "npm:^4.12.2"
-    "@material-ui/icons": "npm:^4.9.1"
-    "@testing-library/jest-dom": "npm:^6.0.0"
-    react: "npm:^18.0.2"
-  peerDependencies:
-    "@material-ui/core": ^4.12.2
-    "@material-ui/icons": ^4.9.1
-    react: ^18.0.2
-  languageName: unknown
-  linkType: soft
-
 "@openchoreo/backstage-plugin-api@npm:*, @openchoreo/backstage-plugin-api@npm:^0.2.0, @openchoreo/backstage-plugin-api@workspace:^, @openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api":
   version: 0.0.0-use.local
   resolution: "@openchoreo/backstage-plugin-api@workspace:plugins/openchoreo-api"
