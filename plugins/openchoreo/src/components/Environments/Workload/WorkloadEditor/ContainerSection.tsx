@@ -52,7 +52,13 @@ interface ContainerSectionProps {
 
 const useStyles = makeStyles(theme => ({
   accordion: {
-    marginBottom: theme.spacing(2),
+    border: `1px solid ${theme.palette.grey[100]}`,
+    marginBottom: theme.spacing(1),
+    borderRadius: 4,
+    boxShadow: 'none',
+    '&:before': {
+      backgroundColor: 'transparent',
+    },
   },
   dynamicFieldContainer: {
     padding: theme.spacing(2),
@@ -293,6 +299,7 @@ export function ContainerSection({
                     size="small"
                     className={classes.addButton}
                     disabled={disabled}
+                    color="primary"
                   >
                     Add Environment Variable
                   </Button>

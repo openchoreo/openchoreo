@@ -83,7 +83,7 @@ const useStyles = makeStyles(theme => ({
   imageContainer: {
     backgroundColor: theme.palette.background.paper,
     padding: theme.spacing(1.5),
-    borderRadius: theme.spacing(3),
+    borderRadius: theme.spacing(1),
     border: `1px solid ${theme.palette.divider}`,
     boxShadow: theme.shadows[2],
     marginTop: theme.spacing(1),
@@ -266,7 +266,7 @@ export const Environments = () => {
                   />
                   {env.deployment.lastDeployed && (
                     <Box display="flex" alignItems="center">
-                      <Typography variant="body2" color="textSecondary">
+                      <Typography>
                         Deployed
                       </Typography>
                       <AccessTimeIcon className={classes.timeIcon} />
@@ -290,7 +290,7 @@ export const Environments = () => {
                         : classes.defaultStatus
                     }`}
                   >
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography>
                       Deployment Status:{' '}
                       <span
                         style={{
@@ -323,7 +323,7 @@ export const Environments = () => {
                   {env.deployment.image && (
                     <>
                       <Box display="flex" alignItems="center" mt={2}>
-                        <Typography variant="body2" color="textSecondary">
+                        <Typography>
                           Image
                         </Typography>
                       </Box>
@@ -347,7 +347,7 @@ export const Environments = () => {
                     env.endpoints.length > 0 && (
                       <>
                         <Box display="flex" alignItems="center" mt={2}>
-                          <Typography variant="body2" color="textSecondary">
+                          <Typography>
                             Endpoints
                           </Typography>
                         </Box>

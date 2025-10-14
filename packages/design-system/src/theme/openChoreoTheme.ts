@@ -129,32 +129,32 @@ export const openChoreoTheme = createUnifiedTheme({
       h1: {
         fontSize: 43,
         fontWeight: 700,
-        marginBottom: 16,
+        marginBottom: 0,
       },
       h2: {
         fontSize: 29,
         fontWeight: 700,
-        marginBottom: 12,
+        marginBottom: 0,
       },
       h3: {
         fontSize: 22,
         fontWeight: 600,
-        marginBottom: 8,
+        marginBottom: 0,
       },
       h4: {
         fontSize: 15,
         fontWeight: 600,
-        marginBottom: 8,
+        marginBottom: 0,
       },
       h5: {
         fontSize: 13,
         fontWeight: 600,
-        marginBottom: 8,
+        marginBottom: 0,
       },
       h6: {
         fontSize: 12,
         fontWeight: 600,
-        marginBottom: 8,
+        marginBottom: 0,
       },
     },
   }),
@@ -162,8 +162,9 @@ export const openChoreoTheme = createUnifiedTheme({
     BackstageHeader: {
       styleOverrides: {
         header: {
-          backgroundColor: '#5567d5',
+          backgroundColor: colors.primary.main,
           backgroundImage: 'none',
+          height: 98,
         },
       },
     },
@@ -175,11 +176,35 @@ export const openChoreoTheme = createUnifiedTheme({
         },
       },
     },
+    CatalogReactEntityDisplayName: {
+      styleOverrides: {
+        root: {
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         '@font-face': [GilmerFont],
         '[class*="BackstageSidebarDivider-root"]': {
           opacity: 0.2,
+        },
+        // SVG elements in the entity relations diagram
+        'g[data-testid="node"] rect': {
+          '&.primary': {
+            fill: `${colors.primary.dark} !important`,
+            stroke: `${colors.primary.dark} !important`,
+            strokeWidth: '2px !important',
+          },
+          '&.secondary': {
+            fill: `${colors.secondary.dark} !important`,
+            stroke: `${colors.secondary.dark} !important`,
+            strokeWidth: '2px !important',
+          },
+        },
+        'g[data-testid="node"] text': {
+          fill: `${colors.common.white} !important`,
         },
       },
     },
