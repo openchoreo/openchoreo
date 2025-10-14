@@ -34,7 +34,8 @@
     "@backstage/backend-plugin-api": "^1.4.3",
     "@backstage/config": "^1.3.4",
     "@backstage/plugin-scaffolder-node": "^0.11.1",
-    "@openchoreo/backstage-plugin-api": "workspace:^"
+    "@openchoreo/backstage-plugin-api": "workspace:^",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@backstage/cli": "^0.34.3",
