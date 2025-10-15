@@ -8172,7 +8172,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@openchoreo/backstage-design-system@workspace:packages/design-system"
   dependencies:
-    "@backstage/cli": "npm:^0.32.0"
+    "@backstage/cli": "npm:^0.34.3"
     "@testing-library/jest-dom": "npm:^6.0.0"
   languageName: unknown
   linkType: soft

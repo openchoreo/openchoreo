@@ -24,7 +24,7 @@
     "postpack": "backstage-cli package postpack"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.32.0",
+    "@backstage/cli": "^0.34.3",
     "@testing-library/jest-dom": "^6.0.0"
   },
   "files": [
