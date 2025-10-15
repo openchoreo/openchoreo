@@ -2,7 +2,7 @@ import {
   createUnifiedTheme,
   createBaseThemeOptions,
 } from '@backstage/theme';
-import Gilmer from '../assets/fonts/Gilmer/gilmer-regular.woff2';
+import Ubuntu from '../assets/fonts/Ubuntu/UbuntuSans-VariableFont_wdth,wght.ttf';
 import { alpha } from '@material-ui/core';
 
 // Color constants for reuse
@@ -46,17 +46,22 @@ const colors = {
   },
 };
 
-const GilmerFont = {
-  fontFamily: 'Gilmer',
+const UbuntuFont = {
+  fontFamily: 'Ubuntu Sans',
   fontStyle: 'normal',
+  fontWeight: '100 800',
+  fontStretch: '75% 100%',
+  fontDisplay: 'swap',
   src: `
-    local('Gilmer'),
-    url(${Gilmer}) format('woff2'),
+    local('Ubuntu Sans'),
+    local('UbuntuSans-VariableFont'),
+    url(${Ubuntu}) format('truetype')
   `,
 };
+
 export const openChoreoTheme = createUnifiedTheme({
   ...createBaseThemeOptions({
-    fontFamily: 'Gilmer',
+    fontFamily: 'Ubuntu Sans',
     palette: {
       ...colors,
       // Backstage-specific palette additions
@@ -124,7 +129,7 @@ export const openChoreoTheme = createUnifiedTheme({
       },
     },
     typography: {
-      fontFamily: 'Gilmer',
+      fontFamily: 'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       htmlFontSize: 16,
       h1: {
         fontSize: 43,
@@ -166,6 +171,9 @@ export const openChoreoTheme = createUnifiedTheme({
           backgroundImage: 'none',
           height: 98,
         },
+        title: {
+          fontSize: 25,
+        },
       },
     },
     BackstageItemCardHeader: {
@@ -173,6 +181,13 @@ export const openChoreoTheme = createUnifiedTheme({
         root: {
           backgroundColor: '#5567d5',
           backgroundImage: 'none!important',
+        },
+      },
+    },
+    BackstageSidebarItem: {
+      styleOverrides: {
+        label: {
+          fontWeight: 500,
         },
       },
     },
@@ -186,7 +201,10 @@ export const openChoreoTheme = createUnifiedTheme({
     },
     MuiCssBaseline: {
       styleOverrides: {
-        '@font-face': [GilmerFont],
+        '@font-face': [UbuntuFont],
+        'body, html': {
+          fontFamily: 'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important',
+        },
         '[class*="BackstageSidebarDivider-root"]': {
           opacity: 0.2,
         },
