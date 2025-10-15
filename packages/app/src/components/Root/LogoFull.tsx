@@ -15,7 +15,7 @@ const LogoFull = () => {
     <Box display="flex" alignItems="center" gridGap={8}>
       <OpenChoreoIcon />
       <Typography variant="h3" className={classes.logoText} color="secondary">
-          OpenChoreo
+        OpenChoreo
       </Typography>
     </Box>
   );

@@ -76,7 +76,7 @@ const app = createApp({
         <UnifiedThemeProvider theme={openChoreoTheme} children={children} />
       ),
     },
-  ]
+  ],
 });
 
 const routes = (

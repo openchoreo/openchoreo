@@ -78,7 +78,7 @@ const SidebarLogo = () => {
         className={classes.toggleButton}
         onClick={handleToggle}
         size="small"
-        aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+        aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         {isOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
       </IconButton>

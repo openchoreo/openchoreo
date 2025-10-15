@@ -266,9 +266,7 @@ export const Environments = () => {
                   />
                   {env.deployment.lastDeployed && (
                     <Box display="flex" alignItems="center">
-                      <Typography>
-                        Deployed
-                      </Typography>
+                      <Typography>Deployed</Typography>
                       <AccessTimeIcon className={classes.timeIcon} />
                       <Typography variant="body2" color="textSecondary">
                         {formatRelativeTime(env.deployment.lastDeployed)}
@@ -323,9 +321,7 @@ export const Environments = () => {
                   {env.deployment.image && (
                     <>
                       <Box display="flex" alignItems="center" mt={2}>
-                        <Typography>
-                          Image
-                        </Typography>
+                        <Typography>Image</Typography>
                       </Box>
                       <Box
                         display="flex"
@@ -347,9 +343,7 @@ export const Environments = () => {
                     env.endpoints.length > 0 && (
                       <>
                         <Box display="flex" alignItems="center" mt={2}>
-                          <Typography>
-                            Endpoints
-                          </Typography>
+                          <Typography>Endpoints</Typography>
                         </Box>
                         {env.endpoints.map((endpoint, index) => (
                           <Box

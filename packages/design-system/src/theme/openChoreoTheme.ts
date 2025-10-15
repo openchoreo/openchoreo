@@ -1,7 +1,4 @@
-import {
-  createUnifiedTheme,
-  createBaseThemeOptions,
-} from '@backstage/theme';
+import { createUnifiedTheme, createBaseThemeOptions } from '@backstage/theme';
 import Ubuntu from '../assets/fonts/Ubuntu/UbuntuSans-VariableFont_wdth,wght.ttf';
 import { alpha } from '@material-ui/core';
 
@@ -37,8 +34,8 @@ const colors = {
     200: '#cbcedb',
   },
   indigo: {
-    100: "#f0f1fb",
-    200: "#ccd1f2"
+    100: '#f0f1fb',
+    200: '#ccd1f2',
   },
   common: {
     black: '#1d2028',
@@ -129,7 +126,8 @@ export const openChoreoTheme = createUnifiedTheme({
       },
     },
     typography: {
-      fontFamily: 'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily:
+        'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       htmlFontSize: 15,
       h1: {
         fontSize: 43,
@@ -203,7 +201,8 @@ export const openChoreoTheme = createUnifiedTheme({
       styleOverrides: {
         '@font-face': [UbuntuFont],
         'body, html': {
-          fontFamily: 'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important',
+          fontFamily:
+            'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important',
         },
         '[class*="BackstageSidebarDivider-root"]': {
           opacity: 0.2,
@@ -236,21 +235,21 @@ export const openChoreoTheme = createUnifiedTheme({
     },
     MuiTypography: {
       styleOverrides: {
-        "body1": {
-          "fontSize": 13,
-          "fontWeight": "normal",
-          "fontStretch": "normal",
-          "fontStyle": "normal",
-          "lineHeight": 1.53846154,
-          "letterSpacing": "normal"
+        body1: {
+          fontSize: 13,
+          fontWeight: 'normal',
+          fontStretch: 'normal',
+          fontStyle: 'normal',
+          lineHeight: 1.53846154,
+          letterSpacing: 'normal',
         },
-        "body2": {
-          "fontSize": 12,
-          "fontWeight": "normal",
-          "fontStretch": "normal",
-          "fontStyle": "normal",
-          "lineHeight": 1.33333,
-          "letterSpacing": "normal"
+        body2: {
+          fontSize: 12,
+          fontWeight: 'normal',
+          fontStretch: 'normal',
+          fontStyle: 'normal',
+          lineHeight: 1.33333,
+          letterSpacing: 'normal',
         },
       },
     },
@@ -336,7 +335,7 @@ export const openChoreoTheme = createUnifiedTheme({
           borderColor: colors.grey[100],
           boxShadow: `0 1px 2px -1px ${alpha(
             colors.common.black,
-            0.08
+            0.08,
           )}, 0 -3px 9px 0 ${alpha(colors.common.black, 0.04)} inset`,
           borderRadius: 5,
           '$root:hover &': {
