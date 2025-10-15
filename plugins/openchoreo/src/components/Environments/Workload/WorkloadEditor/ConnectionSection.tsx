@@ -23,7 +23,13 @@ interface ConnectionSectionProps {
 
 const useStyles = makeStyles(theme => ({
   accordion: {
-    marginBottom: theme.spacing(2),
+    border: `1px solid ${theme.palette.grey[100]}`,
+    marginBottom: theme.spacing(1),
+    borderRadius: 4,
+    boxShadow: 'none',
+    '&:before': {
+      backgroundColor: 'transparent',
+    },
   },
   addButton: {
     marginTop: theme.spacing(1),
@@ -61,7 +67,7 @@ export const ConnectionSection: FC<ConnectionSectionProps> = ({
           <Button
             startIcon={<AddIcon />}
             onClick={onAddConnection}
-            variant="contained"
+            variant="outlined"
             color="primary"
             className={classes.addButton}
             disabled={disabled}

@@ -157,12 +157,13 @@ export function Workload({
 
       <Drawer open={open} onClose={toggleDrawer} anchor="right">
         <Box
-          bgcolor={theme.palette.grey[200]}
+          bgcolor={theme.palette.secondary.light}
           minWidth={theme.spacing(80)}
           display="flex"
           flexDirection="column"
           height="100%"
           overflow="hidden"
+          p={1}
         >
           <Box
             display="flex"
@@ -170,15 +171,15 @@ export function Workload({
             alignItems="center"
             p={2}
           >
-            <Typography variant="h6" component="h4">
+            <Typography variant="h4" component="h4">
               Configure Workload
             </Typography>
             <IconButton onClick={toggleDrawer} color="default">
               <CloseIcon />
             </IconButton>
           </Box>
-          <Box borderBottom={1} borderColor="grey.400" />
-          <Box flex={1} paddingBottom={2} overflow="auto" bgcolor="grey.200">
+          {/* <Box borderBottom={1} borderColor="grey.400" /> */}
+          <Box flex={1} paddingBottom={2} overflow="auto">
             <WorkloadProvider
               builds={builds}
               workloadSpec={workloadSpec}
