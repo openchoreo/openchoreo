@@ -331,7 +331,6 @@ export const openChoreoTheme = createUnifiedTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         notchedOutline: {
-          backgroundColor: colors.common.white,
           borderColor: colors.grey[100],
           boxShadow: `0 1px 2px -1px ${alpha(
             colors.common.black,
