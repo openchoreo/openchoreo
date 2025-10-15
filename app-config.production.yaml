@@ -44,7 +44,12 @@ techdocs:
 
 auth:
   providers:
-    guest: {}
+    custom:
+      production:
+        metadataUrl: '${OPENCHOREO_AUTH_METADATA_URL}'
+        clientId: '${OPENCHOREO_AUTH_CLIENT_ID}'
+        clientSecret: '${OPENCHOREO_AUTH_CLIENT_SECRET}'
+        callbackUrl: '${OPENCHOREO_AUTH_CALLBACK_URL}'
 
 catalog:
   locations:
@@ -56,14 +61,11 @@ catalog:
       target: /app/templates/create-openchoreo-project/template.yaml
       rules:
         - allow: [Template]
-    - type: file
-      target: /app/examples/org.yaml
-      rules:
-        - allow: [User, Group]
 
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
+  defaultOwner: 'developers' # Default owner for catalog entities: admins, managers, developers, or viewers
   schedule:
     frequency: 30 # seconds between runs (default: 30)
     timeout: 120 # seconds for timeout (default: 120)

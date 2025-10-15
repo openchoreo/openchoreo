@@ -1,11 +1,12 @@
 app:
-  title: OpenChoreo Backstage App
-  baseUrl: http://localhost:3000
+  title: OpenChoreo Portal
+  baseUrl: https://localhost:3000
 
 organization:
   name: OpenChoreo
 
 backend:
+  https: true
   # Used for enabling authentication, secret is shared by all backend plugins
   # See https://backstage.io/docs/auth/service-to-service-auth for
   # information on the format
@@ -14,7 +15,7 @@ backend:
   #     - secret: ${BACKEND_SECRET}
   auth:
     dangerouslyDisableDefaultAuthPolicy: true # TODO: Remove this when added auth properly
-  baseUrl: http://localhost:7007
+  baseUrl: https://localhost:7007
   listen:
     port: 7007
     # Uncomment the following host directive to bind to specific interfaces
@@ -24,7 +25,7 @@ backend:
     # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
     # Default Helmet Content-Security-Policy values can be removed by setting the key to false
   cors:
-    origin: http://localhost:3000
+    origin: https://localhost:3000
     methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
     credentials: true
   # This is for local development only, it is not recommended to use this in production
@@ -66,9 +67,17 @@ techdocs:
 
 auth:
   # see https://backstage.io/docs/auth/ to learn about auth providers
+  environment: development
   providers:
-    # See https://backstage.io/docs/auth/guest/provider
-    guest: {}
+    # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
+    default-idp:
+      development:
+        clientId: 'openchoreo-platform-idp-client'
+        clientSecret: 'openchoreo-platform-idp-client-secret'
+        authorizationUrl: 'https://localhost:8090/oauth2/authorize'
+        tokenUrl: 'https://localhost:8090/oauth2/token'
+        userInfoUrl: 'https://localhost:8090/userinfo'
+        scope: 'openid profile email'
 
 scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
@@ -76,6 +85,7 @@ scaffolder:
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
+  defaultOwner: 'developers' # Default owner for catalog entities: admins, managers, developers, or viewers
   schedule:
     frequency: 30 # seconds between runs (default: 30)
     timeout: 120 # seconds for timeout (default: 120)
@@ -85,7 +95,7 @@ catalog:
     entityFilename: catalog-info.yaml
     pullRequestBranchName: backstage-integration
   rules:
-    - allow: [Component, System, API, Resource, Location]
+    - allow: [Component, System, API, Resource, Location, User, Group]
   locations:
     # Local example template
     - type: file
@@ -96,12 +106,6 @@ catalog:
       target: ../../templates/create-openchoreo-component/template.yaml
       rules:
         - allow: [Template]
-
-    # Local example organizational data
-    - type: file
-      target: ../../examples/org.yaml
-      rules:
-        - allow: [User, Group]
 
     ## Uncomment these lines to add more example data
     # - type: url

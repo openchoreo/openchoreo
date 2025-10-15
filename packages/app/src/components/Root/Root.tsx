@@ -4,6 +4,7 @@ import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -30,6 +31,7 @@ import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -86,6 +88,24 @@ const SidebarLogo = () => {
   );
 };
 
+const SignOutButton = () => {
+  const identityApi = useApi(identityApiRef);
+
+  const handleSignOut = async () => {
+    await identityApi.signOut();
+    // Reload to clear session and redirect to sign-in page
+    window.location.href = '/';
+  };
+
+  return (
+    <SidebarItem
+      icon={ExitToAppIcon}
+      text="Sign Out"
+      onClick={handleSignOut}
+    />
+  );
+};
+
 export const Root = ({ children }: PropsWithChildren<{}>) => (
   <SidebarPage>
     <Sidebar>
@@ -120,6 +140,8 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
       >
         <SidebarSettings />
       </SidebarGroup>
+      <SidebarDivider />
+      <SignOutButton />
     </Sidebar>
     {children}
   </SidebarPage>

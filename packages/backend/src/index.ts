@@ -7,8 +7,12 @@
  */
 
 import { createBackend } from '@backstage/backend-defaults';
+import { OpenChoreoDefaultAuthModule } from '@openchoreo/backstage-plugin-auth-backend-module-openchoreo-default';
+import { rootHttpRouterServiceFactory } from '@backstage/backend-defaults/rootHttpRouter';
 
 const backend = createBackend();
+
+backend.add(rootHttpRouterServiceFactory());
 
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
@@ -19,8 +23,9 @@ backend.add(import('@backstage/plugin-techdocs-backend'));
 // auth plugin
 backend.add(import('@backstage/plugin-auth-backend'));
 // See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
-backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
-// See https://backstage.io/docs/auth/guest/provider
+
+// OpenChoreo Default IDP OAuth provider
+backend.add(OpenChoreoDefaultAuthModule);
 
 // catalog plugin
 backend.add(import('@backstage/plugin-catalog-backend'));

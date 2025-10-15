@@ -51,6 +51,7 @@
     "react-router-dom": "^6.3.0"
   },
   "devDependencies": {
+    "@backstage/plugin-home": "^0.8.13",
     "@backstage/test-utils": "^1.7.11",
     "@playwright/test": "^1.32.3",
     "@testing-library/dom": "^9.0.0",
