@@ -8173,7 +8173,10 @@ __metadata:
   resolution: "@openchoreo/backstage-design-system@workspace:packages/design-system"
   dependencies:
     "@backstage/cli": "npm:^0.34.3"
+    "@backstage/theme": "npm:^0.6.8"
+    "@material-ui/core": "npm:^4.12.2"
     "@testing-library/jest-dom": "npm:^6.0.0"
+    react: "npm:^18.0.2"
   languageName: unknown
   linkType: soft
 
