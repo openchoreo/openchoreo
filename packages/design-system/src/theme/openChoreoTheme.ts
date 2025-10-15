@@ -130,7 +130,7 @@ export const openChoreoTheme = createUnifiedTheme({
     },
     typography: {
       fontFamily: 'Ubuntu Sans, Ubuntu, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      htmlFontSize: 16,
+      htmlFontSize: 15,
       h1: {
         fontSize: 43,
         fontWeight: 700,
@@ -147,17 +147,17 @@ export const openChoreoTheme = createUnifiedTheme({
         marginBottom: 0,
       },
       h4: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: 600,
         marginBottom: 0,
       },
       h5: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 600,
         marginBottom: 0,
       },
       h6: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 600,
         marginBottom: 0,
       },
