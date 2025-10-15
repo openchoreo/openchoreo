@@ -33,7 +33,7 @@ validate_helm_releases() {
         "openchoreo-data-plane:$DATA_PLANE_NS"
         "openchoreo-control-plane:$CONTROL_PLANE_NS"
         "openchoreo-build-plane:$BUILD_PLANE_NS"
-        "openchoreo-identity-provider:$IDENTITY_NS"
+        "openchoreo-workload-identity-provider:$IDENTITY_NS"
         "openchoreo-backstage-demo:$CONTROL_PLANE_NS"
     )
     

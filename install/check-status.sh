@@ -33,7 +33,7 @@ get_component_group() {
         "Control_Plane") echo "cert_manager_cp controller_manager api_server" ;;
         "Data_Plane") echo "vault registry redis envoy_gateway external_gateway internal_gateway fluent_bit_dp" ;;
         "Build_Plane") echo "build_plane" ;;
-        "Identity_Provider") echo "identity_provider" ;;
+        "Identity_Provider") echo "workload_identity_provider" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
         *) echo "" ;;
     esac
@@ -61,12 +61,12 @@ components_cp=("cert_manager_cp" "controller_manager" "api_server")
 components_dp=(
     "cilium" "vault" "registry" "redis" "envoy_gateway"
     "external_gateway" "internal_gateway" "fluent_bit_dp"
-    "build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer"
+    "build_plane" "workload_identity_provider" "opensearch" "opensearch_dashboard" "observer"
 )
 
 # Core vs optional component classification
 core_components=("cilium" "cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "envoy_gateway" "external_gateway" "internal_gateway" "fluent_bit_dp")
-optional_components=("build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer")
+optional_components=("build_plane" "workload_identity_provider" "opensearch" "opensearch_dashboard" "observer")
 
 # Function to get component configuration (namespace:label)
 get_component_config() {
@@ -84,7 +84,7 @@ get_component_config() {
         "internal_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-internal" ;;
         "fluent_bit_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/component=fluent-bit" ;;
         "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
-        "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;
+        "workload_identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-workload-identity-provider" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
         "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;

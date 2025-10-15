@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "openchoreo-identity-provider.fullname" . }}-config
+  name: {{ include "openchoreo-workload-identity-provider.fullname" . }}-config
   labels:
-    {{- include "openchoreo-identity-provider.labels" . | nindent 4 }}
+    {{- include "openchoreo-workload-identity-provider.labels" . | nindent 4 }}
 data:
   deployment.yaml: |
     server:

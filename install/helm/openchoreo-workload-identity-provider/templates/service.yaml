@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "openchoreo-identity-provider.fullname" . }}
+  name: {{ include "openchoreo-workload-identity-provider.fullname" . }}
   labels:
-    {{- include "openchoreo-identity-provider.labels" . | nindent 4 }}
+    {{- include "openchoreo-workload-identity-provider.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -15,4 +15,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "openchoreo-identity-provider.selectorLabels" . | nindent 4 }}
+    {{- include "openchoreo-workload-identity-provider.selectorLabels" . | nindent 4 }}

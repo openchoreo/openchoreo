@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "openchoreo-identity-provider.fullname" . }}-post-install
+  name: {{ include "openchoreo-workload-identity-provider.fullname" . }}-post-install
   labels:
-    {{- include "openchoreo-identity-provider.labels" . | nindent 4 }}
+    {{- include "openchoreo-workload-identity-provider.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "1"
@@ -12,9 +12,9 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ include "openchoreo-identity-provider.fullname" . }}-post-install
+      name: {{ include "openchoreo-workload-identity-provider.fullname" . }}-post-install
       labels:
-        {{- include "openchoreo-identity-provider.labels" . | nindent 8 }}
+        {{- include "openchoreo-workload-identity-provider.labels" . | nindent 8 }}
     spec:
       restartPolicy: Never
       containers:
@@ -31,7 +31,7 @@ spec:
           attempt=0
           
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f --max-time 5 http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/health/liveness 2>/dev/null; then
+            if curl -f --max-time 5 http://{{ include "openchoreo-workload-identity-provider.fullname" . }}:{{ .Values.service.port }}/health/liveness 2>/dev/null; then
               echo "Identity provider service is responding"
               break
             fi
@@ -48,13 +48,13 @@ spec:
           
           # Check if the application already exists
           echo "Checking if application '{{ .Values.defaultApplication.name }}' already exists..."
-          existing_apps=$(curl -s --max-time 30 'http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications')
+          existing_apps=$(curl -s --max-time 30 'http://{{ include "openchoreo-workload-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications')
           
           if echo "$existing_apps" | grep -q '"name":"{{ .Values.defaultApplication.name }}"'; then
             echo "Application '{{ .Values.defaultApplication.name }}' already exists, skipping creation"
           else
             echo "Application does not exist, creating default application..."
-            curl --location 'http://{{ include "openchoreo-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications' \
+            curl --location 'http://{{ include "openchoreo-workload-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications' \
               --header 'Content-Type: application/json' \
               --data '{
                 "name": "{{ .Values.defaultApplication.name }}",
