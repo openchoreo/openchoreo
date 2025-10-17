@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-platform-identity-provider.fullname" . }}-config
+  labels:
+    {{- include "openchoreo-platform-identity-provider.labels" . | nindent 4 }}
+data:
+  deployment.yaml: |
+    server:
+      hostname: {{ .Values.config.server.hostname | quote }}
+      port: {{ .Values.config.server.port }}
+      http_only: {{ .Values.config.server.httpOnly }}
+
+    gate_client:
+      hostname: {{ .Values.config.gateClient.hostname | quote }}
+      port: {{ .Values.config.gateClient.port }}
+      scheme: {{ .Values.config.gateClient.scheme | quote }}
+      login_path: {{ .Values.config.gateClient.loginPath | quote }}
+      error_path: {{ .Values.config.gateClient.errorPath | quote }}
+
+    security:
+      cert_file: {{ .Values.config.security.certFile | quote }}
+      key_file: {{ .Values.config.security.keyFile | quote }}
+
+    database:
+      identity:
+        type: {{ .Values.config.database.identity.type | quote }}
+        path: {{ .Values.config.database.identity.path | quote }}
+        options: {{ .Values.config.database.identity.options | quote }}
+      runtime:
+        type: {{ .Values.config.database.runtime.type | quote }}
+        path: {{ .Values.config.database.runtime.path | quote }}
+        options: {{ .Values.config.database.runtime.options | quote }}
+
+    oauth:
+      jwt:
+        issuer: {{ .Values.config.oauth.jwt.issuer | quote }}
+        validity_period: {{ .Values.config.oauth.jwt.validityPeriod }}
+      refresh_token:
+        renew_on_grant: {{ .Values.config.oauth.refreshToken.renewOnGrant }}
+        validity_period: {{ .Values.config.oauth.refreshToken.validityPeriod }}
+
+    flow:
+      graph_directory: {{ .Values.config.flow.graphDirectory | quote }}
+      authn:
+        default_flow: {{ .Values.config.flow.authn.defaultFlow | quote }}
+    cors:
+      allowed_origins:
+        - "https://localhost:9090"

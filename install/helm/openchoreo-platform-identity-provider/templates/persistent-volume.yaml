@@ -2,14 +2,13 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ include "openchoreo-workload-identity-provider.fullname" . }}-database-pv
+  name: {{ include "openchoreo-platform-identity-provider.fullname" . }}-database-pv
 spec:
   capacity:
     storage: {{ .Values.persistence.database.size }}
   accessModes:
     - {{ .Values.persistence.database.accessMode }}
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
+  persistentVolumeReclaimPolicy: Delete
   hostPath:
-    path: /mnt/shared/workload-identity-provider-db
+    path: /mnt/shared/platform-identity-provider-db
 {{- end }}

@@ -1,4 +1,4 @@
-# Default values for openchoreo-workload-identity-provider.
+# Default values for openchoreo-platform-identity-provider.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -13,12 +13,11 @@ image:
   repository: ghcr.io/asgardeo/thunder
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.5.0"
+  tag: "0.9.0"
 
 imagePullSecrets: []
-nameOverride: "workload-identity-provider"
-fullnameOverride: "workload-identity-provider"
-
+nameOverride: "platform-identity-provider"
+fullnameOverride: "platform-identity-provider"
 
 podAnnotations: {}
 podLabels: {}
@@ -40,7 +39,6 @@ service:
   targetPort: 8090
   nodePort: 30090
 
-
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -52,7 +50,6 @@ resources:
   requests:
     cpu: 50m
     memory: 64Mi
-
 
 # Additional volumes on the output Deployment definition.
 volumes: []
@@ -79,14 +76,14 @@ config:
     hostname: "0.0.0.0"
     port: 8090
     httpOnly: true # ToDO: disable this when using HTTPS
-  
+
   gateClient:
     hostname: "localhost"
     port: 9090
     scheme: "http"
     loginPath: "/login"
     errorPath: "/error"
-  
+
   database:
     identity:
       type: "sqlite"
@@ -96,7 +93,7 @@ config:
       type: "sqlite"
       path: "repository/database/runtimedb.db"
       options: "_journal_mode=WAL&_busy_timeout=5000"
-  
+
   oauth:
     jwt:
       issuer: "https://openchoreo.example.com"
@@ -104,12 +101,12 @@ config:
     refreshToken:
       renewOnGrant: false
       validityPeriod: 86400
-  
+
   flow:
     graphDirectory: "repository/resources/graphs/"
     authn:
       defaultFlow: "auth_flow_config_basic"
-  
+
   security:
     certFile: "repository/resources/security/server.cert"
     keyFile: "repository/resources/security/server.key"
@@ -120,15 +117,29 @@ persistence:
     enabled: true
     # existingClaim: ""
     storageClass: "manual"
-    accessMode: ReadWriteMany
-    size: 1Gi
+    accessMode: ReadWriteOnce
+    size: 500Mi
 
 # Default application creation
 # This is just a sample application that will be used for testing purposes.
 defaultApplication:
   enabled: true
   name: "DefaultApplication"
-  description: "Sample Application for testing"
-  callbackUrl: "https://example.com/callback"
-  clientId: "openchoreo-default-client"
-  clientSecret: "openchoreo-default-secret"
+  description: "Sample Application"
+  backstageIdpProviderName: "default-idp"
+  redirectUrl: "https://localhost:7007/auth/default-idp/handler/frame"
+  clientId: "openchoreo-platform-idp-client"
+
+userDetails:
+  userSchemaName: "engineer"
+  users:
+    - username: "admin"
+      password: "Admin@123"
+      firstName: "admin"
+      lastName: "admin"
+      group: "platformEngineer"
+    - username: "dev"
+      password: "Developer@123"
+      firstName: "Application"
+      lastName: "Developer"
+      group: "developer"

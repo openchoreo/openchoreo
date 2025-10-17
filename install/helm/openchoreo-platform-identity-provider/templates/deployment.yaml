@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-platform-identity-provider.fullname" . }}
+  labels:
+    {{- include "openchoreo-platform-identity-provider.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-platform-identity-provider.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "openchoreo-platform-identity-provider.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-repository
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          command: ['sh', '-c']
+          args:
+            - |
+              {{- if .Values.persistence.database.enabled }}
+              if [ ! -f /data/database/.initialized ]; then
+                echo "Copying database directory from image..."
+                mkdir -p /data/database
+                cp -r /opt/thunder/repository/database/* /data/database/
+                touch /data/database/.initialized
+                echo "Database initialization complete"
+              else
+                echo "Database already initialized"
+              fi
+              {{- end }}
+          volumeMounts:
+            {{- if .Values.persistence.database.enabled }}
+            - name: repository
+              mountPath: /data/database
+            {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          volumeMounts:
+            {{- if .Values.persistence.database.enabled }}
+            - name: repository
+              mountPath: /opt/thunder/repository/database
+            {{- end }}
+            - name: config
+              mountPath: /opt/thunder/repository/conf/deployment.yaml
+              subPath: deployment.yaml
+              readOnly: true
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "openchoreo-platform-identity-provider.fullname" . }}-config
+        {{- if .Values.persistence.database.enabled }}
+        - name: repository
+          persistentVolumeClaim:
+            claimName: {{ include "openchoreo-platform-identity-provider.fullname" . }}-database
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

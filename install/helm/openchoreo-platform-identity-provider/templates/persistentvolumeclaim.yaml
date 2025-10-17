@@ -1,0 +1,15 @@
+{{- if .Values.persistence.database.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "openchoreo-platform-identity-provider.fullname" . }}-database
+  labels:
+    {{- include "openchoreo-platform-identity-provider.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.database.accessMode }}
+  # storageClassName: {{ .Values.persistence.database.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.database.size }}
+{{- end }}
