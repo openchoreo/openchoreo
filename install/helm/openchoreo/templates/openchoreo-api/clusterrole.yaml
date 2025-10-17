@@ -1,0 +1,80 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-api
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+rules:
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - apibindings
+  - apiclasses
+  - apis
+  - buildplanes
+  - builds
+  - components
+  - dataplanes
+  - deployableartifacts
+  - deploymentpipelines
+  - deployments
+  - deploymenttracks
+  - endpoints
+  - environments
+  - gitcommitrequests
+  - organizations
+  - projects
+  - releases
+  - scheduledtaskbindings
+  - scheduledtaskclasses
+  - scheduledtasks
+  - servicebindings
+  - serviceclasses
+  - services
+  - webapplicationbindings
+  - webapplicationclasses
+  - webapplications
+  - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - apibindings/status
+  - apiclasses/status
+  - apis/status
+  - buildplanes/status
+  - builds/status
+  - components/status
+  - dataplanes/status
+  - deployableartifacts/status
+  - deploymentpipelines/status
+  - deployments/status
+  - deploymenttracks/status
+  - endpoints/status
+  - environments/status
+  - gitcommitrequests/status
+  - organizations/status
+  - projects/status
+  - releases/status
+  - scheduledtaskbindings/status
+  - scheduledtaskclasses/status
+  - scheduledtasks/status
+  - servicebindings/status
+  - serviceclasses/status
+  - services/status
+  - webapplicationbindings/status
+  - webapplicationclasses/status
+  - webapplications/status
+  - workloads/status
+  verbs:
+  - get
+  - patch
+  - update

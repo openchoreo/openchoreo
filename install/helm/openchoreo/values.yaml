@@ -1,0 +1,334 @@
+# OpenChoreo Secure Core Values
+# Installs controller, openchoreo-api, backstage with optional cilium
+
+global:
+  clusterName: openchoreo
+
+fullnameOverride: openchoreo
+
+# Pod Security Standards
+podSecurityStandards:
+  enabled: true
+  enforce: restricted
+  audit: restricted
+  warn: restricted
+
+
+
+# Optional Cilium CNI
+cilium:
+  enabled: false
+  cluster:
+    name: openchoreo
+  ipam:
+    mode: kubernetes
+  k8sServicePort: 6443
+  kubeProxyReplacement: true
+  operator:
+    replicas: 1
+  routingMode: tunnel
+  tunnelProtocol: vxlan
+
+# OpenChoreo Controller Manager
+controllerManager:
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/controller
+    tag: latest-dev
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    create: true
+    annotations: {}
+  
+  priorityClass:
+    create: false
+    name: openchoreo-controller-manager
+    value: 1000000
+  
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  
+
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+  
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: controller-manager
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: controller-manager
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# OpenChoreo API Server
+openchoreoApi:
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    create: true
+    annotations: {}
+  
+
+  
+  priorityClass:
+    create: false
+    name: openchoreo-api
+    value: 900000
+  
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+  
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+  
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-server
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-server
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Backstage UI
+backstage:
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 7007
+    nodePort: null
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    create: true
+    annotations: {}
+    annotations: {}
+  
+  priorityClass:
+    create: false
+    name: openchoreo-backstage
+    value: 800000
+  
+
+  
+  backendSecret: ""
+  
+  openchoreoApi:
+    url: ""  # Defaults to internal service URL if empty
+  
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+    - name: PORT
+      value: "7007"
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: backstage
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/component: backstage
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

@@ -1,0 +1,21 @@
+{{- if .Values.openchoreoApi.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  {{- if .Values.openchoreoApi.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.openchoreoApi.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.openchoreoApi.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.openchoreoApi.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      app.kubernetes.io/name: {{ include "openchoreo-secure-core.fullname" . }}
+{{- end }}

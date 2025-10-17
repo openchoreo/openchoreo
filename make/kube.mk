@@ -48,3 +48,25 @@ dev-undeploy: ## Undeploy the Choreo developer version from a Kind cluster confi
 	helm uninstall cilium --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
 	helm uninstall choreo-control-plane --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
 	helm uninstall choreo-dataplane --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
+
+##@ Kind Cluster - Secure Core
+
+.PHONY: kind-install-secure-core
+kind-install-secure-core: helm-generate.openchoreo-secure-core ## Install OpenChoreo Secure Core chart in kind cluster
+	@$(call log_info, Installing OpenChoreo Secure Core...)
+	@# Get API server IP dynamically
+	$(eval K8S_API_IP := $(shell docker inspect openchoreo-control-plane --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo ""))
+	@if [ -z "$(K8S_API_IP)" ]; then \
+		echo "Error: Could not get Kubernetes API server IP. Make sure kind cluster 'openchoreo' is running."; \
+		exit 1; \
+	fi
+	@echo "K8s API IP: $(K8S_API_IP)"
+	helm upgrade --install openchoreo-secure-core \
+	  $(HELM_CHARTS_DIR)/openchoreo-secure-core \
+	  --set cilium.k8sServiceHost=$(K8S_API_IP) \
+	  --namespace openchoreo-system \
+	  --create-namespace \
+	  --wait \
+	  --timeout 5m
+	@$(call log_info, Secure Core installed successfully!)
+	@echo "Access Backstage at: http://localhost:30007"

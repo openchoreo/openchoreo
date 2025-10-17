@@ -1,0 +1,21 @@
+{{- if .Values.podSecurityStandards.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    {{- if eq .Values.podSecurityStandards.enforce "privileged" }}
+    pod-security.kubernetes.io/enforce: privileged
+    {{- else if eq .Values.podSecurityStandards.enforce "baseline" }}
+    pod-security.kubernetes.io/enforce: baseline
+    {{- else }}
+    pod-security.kubernetes.io/enforce: restricted
+    {{- end }}
+    {{- if .Values.podSecurityStandards.audit }}
+    pod-security.kubernetes.io/audit: {{ .Values.podSecurityStandards.audit }}
+    {{- end }}
+    {{- if .Values.podSecurityStandards.warn }}
+    pod-security.kubernetes.io/warn: {{ .Values.podSecurityStandards.warn }}
+    {{- end }}
+{{- end }}

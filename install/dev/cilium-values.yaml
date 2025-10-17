@@ -8,3 +8,11 @@ operator:
   replicas: 1
 routingMode: tunnel
 tunnelProtocol: vxlan
+ingressController:
+  enabled: true
+  default: true
+  loadbalancerMode: shared
+  service:
+    type: NodePort
+    insecureNodePort: 32000
+    secureNodePort: 32001

@@ -1,0 +1,20 @@
+{{- if .Values.controllerManager.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-controller-manager-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app.kubernetes.io/component: controller-manager
+    app.kubernetes.io/name: {{ include "openchoreo-secure-core.fullname" . }}
+{{- end }}

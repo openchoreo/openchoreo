@@ -65,6 +65,15 @@ control_plane_config() {
 worker_config() {
     echo "- role: worker"
     node_config "worker" "1"
+    echo "  extraPortMappings:"
+    echo "  - containerPort: 32000"
+    echo "    hostPort: 80"
+    echo "    listenAddress: \"127.0.0.1\""
+    echo "    protocol: TCP"
+    echo "  - containerPort: 32001"
+    echo "    hostPort: 443"
+    echo "    listenAddress: \"127.0.0.1\""
+    echo "    protocol: TCP"
 }
 
 echo "${kind_cmd}"

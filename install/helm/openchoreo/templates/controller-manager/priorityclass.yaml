@@ -1,0 +1,13 @@
+{{- if .Values.controllerManager.priorityClass.create }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.controllerManager.priorityClass.name }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
+value: {{ .Values.controllerManager.priorityClass.value }}
+globalDefault: false
+description: "Priority class for OpenChoreo controller manager"
+{{- end }}

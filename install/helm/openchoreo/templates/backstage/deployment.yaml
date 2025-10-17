@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  replicas: {{ .Values.backstage.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backstage
+      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: backstage
+        {{- include "openchoreo-secure-core.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "openchoreo-secure-core.backstage.serviceAccountName" . }}
+      {{- if .Values.backstage.priorityClass.create }}
+      priorityClassName: {{ .Values.backstage.priorityClass.name }}
+      {{- end }}
+      {{- with .Values.backstage.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: backstage
+        image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag }}"
+        imagePullPolicy: {{ .Values.backstage.image.pullPolicy }}
+        ports:
+        - containerPort: 7007
+          name: http
+          protocol: TCP
+        env:
+        {{- if .Values.backstage.env }}
+        {{- toYaml .Values.backstage.env | nindent 8 }}
+        {{- end }}
+        - name: OPENCHOREO_API_URL
+          value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-secure-core.fullname" .) .Release.Namespace) }}
+        - name: BACKEND_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backstage-secrets
+              key: backend-secret
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.backstage.resources | nindent 12 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false

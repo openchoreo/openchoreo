@@ -1,0 +1,38 @@
+{{- if .Values.backstage.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "openchoreo-secure-core.fullname" . }}-ui
+  minReplicas: {{ .Values.backstage.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.backstage.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.backstage.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.backstage.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.backstage.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.backstage.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- with .Values.backstage.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
