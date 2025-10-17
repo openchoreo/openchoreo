@@ -279,9 +279,15 @@ install_build_plane() {
     install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "false" "1800"
 }
 
-# Install OpenChoreo Identity Provider
-install_identity_provider() {
-    log_info "Installing OpenChoreo Identity Provider..."
+# Install OpenChoreo Platform Identity Provider (Control Plane)
+install_platform_identity_provider() {
+    log_info "Installing OpenChoreo Platform Identity Provider..."
+    install_helm_chart "openchoreo-platform-identity-provider" "openchoreo-platform-identity-provider" "$CONTROL_PLANE_NS" "true" "false" "1800"
+}
+
+# Install OpenChoreo Workload Identity Provider
+install_workload_identity_provider() {
+    log_info "Installing OpenChoreo Workload Identity Provider..."
     install_helm_chart "openchoreo-workload-identity-provider" "openchoreo-workload-identity-provider" "$IDENTITY_NS" "true" "false" "1800"
 }
 

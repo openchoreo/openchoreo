@@ -79,8 +79,11 @@ install_cilium
 # Step 5: Install OpenChoreo Control Plane
 install_control_plane
 
-# Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
-log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
+# Step 5.1: Install Platform Identity Provider (part of control plane)
+install_platform_identity_provider
+
+# Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Workload Identity Provider in parallel
+log_info "Installing Data Plane, Build Plane, and Workload Identity Provider in parallel..."
 
 # Start installations in background
 install_data_plane &
@@ -89,8 +92,8 @@ DATA_PLANE_PID=$!
 install_build_plane &
 BUILD_PLANE_PID=$!
 
-install_identity_provider &
-IDENTITY_PROVIDER_PID=$!
+install_workload_identity_provider &
+WORKLOAD_IDENTITY_PID=$!
 
 # Wait for all installations to complete
 log_info "Waiting for parallel installations to complete..."
@@ -100,8 +103,8 @@ DATA_PLANE_EXIT=$?
 wait $BUILD_PLANE_PID
 BUILD_PLANE_EXIT=$?
 
-wait $IDENTITY_PROVIDER_PID
-IDENTITY_PROVIDER_EXIT=$?
+wait $WORKLOAD_IDENTITY_PID
+WORKLOAD_IDENTITY_EXIT=$?
 
 # Check if any installation failed
 if [[ $DATA_PLANE_EXIT -ne 0 ]]; then
@@ -114,8 +117,8 @@ if [[ $BUILD_PLANE_EXIT -ne 0 ]]; then
     exit 1
 fi
 
-if [[ $IDENTITY_PROVIDER_EXIT -ne 0 ]]; then
-    log_error "Identity Provider installation failed with exit code $IDENTITY_PROVIDER_EXIT"
+if [[ $WORKLOAD_IDENTITY_EXIT -ne 0 ]]; then
+    log_error "Workload Identity Provider installation failed with exit code $WORKLOAD_IDENTITY_EXIT"
     exit 1
 fi
 
