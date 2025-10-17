@@ -1,3 +1,4 @@
+{{- if eq .Values.global.installationMode "legacy" }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,3 +14,4 @@ spec:
   selector:
     {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch-dashboard") | nindent 4 }}
   type: {{ .Values.opensearchDashboard.service.type }}
+{{- end }}

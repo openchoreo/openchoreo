@@ -26,3 +26,22 @@ keywords:
 maintainers:
   - name: OpenChoreo Team
     url: https://github.com/openchoreo/openchoreo
+
+dependencies:
+  - name: opensearch-operator
+    version: 2.8.0
+    repository: "https://opensearch-project.github.io/opensearch-k8s-operator/"
+    condition: opensearch-operator.enabled
+  - name: opensearch-cluster
+    version: 0.1.0
+    repository: "file://./charts/opensearch-cluster"
+    condition: opensearch-cluster.enabled
+  - name: fluent-bit
+    repository: https://fluent.github.io/helm-charts
+    version: 0.54.0
+    condition: fluent-bit.enabled
+  - alias: prometheus
+    name: kube-prometheus-stack
+    repository: https://prometheus-community.github.io/helm-charts
+    version: 78.3.0
+    condition: prometheus.enabled
