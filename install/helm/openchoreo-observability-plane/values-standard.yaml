@@ -3,3 +3,7 @@
 
 global:
   installationMode: standard
+
+# Enable the OpenSearch Operator for standard mode
+opensearch-operator:
+  enabled: true

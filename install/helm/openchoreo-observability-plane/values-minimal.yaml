@@ -3,3 +3,7 @@
 
 global:
   installationMode: minimal
+
+# Disable the OpenSearch Operator for minimal mode
+opensearch-operator:
+  enabled: false

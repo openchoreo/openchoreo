@@ -89,3 +89,46 @@ observer:
     requests:
       cpu: 100m
       memory: 128Mi
+
+# OpenSearch Operator configuration (deployed when installationMode is standard)
+opensearch-operator:
+  enabled: false # minimal/legacy modes will set this to false
+
+  installCRDs: false # CRDs are deployed from the crds directory
+
+  fullnameOverride: "opensearch-operator"
+
+  securityContext:
+    runAsNonRoot: true
+
+  serviceAccount:
+    create: true
+    name: "opensearch-operator"
+
+  manager:
+    resources: # Chart default values
+      limits:
+        cpu: 200m
+        memory: 500Mi
+      requests:
+        cpu: 100m
+        memory: 350Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - all
+      readOnlyRootFilesystem: true
+      runAsGroup: 10500
+      runAsUser: 10500
+    watchNamespace: "openchoreo-observability-plane"
+
+  kubeRbacProxy:
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - all
+      readOnlyRootFilesystem: true
+      runAsGroup: 10500
+      runAsUser: 10500
