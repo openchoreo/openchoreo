@@ -257,3 +257,83 @@ fluent-bit:
     volumeMounts:
     - name: db
       mountPath: /var/lib/fluent-bit/db
+
+# Prometheus configuration
+prometheus:
+  enabled: false # minimal/legacy modes will set this to false
+  fullnameOverride: "prometheus"
+
+  ## Manages Prometheus and Alertmanager components
+  prometheusOperator:
+    enabled: true
+    fullnameOverride: prometheus-operator
+
+  ## Install Prometheus Operator CRDs
+  crds:
+    enabled: true
+
+  ## Setting to produces cleaner resource names
+  cleanPrometheusOperatorObjectNames: true
+
+  ## Configuration for alertmanager
+  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      podMetadata:
+        name: alertmanager
+
+  ## Configuration for grafana
+  # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: prom-operator
+
+  ## Flag to disable all the kubernetes component scrapers
+  kubernetesServiceMonitors:
+    enabled: true
+  ## Component scraping kube state metrics
+  kubeStateMetrics:
+    enabled: true # kubeStateMetrics service monitor needs to be custom defined
+  ## Configuration for kube-state-metrics subchart
+  kube-state-metrics:
+    fullnameOverride: kube-state-metrics
+
+  ## Deploy a Prometheus instance
+  prometheus:
+    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+
+  ## Configuration for thanosRuler
+  ## ref: https://thanos.io/tip/components/rule.md/
+  thanosRuler:
+    enabled: false # This section needs to be further configured for queryEndpoints etc.
+
+  ## Set the following flags to false when custom recording rules are added to templates
+  ## Create default rules for monitoring the cluster
+  defaultRules:
+    create: true
+  ## Component scraping the kubelet and kubelet-hosted cAdvisor
+  kubelet:
+    enabled: true
+
+  ## Set the following flags to false when custom recording rules are added to templates
+  ## Since openchoreo-observability not meant to monitor the kubernetes cluster
+  ## Component scraping the kube api server
+  kubeApiServer:
+    enabled: true
+  kubeControllerManager:
+    enabled: true
+  coreDns:
+    enabled: true
+  kubeEtcd:
+    enabled: true
+  kubeScheduler:
+    enabled: true
+  kubeProxy:
+    enabled: true
+  nodeExporter:
+    enabled: true
+
+  windowsMonitoring:
+    enabled: false # This is the base chart default, can be removed from values.yaml

@@ -15,3 +15,7 @@ opensearch-cluster:
 # Disable the Fluent Bit for minimal mode (Will be enabled once minimal mode is supported)
 fluent-bit:
   enabled: false
+
+# Disable the Prometheus for minimal mode
+prometheus:
+  enabled: false

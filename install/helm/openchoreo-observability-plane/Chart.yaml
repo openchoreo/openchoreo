@@ -40,3 +40,8 @@ dependencies:
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0
     condition: fluent-bit.enabled
+  - alias: prometheus
+    name: kube-prometheus-stack
+    repository: https://prometheus-community.github.io/helm-charts
+    version: 78.3.0
+    condition: prometheus.enabled

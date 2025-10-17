@@ -15,3 +15,7 @@ opensearch-cluster:
 # Enable the Fluent Bit for standard mode
 fluent-bit:
   enabled: true
+
+# Enable the Prometheus for standard mode
+prometheus:
+  enabled: true
