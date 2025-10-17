@@ -11,3 +11,7 @@ opensearch-operator:
 # Disable the OpenSearch Cluster for minimal mode
 opensearch-cluster:
   enabled: false
+
+# Disable the Fluent Bit for minimal mode (Will be enabled once minimal mode is supported)
+fluent-bit:
+  enabled: false

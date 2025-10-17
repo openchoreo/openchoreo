@@ -36,3 +36,7 @@ dependencies:
     version: 0.1.0
     repository: "file://./charts/opensearch-cluster"
     condition: opensearch-cluster.enabled
+  - name: fluent-bit
+    repository: https://fluent.github.io/helm-charts
+    version: 0.54.0
+    condition: fluent-bit.enabled

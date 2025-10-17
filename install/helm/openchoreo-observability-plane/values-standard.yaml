@@ -11,3 +11,7 @@ opensearch-operator:
 # Enable the OpenSearch Cluster for standard mode
 opensearch-cluster:
   enabled: true
+
+# Enable the Fluent Bit for standard mode
+fluent-bit:
+  enabled: true

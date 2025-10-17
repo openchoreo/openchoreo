@@ -136,3 +136,124 @@ opensearch-operator:
 # OpenSearch Cluster configuration (sub-chart)
 opensearch-cluster:
   enabled: false # minimal/legacy modes will set this to false
+
+# Fluent Bit configuration
+fluent-bit:
+  enabled: false # minimal/legacy modes will set this to false
+  config:
+    customParsers: |
+      [PARSER]
+          Name docker_no_time
+          Format json
+          Time_Keep Off
+          Time_Key time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    inputs: |
+      [INPUT]
+          Name tail
+          Buffer_Chunk_Size 32KB
+          Buffer_Max_Size 2MB
+          DB /var/lib/fluent-bit/db/tail-container-logs.db
+          Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-observability-plane_*.log
+          Inotify_Watcher false
+          Mem_Buf_Limit 256MB
+          Path /var/log/containers/*.log
+          multiline.parser docker, cri
+          Read_from_Head On
+          Refresh_Interval 5
+          Skip_Long_Lines On
+          Tag kube.*
+
+    filters: |
+      [FILTER]
+          Name kubernetes
+          Buffer_Size 32MB
+          K8S-Logging.Parser On
+          K8S-Logging.Exclude On
+          Keep_Log On
+          Match kube.*
+          Merge_Log Off
+          tls.verify Off
+          Use_Kubelet true
+
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd admin
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
+  dnsPolicy: ClusterFirstWithHostNet
+  hostNetwork: true
+
+  extraVolumeMounts:
+  - name: db
+    mountPath: "/var/lib/fluent-bit/db"
+    readOnly: false
+  extraVolumes:
+    - name: db
+      hostPath:
+        path: /var/lib/fluent-bit/db
+        type: DirectoryOrCreate
+
+  fullnameOverride: "fluent-bit"
+  metricsPort: 2021
+
+  rbac:
+    nodeAccess: true
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 10000
+
+  service:
+    port: 2021
+
+  testFramework:
+    enabled: false
+
+  initContainers:
+  - name: set-volume-ownership
+    image: busybox
+    command: ["sh", "-c", "chown -R 10000:10000 /var/lib/fluent-bit/db"]
+    resources:
+      limits:
+        cpu: 15m
+        memory: "32Mi"
+      requests:
+        cpu: 10m
+        memory: "24Mi"
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+      readOnlyRootFilesystem: true
+      runAsUser: 0
+    volumeMounts:
+    - name: db
+      mountPath: /var/lib/fluent-bit/db
