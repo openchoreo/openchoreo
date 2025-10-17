@@ -4,6 +4,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { OpenChoreoEntityProvider } from './provider/OpenChoreoEntityProvider';
+import { EnvironmentEntityProcessor } from './processors';
 
 /**
  * OpenChoreo catalog backend module
@@ -32,6 +33,9 @@ export const catalogModuleOpenchoreo = createBackendModule({
           frequency: { seconds: frequency },
           timeout: { seconds: timeout },
         });
+
+        // Register the Environment entity processor
+        catalog.addProcessor(new EnvironmentEntityProcessor());
 
         catalog.addEntityProvider(
           new OpenChoreoEntityProvider(taskRunner, logger, config),

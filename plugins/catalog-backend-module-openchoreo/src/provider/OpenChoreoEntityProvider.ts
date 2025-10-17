@@ -12,6 +12,7 @@ import {
   ModelsProject,
   ModelsOrganization,
   ModelsComponent,
+  ModelsEnvironment,
   ModelsCompleteComponent,
   WorkloadEndpoint,
 } from '@openchoreo/backstage-plugin-api';
@@ -19,6 +20,7 @@ import {
   CHOREO_ANNOTATIONS,
   CHOREO_LABELS,
 } from '@openchoreo/backstage-plugin-api';
+import { EnvironmentEntityV1alpha1 } from '../kinds';
 
 /**
  * Provides entities from OpenChoreo API
@@ -80,6 +82,25 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         this.translateOrganizationToDomain(org),
       );
       allEntities.push(...domainEntities);
+
+      // Get environments for each organization and create Environment entities
+      for (const org of organizations) {
+        try {
+          const environments = await this.client.getAllEnvironments(org.name);
+          this.logger.info(
+            `Found ${environments.length} environments in organization: ${org.name}`,
+          );
+
+          const environmentEntities: Entity[] = environments.map(environment =>
+            this.translateEnvironmentToEntity(environment, org.name),
+          );
+          allEntities.push(...environmentEntities);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to fetch environments for organization ${org.name}: ${error}`,
+          );
+        }
+      }
 
       // Get projects for each organization and create System entities
       for (const org of organizations) {
@@ -181,8 +202,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         e => e.kind === 'Component',
       ).length;
       const apiCount = allEntities.filter(e => e.kind === 'API').length;
+      const environmentCount = allEntities.filter(e => e.kind === 'Environment').length;
       this.logger.info(
-        `Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components, ${apiCount} apis)`,
+        `Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components, ${apiCount} apis, ${environmentCount} environments)`,
       );
     } catch (error) {
       this.logger.error(`Failed to run OpenChoreoEntityProvider: ${error}`);
@@ -258,6 +280,55 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     };
 
     return systemEntity;
+  }
+
+  /**
+   * Translates a ModelsEnvironment from OpenChoreo API to a Backstage Environment entity
+   */
+  private translateEnvironmentToEntity(
+    environment: ModelsEnvironment,
+    orgName: string,
+  ): EnvironmentEntityV1alpha1 {
+    const environmentEntity: EnvironmentEntityV1alpha1 = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Environment',
+      metadata: {
+        name: environment.name,
+        title: environment.displayName || environment.name,
+        description: environment.description || `${environment.name} environment`,
+        tags: [
+          'openchoreo',
+          'environment',
+          environment.isProduction ? 'production' : 'non-production',
+        ],
+        annotations: {
+          'backstage.io/managed-by-location': `provider:${this.getProviderName()}`,
+          'backstage.io/managed-by-origin-location': `provider:${this.getProviderName()}`,
+          [CHOREO_ANNOTATIONS.ENVIRONMENT]: environment.name,
+          [CHOREO_ANNOTATIONS.ORGANIZATION]: orgName,
+          [CHOREO_ANNOTATIONS.NAMESPACE]: environment.namespace,
+          [CHOREO_ANNOTATIONS.CREATED_AT]: environment.createdAt,
+          [CHOREO_ANNOTATIONS.STATUS]: environment.status,
+          'openchoreo.io/data-plane-ref': environment.dataPlaneRef,
+          'openchoreo.io/dns-prefix': environment.dnsPrefix,
+          'openchoreo.io/is-production': environment.isProduction.toString(),
+        },
+        labels: {
+          [CHOREO_LABELS.MANAGED]: 'true',
+          'openchoreo.io/environment-type': environment.isProduction ? 'production' : 'non-production',
+        },
+      },
+      spec: {
+        type: environment.isProduction ? 'production' : 'non-production',
+        owner: 'guests', // This could be configured or mapped from environment metadata
+        domain: orgName, // Link to the parent domain (organization)
+        isProduction: environment.isProduction,
+        dataPlaneRef: environment.dataPlaneRef,
+        dnsPrefix: environment.dnsPrefix,
+      },
+    };
+
+    return environmentEntity;
   }
 
   /**

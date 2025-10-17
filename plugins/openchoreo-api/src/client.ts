@@ -3,6 +3,7 @@ import {
   ModelsProject,
   ModelsOrganization,
   ModelsComponent,
+  ModelsEnvironment,
   ModelsBuildTemplate,
   ModelsBuild,
   OpenChoreoApiResponse,
@@ -82,6 +83,37 @@ export class OpenChoreoApiClient {
       return organizations;
     } catch (error) {
       this.logger?.error(`Failed to fetch organizations: ${error}`);
+      throw error;
+    }
+  }
+
+  async getAllEnvironments(orgName: string): Promise<ModelsEnvironment[]> {
+    this.logger?.info(`Fetching environments for organization: ${orgName}`);
+
+    try {
+      const response = await this.client.environmentsGet(
+        { orgName },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiResponse<ModelsEnvironment> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const environments = apiResponse.data.items;
+      this.logger?.info(
+        `Successfully fetched ${environments.length} environments for org: ${orgName} (total: ${apiResponse.data.totalCount})`,
+      );
+
+      return environments;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch environments for org ${orgName}: ${error}`,
+      );
       throw error;
     }
   }
