@@ -3,32 +3,38 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
+  # Installation mode for the OpenChoreo Observability Plane
+  # standard: Operator managed OpenSearch cluster will be deployed
+  # minimal: Single replica OpenSearch instance will be deployed
+  # legacy: Legacy mode with single replica OpenSearch statefulset and single replica OpenSearch Dashboards will be deployed
+  installationMode: legacy
+
 # Customizing OpenSearch configurations
 opensearch:
   image:
     repository: opensearchproject/opensearch
     tag: "2.11.0"
     pullPolicy: IfNotPresent
-  
+
   service:
     type: NodePort
     httpPort: 9200
     transportPort: 9300
     # NodePort configuration for cross-cluster access
     nodePort: 30920  # Fixed port for external access from other clusters
-  
+
   config:
     clusterName: opensearch-cluster
     discoveryType: single-node
     javaOpts: "-Xms512m -Xmx512m"
     memoryLock: false
     disableSecurity: true
-  
+
   authentication:
     basicAuth:
       username: admin
       password: admin
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -36,13 +42,13 @@ opensearch:
     requests:
       cpu: 100m
       memory: 512Mi
-  
+
   persistence:
     enabled: true
     storageClass: ""
     accessMode: ReadWriteOnce
     size: 5Gi
-  
+
   replicas: 1
 
 # Customizing OpenSearch Dashboards configurations
@@ -51,31 +57,31 @@ opensearchDashboard:
     repository: opensearchproject/opensearch-dashboards
     tag: "2.11.0"
     pullPolicy: IfNotPresent
-  
+
   service:
     type: NodePort
     port: 5601
-  
+
   config:
     disableSecurity: true
-  
+
   replicas: 1
 
 # OpenChoreo Observer Service Configuration
 observer:
   replicas: 1
-  
+
   image:
     repository: ghcr.io/openchoreo/observer
     tag: ""  # If no value is set, use Chart.AppVersion
     pullPolicy: IfNotPresent
-  
+
   service:
     type: ClusterIP
     port: 8080
-  
+
   logLevel: info
-  
+
   resources:
     limits:
       cpu: 500m

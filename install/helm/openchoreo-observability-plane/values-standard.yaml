@@ -1,0 +1,5 @@
+# Values file for standard installation mode
+# This file overrides the default values.yaml for standard deployments
+
+global:
+  installationMode: standard
