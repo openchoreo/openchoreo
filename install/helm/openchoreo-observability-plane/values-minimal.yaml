@@ -7,3 +7,7 @@ global:
 # Disable the OpenSearch Operator for minimal mode
 opensearch-operator:
   enabled: false
+
+# Disable the OpenSearch Cluster for minimal mode
+opensearch-cluster:
+  enabled: false

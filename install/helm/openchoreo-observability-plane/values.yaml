@@ -132,3 +132,7 @@ opensearch-operator:
       readOnlyRootFilesystem: true
       runAsGroup: 10500
       runAsUser: 10500
+
+# OpenSearch Cluster configuration (sub-chart)
+opensearch-cluster:
+  enabled: false # minimal/legacy modes will set this to false
