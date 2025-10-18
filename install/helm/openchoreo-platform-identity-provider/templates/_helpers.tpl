@@ -61,6 +61,7 @@ They should NOT include version or chart labels as these change with upgrades.
 {{- define "openchoreo-platform-identity-provider.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "openchoreo-platform-identity-provider.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+role: app
 {{- end }}
 
 {{/*

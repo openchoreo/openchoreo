@@ -5,6 +5,7 @@ metadata:
   name: {{ include "openchoreo-platform-identity-provider.fullname" . }}-post-install
   labels:
     {{- include "openchoreo-platform-identity-provider.labels" . | nindent 4 }}
+    role: job
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "1"
@@ -29,13 +30,13 @@ spec:
           echo "Waiting for identity-provider service to be ready..."
           max_attempts=60
           attempt=0
-          
+
           while [ $attempt -lt $max_attempts ]; do
-            if curl -f --max-time 5 http://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/health/liveness 2>/dev/null; then
+            if curl -k -f --max-time 5 https://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/health/liveness 2>/dev/null; then
               echo "Identity provider service is responding"
               break
             fi
-            
+
             echo "Attempt $((attempt + 1))/$max_attempts: Waiting for service to respond..."
             sleep 10
             attempt=$((attempt + 1))
@@ -48,13 +49,13 @@ spec:
           
           # Check if the application already exists
           echo "Checking if application '{{ .Values.defaultApplication.name }}' already exists..."
-          existing_apps=$(curl -s --max-time 30 'http://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications')
-          
+          existing_apps=$(curl -k -s --max-time 10 'https://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications')
+
           if echo "$existing_apps" | grep -q '"name":"{{ .Values.defaultApplication.name }}"'; then
             echo "Application '{{ .Values.defaultApplication.name }}' already exists, skipping creation"
           else
             echo "Application does not exist, creating default application..."
-            curl --location 'http://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications' \
+            curl -k --location 'https://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/applications' \
               --header 'Content-Type: application/json' \
               --data '{
                 "name": "{{ .Values.defaultApplication.name }}",
@@ -74,11 +75,42 @@ spec:
                         "code"
                       ],
                       "token_endpoint_auth_methods": [
-                        "client_secret_basic",
-                        "client_secret_post"
+                        "none"
                       ],
-                      "pkce_required": false,
-                      "public_client": true
+                      "pkce_required": true,
+                      "public_client": true,
+                      "token": {
+                        "issuer": "thunder",
+                        "access_token": {
+                          "validity_period": 3600,
+                          "user_attributes": [
+                            "given_name",
+                            "family_name",
+                            "username",
+                            "group"
+                          ]
+                        },
+                        "id_token": {
+                          "validity_period": 3600,
+                          "user_attributes": [
+                            "given_name",
+                            "family_name",
+                            "username",
+                            "group"
+                          ],
+                          "scope_claims": {
+                            "group": [
+                              "group"
+                            ],
+                            "profile": [
+                              "username",
+                              "given_name",
+                              "family_name",
+                              "picture"
+                            ]
+                          }
+                        }
+                      }
                     }
                   }
                 ]
@@ -93,13 +125,13 @@ spec:
           
           # Check if the user schema already exists
           echo "Checking if user schema '{{ .Values.userDetails.userSchemaName }}' already exists..."
-          existing_schemas=$(curl -s --max-time 30 'http://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/user-schemas')
-          
+          existing_schemas=$(curl -k -s --max-time 10 'https://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/user-schemas')
+
           if echo "$existing_schemas" | grep -q '"name":"{{ .Values.userDetails.userSchemaName }}"'; then
             echo "User schema '{{ .Values.userDetails.userSchemaName }}' already exists, skipping creation"
           else
             echo "User schema does not exist, creating user schema..."
-            curl --location 'http://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/user-schemas' \
+            curl -k --location 'https://{{ include "openchoreo-platform-identity-provider.fullname" . }}:{{ .Values.service.port }}/user-schemas' \
               --header 'accept: application/json' \
               --header 'Content-Type: application/json' \
               --data '{
@@ -113,10 +145,10 @@ spec:
                     "type": "string",
                     "required": true
                   },
-                  "firstName": {
+                  "given_name": {
                     "type": "string"
                   },
-                  "lastName": {
+                  "family_name": {
                     "type": "string"
                   },
                   "group": {
@@ -139,13 +171,13 @@ spec:
           {{- range .Values.userDetails.users }}
           # Check if the user already exists
           echo "Checking if user '{{ .username }}' already exists..."
-          existing_users=$(curl -s --max-time 30 'http://{{ include "openchoreo-platform-identity-provider.fullname" $ }}:{{ $.Values.service.port }}/users')
-          
+          existing_users=$(curl -k -s --max-time 10 'https://{{ include "openchoreo-platform-identity-provider.fullname" $ }}:{{ $.Values.service.port }}/users')
+
           if echo "$existing_users" | grep -q '"username":"{{ .username }}"'; then
             echo "User '{{ .username }}' already exists, skipping creation"
           else
             echo "User does not exist, creating user '{{ .username }}'..."
-            curl --location 'http://{{ include "openchoreo-platform-identity-provider.fullname" $ }}:{{ $.Values.service.port }}/users' \
+            curl -k --location 'https://{{ include "openchoreo-platform-identity-provider.fullname" $ }}:{{ $.Values.service.port }}/users' \
               --header 'accept: application/json' \
               --header 'Content-Type: application/json' \
               --data '{
@@ -153,8 +185,8 @@ spec:
                 "attributes": {
                   "username": "{{ .username }}",
                   "password": "{{ .password }}",
-                  "firstName": "{{ .firstName }}",
-                  "lastName": "{{ .lastName }}",
+                  "given_name": "{{ .given_name }}",
+                  "family_name": "{{ .family_name }}",
                   "group": "{{ .group }}"
                 }
               }' \

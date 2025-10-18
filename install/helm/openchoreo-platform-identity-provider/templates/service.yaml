@@ -14,5 +14,12 @@ spec:
       {{- end }}
       protocol: TCP
       name: http
+    - port: {{ .Values.service.gatePort }}
+      targetPort: {{ .Values.service.gateTargetPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.gateNodePort }}
+      nodePort: {{ .Values.service.gateNodePort }}
+      {{- end }}
+      protocol: TCP
+      name: gate
   selector:
     {{- include "openchoreo-platform-identity-provider.selectorLabels" . | nindent 4 }}
