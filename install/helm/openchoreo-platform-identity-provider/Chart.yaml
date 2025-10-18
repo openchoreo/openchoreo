@@ -1,0 +1,18 @@
+apiVersion: v2
+name: openchoreo-platform-identity-provider
+description: A Helm chart for OpenChoreo Platform Identity Provider
+type: application
+# Version strategy: latest-dev for development, replaced by CI for releases
+version: 0.0.0-latest-dev
+appVersion: "latest-dev"
+keywords:
+  - identity
+  - oauth
+  - authentication
+  - openchoreo
+home: https://github.com/openchoreo/openchoreo
+sources:
+  - https://github.com/openchoreo/openchoreo
+maintainers:
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/openchoreo

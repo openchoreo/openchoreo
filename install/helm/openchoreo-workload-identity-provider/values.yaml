@@ -1,4 +1,4 @@
-# Default values for openchoreo-identity-provider.
+# Default values for openchoreo-workload-identity-provider.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -16,8 +16,8 @@ image:
   tag: "0.5.0"
 
 imagePullSecrets: []
-nameOverride: "identity-provider"
-fullnameOverride: "identity-provider"
+nameOverride: "workload-identity-provider"
+fullnameOverride: "workload-identity-provider"
 
 
 podAnnotations: {}

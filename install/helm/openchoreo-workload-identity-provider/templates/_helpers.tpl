@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "openchoreo-identity-provider.name" -}}
+{{- define "openchoreo-workload-identity-provider.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "openchoreo-identity-provider.fullname" -}}
+{{- define "openchoreo-workload-identity-provider.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,7 +26,7 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "openchoreo-identity-provider.chart" -}}
+{{- define "openchoreo-workload-identity-provider.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -40,9 +40,9 @@ These labels should be applied to all resources and include:
 - app.kubernetes.io/managed-by: Tool being used to manage the application
 - app.kubernetes.io/part-of: Name of a higher level application this one is part of
 */}}
-{{- define "openchoreo-identity-provider.labels" -}}
-helm.sh/chart: {{ include "openchoreo-identity-provider.chart" . }}
-{{ include "openchoreo-identity-provider.selectorLabels" . }}
+{{- define "openchoreo-workload-identity-provider.labels" -}}
+helm.sh/chart: {{ include "openchoreo-workload-identity-provider.chart" . }}
+{{ include "openchoreo-workload-identity-provider.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -58,17 +58,17 @@ Selector labels
 These labels are used for pod selectors and should be stable across upgrades.
 They should NOT include version or chart labels as these change with upgrades.
 */}}
-{{- define "openchoreo-identity-provider.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "openchoreo-identity-provider.name" . }}
+{{- define "openchoreo-workload-identity-provider.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "openchoreo-workload-identity-provider.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "openchoreo-identity-provider.serviceAccountName" -}}
+{{- define "openchoreo-workload-identity-provider.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "openchoreo-identity-provider.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "openchoreo-workload-identity-provider.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -83,17 +83,17 @@ The component label (app.kubernetes.io/component) is used to identify different
 components within the same application (e.g., keycloak, postgres, admin).
 
 Usage:
-  {{ include "openchoreo-identity-provider.componentLabels" (dict "context" . "component" "my-component") }}
+  {{ include "openchoreo-workload-identity-provider.componentLabels" (dict "context" . "component" "my-component") }}
 
 Example with values:
-  {{ include "openchoreo-identity-provider.componentLabels" (dict "context" . "component" .Values.myComponent.name) }}
+  {{ include "openchoreo-workload-identity-provider.componentLabels" (dict "context" . "component" .Values.myComponent.name) }}
 
 Parameters:
   - context: The current Helm context (usually .)
   - component: The component name (e.g., "keycloak", "postgres", "admin")
 */}}
-{{- define "openchoreo-identity-provider.componentLabels" -}}
-{{ include "openchoreo-identity-provider.labels" .context }}
+{{- define "openchoreo-workload-identity-provider.componentLabels" -}}
+{{ include "openchoreo-workload-identity-provider.labels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
@@ -108,16 +108,16 @@ This should be used for:
 These labels must be stable and should not include version information.
 
 Usage:
-  {{ include "openchoreo-identity-provider.componentSelectorLabels" (dict "context" . "component" "my-component") }}
+  {{ include "openchoreo-workload-identity-provider.componentSelectorLabels" (dict "context" . "component" "my-component") }}
 
 Example with values:
-  {{ include "openchoreo-identity-provider.componentSelectorLabels" (dict "context" . "component" .Values.myComponent.name) }}
+  {{ include "openchoreo-workload-identity-provider.componentSelectorLabels" (dict "context" . "component" .Values.myComponent.name) }}
 
 Parameters:
   - context: The current Helm context (usually .)
   - component: The component name (e.g., "keycloak", "postgres", "admin")
 */}}
-{{- define "openchoreo-identity-provider.componentSelectorLabels" -}}
-{{ include "openchoreo-identity-provider.selectorLabels" .context }}
+{{- define "openchoreo-workload-identity-provider.componentSelectorLabels" -}}
+{{ include "openchoreo-workload-identity-provider.selectorLabels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}

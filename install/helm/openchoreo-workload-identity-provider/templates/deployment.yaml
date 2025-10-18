@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-identity-provider.fullname" . }}
+  name: {{ include "openchoreo-workload-identity-provider.fullname" . }}
   labels:
-    {{- include "openchoreo-identity-provider.labels" . | nindent 4 }}
+    {{- include "openchoreo-workload-identity-provider.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "openchoreo-identity-provider.selectorLabels" . | nindent 6 }}
+      {{- include "openchoreo-workload-identity-provider.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "openchoreo-identity-provider.labels" . | nindent 8 }}
+        {{- include "openchoreo-workload-identity-provider.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -80,11 +80,11 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "openchoreo-identity-provider.fullname" . }}-config
+            name: {{ include "openchoreo-workload-identity-provider.fullname" . }}-config
         {{- if .Values.persistence.database.enabled }}
         - name: repository
           persistentVolumeClaim:
-            claimName: {{ include "openchoreo-identity-provider.fullname" . }}-database
+            claimName: {{ include "openchoreo-workload-identity-provider.fullname" . }}-database
         {{- end }}
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
