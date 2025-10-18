@@ -1,261 +1,868 @@
-# OpenChoreo Secure Core Values
+# @schema
+# type: object
+# @schema
+# -- OpenChoreo Secure Core Values
 # Installs controller, openchoreo-api, backstage with optional cilium
-
+# @schema
+# type: [null, object]
+# @schema
+# -- Global configuration values that affect all components
 global:
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- The name of the cluster where OpenChoreo is deployed
   clusterName: openchoreo
 
+# @schema
+# type: [null, string]
+# @schema
+# -- Override the full name of the chart release
 fullnameOverride: openchoreo
 
-# Pod Security Standards
+# @schema
+# type: [null, object]
+# @schema
+# -- Pod Security Standards configuration for enforcing security policies
 podSecurityStandards:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable Pod Security Standards enforcement
   enabled: true
+  # @schema
+  # enum: [privileged, baseline, restricted]
+  # @schema
+  # -- Enforcement level for Pod Security Standards
   enforce: restricted
+  # @schema
+  # enum: [privileged, baseline, restricted]
+  # @schema
+  # -- Audit level for Pod Security Standards
   audit: restricted
+  # @schema
+  # enum: [privileged, baseline, restricted]
+  # @schema
+  # -- Warning level for Pod Security Standards
   warn: restricted
 
-
-
-# Optional Cilium CNI
-cilium:
-  enabled: false
-  cluster:
-    name: openchoreo
-  ipam:
-    mode: kubernetes
-  k8sServicePort: 6443
-  kubeProxyReplacement: true
-  operator:
-    replicas: 1
-  routingMode: tunnel
-  tunnelProtocol: vxlan
-
-# OpenChoreo Controller Manager
+# @schema
+# type: [null, object]
+# @schema
+# -- OpenChoreo Controller Manager configuration
 controllerManager:
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Number of controller manager replicas
   replicas: 1
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Container image configuration
   image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image repository
     repository: ghcr.io/openchoreo/controller
-    tag: latest-dev
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image tag
+    tag: latest
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
+    # -- Image pull policy
     pullPolicy: Always
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource limits and requests for the controller manager
   resources:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource limits
     limits:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU limit
       cpu: 1000m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory limit
       memory: 1Gi
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource requests
     requests:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU request
       cpu: 200m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory request
       memory: 256Mi
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service account configuration
   serviceAccount:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a new service account
     create: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Annotations to add to the service account
     annotations: {}
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Priority class configuration
   priorityClass:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a priority class
     create: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Priority class name
     name: openchoreo-controller-manager
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Priority class value
     value: 1000000
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service configuration
   service:
+    # @schema
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # @schema
+    # -- Service type
     type: ClusterIP
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Service port
     port: 8080
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Node port (required when type is NodePort)
     nodePort: null
-  
-
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Metrics configuration
   metrics:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable metrics collection
     enabled: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- ServiceMonitor configuration for Prometheus
     serviceMonitor:
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- Enable ServiceMonitor
       enabled: false
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Namespace for ServiceMonitor
       namespace: monitoring
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape interval
       interval: 30s
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape timeout
       scrapeTimeout: 10s
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Labels for ServiceMonitor
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Relabelings for ServiceMonitor
       relabelings: []
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod Disruption Budget configuration
   podDisruptionBudget:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable Pod Disruption Budget
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum available pods
     minAvailable: 1
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Network policy configuration
   networkPolicy:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable network policy
     enabled: false
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Ingress rules
     ingress: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Egress rules
     egress: []
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Horizontal Pod Autoscaler configuration
   autoscaling:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable autoscaling
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum replicas
     minReplicas: 1
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Maximum replicas
     maxReplicas: 3
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target memory utilization percentage
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Autoscaling behavior configuration
     behavior:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale down behavior
       scaleDown:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale down policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale up behavior
       scaleUp:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale up policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 100
             periodSeconds: 15
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # enum: [Min, Max, Disabled]
+        # @schema
+        # -- Policy selection
         selectPolicy: Max
-  
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Topology spread constraints for pod distribution
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
       whenUnsatisfiable: ScheduleAnyway
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: controller-manager
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
       whenUnsatisfiable: DoNotSchedule
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: controller-manager
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Node selector for pod assignment
   nodeSelector: {}
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Tolerations for pod assignment
   tolerations: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Affinity rules for pod assignment
   affinity: {}
 
-# OpenChoreo API Server
+# @schema
+# type: [null, object]
+# @schema
+# -- OpenChoreo API Server configuration
 openchoreoApi:
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Number of API server replicas
   replicas: 1
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Container image configuration
   image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image repository
     repository: ghcr.io/openchoreo/api
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image tag
     tag: latest
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
+    # -- Image pull policy
     pullPolicy: IfNotPresent
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource limits and requests for the API server
   resources:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource limits
     limits:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU limit
       cpu: 1000m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory limit
       memory: 1Gi
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource requests
     requests:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU request
       cpu: 200m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory request
       memory: 256Mi
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service account configuration
   serviceAccount:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a new service account
     create: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Annotations to add to the service account
     annotations: {}
-  
-
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Priority class configuration
   priorityClass:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a priority class
     create: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Priority class name
     name: openchoreo-api
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Priority class value
     value: 900000
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service configuration
   service:
+    # @schema
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # @schema
+    # -- Service type
     type: ClusterIP
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Service port
     port: 8080
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Node port (required when type is NodePort)
     nodePort: null
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Horizontal Pod Autoscaler configuration
   autoscaling:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable autoscaling
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum replicas
     minReplicas: 1
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Maximum replicas
     maxReplicas: 3
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target memory utilization percentage
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Autoscaling behavior configuration
     behavior:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale down behavior
       scaleDown:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale down policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale up behavior
       scaleUp:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale up policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 100
             periodSeconds: 15
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # enum: [Min, Max, Disabled]
+        # @schema
+        # -- Policy selection
         selectPolicy: Max
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod Disruption Budget configuration
   podDisruptionBudget:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable Pod Disruption Budget
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum available pods
     minAvailable: 1
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Network policy configuration
   networkPolicy:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable network policy
     enabled: false
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Ingress rules
     ingress: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Egress rules
     egress: []
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Metrics configuration
   metrics:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable metrics collection
     enabled: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- ServiceMonitor configuration for Prometheus
     serviceMonitor:
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- Enable ServiceMonitor
       enabled: false
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Namespace for ServiceMonitor
       namespace: monitoring
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape interval
       interval: 30s
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape timeout
       scrapeTimeout: 10s
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Labels for ServiceMonitor
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Relabelings for ServiceMonitor
       relabelings: []
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Ingress configuration
   ingress:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable ingress
     enabled: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Ingress class name
     ingressClassName: ""
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Ingress annotations
     annotations: {}
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Host configurations
     hosts: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- TLS configurations
     tls: []
-
-  
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Topology spread constraints for pod distribution
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
       whenUnsatisfiable: ScheduleAnyway
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: api-server
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
       whenUnsatisfiable: DoNotSchedule
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: api-server
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Node selector for pod assignment
   nodeSelector: {}
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Tolerations for pod assignment
   tolerations: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Affinity rules for pod assignment
   affinity: {}
 
-# Backstage UI
+# @schema
+# type: [null, object]
+# @schema
+# -- Backstage UI configuration
 backstage:
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Number of Backstage replicas
   replicas: 1
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Container image configuration
   image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image repository
     repository: ghcr.io/openchoreo/ui
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image tag
     tag: latest
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
+    # -- Image pull policy
     pullPolicy: IfNotPresent
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service configuration
   service:
+    # @schema
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # @schema
+    # -- Service type
     type: ClusterIP
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Service port
     port: 7007
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Node port (required when type is NodePort)
     nodePort: null
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource limits and requests for Backstage
   resources:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource limits
     limits:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU limit
       cpu: 2000m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory limit
       memory: 2Gi
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource requests
     requests:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU request
       cpu: 200m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory request
       memory: 256Mi
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service account configuration
   serviceAccount:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a new service account
     create: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Annotations to add to the service account
     annotations: {}
-    annotations: {}
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Priority class configuration
   priorityClass:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Create a priority class
     create: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Priority class name
     name: openchoreo-backstage
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Priority class value
     value: 800000
-  
-
-  
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Backend secret for Backstage configuration
   backendSecret: ""
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- OpenChoreo API configuration
   openchoreoApi:
-    url: ""  # Defaults to internal service URL if empty
-  
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- URL of the OpenChoreo API server (defaults to internal service URL if empty)
+    url: ""
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Environment variables for Backstage
   env:
     - name: NODE_ENV
       value: production
@@ -263,72 +870,236 @@ backstage:
       value: info
     - name: PORT
       value: "7007"
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Horizontal Pod Autoscaler configuration
   autoscaling:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable autoscaling
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum replicas
     minReplicas: 1
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Maximum replicas
     maxReplicas: 3
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target CPU utilization percentage
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target memory utilization percentage
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Autoscaling behavior configuration
     behavior:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale down behavior
       scaleDown:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale down policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Scale up behavior
       scaleUp:
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Stabilization window in seconds
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: [null, array]
+        # @schema
+        # -- Scale up policies
         policies:
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Percent
             value: 100
             periodSeconds: 15
+          # @schema
+          # enum: [Percent, Pods]
+          # @schema
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # enum: [Min, Max, Disabled]
+        # @schema
+        # -- Policy selection
         selectPolicy: Max
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod Disruption Budget configuration
   podDisruptionBudget:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable Pod Disruption Budget
     enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum available pods
     minAvailable: 1
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Network policy configuration
   networkPolicy:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable network policy
     enabled: false
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Ingress rules
     ingress: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Egress rules
     egress: []
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Metrics configuration
   metrics:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable metrics collection
     enabled: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- ServiceMonitor configuration for Prometheus
     serviceMonitor:
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- Enable ServiceMonitor
       enabled: false
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Namespace for ServiceMonitor
       namespace: monitoring
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape interval
       interval: 30s
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Scrape timeout
       scrapeTimeout: 10s
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Labels for ServiceMonitor
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Relabelings for ServiceMonitor
       relabelings: []
-
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Ingress configuration
   ingress:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable ingress
     enabled: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Ingress class name
     ingressClassName: ""
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Ingress annotations
     annotations: {}
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Host configurations
     hosts: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- TLS configurations
     tls: []
-
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Topology spread constraints for pod distribution
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
       whenUnsatisfiable: ScheduleAnyway
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: backstage
     - maxSkew: 1
       topologyKey: kubernetes.io/hostname
       whenUnsatisfiable: DoNotSchedule
       labelSelector:
         matchLabels:
+          app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: backstage
-  
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Node selector for pod assignment
   nodeSelector: {}
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Tolerations for pod assignment
   tolerations: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Affinity rules for pod assignment
   affinity: {}

@@ -1,10 +1,11 @@
-{{- if .Values.podSecurityStandards.enabled }}
+{{- if .Values.podSecurityStandards }}
 apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    {{- if .Values.podSecurityStandards.enabled }}
     {{- if eq .Values.podSecurityStandards.enforce "privileged" }}
     pod-security.kubernetes.io/enforce: privileged
     {{- else if eq .Values.podSecurityStandards.enforce "baseline" }}
@@ -18,4 +19,9 @@ metadata:
     {{- if .Values.podSecurityStandards.warn }}
     pod-security.kubernetes.io/warn: {{ .Values.podSecurityStandards.warn }}
     {{- end }}
+    {{- end }}
+  annotations:
+    helm.sh/resource-policy: keep
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
 {{- end }}

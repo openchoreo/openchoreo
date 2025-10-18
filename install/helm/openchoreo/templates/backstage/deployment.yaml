@@ -41,6 +41,8 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: backstage
         image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag }}"

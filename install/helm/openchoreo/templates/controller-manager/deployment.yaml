@@ -42,6 +42,8 @@ spec:
       {{- end }}
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: manager
         image: "{{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag }}"

@@ -40,16 +40,6 @@
         }
       }
     },
-    
-    "cilium": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false
-        }
-      }
-    },
     "controllerManager": {
       "type": "object",
       "properties": {
@@ -73,6 +63,37 @@
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"],
               "default": "Always"
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "1000m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "1Gi"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "200m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "256Mi"
+                }
+              }
             }
           }
         },
@@ -119,40 +140,10 @@
               "minimum": 1,
               "maximum": 65535,
               "default": 8080
-            }
-          }
-        },
-        "podSecurityContext": {
-          "type": "object",
-          "properties": {
-            "runAsNonRoot": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        },
-        "containerSecurityContext": {
-          "type": "object",
-          "properties": {
-            "allowPrivilegeEscalation": {
-              "type": "boolean",
-              "default": false
             },
-            "capabilities": {
-              "type": "object",
-              "properties": {
-                "drop": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": ["ALL"]
-                }
-              }
-            },
-            "readOnlyRootFilesystem": {
-              "type": "boolean",
-              "default": true
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
             }
           }
         },
@@ -168,7 +159,7 @@
               "properties": {
                 "enabled": {
                   "type": "boolean",
-                  "default": true
+                  "default": false
                 },
                 "namespace": {
                   "type": "string",
@@ -181,6 +172,166 @@
                 "scrapeTimeout": {
                   "type": "string",
                   "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
+                }
+              }
+            }
+          }
+        },
+        "podDisruptionBudget": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "minAvailable": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        },
+        "networkPolicy": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "ingress": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            },
+            "egress": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            }
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "minReplicas": {
+              "type": "integer",
+              "default": 1
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "default": 3
+            },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "default": 70
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": "integer",
+              "default": 80
+            },
+            "behavior": {
+              "type": "object",
+              "properties": {
+                "scaleDown": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 300
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 50,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    }
+                  }
+                },
+                "scaleUp": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 100,
+                          "periodSeconds": 15
+                        },
+                        {
+                          "type": "Pods",
+                          "value": 4,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    },
+                    "selectPolicy": {
+                      "type": "string",
+                      "enum": ["Min", "Max", "Disabled"],
+                      "default": "Max"
+                    }
+                  }
                 }
               }
             }
@@ -191,7 +342,30 @@
           "items": {
             "type": "object"
           },
-          "default": []
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "controller-manager"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "controller-manager"
+                }
+              }
+            }
+          ]
         },
         "nodeSelector": {
           "type": "object",
@@ -233,6 +407,37 @@
               "type": "string",
               "enum": ["Always", "IfNotPresent", "Never"],
               "default": "IfNotPresent"
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "1000m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "1Gi"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "200m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "256Mi"
+                }
+              }
             }
           }
         },
@@ -279,40 +484,10 @@
               "minimum": 1,
               "maximum": 65535,
               "default": 8080
-            }
-          }
-        },
-        "podSecurityContext": {
-          "type": "object",
-          "properties": {
-            "runAsNonRoot": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        },
-        "containerSecurityContext": {
-          "type": "object",
-          "properties": {
-            "allowPrivilegeEscalation": {
-              "type": "boolean",
-              "default": false
             },
-            "capabilities": {
-              "type": "object",
-              "properties": {
-                "drop": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": ["ALL"]
-                }
-              }
-            },
-            "readOnlyRootFilesystem": {
-              "type": "boolean",
-              "default": true
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
             }
           }
         },
@@ -328,7 +503,7 @@
               "properties": {
                 "enabled": {
                   "type": "boolean",
-                  "default": true
+                  "default": false
                 },
                 "namespace": {
                   "type": "string",
@@ -341,6 +516,22 @@
                 "scrapeTimeout": {
                   "type": "string",
                   "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
                 }
               }
             }
@@ -371,7 +562,86 @@
             },
             "behavior": {
               "type": "object",
-              "default": {}
+              "properties": {
+                "scaleDown": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 300
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 50,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    }
+                  }
+                },
+                "scaleUp": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 100,
+                          "periodSeconds": 15
+                        },
+                        {
+                          "type": "Pods",
+                          "value": 4,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    },
+                    "selectPolicy": {
+                      "type": "string",
+                      "enum": ["Min", "Max", "Disabled"],
+                      "default": "Max"
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -447,7 +717,30 @@
           "items": {
             "type": "object"
           },
-          "default": []
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "api-server"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "api-server"
+                }
+              }
+            }
+          ]
         },
         "nodeSelector": {
           "type": "object",
@@ -492,6 +785,57 @@
             }
           }
         },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "ClusterIP"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 7007
+            },
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "2000m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "2Gi"
+                }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string",
+                  "default": "200m"
+                },
+                "memory": {
+                  "type": "string",
+                  "default": "256Mi"
+                }
+              }
+            }
+          }
+        },
         "serviceAccount": {
           "type": "object",
           "properties": {
@@ -522,59 +866,9 @@
             }
           }
         },
-        "service": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
-              "default": "ClusterIP"
-            },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535,
-              "default": 7007
-            }
-          }
-        },
-        "podSecurityContext": {
-          "type": "object",
-          "properties": {
-            "runAsNonRoot": {
-              "type": "boolean",
-              "default": true
-            },
-            "runAsUser": {
-              "type": "integer",
-              "default": 1000
-            }
-          }
-        },
-        "containerSecurityContext": {
-          "type": "object",
-          "properties": {
-            "allowPrivilegeEscalation": {
-              "type": "boolean",
-              "default": false
-            },
-            "capabilities": {
-              "type": "object",
-              "properties": {
-                "drop": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": ["ALL"]
-                }
-              }
-            },
-            "readOnlyRootFilesystem": {
-              "type": "boolean",
-              "default": false
-            }
-          }
+        "backendSecret": {
+          "type": "string",
+          "default": ""
         },
         "openchoreoApi": {
           "type": "object",
@@ -585,15 +879,25 @@
             }
           }
         },
-        "backendSecret": {
-          "type": "string",
-          "default": ""
-        },
         "env": {
           "type": "array",
           "items": {
             "type": "object"
-          }
+          },
+          "default": [
+            {
+              "name": "NODE_ENV",
+              "value": "production"
+            },
+            {
+              "name": "LOG_LEVEL",
+              "value": "info"
+            },
+            {
+              "name": "PORT",
+              "value": "7007"
+            }
+          ]
         },
         "metrics": {
           "type": "object",
@@ -607,7 +911,7 @@
               "properties": {
                 "enabled": {
                   "type": "boolean",
-                  "default": true
+                  "default": false
                 },
                 "namespace": {
                   "type": "string",
@@ -620,6 +924,22 @@
                 "scrapeTimeout": {
                   "type": "string",
                   "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
                 }
               }
             }
@@ -650,7 +970,86 @@
             },
             "behavior": {
               "type": "object",
-              "default": {}
+              "properties": {
+                "scaleDown": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 300
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 50,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    }
+                  }
+                },
+                "scaleUp": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 100,
+                          "periodSeconds": 15
+                        },
+                        {
+                          "type": "Pods",
+                          "value": 4,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    },
+                    "selectPolicy": {
+                      "type": "string",
+                      "enum": ["Min", "Max", "Disabled"],
+                      "default": "Max"
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -726,7 +1125,30 @@
           "items": {
             "type": "object"
           },
-          "default": []
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "backstage"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "backstage"
+                }
+              }
+            }
+          ]
         },
         "nodeSelector": {
           "type": "object",
