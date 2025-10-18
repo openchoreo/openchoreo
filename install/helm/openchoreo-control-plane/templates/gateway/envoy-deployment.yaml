@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.envoyProxy.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.envoyProxy.name) | nindent 4 }}
+spec:
+  replicas: {{ .Values.envoyProxy.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.envoyProxy.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.envoyProxy.name) | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/gateway/envoy-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.envoyProxy.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: envoy
+        image: "{{ .Values.envoyProxy.image.repository }}:{{ .Values.envoyProxy.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.envoyProxy.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.envoyProxy.port }}
+          protocol: TCP
+        - name: admin
+          containerPort: 9901
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/envoy
+          readOnly: true
+        {{- if .Values.envoyProxy.extraVolumeMounts }}
+        {{- toYaml .Values.envoyProxy.extraVolumeMounts | nindent 8 }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: 9901
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9901
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.envoyProxy.resources | nindent 10 }}
+        {{- with .Values.envoyProxy.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ .Values.envoyProxy.name }}-config
+      {{- if .Values.envoyProxy.extraVolumes }}
+      {{- toYaml .Values.envoyProxy.extraVolumes | nindent 6 }}
+      {{- end }}
+      {{- with .Values.envoyProxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.envoyProxy.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.envoyProxy.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

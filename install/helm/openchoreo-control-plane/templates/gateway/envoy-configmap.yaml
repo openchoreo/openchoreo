@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.envoyProxy.name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.envoyProxy.name) | nindent 4 }}
+data:
+  envoy.yaml: |
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 9901
+
+    static_resources:
+      listeners:
+      - name: listener_0
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: {{ .Values.envoyProxy.port }}
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: ingress_http
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                virtual_hosts:
+                - name: backend
+                  domains: ["*"]
+                  routes:
+                  {{- range .Values.envoyProxy.routes }}
+                  - match:
+                      prefix: "{{ .path }}"
+                    route:
+                      cluster: {{ .cluster }}
+                  {{- end }}
+              http_filters:
+              - name: envoy.filters.http.jwt_authn
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                  providers:
+                    {{ .Values.envoyProxy.jwt.provider.name }}:
+                      issuer: {{ .Values.envoyProxy.jwt.provider.issuer }}
+                      {{- if .Values.envoyProxy.jwt.provider.audiences }}
+                      audiences:
+                      {{- range .Values.envoyProxy.jwt.provider.audiences }}
+                      - {{ . }}
+                      {{- end }}
+                      {{- end }}
+                      remote_jwks:
+                        http_uri:
+                          uri: {{ .Values.envoyProxy.jwt.provider.jwksUri }}
+                          cluster: {{ .Values.envoyProxy.jwt.provider.jwksCluster }}
+                          timeout: {{ .Values.envoyProxy.jwt.provider.timeout | default "5s" }}
+                        cache_duration: {{ .Values.envoyProxy.jwt.provider.cacheDuration | default "300s" }}
+                      from_headers:
+                      - name: Authorization
+                        value_prefix: "Bearer "
+                      {{- if .Values.envoyProxy.jwt.provider.claimToHeaders }}
+                      claim_to_headers:
+                      {{- range .Values.envoyProxy.jwt.provider.claimToHeaders }}
+                      - header_name: {{ .headerName }}
+                        claim_name: {{ .claimName }}
+                      {{- end }}
+                      {{- end }}
+                  rules:
+                  {{- range .Values.envoyProxy.routes }}
+                  {{- if .jwt.enabled }}
+                  - match:
+                      prefix: {{ .path }}
+                    requires:
+                      provider_name: {{ $.Values.envoyProxy.jwt.provider.name }}
+                  {{- end }}
+                  {{- end }}
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+      clusters:
+      {{- range .Values.envoyProxy.clusters }}
+      - name: {{ .name }}
+        connect_timeout: {{ .connectTimeout | default "5s" }}
+        type: {{ .type | default "STRICT_DNS" }}
+        lb_policy: {{ .lbPolicy | default "ROUND_ROBIN" }}
+        load_assignment:
+          cluster_name: {{ .name }}
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{ .address }}
+                    port_value: {{ .port }}
+      {{- end }}
+      - name: {{ .Values.envoyProxy.jwt.provider.jwksCluster }}
+        connect_timeout: 5s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: {{ .Values.envoyProxy.jwt.provider.jwksCluster }}
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{ .Values.envoyProxy.jwt.provider.jwksHost }}
+                    port_value: {{ .Values.envoyProxy.jwt.provider.jwksPort | default 443 }}
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: {{ .Values.envoyProxy.jwt.provider.jwksHost }}

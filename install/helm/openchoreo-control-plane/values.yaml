@@ -134,3 +134,100 @@ cert-manager:
       limits:
         cpu: 50m
         memory: 64Mi
+
+# Envoy Proxy configuration
+envoyProxy:
+  name: envoy-proxy
+  replicas: 1
+  port: 8000
+
+  image:
+    repository: envoyproxy/envoy
+    tag: v1.29-latest
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    capabilities:
+      drop:
+        - ALL
+
+  # Node selector, affinity, and tolerations
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+  # Extra volumes and volume mounts for secrets
+  extraVolumes: []
+  # Example for OIDC client secret:
+  # - name: oidc-client-secret
+  #   secret:
+  #     secretName: oidc-client-secret
+
+  extraVolumeMounts: []
+  # Example for OIDC client secret:
+  # - name: oidc-client-secret
+  #   mountPath: /etc/envoy/secrets
+  #   readOnly: true
+
+  # Backend clusters
+  clusters:
+    - name: openchoreo-api-cluster
+      address: api-server
+      port: 8080
+      connectTimeout: 5s
+      type: STRICT_DNS
+      lbPolicy: ROUND_ROBIN
+
+  # Route configuration with per-route JWT validation
+  routes:
+    # Secured API route with JWT validation
+    - path: /api/v1
+      cluster: openchoreo-api-cluster
+      jwt:
+        enabled: true  # Require JWT for this route
+
+    # Public health check (no JWT required)
+    - path: /health
+      cluster: openchoreo-api-cluster
+      jwt:
+        enabled: false
+
+    # Default route
+    - path: /
+      cluster: openchoreo-api-cluster
+      jwt:
+        enabled: true
+
+  # JWT provider configuration
+  jwt:
+    provider:
+      name: jwt_provider
+      issuer: https://accounts.google.com  # Your OIDC issuer URL
+      audiences:
+        - your-client-id  # Expected audience in JWT
+      jwksUri: https://www.googleapis.com/oauth2/v3/certs  # JWKS endpoint URL
+      jwksCluster: jwks_cluster
+      jwksHost: www.googleapis.com
+      jwksPort: 443
+      timeout: 5s
+      cacheDuration: 300s  # Cache JWKS keys for 5 minutes
+      # Optional: Forward JWT claims as HTTP headers to backend
+      claimToHeaders:
+        - headerName: X-User-ID
+          claimName: sub
+        - headerName: X-User-Email
+          claimName: email
