@@ -1,6 +1,6 @@
 apiVersion: v2
-name: openchoreo-identity-provider
-description: A Helm chart for OpenChoreo Identity Provider
+name: openchoreo-workload-identity-provider
+description: A Helm chart for OpenChoreo Workload Identity Provider
 type: application
 # Version strategy: latest-dev for development, replaced by CI for releases
 version: 0.0.0-latest-dev
