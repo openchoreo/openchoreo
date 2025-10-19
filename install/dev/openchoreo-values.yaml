@@ -1,15 +1,16 @@
 # OpenChoreo Helm Values for Development Installation
 # This file contains configuration for installing OpenChoreo components in a kind cluster
 
-# Namespace configuration
-namespace: openchoreo
-
 # Controller Manager configuration
 controllerManager:
   image:
     repository: openchoreo-controller
     tag: dev
     pullPolicy: IfNotPresent
+  # Disable AppArmor for local development (not supported on macOS/Kind)
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined
 
 # OpenChoreo API configuration
 openchoreoApi:
@@ -17,6 +18,10 @@ openchoreoApi:
     repository: openchoreo-api
     tag: dev
     pullPolicy: IfNotPresent
+  # Disable AppArmor for local development (not supported on macOS/Kind)
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined
   ingress:
     enabled: true
     ingressClassName: cilium
@@ -32,6 +37,10 @@ backstage:
     repository: openchoreo-ui
     tag: dev
     pullPolicy: IfNotPresent
+  # Disable AppArmor for local development (not supported on macOS/Kind)
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined
   ingress:
     enabled: true
     ingressClassName: cilium

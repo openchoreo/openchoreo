@@ -2,6 +2,342 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "OpenChoreo Secure Core Values",
   "type": "object",
+  "definitions": {
+    "seccompProfile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+          "default": "RuntimeDefault"
+        },
+        "localhostProfile": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "appArmorProfile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+          "default": "RuntimeDefault"
+        },
+        "localhostProfile": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "drop": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["ALL"]
+        },
+        "add": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": {
+          "type": "boolean",
+          "default": true
+        },
+        "seccompProfile": {
+          "$ref": "#/definitions/seccompProfile"
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "fsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "supplementalGroups": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "selinuxOptions": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "level": {
+              "type": "string"
+            }
+          }
+        },
+        "windowsOptions": {
+          "type": "object",
+          "properties": {
+            "runAsUserName": {
+              "type": "string"
+            },
+            "runAsGroupName": {
+              "type": "string"
+            },
+            "gmsaCredentialSpecName": {
+              "type": "string"
+            },
+            "gmsaCredentialSpec": {
+              "type": "string"
+            },
+            "hostProcess": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "containerSecurityContext": {
+      "type": "object",
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "default": false
+        },
+        "capabilities": {
+          "$ref": "#/definitions/capabilities"
+        },
+        "privileged": {
+          "type": "boolean",
+          "default": false
+        },
+        "procMount": {
+          "type": "string",
+          "enum": ["Default", "Unmasked"]
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "default": true
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "default": true
+        },
+        "seccompProfile": {
+          "$ref": "#/definitions/seccompProfile"
+        },
+        "appArmorProfile": {
+          "$ref": "#/definitions/appArmorProfile"
+        },
+        "windowsOptions": {
+          "$ref": "#/definitions/podSecurityContext/properties/windowsOptions"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "ephemeral-storage": {
+              "type": "string"
+            }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "ephemeral-storage": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "default": true
+        },
+        "annotations": {
+          "type": "object",
+          "default": {}
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "priorityClass": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 70
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 80
+        }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "minAvailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxUnavailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "ingress": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        },
+        "egress": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "namespace": {
+          "type": "string",
+          "default": "monitoring"
+        },
+        "interval": {
+          "type": "string",
+          "default": "30s"
+        },
+        "scrapeTimeout": {
+          "type": "string",
+          "default": "10s"
+        },
+        "labels": {
+          "type": "object",
+          "default": {}
+        },
+        "relabelings": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        }
+      }
+    }
+  },
   "properties": {
     "global": {
       "type": "object",
@@ -15,30 +351,6 @@
     "fullnameOverride": {
       "type": "string",
       "default": "openchoreo"
-    },
-    "podSecurityStandards": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": true
-        },
-        "enforce": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        },
-        "audit": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        },
-        "warn": {
-          "type": "string",
-          "enum": ["privileged", "baseline", "restricted"],
-          "default": "restricted"
-        }
-      }
     },
     "controllerManager": {
       "type": "object",
@@ -67,64 +379,31 @@
           }
         },
         "resources": {
-          "type": "object",
-          "properties": {
+          "$ref": "#/definitions/resources",
+          "default": {
             "limits": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "1000m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "1Gi"
-                }
-              }
+              "cpu": "1000m",
+              "memory": "1Gi"
             },
             "requests": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "200m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "256Mi"
-                }
-              }
+              "cpu": "200m",
+              "memory": "256Mi"
             }
           }
         },
         "serviceAccount": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": true
-            },
-            "annotations": {
-              "type": "object",
-              "default": {}
-            }
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
           }
         },
         "priorityClass": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": false
-            },
-            "name": {
-              "type": "string",
-              "default": "openchoreo-controller-manager"
-            },
-            "value": {
-              "type": "integer",
-              "default": 1000000
-            }
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-controller-manager",
+            "value": 1000000
           }
         },
         "service": {
@@ -194,148 +473,17 @@
           }
         },
         "podDisruptionBudget": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "minAvailable": {
-              "type": "integer",
-              "default": 1
-            }
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
           }
         },
         "networkPolicy": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "ingress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            },
-            "egress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            }
-          }
+          "$ref": "#/definitions/networkPolicy"
         },
         "autoscaling": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "minReplicas": {
-              "type": "integer",
-              "default": 1
-            },
-            "maxReplicas": {
-              "type": "integer",
-              "default": 3
-            },
-            "targetCPUUtilizationPercentage": {
-              "type": "integer",
-              "default": 70
-            },
-            "targetMemoryUtilizationPercentage": {
-              "type": "integer",
-              "default": 80
-            },
-            "behavior": {
-              "type": "object",
-              "properties": {
-                "scaleDown": {
-                  "type": "object",
-                  "properties": {
-                    "stabilizationWindowSeconds": {
-                      "type": "integer",
-                      "default": 300
-                    },
-                    "policies": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": ["Percent", "Pods"]
-                          },
-                          "value": {
-                            "type": "integer"
-                          },
-                          "periodSeconds": {
-                            "type": "integer"
-                          }
-                        }
-                      },
-                      "default": [
-                        {
-                          "type": "Percent",
-                          "value": 50,
-                          "periodSeconds": 60
-                        }
-                      ]
-                    }
-                  }
-                },
-                "scaleUp": {
-                  "type": "object",
-                  "properties": {
-                    "stabilizationWindowSeconds": {
-                      "type": "integer",
-                      "default": 0
-                    },
-                    "policies": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": ["Percent", "Pods"]
-                          },
-                          "value": {
-                            "type": "integer"
-                          },
-                          "periodSeconds": {
-                            "type": "integer"
-                          }
-                        }
-                      },
-                      "default": [
-                        {
-                          "type": "Percent",
-                          "value": 100,
-                          "periodSeconds": 15
-                        },
-                        {
-                          "type": "Pods",
-                          "value": 4,
-                          "periodSeconds": 60
-                        }
-                      ]
-                    },
-                    "selectPolicy": {
-                      "type": "string",
-                      "enum": ["Min", "Max", "Disabled"],
-                      "default": "Max"
-                    }
-                  }
-                }
-              }
-            }
-          }
+          "$ref": "#/definitions/autoscaling"
         },
         "topologySpreadConstraints": {
           "type": "array",
@@ -381,6 +529,34 @@
         "affinity": {
           "type": "object",
           "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 65532,
+            "runAsGroup": 65532,
+            "fsGroup": 65532
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
         }
       }
     },
@@ -411,64 +587,31 @@
           }
         },
         "resources": {
-          "type": "object",
-          "properties": {
+          "$ref": "#/definitions/resources",
+          "default": {
             "limits": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "1000m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "1Gi"
-                }
-              }
+              "cpu": "1000m",
+              "memory": "1Gi"
             },
             "requests": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "200m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "256Mi"
-                }
-              }
+              "cpu": "200m",
+              "memory": "256Mi"
             }
           }
         },
         "serviceAccount": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": true
-            },
-            "annotations": {
-              "type": "object",
-              "default": {}
-            }
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
           }
         },
         "priorityClass": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": false
-            },
-            "name": {
-              "type": "string",
-              "default": "openchoreo-api"
-            },
-            "value": {
-              "type": "integer",
-              "default": 900000
-            }
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-api",
+            "value": 900000
           }
         },
         "service": {
@@ -646,40 +789,14 @@
           }
         },
         "podDisruptionBudget": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "minAvailable": {
-              "type": "integer",
-              "default": 1
-            }
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
           }
         },
         "networkPolicy": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "ingress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            },
-            "egress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            }
-          }
+          "$ref": "#/definitions/networkPolicy"
         },
         "ingress": {
           "type": "object",
@@ -756,6 +873,34 @@
         "affinity": {
           "type": "object",
           "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 65532,
+            "runAsGroup": 65532,
+            "fsGroup": 65532
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
         }
       }
     },
@@ -806,64 +951,31 @@
           }
         },
         "resources": {
-          "type": "object",
-          "properties": {
+          "$ref": "#/definitions/resources",
+          "default": {
             "limits": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "2000m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "2Gi"
-                }
-              }
+              "cpu": "2000m",
+              "memory": "2Gi"
             },
             "requests": {
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "type": "string",
-                  "default": "200m"
-                },
-                "memory": {
-                  "type": "string",
-                  "default": "256Mi"
-                }
-              }
+              "cpu": "200m",
+              "memory": "256Mi"
             }
           }
         },
         "serviceAccount": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": true
-            },
-            "annotations": {
-              "type": "object",
-              "default": {}
-            }
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
           }
         },
         "priorityClass": {
-          "type": "object",
-          "properties": {
-            "create": {
-              "type": "boolean",
-              "default": false
-            },
-            "name": {
-              "type": "string",
-              "default": "openchoreo-backstage"
-            },
-            "value": {
-              "type": "integer",
-              "default": 800000
-            }
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-backstage",
+            "value": 800000
           }
         },
         "backendSecret": {
@@ -1054,40 +1166,14 @@
           }
         },
         "podDisruptionBudget": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "minAvailable": {
-              "type": "integer",
-              "default": 1
-            }
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
           }
         },
         "networkPolicy": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": false
-            },
-            "ingress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            },
-            "egress": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              },
-              "default": []
-            }
-          }
+          "$ref": "#/definitions/networkPolicy"
         },
         "ingress": {
           "type": "object",
@@ -1164,6 +1250,34 @@
         "affinity": {
           "type": "object",
           "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 1000,
+            "runAsGroup": 1000,
+            "fsGroup": 1000
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": false,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
         }
       }
     }

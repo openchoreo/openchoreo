@@ -38,11 +38,10 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.backstage.podSecurityContext }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: backstage
         image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag }}"
@@ -76,9 +75,7 @@ spec:
           periodSeconds: 5
         resources:
           {{- toYaml .Values.backstage.resources | nindent 12 }}
+        {{- with .Values.backstage.containerSecurityContext }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: false
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

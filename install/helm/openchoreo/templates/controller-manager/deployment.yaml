@@ -40,10 +40,10 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.controllerManager.podSecurityContext }}
       securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: manager
         image: "{{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag }}"
@@ -78,9 +78,7 @@ spec:
           periodSeconds: 10
         resources:
           {{- toYaml .Values.controllerManager.resources | nindent 12 }}
+        {{- with .Values.controllerManager.containerSecurityContext }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

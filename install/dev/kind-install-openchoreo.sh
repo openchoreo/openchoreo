@@ -268,12 +268,41 @@ main() {
     check_cluster
     echo
     
-    # Build all components
-    build_controller
-    echo
-    build_api
-    echo
-    build_ui
+    # Build all components in parallel
+    log_info "Building all components in parallel..."
+    
+    # Start builds in background
+    build_controller &
+    controller_pid=$!
+    
+    build_api &
+    api_pid=$!
+    
+    build_ui &
+    ui_pid=$!
+    
+    # Wait for all builds to complete
+    local failed_builds=()
+    
+    if ! wait $controller_pid; then
+        failed_builds+=("controller")
+    fi
+    
+    if ! wait $api_pid; then
+        failed_builds+=("API")
+    fi
+    
+    if ! wait $ui_pid; then
+        failed_builds+=("UI")
+    fi
+    
+    # Check if any builds failed
+    if [ ${#failed_builds[@]} -gt 0 ]; then
+        log_error "Failed to build components: ${failed_builds[*]}"
+        exit 1
+    fi
+    
+    log_success "All components built successfully!"
     echo
     
     # Install with Helm

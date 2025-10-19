@@ -38,10 +38,10 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.openchoreoApi.podSecurityContext }}
       securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: api-server
         image: "{{ .Values.openchoreoApi.image.repository }}:{{ .Values.openchoreoApi.image.tag }}"
@@ -64,11 +64,7 @@ spec:
           periodSeconds: 10
         resources:
           {{- toYaml .Values.openchoreoApi.resources | nindent 12 }}
+        {{- with .Values.openchoreoApi.containerSecurityContext }}
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
-          seccompProfile:
-            type: RuntimeDefault
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
