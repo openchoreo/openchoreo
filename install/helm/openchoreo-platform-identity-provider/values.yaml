@@ -130,7 +130,7 @@ defaultApplication:
   name: "DefaultApplication"
   description: "Sample Application"
   backstageIdpProviderName: "default-idp"
-  redirectUrl: "https://localhost:7007/auth/default-idp/handler/frame"
+  redirectUrl: "https://localhost:7007/api/auth/default-idp/handler/frame"
   clientId: "openchoreo-platform-idp-client"
 
 userDetails:
