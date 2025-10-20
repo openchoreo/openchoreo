@@ -13,13 +13,146 @@ global:
   # @schema
   # -- The name of the cluster where OpenChoreo is deployed
   clusterName: openchoreo
-
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Default OpenChoreo resources created during installation
+  defaultResources:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable creation of default resources
+    enabled: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Default organization configuration
+    organization:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Display name for the default organization
+      displayName: Default Organization
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Description for the default organization
+      description: Getting started with your first organization
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Default project configuration
+    project:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Display name for the default project
+      displayName: Default Project
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Description for the default project
+      description: Your first project to get started
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Default environments configuration
+    environments:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Development environment
+      - name: development
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Display name for the environment
+        displayName: Development
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Description for the environment
+        description: Development environment for testing
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- DNS prefix for the environment
+        dnsPrefix: dev
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        # -- Whether this is a critical environment
+        isCritical: false
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Production environment
+      - name: production
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Display name for the environment
+        displayName: Production
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Description for the environment
+        description: Production environment
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- DNS prefix for the environment
+        dnsPrefix: prod
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        # -- Whether this is a critical environment
+        isCritical: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Default deployment pipeline configuration
+    deploymentPipeline:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Display name for the deployment pipeline
+      displayName: Default Pipeline
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Description for the deployment pipeline
+      description: Standard deployment pipeline with dev and prod environments
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Promotion order for environments
+      promotionOrder:
+        # @schema
+        # type: [null, object]
+        # @schema
+        # -- Promotion from development to production
+        - sourceEnvironmentRef: development
+          # @schema
+          # type: [null, array]
+          # @schema
+          # -- Target environments for promotion
+          targetEnvironmentRefs:
+            # @schema
+            # type: [null, object]
+            # @schema
+            # -- Production environment target
+            - name: production
+              # @schema
+              # type: [null, boolean]
+              # @schema
+              # -- Whether approval is required for promotion
+              requiresApproval: false
 # @schema
 # type: [null, string]
 # @schema
 # -- Override the full name of the chart release
 fullnameOverride: openchoreo
-
 # @schema
 # type: [null, object]
 # @schema
@@ -44,7 +177,7 @@ controllerManager:
     # type: [null, string]
     # @schema
     # -- Container image tag
-    tag: latest
+    tag: latest-dev
     # @schema
     # enum: [Always, IfNotPresent, Never]
     # @schema
@@ -505,7 +638,6 @@ controllerManager:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
-
 # @schema
 # type: [null, object]
 # @schema
@@ -1021,7 +1153,6 @@ openchoreoApi:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
-
 # @schema
 # type: [null, object]
 # @schema

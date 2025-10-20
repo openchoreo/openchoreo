@@ -1,0 +1,26 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ServiceClass
+metadata:
+  name: default
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  deploymentTemplate:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: main
+            resources:
+              requests:
+                cpu: 100m
+                memory: 64Mi
+              limits:
+                cpu: 400m
+                memory: 256Mi
+  serviceTemplate:
+    type: ClusterIP
+{{ end }}

@@ -82,3 +82,19 @@ OpenChoreo API service account name
 {{- default "default" .Values.openchoreoApi.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Control plane labels (for compatibility with default resources)
+*/}}
+{{- define "openchoreo-control-plane.labels" -}}
+helm.sh/chart: {{ include "openchoreo-secure-core.chart" . }}
+{{ include "openchoreo-secure-core.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: openchoreo
+{{- with .Values.global.commonLabels }}
+{{ toYaml . }}
+{{- end }}
+{{- end }}

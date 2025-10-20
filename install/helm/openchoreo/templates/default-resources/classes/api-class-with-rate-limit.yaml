@@ -1,0 +1,18 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default-with-rate-limit
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  restPolicy:
+    defaults:
+      rateLimit:
+        requests: 10
+        window: "1m"
+    public: {}
+    organization: {}
+{{ end }}

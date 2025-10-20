@@ -44,8 +44,8 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
 		fi \
 	fi
-	@# Copy CRDs and RBAC to openchoreo-secure-core chart
-	@if [ ${CHART_NAME} == "openchoreo-secure-core" ]; then \
+	@# Copy CRDs and RBAC to openchoreo chart
+	@if [ ${CHART_NAME} == "openchoreo" ]; then \
 		$(call log_info, Generating resources for secure-core chart); \
 		$(MAKE) manifests; \
 		mkdir -p $(CHART_PATH)/crds; \
@@ -63,9 +63,24 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 			skip_labels && /^    / {next} \
 			skip_labels && /^  / {skip_labels=0} \
 			in_metadata && /^  name: manager-role$$/ {print "  name: {{ include \"openchoreo-secure-core.fullname\" . }}-controller-manager-role"; next} \
-			in_metadata && /^[^ ]/ {print "  labels:"; print "    app.kubernetes.io/component: controller-manager"; print "    app.kubernetes.io/part-of: openchoreo"; print "    app.kubernetes.io/name: {{ include \"openchoreo-secure-core.fullname\" . }}"; print "    app.kubernetes.io/instance: {{ .Release.Name }}"; in_metadata=0; print; next} \
+			in_metadata && /^[^ ]/ {print "  labels:"; print "    {{- include \"openchoreo-secure-core.labels\" . | nindent 4 }}"; print "    app.kubernetes.io/component: controller-manager"; in_metadata=0; print; next} \
 			{print}' $(PROJECT_DIR)/config/rbac/role.yaml; \
 		) > $(CHART_PATH)/templates/controller-manager/clusterrole.yaml; \
+		$(call log_info, Generating leader election role template); \
+		( \
+			awk 'BEGIN {in_metadata=0; skip_labels=0} \
+			/^---$$/ {print; next} \
+			/^apiVersion:/ {print; next} \
+			/^kind:/ {print; next} \
+			/^metadata:$$/ {print; in_metadata=1; next} \
+			in_metadata && /^  labels:$$/ {skip_labels=1; next} \
+			skip_labels && /^    / {next} \
+			skip_labels && /^  / {skip_labels=0} \
+			in_metadata && /^  name: leader-election-role$$/ {print "  name: {{ include \"openchoreo-secure-core.fullname\" . }}-leader-election"; next} \
+			in_metadata && /^  namespace:/ {print "  namespace: {{ .Release.Namespace }}"; next} \
+			in_metadata && /^[^ ]/ {print "  labels:"; print "    {{- include \"openchoreo-secure-core.labels\" . | nindent 4 }}"; print "    app.kubernetes.io/component: controller-manager"; in_metadata=0; print; next} \
+			{print}' $(PROJECT_DIR)/config/rbac/leader_election_role.yaml; \
+		) > $(CHART_PATH)/templates/controller-manager/leader-election-role.yaml; \
 		$(call log_info, Copied $(shell ls -1 $(PROJECT_DIR)/config/crd/bases/*.yaml | wc -l) CRDs and generated RBAC templates); \
 		VALUES_FILE=$(CHART_PATH)/values.yaml; \
 		if [ -f "$$VALUES_FILE" ]; then \

@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 
-# OpenChoreo Kind Setup with Working DNS
-# Based on Cilium's kind.sh but simplified for general use
+# OpenChoreo Kind Setup - Minimal script for cluster creation only
+# This script only handles cluster creation with node configuration.
+# All other setup (prerequisites, DNS patching, etc.) is handled by make/kind.mk
 
 set -eo pipefail
 
-# Get script directory and source helpers
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/dev-helpers.sh"
-
-# Configuration
+# Configuration defaults
+DEFAULT_CLUSTER_NAME="openchoreo"
+DEFAULT_NETWORK="openchoreo"
 DEFAULT_EXTERNAL_DNS="8.8.8.8"
-V6_PREFIX="fc00:f111::/64"
 
 # Parse command line arguments
 declare -A args=(
@@ -40,8 +38,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            log_error "Unknown option: $1"
-            echo "Use --help for usage information"
+            echo "Error: Unknown option: $1" >&2
+            echo "Use --help for usage information" >&2
             exit 1
             ;;
     esac
@@ -52,7 +50,7 @@ if [[ "${args[show_help]}" == "true" ]]; then
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Description:"
-    echo "  Creates a Kind cluster with proper DNS configuration for OpenChoreo development"
+    echo "  Creates a Kind cluster with full setup including DNS patching and node configuration"
     echo ""
     echo "Options:"
     echo "  --cluster-name NAME    Cluster name (default: $DEFAULT_CLUSTER_NAME)"
@@ -71,24 +69,8 @@ cluster_name="${args[cluster_name]}"
 network="${args[network]}"
 external_dns="${args[external_dns]}"
 
-# Network configuration
-bridge_dev="br-${network}"
-
-# Verify prerequisites
-verify_prerequisites
-
-# Check if cluster already exists
-if cluster_exists "$cluster_name"; then
-    log_warning "Kind cluster '${cluster_name}' already exists"
-    read -p "Do you want to delete it and recreate? [y/N]: " -r
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Deleting existing cluster..."
-        kind delete cluster --name "$cluster_name"
-    else
-        log_info "Using existing cluster"
-        exit 0
-    fi
-fi
+# Get script directory for config files
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Node configuration function
 node_config() {
@@ -126,14 +108,14 @@ worker_config() {
     echo "    protocol: TCP"
 }
 
-log_info "Creating Kind cluster '${cluster_name}'..."
+echo "Creating Kind cluster '${cluster_name}'..."
 kind --version
 
 # Build kind command
 kind_cmd="kind create cluster --name ${cluster_name}"
 
 # Create cluster with custom configuration
-log_info "Creating cluster with custom configuration..."
+echo "Creating cluster with custom configuration..."
 if cat <<EOF | ${kind_cmd} --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -165,25 +147,25 @@ kubeadmConfigPatches:
         bind-address: 0.0.0.0
 EOF
 then
-    log_success "Kind cluster '${cluster_name}' created successfully"
+    echo "Kind cluster '${cluster_name}' created successfully"
 else
-    log_error "Failed to create Kind cluster '${cluster_name}'"
+    echo "Error: Failed to create Kind cluster '${cluster_name}'" >&2
     exit 1
 fi
 
 # Setup nodes (DNS is handled automatically via systemd drop-in during kubelet startup)
-log_info "Setting up nodes..."
+echo "Setting up nodes..."
 for node in $(kind get nodes --name "${cluster_name}"); do
-    log_info "Configuring node: ${node}"
+    echo "Configuring node: ${node}"
 
     # Set unprivileged port range
     if ! docker exec "${node}" sysctl -w net.ipv4.ip_unprivileged_port_start=1024; then
-        log_warning "Failed to set unprivileged port range on node: ${node}"
+        echo "Warning: Failed to set unprivileged port range on node: ${node}" >&2
     fi
 done
 
 # Patch CoreDNS to use external DNS
-log_info "Patching CoreDNS to use external DNS: ${external_dns}"
+echo "Patching CoreDNS to use external DNS: ${external_dns}"
 NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | \
     sed "s,forward . /etc/resolv.conf,forward . ${external_dns}," | \
     sed 's/loadbalance/loadbalance\n    log/' | \
@@ -191,25 +173,25 @@ NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile
 
 if kubectl patch configmap/coredns -n kube-system --type merge -p \
     '{"data":{"Corefile": "'"$NewCoreFile"'"}}'; then
-    log_success "CoreDNS patched successfully"
+    echo "CoreDNS patched successfully"
 else
-    log_warning "Failed to patch CoreDNS"
+    echo "Warning: Failed to patch CoreDNS" >&2
 fi
 
 # Remove control-plane taints to allow pods on control-plane
-log_info "Removing control-plane taints..."
+echo "Removing control-plane taints..."
 set +e
 kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null
 kubectl taint nodes --all node-role.kubernetes.io/master- 2>/dev/null
 set -e
 
 echo
-log_success "Kind cluster '${cluster_name}' is ready!"
+echo "Kind cluster '${cluster_name}' is ready!"
 echo
-log_info "Next steps:"
+echo "Next steps:"
 echo "  1. Install a CNI (e.g., ./kind-install-cilium.sh)"
-echo "  2. Install OpenChoreo (e.g., ./kind-install-openchoreo.sh)"
+echo "  2. Install OpenChoreo (e.g., make kind.setup)"
 echo
-log_info "Cluster access:"
+echo "Cluster access:"
 echo "  - kubeconfig: Automatically configured"
 echo "  - context: kind-${cluster_name}"

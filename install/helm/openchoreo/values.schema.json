@@ -345,6 +345,129 @@
         "clusterName": {
           "type": "string",
           "default": "openchoreo"
+        },
+        "defaultResources": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "organization": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Organization"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Getting started with your first organization"
+                }
+              }
+            },
+            "project": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Project"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Your first project to get started"
+                }
+              }
+            },
+            "environments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "dnsPrefix": {
+                    "type": "string"
+                  },
+                  "isCritical": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "default": [
+                {
+                  "name": "development",
+                  "displayName": "Development",
+                  "description": "Development environment for testing",
+                  "dnsPrefix": "dev",
+                  "isCritical": false
+                },
+                {
+                  "name": "production",
+                  "displayName": "Production",
+                  "description": "Production environment",
+                  "dnsPrefix": "prod",
+                  "isCritical": true
+                }
+              ]
+            },
+            "deploymentPipeline": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Pipeline"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Standard deployment pipeline with dev, staging, and prod environments"
+                },
+                "promotionOrder": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sourceEnvironmentRef": {
+                        "type": "string"
+                      },
+                      "targetEnvironmentRefs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "requiresApproval": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "default": [
+                    {
+                      "sourceEnvironmentRef": "development",
+                      "targetEnvironmentRefs": [
+                        {
+                          "name": "production",
+                          "requiresApproval": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
         }
       }
     },

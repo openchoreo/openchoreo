@@ -1,0 +1,15 @@
+{{ if .Values.global.defaultResources.enabled }}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: APIClass
+metadata:
+  name: default
+  namespace: default
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+spec:
+  restPolicy:
+    defaults: {}
+    public: {}
+    organization: {}
+{{ end }}

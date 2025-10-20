@@ -22,6 +22,14 @@ define log_error
 echo -e "\033[0;31m--->$1\033[0m"
 endef
 
+define log_success
+echo -e "\033[0;32m--->$1\033[0m"
+endef
+
+define log_warning
+echo -e "\033[0;33m--->$1\033[0m"
+endef
+
 # Helper functions to get the OS and architecture from the platform string
 # Format: <os>/<arch>
 get_platform_os = $(word 1, $(subst /, ,$(1)))
