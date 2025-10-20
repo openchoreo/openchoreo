@@ -521,7 +521,7 @@ spec:
 
 Addons apply changes to rendered resources through patch documents that mirror Kustomize’s patch format: each entry selects a resource and runs one or more operations against JSON Pointer–style paths. The standard JSON Patch verbs (`add`, `replace`) are delegated to the upstream `json-patch` engine, while `mergeShallow` is a openchoreo-specific convenience that overlays top-level map keys without replacing sibling values. This balance gives authors familiar semantics with a minimal set of extensions tailored for addon composition.
 
-- **Resource targeting**: Every patch specifies a `target` block. Alongside the resource’s `group/version/kind`, addons can carry an optional CEL-based `where` predicate to limit the patch to specific instances. Path navigation follows JSON Pointer, with renderer-specific array filters (`[?(@.field=='value')]`) inspired by JSONPath (RFC 9535) so authors can match elements without switching syntaxes.
+- **Resource targeting**: Every patch specifies a `target` block. Alongside the resource’s `group/version/kind`, addons can carry an optional CEL-based `where` predicate to limit the patch to specific instances. Paths themselves follow standard JSON Pointer notation.
 
   ```yaml
   patches:
@@ -536,7 +536,7 @@ Addons apply changes to rendered resources through patch documents that mirror K
           value: "5m"
   ```
 
-- **List iteration**: The top-level `forEach` field repeats a patch block for every item in a CEL-evaluated list. A companion `var` key is required to name the binding used inside the operations.
+- **List iteration**: The top-level `forEach` field repeats a patch block for every item in a CEL-evaluated list. A companion `var` key is required to name the binding used inside the operations. Array filters (`[?(@.field=='value')]`) are available on every path—not just inside loops—and this example shows the binding selecting the matching container inline.
 
   ```yaml
   patches:
