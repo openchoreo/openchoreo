@@ -41,23 +41,10 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
-SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
 
-# Check if SERVER_URL is a loopback address with non-node port
-if [[ -n "$SERVER_URL" ]]; then
-  # Extract hostname and port from SERVER_URL
-  # Remove protocol prefix (http:// or https://)
-  HOST_PORT=$(echo "$SERVER_URL" | sed -E 's|^https?://||')
-  HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
-  PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
-  
-  # Check if it's a loopback address and port is not in node port range (30000-32767)
-  if [[ "$HOST" == "localhost" || "$HOST" == "127.0.0.1" || "$HOST" == "::1" ]]; then
-    if [[ -n "$PORT" ]] && [[ "$PORT" != "$HOST" ]] && [[ "$PORT" =~ ^[0-9]+$ ]] && [[ "$PORT" -lt 30000 || "$PORT" -gt 32767 ]]; then
-      echo "Loopback address with non-node port detected, setting SERVER_URL to null"
-      SERVER_URL=""
-    fi
-  fi
+# Only set SERVER_URL in multi-cluster mode
+if [[ "$SINGLE_CLUSTER" == "false" ]]; then
+  SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
 fi
 
 echo " "
