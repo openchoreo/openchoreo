@@ -399,25 +399,28 @@ spec:
   patches:
     # Attach PVC as a volume in the pod spec
     - target:
-        resourceType: Deployment
-      patch:
-        op: add
-        path: /spec/template/spec/volumes/-
-        value:
-          name: ${spec.volumeName}
-          persistentVolumeClaim:
-            claimName: ${metadata.name}-${instanceId}
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${spec.volumeName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${instanceId}
 
     # Mount the PVC into the developer-specified container at the mountPath
     - target:
-        resourceType: Deployment
-        containerName: ${spec.containerName}
-      patch:
-        op: add
-        path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
-        value:
-          name: ${spec.volumeName}
-          mountPath: ${spec.mountPath}
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          value:
+            name: ${spec.volumeName}
+            mountPath: ${spec.mountPath}
 ```
 
 **Example Addon 2: EmptyDir Volume with Sidecar** - Allows legacy applications to stream their file based logs to stdout for log collection.
@@ -434,47 +437,42 @@ spec:
   schema:
     parameters:
       logFilePath: string | required=true
-      containerName: string | default="main" # Which container to mount to (defaults to app)
+      containerName: string # Which container to mount to (defaults to app)
 
   patches:
-    # Inject sidecar container
     - target:
-        resourceType: Deployment
-      patch:
-        op: add
-        path: /spec/template/spec/containers/-
-        value:
-          name: log-sidecar
-          image: busybox
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              echo "Starting log tail for ${spec.logFilePath}"
-              tail -n+1 -F ${spec.logFilePath}
-          volumeMounts:
-            - name: app-logs
-              mountPath: /logs
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        # Inject sidecar container
+        - op: add
+          path: /spec/template/spec/containers/-
+          value:
+            name: log-sidecar
+            image: busybox
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                echo "Starting log tail for ${spec.logFilePath}"
+                tail -n+1 -F ${spec.logFilePath}
+            volumeMounts:
+              - name: app-logs
+                mountPath: /logs
 
-    # Ensure main container has log volume
-    - target:
-        resourceType: Deployment
-        containerName: app
-      patch:
-        op: add
-        path: /spec/template/spec/containers/[?(@.name==${spec.containerName}')]/volumeMounts/-
-        value:
-          name: app-logs
-          mountPath: /logs
+        # Ensure main container has log volume
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          value:
+            name: app-logs
+            mountPath: /logs
 
-    # Add volume for log directory (shared between app + sidecar)
-    - target:
-        resourceType: Deployment
-      patch:
-        op: add
-        path: /spec/template/spec/volumes/-
-        value:
-          name: app-logs
-          emptyDir: {}
+        # Add volume for log directory (shared between app + sidecar)
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: app-logs
+            emptyDir: {}
 ```
 
 ### Step 4: Environment-Specific Overrides
@@ -518,6 +516,61 @@ spec:
         size: 200Gi # Much larger in prod
         storageClass: premium
 ```
+
+### Addon Patch Syntax
+
+Addons apply changes to rendered resources through patch documents that mirror Kustomize’s patch format: each entry selects a resource and runs one or more operations against JSON Pointer–style paths. The standard JSON Patch verbs (`add`, `replace`) are delegated to the upstream `json-patch` engine, while `mergeShallow` is a openchoreo-specific convenience that overlays top-level map keys without replacing sibling values. This balance gives authors familiar semantics with a minimal set of extensions tailored for addon composition.
+
+- **Resource targeting**: Every patch specifies a `target` block. Alongside the resource’s `group/version/kind`, addons can carry an optional CEL-based `where` predicate to limit the patch to specific instances. Path navigation follows JSON Pointer, with renderer-specific array filters (`[?(@.field=='value')]`) inspired by JSONPath (RFC 9535) so authors can match elements without switching syntaxes.
+
+  ```yaml
+  patches:
+    - target:
+        group: external-secrets.io
+        version: v1beta1
+        kind: ExternalSecretStore
+        where: ${resource.metadata.name.endsWith("-secret-envs")}
+      operations:
+        - op: add
+          path: /spec/refreshInterval
+          value: "5m"
+  ```
+
+- **List iteration**: The top-level `forEach` field repeats a patch block for every item in a CEL-evaluated list. A companion `var` key is required to name the binding used inside the operations.
+
+  ```yaml
+  patches:
+    - forEach: ${spec.mounts}
+      var: mount
+      target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${mount.containerName}')]/volumeMounts/-
+          value:
+            name: ${spec.volumeName}
+            mountPath: ${mount.mountPath}
+            readOnly: ${has(mount.readOnly) ? mount.readOnly : false}
+            subPath: ${has(mount.subPath) ? mount.subPath : ""}
+  ```
+
+- **Shallow map overlays**: Use `mergeShallow` to add or replace specific keys within metadata maps without re-sending the entire payload.
+
+  ```yaml
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: mergeShallow
+          path: /spec/template/metadata/annotations
+          value:
+            custom.annotation/foo: foo
+            custom.annotation/bar: bar
+  ```
 
 ## Deployment Flow and Environment Promotion
 
