@@ -130,7 +130,6 @@ spec:
                     type: object
                 required:
                 - auth
-                - server
                 - tls
                 type: object
               observer:

@@ -146,7 +146,7 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 				Prefix: "registry.openchoreo-data-plane:5000",
 			},
 			KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
-				Server: params.APIServerURL,
+				Server: &params.APIServerURL,
 				TLS: openchoreov1alpha1.KubernetesTLS{
 					CA: openchoreov1alpha1.ValueFrom{
 						Value: params.CACert,

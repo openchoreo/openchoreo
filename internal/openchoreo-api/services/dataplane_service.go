@@ -142,7 +142,7 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 			SecretRef: req.RegistrySecretRef,
 		},
 		KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
-			Server: req.APIServerURL,
+			Server: &req.APIServerURL,
 			TLS: openchoreov1alpha1.KubernetesTLS{
 				CA: openchoreov1alpha1.ValueFrom{
 					Value: req.CACert,
@@ -225,7 +225,7 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		RegistryPrefix:          dp.Spec.Registry.Prefix,
 		RegistrySecretRef:       dp.Spec.Registry.SecretRef,
 		KubernetesClusterName:   dp.Name,
-		APIServerURL:            dp.Spec.KubernetesCluster.Server,
+		APIServerURL:            *dp.Spec.KubernetesCluster.Server,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
 		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 		CreatedAt:               dp.CreationTimestamp.Time,

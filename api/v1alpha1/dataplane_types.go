@@ -20,7 +20,8 @@ type ValueFrom struct {
 // KubernetesClusterSpec defines the configuration for the target Kubernetes cluster
 type KubernetesClusterSpec struct {
 	// Server is the URL of the Kubernetes API server
-	Server string `json:"server"`
+	// +optional
+	Server *string `json:"server,omitempty"`
 	// TLS contains the TLS configuration for the connection
 	TLS KubernetesTLS `json:"tls"`
 	// Auth contains the authentication configuration
