@@ -1,0 +1,21 @@
+# Values file for minimal installation mode
+# This file overrides the default values.yaml for minimal deployments
+
+global:
+  installationMode: minimal
+
+# Disable the OpenSearch Operator for minimal mode
+opensearch-operator:
+  enabled: false
+
+# Disable the OpenSearch Cluster for minimal mode
+opensearch-cluster:
+  enabled: false
+
+# Disable the Fluent Bit for minimal mode (Will be enabled once minimal mode is supported)
+fluent-bit:
+  enabled: false
+
+# Disable the Prometheus for minimal mode
+prometheus:
+  enabled: false
