@@ -24,65 +24,126 @@ After cloning the repository following the [github_workflow.md](github_workflow.
 make help
 ```
 
-### Setting Up the KinD Kubernetes Cluster
+### Quick Start
 
-For testing and development, we recommend using a KinD (Kubernetes in Docker) cluster.
+For the fastest way to get started, use the Makefile-driven workflow that sets up everything you need:
 
-1. Run the following command to create a KinD cluster:
+```sh
+make kind.setup
+```
 
+This single command will:
+1. Create a Kind cluster with optimized configuration
+2. Install Cilium CNI for advanced networking
+3. Build all OpenChoreo components (controller, API, UI)
+4. Load images into the Kind cluster
+5. Install OpenChoreo via the Helm chart
+
+### Manual Setup (Advanced)
+
+If you prefer to set up components manually or need more control over the installation:
+
+#### Setting Up the Kind Kubernetes Cluster
+
+To set up a local Kubernetes cluster using Kind, run the following command:
+
+```sh
+make kind
+```
+
+This will create a Kubernetes cluster with the configuration specified in `install/kind/kind-config.yaml`.
+
+#### Installing Cilium CNI
+
+After creating the cluster, install Cilium for advanced networking capabilities:
+
+```sh
+make kind.install.cilium
+```
+
+This will install Cilium CNI as per `install/dev/cilium-values.yaml`
+
+#### Building and Loading Docker Images
+
+Build the Docker images for OpenChoreo components and load them into the Kind cluster:
+
+```sh
+# Build all images
+make docker.build
+
+# Build and load all OpenChoreo components into Kind cluster
+make kind.build.openchoreo
+```
+
+#### Installing OpenChoreo
+
+Install OpenChoreo using the Helm chart:
+
+```sh
+make kind.install.openchoreo
+```
+
+
+### Accessing OpenChoreo Services
+
+After installation, you can access the services:
+
+```sh
+# Port-forward the API server to localhost:8080
+make kind.access.api
+
+# Port-forward the Backstage UI to localhost:7007
+make kind.access.ui
+```
+
+### Adding a DataPlane
+
+OpenChoreo requires a DataPlane to deploy and manage its resources. For development, you can add the default DataPlane:
+
+```sh
+bash ./install/add-default-dataplane.sh
+```
+
+### Running Controller Manager Locally
+
+For development, you can run the controller manager locally:
+
+1. Scale down the deployed controller manager:
    ```sh
-   kind create cluster --config=install/kind/kind-config.yaml
+   kubectl -n openchoreo scale deployment openchoreo-controller-manager --replicas=0
    ```
 
-2. To verify the cluster context is set correctly, and the cluster is running, use the following commands:
-
+2. Run the controller manager locally:
    ```sh
-   kubectl config current-context # This should show the `kind-choreo` as the current context
-   kubectl cluster-info
-   ```
-   
-3. Deploy the necessary components to the KinD cluster:
-
-   ```sh
-   make dev-deploy
-   ```
-   This may take around 5-15 minutes to complete depending on the internet bandwidth.
-
-> [!NOTE]
-> This command installs both the control plane and data plane components in the same cluster.
-
-4. Once completed, you can verify the deployment by running:
-
-   ```sh
-   ./install/check-status.sh
+   make go.run.manager ENABLE_WEBHOOKS=false
    ```
 
-5. Add default DataPlane to the cluster:
+### Development Workflow Management
 
-    OpenChoreo requires a DataPlane to deploy and manage its resources.
+The new Makefile targets provide a complete development workflow:
 
-   ```sh
-   bash ./install/add-default-dataplane.sh
-   ```
+```sh
+# Check cluster status
+make kind.status
 
-6. Run controller manager locally (for development):
-    
-   To run the controller manager locally during development:
+# Clean up OpenChoreo installation
+make kind.down.openchoreo
 
-   - First, scale down the existing manager deployment. You can do this by running: 
-   `kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0`
-   ```sh
-   kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0
-   ```
-   
-   - Then, run the following command to configure DataPlane resource:
-   ```sh
-   kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-choreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
-   ```
+# Clean up entire cluster
+make kind.down
+
+# Get help with Kind-specific commands
+make kind.help
+```
 
 ### Building and Running the Binaries
 
-This project comprises multiple binaries, mainly the `manager` binary and the `choreoctl` CLI tool.
+This project comprises multiple binaries:
+- `manager` - The Kubernetes controller manager
+- `choreoctl` - The CLI tool for managing OpenChoreo resources
+- `openchoreo-api` - The REST API server
+- `observer` - The observability plane service
+
 To build all the binaries, run:
 
 ```sh
@@ -90,11 +151,10 @@ make go.build
 ```
 
 This will produce the binaries in the `bin/dist` directory based on your OS and architecture.
-You can directly run the `manager` or `choreoctl` binary this location to try out.
 
 ### Incremental Development
 
-Rather using build and run the binaries every time, you can use the go run make targets to run the binaries directly.
+Rather than building and running the binaries every time, you can use the go run make targets to run the binaries directly.
 
 - Running the `manager` binary:
   ```sh
@@ -105,6 +165,29 @@ Rather using build and run the binaries every time, you can use the go run make 
   ```sh
   make go.run.choreoctl GO_RUN_ARGS="version"
   ```
+
+- Running the `openchoreo-api` server:
+  ```sh
+  make go.run.openchoreo-api
+  ```
+
+- Running the `observer` service:
+  ```sh
+  make go.run.observer
+  ```
+
+### Building for Kind Development
+
+For development with Kind clusters, you can build and load all components:
+
+```sh
+# Build all components and load into Kind cluster
+make kind.build.openchoreo
+
+# Build individual components
+make go.build.multiarch.manager
+make go.build.multiarch.openchoreo-api
+```
   
 ### Testing
 
@@ -146,6 +229,30 @@ If there are discrepancies or missing generated files, fix them by running:
 make code.gen
 ```
 
+#### Helm Chart Generation
+After modifying CRDs or RBAC rules, you need to regenerate the Helm charts:
+
+```bash
+make helm-generate
+```
+
+The OpenChoreo chart (`install/helm/openchoreo-secure-core/`) includes all components and is used for installations.
+
+### Development Environment Reset
+
+If you need to reset your development environment, you can clean up and restart:
+
+```bash
+# Delete the Kind cluster
+make kind.down
+
+# Clean up Docker images and containers (optional)
+docker system prune -f
+
+# Restart the setup process
+make kind.setup
+```
+
 ### Submitting Changes
 
 Once all changes are made and tested, you can submit a pull request by following the [GitHub workflow](github_workflow.md).
@@ -153,3 +260,8 @@ Once all changes are made and tested, you can submit a pull request by following
 ## Additional Resources
 
 - [Add New CRD Guide](adding-new-crd.md) - A guide to add new CRDs to the project.
+- [Build Engines Guide](build-engines.md) - Understanding build engines and build planes.
+- [Configure Build Plane](../configure-build-plane.md) - Setting up build planes for CI/CD.
+- [Install Guide - Multi-Cluster](../install-guide-multi-cluster.md) - Multi-cluster deployment guide.
+- [Observability and Logging](../observability-logging.md) - Setting up observability components.
+- [Resource Kind Reference](../resource-kind-reference-guide.md) - Complete reference for OpenChoreo resource kinds.

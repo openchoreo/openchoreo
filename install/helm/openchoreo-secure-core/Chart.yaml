@@ -1,5 +1,5 @@
 apiVersion: v2
-name: openchoreo
+name: openchoreo-secure-core
 description: An open-source Internal Developer Platform
 type: application
 

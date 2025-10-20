@@ -45,7 +45,7 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		fi \
 	fi
 	@# Copy CRDs and RBAC to openchoreo chart
-	@if [ ${CHART_NAME} == "openchoreo" ]; then \
+	@if [ ${CHART_NAME} == "openchoreo-secure-core" ]; then \
 		$(call log_info, Generating resources for secure-core chart); \
 		$(MAKE) manifests; \
 		mkdir -p $(CHART_PATH)/crds; \

@@ -12,7 +12,7 @@ CILIUM_ENVOY_VERSION := v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b89
 
 # Paths to development scripts and Helm chart
 DEV_SCRIPTS_DIR := $(PROJECT_DIR)/install/dev
-HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo
+HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo-secure-core
 KIND_SCRIPT := $(DEV_SCRIPTS_DIR)/kind.sh
 
 
@@ -123,7 +123,7 @@ kind.build.openchoreo: ## Build all OpenChoreo components and load them into the
 kind.install.openchoreo: ## Install OpenChoreo using Helm chart
 	@$(call log_info, Installing OpenChoreo via Helm into namespace '$(OPENCHOREO_NAMESPACE)'...)
 	@kubectl create namespace $(OPENCHOREO_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
-	@helm upgrade --install openchoreo $(HELM_DIR) \
+	@helm upgrade --install openchoreo-secure-core $(HELM_DIR) \
 		--namespace $(OPENCHOREO_NAMESPACE) \
 		--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
 		--set controllerManager.image.repository=openchoreo-controller \
@@ -135,12 +135,13 @@ kind.install.openchoreo: ## Install OpenChoreo using Helm chart
 		--wait \
 		--timeout=10m
 	@$(call log_success, OpenChoreo installed successfully!)
+	@$(call log_info, To install the default dataplane, run: ./install/add-default-dataplane.sh)
 
 # Uninstall OpenChoreo via Helm
 .PHONY: kind.down.openchoreo
 kind.down.openchoreo: ## Uninstall OpenChoreo using Helm chart
 	@$(call log_info, Uninstalling OpenChoreo from namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@helm uninstall openchoreo --namespace $(OPENCHOREO_NAMESPACE) || true
+	@helm uninstall openchoreo-secure-core --namespace $(OPENCHOREO_NAMESPACE) || true
 	@$(call log_success, OpenChoreo uninstalled successfully!)
 
 # Complete setup
