@@ -1,0 +1,59 @@
+{{- if .Values.asgardeoThunder.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-config
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+data:
+  deployment.yaml: |
+    server:
+      hostname: {{ .Values.asgardeoThunder.config.server.hostname | quote }}
+      port: {{ .Values.asgardeoThunder.config.server.port }}
+      http_only: {{ .Values.asgardeoThunder.config.server.httpOnly }}
+
+    gate_client:
+      hostname: {{ .Values.asgardeoThunder.config.gateClient.hostname | quote }}
+      port: {{ .Values.asgardeoThunder.config.gateClient.port }}
+      scheme: {{ .Values.asgardeoThunder.config.gateClient.scheme | quote }}
+      login_path: {{ .Values.asgardeoThunder.config.gateClient.loginPath | quote }}
+      error_path: {{ .Values.asgardeoThunder.config.gateClient.errorPath | quote }}
+   
+    {{- if not .Values.asgardeoThunder.config.server.httpOnly }}
+    security:
+      cert_file: "repository/resources/security/server.cert"
+      key_file: "repository/resources/security/server.key"
+    {{- end }}
+
+    database:
+      identity:
+        type: {{ .Values.asgardeoThunder.config.database.identity.type | quote }}
+        path: {{ .Values.asgardeoThunder.config.database.identity.path | quote }}
+        options: {{ .Values.asgardeoThunder.config.database.identity.options | quote }}
+      runtime:
+        type: {{ .Values.asgardeoThunder.config.database.runtime.type | quote }}
+        path: {{ .Values.asgardeoThunder.config.database.runtime.path | quote }}
+        options: {{ .Values.asgardeoThunder.config.database.runtime.options | quote }}
+
+    oauth:
+      jwt:
+        issuer: {{ .Values.asgardeoThunder.config.oauth.jwt.issuer | quote }}
+        validity_period: {{ .Values.asgardeoThunder.config.oauth.jwt.validityPeriod }}
+      refresh_token:
+        renew_on_grant: {{ .Values.asgardeoThunder.config.oauth.refreshToken.renewOnGrant }}
+        validity_period: {{ .Values.asgardeoThunder.config.oauth.refreshToken.validityPeriod }}
+
+    flow:
+      graph_directory: {{ .Values.asgardeoThunder.config.flow.graphDirectory | quote }}
+      authn:
+        default_flow: {{ .Values.asgardeoThunder.config.flow.authn.defaultFlow | quote }}
+    cors:
+      allowed_origins:
+        - "https://localhost:9090"
+        {{- if .Values.asgardeoThunder.ingress.enabled }}
+        {{- range .Values.asgardeoThunder.ingress.hosts }}
+        - "https://{{ .host }}"
+        {{- end }}
+        {{- end }}
+{{- end }}

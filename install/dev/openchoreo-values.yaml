@@ -49,3 +49,51 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
+asgardeoThunder:
+  image:
+    repository: ghcr.io/brionmario/thunder
+    tag: 0.0.14
+  env:
+    - name: NEXT_PUBLIC_AUTHORIZATION_ENDPOINT
+      value: "https://sts.openchoreo.localhost/oauth2/authorize"
+    - name: NEXT_PUBLIC_FLOW_EXECUTION_ENDPOINT
+      value: "https://sts.openchoreo.localhost/flow/execute"
+    - name: ENABLE_HTTPS
+      value: "false"
+    - name: HOST
+      value: "0.0.0.0"
+  config:
+    server:
+      hostname: "0.0.0.0"
+      port: 8090
+      httpOnly: true
+    gateClient:
+      hostname: portal.sts.openchoreo.localhost
+      port: 443
+      scheme: https
+    oauth:
+      jwt:
+        issuer: "https://sts.openchoreo.localhost"
+  ingress:
+    enabled: true
+    ingressClassName: cilium
+    annotations: {}
+    hosts:
+      - host: sts.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 8090
+      - host: portal.sts.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 9090
+    tls:
+      - secretName: openchoreo-asgardeo-thunder-ingress-tls
+        hosts:
+          - sts.openchoreo.localhost
+          - portal.sts.openchoreo.localhost
+  backstagePortal:
+    redirectUrl: "https://openchoreo.localhost/api/auth/oidc/handler/frame"
+    clientSecret: backstage-portal-secret

@@ -1,0 +1,40 @@
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  minReplicas: {{ .Values.asgardeoThunder.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.asgardeoThunder.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.asgardeoThunder.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.asgardeoThunder.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.asgardeoThunder.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.asgardeoThunder.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- with .Values.asgardeoThunder.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

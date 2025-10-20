@@ -1,0 +1,222 @@
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.backstagePortal.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-post-install
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder-post-hook
+    role: job
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-post-install
+      labels:
+        {{- include "openchoreo-secure-core.labels" . | nindent 8 }}
+        app.kubernetes.io/component: asgardeo-thunder-post-hook
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: post-install-setup
+        image: curlimages/curl:8.4.0
+        env:
+        - name: BACKSTAGE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-secrets
+              key: backstage-client-secret
+        {{- range .Values.asgardeoThunder.userDetails.users }}
+        - name: USER_PASSWORD_{{ .username | upper | replace "-" "_" }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder-secrets
+              key: user-password-{{ .username }}
+        {{- end }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          
+          echo "Waiting for identity-provider service to be ready..."
+          max_attempts=60
+          attempt=0
+
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -k -f --max-time 5 http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/health/liveness 2>/dev/null; then
+              echo "Identity provider service is responding"
+              break
+            fi
+
+            echo "Attempt $((attempt + 1))/$max_attempts: Waiting for service to respond..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "Timeout waiting for identity-provider service to be ready"
+            exit 1
+          fi
+
+          # Check if the application already exists
+          echo "Checking if application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists..."
+          existing_apps=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications')
+
+          if echo "$existing_apps" | grep -q '"name":"{{ .Values.asgardeoThunder.backstagePortal.name }}"'; then
+            echo "Application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists, skipping creation"
+          else
+            echo "Application does not exist, creating default application..."
+            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications' \
+              --header 'Content-Type: application/json' \
+              --data '{
+                "name": "{{ .Values.asgardeoThunder.backstagePortal.name }}",
+                "description": "{{ .Values.asgardeoThunder.backstagePortal.description }}",
+                "inbound_auth_config": [
+                  {
+                    "type": "oauth2",
+                    "config": {
+                      "client_id": "{{ .Values.asgardeoThunder.backstagePortal.clientId }}",
+                      "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
+                      "redirect_uris": [
+                        "{{ .Values.asgardeoThunder.backstagePortal.redirectUrl }}"
+                      ],
+                      "grant_types": [
+                        "authorization_code"
+                      ],
+                      "response_types": [
+                        "code"
+                      ],
+                      "token_endpoint_auth_methods": [
+                        "none"
+                      ],
+                      "pkce_required": false,
+                      "public_client": false,
+                      "token": {
+                        "issuer": "thunder",
+                        "access_token": {
+                          "validity_period": 3600,
+                          "user_attributes": [
+                            "given_name",
+                            "family_name",
+                            "username",
+                            "group"
+                          ]
+                        },
+                        "id_token": {
+                          "validity_period": 3600,
+                          "user_attributes": [
+                            "given_name",
+                            "family_name",
+                            "username",
+                            "group"
+                          ],
+                          "scope_claims": {
+                            "group": [
+                              "group"
+                            ],
+                            "profile": [
+                              "username",
+                              "given_name",
+                              "family_name",
+                              "picture"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }' \
+              --fail-with-body \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5
+            
+            echo "Default application created successfully"
+          fi
+          
+          # Check if the user schema already exists
+          echo "Checking if user schema '{{ .Values.asgardeoThunder.userDetails.userSchemaName }}' already exists..."
+          existing_schemas=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas')
+
+          if echo "$existing_schemas" | grep -q '"name":"{{ .Values.asgardeoThunder.userDetails.userSchemaName }}"'; then
+            echo "User schema '{{ .Values.asgardeoThunder.userDetails.userSchemaName }}' already exists, skipping creation"
+          else
+            echo "User schema does not exist, creating user schema..."
+            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas' \
+              --header 'accept: application/json' \
+              --header 'Content-Type: application/json' \
+              --data '{
+                "name": "{{ .Values.asgardeoThunder.userDetails.userSchemaName }}",
+                "schema": {
+                  "username": {
+                    "type": "string",
+                    "required": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "required": true
+                  },
+                  "given_name": {
+                    "type": "string"
+                  },
+                  "family_name": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string",
+                    "enum": ["platformEngineer", "developer"]
+                  }
+                }
+              }' \
+              --fail-with-body \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5
+            
+            echo "User schema created successfully"
+          fi
+          
+          # Create default users
+          {{- if .Values.asgardeoThunder.userDetails.users }}
+          echo "Creating default users..."
+          {{- range .Values.asgardeoThunder.userDetails.users }}
+          # Check if the user already exists
+          echo "Checking if user '{{ .username }}' already exists..."
+          existing_users=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users')
+
+          if echo "$existing_users" | grep -q '"username":"{{ .username }}"'; then
+            echo "User '{{ .username }}' already exists, skipping creation"
+          else
+            echo "User does not exist, creating user '{{ .username }}'..."
+            USER_PASSWORD_VAR="USER_PASSWORD_{{ .username | upper | replace "-" "_" }}"
+            USER_PASSWORD=$(eval echo \$${USER_PASSWORD_VAR})
+            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users' \
+              --header 'accept: application/json' \
+              --header 'Content-Type: application/json' \
+              --data '{
+                "type": "{{ $.Values.asgardeoThunder.userDetails.userSchemaName }}",
+                "attributes": {
+                  "username": "{{ .username }}",
+                  "password": "'"$USER_PASSWORD"'",
+                  "given_name": "{{ .given_name }}",
+                  "family_name": "{{ .family_name }}",
+                  "group": "{{ .group }}"
+                }
+              }' \
+              --fail-with-body \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5
+            
+            echo "User '{{ .username }}' created successfully"
+          fi
+          {{- end }}
+          {{- end }}
+{{- end }}
+{{- end }}

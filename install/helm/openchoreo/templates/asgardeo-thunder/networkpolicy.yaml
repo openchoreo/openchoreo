@@ -1,0 +1,55 @@
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: asgardeo-thunder
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from same namespace
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.asgardeoThunder.service.targetPort }}
+        - protocol: TCP
+          port: {{ .Values.asgardeoThunder.service.gateTargetPort }}
+    {{- with .Values.asgardeoThunder.networkPolicy.ingress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow outbound to API server
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    {{- with .Values.asgardeoThunder.networkPolicy.egress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

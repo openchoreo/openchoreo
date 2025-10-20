@@ -1,0 +1,29 @@
+{{- if .Values.asgardeoThunder.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+spec:
+  type: {{ .Values.asgardeoThunder.service.type }}
+  ports:
+    - port: {{ .Values.asgardeoThunder.service.port }}
+      targetPort: {{ .Values.asgardeoThunder.service.targetPort }}
+      {{- if and (eq .Values.asgardeoThunder.service.type "NodePort") .Values.asgardeoThunder.service.nodePort }}
+      nodePort: {{ .Values.asgardeoThunder.service.nodePort }}
+      {{- end }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.asgardeoThunder.service.gatePort }}
+      targetPort: {{ .Values.asgardeoThunder.service.gateTargetPort }}
+      {{- if and (eq .Values.asgardeoThunder.service.type "NodePort") .Values.asgardeoThunder.service.gateNodePort }}
+      nodePort: {{ .Values.asgardeoThunder.service.gateNodePort }}
+      {{- end }}
+      protocol: TCP
+      name: gate
+  selector:
+    {{- include "openchoreo-secure-core.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+{{- end }}

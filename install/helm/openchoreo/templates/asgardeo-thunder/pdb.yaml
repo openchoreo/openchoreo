@@ -1,0 +1,23 @@
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+spec:
+  {{- if .Values.asgardeoThunder.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.asgardeoThunder.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.asgardeoThunder.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.asgardeoThunder.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: asgardeo-thunder
+{{- end }}
+{{- end }}

@@ -1,0 +1,16 @@
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.persistence.database.enabled }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-database-pv
+spec:
+  capacity:
+    storage: {{ .Values.asgardeoThunder.persistence.database.size }}
+  accessModes:
+    - {{ .Values.asgardeoThunder.persistence.database.accessMode }}
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: /mnt/shared/platform-identity-provider-db
+{{- end }}
+{{- end }}

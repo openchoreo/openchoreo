@@ -1,0 +1,135 @@
+{{- if .Values.asgardeoThunder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  labels:
+    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    app.kubernetes.io/component: asgardeo-thunder
+spec:
+  replicas: {{ .Values.asgardeoThunder.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: asgardeo-thunder
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/asgardeo-thunder/configmap.yaml") . | sha256sum }}
+        {{- with .Values.asgardeoThunder.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "openchoreo-secure-core.labels" . | nindent 8 }}
+        app.kubernetes.io/component: asgardeo-thunder
+        {{- with .Values.asgardeoThunder.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.asgardeoThunder.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.asgardeoThunder.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-repository
+          image: "{{ .Values.asgardeoThunder.image.repository }}:{{ .Values.asgardeoThunder.image.tag | default .Chart.AppVersion }}"
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          command: ['sh', '-c']
+          args:
+            - |
+              {{- if .Values.asgardeoThunder.persistence.database.enabled }}
+              if [ ! -f /data/database/.initialized ]; then
+                echo "Copying database directory from image..."
+                mkdir -p /data/database
+                cp -r /opt/thunder/repository/database/* /data/database/
+                touch /data/database/.initialized
+                echo "Database initialization complete"
+              else
+                echo "Database already initialized"
+              fi
+              {{- end }}
+          volumeMounts:
+            {{- if .Values.asgardeoThunder.persistence.database.enabled }}
+            - name: repository
+              mountPath: /data/database
+            {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.asgardeoThunder.securityContext | nindent 12 }}
+          image: "{{ .Values.asgardeoThunder.image.repository }}:{{ .Values.asgardeoThunder.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.asgardeoThunder.image.pullPolicy }}
+          {{- with .Values.asgardeoThunder.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.asgardeoThunder.service.targetPort }}
+              protocol: TCP
+            - name: gate
+              containerPort: {{ .Values.asgardeoThunder.service.gateTargetPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health/liveness
+              port: http
+              scheme: {{ if .Values.asgardeoThunder.config.server.httpOnly }}HTTP{{ else }}HTTPS{{ end }}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+              scheme: {{ if .Values.asgardeoThunder.config.server.httpOnly }}HTTP{{ else }}HTTPS{{ end }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            {{- if .Values.asgardeoThunder.persistence.database.enabled }}
+            - name: repository
+              mountPath: /opt/thunder/repository/database
+            {{- end }}
+            - name: config
+              mountPath: /opt/thunder/repository/conf/deployment.yaml
+              subPath: deployment.yaml
+              readOnly: true
+            {{- with .Values.asgardeoThunder.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.asgardeoThunder.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-config
+        {{- if .Values.asgardeoThunder.persistence.database.enabled }}
+        - name: repository
+          persistentVolumeClaim:
+            claimName: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-database
+        {{- end }}
+        {{- with .Values.asgardeoThunder.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.asgardeoThunder.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.asgardeoThunder.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.asgardeoThunder.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
