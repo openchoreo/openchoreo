@@ -6,7 +6,6 @@ package kubernetes
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"sync"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -73,22 +72,8 @@ func (m *KubeMultiClientManager) GetClient(key string, kubernetesCluster opencho
 
 // buildRESTConfig constructs a REST config from the KubernetesClusterSpec
 func buildRESTConfig(kubernetesCluster openchoreov1alpha1.KubernetesClusterSpec) (*rest.Config, error) {
-	// Determine the server URL
-	var serverURL string
-	if kubernetesCluster.Server != nil {
-		serverURL = *kubernetesCluster.Server
-	} else {
-		// Use environment variables to dynamically configure the server URI
-		kubeAPIIP := os.Getenv("KUBERNETES_SERVICE_HOST")
-		kubeAPIPort := os.Getenv("KUBERNETES_SERVICE_PORT")
-		if kubeAPIIP == "" || kubeAPIPort == "" {
-			return nil, fmt.Errorf("KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT environment variables must be set when Server is not specified")
-		}
-		serverURL = fmt.Sprintf("https://%s:%s", kubeAPIIP, kubeAPIPort)
-	}
-
 	restCfg := &rest.Config{
-		Host: serverURL,
+		Host: kubernetesCluster.Server,
 	}
 
 	// Configure TLS

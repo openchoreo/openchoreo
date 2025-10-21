@@ -26,13 +26,28 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
   CONTEXT=$(kubectl config current-context)
   TARGET_CONTEXT=$CONTEXT
   DATAPLANE_KIND_NAME=$DEFAULT_DATAPLANE_KIND_NAME
-  echo "Running in single-cluster mode using context '$CONTEXT'"
+  
+  # Get server URL from kubeconfig
+  CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
+  KUBE_SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
+  
+  # Check if server URL is loopback address
+  if [[ "$KUBE_SERVER_URL" =~ ^https?://(127\.0\.0\.1|localhost) ]]; then
+    SERVER_URL="https://kubernetes.default.svc.cluster.local"
+    echo "Running in single-cluster mode using context '$CONTEXT' with loopback server, using Kubernetes service DNS"
+  else
+    NODE_NAME_PREFIX=${CONTEXT#kind-}
+    SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
+    echo "Running in single-cluster mode using context '$CONTEXT'"
+  fi
 else
   read -p "Enter DataPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
   CONTEXT=${INPUT_CONTEXT:-$DEFAULT_CONTEXT}
   TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
 
   echo -e "\nUsing Kubernetes context '$CONTEXT' as DataPlane."
+  NODE_NAME_PREFIX=${CONTEXT#kind-}
+  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
 
   read -p "Enter DataPlane kind name (default: $DEFAULT_DATAPLANE_KIND_NAME): " INPUT_DATAPLANE_NAME
   DATAPLANE_KIND_NAME=${INPUT_DATAPLANE_NAME:-$DEFAULT_DATAPLANE_KIND_NAME}
@@ -41,12 +56,6 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
-
-# Only set SERVER_URL in multi-cluster mode
-if [[ "$SINGLE_CLUSTER" == "false" ]]; then
-  SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
-fi
-
 echo " "
 
 # Try to get base64-encoded values directly

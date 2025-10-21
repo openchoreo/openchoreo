@@ -119,7 +119,7 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			DisplayName:           displayName,
 			Description:           description,
 			KubernetesClusterName: buildPlane.Name,
-			APIServerURL:          *buildPlane.Spec.KubernetesCluster.Server,
+			APIServerURL:          buildPlane.Spec.KubernetesCluster.Server,
 			ObserverURL:           observerURL,
 			ObserverUsername:      observerUsername,
 			CreatedAt:             buildPlane.CreationTimestamp.Time,
