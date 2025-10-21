@@ -4,7 +4,7 @@
 @JanakaSandaruwan
 
 **Reviewers**:  
-_TBD_
+@Mirage20 @ChathurangaKCD @binura-g
 
 **Created Date**:  
 _2025-10-17_
@@ -25,13 +25,18 @@ This proposal introduces a comprehensive configuration management system for Ope
 
 ## Motivation
 
-
 OpenChoreo currently lacks a unified, flexible way for managing configurations of user workloads.
 
 Current Problems:
 
 - **No standardized mechanism to inject configs and secrets**: 
-Applications require configuration via both environment variables and mounted files, but there’s no consistent interface to declare and manage them through OpenChoreo.
+Applications require configuration via both environment variables and mounted files, but there's no consistent interface to declare and manage them through OpenChoreo.
+
+- **Lack of environment-specific configuration support**: 
+No built-in mechanism to override configurations for different environments (dev, staging, production), leading to manual configuration management and increased deployment complexity.
+
+- **Limited developer experience for configuration injection**:
+Developers must currently understand and manipulate Kubernetes resources such as ConfigMaps, Secrets, and volume mounts to inject configurations. This adds unnecessary complexity and slows down the development process.
 
 ## Goals
 
@@ -172,112 +177,194 @@ spec:
 
   # Templates generate K8s resources dynamically
   resources:
-resources:
-  - id: deployment
-    template:
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: ${metadata.name}
-        namespace: ${metadata.namespace}
-      spec:
-        selector:
-          matchLabels:
-            app: ${metadata.name}
-        template:
-          metadata:
-            labels:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          selector:
+            matchLabels:
               app: ${metadata.name}
-          spec:
-            containers:
-              - name: app
-                image: ${build.image}
-                envFrom: |
-                  ${[has(configurations.configs.envs) ? {"configMapRef": {"name": GenerateK8sName(metadata.name, "env-configs")}} : {}, has(configurations.secrets.envs) ? {"secretRef": {"name": GenerateK8sName(metadata.name, "env-secrets")}} : {}].filter(item, size(item) > 0)}
-                volumeMounts: |
-                  ${has(configurations.configs.files) ? configurations.configs.files.map(file, {"name": GenerateK8sName(file.name, "config-volume"), "mountPath": file.mountPath, "subPath": file.name}) : omit()}
-            volumes: |
-              ${has(configurations.configs.files) ? configurations.configs.files.map(file, {"name": GenerateK8sName(file.name, "config-volume"), "configMap": {"name": GenerateK8sName(metadata.name, file.name)}}) : omit()}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: app
+                  image: ${build.image}
+                  envFrom: |
+                    ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                      [{
+                        "configMapRef": {
+                          "name": GenerateK8sName(metadata.name, "env-configs")
+                        }
+                      }] : []) +
+                     (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                      [{
+                        "secretRef": {
+                          "name": GenerateK8sName(metadata.name, "secret-configs")
+                        }
+                      }] : [])}
+                  volumeMounts: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                        configurations.configs.files.map(f, {
+                          "name": GenerateK8sName(f.name,"config-volume")
+                          "mountPath": f.mountPath,
+                          "subPath": "config"
+                        }) : []) +
+                       (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                        secrets.files.map(f, {
+                          "name": GenerateK8sName(f.name,"secret-volume"),
+                          "mountPath": f.mountPath,
+                          "subPath": f.name
+                        }) : [])
+                    : omit()}
+              volumes: |
+                ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                  (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                    configurations.configs.files.map(f, {
+                      "name": GenerateK8sName(f.name,"config-volume"),
+                      "configMap": {
+                        "name": ${GenerateK8sName(metadata.name, "config", f.name)}
+                      }
+                    }) : []) +
+                   (has(secrets.files) && secrets.files.size() > 0 ?
+                    secrets.files.map(f, {
+                      "name": GenerateK8sName(f.name,"secret-volume"),
+                      "secret": {
+                        "secretName": ${GenerateK8sName(metadata.name, "secret", f.name)}
+                      }
+                    }) : [])
+                : omit()}
 
-    - id: env-config
-        condition: ${has(configurations.configs.envs)}
-        template:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: ${GenerateK8sName(metadata.name, "env-configs")}
-            namespace: ${metadata.namespace}
-          data: |
-            ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
-
-    - id: file-config
-        forEach: ${configurations.configs.files}
-        var: config
-        condition: ${has(configurations.configs.files)}
-        template:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: ${GenerateK8sName(metadata.name, config.name)}
-            namespace: ${metadata.namespace}
-          data:
-            ${config.name}: |
-              ${config.content}
-
-      - id: secret-env-external
-        condition: ${has(configurations.secrets.envs)}
-        template:
-          apiVersion: external-secrets.io/v1beta1
-          kind: ExternalSecret
-          metadata:
-            name: ${GenerateK8sName(metadata.name, "env-secrets")}
-            namespace: ${metadata.namespace}
-          spec:
-            refreshInterval: 15s
-            secretStoreRef:
-              name: ${dataplane.vault.secretStore}
-              kind: SecretStore
-            target:
-              name: ${GenerateK8sName(metadata.name, "env-secrets")}
-              creationPolicy: Owner
+      - id: env-config
+          condition: ${has(configurations.configs.envs)}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${GenerateK8sName(metadata.name, "env-configs")}
+              namespace: ${metadata.namespace}
             data: |
-              ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
-                "secretKey": secret.name,
-                "remoteRef": {
-                  "key": secret.remoteRef.key,
-                  "property": secret.remoteRef.property
-                }
-              }) : omit()}
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
 
-      - id: secret-file-external
-        forEach: ${configurations.secrets.files}
-        var: file
-        condition: ${has(configurations.secrets.files)}
-        template:
-          apiVersion: external-secrets.io/v1beta1
-          kind: ExternalSecret
-          metadata:
-            name: ${GenerateK8sName(metadata.name, file.name, "secret")}
-            namespace: ${metadata.namespace}
-          spec:
-            refreshInterval: 15s
-            secretStoreRef:
-              name: ${dataplane.vault.secretStore}
-              kind: SecretStore
-            target:
-              name: ${GenerateK8sName(metadata.name, file.name, "secret")}
-              creationPolicy: Owner
+      - id: file-config
+          forEach: ${configurations.configs.files}
+          var: config
+          condition: ${has(configurations.configs.files)}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${GenerateK8sName(metadata.name, "config", config.name)}
+              namespace: ${metadata.namespace}
             data:
-              - secretKey: ${file.name}
-                remoteRef:
-                  key: ${file.remoteRef.key}
-                  property: ${file.remoteRef.property}
+              ${config.name}: |
+                ${config.content}
+
+        - id: secret-env-external
+          condition: ${has(configurations.secrets.envs)}
+          template:
+            apiVersion: external-secrets.io/v1beta1
+            kind: ExternalSecret
+            metadata:
+              name: ${GenerateK8sName(metadata.name, "env-secrets")}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.vault.secretStore}
+                kind: SecretStore
+              target:
+                name: ${GenerateK8sName(metadata.name, "env-secrets")}
+                creationPolicy: Owner
+              data: |
+                ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+                  "secretKey": secret.name,
+                  "remoteRef": {
+                    "key": secret.remoteRef.key,
+                    "property": secret.remoteRef.property
+                  }
+                }) : omit()}
+
+        - id: secret-file-external
+          forEach: ${configurations.secrets.files}
+          var: file
+          condition: ${has(configurations.secrets.files)}
+          template:
+            apiVersion: external-secrets.io/v1beta1
+            kind: ExternalSecret
+            metadata:
+              name: ${GenerateK8sName(metadata.name, "secret", file.name)}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.vault.secretStore}
+                kind: SecretStore
+              target:
+                name: ${GenerateK8sName(metadata.name,"secret", file.name)}
+                creationPolicy: Owner
+              data:
+                - secretKey: ${file.name}
+                  remoteRef:
+                    key: ${file.remoteRef.key}
+                    property: ${file.remoteRef.property}
 
 ```
 
 ### Architecture Overview
 
-![Configuration Management Architecture](0539-assets/architecture.png)
+```mermaid
+flowchart LR
+        configs[Configs]
+
+        subgraph ControlPlane["Control Plane"]
+            SR[SecretReference]
+            WL[Workload]
+            EB[EnvSetting]
+            RC[Release Controller]
+            SPACER1[ ]
+            SPACER2[ ]
+
+            WL --> SR
+            WL --> RC
+            EB --> RC
+
+            style SPACER1 fill:transparent,stroke:transparent
+            style SPACER2 fill:transparent,stroke:transparent
+        end
+
+        subgraph DataPlane["Data Plane"]
+            ES[External Secret]
+            ESO[ESO secret store vault backend]
+            V[vault]
+            CM[ConfigMap]
+            S[Secret]
+            APP[App]
+            SPACER3[ ]
+
+            RC --> ES
+            RC --> CM
+            ES --> ESO
+            ESO -->|fetches| V
+            ESO -->|creates| S
+            CM -->|mounted in| APP
+            S -->|mounted in| APP
+
+            style SPACER3 fill:transparent,stroke:transparent
+        end
+
+        configs --> WL
+
+        style ControlPlane fill:#e1f5fe
+        style DataPlane fill:#f3e5f5
+```
 
 
 * In the component build, the Workload CRD is generated with environment variables, files, and secret references.
