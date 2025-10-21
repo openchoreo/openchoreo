@@ -4,7 +4,7 @@
 # Controller Manager configuration
 controllerManager:
   image:
-    repository: openchoreo-controller
+    repository: ghcr.io/openchoreo/controller
     tag: dev
     pullPolicy: IfNotPresent
   # Disable AppArmor for local development (not supported on macOS/Kind)
@@ -15,7 +15,7 @@ controllerManager:
 # OpenChoreo API configuration
 openchoreoApi:
   image:
-    repository: openchoreo-api
+    repository: ghcr.io/openchoreo/openchoreo-api
     tag: dev
     pullPolicy: IfNotPresent
   # Disable AppArmor for local development (not supported on macOS/Kind)
@@ -34,7 +34,7 @@ openchoreoApi:
 # Backstage UI configuration
 backstage:
   image:
-    repository: openchoreo-ui
+    repository: ghcr.io/openchoreo/openchoreo-ui
     tag: dev
     pullPolicy: IfNotPresent
   # Disable AppArmor for local development (not supported on macOS/Kind)

@@ -26,17 +26,6 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 	$(eval CHART_NAME := $(word 1,$(subst ., ,$*)))
 	$(eval CHART_PATH := $(HELM_CHARTS_DIR)/$(CHART_NAME))
 	@$(call log_info, Generating helm chart '$(CHART_NAME)')
-	@# Run helm-gen to generate CRDs and RBAC for the helm chart
-	@if [ ${CHART_NAME} == "openchoreo-control-plane" ]; then \
-		$(MAKE) manifests; \
-		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH); \
-		VALUES_FILE=$(CHART_PATH)/values.yaml; \
-		if [ -f "$$VALUES_FILE" ]; then \
-		  $(YQ) eval '.controllerManager.manager.image.repository = "$(HELM_CONTROLLER_IMAGE)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.manager.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.manager.imagePullPolicy = "$(HELM_CONTROLLER_IMAGE_PULL_POLICY)"' -i $$VALUES_FILE; \
-		fi \
-	fi
 	@# Update backstage image tag for openchoreo-backstage chart
 	@if [ ${CHART_NAME} == "openchoreo-backstage" ]; then \
 		VALUES_FILE=$(CHART_PATH)/values.yaml; \
@@ -48,40 +37,8 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 	@if [ ${CHART_NAME} == "openchoreo" ]; then \
 		$(call log_info, Generating resources for secure-core chart); \
 		$(MAKE) manifests; \
-		mkdir -p $(CHART_PATH)/crds; \
-		mkdir -p $(CHART_PATH)/templates/controller-manager; \
-		$(call log_info, Copying CRDs); \
-		cp -f $(PROJECT_DIR)/config/crd/bases/*.yaml $(CHART_PATH)/crds/; \
-		$(call log_info, Generating RBAC templates from kubebuilder output); \
-		( \
-			awk 'BEGIN {in_metadata=0; skip_labels=0} \
-			/^---$$/ {print; next} \
-			/^apiVersion:/ {print; next} \
-			/^kind:/ {print; next} \
-			/^metadata:$$/ {print; in_metadata=1; next} \
-			in_metadata && /^  labels:$$/ {skip_labels=1; next} \
-			skip_labels && /^    / {next} \
-			skip_labels && /^  / {skip_labels=0} \
-			in_metadata && /^  name: manager-role$$/ {print "  name: {{ include \"openchoreo.fullname\" . }}-controller-manager-role"; next} \
-			in_metadata && /^[^ ]/ {print "  labels:"; print "    {{- include \"openchoreo.labels\" . | nindent 4 }}"; print "    app.kubernetes.io/component: controller-manager"; in_metadata=0; print; next} \
-			{print}' $(PROJECT_DIR)/config/rbac/role.yaml; \
-		) > $(CHART_PATH)/templates/controller-manager/clusterrole.yaml; \
-		$(call log_info, Generating leader election role template); \
-		( \
-			awk 'BEGIN {in_metadata=0; skip_labels=0} \
-			/^---$$/ {print; next} \
-			/^apiVersion:/ {print; next} \
-			/^kind:/ {print; next} \
-			/^metadata:$$/ {print; in_metadata=1; next} \
-			in_metadata && /^  labels:$$/ {skip_labels=1; next} \
-			skip_labels && /^    / {next} \
-			skip_labels && /^  / {skip_labels=0} \
-			in_metadata && /^  name: leader-election-role$$/ {print "  name: {{ include \"openchoreo.fullname\" . }}-leader-election"; next} \
-			in_metadata && /^  namespace:/ {print "  namespace: {{ .Release.Namespace }}"; next} \
-			in_metadata && /^[^ ]/ {print "  labels:"; print "    {{- include \"openchoreo.labels\" . | nindent 4 }}"; print "    app.kubernetes.io/component: controller-manager"; in_metadata=0; print; next} \
-			{print}' $(PROJECT_DIR)/config/rbac/leader_election_role.yaml; \
-		) > $(CHART_PATH)/templates/controller-manager/leader-election-role.yaml; \
-		$(call log_info, Copied $(shell ls -1 $(PROJECT_DIR)/config/crd/bases/*.yaml | wc -l) CRDs and generated RBAC templates); \
+		$(call log_info, Running helm-gen for openchoreo chart); \
+		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
 		VALUES_FILE=$(CHART_PATH)/values.yaml; \
 		if [ -f "$$VALUES_FILE" ]; then \
 		  $(YQ) eval '.controllerManager.image.repository = "$(HELM_CONTROLLER_IMAGE)"' -i $$VALUES_FILE; \
