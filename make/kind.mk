@@ -1,302 +1,262 @@
-# This makefile contains all the make targets related to Kind cluster management for OpenChoreo development.
+# Minimal Kind cluster management for OpenChoreo development
 
-# Kind cluster configuration
+# Configuration
 KIND_CLUSTER_NAME ?= openchoreo
 OPENCHOREO_IMAGE_TAG ?= dev
 OPENCHOREO_NAMESPACE ?= openchoreo
 KIND_EXTERNAL_DNS ?= 8.8.8.8
 KIND_NETWORK ?= openchoreo
+
 # Cilium configuration
 CILIUM_VERSION := 1.18.2
 CILIUM_ENVOY_VERSION := v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b890bf
 
-# Paths to development scripts and Helm chart
+# Paths
 DEV_SCRIPTS_DIR := $(PROJECT_DIR)/install/dev
-HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo
 KIND_SCRIPT := $(DEV_SCRIPTS_DIR)/kind.sh
-
+HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo
 
 # Image names
-CONTROLLER_IMAGE := openchoreo-controller:$(OPENCHOREO_IMAGE_TAG)
-API_IMAGE := openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
-UI_IMAGE := openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
+IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
+CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG)
+API_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
+UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
 
-##@ Kind Cluster Management
+# Define OpenChoreo components for per-component operations
+KIND_COMPONENTS := controller api ui
+KIND_COMPONENT_IMAGES := controller:$(CONTROLLER_IMAGE) api:$(API_IMAGE) ui:$(UI_IMAGE)
 
-# Check if Kind cluster exists
-.PHONY: kind.exists
-kind.exists: ## Check if Kind cluster exists
-	@if kind get clusters 2>/dev/null | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		echo "true"; \
-	else \
-		echo "false"; \
-	fi
+# Helper functions
+get_component_image = $(patsubst $(1):%,%,$(filter $(1):%, $(KIND_COMPONENT_IMAGES)))
 
-# Create Kind cluster
-.PHONY: kind
-kind: ## Create a Kind cluster for OpenChoreo development
-	@$(call log_info, Creating Kind cluster '$(KIND_CLUSTER_NAME)'...)
-	@if [ "$$(make kind.exists)" = "true" ]; then \
-		$(call log_warning, Kind cluster '$(KIND_CLUSTER_NAME)' already exists); \
-		read -p "Do you want to delete it and recreate? [y/N]: " -r; \
-		if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-			$(call log_info, Deleting existing cluster...); \
-			kind delete cluster --name "$(KIND_CLUSTER_NAME)"; \
-		else \
-			$(call log_info, Using existing cluster); \
-			exit 0; \
-		fi; \
-	fi
-	@$(KIND_SCRIPT) $(KIND_CLUSTER_NAME) $(KIND_NETWORK) $(KIND_EXTERNAL_DNS)
-
-# Install Cilium CNI
-.PHONY: kind.install.cilium
-kind.install.cilium: ## Install Cilium CNI in the Kind cluster
-	@$(call log_info, Installing Cilium CNI in cluster '$(KIND_CLUSTER_NAME)'...)
-	@$(call log_info, Checking if cluster exists...)
+# Preconditions check functions
+define check_cluster_exists
 	@if ! kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		$(call log_error, Kind cluster '$(KIND_CLUSTER_NAME)' does not exist); \
-		$(call log_info, Please create it first using: make kind); \
+		$(call log_error, Kind cluster '$(KIND_CLUSTER_NAME)' does not exist. Run 'make kind.up' first); \
 		exit 1; \
 	fi
-	@$(call log_info, Processing Cilium images...)
-	@if ! docker image inspect "quay.io/cilium/operator-generic:v$(CILIUM_VERSION)" > /dev/null 2>&1; then \
-		$(call log_info, Pulling Cilium operator image...); \
-		docker pull "quay.io/cilium/operator-generic:v$(CILIUM_VERSION)"; \
+endef
+
+##@ Local Testing
+
+.PHONY: kind
+kind: ## Build, load, and install all OpenChoreo components
+	@$(call log_info, Starting complete OpenChoreo setup...)
+	@$(MAKE) kind.up
+	@$(MAKE) kind.build
+	@$(MAKE) kind.load
+	@$(MAKE) kind.install
+	@$(call log_success, OpenChoreo setup completed successfully!)
+
+.PHONY: kind.up
+kind.up: ## Create the kind cluster without cni and kube-proxy
+	@$(call log_info, Creating Kind cluster '$(KIND_CLUSTER_NAME)'...)
+	@if [ "$$(kind get clusters 2>/dev/null | grep -q '^$(KIND_CLUSTER_NAME)$$' && echo true || echo false)" = "true" ]; then \
+		$(call log_warning, Kind cluster '$(KIND_CLUSTER_NAME)' already exists); \
+	else \
+		$(KIND_SCRIPT) $(KIND_CLUSTER_NAME) $(KIND_NETWORK) $(KIND_EXTERNAL_DNS); \
+		$(call log_success, Kind cluster created!); \
 	fi
-	@if ! docker image inspect "quay.io/cilium/cilium:v$(CILIUM_VERSION)" > /dev/null 2>&1; then \
-		$(call log_info, Pulling Cilium image...); \
-		docker pull "quay.io/cilium/cilium:v$(CILIUM_VERSION)"; \
-	fi
-	@if ! docker image inspect "quay.io/cilium/cilium-envoy:$(CILIUM_ENVOY_VERSION)" > /dev/null 2>&1; then \
-		$(call log_info, Pulling Cilium Envoy image...); \
-		docker pull "quay.io/cilium/cilium-envoy:$(CILIUM_ENVOY_VERSION)"; \
-	fi
-	@$(call log_info, Loading Cilium images into Kind cluster...)
-	@kind load docker-image "quay.io/cilium/operator-generic:v$(CILIUM_VERSION)" --name "$(KIND_CLUSTER_NAME)"
-	@kind load docker-image "quay.io/cilium/cilium:v$(CILIUM_VERSION)" --name "$(KIND_CLUSTER_NAME)"
-	@kind load docker-image "quay.io/cilium/cilium-envoy:$(CILIUM_ENVOY_VERSION)" --name "$(KIND_CLUSTER_NAME)"
-	@$(call log_info, Adding Cilium Helm repository...)
-	@helm repo add cilium https://helm.cilium.io/ || true
-	@helm repo update
-	@$(call log_info, Getting Kubernetes API server IP...)
-	@K8S_API_IP=$$(docker inspect "$(KIND_CLUSTER_NAME)-control-plane" --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'); \
-	if [ -z "$$K8S_API_IP" ]; then \
-		$(call log_error, Failed to get Kubernetes API server IP); \
+
+
+.PHONY: kind.build.%
+kind.build.%: ## Build specific component, (controller, api, ui)
+	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
+		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
 		exit 1; \
-	fi; \
-	$(call log_info, Kubernetes API server IP: $$K8S_API_IP); \
-	$(call log_info, Installing Cilium via Helm...); \
-	helm upgrade --install cilium cilium/cilium \
-		--version "$(CILIUM_VERSION)" \
-		--namespace cilium \
-		--values "$(DEV_SCRIPTS_DIR)/cilium-values.yaml" \
-		--set k8sServiceHost="$$K8S_API_IP" \
-		--kube-context "kind-$(KIND_CLUSTER_NAME)" \
-		--create-namespace \
-		--wait \
-		--timeout=10m
-	@$(call log_success, Cilium has been successfully installed in the kind cluster '$(KIND_CLUSTER_NAME)')
+	fi
+	@$(call log_info, Building $* component...)
+	@case "$*" in \
+		controller) \
+			$(MAKE) docker.build.controller TAG=$(OPENCHOREO_IMAGE_TAG); \
+			;; \
+		api) \
+			$(MAKE) docker.build.openchoreo-api TAG=$(OPENCHOREO_IMAGE_TAG); \
+			;; \
+		ui) \
+			cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all; \
+			docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui; \
+			;; \
+	esac
+	@$(call log_success, $* component built!)
 
-# Build and load OpenChoreo components into Kind cluster
-.PHONY: kind.build.openchoreo
-kind.build.openchoreo: ## Build all OpenChoreo components, load them into the Kind cluster, and restart deployments
-	@$(call log_info, Building OpenChoreo components with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
-	@$(call log_info, Building controller...)
-	@$(MAKE) go.build-multiarch.manager
-	@docker build -f $(PROJECT_DIR)/Dockerfile -t $(CONTROLLER_IMAGE) $(PROJECT_DIR)
-	@$(call log_info, Building API...)
-	@$(MAKE) go.build-multiarch.openchoreo-api
-	@docker build -f $(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile -t $(API_IMAGE) $(PROJECT_DIR)
-	@$(call log_info, Building UI...)
-	@cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all
-	@docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui
-	@$(call log_success, All OpenChoreo components built successfully!)
-	@$(call log_info, Loading OpenChoreo images into cluster '$(KIND_CLUSTER_NAME)'...)
-	@kind load docker-image $(CONTROLLER_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@kind load docker-image $(API_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@kind load docker-image $(UI_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@$(call log_success, All images loaded into Kind cluster!)
+.PHONY: kind.build
+kind.build: ## Build all OpenChoreo components
+	@$(call log_info, Building all OpenChoreo components...)
+	@$(foreach component,$(KIND_COMPONENTS),$(MAKE) kind.build.$(component);)
+	@$(call log_success, All components built!)
 
 
-# Install OpenChoreo via Helm
-.PHONY: kind.install.openchoreo
-kind.install.openchoreo: ## Install OpenChoreo using Helm chart
-	@$(call log_info, Installing OpenChoreo via Helm into namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@kubectl create namespace $(OPENCHOREO_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
-	@helm upgrade --install openchoreo $(HELM_DIR) \
-		--namespace $(OPENCHOREO_NAMESPACE) \
-		--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
-		--set controllerManager.image.repository=openchoreo-controller \
-		--set controllerManager.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-		--set openchoreoApi.image.repository=openchoreo-api \
-		--set openchoreoApi.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-		--set backstage.image.repository=openchoreo-ui \
-		--set backstage.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-		--wait \
-		--timeout=10m
-	@$(call log_success, OpenChoreo installed successfully!)
-	@$(call log_info, To install the default dataplane, run: ./install/add-default-dataplane.sh)
+.PHONY: kind.load.%
+kind.load.%: ## Load specific component image. Valid components: controller, api, ui, cilium. Usage: make kind.load.<component>
+	@$(call check_cluster_exists)
+	@case "$*" in \
+		cilium) \
+			$(call log_info, Loading Cilium images into cluster...); \
+			for image in "quay.io/cilium/operator-generic:v$(CILIUM_VERSION)" "quay.io/cilium/cilium:v$(CILIUM_VERSION)" "quay.io/cilium/cilium-envoy:$(CILIUM_ENVOY_VERSION)"; do \
+				if ! docker image inspect $$image > /dev/null 2>&1; then \
+					$(call log_info, Pulling $$image...); \
+					docker pull $$image; \
+				fi; \
+				$(call log_info, Loading $$image into Kind...); \
+				kind load docker-image $$image --name "$(KIND_CLUSTER_NAME)"; \
+			done; \
+			$(call log_success, Cilium images loaded!); \
+			;; \
+		controller|api|ui) \
+			if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
+				$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
+				exit 1; \
+			fi; \
+			IMAGE=$(call get_component_image,$*); \
+			if ! docker image inspect $$IMAGE > /dev/null 2>&1; then \
+				$(call log_error, Image '$$IMAGE' does not exist. Run 'make kind.build.$*' first); \
+				exit 1; \
+			fi; \
+			$(call log_info, Loading $* image into cluster...); \
+			kind load docker-image $$IMAGE --name $(KIND_CLUSTER_NAME); \
+			$(call log_success, $* image loaded!); \
+			;; \
+		*) \
+			$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
+			exit 1; \
+			;; \
+	esac
 
-# Uninstall OpenChoreo via Helm
-.PHONY: kind.down.openchoreo
-kind.down.openchoreo: ## Uninstall OpenChoreo using Helm chart
-	@$(call log_info, Uninstalling OpenChoreo from namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@helm uninstall openchoreo --namespace $(OPENCHOREO_NAMESPACE) || true
-	@$(call log_success, OpenChoreo uninstalled successfully!)
+.PHONY: kind.load
+kind.load: ## Load all OpenChoreo component images to kind cluster
+	@$(call log_info, Loading all OpenChoreo component images...)
+	@$(MAKE) kind.load.cilium
+	@$(foreach component,$(KIND_COMPONENTS),$(MAKE) kind.load.$(component);)
+	@$(call log_success, All component images loaded!)
 
-# Complete setup
-.PHONY: kind.setup
-kind.setup: kind kind.install.cilium kind.build.openchoreo kind.install.openchoreo ## Complete Kind cluster setup with OpenChoreo
-	@$(call log_success, OpenChoreo development environment is ready!)
-	@$(call log_info, Access OpenChoreo services:)
-	@$(call log_info,   - API: kubectl port-forward -n $(OPENCHOREO_NAMESPACE) svc/openchoreo-api 8080:8080)
-	@$(call log_info,   - UI: kubectl port-forward -n $(OPENCHOREO_NAMESPACE) svc/openchoreo-backstage 7007:7007)
 
-# Clean up everything
+.PHONY: kind.install.%
+kind.install.%: ## Install specific component. Valid components: cilium, openchoreo. Usage: make kind.install.<component>
+	@$(call check_cluster_exists)
+	@case "$*" in \
+		cilium) \
+			$(call log_info, Installing Cilium CNI...); \
+			helm repo add cilium https://helm.cilium.io/ || true; \
+			helm repo update; \
+			K8S_API_IP=$$(docker inspect "$(KIND_CLUSTER_NAME)-control-plane" --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'); \
+			helm upgrade --install cilium cilium/cilium \
+				--version "$(CILIUM_VERSION)" \
+				--namespace cilium \
+				--values "$(DEV_SCRIPTS_DIR)/cilium-values.yaml" \
+				--set k8sServiceHost="$$K8S_API_IP" \
+				--kube-context "kind-$(KIND_CLUSTER_NAME)" \
+				--create-namespace \
+				--wait \
+				--timeout=10m; \
+			$(call log_success, Cilium installed successfully!); \
+			;; \
+		openchoreo) \
+			if ! helm list --namespace cilium --kube-context kind-$(KIND_CLUSTER_NAME) | grep -q "^cilium"; then \
+				$(call log_error, Cilium is not installed. Run 'make kind.install.cilium' first); \
+				exit 1; \
+			fi; \
+			$(call log_info, Installing OpenChoreo to cluster...); \
+			helm upgrade --install openchoreo $(HELM_DIR) \
+				--namespace $(OPENCHOREO_NAMESPACE) \
+				--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
+				--set controllerManager.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+				--set openchoreoApi.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+				--set backstage.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+				--create-namespace \
+				--wait \
+				--timeout=10m; \
+			$(call log_success, OpenChoreo installed successfully!); \
+			;; \
+		*) \
+			$(call log_error, Invalid component '$*'. Available components: cilium, openchoreo); \
+			exit 1; \
+			;; \
+	esac
+
+.PHONY: kind.install
+kind.install: ## Install Cilium CNI and OpenChoreo to kind cluster
+	@$(call log_info, Installing all components to cluster...)
+	@$(MAKE) kind.install.cilium
+	@$(MAKE) kind.install.openchoreo
+	@$(call log_success, All components installed successfully!)
+
+
+.PHONY: kind.uninstall.%
+kind.uninstall.%: ## Uninstall specific component. Valid components: cilium, openchoreo. Usage: make kind.uninstall.<component>
+	@case "$*" in \
+		openchoreo) \
+			$(call log_info, Uninstalling OpenChoreo...); \
+			helm uninstall openchoreo --namespace $(OPENCHOREO_NAMESPACE) || true; \
+			$(call log_success, OpenChoreo uninstalled!); \
+			;; \
+		cilium) \
+			$(call log_info, Uninstalling Cilium...); \
+			helm uninstall cilium --namespace cilium || true; \
+			$(call log_success, Cilium uninstalled!); \
+			;; \
+		*) \
+			$(call log_error, Invalid component '$*'. Available components: cilium, openchoreo); \
+			exit 1; \
+			;; \
+	esac
+
+.PHONY: kind.uninstall
+kind.uninstall: ## Uninstall OpenChoreo and Cilium from kind cluster
+	@$(call log_info, Uninstalling all components from cluster...)
+	@$(MAKE) kind.uninstall.openchoreo
+	@$(MAKE) kind.uninstall.cilium
+	@$(call log_success, All components uninstalled!)
+
+
+.PHONY: kind.update.%
+kind.update.%: ## Update specific component, (controller, api, ui)
+	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
+		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
+		exit 1; \
+	fi
+	@$(call log_info, Updating $* component...)
+	@$(MAKE) kind.build.$*
+	@$(MAKE) kind.load.$*
+	@$(call log_info, Performing rollout restart for $*...)
+	@case "$*" in \
+		controller) \
+			kubectl rollout restart deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) || true; \
+			kubectl rollout status deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
+			;; \
+		api) \
+			kubectl rollout restart deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) || true; \
+			kubectl rollout status deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
+			;; \
+		ui) \
+			kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) || true; \
+			kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
+			;; \
+	esac
+	@$(call log_success, $* component updated!)
+
+.PHONY: kind.update
+kind.update: ## Rebuild and reload all OpenChoreo components
+	@$(call log_info, Starting OpenChoreo rebuild and reload process...)
+	@$(MAKE) kind.build
+	@$(MAKE) kind.load
+	@$(call log_info, Performing rollout restart for all components...)
+	@kubectl rollout restart deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) || true
+	@kubectl rollout restart deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) || true
+	@kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) || true
+	@$(call log_info, Waiting for rollout restarts to complete...)
+	@kubectl rollout status deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
+	@kubectl rollout status deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
+	@kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
+	@$(call log_success, OpenChoreo update completed successfully!)
+
+
 .PHONY: kind.down
 kind.down: ## Delete Kind cluster
 	@$(call log_info, Deleting Kind cluster '$(KIND_CLUSTER_NAME)'...)
-	@if ! command -v kind >/dev/null 2>&1; then \
-		$(call log_error, Please install kind first:); \
-		$(call log_info,   https://kind.sigs.k8s.io/docs/user/quick-start/#installation); \
-		exit 1; \
-	fi
-	@if ! kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		$(call log_info, Kind cluster '$(KIND_CLUSTER_NAME)' does not exist); \
-		exit 0; \
-	fi
-	@if kind delete cluster --name "$(KIND_CLUSTER_NAME)"; then \
-		$(call log_success, Kind cluster '$(KIND_CLUSTER_NAME)' has been deleted successfully); \
-	else \
-		$(call log_error, Failed to delete kind cluster '$(KIND_CLUSTER_NAME)'); \
-		exit 1; \
-	fi
-	@$(call log_info, Development environment cleaned up)
-
-# Check cluster status
-.PHONY: kind.status
-kind.status: ## Check the status of the Kind cluster and OpenChoreo components
-	@$(call log_info, Checking Kind cluster status...)
 	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		$(call log_success, Kind cluster '$(KIND_CLUSTER_NAME)' exists); \
-		echo ""; \
-		$(call log_info, Cluster nodes:); \
-		kind get nodes --name $(KIND_CLUSTER_NAME); \
-		echo ""; \
-		if kubectl get namespace $(OPENCHOREO_NAMESPACE) >/dev/null 2>&1; then \
-			$(call log_success, Namespace '$(OPENCHOREO_NAMESPACE)' exists); \
-			echo ""; \
-			$(call log_info, OpenChoreo pods:); \
-			kubectl get pods -n $(OPENCHOREO_NAMESPACE) -l app.kubernetes.io/part-of=openchoreo 2>/dev/null || $(call log_info, No OpenChoreo pods found); \
-			echo ""; \
-			$(call log_info, OpenChoreo services:); \
-			kubectl get services -n $(OPENCHOREO_NAMESPACE) -l app.kubernetes.io/part-of=openchoreo 2>/dev/null || $(call log_info, No OpenChoreo services found); \
-		else \
-			$(call log_error, Namespace '$(OPENCHOREO_NAMESPACE)' does not exist); \
-		fi; \
+		kind delete cluster --name "$(KIND_CLUSTER_NAME)"; \
+		$(call log_success, Kind cluster deleted!); \
 	else \
-		$(call log_error, Kind cluster '$(KIND_CLUSTER_NAME)' does not exist); \
-		$(call log_info, Create it with: make kind); \
+		$(call log_info, Kind cluster '$(KIND_CLUSTER_NAME)' does not exist); \
 	fi
-
-# Access services
-.PHONY: kind.access.api
-kind.access.api: ## Port-forward OpenChoreo API service to localhost:8080
-	@$(call log_info, Port-forwarding OpenChoreo API to localhost:8080...)
-	@kubectl port-forward -n $(OPENCHOREO_NAMESPACE) svc/openchoreo-api 8080:8080
-
-.PHONY: kind.access.ui
-kind.access.ui: ## Port-forward OpenChoreo UI service to localhost:7007
-	@$(call log_info, Port-forwarding OpenChoreo UI to localhost:7007...)
-	@kubectl port-forward -n $(OPENCHOREO_NAMESPACE) svc/openchoreo-backstage 7007:7007
-
-# Update all OpenChoreo components (build and restart)
-.PHONY: kind.update.openchoreo
-kind.update.openchoreo: ## Build and restart all OpenChoreo components
-	@$(call log_info, Updating OpenChoreo components...)
-	@$(MAKE) kind.update.controller kind.update.api kind.update.ui
-	@$(call log_success, OpenChoreo components updated successfully!)
-
-# Update individual components (build and restart)
-.PHONY: kind.update.controller
-kind.update.controller: ## Build and restart controller component
-	@$(call log_info, Building controller with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
-	@$(MAKE) go.build-multiarch.manager
-	@docker build -f $(PROJECT_DIR)/Dockerfile -t $(CONTROLLER_IMAGE) $(PROJECT_DIR)
-	@$(call log_success, Controller built successfully!)
-	@$(call log_info, Loading controller image into cluster '$(KIND_CLUSTER_NAME)'...)
-	@kind load docker-image $(CONTROLLER_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@$(call log_success, Controller image loaded into Kind cluster!)
-	@$(call log_info, Restarting controller deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@kubectl rollout restart deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE)
-	@kubectl rollout status deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) --timeout=300s
-	@$(call log_success, Controller deployment restarted successfully!)
-
-.PHONY: kind.update.api
-kind.update.api: ## Build and restart API component
-	@$(call log_info, Building API with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
-	@$(MAKE) go.build-multiarch.openchoreo-api
-	@docker build -f $(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile -t $(API_IMAGE) $(PROJECT_DIR)
-	@$(call log_success, API built successfully!)
-	@$(call log_info, Loading API image into cluster '$(KIND_CLUSTER_NAME)'...)
-	@kind load docker-image $(API_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@$(call log_success, API image loaded into Kind cluster!)
-	@$(call log_info, Restarting API deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@kubectl rollout restart deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE)
-	@kubectl rollout status deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) --timeout=300s
-	@$(call log_success, API deployment restarted successfully!)
-
-.PHONY: kind.update.ui
-kind.update.ui: ## Build and restart UI component
-	@$(call log_info, Building UI with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
-	@cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all
-	@docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui
-	@$(call log_success, UI built successfully!)
-	@$(call log_info, Loading UI image into cluster '$(KIND_CLUSTER_NAME)'...)
-	@kind load docker-image $(UI_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@$(call log_success, UI image loaded into Kind cluster!)
-	@$(call log_info, Restarting UI deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE)
-	@kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s
-	@$(call log_success, UI deployment restarted successfully!)
-
-# Help target for Kind commands
-.PHONY: kind.help
-kind.help: ## Show help for Kind development commands
-	@echo "OpenChoreo Kind Development Commands:"
-	@echo ""
-	@echo "Main Commands:"
-	@echo "  make kind                    Create Kind cluster"
-	@echo "  make kind.exists             Check if cluster exists"
-	@echo "  make kind.install.cilium     Install Cilium CNI"
-	@echo "  make kind.build.openchoreo   Build and load all OpenChoreo components"
-	@echo "  make kind.install.openchoreo Install OpenChoreo via Helm"
-	@echo "  make kind.setup              Complete setup (cluster + Cilium + build + install)"
-	@echo "  make kind.down.openchoreo    Uninstall OpenChoreo from cluster"
-	@echo "  make kind.down               Clean up everything"
-	@echo ""
-	@echo "Individual Component Commands:"
-	@echo "  make kind.update.controller  Build and restart controller"
-	@echo "  make kind.update.api         Build and restart API"
-	@echo "  make kind.update.ui          Build and restart UI"
-	@echo ""
-	@echo "Management Commands:"
-	@echo "  make kind.status             Check cluster status"
-	@echo ""
-	@echo "Access Commands:"
-	@echo "  make kind.access.api         Port-forward API to localhost:8080"
-	@echo "  make kind.access.ui          Port-forward UI to localhost:7007"
-	@echo ""
-	@echo "Configuration Variables:"
-	@echo "  KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME)"
-	@echo "  OPENCHOREO_IMAGE_TAG=$(OPENCHOREO_IMAGE_TAG)"
-	@echo "  OPENCHOREO_NAMESPACE=$(OPENCHOREO_NAMESPACE)"
-	@echo "  KIND_EXTERNAL_DNS=$(KIND_EXTERNAL_DNS)"
-	@echo "  CILIUM_VERSION=$(CILIUM_VERSION)"
-	@echo "  CILIUM_ENVOY_VERSION=$(CILIUM_ENVOY_VERSION)"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make kind.setup                              # Complete setup with defaults"
-	@echo "  make kind.setup OPENCHOREO_IMAGE_TAG=v1.0.0        # Custom image tag"
-	@echo "  make kind.setup KIND_CLUSTER_NAME=my-cluster # Custom cluster name"
