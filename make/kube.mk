@@ -49,11 +49,11 @@ dev-undeploy: ## Undeploy the Choreo developer version from a Kind cluster confi
 	helm uninstall choreo-control-plane --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
 	helm uninstall choreo-dataplane --namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)"
 
-##@ Kind Cluster - Secure Core
+##@ Kind Cluster - OpenChoreo
 
 .PHONY: kind-install-secure-core
-kind-install-secure-core: helm-generate.openchoreo-secure-core ## Install OpenChoreo Secure Core chart in kind cluster
-	@$(call log_info, Installing OpenChoreo Secure Core...)
+kind-install-secure-core: helm-generate.openchoreo ## Install OpenChoreo chart in kind cluster
+	@$(call log_info, Installing OpenChoreo...)
 	@# Get API server IP dynamically
 	$(eval K8S_API_IP := $(shell docker inspect openchoreo-control-plane --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || echo ""))
 	@if [ -z "$(K8S_API_IP)" ]; then \
@@ -61,12 +61,12 @@ kind-install-secure-core: helm-generate.openchoreo-secure-core ## Install OpenCh
 		exit 1; \
 	fi
 	@echo "K8s API IP: $(K8S_API_IP)"
-	helm upgrade --install openchoreo-secure-core \
-	  $(HELM_CHARTS_DIR)/openchoreo-secure-core \
+	helm upgrade --install openchoreo \
+	  $(HELM_CHARTS_DIR)/openchoreo \
 	  --set cilium.k8sServiceHost=$(K8S_API_IP) \
 	  --namespace openchoreo-system \
 	  --create-namespace \
 	  --wait \
 	  --timeout 5m
-	@$(call log_info, Secure Core installed successfully!)
+	@$(call log_info, OpenChoreo installed successfully!)
 	@echo "Access Backstage at: http://localhost:30007"

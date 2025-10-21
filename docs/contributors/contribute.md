@@ -236,7 +236,7 @@ After modifying CRDs or RBAC rules, you need to regenerate the Helm charts:
 make helm-generate
 ```
 
-The OpenChoreo chart (`install/helm/openchoreo-secure-core/`) includes all components and is used for installations.
+The OpenChoreo chart (`install/helm/openchoreo/`) includes all components and is used for installations.
 
 ### Development Environment Reset
 

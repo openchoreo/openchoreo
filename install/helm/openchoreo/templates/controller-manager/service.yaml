@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
+spec:
+  type: {{ .Values.controllerManager.service.type }}
+  ports:
+  - port: {{ .Values.controllerManager.service.port }}
+    targetPort: health
+    protocol: TCP
+    name: http
+    {{- if and (eq .Values.controllerManager.service.type "NodePort") .Values.controllerManager.service.nodePort }}
+    nodePort: {{ .Values.controllerManager.service.nodePort }}
+    {{- end }}
+  selector:
+    app.kubernetes.io/component: controller-manager
+    app.kubernetes.io/name: {{ include "openchoreo.fullname" . }}

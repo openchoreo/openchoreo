@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  type: {{ .Values.openchoreoApi.service.type }}
+  ports:
+  - port: {{ .Values.openchoreoApi.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+    {{- if and (eq .Values.openchoreoApi.service.type "NodePort") .Values.openchoreoApi.service.nodePort }}
+    nodePort: {{ .Values.openchoreoApi.service.nodePort }}
+    {{- end }}
+  selector:
+    app.kubernetes.io/component: api-server
+    {{- include "openchoreo.selectorLabels" . | nindent 4 }}

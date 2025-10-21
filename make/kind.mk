@@ -12,7 +12,7 @@ CILIUM_ENVOY_VERSION := v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b89
 
 # Paths to development scripts and Helm chart
 DEV_SCRIPTS_DIR := $(PROJECT_DIR)/install/dev
-HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo-secure-core
+HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo
 KIND_SCRIPT := $(DEV_SCRIPTS_DIR)/kind.sh
 
 
@@ -47,7 +47,7 @@ kind: ## Create a Kind cluster for OpenChoreo development
 			exit 0; \
 		fi; \
 	fi
-	@$(KIND_SCRIPT) --cluster-name $(KIND_CLUSTER_NAME) --external-dns $(KIND_EXTERNAL_DNS) --network $(KIND_NETWORK)
+	@$(KIND_SCRIPT) $(KIND_CLUSTER_NAME) $(KIND_NETWORK) $(KIND_EXTERNAL_DNS)
 
 # Install Cilium CNI
 .PHONY: kind.install.cilium
@@ -100,7 +100,7 @@ kind.install.cilium: ## Install Cilium CNI in the Kind cluster
 
 # Build and load OpenChoreo components into Kind cluster
 .PHONY: kind.build.openchoreo
-kind.build.openchoreo: ## Build all OpenChoreo components and load them into the Kind cluster
+kind.build.openchoreo: ## Build all OpenChoreo components, load them into the Kind cluster, and restart deployments
 	@$(call log_info, Building OpenChoreo components with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
 	@$(call log_info, Building controller...)
 	@$(MAKE) go.build-multiarch.manager
@@ -118,12 +118,13 @@ kind.build.openchoreo: ## Build all OpenChoreo components and load them into the
 	@kind load docker-image $(UI_IMAGE) --name $(KIND_CLUSTER_NAME)
 	@$(call log_success, All images loaded into Kind cluster!)
 
+
 # Install OpenChoreo via Helm
 .PHONY: kind.install.openchoreo
 kind.install.openchoreo: ## Install OpenChoreo using Helm chart
 	@$(call log_info, Installing OpenChoreo via Helm into namespace '$(OPENCHOREO_NAMESPACE)'...)
 	@kubectl create namespace $(OPENCHOREO_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
-	@helm upgrade --install openchoreo-secure-core $(HELM_DIR) \
+	@helm upgrade --install openchoreo $(HELM_DIR) \
 		--namespace $(OPENCHOREO_NAMESPACE) \
 		--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
 		--set controllerManager.image.repository=openchoreo-controller \
@@ -141,7 +142,7 @@ kind.install.openchoreo: ## Install OpenChoreo using Helm chart
 .PHONY: kind.down.openchoreo
 kind.down.openchoreo: ## Uninstall OpenChoreo using Helm chart
 	@$(call log_info, Uninstalling OpenChoreo from namespace '$(OPENCHOREO_NAMESPACE)'...)
-	@helm uninstall openchoreo-secure-core --namespace $(OPENCHOREO_NAMESPACE) || true
+	@helm uninstall openchoreo --namespace $(OPENCHOREO_NAMESPACE) || true
 	@$(call log_success, OpenChoreo uninstalled successfully!)
 
 # Complete setup
@@ -210,6 +211,56 @@ kind.access.ui: ## Port-forward OpenChoreo UI service to localhost:7007
 	@$(call log_info, Port-forwarding OpenChoreo UI to localhost:7007...)
 	@kubectl port-forward -n $(OPENCHOREO_NAMESPACE) svc/openchoreo-backstage 7007:7007
 
+# Update all OpenChoreo components (build and restart)
+.PHONY: kind.update.openchoreo
+kind.update.openchoreo: ## Build and restart all OpenChoreo components
+	@$(call log_info, Updating OpenChoreo components...)
+	@$(MAKE) kind.update.controller kind.update.api kind.update.ui
+	@$(call log_success, OpenChoreo components updated successfully!)
+
+# Update individual components (build and restart)
+.PHONY: kind.update.controller
+kind.update.controller: ## Build and restart controller component
+	@$(call log_info, Building controller with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
+	@$(MAKE) go.build-multiarch.manager
+	@docker build -f $(PROJECT_DIR)/Dockerfile -t $(CONTROLLER_IMAGE) $(PROJECT_DIR)
+	@$(call log_success, Controller built successfully!)
+	@$(call log_info, Loading controller image into cluster '$(KIND_CLUSTER_NAME)'...)
+	@kind load docker-image $(CONTROLLER_IMAGE) --name $(KIND_CLUSTER_NAME)
+	@$(call log_success, Controller image loaded into Kind cluster!)
+	@$(call log_info, Restarting controller deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
+	@kubectl rollout restart deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE)
+	@kubectl rollout status deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) --timeout=300s
+	@$(call log_success, Controller deployment restarted successfully!)
+
+.PHONY: kind.update.api
+kind.update.api: ## Build and restart API component
+	@$(call log_info, Building API with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
+	@$(MAKE) go.build-multiarch.openchoreo-api
+	@docker build -f $(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile -t $(API_IMAGE) $(PROJECT_DIR)
+	@$(call log_success, API built successfully!)
+	@$(call log_info, Loading API image into cluster '$(KIND_CLUSTER_NAME)'...)
+	@kind load docker-image $(API_IMAGE) --name $(KIND_CLUSTER_NAME)
+	@$(call log_success, API image loaded into Kind cluster!)
+	@$(call log_info, Restarting API deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
+	@kubectl rollout restart deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE)
+	@kubectl rollout status deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) --timeout=300s
+	@$(call log_success, API deployment restarted successfully!)
+
+.PHONY: kind.update.ui
+kind.update.ui: ## Build and restart UI component
+	@$(call log_info, Building UI with image tag '$(OPENCHOREO_IMAGE_TAG)'...)
+	@cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all
+	@docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui
+	@$(call log_success, UI built successfully!)
+	@$(call log_info, Loading UI image into cluster '$(KIND_CLUSTER_NAME)'...)
+	@kind load docker-image $(UI_IMAGE) --name $(KIND_CLUSTER_NAME)
+	@$(call log_success, UI image loaded into Kind cluster!)
+	@$(call log_info, Restarting UI deployment in namespace '$(OPENCHOREO_NAMESPACE)'...)
+	@kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE)
+	@kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s
+	@$(call log_success, UI deployment restarted successfully!)
+
 # Help target for Kind commands
 .PHONY: kind.help
 kind.help: ## Show help for Kind development commands
@@ -219,11 +270,16 @@ kind.help: ## Show help for Kind development commands
 	@echo "  make kind                    Create Kind cluster"
 	@echo "  make kind.exists             Check if cluster exists"
 	@echo "  make kind.install.cilium     Install Cilium CNI"
-	@echo "  make kind.build.openchoreo   Build and load OpenChoreo components"
+	@echo "  make kind.build.openchoreo   Build and load all OpenChoreo components"
 	@echo "  make kind.install.openchoreo Install OpenChoreo via Helm"
 	@echo "  make kind.setup              Complete setup (cluster + Cilium + build + install)"
 	@echo "  make kind.down.openchoreo    Uninstall OpenChoreo from cluster"
 	@echo "  make kind.down               Clean up everything"
+	@echo ""
+	@echo "Individual Component Commands:"
+	@echo "  make kind.update.controller  Build and restart controller"
+	@echo "  make kind.update.api         Build and restart API"
+	@echo "  make kind.update.ui          Build and restart UI"
 	@echo ""
 	@echo "Management Commands:"
 	@echo "  make kind.status             Check cluster status"
