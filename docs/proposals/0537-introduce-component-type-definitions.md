@@ -63,7 +63,7 @@ As a result, platform engineers lack the control needed to enforce organizationa
 This proposal introduces new CRDs and controller support:
 
 - New CRDs: `ComponentTypeDefinition` (v1alpha1), `Addon` (v1alpha1), and `EnvSettings` (v1alpha1)
-- New `v1alpha2` version of the `Component` CRD with `componentType` and `addons[]` fields
+- New `v1alpha1` version of the `Component` CRD with `componentType` and `addons[]` fields
 - New controllers for rendering ComponentTypeDefinitions with CEL templating and applying addon composition
 
 ---
@@ -234,7 +234,7 @@ Addons can:
 Instead of generating multiple CRDs, developers use a single **Component** CRD with a `componentType` field and `addons[]` array:
 
 ```yaml
-apiVersion: openchoreo.dev/v1alpha2
+apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: checkout-service
@@ -612,7 +612,7 @@ spec:
       resources: { ... }
 
   component:
-    apiVersion: openchoreo.dev/v1alpha2
+    apiVersion: openchoreo.dev/v1alpha1
     kind: Component
     metadata:
       name: checkout-service
@@ -634,7 +634,7 @@ spec:
         patches: [...]
 
   workload:
-    apiVersion: openchoreo.dev/v1alpha2
+    apiVersion: openchoreo.dev/v1alpha1
     kind: Workload
     metadata:
       name: checkout-service
