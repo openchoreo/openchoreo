@@ -133,19 +133,32 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch Workload (required for snapshot creation)
-	workload := &openchoreov1alpha1.Workload{}
-	err = r.Get(ctx, types.NamespacedName{Name: comp.Name, Namespace: comp.Namespace}, workload)
+	// Fetch Workload by owner reference (supports any naming convention)
+	ownerKey := fmt.Sprintf("%s/%s", comp.Spec.Owner.ProjectName, comp.Name)
+	var workloadList openchoreov1alpha1.WorkloadList
+	err = r.List(ctx, &workloadList,
+		client.InNamespace(comp.Namespace),
+		client.MatchingFields{workloadOwnerIndex: ownerKey})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Workload %q not found, waiting for workload to be created", comp.Name)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
-			logger.Info(msg, "component", comp.Name)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to fetch Workload")
+		logger.Error(err, "Failed to list Workloads by owner")
 		return ctrl.Result{}, err
 	}
+
+	if len(workloadList.Items) == 0 {
+		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
+		logger.Info(msg, "component", comp.Name, "ownerKey", ownerKey)
+		return ctrl.Result{}, nil
+	}
+
+	if len(workloadList.Items) > 1 {
+		msg := fmt.Sprintf("Multiple Workloads found for component %q (expected exactly 1)", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Error(fmt.Errorf("multiple workloads found"), msg, "count", len(workloadList.Items))
+		return ctrl.Result{}, nil
+	}
+
+	workload := &workloadList.Items[0]
 
 	// Fetch all referenced Addons (in the same namespace as the Component)
 	addons, err := r.fetchAddons(ctx, comp.Spec.Addons, comp.Namespace)
@@ -465,6 +478,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if err := r.setupAddonsRefIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup addons reference index: %w", err)
+	}
+
+	if err := r.setupWorkloadOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup workload owner index: %w", err)
 	}
 
 	// TODO: Add watch for DeploymentPipeline.

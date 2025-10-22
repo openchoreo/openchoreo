@@ -20,6 +20,8 @@ const (
 	componentTypeIndex = "spec.componentType"
 	// addonsIndex is the field index name for addons used
 	addonsIndex = "spec.addons"
+	// workloadOwnerIndex is the field index name for workload owner references
+	workloadOwnerIndex = "spec.owner"
 )
 
 // setupComponentTypeRefIndex sets up the field index for componentType references
@@ -44,6 +46,19 @@ func (r *Reconciler) setupAddonsRefIndex(ctx context.Context, mgr ctrl.Manager) 
 				addonNames = append(addonNames, addon.Name)
 			}
 			return addonNames
+		})
+}
+
+// setupWorkloadOwnerIndex sets up the field index for workload owner references
+func (r *Reconciler) setupWorkloadOwnerIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{},
+		workloadOwnerIndex, func(obj client.Object) []string {
+			workload := obj.(*openchoreov1alpha1.Workload)
+			// Create a composite key: projectName/componentName
+			ownerKey := fmt.Sprintf("%s/%s",
+				workload.Spec.Owner.ProjectName,
+				workload.Spec.Owner.ComponentName)
+			return []string{ownerKey}
 		})
 }
 
@@ -103,10 +118,10 @@ func (r *Reconciler) listComponentsUsingAddon(ctx context.Context, obj client.Ob
 func (r *Reconciler) listComponentsForWorkload(ctx context.Context, obj client.Object) []reconcile.Request {
 	workload := obj.(*openchoreov1alpha1.Workload)
 
-	// Workload name matches Component name
+	// Use the owner reference from workload spec to find the owning component
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
-			Name:      workload.Name,
+			Name:      workload.Spec.Owner.ComponentName,
 			Namespace: workload.Namespace,
 		},
 	}}

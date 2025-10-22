@@ -5,16 +5,14 @@ package componentdeployment
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,13 +22,20 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
 // Reconciler reconciles an ComponentDeployment object
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// Pipeline is the component rendering pipeline, shared across all reconciliations.
+	// This enables CEL environment caching across different component types and reconciliations.
+	Pipeline *componentpipeline.Pipeline
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentdeployments,verbs=get;list;watch;create;update;patch;delete
@@ -84,12 +89,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Snapshot not found - cannot create Release without snapshot
-			msg := fmt.Sprintf("ComponentEnvSnapshot %q not found", r.buildSnapshotName(componentDeployment))
+			msg := fmt.Sprintf("ComponentEnvSnapshot for component %q in environment %q not found",
+				componentDeployment.Spec.Owner.ComponentName,
+				componentDeployment.Spec.Environment)
 			controller.MarkFalseCondition(componentDeployment, ConditionReady,
 				ReasonComponentEnvSnapshotNotFound, msg)
 			logger.Info(msg,
 				"component", componentDeployment.Spec.Owner.ComponentName,
-				"environment", componentDeployment.Spec.Environment)
+				"environment", componentDeployment.Spec.Environment,
+				"project", componentDeployment.Spec.Owner.ProjectName)
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get ComponentEnvSnapshot")
@@ -114,23 +122,42 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	return ctrl.Result{}, nil
 }
 
-// findSnapshot finds the ComponentEnvSnapshot for the given ComponentDeployment
+// findSnapshot finds the ComponentEnvSnapshot for the given ComponentDeployment by owner fields
 func (r *Reconciler) findSnapshot(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment) (*openchoreov1alpha1.ComponentEnvSnapshot, error) {
-	snapshot := &openchoreov1alpha1.ComponentEnvSnapshot{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      r.buildSnapshotName(componentDeployment),
-		Namespace: componentDeployment.Namespace,
-	}, snapshot); err != nil {
+	logger := log.FromContext(ctx)
+
+	// Build the owner key: projectName/componentName/environment
+	ownerKey := fmt.Sprintf("%s/%s/%s",
+		componentDeployment.Spec.Owner.ProjectName,
+		componentDeployment.Spec.Owner.ComponentName,
+		componentDeployment.Spec.Environment)
+
+	// Query snapshots by owner index
+	var snapshotList openchoreov1alpha1.ComponentEnvSnapshotList
+	err := r.List(ctx, &snapshotList,
+		client.InNamespace(componentDeployment.Namespace),
+		client.MatchingFields{snapshotOwnerIndex: ownerKey})
+	if err != nil {
+		logger.Error(err, "Failed to list ComponentEnvSnapshot by owner")
 		return nil, err
 	}
 
-	return snapshot, nil
-}
+	// Handle no snapshots found
+	if len(snapshotList.Items) == 0 {
+		return nil, apierrors.NewNotFound(
+			openchoreov1alpha1.GroupVersion.WithResource("componentenvsnapshots").GroupResource(),
+			ownerKey)
+	}
 
-// buildSnapshotName constructs the ComponentEnvSnapshot name for the given ComponentDeployment
-func (r *Reconciler) buildSnapshotName(componentDeployment *openchoreov1alpha1.ComponentDeployment) string {
-	// Snapshot name format: {componentName}-{environment}
-	return fmt.Sprintf("%s-%s", componentDeployment.Spec.Owner.ComponentName, componentDeployment.Spec.Environment)
+	// Handle multiple snapshots (should not happen but check anyway)
+	if len(snapshotList.Items) > 1 {
+		logger.Error(fmt.Errorf("multiple snapshots found"), "Multiple ComponentEnvSnapshots found",
+			"ownerKey", ownerKey,
+			"count", len(snapshotList.Items))
+		return nil, fmt.Errorf("multiple ComponentEnvSnapshots found for owner %q (expected exactly 1)", ownerKey)
+	}
+
+	return &snapshotList.Items[0], nil
 }
 
 // validateSnapshot validates the ComponentEnvSnapshot configuration
@@ -161,48 +188,91 @@ func (r *Reconciler) validateSnapshot(snapshot *openchoreov1alpha1.ComponentEnvS
 	return nil
 }
 
+// buildMetadataContext creates the MetadataContext from snapshot.
+// This is where the controller computes K8s resource names and namespaces.
+func (r *Reconciler) buildMetadataContext(
+	snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
+) pipelinecontext.MetadataContext {
+	// Extract information
+	organizationName := snapshot.Namespace
+	projectName := snapshot.Spec.Owner.ProjectName
+	componentName := snapshot.Spec.Owner.ComponentName
+	environment := snapshot.Spec.Environment
+
+	// Generate base name using platform naming conventions
+	// Format: {component}-{env}-{hash}
+	// Example: "payment-service-dev-a1b2c3d4"
+	baseName := dpkubernetes.GenerateK8sName(componentName, environment)
+
+	// Generate namespace using platform naming conventions
+	// Format: dp-{org}-{project}-{env}-{hash}
+	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
+	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
+		dpkubernetes.MaxNamespaceNameLength,
+		"dp", organizationName, projectName, environment,
+	)
+
+	// Build standard labels
+	standardLabels := map[string]string{
+		labels.LabelKeyOrganizationName: organizationName,
+		labels.LabelKeyProjectName:      projectName,
+		labels.LabelKeyComponentName:    componentName,
+		labels.LabelKeyEnvironmentName:  environment,
+	}
+
+	// Build pod selectors (used for Deployment selectors, Service selectors, etc.)
+	podSelectors := map[string]string{
+		"openchoreo.org/component":   componentName,
+		"openchoreo.org/environment": environment,
+		"openchoreo.org/project":     projectName,
+	}
+
+	return pipelinecontext.MetadataContext{
+		Name:         baseName,
+		Namespace:    namespace,
+		Labels:       standardLabels,
+		Annotations:  map[string]string{}, // Can be extended later
+		PodSelectors: podSelectors,
+	}
+}
+
 // reconcileRelease creates or updates the Release resource
-func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error { //nolint:unparam // snapshot will be used when rendering pipeline is implemented
+func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error {
 	logger := log.FromContext(ctx)
 
-	// TODO: Use componentDeployment and snapshot data to generate actual resources.
-	// This is a simplified implementation that creates a sample ConfigMap.
-	// In production, this should use the rendering pipeline to generate resources.
+	// Build MetadataContext with computed names
+	metadataContext := r.buildMetadataContext(snapshot)
 
-	// Create a sample ConfigMap resource
-	configMap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-config", componentDeployment.Spec.Owner.ComponentName),
-			Namespace: componentDeployment.Namespace,
-		},
-		Data: map[string]string{
-			"component":   componentDeployment.Spec.Owner.ComponentName,
-			"environment": componentDeployment.Spec.Environment,
-			"project":     componentDeployment.Spec.Owner.ProjectName,
-			"message":     "Sample ConfigMap from ComponentDeployment controller",
-		},
+	// Prepare RenderInput
+	renderInput := &componentpipeline.RenderInput{
+		ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
+		Component:               &snapshot.Spec.Component,
+		Addons:                  snapshot.Spec.Addons,
+		Workload:                &snapshot.Spec.Workload,
+		Environment:             snapshot.Spec.Environment,
+		ComponentDeployment:     componentDeployment,
+		Metadata:                metadataContext,
 	}
 
-	// Marshal the ConfigMap to RawExtension
-	configMapBytes, err := json.Marshal(configMap)
+	// Render resources using the shared pipeline instance
+	// The pipeline caches CEL environments, so subsequent reconciliations benefit from warm cache
+	renderOutput, err := r.Pipeline.Render(renderInput)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to marshal resources: %v", err)
+		msg := fmt.Sprintf("Failed to render resources: %v", err)
 		controller.MarkFalseCondition(componentDeployment, ConditionReady,
 			ReasonRenderingFailed, msg)
-		return fmt.Errorf("failed to marshal configmap: %w", err)
+		logger.Error(err, "Failed to render resources")
+		return fmt.Errorf("failed to render resources: %w", err)
 	}
 
-	// Prepare Release resources
-	releaseResources := []openchoreov1alpha1.Resource{
-		{
-			ID:     "sample-configmap",
-			Object: &runtime.RawExtension{Raw: configMapBytes},
-		},
+	// Log warnings if any
+	if len(renderOutput.Metadata.Warnings) > 0 {
+		logger.Info("Rendering completed with warnings",
+			"warnings", renderOutput.Metadata.Warnings)
 	}
+
+	// Convert rendered resources to Release format
+	releaseResources := r.convertToReleaseResources(renderOutput.Resources)
 
 	// Create or update Release
 	release := &openchoreov1alpha1.Release{
@@ -213,7 +283,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
-		// Check if we own this Release
+		// Check if we own this Release (only for existing releases)
 		if release.UID != "" {
 			hasOwner, err := controllerutil.HasOwnerReference(release.GetOwnerReferences(), componentDeployment, r.Scheme)
 			if err != nil {
@@ -284,6 +354,43 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	return nil
 }
 
+// convertToReleaseResources converts unstructured resources to Release.Resource format
+func (r *Reconciler) convertToReleaseResources(
+	resources []map[string]any,
+) []openchoreov1alpha1.Resource {
+	releaseResources := make([]openchoreov1alpha1.Resource, 0, len(resources))
+
+	for i, resource := range resources {
+		// Generate resource ID
+		id := r.generateResourceID(resource, i)
+
+		releaseResources = append(releaseResources, openchoreov1alpha1.Resource{
+			ID: id,
+			Object: &runtime.RawExtension{
+				Object: &unstructured.Unstructured{
+					Object: resource,
+				},
+			},
+		})
+	}
+	return releaseResources
+}
+
+// generateResourceID creates a unique ID for a resource
+// Format: {kind-lower}-{name}
+func (r *Reconciler) generateResourceID(resource map[string]any, index int) string {
+	kind, _ := resource["kind"].(string)
+	metadata, _ := resource["metadata"].(map[string]any)
+	name, _ := metadata["name"].(string)
+
+	if kind != "" && name != "" {
+		return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+	}
+
+	// Fallback: use index
+	return fmt.Sprintf("resource-%d", index)
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
@@ -296,11 +403,19 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	if err := r.setupComponentDeploymentCompositeIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup component deployment composite index: %w", err)
+	}
+
+	if err := r.setupSnapshotOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup snapshot owner index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ComponentDeployment{}).
 		Owns(&openchoreov1alpha1.Release{}).
 		Watches(&openchoreov1alpha1.ComponentEnvSnapshot{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentDeploymentForSnapshot)).
-		Named("componentdeployments").
+		Named("componentdeployment").
 		Complete(r)
 }
