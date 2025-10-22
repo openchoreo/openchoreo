@@ -1,0 +1,55 @@
+{{- if eq .Values.global.installationMode "standard" }}
+apiVersion: opensearch.opster.io/v1
+kind: OpenSearchCluster
+metadata:
+  name: opensearch
+  namespace: openchoreo-observability-plane
+spec:
+  general:
+    additionalConfig:
+      plugins.security.disabled: {{ .Values.openSearchCluster.general.additionalConfig.pluginsSecurityDisabled | quote }}
+    serviceName: opensearch
+    version: {{ .Values.openSearchCluster.general.version | quote }}
+  nodePools:
+  - component: data
+    diskSize: {{ .Values.openSearchCluster.nodePools.data.diskSize }}
+    pdb:
+      enable: true
+      minAvailable: {{ sub .Values.openSearchCluster.nodePools.data.replicas 1 }}
+    replicas: {{ .Values.openSearchCluster.nodePools.data.replicas }}
+    resources:
+      limits:
+        cpu: {{ .Values.openSearchCluster.nodePools.data.resources.limits.cpu }}
+        memory: {{ .Values.openSearchCluster.nodePools.data.resources.limits.memory }}
+      requests:
+        cpu: {{ .Values.openSearchCluster.nodePools.data.resources.requests.cpu }}
+        memory: {{ .Values.openSearchCluster.nodePools.data.resources.requests.memory }}
+    roles:
+    - data
+  - component: master
+    diskSize: {{ .Values.openSearchCluster.nodePools.master.diskSize }}
+    pdb:
+      enable: true
+      minAvailable: {{ sub .Values.openSearchCluster.nodePools.master.replicas 1 }}
+    replicas: {{ .Values.openSearchCluster.nodePools.master.replicas }}
+    resources:
+      limits:
+        cpu: {{ .Values.openSearchCluster.nodePools.master.resources.limits.cpu }}
+        memory: {{ .Values.openSearchCluster.nodePools.master.resources.limits.memory }}
+      requests:
+        cpu: {{ .Values.openSearchCluster.nodePools.master.resources.requests.cpu }}
+        memory: {{ .Values.openSearchCluster.nodePools.master.resources.requests.memory }}
+    roles:
+    - master
+  security:
+    config:
+      adminCredentialsSecret:
+        name: opensearch-admin-credentials-secret
+      securityConfigSecret:
+        name: opensearch-security-config
+    tls:
+      http:
+        generate: true
+      transport:
+        generate: true
+{{- end }}

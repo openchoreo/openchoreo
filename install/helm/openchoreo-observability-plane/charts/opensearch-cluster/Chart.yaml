@@ -1,6 +1,0 @@
-apiVersion: v2
-name: opensearch-cluster
-description: A Helm chart for OpenSearch cluster resources. Sub chart for openchoreo-observability-plane.
-type: application
-version: 0.1.0
-appVersion: "3.3.0"

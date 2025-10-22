@@ -1,15 +1,12 @@
 dependencies:
-- name: opensearch-operator
-  repository: https://opensearch-project.github.io/opensearch-k8s-operator/
-  version: 2.8.0
-- name: opensearch-cluster
-  repository: file://./charts/opensearch-cluster
-  version: 0.1.0
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
 - name: kube-prometheus-stack
   repository: https://prometheus-community.github.io/helm-charts
   version: 78.3.0
-digest: sha256:56619a80f81a6056256eecd9978bcfaa62440777b9c1b4c1b3411d18d8d0ccef
-generated: "2025-10-17T10:00:10.757586+05:30"
+- name: opensearch
+  repository: https://opensearch-project.github.io/helm-charts/
+  version: 3.3.0
+digest: sha256:d9d1efb118409c0ebcfd30333d1a838cda056f7919863c4453ee87c317fc79b6
+generated: "2025-10-22T11:28:22.260005+05:30"

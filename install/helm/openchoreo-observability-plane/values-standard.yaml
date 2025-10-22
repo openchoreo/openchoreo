@@ -4,16 +4,12 @@
 global:
   installationMode: standard
 
-# Enable the OpenSearch Operator for standard mode
-opensearch-operator:
-  enabled: true
-
 # Enable the OpenSearch Cluster for standard mode
-opensearch-cluster:
+openSearchCluster:
   enabled: true
 
 # Enable the Fluent Bit for standard mode
-fluent-bit:
+fluentBit:
   enabled: true
 
 # Enable the Prometheus for standard mode

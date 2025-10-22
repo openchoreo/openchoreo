@@ -1,0 +1,38 @@
+installCRDs: true # CRDs are deployed from the crds directory
+
+fullnameOverride: "opensearch-operator"
+
+securityContext:
+  runAsNonRoot: true
+
+serviceAccount:
+  create: true
+  name: "opensearch-operator"
+
+manager:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 75Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - all
+    readOnlyRootFilesystem: true
+    runAsGroup: 10500
+    runAsUser: 10500
+  watchNamespace: "openchoreo-observability-plane"
+
+kubeRbacProxy:
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - all
+    readOnlyRootFilesystem: true
+    runAsGroup: 10500
+    runAsUser: 10500

@@ -8,16 +8,16 @@ metadata:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
 spec:
   ports:
-  - port: {{ .Values.opensearch.service.httpPort }}
+  - port: {{ .Values.openSearchLegacy.service.httpPort }}
     name: http
     targetPort: http
-    {{- if .Values.opensearch.service.nodePort }}
-    nodePort: {{ .Values.opensearch.service.nodePort }}
+    {{- if .Values.openSearchLegacy.service.nodePort }}
+    nodePort: {{ .Values.openSearchLegacy.service.nodePort }}
     {{- end }}
-  - port: {{ .Values.opensearch.service.transportPort }}
+  - port: {{ .Values.openSearchLegacy.service.transportPort }}
     name: transport
     targetPort: transport
   selector:
     {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
-  type: {{ .Values.opensearch.service.type }}
+  type: {{ .Values.openSearchLegacy.service.type }}
 {{- end }}

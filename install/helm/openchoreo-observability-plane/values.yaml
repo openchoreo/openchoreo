@@ -9,8 +9,8 @@ global:
   # legacy: Legacy mode with single replica OpenSearch statefulset and single replica OpenSearch Dashboards will be deployed
   installationMode: legacy
 
-# Customizing OpenSearch configurations
-opensearch:
+# Customizing OpenSearch configurations for the legacy OpenSearch deployment
+openSearchLegacy:
   image:
     repository: opensearchproject/opensearch
     tag: "2.11.0"
@@ -27,8 +27,8 @@ opensearch:
     clusterName: opensearch-cluster
     discoveryType: single-node
     javaOpts: "-Xms512m -Xmx512m"
-    memoryLock: false
-    disableSecurity: true
+    memoryLock: "false"
+    disableSecurity: "true"
 
   authentication:
     basicAuth:
@@ -50,6 +50,62 @@ opensearch:
     size: 5Gi
 
   replicas: 1
+
+
+# OpenSearch cluster configuration
+openSearchCluster:
+  enabled: false
+  general:
+    version: 3.3.0
+    additionalConfig:
+      pluginsSecurityDisabled: "true"
+
+  # Dashboard settings
+  dashboard:
+    enabled: true
+    replicas: 1
+    version: 3.3.0
+
+  # Node configuration
+  nodePools:
+    data:
+      replicas: 2
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 700Mi
+    master:
+      replicas: 0
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+
+  # Secrets
+  adminUsername: admin
+  adminUserPassword: admin
+  internalUsers: |
+    # This is the internal user database
+    # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
+
+    _meta:
+      type: "internalusers"
+      config_version: 2
+
+    admin:
+      hash: "%s"
+      reserved: true
+      backend_roles:
+      - "admin"
+      description: "Admin user"
 
 # Customizing OpenSearch Dashboards configurations
 opensearchDashboard:
@@ -90,55 +146,11 @@ observer:
       cpu: 100m
       memory: 128Mi
 
-# OpenSearch Operator configuration (deployed when installationMode is standard)
-opensearch-operator:
-  enabled: false # minimal/legacy modes will set this to false
-
-  installCRDs: false # CRDs are deployed from the crds directory
-
-  fullnameOverride: "opensearch-operator"
-
-  securityContext:
-    runAsNonRoot: true
-
-  serviceAccount:
-    create: true
-    name: "opensearch-operator"
-
-  manager:
-    resources: # Chart default values
-      limits:
-        cpu: 200m
-        memory: 500Mi
-      requests:
-        cpu: 100m
-        memory: 350Mi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - all
-      readOnlyRootFilesystem: true
-      runAsGroup: 10500
-      runAsUser: 10500
-    watchNamespace: "openchoreo-observability-plane"
-
-  kubeRbacProxy:
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - all
-      readOnlyRootFilesystem: true
-      runAsGroup: 10500
-      runAsUser: 10500
-
-# OpenSearch Cluster configuration (sub-chart)
-opensearch-cluster:
-  enabled: false # minimal/legacy modes will set this to false
+openSearch:
+  enabled: false
 
 # Fluent Bit configuration
-fluent-bit:
+fluentBit:
   enabled: false # minimal/legacy modes will set this to false
   config:
     customParsers: |

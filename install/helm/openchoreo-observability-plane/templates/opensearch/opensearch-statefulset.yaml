@@ -8,7 +8,7 @@ metadata:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "opensearch") | nindent 4 }}
 spec:
   serviceName: opensearch
-  replicas: {{ .Values.opensearch.replicas }}
+  replicas: {{ .Values.openSearchLegacy.replicas }}
   selector:
     matchLabels:
       {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "opensearch") | nindent 6 }}
@@ -23,45 +23,45 @@ spec:
         fsGroup: 1000
       containers:
       - name: opensearch
-        image: "{{ .Values.opensearch.image.repository }}:{{ .Values.opensearch.image.tag }}"
-        imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+        image: "{{ .Values.openSearchLegacy.image.repository }}:{{ .Values.openSearchLegacy.image.tag }}"
+        imagePullPolicy: {{ .Values.openSearchLegacy.image.pullPolicy }}
         env:
         - name: cluster.name
-          value: {{ .Values.opensearch.config.clusterName }}
+          value: {{ .Values.openSearchLegacy.config.clusterName }}
         - name: node.name
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: discovery.type
-          value: {{ .Values.opensearch.config.discoveryType }}
+          value: {{ .Values.openSearchLegacy.config.discoveryType }}
         - name: OPENSEARCH_JAVA_OPTS
-          value: {{ .Values.opensearch.config.javaOpts | quote }}
+          value: {{ .Values.openSearchLegacy.config.javaOpts | quote }}
         - name: bootstrap.memory_lock
-          value: {{ .Values.opensearch.config.memoryLock | quote }}
+          value: {{ .Values.openSearchLegacy.config.memoryLock | quote }}
         - name: DISABLE_SECURITY_PLUGIN
-          value: {{ .Values.opensearch.config.disableSecurity | quote }}
+          value: {{ .Values.openSearchLegacy.config.disableSecurity | quote }}
         ports:
-        - containerPort: {{ .Values.opensearch.service.httpPort }}
+        - containerPort: {{ .Values.openSearchLegacy.service.httpPort }}
           name: http
-        - containerPort: {{ .Values.opensearch.service.transportPort }}
+        - containerPort: {{ .Values.openSearchLegacy.service.transportPort }}
           name: transport
         volumeMounts:
         - name: data
           mountPath: /usr/share/opensearch/data
         resources:
-          {{- toYaml .Values.opensearch.resources | nindent 10 }}
-  {{- if .Values.opensearch.persistence.enabled }}
+          {{- toYaml .Values.openSearchLegacy.resources | nindent 10 }}
+  {{- if .Values.openSearchLegacy.persistence.enabled }}
   volumeClaimTemplates:
   - metadata:
       name: data
     spec:
       accessModes:
-      - {{ .Values.opensearch.persistence.accessMode }}
-      {{- if .Values.opensearch.persistence.storageClass }}
-      storageClassName: {{ .Values.opensearch.persistence.storageClass }}
+      - {{ .Values.openSearchLegacy.persistence.accessMode }}
+      {{- if .Values.openSearchLegacy.persistence.storageClass }}
+      storageClassName: {{ .Values.openSearchLegacy.persistence.storageClass }}
       {{- end }}
       resources:
         requests:
-          storage: {{ .Values.opensearch.persistence.size }}
+          storage: {{ .Values.openSearchLegacy.persistence.size }}
   {{- end }}
 {{- end }}

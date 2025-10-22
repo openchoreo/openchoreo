@@ -22,7 +22,7 @@ spec:
         imagePullPolicy: {{ .Values.opensearchDashboard.image.pullPolicy }}
         env:
         - name: OPENSEARCH_HOSTS
-          value: '["http://opensearch:{{ .Values.opensearch.service.httpPort }}"]'
+          value: '["http://opensearch:{{ .Values.openSearchLegacy.service.httpPort }}"]'
         - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
           value: {{ .Values.opensearchDashboard.config.disableSecurity | quote }}
         ports:

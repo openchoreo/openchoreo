@@ -82,6 +82,11 @@ helm install openchoreo-observability-plane . \
 # Create namespace
 kubectl create namespace openchoreo-observability-plane
 
+# Install the OpenSearch operator chart
+helm install opensearch-operator opensearch-operator/opensearch-operator \
+  --namespace openchoreo-observability-plane \
+  --values opensearch-operator/values.yaml
+
 # Install with standard mode values
 helm install openchoreo-observability-plane . \
   --namespace openchoreo-observability-plane \

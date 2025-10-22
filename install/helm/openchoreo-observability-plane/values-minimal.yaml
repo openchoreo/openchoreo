@@ -4,16 +4,15 @@
 global:
   installationMode: minimal
 
-# Disable the OpenSearch Operator for minimal mode
-opensearch-operator:
-  enabled: false
+openSearch:
+  enabled: true
 
 # Disable the OpenSearch Cluster for minimal mode
-opensearch-cluster:
+openSearchCluster:
   enabled: false
 
 # Disable the Fluent Bit for minimal mode (Will be enabled once minimal mode is supported)
-fluent-bit:
+fluentBit:
   enabled: false
 
 # Disable the Prometheus for minimal mode
