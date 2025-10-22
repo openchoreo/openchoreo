@@ -44,12 +44,15 @@ techdocs:
 
 auth:
   providers:
-    custom:
-      production:
-        metadataUrl: '${OPENCHOREO_AUTH_METADATA_URL}'
-        clientId: '${OPENCHOREO_AUTH_CLIENT_ID}'
-        clientSecret: '${OPENCHOREO_AUTH_CLIENT_SECRET}'
-        callbackUrl: '${OPENCHOREO_AUTH_CALLBACK_URL}'
+    # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
+    default-idp:
+      development:
+        clientId: 'openchoreo-platform-idp-client'
+        clientSecret: 'openchoreo-platform-idp-client-secret'
+        authorizationUrl: ${OPENCHOREO_AUTH_AUTHORIZATION_URL}
+        tokenUrl: ${OPENCHOREO_AUTH_TOKEN_URL}
+        userInfoUrl: ${OPENCHOREO_AUTH_USER_INFO_URL}
+        scope: 'openid profile email'
 
 catalog:
   locations:
@@ -65,7 +68,15 @@ catalog:
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
-  defaultOwner: 'developers' # Default owner for catalog entities: admins, managers, developers, or viewers
+  defaultOwner: 'platformengineer' # Default owner for catalog entities
   schedule:
     frequency: 30 # seconds between runs (default: 30)
     timeout: 120 # seconds for timeout (default: 120)
+
+thunder:
+  baseUrl: ${THUNDER_BASE_URL} # e.g., https://thunder.example.com:8090
+  token: ${THUNDER_TOKEN} # Authentication token for Thunder IdP API
+  defaultNamespace: 'default' # Default namespace for User and Group entities
+  schedule:
+    frequency: 600 # seconds between runs (default: 600 = 10 minutes)
+    timeout: 300 # seconds for timeout (default: 300 = 5 minutes)

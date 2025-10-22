@@ -26,17 +26,20 @@ yarn install
 ### Basic Usage
 
 ```typescript
-import { createThunderUserClient, createThunderGroupClient } from '@openchoreo/backstage-plugin-thunder-idp-client-node';
+import {
+  createThunderUserClient,
+  createThunderGroupClient,
+} from '@openchoreo/backstage-plugin-thunder-idp-client-node';
 
 // Create API clients
 const userClient = createThunderUserClient({
   baseUrl: 'https://thunder.example.com:8090',
-  token: 'your-bearer-token'
+  token: 'your-bearer-token',
 });
 
 const groupClient = createThunderGroupClient({
   baseUrl: 'https://thunder.example.com:8090',
-  token: 'your-bearer-token'
+  token: 'your-bearer-token',
 });
 
 // List users with type-safe parameters
@@ -45,9 +48,9 @@ const { data: users, error: userError } = await userClient.GET('/users', {
     query: {
       limit: 10,
       offset: 0,
-      filter: 'username eq "john.doe"'
-    }
-  }
+      filter: 'username eq "john.doe"',
+    },
+  },
 });
 
 if (userError) {
@@ -59,8 +62,8 @@ if (userError) {
 // List groups
 const { data: groups, error: groupError } = await groupClient.GET('/groups', {
   params: {
-    query: { limit: 10 }
-  }
+    query: { limit: 10 },
+  },
 });
 ```
 
@@ -74,7 +77,10 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 
 export function createMyService(config: Config, logger: LoggerService) {
-  const { userClient, groupClient } = createThunderClientsFromConfig(config, logger);
+  const { userClient, groupClient } = createThunderClientsFromConfig(
+    config,
+    logger,
+  );
 
   // Use the clients
   const { data: users } = await userClient.GET('/users');
@@ -85,10 +91,11 @@ export function createMyService(config: Config, logger: LoggerService) {
 ```
 
 **app-config.yaml**:
+
 ```yaml
 thunder:
   baseUrl: https://thunder.example.com:8090
-  token: ${THUNDER_TOKEN}  # From environment variable
+  token: ${THUNDER_TOKEN} # From environment variable
 ```
 
 ## API Clients
@@ -113,25 +120,27 @@ await userClient.POST('/users', {
     type: 'customer',
     attributes: {
       email: 'user@example.com',
-      username: 'john.doe'
-    }
-  }
+      username: 'john.doe',
+    },
+  },
 });
 
 // Update user
 await userClient.PUT('/users/{id}', {
   params: { path: { id: 'user-uuid' } },
-  body: { /* updated attributes */ }
+  body: {
+    /* updated attributes */
+  },
 });
 
 // Delete user
 await userClient.DELETE('/users/{id}', {
-  params: { path: { id: 'user-uuid' } }
+  params: { path: { id: 'user-uuid' } },
 });
 
 // Get user's groups
 await userClient.GET('/users/{id}/groups', {
-  params: { path: { id: 'user-uuid' } }
+  params: { path: { id: 'user-uuid' } },
 });
 ```
 
@@ -144,7 +153,9 @@ Interact with Thunder's Group Management API:
 await groupClient.GET('/groups', { params: { query: { limit: 10 } } });
 
 // Get group by ID
-await groupClient.GET('/groups/{id}', { params: { path: { id: 'group-uuid' } } });
+await groupClient.GET('/groups/{id}', {
+  params: { path: { id: 'group-uuid' } },
+});
 
 // Create group
 await groupClient.POST('/groups', {
@@ -154,25 +165,27 @@ await groupClient.POST('/groups', {
     organizationUnitId: 'org-uuid',
     members: [
       { id: 'user-uuid-1', type: 'user' },
-      { id: 'user-uuid-2', type: 'user' }
-    ]
-  }
+      { id: 'user-uuid-2', type: 'user' },
+    ],
+  },
 });
 
 // Update group
 await groupClient.PUT('/groups/{id}', {
   params: { path: { id: 'group-uuid' } },
-  body: { /* updated fields */ }
+  body: {
+    /* updated fields */
+  },
 });
 
 // Delete group
 await groupClient.DELETE('/groups/{id}', {
-  params: { path: { id: 'group-uuid' } }
+  params: { path: { id: 'group-uuid' } },
 });
 
 // Get group members
 await groupClient.GET('/groups/{id}/members', {
-  params: { path: { id: 'group-uuid' } }
+  params: { path: { id: 'group-uuid' } },
 });
 ```
 
@@ -187,6 +200,7 @@ yarn build
 ```
 
 This will:
+
 1. Download OpenAPI specs from Thunder repository (using version from `package.json`)
 2. Generate TypeScript types
 3. Build the package
@@ -219,6 +233,7 @@ bash scripts/generate-clients.sh --thunder-version v0.11.0
 To upgrade to a new Thunder version:
 
 1. **Update `package.json`**:
+
    ```json
    {
      "thunderVersion": "v0.11.0"
@@ -226,12 +241,14 @@ To upgrade to a new Thunder version:
    ```
 
 2. **Regenerate clients**:
+
    ```bash
    yarn clean:generated
    yarn generate:clients
    ```
 
 3. **Test the changes**:
+
    ```bash
    yarn build
    yarn test
@@ -249,10 +266,10 @@ To upgrade to a new Thunder version:
 
 ```typescript
 interface ThunderClientConfig {
-  baseUrl: string;          // Thunder API base URL
-  token?: string;           // Bearer token for authentication
-  fetchApi?: typeof fetch;  // Custom fetch implementation (optional)
-  logger?: LoggerService;   // Backstage logger (optional)
+  baseUrl: string; // Thunder API base URL
+  token?: string; // Bearer token for authentication
+  fetchApi?: typeof fetch; // Custom fetch implementation (optional)
+  logger?: LoggerService; // Backstage logger (optional)
 }
 ```
 
@@ -267,21 +284,21 @@ const { data } = await userClient.GET('/users', {
     query: {
       limit: 10,
       offset: 0,
-      filter: 'username eq "john.doe"'
-    }
-  }
+      filter: 'username eq "john.doe"',
+    },
+  },
 });
 
 // ❌ TypeScript will error on invalid paths
-const { data } = await userClient.GET('/invalid-path');  // Type error!
+const { data } = await userClient.GET('/invalid-path'); // Type error!
 
 // ❌ TypeScript will error on invalid parameters
 const { data } = await userClient.GET('/users', {
   params: {
     query: {
-      invalidParam: true  // Type error!
-    }
-  }
+      invalidParam: true, // Type error!
+    },
+  },
 });
 ```
 
@@ -345,7 +362,7 @@ Generated clients are version-specific to the Thunder release. The version const
 ```typescript
 import { THUNDER_VERSION } from '@openchoreo/backstage-plugin-thunder-idp-client-node';
 
-console.log('Using Thunder version:', THUNDER_VERSION);  // e.g., "v0.10.0"
+console.log('Using Thunder version:', THUNDER_VERSION); // e.g., "v0.10.0"
 ```
 
 ## Troubleshooting
@@ -353,6 +370,7 @@ console.log('Using Thunder version:', THUNDER_VERSION);  // e.g., "v0.10.0"
 ### "Cannot find module './generated/user'"
 
 Run the generation script:
+
 ```bash
 yarn generate:clients
 ```
@@ -360,6 +378,7 @@ yarn generate:clients
 ### "Failed to download user.yaml"
 
 Check that the Thunder version exists:
+
 ```bash
 # Check available tags at:
 # https://github.com/asgardeo/thunder/tags
@@ -368,6 +387,7 @@ Check that the Thunder version exists:
 ### Type errors after upgrading Thunder version
 
 Clean and regenerate:
+
 ```bash
 yarn clean:generated
 yarn generate:clients

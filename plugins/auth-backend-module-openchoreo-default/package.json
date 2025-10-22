@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "@backstage/backend-plugin-api": "^1.4.3",
+    "@backstage/catalog-model": "^1.7.5",
     "@backstage/plugin-auth-backend-module-oidc-provider": "^0.4.8",
+    "@backstage/plugin-auth-node": "^0.6.8",
     "passport-oauth2": "^1.8.0"
   },
   "devDependencies": {

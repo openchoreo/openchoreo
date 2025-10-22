@@ -39,7 +39,8 @@ export class OpenChoreoEntityProvider implements EntityProvider {
     this.logger = logger;
     this.client = createOpenChoreoApiClient(config, logger);
     // Default owner for all entities - configurable via app-config.yaml
-    this.defaultOwner = config.getOptionalString('openchoreo.defaultOwner') || 'developers';
+    this.defaultOwner =
+      config.getOptionalString('openchoreo.defaultOwner') || 'developers';
   }
 
   getProviderName(): string {

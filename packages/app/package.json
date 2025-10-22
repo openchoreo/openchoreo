@@ -27,6 +27,7 @@
     "@backstage/plugin-catalog-graph": "^0.5.1",
     "@backstage/plugin-catalog-import": "^0.13.5",
     "@backstage/plugin-catalog-react": "^1.21.1",
+    "@backstage/plugin-home": "^0.8.13",
     "@backstage/plugin-kubernetes": "^0.12.11",
     "@backstage/plugin-org": "^0.6.44",
     "@backstage/plugin-permission-react": "^0.4.36",
@@ -51,7 +52,6 @@
     "react-router-dom": "^6.3.0"
   },
   "devDependencies": {
-    "@backstage/plugin-home": "^0.8.13",
     "@backstage/test-utils": "^1.7.11",
     "@playwright/test": "^1.32.3",
     "@testing-library/dom": "^9.0.0",

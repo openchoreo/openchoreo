@@ -23,7 +23,6 @@
     "clean": "backstage-cli package clean",
     "clean:generated": "rimraf src/generated openapi src/version.ts",
     "generate:clients": "bash scripts/generate-clients.sh",
-    "prebuild": "yarn generate:clients",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack"
   },

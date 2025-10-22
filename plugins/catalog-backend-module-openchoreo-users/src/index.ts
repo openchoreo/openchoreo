@@ -1,4 +1,3 @@
-/***/
 /**
  * The openchoreo-users backend module for the catalog plugin.
  *
@@ -6,3 +5,4 @@
  */
 
 export { catalogModuleOpenchoreoUsers as default } from './module';
+export { ThunderUserGroupEntityProvider } from './provider/ThunderUserGroupEntityProvider';

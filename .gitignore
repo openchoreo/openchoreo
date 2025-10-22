@@ -58,9 +58,3 @@ site
 
 # E2E test reports
 e2e-test-report/
-
-# Thunder IdP Client Generated Code (regenerated on build)
-plugins/thunder-idp-client-node/src/generated/
-plugins/thunder-idp-client-node/openapi/*.yaml
-plugins/thunder-idp-client-node/src/version.ts
-plugins/thunder-idp-client-node/.openapi-generator/

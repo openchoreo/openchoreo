@@ -98,11 +98,7 @@ const SignOutButton = () => {
   };
 
   return (
-    <SidebarItem
-      icon={ExitToAppIcon}
-      text="Sign Out"
-      onClick={handleSignOut}
-    />
+    <SidebarItem icon={ExitToAppIcon} text="Sign Out" onClick={handleSignOut} />
   );
 };
 

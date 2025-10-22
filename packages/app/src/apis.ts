@@ -15,9 +15,7 @@ import {
 import { OAuth2 } from '@backstage/core-app-api';
 
 // API reference for default-idp OIDC provider
-export const defaultIdpAuthApiRef: ApiRef<
-  any
-> = createApiRef({
+export const defaultIdpAuthApiRef: ApiRef<any> = createApiRef({
   id: 'auth.default-idp',
 });
 

@@ -85,10 +85,18 @@ scaffolder:
 openchoreo:
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
-  defaultOwner: 'developers' # Default owner for catalog entities: admins, managers, developers, or viewers
+  defaultOwner: 'platformengineer' # Default owner for catalog entities
   schedule:
     frequency: 30 # seconds between runs (default: 30)
     timeout: 120 # seconds for timeout (default: 120)
+
+thunder:
+  baseUrl: https://localhost:8090 # e.g., https://thunder.example.com:8090
+  token: ${THUNDER_TOKEN} # optional for now: for authentication
+  defaultNamespace: 'default' # Default namespace for User and Group entities
+  schedule:
+    frequency: 600 # seconds between runs (default: 600 = 10 minutes)
+    timeout: 300 # seconds for timeout (default: 300 = 5 minutes)
 
 catalog:
   import:

@@ -2236,6 +2236,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage/config@npm:^1.3.0, @backstage/config@npm:^1.3.5":
+  version: 1.3.5
+  resolution: "@backstage/config@npm:1.3.5"
+  dependencies:
+    "@backstage/errors": "npm:^1.2.7"
+    "@backstage/types": "npm:^1.2.2"
+    ms: "npm:^2.1.3"
+  checksum: 10c0/e531ecbe2ecf2e86dfbb33edf17e609b9a8ccc74a065ddfd8a2a58ab4b652ff1f9d28ce9fdd76d935d8700b9276c08d38f28262c8495966bd80a9d490155e613
+  languageName: node
+  linkType: hard
+
 "@backstage/config@npm:^1.3.3, @backstage/config@npm:^1.3.4":
   version: 1.3.4
   resolution: "@backstage/config@npm:1.3.4"
@@ -2244,17 +2255,6 @@ __metadata:
     "@backstage/types": "npm:^1.2.2"
     ms: "npm:^2.1.3"
   checksum: 10c0/e6b811fea6bd6043dfffe9b6f33affea4398f5fda2d604cc745c0dc7ad13cd9379c04dcce313992815dc05833895989aac7357980f220bee77f05cd6f10362ed
-  languageName: node
-  linkType: hard
-
-"@backstage/config@npm:^1.3.5":
-  version: 1.3.5
-  resolution: "@backstage/config@npm:1.3.5"
-  dependencies:
-    "@backstage/errors": "npm:^1.2.7"
-    "@backstage/types": "npm:^1.2.2"
-    ms: "npm:^2.1.3"
-  checksum: 10c0/e531ecbe2ecf2e86dfbb33edf17e609b9a8ccc74a065ddfd8a2a58ab4b652ff1f9d28ce9fdd76d935d8700b9276c08d38f28262c8495966bd80a9d490155e613
   languageName: node
   linkType: hard
 
@@ -8836,8 +8836,10 @@ __metadata:
   dependencies:
     "@backstage/backend-plugin-api": "npm:^1.4.3"
     "@backstage/backend-test-utils": "npm:^1.9.0"
+    "@backstage/catalog-model": "npm:^1.7.5"
     "@backstage/cli": "npm:^0.34.3"
     "@backstage/plugin-auth-backend-module-oidc-provider": "npm:^0.4.8"
+    "@backstage/plugin-auth-node": "npm:^0.6.8"
     "@types/passport-oauth2": "npm:^1"
     passport-oauth2: "npm:^1.8.0"
   languageName: unknown
@@ -8874,7 +8876,11 @@ __metadata:
   dependencies:
     "@backstage/backend-plugin-api": "npm:^1.4.3"
     "@backstage/backend-test-utils": "npm:^1.9.0"
+    "@backstage/catalog-model": "npm:^1.7.5"
     "@backstage/cli": "npm:^0.34.3"
+    "@backstage/config": "npm:^1.3.0"
+    "@backstage/plugin-catalog-node": "npm:^1.19.0"
+    "@openchoreo/backstage-plugin-thunder-idp-client-node": "workspace:^"
   languageName: unknown
   linkType: soft
 
@@ -8908,7 +8914,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@openchoreo/backstage-plugin-thunder-idp-client-node@workspace:plugins/thunder-idp-client-node":
+"@openchoreo/backstage-plugin-thunder-idp-client-node@workspace:^, @openchoreo/backstage-plugin-thunder-idp-client-node@workspace:plugins/thunder-idp-client-node":
   version: 0.0.0-use.local
   resolution: "@openchoreo/backstage-plugin-thunder-idp-client-node@workspace:plugins/thunder-idp-client-node"
   dependencies:

@@ -139,7 +139,7 @@ export function createThunderGroupClient(config: ThunderClientConfig) {
  */
 export function createThunderClientsFromConfig(
   config: Config,
-  logger?: LoggerService
+  logger?: LoggerService,
 ) {
   const baseUrl = config.getString('thunder.baseUrl');
   const token = config.getOptionalString('thunder.token');

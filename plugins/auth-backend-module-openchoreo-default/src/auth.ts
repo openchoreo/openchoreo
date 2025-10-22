@@ -1,4 +1,8 @@
-import { createBackendModule } from '@backstage/backend-plugin-api';
+import {
+  createBackendModule,
+  coreServices,
+  LoggerService,
+} from '@backstage/backend-plugin-api';
 import {
   authProvidersExtensionPoint,
   createOAuthProviderFactory,
@@ -11,7 +15,10 @@ import {
   OAuthSession,
 } from '@backstage/plugin-auth-node';
 import { Strategy as OAuth2Strategy } from 'passport-oauth2';
-import { stringifyEntityRef, DEFAULT_NAMESPACE } from '@backstage/catalog-model';
+import {
+  stringifyEntityRef,
+  DEFAULT_NAMESPACE,
+} from '@backstage/catalog-model';
 
 /**
  * JWT token payload interface for OpenChoreo tokens
@@ -37,58 +44,60 @@ interface OpenChoreoTokenPayload {
  */
 const customProfileTransform = async (
   result: OAuthAuthenticatorResult<any>,
-  _context: AuthResolverContext
+  _context: AuthResolverContext,
+  logger?: LoggerService,
 ): Promise<{ profile: ProfileInfo }> => {
-  console.log('customProfileTransform called with result:', JSON.stringify(result, null, 2));
-  
   // Extract profile information from JWT tokens since OAuth2 doesn't provide userInfo
   // The session is available directly in result.session
   const session = result.session;
   const accessToken = session?.accessToken;
   const idToken = session?.idToken;
-  
+
   let profile: ProfileInfo = {};
-  
+
   // Try to extract from access token first
   if (accessToken) {
     try {
       const payload: OpenChoreoTokenPayload = JSON.parse(
-        Buffer.from(accessToken.split('.')[1], 'base64').toString()
+        Buffer.from(accessToken.split('.')[1], 'base64').toString(),
       );
       profile = {
         email: payload.username, // username contains the email
-        displayName: payload.given_name && payload.family_name 
-          ? `${payload.given_name} ${payload.family_name}` 
-          : payload.username,
+        displayName:
+          payload.given_name && payload.family_name
+            ? `${payload.given_name} ${payload.family_name}`
+            : payload.username,
         picture: undefined, // Not available in the token
-        ...profile
+        ...profile,
       };
     } catch (error) {
-      console.warn('Failed to decode access token for profile:', error);
+      logger?.warn(
+        'Failed to decode access token for profile:',
+        error as Error,
+      );
     }
   }
-  
+
   // Fallback to ID token if access token didn't work
   if (!profile.email && idToken) {
     try {
       const payload: OpenChoreoTokenPayload = JSON.parse(
-        Buffer.from(idToken.split('.')[1], 'base64').toString()
+        Buffer.from(idToken.split('.')[1], 'base64').toString(),
       );
-      console.log('ID token payload:', JSON.stringify(payload, null, 2));
       profile = {
         email: payload.username,
-        displayName: payload.given_name && payload.family_name 
-          ? `${payload.given_name} ${payload.family_name}` 
-          : payload.username,
+        displayName:
+          payload.given_name && payload.family_name
+            ? `${payload.given_name} ${payload.family_name}`
+            : payload.username,
         picture: undefined,
-        ...profile
+        ...profile,
       };
     } catch (error) {
-      console.warn('Failed to decode ID token for profile:', error);
+      logger?.warn('Failed to decode ID token for profile:', error as Error);
     }
   }
-  
-  console.log('Final profile:', JSON.stringify(profile, null, 2));
+
   return { profile };
 };
 
@@ -142,14 +151,18 @@ export const defaultIdpAuthenticator = createOAuthAuthenticator({
         };
 
         // Pass the session as fullProfile and also include it in params
-        done(undefined, {
-          fullProfile: passportProfile,
-          accessToken,
-          params: {
-            ...params,
-            session,
+        done(
+          undefined,
+          {
+            fullProfile: passportProfile,
+            accessToken,
+            params: {
+              ...params,
+              session,
+            },
           },
-        }, { refreshToken });
+          { refreshToken },
+        );
       },
     );
 
@@ -180,8 +193,9 @@ export const OpenChoreoDefaultAuthModule = createBackendModule({
     reg.registerInit({
       deps: {
         providers: authProvidersExtensionPoint,
+        logger: coreServices.logger,
       },
-      async init({ providers }) {
+      async init({ providers, logger }) {
         providers.registerProvider({
           providerId: 'default-idp',
           factory: createOAuthProviderFactory({
@@ -191,7 +205,9 @@ export const OpenChoreoDefaultAuthModule = createBackendModule({
 
               // Handle case where profile might be undefined
               if (!profile || !profile.email) {
-                throw new Error('User profile/email is undefined. Check if customProfileTransform is working correctly.');
+                throw new Error(
+                  'User profile/email is undefined. Check if customProfileTransform is working correctly.',
+                );
               }
 
               // Extract groups from access token (where the group claim is located)
@@ -202,7 +218,7 @@ export const OpenChoreoDefaultAuthModule = createBackendModule({
                 // Decode JWT to get claims (simple base64 decode, no verification needed here)
                 try {
                   const payload = JSON.parse(
-                    Buffer.from(accessToken.split('.')[1], 'base64').toString()
+                    Buffer.from(accessToken.split('.')[1], 'base64').toString(),
                   );
                   // Extract group from access token - it's a single string, not an array
                   const group = payload.group;
@@ -210,7 +226,10 @@ export const OpenChoreoDefaultAuthModule = createBackendModule({
                     groups = [group];
                   }
                 } catch (error) {
-                  console.warn('Failed to decode access token for group extraction:', error);
+                  logger?.error(
+                    'Failed to decode access token for group extraction:',
+                    error as Error,
+                  );
                   // Silently continue if access token decode fails
                 }
               }
@@ -229,7 +248,7 @@ export const OpenChoreoDefaultAuthModule = createBackendModule({
                     kind: 'Group',
                     namespace: DEFAULT_NAMESPACE,
                     name: group.toLowerCase(),
-                  })
+                  }),
                 ),
               ];
 
