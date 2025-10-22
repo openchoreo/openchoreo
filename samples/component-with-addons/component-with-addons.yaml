@@ -7,11 +7,6 @@ spec:
   workloadType: deployment
 
   schema:
-    types:
-      Resources:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
-
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
@@ -19,8 +14,12 @@ spec:
 
     envOverrides:
       resources:
-        requests: Resources
-        limits: Resources
+        requests:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          cpu: "string | default=500m"
+          memory: "string | default=512Mi"
 
   resources:
     - id: deployment
@@ -130,73 +129,13 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Addon
-metadata:
-  name: emptydir-volume
-spec:
-  schema:
-    # Define custom type for mount configuration
-    types:
-      MountConfig:
-        containerName: string | required=true
-        mountPath: string | required=true
-        readOnly: boolean | default=false
-        subPath: string | default=""
-
-    parameters:
-      volumeName: string | required=true
-      mounts: "[]MountConfig | required=true minItems=1"
-
-    envOverrides:
-      sizeLimit: string | default=""
-      medium: string | default="" # "" for disk, "Memory" for tmpfs
-
-  # Patch the Deployment to add emptyDir volume
-  patches:
-    # Add emptyDir volume to pod spec
-    - target:
-        group: apps
-        version: v1
-        kind: Deployment
-      operations:
-        - op: add
-          path: /spec/template/spec/volumes/-
-          value:
-            name: ${parameters.volumeName}
-            emptyDir: |
-              ${parameters.sizeLimit != "" || parameters.medium != "" ? {
-                "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : omit(),
-                "medium": parameters.medium != "" ? parameters.medium : omit()
-              } : {}}
-
-    # Add volumeMounts to each specified container
-    # This will be applied per mount in the mounts array
-    - forEach: ${parameters.mounts}
-      var: mount
-      target:
-        group: apps
-        version: v1
-        kind: Deployment
-      operations:
-        - op: add
-          path: /spec/template/spec/containers/[?(@.name=='${mount.containerName}')]/volumeMounts/-
-          value:
-            name: ${parameters.volumeName}
-            mountPath: ${mount.mountPath}
-            readOnly: |
-              ${has(mount.readOnly) ? mount.readOnly : false}
-            subPath: |
-              ${has(mount.subPath) ? mount.subPath : ""}
-
----
-apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: demo-app
   namespace: default
 spec:
   owner:
-    projectName: default
+    projectName: demo-project
 
   componentType: deployment/web-service
 
@@ -220,24 +159,6 @@ spec:
         containerName: app
         size: "20Gi"
         storageClass: "fast"
-    - name: emptydir-volume
-      instanceName: cache
-      config:
-        volumeName: cache-vol
-        mounts:
-          - containerName: app
-            mountPath: /tmp/cache
-            readOnly: false
-    - name: emptydir-volume
-      instanceName: workspace
-      config:
-        volumeName: workspace-vol
-        mounts:
-          - containerName: app
-            mountPath: /tmp/work
-            readOnly: false
-        medium: ""
-        sizeLimit: 1Gi
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -247,7 +168,7 @@ metadata:
   namespace: default
 spec:
   owner:
-    projectName: default
+    projectName: demo-project
     componentName: demo-app
 
   containers:
@@ -256,13 +177,13 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: Workload
 metadata:
   name: demo-app-development
   namespace: default
 spec:
   owner:
-    projectName: default
+    projectName: demo-project
     componentName: demo-app
 
   environment: development
