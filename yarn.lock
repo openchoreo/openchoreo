@@ -8868,6 +8868,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users@workspace:^, @openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users@workspace:plugins/catalog-backend-module-openchoreo-users":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users@workspace:plugins/catalog-backend-module-openchoreo-users"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:^1.4.3"
+    "@backstage/backend-test-utils": "npm:^1.9.0"
+    "@backstage/cli": "npm:^0.34.3"
+  languageName: unknown
+  linkType: soft
+
 "@openchoreo/backstage-plugin-catalog-backend-module@npm:^0.2.0, @openchoreo/backstage-plugin-catalog-backend-module@workspace:plugins/catalog-backend-module-openchoreo":
   version: 0.0.0-use.local
   resolution: "@openchoreo/backstage-plugin-catalog-backend-module@workspace:plugins/catalog-backend-module-openchoreo"
@@ -8895,6 +8905,14 @@ __metadata:
     "@backstage/plugin-scaffolder-node-test-utils": "npm:^0.3.3"
     "@openchoreo/backstage-plugin-api": "workspace:^"
     zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
+"@openchoreo/backstage-plugin-thunder-idp-client-node@workspace:plugins/thunder-idp-client-node":
+  version: 0.0.0-use.local
+  resolution: "@openchoreo/backstage-plugin-thunder-idp-client-node@workspace:plugins/thunder-idp-client-node"
+  dependencies:
+    "@backstage/cli": "npm:^0.34.3"
   languageName: unknown
   linkType: soft
 
@@ -16161,6 +16179,7 @@ __metadata:
     "@openchoreo/backstage-plugin-auth-backend-module-openchoreo-default": "workspace:^"
     "@openchoreo/backstage-plugin-backend": "npm:^0.2.0"
     "@openchoreo/backstage-plugin-catalog-backend-module": "npm:^0.2.0"
+    "@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users": "workspace:^"
     "@openchoreo/backstage-plugin-scaffolder-backend-module": "npm:^0.2.0"
     "@types/express-session": "npm:^1"
     app: "link:../app"

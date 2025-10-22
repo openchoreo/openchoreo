@@ -57,4 +57,5 @@ backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 backend.add(import('@openchoreo/backstage-plugin-backend'));
 backend.add(import('@openchoreo/backstage-plugin-catalog-backend-module'));
 backend.add(import('@openchoreo/backstage-plugin-scaffolder-backend-module'));
+backend.add(import('@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users'));
 backend.start();

@@ -43,6 +43,7 @@
     "@openchoreo/backstage-plugin-auth-backend-module-openchoreo-default": "workspace:^",
     "@openchoreo/backstage-plugin-backend": "^0.2.0",
     "@openchoreo/backstage-plugin-catalog-backend-module": "^0.2.0",
+    "@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users": "workspace:^",
     "@openchoreo/backstage-plugin-scaffolder-backend-module": "^0.2.0",
     "app": "link:../app",
     "better-sqlite3": "^9.0.0",
