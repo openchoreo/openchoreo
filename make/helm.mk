@@ -26,22 +26,24 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 	$(eval CHART_NAME := $(word 1,$(subst ., ,$*)))
 	$(eval CHART_PATH := $(HELM_CHARTS_DIR)/$(CHART_NAME))
 	@$(call log_info, Generating helm chart '$(CHART_NAME)')
-	@# Run helm-gen to generate CRDs and RBAC for the helm chart
-	@if [ ${CHART_NAME} == "openchoreo-control-plane" ]; then \
-		$(MAKE) manifests; \
-		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH); \
-		VALUES_FILE=$(CHART_PATH)/values.yaml; \
-		if [ -f "$$VALUES_FILE" ]; then \
-		  $(YQ) eval '.controllerManager.manager.image.repository = "$(HELM_CONTROLLER_IMAGE)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.manager.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.manager.imagePullPolicy = "$(HELM_CONTROLLER_IMAGE_PULL_POLICY)"' -i $$VALUES_FILE; \
-		fi \
-	fi
 	@# Update backstage image tag for openchoreo-backstage chart
 	@if [ ${CHART_NAME} == "openchoreo-backstage" ]; then \
 		VALUES_FILE=$(CHART_PATH)/values.yaml; \
 		if [ -f "$$VALUES_FILE" ]; then \
 		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
+		fi \
+	fi
+	@# Copy CRDs and RBAC to openchoreo chart
+	@if [ ${CHART_NAME} == "openchoreo" ]; then \
+		$(call log_info, Generating resources for secure-core chart); \
+		$(MAKE) manifests; \
+		$(call log_info, Running helm-gen for openchoreo chart); \
+		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
+		VALUES_FILE=$(CHART_PATH)/values.yaml; \
+		if [ -f "$$VALUES_FILE" ]; then \
+		  $(YQ) eval '.controllerManager.image.repository = "$(HELM_CONTROLLER_IMAGE)"' -i $$VALUES_FILE; \
+		  $(YQ) eval '.controllerManager.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
+		  $(YQ) eval '.controllerManager.image.pullPolicy = "$(HELM_CONTROLLER_IMAGE_PULL_POLICY)"' -i $$VALUES_FILE; \
 		fi \
 	fi
 	helm dependency update $(CHART_PATH)

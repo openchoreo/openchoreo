@@ -31,33 +31,39 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
 1. Run the following command to create a KinD cluster:
 
    ```sh
-   kind create cluster --config=install/kind/kind-config.yaml
+   make kind.up
    ```
 
-2. To verify the cluster context is set correctly, and the cluster is running, use the following commands:
-
-   ```sh
-   kubectl config current-context # This should show the `kind-choreo` as the current context
-   kubectl cluster-info
-   ```
-   
-3. Deploy the necessary components to the KinD cluster:
+2. Build all OpenChoreo components:
 
    ```sh
-   make dev-deploy
+   make kind.build
    ```
+
+3. Load component images into the cluster:
+
+   ```sh
+   make kind.load
+   ```
+
+4. Install Cilium CNI and OpenChoreo:
+
+   ```sh
+   make kind.install
+   ```
+
    This may take around 5-15 minutes to complete depending on the internet bandwidth.
 
 > [!NOTE]
 > This command installs both the control plane and data plane components in the same cluster.
 
-4. Once completed, you can verify the deployment by running:
+5. Once completed, you can verify the deployment by running:
 
    ```sh
    ./install/check-status.sh
    ```
 
-5. Add default DataPlane to the cluster:
+6. Add default DataPlane to the cluster:
 
     OpenChoreo requires a DataPlane to deploy and manage its resources.
 
@@ -65,20 +71,46 @@ For testing and development, we recommend using a KinD (Kubernetes in Docker) cl
    bash ./install/add-default-dataplane.sh
    ```
 
-6. Run controller manager locally (for development):
-    
+7. Run controller manager locally (for development):
+   
    To run the controller manager locally during development:
 
-   - First, scale down the existing manager deployment. You can do this by running: 
-   `kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0`
+   - First, scale down the existing controller deployment:
    ```sh
-   kubectl -n choreo-system scale deployment choreo-control-plane-controller-manager --replicas=0
+   kubectl -n openchoreo scale deployment openchoreo-controller-manager --replicas=0
    ```
    
    - Then, run the following command to configure DataPlane resource:
    ```sh
-   kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-choreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
+   kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-openchoreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
    ```
+
+Note: The main controller runs as a deployment in the cluster. For local development, you typically work with the API server and CLI tools.
+
+### Quick Start Development Workflow
+
+For a complete setup in one command:
+
+```sh
+make kind
+```
+
+This will create the cluster, build all components, load images, and install OpenChoreo.
+
+### Component-Specific Operations
+
+- Build specific component: `make kind.build.<component>` (controller, api, ui)
+- Load specific component: `make kind.load.<component>` (controller, api, ui, cilium)
+- Install specific component: `make kind.install.<component>` (cilium, openchoreo)
+- Update specific component: `make kind.update.<component>` (controller, api, ui)
+
+### Cleanup
+
+To delete the KinD cluster:
+
+```sh
+make kind.down
+```
 
 ### Building and Running the Binaries
 

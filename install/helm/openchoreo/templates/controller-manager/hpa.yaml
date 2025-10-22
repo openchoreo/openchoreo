@@ -1,0 +1,38 @@
+{{- if .Values.controllerManager.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "openchoreo.fullname" . }}-controller-manager
+  minReplicas: {{ .Values.controllerManager.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.controllerManager.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.controllerManager.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.controllerManager.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.controllerManager.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.controllerManager.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- with .Values.controllerManager.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

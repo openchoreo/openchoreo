@@ -23,12 +23,27 @@ if [[ "$SEPARATE" == false ]]; then
   CONTEXT=$(kubectl config current-context)
   TARGET_CONTEXT=$CONTEXT
   BUILDPLANE_KIND_NAME=$DEFAULT_BUILDPLANE_KIND_NAME
+  
+  # Get server URL from kubeconfig
+  CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
+  KUBE_SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
+  
+  # Check if server URL is loopback address
+  if [[ "$KUBE_SERVER_URL" =~ ^https?://(127\.0\.0\.1|localhost) ]]; then
+    SERVER_URL="https://kubernetes.default.svc.cluster.local"
+    echo "Running in single-cluster mode using context '$CONTEXT' with loopback server, using Kubernetes service DNS"
+  else
+    NODE_NAME_PREFIX=${CONTEXT#kind-}
+    SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
+  fi
 else
   read -p "Enter BuildPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
   CONTEXT=${INPUT_CONTEXT:-$DEFAULT_CONTEXT}
   TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
 
   echo -e "\n${DARK_YELLOW}Using Kubernetes context '$CONTEXT' as BuildPlane.${RESET}"
+  NODE_NAME_PREFIX=${CONTEXT#kind-}
+  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
 
   read -p "Enter BuildPlane kind name (default: $DEFAULT_BUILDPLANE_KIND_NAME): " INPUT_BUILDPLANE_NAME
   BUILDPLANE_KIND_NAME=${INPUT_BUILDPLANE_NAME:-$DEFAULT_BUILDPLANE_KIND_NAME}
@@ -37,7 +52,6 @@ fi
 # Extract info from chosen context
 CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
 USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
-SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
 
 # Try to get base64-encoded values directly
 CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}")

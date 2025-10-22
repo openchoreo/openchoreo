@@ -1,0 +1,18 @@
+cluster:
+  name: openchoreo
+ipam:
+  mode: kubernetes
+k8sServicePort: 6443
+kubeProxyReplacement: true
+operator:
+  replicas: 1
+routingMode: tunnel
+tunnelProtocol: vxlan
+ingressController:
+  enabled: true
+  default: true
+  loadbalancerMode: shared
+  service:
+    type: NodePort
+    insecureNodePort: 32000
+    secureNodePort: 32001

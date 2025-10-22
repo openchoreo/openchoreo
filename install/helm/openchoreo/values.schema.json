@@ -1,0 +1,1408 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenChoreo Secure Core Values",
+  "type": "object",
+  "definitions": {
+    "seccompProfile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+          "default": "RuntimeDefault"
+        },
+        "localhostProfile": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "appArmorProfile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
+          "default": "RuntimeDefault"
+        },
+        "localhostProfile": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "drop": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["ALL"]
+        },
+        "add": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": {
+          "type": "boolean",
+          "default": true
+        },
+        "seccompProfile": {
+          "$ref": "#/definitions/seccompProfile"
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "fsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "supplementalGroups": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "selinuxOptions": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "level": {
+              "type": "string"
+            }
+          }
+        },
+        "windowsOptions": {
+          "type": "object",
+          "properties": {
+            "runAsUserName": {
+              "type": "string"
+            },
+            "runAsGroupName": {
+              "type": "string"
+            },
+            "gmsaCredentialSpecName": {
+              "type": "string"
+            },
+            "gmsaCredentialSpec": {
+              "type": "string"
+            },
+            "hostProcess": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "containerSecurityContext": {
+      "type": "object",
+      "properties": {
+        "allowPrivilegeEscalation": {
+          "type": "boolean",
+          "default": false
+        },
+        "capabilities": {
+          "$ref": "#/definitions/capabilities"
+        },
+        "privileged": {
+          "type": "boolean",
+          "default": false
+        },
+        "procMount": {
+          "type": "string",
+          "enum": ["Default", "Unmasked"]
+        },
+        "readOnlyRootFilesystem": {
+          "type": "boolean",
+          "default": true
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsGroup": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "runAsNonRoot": {
+          "type": "boolean",
+          "default": true
+        },
+        "seccompProfile": {
+          "$ref": "#/definitions/seccompProfile"
+        },
+        "appArmorProfile": {
+          "$ref": "#/definitions/appArmorProfile"
+        },
+        "windowsOptions": {
+          "$ref": "#/definitions/podSecurityContext/properties/windowsOptions"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "ephemeral-storage": {
+              "type": "string"
+            }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "ephemeral-storage": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "default": true
+        },
+        "annotations": {
+          "type": "object",
+          "default": {}
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "priorityClass": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "default": false
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": -1000000000,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "minReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "maxReplicas": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 70
+        },
+        "targetMemoryUtilizationPercentage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 80
+        }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "minAvailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxUnavailable": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "ingress": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        },
+        "egress": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        }
+      }
+    },
+    "serviceMonitor": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "namespace": {
+          "type": "string",
+          "default": "monitoring"
+        },
+        "interval": {
+          "type": "string",
+          "default": "30s"
+        },
+        "scrapeTimeout": {
+          "type": "string",
+          "default": "10s"
+        },
+        "labels": {
+          "type": "object",
+          "default": {}
+        },
+        "relabelings": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        }
+      }
+    }
+  },
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "clusterName": {
+          "type": "string",
+          "default": "openchoreo"
+        },
+        "defaultResources": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "organization": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Organization"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Getting started with your first organization"
+                }
+              }
+            },
+            "project": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Project"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Your first project to get started"
+                }
+              }
+            },
+            "environments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "dnsPrefix": {
+                    "type": "string"
+                  },
+                  "isCritical": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "default": [
+                {
+                  "name": "development",
+                  "displayName": "Development",
+                  "description": "Development environment for testing",
+                  "dnsPrefix": "dev",
+                  "isCritical": false
+                },
+                {
+                  "name": "production",
+                  "displayName": "Production",
+                  "description": "Production environment",
+                  "dnsPrefix": "prod",
+                  "isCritical": true
+                }
+              ]
+            },
+            "deploymentPipeline": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string",
+                  "default": "Default Pipeline"
+                },
+                "description": {
+                  "type": "string",
+                  "default": "Standard deployment pipeline with dev, staging, and prod environments"
+                },
+                "promotionOrder": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sourceEnvironmentRef": {
+                        "type": "string"
+                      },
+                      "targetEnvironmentRefs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "requiresApproval": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "default": [
+                    {
+                      "sourceEnvironmentRef": "development",
+                      "targetEnvironmentRefs": [
+                        {
+                          "name": "production",
+                          "requiresApproval": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "default": "openchoreo"
+    },
+    "controllerManager": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/openchoreo/controller"
+            },
+            "tag": {
+              "type": "string",
+              "default": "latest-dev"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "Always"
+            }
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "default": {
+            "limits": {
+              "cpu": "1000m",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "200m",
+              "memory": "256Mi"
+            }
+          }
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
+          }
+        },
+        "priorityClass": {
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-controller-manager",
+            "value": 1000000
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "ClusterIP"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 8080
+            },
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "serviceMonitor": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "namespace": {
+                  "type": "string",
+                  "default": "monitoring"
+                },
+                "interval": {
+                  "type": "string",
+                  "default": "30s"
+                },
+                "scrapeTimeout": {
+                  "type": "string",
+                  "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
+                }
+              }
+            }
+          }
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
+          }
+        },
+        "networkPolicy": {
+          "$ref": "#/definitions/networkPolicy"
+        },
+        "autoscaling": {
+          "$ref": "#/definitions/autoscaling"
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "controller-manager"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "controller-manager"
+                }
+              }
+            }
+          ]
+        },
+        "nodeSelector": {
+          "type": "object",
+          "default": {}
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        },
+        "affinity": {
+          "type": "object",
+          "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 65532,
+            "runAsGroup": 65532,
+            "fsGroup": 65532
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
+        }
+      }
+    },
+    "openchoreoApi": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/openchoreo/api"
+            },
+            "tag": {
+              "type": "string",
+              "default": "latest"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "default": {
+            "limits": {
+              "cpu": "1000m",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "200m",
+              "memory": "256Mi"
+            }
+          }
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
+          }
+        },
+        "priorityClass": {
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-api",
+            "value": 900000
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "ClusterIP"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 8080
+            },
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "serviceMonitor": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "namespace": {
+                  "type": "string",
+                  "default": "monitoring"
+                },
+                "interval": {
+                  "type": "string",
+                  "default": "30s"
+                },
+                "scrapeTimeout": {
+                  "type": "string",
+                  "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
+                }
+              }
+            }
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "minReplicas": {
+              "type": "integer",
+              "default": 1
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "default": 3
+            },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "default": 70
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": "integer",
+              "default": 80
+            },
+            "behavior": {
+              "type": "object",
+              "properties": {
+                "scaleDown": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 300
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 50,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    }
+                  }
+                },
+                "scaleUp": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 100,
+                          "periodSeconds": 15
+                        },
+                        {
+                          "type": "Pods",
+                          "value": 4,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    },
+                    "selectPolicy": {
+                      "type": "string",
+                      "enum": ["Min", "Max", "Disabled"],
+                      "default": "Max"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
+          }
+        },
+        "networkPolicy": {
+          "$ref": "#/definitions/networkPolicy"
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "ingressClassName": {
+              "type": "string",
+              "default": ""
+            },
+            "annotations": {
+              "type": "object",
+              "default": {}
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            },
+            "tls": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            }
+          }
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "api-server"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "api-server"
+                }
+              }
+            }
+          ]
+        },
+        "nodeSelector": {
+          "type": "object",
+          "default": {}
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        },
+        "affinity": {
+          "type": "object",
+          "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 65532,
+            "runAsGroup": 65532,
+            "fsGroup": 65532
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
+        }
+      }
+    },
+    "backstage": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "default": "ghcr.io/openchoreo/ui"
+            },
+            "tag": {
+              "type": "string",
+              "default": "latest"
+            },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          }
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+              "default": "ClusterIP"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 7007
+            },
+            "nodePort": {
+              "type": ["integer", "null"],
+              "default": null
+            }
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources",
+          "default": {
+            "limits": {
+              "cpu": "2000m",
+              "memory": "2Gi"
+            },
+            "requests": {
+              "cpu": "200m",
+              "memory": "256Mi"
+            }
+          }
+        },
+        "serviceAccount": {
+          "$ref": "#/definitions/serviceAccount",
+          "default": {
+            "create": true,
+            "annotations": {}
+          }
+        },
+        "priorityClass": {
+          "$ref": "#/definitions/priorityClass",
+          "default": {
+            "create": false,
+            "name": "openchoreo-backstage",
+            "value": 800000
+          }
+        },
+        "backendSecret": {
+          "type": "string",
+          "default": ""
+        },
+        "openchoreoApi": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": [
+            {
+              "name": "NODE_ENV",
+              "value": "production"
+            },
+            {
+              "name": "LOG_LEVEL",
+              "value": "info"
+            },
+            {
+              "name": "PORT",
+              "value": "7007"
+            }
+          ]
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "serviceMonitor": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "namespace": {
+                  "type": "string",
+                  "default": "monitoring"
+                },
+                "interval": {
+                  "type": "string",
+                  "default": "30s"
+                },
+                "scrapeTimeout": {
+                  "type": "string",
+                  "default": "10s"
+                },
+                "labels": {
+                  "type": "object",
+                  "properties": {
+                    "prometheus": {
+                      "type": "string",
+                      "default": "kube-prometheus"
+                    }
+                  }
+                },
+                "relabelings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "default": []
+                }
+              }
+            }
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "minReplicas": {
+              "type": "integer",
+              "default": 1
+            },
+            "maxReplicas": {
+              "type": "integer",
+              "default": 3
+            },
+            "targetCPUUtilizationPercentage": {
+              "type": "integer",
+              "default": 70
+            },
+            "targetMemoryUtilizationPercentage": {
+              "type": "integer",
+              "default": 80
+            },
+            "behavior": {
+              "type": "object",
+              "properties": {
+                "scaleDown": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 300
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 50,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    }
+                  }
+                },
+                "scaleUp": {
+                  "type": "object",
+                  "properties": {
+                    "stabilizationWindowSeconds": {
+                      "type": "integer",
+                      "default": 0
+                    },
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": ["Percent", "Pods"]
+                          },
+                          "value": {
+                            "type": "integer"
+                          },
+                          "periodSeconds": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "type": "Percent",
+                          "value": 100,
+                          "periodSeconds": 15
+                        },
+                        {
+                          "type": "Pods",
+                          "value": 4,
+                          "periodSeconds": 60
+                        }
+                      ]
+                    },
+                    "selectPolicy": {
+                      "type": "string",
+                      "enum": ["Min", "Max", "Disabled"],
+                      "default": "Max"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/definitions/podDisruptionBudget",
+          "default": {
+            "enabled": false,
+            "minAvailable": 1
+          }
+        },
+        "networkPolicy": {
+          "$ref": "#/definitions/networkPolicy"
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "ingressClassName": {
+              "type": "string",
+              "default": ""
+            },
+            "annotations": {
+              "type": "object",
+              "default": {}
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            },
+            "tls": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "default": []
+            }
+          }
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": [
+            {
+              "maxSkew": 1,
+              "topologyKey": "topology.kubernetes.io/zone",
+              "whenUnsatisfiable": "ScheduleAnyway",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "backstage"
+                }
+              }
+            },
+            {
+              "maxSkew": 1,
+              "topologyKey": "kubernetes.io/hostname",
+              "whenUnsatisfiable": "DoNotSchedule",
+              "labelSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/name": "openchoreo",
+                  "app.kubernetes.io/component": "backstage"
+                }
+              }
+            }
+          ]
+        },
+        "nodeSelector": {
+          "type": "object",
+          "default": {}
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": []
+        },
+        "affinity": {
+          "type": "object",
+          "default": {}
+        },
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "default": {
+            "runAsNonRoot": true,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "runAsUser": 1000,
+            "runAsGroup": 1000,
+            "fsGroup": 1000
+          }
+        },
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "default": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": ["ALL"]
+            },
+            "readOnlyRootFilesystem": false,
+            "seccompProfile": {
+              "type": "RuntimeDefault"
+            },
+            "appArmorProfile": {
+              "type": "RuntimeDefault"
+            }
+          }
+        }
+      }
+    }
+  }
+}
