@@ -1,18 +1,23 @@
-/***/
 /**
- * Node.js library for the thunder-idp-client plugin.
+ * Thunder IdP API Client Library
+ *
+ * Auto-generated TypeScript clients for Thunder User and Group Management APIs.
+ * This library provides type-safe API clients for interacting with the Thunder Identity Provider.
  *
  * @packageDocumentation
  */
 
-// In this package you might for example export functions that
-// help other plugins or modules interact with your plugin.
+// Export factory functions
+export {
+  createThunderUserClient,
+  createThunderGroupClient,
+  createThunderClientsFromConfig,
+  type ThunderClientConfig,
+} from './factory';
 
-/**
- * Does something useful.
- *
- * @public
- */
-export function someFunction() {
-  // ...
-}
+// Export version constant (generated during build)
+export { THUNDER_VERSION } from './version';
+
+// Re-export generated types with namespaces to avoid conflicts
+export type * as UserAPI from './generated/user/types';
+export type * as GroupAPI from './generated/group/types';
