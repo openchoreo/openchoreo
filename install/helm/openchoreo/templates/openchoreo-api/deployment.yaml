@@ -50,6 +50,9 @@ spec:
         - containerPort: 8080
           name: http
           protocol: TCP
+        env:
+        - name: MCP_TOOLSETS
+          value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
         livenessProbe:
           httpGet:
             path: /health

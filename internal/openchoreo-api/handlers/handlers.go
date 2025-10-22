@@ -5,11 +5,15 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"strings"
 
 	"golang.org/x/exp/slog"
 
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/pkg/mcp"
 )
 
 // Handler holds the services and provides HTTP handlers
@@ -90,6 +94,10 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
 
+	// MCP endpoint
+	toolsets := getMCPServerToolsets(h)
+	mux.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+
 	// Apply middleware
 	return logger.LoggerMiddleware(h.logger)(mux)
 }
@@ -105,4 +113,54 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	// Add readiness checks (K8s connections, etc.)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("Ready")) // Ignore write errors for health checks
+}
+
+func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
+	// Read toolsets from environment variable
+	toolsetsEnv := os.Getenv("MCP_TOOLSETS")
+	if toolsetsEnv == "" {
+		// Default to core toolset if not specified
+		toolsetsEnv = string(mcp.ToolsetCore)
+	}
+
+	// Parse toolsets
+	toolsetsMap := parseToolsets(toolsetsEnv)
+
+	// Log enabled toolsets
+	enabledToolsets := make([]string, 0, len(toolsetsMap))
+	for ts := range toolsetsMap {
+		enabledToolsets = append(enabledToolsets, string(ts))
+	}
+	h.logger.Info("Initializing MCP server",
+		slog.Any("enabled_toolsets", enabledToolsets))
+
+	// Create handlers based on toolsets
+	toolsets := &mcp.Toolsets{}
+
+	for toolsetType := range toolsetsMap {
+		switch toolsetType {
+		case mcp.ToolsetCore:
+			toolsets.CoreToolset = &mcphandlers.MCPHandler{Services: h.services}
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "core"))
+		default:
+			h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
+		}
+	}
+	return toolsets
+}
+
+func parseToolsets(toolsetsStr string) map[mcp.ToolsetType]bool {
+	toolsetsMap := make(map[mcp.ToolsetType]bool)
+	if toolsetsStr == "" {
+		return toolsetsMap
+	}
+
+	toolsets := strings.Split(toolsetsStr, ",")
+	for _, ts := range toolsets {
+		ts = strings.TrimSpace(ts)
+		if ts != "" {
+			toolsetsMap[mcp.ToolsetType(ts)] = true
+		}
+	}
+	return toolsetsMap
 }

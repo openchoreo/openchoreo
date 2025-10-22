@@ -102,6 +102,8 @@ openchoreoApi:
     limits:
       cpu: "500m"
       memory: "512Mi"
+  mcp:
+    toolsets: "core"
 # Dependency configurations
 
 # Cert-Manager configuration

@@ -185,3 +185,4 @@ Once all changes are made and tested, you can submit a pull request by following
 ## Additional Resources
 
 - [Add New CRD Guide](adding-new-crd.md) - A guide to add new CRDs to the project.
+- [Adding New MCP Tools](adding-new-mcp-tools.md) - A guide to add new tools to the OpenChoreo MCP server.

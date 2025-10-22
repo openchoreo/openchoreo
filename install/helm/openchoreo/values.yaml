@@ -671,6 +671,17 @@ openchoreoApi:
   # @schema
   # type: [null, object]
   # @schema
+  # -- MCP (Model Context Protocol) Server Configuration
+  mcp:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Comma-separated list of enabled toolsets
+    # -- Available toolsets: core
+    toolsets: "core"
+  # @schema
+  # type: [null, object]
+  # @schema
   # -- Resource limits and requests for the API server
   resources:
     # @schema

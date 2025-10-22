@@ -22,6 +22,9 @@ spec:
         imagePullPolicy: {{ .Values.openchoreoApi.imagePullPolicy }}
         ports:
         - containerPort: 8080
+        env:
+        - name: MCP_TOOLSETS
+          value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
         resources:
           requests:
             cpu: {{ .Values.openchoreoApi.resources.requests.cpu }}
