@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-database-pv
+  name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-database-pv
 spec:
   capacity:
     storage: {{ .Values.asgardeoThunder.persistence.database.size }}

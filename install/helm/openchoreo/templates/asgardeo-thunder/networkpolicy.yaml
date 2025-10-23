@@ -3,15 +3,15 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    {{- include "openchoreo.labels" . | nindent 4 }}
     app.kubernetes.io/component: asgardeo-thunder
 spec:
   podSelector:
     matchLabels:
-      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+      {{- include "openchoreo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: asgardeo-thunder
   policyTypes:
     - Ingress

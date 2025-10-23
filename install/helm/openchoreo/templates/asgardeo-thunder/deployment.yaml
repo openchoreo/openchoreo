@@ -2,15 +2,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder
+  name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder
   labels:
-    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    {{- include "openchoreo.labels" . | nindent 4 }}
     app.kubernetes.io/component: asgardeo-thunder
 spec:
   replicas: {{ .Values.asgardeoThunder.replicaCount }}
   selector:
     matchLabels:
-      {{- include "openchoreo-secure-core.selectorLabels" . | nindent 6 }}
+      {{- include "openchoreo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: asgardeo-thunder
   template:
     metadata:
@@ -20,7 +20,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "openchoreo-secure-core.labels" . | nindent 8 }}
+        {{- include "openchoreo.labels" . | nindent 8 }}
         app.kubernetes.io/component: asgardeo-thunder
         {{- with .Values.asgardeoThunder.podLabels }}
         {{- toYaml . | nindent 8 }}
@@ -109,13 +109,13 @@ spec:
           resources:
             {{- toYaml .Values.asgardeoThunder.resources | nindent 12 }}
       volumes:
-        - name: config
+        - name: config-volume
           configMap:
-            name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-config
-        {{- if .Values.asgardeoThunder.persistence.database.enabled }}
-        - name: repository
+            name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-config
+        {{- if .Values.asgardeoThunder.persistence.enabled }}
+        - name: data
           persistentVolumeClaim:
-            claimName: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-database
+            claimName: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-database
         {{- end }}
         {{- with .Values.asgardeoThunder.volumes }}
         {{- toYaml . | nindent 8 }}

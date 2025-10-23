@@ -3,9 +3,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-post-install
+  name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-post-install
   labels:
-    {{- include "openchoreo-secure-core.labels" . | nindent 4 }}
+    {{- include "openchoreo.labels" . | nindent 4 }}
     app.kubernetes.io/component: asgardeo-thunder-post-hook
     role: job
   annotations:
@@ -15,9 +15,9 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-post-install
+      name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-post-install
       labels:
-        {{- include "openchoreo-secure-core.labels" . | nindent 8 }}
+        {{- include "openchoreo.labels" . | nindent 8 }}
         app.kubernetes.io/component: asgardeo-thunder-post-hook
     spec:
       restartPolicy: Never
@@ -28,13 +28,13 @@ spec:
         - name: BACKSTAGE_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder-secrets
+              name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-secrets
               key: backstage-client-secret
         {{- range .Values.asgardeoThunder.userDetails.users }}
         - name: USER_PASSWORD_{{ .username | upper | replace "-" "_" }}
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder-secrets
+              name: {{ include "openchoreo.fullname" $ }}-asgardeo-thunder-secrets
               key: user-password-{{ .username }}
         {{- end }}
         command:
@@ -48,7 +48,7 @@ spec:
           attempt=0
 
           while [ $attempt -lt $max_attempts ]; do
-            if curl -k -f --max-time 5 http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/health/liveness 2>/dev/null; then
+            if curl -k -f --max-time 5 http://{{ include "openchoreo.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/health/liveness 2>/dev/null; then
               echo "Identity provider service is responding"
               break
             fi
@@ -65,13 +65,13 @@ spec:
 
           # Check if the application already exists
           echo "Checking if application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists..."
-          existing_apps=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications')
+          existing_apps=$(curl -k -s --max-time 10 'http://{{ include "openchoreo.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications')
 
           if echo "$existing_apps" | grep -q '"name":"{{ .Values.asgardeoThunder.backstagePortal.name }}"'; then
             echo "Application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists, skipping creation"
           else
             echo "Application does not exist, creating default application..."
-            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications' \
+            curl -k --location 'http://{{ include "openchoreo.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications' \
               --header 'Content-Type: application/json' \
               --data '{
                 "name": "{{ .Values.asgardeoThunder.backstagePortal.name }}",
@@ -142,13 +142,13 @@ spec:
           
           # Check if the user schema already exists
           echo "Checking if user schema '{{ .Values.asgardeoThunder.userDetails.userSchemaName }}' already exists..."
-          existing_schemas=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas')
+          existing_schemas=$(curl -k -s --max-time 10 'http://{{ include "openchoreo.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas')
 
           if echo "$existing_schemas" | grep -q '"name":"{{ .Values.asgardeoThunder.userDetails.userSchemaName }}"'; then
             echo "User schema '{{ .Values.asgardeoThunder.userDetails.userSchemaName }}' already exists, skipping creation"
           else
             echo "User schema does not exist, creating user schema..."
-            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas' \
+            curl -k --location 'http://{{ include "openchoreo.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/user-schemas' \
               --header 'accept: application/json' \
               --header 'Content-Type: application/json' \
               --data '{
@@ -188,7 +188,7 @@ spec:
           {{- range .Values.asgardeoThunder.userDetails.users }}
           # Check if the user already exists
           echo "Checking if user '{{ .username }}' already exists..."
-          existing_users=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users')
+          existing_users=$(curl -k -s --max-time 10 'http://{{ include "openchoreo.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users')
 
           if echo "$existing_users" | grep -q '"username":"{{ .username }}"'; then
             echo "User '{{ .username }}' already exists, skipping creation"
@@ -196,7 +196,7 @@ spec:
             echo "User does not exist, creating user '{{ .username }}'..."
             USER_PASSWORD_VAR="USER_PASSWORD_{{ .username | upper | replace "-" "_" }}"
             USER_PASSWORD=$(eval echo \$${USER_PASSWORD_VAR})
-            curl -k --location 'http://{{ include "openchoreo-secure-core.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users' \
+            curl -k --location 'http://{{ include "openchoreo.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users' \
               --header 'accept: application/json' \
               --header 'Content-Type: application/json' \
               --data '{
