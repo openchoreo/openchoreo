@@ -1,6 +1,5 @@
 import {
   Box,
-  Link,
   Card,
   CardActionArea,
   CardContent,
@@ -8,6 +7,7 @@ import {
   Typography,
 } from '@material-ui/core';
 import LaunchIcon from '@material-ui/icons/Launch';
+import { Link } from 'react-router-dom';
 import { useStyles } from './styles';
 
 export const QuickActionsSection: React.FC = () => {
@@ -45,7 +45,7 @@ export const QuickActionsSection: React.FC = () => {
               <CardActionArea
                 className={classes.quickActionCardAction}
                 component={Link}
-                href={action.link}
+                to={action.link}
                 disableRipple
               >
                 <CardContent className={classes.quickActionCardContent}>
