@@ -221,6 +221,14 @@ export type BuildObserverUrlGetRequest = {
 };
 
 /**
+ * Request parameters for getting all dataplanes of an organization
+ * @public
+ */
+export type DataplanesGetRequest = {
+  orgName: string;
+};
+
+/**
  * Options you can pass into a request for additional information
  * @public
  */

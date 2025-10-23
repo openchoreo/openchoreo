@@ -6,6 +6,7 @@ import {
   ModelsOrganization,
   ModelsComponent,
   ModelsEnvironment,
+  ModelsDataPlane,
   ModelsBuildTemplate,
   ModelsBuild,
   RequestOptions,
@@ -13,6 +14,7 @@ import {
   OrganizationsGetRequest,
   ComponentsGetRequest,
   EnvironmentsGetRequest,
+  DataplanesGetRequest,
   BuildTemplatesGetRequest,
   BuildsGetRequest,
   BuildsTriggerRequest,
@@ -105,6 +107,28 @@ export class DefaultApiClient {
     options?: RequestOptions,
   ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsEnvironment>>> {
     const uriTemplate = `/orgs/{orgName}/environments`;
+
+    const uri = parser.parse(uriTemplate).expand({
+      orgName: request.orgName,
+    });
+    return await this.fetchApi.fetch(`${this.baseUrl}${uri}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.token && { Authorization: `Bearer ${options?.token}` }),
+      },
+      method: 'GET',
+    });
+  }
+
+  /**
+   * Retrieves all dataplanes for an organization
+   * List all dataplanes of an organization
+   */
+  public async dataplanesGet(
+    request: DataplanesGetRequest,
+    options?: RequestOptions,
+  ): Promise<TypedResponse<OpenChoreoApiResponse<ModelsDataPlane>>> {
+    const uriTemplate = `/orgs/{orgName}/dataplanes`;
 
     const uri = parser.parse(uriTemplate).expand({
       orgName: request.orgName,

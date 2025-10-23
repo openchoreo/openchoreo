@@ -7,6 +7,7 @@ export * from './ModelsProject.model';
 export * from './ModelsOrganization.model';
 export * from './ModelsComponent.model';
 export * from './ModelsEnvironment.model';
+export * from './ModelsDataPlane.model';
 export * from './ModelsBuildTemplate.model';
 export * from './ModelsBuild.model';
 export * from './ModelsWorkload.model';

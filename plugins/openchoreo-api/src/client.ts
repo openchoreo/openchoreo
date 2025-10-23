@@ -4,6 +4,7 @@ import {
   ModelsOrganization,
   ModelsComponent,
   ModelsEnvironment,
+  ModelsDataPlane,
   ModelsBuildTemplate,
   ModelsBuild,
   OpenChoreoApiResponse,
@@ -113,6 +114,37 @@ export class OpenChoreoApiClient {
     } catch (error) {
       this.logger?.error(
         `Failed to fetch environments for org ${orgName}: ${error}`,
+      );
+      throw error;
+    }
+  }
+
+  async getAllDataplanes(orgName: string): Promise<ModelsDataPlane[]> {
+    this.logger?.info(`Fetching dataplanes for organization: ${orgName}`);
+
+    try {
+      const response = await this.client.dataplanesGet(
+        { orgName },
+        { token: this.token },
+      );
+
+      const apiResponse: OpenChoreoApiResponse<ModelsDataPlane> =
+        await response.json();
+      this.logger?.debug(`API response: ${JSON.stringify(apiResponse)}`);
+
+      if (!apiResponse.success) {
+        throw new Error('API request was not successful');
+      }
+
+      const dataplanes = apiResponse.data.items;
+      this.logger?.info(
+        `Successfully fetched ${dataplanes.length} dataplanes for org: ${orgName} (total: ${apiResponse.data.totalCount})`,
+      );
+
+      return dataplanes;
+    } catch (error) {
+      this.logger?.error(
+        `Failed to fetch dataplanes for org ${orgName}: ${error}`,
       );
       throw error;
     }
