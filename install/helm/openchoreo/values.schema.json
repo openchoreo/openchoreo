@@ -1149,7 +1149,7 @@
                         ]
                       },
                       "username": {
-                        "default": "admin",
+                        "default": "admin@openchoreo.dev",
                         "required": [],
                         "title": "username",
                         "type": "string"
@@ -1204,7 +1204,7 @@
                         ]
                       },
                       "username": {
-                        "default": "dev",
+                        "default": "dev@openchoreo.dev",
                         "required": [],
                         "title": "username",
                         "type": "string"

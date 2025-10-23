@@ -1897,7 +1897,7 @@ asgardeoThunder:
       # type: [null, object]
       # @schema
       # -- Platform engineer user
-      - username: "admin"
+      - username: "admin@openchoreo.dev"
         # @schema
         # type: [null, string]
         # @schema
@@ -1922,7 +1922,7 @@ asgardeoThunder:
       # type: [null, object]
       # @schema
       # -- Developer user
-      - username: "dev"
+      - username: "dev@openchoreo.dev"
         # @schema
         # type: [null, string]
         # @schema
