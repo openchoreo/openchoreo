@@ -1,0 +1,37 @@
+# ServiceMonitor for cAdvisor metrics (container resource usage) via kubelet
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openchoreo-cadvisor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: openchoreo-cadvisor
+    app.kubernetes.io/component: cadvisor
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "openchoreo-observability-plane.chart" . }}
+    release: {{ .Release.Name }}
+spec:
+  jobLabel: app.kubernetes.io/name
+  # Target the kubelet service we need to create
+  selector:
+    matchLabels:
+      k8s-app: kubelet
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: https-metrics
+      path: /metrics/cadvisor
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings:
+        # Only keep container metrics
+        - sourceLabels: [__name__]
+          regex: 'container_.*'
+          action: keep

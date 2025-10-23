@@ -127,6 +127,10 @@ func TestValidate(t *testing.T) {
 					Address: "http://localhost:9200",
 					Timeout: 30 * time.Second,
 				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
 				},
@@ -141,6 +145,10 @@ func TestValidate(t *testing.T) {
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
 					Timeout: 30 * time.Second,
 				},
 				Logging: LoggingConfig{
@@ -159,6 +167,10 @@ func TestValidate(t *testing.T) {
 					Address: "http://localhost:9200",
 					Timeout: 30 * time.Second,
 				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
 				},
@@ -173,6 +185,10 @@ func TestValidate(t *testing.T) {
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
 					Timeout: 30 * time.Second,
 				},
 				Logging: LoggingConfig{
@@ -191,6 +207,10 @@ func TestValidate(t *testing.T) {
 					Address: "http://localhost:9200",
 					Timeout: 0,
 				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
 				},
@@ -207,8 +227,52 @@ func TestValidate(t *testing.T) {
 					Address: "http://localhost:9200",
 					Timeout: 30 * time.Second,
 				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
 				Logging: LoggingConfig{
 					MaxLogLimit: 0,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "missing prometheus address",
+			config: Config{
+				Server: ServerConfig{
+					Port: 8080,
+				},
+				OpenSearch: OpenSearchConfig{
+					Address: "http://localhost:9200",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "",
+					Timeout: 30 * time.Second,
+				},
+				Logging: LoggingConfig{
+					MaxLogLimit: 1000,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "invalid prometheus timeout",
+			config: Config{
+				Server: ServerConfig{
+					Port: 8080,
+				},
+				OpenSearch: OpenSearchConfig{
+					Address: "http://localhost:9200",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 0,
+				},
+				Logging: LoggingConfig{
+					MaxLogLimit: 1000,
 				},
 			},
 			expectErr: true,

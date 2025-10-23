@@ -14,6 +14,20 @@ cilium:
     enabled: true
   priorityClassName: system-node-critical
   hubble:
+    enabled: true
+    metrics:
+      enabled:
+        - dns
+        - drop
+        - tcp
+        - flow
+        - port-distribution
+        - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction
+      enableOpenMetrics: true
+      serviceMonitor:
+        enabled: false  # Disabled by default - enable after Observability-plane is installed
+        labels:
+          release: observability-plane  # Required for Prometheus discovery
     relay:
       enabled: false
     ui:
@@ -41,6 +55,9 @@ cilium:
   startupProbe:
     failureThreshold: 600
   policyEnforcementMode: default
+  l7Proxy: true
+  # Enable L7 policy enforcement and monitoring
+  policyAuditMode: false
   routingMode: tunnel
   kubeProxyReplacement: false
   rollOutCiliumPods: true

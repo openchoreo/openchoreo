@@ -76,6 +76,11 @@ observer:
   
   logLevel: info
   
+  prometheus:
+    # Prometheus server address (will be constructed from helm release name)
+    address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
+    timeout: 30s
+  
   resources:
     limits:
       cpu: 500m
@@ -83,3 +88,91 @@ observer:
     requests:
       cpu: 100m
       memory: 128Mi
+
+# Prometheus configuration
+prometheus:
+  # Use public registries instead of ACR for Kind deployment
+  global:
+    imageRegistry: ""
+    imagePullSecrets: []
+  
+  # Disable features not needed for local development
+  grafana:
+    enabled: false
+  
+  # Alertmanager configuration
+  alertmanager:
+    enabled: false
+    alertmanagerSpec:
+      # Remove topology constraints for Kind
+      topologySpreadConstraints: []
+      # Use Kind storage class
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 2Gi
+    
+  # Basic Kubernetes monitoring
+  kubelet:
+    enabled: false
+  kubeControllerManager:
+    enabled: false
+  coreDns:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeStateMetrics:
+    enabled: true
+  kubeScheduler:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  nodeExporter:
+    enabled: false
+    
+  # Prometheus Operator configuration
+  prometheusOperator:
+    kubeletService:
+      enabled: false
+  
+  # Prometheus instance configuration
+  prometheus:
+    prometheusSpec:
+      # Remove topology constraints for Kind
+      topologySpreadConstraints: []
+      # Enable flexible ServiceMonitor discovery across all namespaces
+      serviceMonitorSelector: {}
+      serviceMonitorNamespaceSelector: {}
+      # Use Kind storage class
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi
+  
+  # Kube-state-metrics configuration for Kind
+  kube-state-metrics:
+    # Remove topology constraints for Kind
+    topologySpreadConstraints: []
+    # Monitor all namespaces to include dp-* namespaces
+    namespaces: ""
+    # Enable Choreo pod labels as metrics (hyphens in Kubernetes become underscores in metrics)
+    metricLabelsAllowlist:
+      - "pods=[component_name,environment_name,organization_name,project_name]"
+    # Ensure kube_pod_labels metric is collected
+    metricAllowlist:
+      - kube_pod_labels
+      - kube_pod_info
+      - kube_pod_status_phase
+      - kube_pod_container_resource_requests
+      - kube_pod_container_resource_limits
+  
