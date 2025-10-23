@@ -11,6 +11,7 @@ import { BuildInfoService } from './services/BuildService/BuildInfoService';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 import { WorkloadInfoService } from './services/WorkloadService/WorkloadInfoService';
+import { DashboardInfoService } from './services/DashboardService/DashboardInfoService';
 import {
   DefaultApiClient,
   ObservabilityApiClient,
@@ -83,6 +84,11 @@ export const choreoPlugin = createBackendPlugin({
           openchoreoConfig.getOptional('token'),
         );
 
+        const dashboardInfoService = new DashboardInfoService(
+          logger,
+          openchoreoConfig.get('baseUrl'),
+        );
+
         httpRouter.use(
           await createRouter({
             environmentInfoService,
@@ -92,6 +98,7 @@ export const choreoPlugin = createBackendPlugin({
             componentInfoService,
             runtimeLogsInfoService,
             workloadInfoService,
+            dashboardInfoService,
           }),
         );
       },

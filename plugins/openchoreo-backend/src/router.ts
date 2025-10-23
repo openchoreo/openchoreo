@@ -8,6 +8,7 @@ import { CellDiagramService, WorkloadService } from './types';
 import { ComponentInfoService } from './services/ComponentService/ComponentInfoService';
 import { RuntimeLogsInfoService } from './services/RuntimeLogsService/RuntimeLogsService';
 import { ObservabilityNotConfiguredError } from '@openchoreo/backstage-plugin-api';
+import { DashboardInfoService } from './services/DashboardService/DashboardInfoService';
 
 export async function createRouter({
   environmentInfoService,
@@ -17,6 +18,7 @@ export async function createRouter({
   componentInfoService,
   runtimeLogsInfoService,
   workloadInfoService,
+  dashboardInfoService,
 }: {
   environmentInfoService: EnvironmentInfoService;
   cellDiagramInfoService: CellDiagramService;
@@ -25,6 +27,7 @@ export async function createRouter({
   componentInfoService: ComponentInfoService;
   runtimeLogsInfoService: RuntimeLogsInfoService;
   workloadInfoService: WorkloadService;
+  dashboardInfoService: DashboardInfoService;
 }): Promise<express.Router> {
   const router = Router();
   router.use(express.json());
@@ -351,6 +354,29 @@ export async function createRouter({
           message: error instanceof Error ? error.message : 'Unknown error',
           name: error instanceof Error ? error.name : 'UnknownError',
           ...(error instanceof Error && error.stack && { stack: error.stack }),
+        },
+      });
+    }
+  });
+
+  router.post('/dashboard/bindings-count', async (req, res) => {
+    const { components } = req.body;
+
+    if (!components || !Array.isArray(components)) {
+      throw new InputError('components array is required in request body');
+    }
+
+    try {
+      const totalBindings =
+        await dashboardInfoService.fetchComponentsBindingsCount(components);
+
+      res.json({ totalBindings });
+    } catch (error) {
+      console.error('Dashboard metrics fetch error:', error);
+      res.status(500).json({
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          name: error instanceof Error ? error.name : 'UnknownError',
         },
       });
     }

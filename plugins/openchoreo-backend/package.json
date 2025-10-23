@@ -41,7 +41,7 @@
     "@backstage/plugin-kubernetes-backend": "^0.20.2",
     "@backstage/plugin-kubernetes-node": "^0.3.4",
     "@backstage/plugin-permission-common": "^0.9.1",
-    "@openchoreo/backstage-plugin-api": "^0.2.0",
+    "@openchoreo/backstage-plugin-api": "workspace:^",
     "@wso2/cell-diagram": "0.2.0",
     "express": "^4.17.1",
     "express-promise-router": "^4.1.0"
