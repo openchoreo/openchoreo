@@ -1,0 +1,21 @@
+# Values file for standard installation mode
+# This file overrides the default values.yaml for standard deployments
+
+global:
+  installationMode: standard
+
+# Enable the OpenSearch Operator for standard mode
+opensearch-operator:
+  enabled: true
+
+# Enable the OpenSearch Cluster for standard mode
+opensearch-cluster:
+  enabled: true
+
+# Enable the Fluent Bit for standard mode
+fluent-bit:
+  enabled: true
+
+# Enable the Prometheus for standard mode
+prometheus:
+  enabled: true

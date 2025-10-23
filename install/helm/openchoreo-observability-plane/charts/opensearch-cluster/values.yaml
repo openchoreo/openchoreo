@@ -1,0 +1,57 @@
+# Default values for opensearch-cluster sub-chart
+
+# OpenSearch cluster configuration
+cluster:
+  # General settings
+  general:
+    version: 3.3.0
+    serviceName: opensearch
+    setVMMaxMapCount: true
+    httpPort: 9200
+
+  # Dashboard settings
+  dashboard:
+    enabled: true
+    replicas: 1
+    version: 3.3.0
+
+  # Node configuration
+  nodePools:
+    data:
+      replicas: 2
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    master:
+      replicas: 3
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+
+  # Secrets
+  adminUsername: admin
+  adminUserPassword: admin
+  internalUsers: |
+    # This is the internal user database
+    # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
+
+    _meta:
+      type: "internalusers"
+      config_version: 2
+
+    admin:
+      hash: "%s"
+      reserved: true
+      backend_roles:
+      - "admin"
+      description: "Admin user"

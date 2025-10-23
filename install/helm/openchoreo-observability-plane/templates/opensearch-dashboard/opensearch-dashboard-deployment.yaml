@@ -1,3 +1,4 @@
+{{- if eq .Values.global.installationMode "legacy" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,3 +28,4 @@ spec:
         ports:
         - containerPort: {{ .Values.opensearchDashboard.service.port }}
           name: http
+{{- end }}
