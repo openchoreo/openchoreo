@@ -236,7 +236,7 @@ export const openChoreoTheme = createUnifiedTheme({
     MuiTypography: {
       styleOverrides: {
         body1: {
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 'normal',
           fontStretch: 'normal',
           fontStyle: 'normal',
@@ -244,7 +244,7 @@ export const openChoreoTheme = createUnifiedTheme({
           letterSpacing: 'normal',
         },
         body2: {
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: 'normal',
           fontStretch: 'normal',
           fontStyle: 'normal',
