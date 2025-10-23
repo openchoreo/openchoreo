@@ -109,11 +109,11 @@ spec:
           resources:
             {{- toYaml .Values.asgardeoThunder.resources | nindent 12 }}
       volumes:
-        - name: config-volume
+        - name: config
           configMap:
             name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-config
-        {{- if .Values.asgardeoThunder.persistence.enabled }}
-        - name: data
+        {{- if .Values.asgardeoThunder.persistence.database.enabled }}
+        - name: repository
           persistentVolumeClaim:
             claimName: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-database
         {{- end }}
