@@ -11,9 +11,11 @@ import {
   oauthRequestApiRef,
   ApiRef,
   createApiRef,
+  errorApiRef,
+  identityApiRef,
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
-
+import { VisitsWebStorageApi, visitsApiRef } from '@backstage/plugin-home';
 // API reference for default-idp OIDC provider
 export const defaultIdpAuthApiRef: ApiRef<any> = createApiRef({
   id: 'auth.default-idp',
@@ -47,5 +49,13 @@ export const apis: AnyApiFactory[] = [
         environment: configApi.getOptionalString('auth.environment'),
         defaultScopes: ['openid', 'profile', 'email'],
       }),
+  }),
+  createApiFactory({
+    api: visitsApiRef,
+    deps: {
+      identityApi: identityApiRef,
+      errorApi: errorApiRef
+    },
+    factory: ({ identityApi, errorApi }) => VisitsWebStorageApi.create({ identityApi, errorApi }),
   }),
 ];

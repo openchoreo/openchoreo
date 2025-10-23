@@ -46,6 +46,11 @@ import {
   openChoreoTheme,
 } from '@openchoreo/backstage-design-system';
 import { UnifiedThemeProvider } from '@backstage/theme';
+import { PlatformEngineerViewPage } from '@openchoreo/backstage-plugin-platform-engineer-core';
+import { VisitListener } from '@backstage/plugin-home';
+// import { DeveloperHome } from './components/Home';
+// import { DeveloperHomePage } from '@openchoreo/backstage-plugin';
+// import { HomePage } from './components/home/HomePage';
 
 const app = createApp({
   apis,
@@ -148,6 +153,11 @@ const routes = (
     </Route>
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
+    <Route
+      path="/platform-engineer-view"
+      element={<PlatformEngineerViewPage />}
+    />
+    {/* <Route path="/developer-home" element={<DeveloperHome />} /> */}
   </FlatRoutes>
 );
 
@@ -156,6 +166,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
+      <VisitListener />
       <Root>{routes}</Root>
     </AppRouter>
   </>,

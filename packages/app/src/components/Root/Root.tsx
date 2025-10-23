@@ -23,6 +23,7 @@ import {
   SidebarSpace,
   useSidebarOpenState,
   Link,
+  DashboardIcon,
 } from '@backstage/core-components';
 import MenuIcon from '@material-ui/icons/Menu';
 import { IconButton } from '@material-ui/core';
@@ -32,6 +33,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { identityApiRef, useApi } from '@backstage/core-plugin-api';
+import CategoryIcon from '@material-ui/icons/Category';
 
 const useSidebarLogoStyles = makeStyles({
   root: {
@@ -112,7 +114,8 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
       <SidebarDivider />
       <SidebarGroup label="Menu" icon={<MenuIcon />}>
         {/* Global nav, not org-specific */}
-        <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
+        <SidebarItem icon={HomeIcon} to="/" text="Home" />
+        <SidebarItem icon={CategoryIcon} to="catalog" text="Catalog" />
         <MyGroupsSidebarItem
           singularTitle="My Group"
           pluralTitle="My Groups"
@@ -121,6 +124,16 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
         <SidebarItem icon={ExtensionIcon} to="api-docs" text="APIs" />
         <SidebarItem icon={LibraryBooks} to="docs" text="Docs" />
         <SidebarItem icon={CreateComponentIcon} to="create" text="Create..." />
+        <SidebarItem
+          icon={DashboardIcon}
+          to="platform-engineer-view"
+          text="Platform View"
+        />
+        <SidebarItem
+          icon={DashboardIcon}
+          to="developer-home"
+          text="Developer Home"
+        />
         {/* End global nav */}
         <SidebarDivider />
         <SidebarScrollWrapper>
