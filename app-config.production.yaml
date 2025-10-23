@@ -51,7 +51,6 @@ auth:
         clientSecret: 'openchoreo-platform-idp-client-secret'
         authorizationUrl: ${OPENCHOREO_AUTH_AUTHORIZATION_URL}
         tokenUrl: ${OPENCHOREO_AUTH_TOKEN_URL}
-        userInfoUrl: ${OPENCHOREO_AUTH_USER_INFO_URL}
         scope: 'openid profile email'
 
 catalog:

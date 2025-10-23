@@ -38,6 +38,10 @@ Set environment variables
 ```bash
 # Required: OpenChoreo API configuration
 export OPENCHOREO_API_URL=http://your-openchoreo-api-url/api/v1
+
+# Optional: Thunder IDP configuration
+export THUNDER_BASE_URL=https://thunder.example.com:8090
+export THUNDER_TOKEN=your-thunder-token
 ```
 
 ### 3. Configuration
@@ -59,6 +63,28 @@ openchoreo:
     frequency: 30 # seconds between catalog syncs
     timeout: 120 # request timeout
 
+# Thunder IDP integration (optional)
+thunder:
+  baseUrl: ${THUNDER_BASE_URL} # e.g., https://thunder.example.com:8090
+  token: ${THUNDER_TOKEN} # Authentication token for Thunder IdP API
+  defaultNamespace: 'default' # Default namespace for User and Group entities
+  schedule:
+    frequency: 600 # seconds between runs (default: 600 = 10 minutes)
+    timeout: 300 # seconds for timeout (default: 300 = 5 minutes)
+
+# Authentication provider configuration
+auth:
+  environment: development
+  providers:
+    # OpenChoreo Default IDP - Custom OAuth provider
+    default-idp:
+      development:
+        clientId: 'openchoreo-platform-idp-client'
+        clientSecret: 'openchoreo-platform-idp-client-secret'
+        authorizationUrl: '${THUNDER_BASE_URL}/oauth2/authorize'
+        tokenUrl: '${THUNDER_BASE_URL}/oauth2/token'
+        scope: 'openid profile email'
+
 # GitHub integration (optional)
 integrations:
   github:
@@ -79,8 +105,8 @@ yarn start          # Start full application
 
 The application will be available at:
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:7007
+- Frontend: https://localhost:3000
+- Backend API: https://localhost:7007
 
 ### 5. Development Workflow
 
