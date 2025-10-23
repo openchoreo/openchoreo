@@ -11,18 +11,24 @@ import (
 
 // APIResponse represents a standard API response wrapper
 type APIResponse[T any] struct {
-	Success bool   `json:"success"`
-	Data    T      `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
-	Code    string `json:"code,omitempty"`
+	Success  bool           `json:"success"`
+	Data     T              `json:"data,omitempty"`
+	Error    string         `json:"error,omitempty"`
+	Code     string         `json:"code,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // ListResponse represents a paginated list response
 type ListResponse[T any] struct {
-	Items      []T `json:"items"`
-	TotalCount int `json:"totalCount"`
-	Page       int `json:"page"`
-	PageSize   int `json:"pageSize"`
+	Items      []T     `json:"items"`
+	TotalCount int     `json:"totalCount,omitempty"`
+	Page       int     `json:"page,omitempty"`
+	PageSize   int     `json:"pageSize,omitempty"`
+	NextCursor *string `json:"nextCursor,omitempty"`
+	// NextCursor semantics:
+	// - empty string (""): Pagination complete
+	// - non-empty string: Cursor token for the next page
+	// Note: Current handlers always return a pointer (never nil) for consistency.
 }
 
 // ProjectResponse represents a project in API responses
@@ -242,10 +248,29 @@ func ListSuccessResponse[T any](items []T, total, page, pageSize int) APIRespons
 	}
 }
 
+func CursorListSuccessResponse[T any](items []T, nextCursor *string) APIResponse[ListResponse[T]] {
+	return APIResponse[ListResponse[T]]{
+		Success: true,
+		Data: ListResponse[T]{
+			Items:      items,
+			NextCursor: nextCursor,
+		},
+	}
+}
+
 func ErrorResponse(message, code string) APIResponse[any] {
 	return APIResponse[any]{
 		Success: false,
 		Error:   message,
 		Code:    code,
+	}
+}
+
+func ErrorResponseWithMetadata(message, code string, metadata map[string]any) APIResponse[any] {
+	return APIResponse[any]{
+		Success:  false,
+		Error:    message,
+		Code:     code,
+		Metadata: metadata,
 	}
 }
