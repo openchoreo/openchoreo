@@ -3,6 +3,7 @@
 # @schema
 # -- OpenChoreo Secure Core Values
 # Installs controller, openchoreo-api, backstage with optional cilium
+
 # @schema
 # type: [null, object]
 # @schema
@@ -557,87 +558,6 @@ controllerManager:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Pod-level security context
-  podSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Run containers as non-root user
-    runAsNonRoot: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- User ID to run the container as
-    runAsUser: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Group ID to run the container as
-    runAsGroup: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Filesystem group
-    fsGroup: 65532
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Container-level security context
-  containerSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Allow privilege escalation
-    allowPrivilegeEscalation: false
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Linux capabilities
-    capabilities:
-      # @schema
-      # type: [null, array]
-      # @schema
-      # -- Capabilities to drop
-      drop:
-        - ALL
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Read-only root filesystem
-    readOnlyRootFilesystem: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- AppArmor profile configuration
-    appArmorProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- AppArmor profile type
-      type: RuntimeDefault
 # @schema
 # type: [null, object]
 # @schema
@@ -1063,87 +983,6 @@ openchoreoApi:
     # @schema
     # -- Read-only root filesystem (set to false for Backstage due to temp files)
     readOnlyRootFilesystem: false
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- AppArmor profile configuration
-    appArmorProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- AppArmor profile type
-      type: RuntimeDefault
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Pod-level security context
-  podSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Run containers as non-root user
-    runAsNonRoot: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- User ID to run the container as
-    runAsUser: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Group ID to run the container as
-    runAsGroup: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Filesystem group
-    fsGroup: 65532
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Container-level security context
-  containerSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Allow privilege escalation
-    allowPrivilegeEscalation: false
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Linux capabilities
-    capabilities:
-      # @schema
-      # type: [null, array]
-      # @schema
-      # -- Capabilities to drop
-      drop:
-        - ALL
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Read-only root filesystem
-    readOnlyRootFilesystem: true
     # @schema
     # type: [null, object]
     # @schema
