@@ -39,6 +39,13 @@ OpenChoreo API: http{{ if $.Values.openchoreoApi.ingress.tls }}s{{ end }}://{{ .
 Backstage UI: http{{ if $.Values.backstage.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
 {{- end }}
 {{- end }}
+{{- if .Values.asgardeoThunder.enabled }}
+{{- if .Values.asgardeoThunder.ingress.enabled }}
+{{- with index .Values.asgardeoThunder.ingress.hosts 0 }}
+Choreo STS URL: http{{ if $.Values.asgardeoThunder.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- end }}
+{{- end }}
 
 📊 MONITORING:
 {{- if .Values.controllerManager.metrics.serviceMonitor.enabled }}
