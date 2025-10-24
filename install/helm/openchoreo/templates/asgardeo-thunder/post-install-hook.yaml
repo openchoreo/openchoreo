@@ -30,13 +30,6 @@ spec:
             secretKeyRef:
               name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-secrets
               key: backstage-client-secret
-        {{- range .Values.asgardeoThunder.userDetails.users }}
-        - name: USER_PASSWORD_{{ .username | upper | replace "-" "_" }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "openchoreo.fullname" $ }}-asgardeo-thunder-secrets
-              key: user-password-{{ .username }}
-        {{- end }}
         command:
         - /bin/sh
         - -c
@@ -194,8 +187,6 @@ spec:
             echo "User '{{ .username }}' already exists, skipping creation"
           else
             echo "User does not exist, creating user '{{ .username }}'..."
-            USER_PASSWORD_VAR="USER_PASSWORD_{{ .username | upper | replace "-" "_" }}"
-            USER_PASSWORD=$(eval echo \$${USER_PASSWORD_VAR})
             curl -k --location 'http://{{ include "openchoreo.fullname" $ }}-asgardeo-thunder:{{ $.Values.asgardeoThunder.service.port }}/users' \
               --header 'accept: application/json' \
               --header 'Content-Type: application/json' \
@@ -203,7 +194,7 @@ spec:
                 "type": "{{ $.Values.asgardeoThunder.userDetails.userSchemaName }}",
                 "attributes": {
                   "username": "{{ .username }}",
-                  "password": "'"$USER_PASSWORD"'",
+                  "password": "{{ .password }}",
                   "given_name": "{{ .given_name }}",
                   "family_name": "{{ .family_name }}",
                   "group": "{{ .group }}"
