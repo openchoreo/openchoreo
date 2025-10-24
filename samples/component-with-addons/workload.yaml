@@ -1,0 +1,14 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: test-service
+
+  # Container definitions (populated after build)
+  containers:
+    app:
+      image: nginx:latest

@@ -105,12 +105,15 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
+    - addons
     - apibindings
     - apiclasses
     - apis
     - buildplanes
     - builds
+    - componentenvsnapshots
     - components
+    - componenttypedefinitions
     - dataplanes
     - deployableartifacts
     - deploymentpipelines
@@ -118,6 +121,7 @@ rules:
     - deploymenttracks
     - endpoints
     - environments
+    - envsettings
     - gitcommitrequests
     - organizations
     - projects
@@ -143,12 +147,15 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
+    - addons/finalizers
     - apibindings/finalizers
     - apiclasses/finalizers
     - apis/finalizers
     - buildplanes/finalizers
     - builds/finalizers
+    - componentenvsnapshots/finalizers
     - components/finalizers
+    - componenttypedefinitions/finalizers
     - dataplanes/finalizers
     - deployableartifacts/finalizers
     - deploymentpipelines/finalizers
@@ -156,6 +163,7 @@ rules:
     - deploymenttracks/finalizers
     - endpoints/finalizers
     - environments/finalizers
+    - envsettings/finalizers
     - gitcommitrequests/finalizers
     - organizations/finalizers
     - projects/finalizers
@@ -175,12 +183,15 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
+    - addons/status
     - apibindings/status
     - apiclasses/status
     - apis/status
     - buildplanes/status
     - builds/status
+    - componentenvsnapshots/status
     - components/status
+    - componenttypedefinitions/status
     - dataplanes/status
     - deployableartifacts/status
     - deploymentpipelines/status
@@ -188,6 +199,7 @@ rules:
     - deploymenttracks/status
     - endpoints/status
     - environments/status
+    - envsettings/status
     - gitcommitrequests/status
     - organizations/status
     - projects/status

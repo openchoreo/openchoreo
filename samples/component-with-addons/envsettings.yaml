@@ -1,0 +1,21 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: EnvSettings
+metadata:
+  name: test-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: test-service
+  environment: development
+
+  # Environment-specific overrides for the component
+  # These override the default values from the ComponentTypeDefinition
+  overrides:
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi

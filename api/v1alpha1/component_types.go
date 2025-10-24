@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +kubebuilder:object:root=true
@@ -30,15 +31,62 @@ type ComponentList struct {
 }
 
 // ComponentSpec defines the desired state of Component.
+// +kubebuilder:validation:XValidation:rule="has(self.type) || has(self.componentType)",message="Component must have either spec.type or spec.componentType set"
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
+	// +kubebuilder:validation:Required
 	Owner ComponentOwner `json:"owner"`
 
 	// Type specifies the component type (e.g., Service, WebApplication, etc.)
-	Type ComponentType `json:"type"`
+	// LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
+	// +optional
+	Type ComponentType `json:"type,omitempty"`
+
+	// ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
+	// Example: "deployment/web-app", "cronjob/scheduled-task"
+	// This field is used with ComponentTypeDefinitions (new model)
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
+	ComponentType string `json:"componentType,omitempty"`
+
+	// Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
+	// This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
+	// Values provided here can be overridden per environment via EnvSettings
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+
+	// Addons to compose into this component
+	// Each addon can be instantiated multiple times with different instanceIds
+	// +optional
+	Addons []ComponentAddon `json:"addons,omitempty"`
 
 	// Build defines the build configuration for the component
+	// +optional
 	Build BuildSpecInComponent `json:"build,omitempty"`
+}
+
+// ComponentAddon represents an addon instance attached to a component
+type ComponentAddon struct {
+	// Name is the name of the Addon resource to use
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// InstanceID uniquely identifies this addon instance within the component
+	// Allows the same addon to be used multiple times with different configurations
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	InstanceID string `json:"instanceId"`
+
+	// Config contains the addon parameter values
+	// The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
 type ComponentOwner struct {
