@@ -88,7 +88,8 @@ spec:
                         "code"
                       ],
                       "token_endpoint_auth_methods": [
-                        "client_secret_basic"
+                        "client_secret_basic",
+                        "client_secret_post"
                       ],
                       "pkce_required": false,
                       "public_client": false,
