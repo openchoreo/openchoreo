@@ -1537,12 +1537,28 @@ asgardeoThunder:
     # type: [null, boolean]
     # @schema
     # -- Run as non-root user
-    runAsNonRoot: false
+    runAsNonRoot: true
     # @schema
     # type: [null, integer]
     # @schema
     # -- User ID to run the container as
-    runAsUser: 0
+    runAsUser: 1000
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Allow privilege escalation
+    allowPrivilegeEscalation: false
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Linux capabilities
+    capabilities:
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Capabilities to drop
+      drop:
+        - ALL
   # @schema
   # type: [null, object]
   # @schema
@@ -1643,21 +1659,6 @@ asgardeoThunder:
   # @schema
   # -- Affinity rules for pod assignment
   affinity: {}
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- TLS certificate configuration
-  tls:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Auto-generate self-signed TLS certificates
-    autoGenerate: true
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Common name for the certificate (defaults to service DNS name)
-    commonName: ""
   # @schema
   # type: [null, object]
   # @schema

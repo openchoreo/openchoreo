@@ -974,8 +974,42 @@
           "additionalProperties": false,
           "description": "Container security context",
           "properties": {
-            "runAsNonRoot": {
+            "allowPrivilegeEscalation": {
               "default": false,
+              "description": "Allow privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": []
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "runAsNonRoot": {
+              "default": true,
               "description": "Run as non-root user",
               "required": [],
               "title": "runAsNonRoot",
@@ -985,7 +1019,7 @@
               ]
             },
             "runAsUser": {
-              "default": 0,
+              "default": 1000,
               "description": "User ID to run the container as",
               "required": [],
               "title": "runAsUser",
@@ -1080,38 +1114,6 @@
           },
           "required": [],
           "title": "service",
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "tls": {
-          "additionalProperties": false,
-          "description": "TLS certificate configuration",
-          "properties": {
-            "autoGenerate": {
-              "default": true,
-              "description": "Auto-generate self-signed TLS certificates",
-              "required": [],
-              "title": "autoGenerate",
-              "type": [
-                "null",
-                "boolean"
-              ]
-            },
-            "commonName": {
-              "default": "",
-              "description": "Common name for the certificate (defaults to service DNS name)",
-              "required": [],
-              "title": "commonName",
-              "type": [
-                "null",
-                "string"
-              ]
-            }
-          },
-          "required": [],
-          "title": "tls",
           "type": [
             "null",
             "object"

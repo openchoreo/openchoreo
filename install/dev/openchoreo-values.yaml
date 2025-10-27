@@ -53,6 +53,12 @@ asgardeoThunder:
   image:
     repository: ghcr.io/brionmario/thunder
     tag: 0.0.16
+  securityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    allowPrivilegeEscalation: true
+    capabilities:
+      drop: []
   env:
     - name: NEXT_PUBLIC_AUTHORIZATION_ENDPOINT
       value: "http://sts.openchoreo.localhost/oauth2/authorize"

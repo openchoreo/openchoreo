@@ -36,8 +36,13 @@ spec:
         - name: init-repository
           image: "{{ .Values.asgardeoThunder.image.repository }}:{{ .Values.asgardeoThunder.image.tag | default .Chart.AppVersion }}"
           securityContext:
-            runAsUser: 0
-            runAsGroup: 0
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command: ['sh', '-c']
           args:
             - |
