@@ -1,0 +1,81 @@
+app:
+  # Should be the same as backend.baseUrl when using the `app-backend` plugin.
+  baseUrl: http://localhost:7007
+
+backend:
+  # Used for enabling authentication, secret is shared by all backend plugins
+  # See https://backstage.io/docs/auth/service-to-service-auth for
+  # information on the format
+  # auth:
+  #   keys:
+  #     - secret: ${BACKEND_SECRET}
+  auth:
+    dangerouslyDisableDefaultAuthPolicy: true # TODO: Remove this when added auth properly
+  baseUrl: http://localhost:7007
+  listen:
+    port: 7007
+    # Uncomment the following host directive to bind to specific interfaces
+    # host: 127.0.0.1
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+  cors:
+    origin: http://localhost:3000
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: true
+  # This is for local development only, it is not recommended to use this in production
+  # The production database configuration is stored in app-config.production.yaml
+  database:
+    client: better-sqlite3
+    connection: ':memory:'
+  # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+
+# Reference documentation http://backstage.io/docs/features/techdocs/configuration
+# Note: After experimenting with basic setup, use CI/CD to generate docs
+# and an external cloud storage when deploying TechDocs for production use-case.
+# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+techdocs:
+  builder: 'local' # Alternatives - 'external'
+  generator:
+    runIn: 'docker' # Alternatives - 'local'
+  publisher:
+    type: 'local' # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+
+auth:
+  providers:
+    # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
+    default-idp:
+      development:
+        clientId: 'openchoreo-platform-idp-client'
+        clientSecret: 'openchoreo-platform-idp-client-secret'
+        authorizationUrl: ${OPENCHOREO_AUTH_AUTHORIZATION_URL}
+        tokenUrl: ${OPENCHOREO_AUTH_TOKEN_URL}
+        scope: 'openid profile email'
+
+catalog:
+  locations:
+    - type: file
+      target: /app/templates/create-openchoreo-component/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: /app/templates/create-openchoreo-project/template.yaml
+      rules:
+        - allow: [Template]
+
+openchoreo:
+  baseUrl: ${OPENCHOREO_API_URL}
+  token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
+  defaultOwner: 'platformengineer' # Default owner for catalog entities
+  schedule:
+    frequency: 30 # seconds between runs (default: 30)
+    timeout: 120 # seconds for timeout (default: 120)
+
+thunder:
+  baseUrl: ${THUNDER_BASE_URL} # e.g., https://thunder.example.com:8090
+  token: ${THUNDER_TOKEN} # Authentication token for Thunder IdP API
+  defaultNamespace: 'default' # Default namespace for User and Group entities
+  schedule:
+    frequency: 600 # seconds between runs (default: 600 = 10 minutes)
+    timeout: 300 # seconds for timeout (default: 300 = 5 minutes)
