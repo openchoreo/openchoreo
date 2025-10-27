@@ -6,51 +6,21 @@ global:
   # Installation mode for the OpenChoreo Observability Plane
   # standard: Operator managed OpenSearch cluster will be deployed
   # minimal: Single replica OpenSearch instance will be deployed
-  # legacy: Legacy mode with single replica OpenSearch statefulset and single replica OpenSearch Dashboards will be deployed
-  installationMode: legacy
+  installationMode: minimal
 
-# Customizing OpenSearch configurations for the legacy OpenSearch deployment
-openSearchLegacy:
-  image:
-    repository: opensearchproject/opensearch
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
+opensearch:
+  enabled: true
 
-  service:
-    type: NodePort
-    httpPort: 9200
-    transportPort: 9300
-    # NodePort configuration for cross-cluster access
-    nodePort: 30920  # Fixed port for external access from other clusters
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: ThisIsTheOpenSearchPassword1
+    - name: DISABLE_SECURITY_PLUGIN
+      value: "true"
 
-  config:
-    clusterName: opensearch-cluster
-    discoveryType: single-node
-    javaOpts: "-Xms512m -Xmx512m"
-    memoryLock: "false"
-    disableSecurity: "true"
-
-  authentication:
-    basicAuth:
-      username: admin
-      password: admin
-
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 100m
-      memory: 512Mi
-
-  persistence:
-    enabled: true
-    storageClass: ""
-    accessMode: ReadWriteOnce
-    size: 5Gi
-
-  replicas: 1
-
+  masterService: opensearch
+  securityConfig:
+    enabled: false
+  singleNode: true
 
 # OpenSearch cluster configuration
 openSearchCluster:
@@ -60,13 +30,11 @@ openSearchCluster:
     additionalConfig:
       pluginsSecurityDisabled: "true"
 
-  # Dashboard settings
   dashboard:
     enabled: true
     replicas: 1
     version: 3.3.0
 
-  # Node configuration
   nodePools:
     data:
       replicas: 2
@@ -146,12 +114,12 @@ observer:
       cpu: 100m
       memory: 128Mi
 
-openSearch:
-  enabled: false
+  openSearchUsername: admin
+  openSearchPassword: ThisIsTheOpenSearchPassword1
 
 # Fluent Bit configuration
 fluentBit:
-  enabled: false # minimal/legacy modes will set this to false
+  enabled: false
   config:
     customParsers: |
       [PARSER]

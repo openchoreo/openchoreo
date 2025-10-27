@@ -29,7 +29,7 @@ spec:
         - -c
         - |
           echo "Waiting for OpenSearch to be ready..."
-          OPENSEARCH_URL="http://opensearch:{{ .Values.openSearchLegacy.service.httpPort }}"
+          OPENSEARCH_URL="http://opensearch:9200"
           echo "Checking OpenSearch at: $OPENSEARCH_URL"
           until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready, waiting 10 seconds..."
@@ -57,7 +57,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
-          value: "http://opensearch:{{ .Values.openSearchLegacy.service.httpPort }}"
+          value: "http://opensearch:9200"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
