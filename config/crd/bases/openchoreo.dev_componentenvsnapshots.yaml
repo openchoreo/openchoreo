@@ -278,7 +278,7 @@ spec:
                       addons:
                         description: |-
                           Addons to compose into this component
-                          Each addon can be instantiated multiple times with different instanceIds
+                          Each addon can be instantiated multiple times with different instanceNames
                         items:
                           description: ComponentAddon represents an addon instance
                             attached to a component
@@ -288,10 +288,11 @@ spec:
                                 Config contains the addon parameter values
                                 The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
                               x-kubernetes-preserve-unknown-fields: true
-                            instanceId:
+                            instanceName:
                               description: |-
-                                InstanceID uniquely identifies this addon instance within the component
+                                InstanceName uniquely identifies this addon instance within the component
                                 Allows the same addon to be used multiple times with different configurations
+                                Must be unique across all addons in the component
                               minLength: 1
                               type: string
                             name:
@@ -300,7 +301,7 @@ spec:
                               minLength: 1
                               type: string
                           required:
-                          - instanceId
+                          - instanceName
                           - name
                           type: object
                         type: array

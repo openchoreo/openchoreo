@@ -55,13 +55,12 @@ spec:
             properties:
               addonOverrides:
                 additionalProperties:
-                  additionalProperties:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 description: |-
                   AddonOverrides provides environment-specific overrides for addon configurations
-                  Structure: map[addonName]map[instanceId]overrideValues
+                  Keyed by instanceName (which must be unique across all addons in the component)
+                  Structure: map[instanceName]overrideValues
                 type: object
               environment:
                 description: Environment is the name of the environment this deployment

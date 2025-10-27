@@ -1377,20 +1377,9 @@ func (in *ComponentDeploymentSpec) DeepCopyInto(out *ComponentDeploymentSpec) {
 	}
 	if in.AddonOverrides != nil {
 		in, out := &in.AddonOverrides, &out.AddonOverrides
-		*out = make(map[string]map[string]runtime.RawExtension, len(*in))
+		*out = make(map[string]runtime.RawExtension, len(*in))
 		for key, val := range *in {
-			var outVal map[string]runtime.RawExtension
-			if val == nil {
-				(*out)[key] = nil
-			} else {
-				inVal := (*in)[key]
-				in, out := &inVal, &outVal
-				*out = make(map[string]runtime.RawExtension, len(*in))
-				for key, val := range *in {
-					(*out)[key] = *val.DeepCopy()
-				}
-			}
-			(*out)[key] = outVal
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 }

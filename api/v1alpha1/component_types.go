@@ -58,7 +58,7 @@ type ComponentSpec struct {
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
 	// Addons to compose into this component
-	// Each addon can be instantiated multiple times with different instanceIds
+	// Each addon can be instantiated multiple times with different instanceNames
 	// +optional
 	Addons []ComponentAddon `json:"addons,omitempty"`
 
@@ -74,11 +74,12 @@ type ComponentAddon struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// InstanceID uniquely identifies this addon instance within the component
+	// InstanceName uniquely identifies this addon instance within the component
 	// Allows the same addon to be used multiple times with different configurations
+	// Must be unique across all addons in the component
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	InstanceID string `json:"instanceId"`
+	InstanceName string `json:"instanceName"`
 
 	// Config contains the addon parameter values
 	// The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides

@@ -26,9 +26,10 @@ type ComponentDeploymentSpec struct {
 	Overrides *runtime.RawExtension `json:"overrides,omitempty"`
 
 	// AddonOverrides provides environment-specific overrides for addon configurations
-	// Structure: map[addonName]map[instanceId]overrideValues
+	// Keyed by instanceName (which must be unique across all addons in the component)
+	// Structure: map[instanceName]overrideValues
 	// +optional
-	AddonOverrides map[string]map[string]runtime.RawExtension `json:"addonOverrides,omitempty"`
+	AddonOverrides map[string]runtime.RawExtension `json:"addonOverrides,omitempty"`
 }
 
 // ComponentDeploymentOwner identifies the component this ComponentDeployment applies to

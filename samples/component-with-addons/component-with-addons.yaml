@@ -83,7 +83,7 @@ spec:
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: ${metadata.name}-${instanceId}
+          name: ${metadata.name}-${instanceName}
           namespace: ${metadata.namespace}
         spec:
           accessModes:
@@ -106,7 +106,7 @@ spec:
           value:
             name: ${spec.volumeName}
             persistentVolumeClaim:
-              claimName: ${metadata.name}-${instanceId}
+              claimName: ${metadata.name}-${instanceName}
 
     # Mount volume to container
     - target:
@@ -166,7 +166,7 @@ spec:
   # Addons to apply to this component
   addons:
     - name: simple-pvc
-      instanceId: data-volume
+      instanceName: data-volume
       config:
         volumeName: app-data
         mountPath: /var/data

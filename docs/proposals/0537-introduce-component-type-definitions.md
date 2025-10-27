@@ -266,7 +266,7 @@ spec:
   addons:
     # Create PVC and add volume to pod
     - name: persistent-volume-claim
-      instanceId: app-data
+      instanceName: app-data
       config:
         volumeName: app-data-vol
         mountPath: /app/data
@@ -275,7 +275,7 @@ spec:
 
     # Add logging sidecar for file-based logs
     - name: add-file-logging-sidecar
-      instanceId: app-logs
+      instanceName: app-logs
       config:
         logFilePath: /var/log/app/application.log
         containerName: app
@@ -387,7 +387,7 @@ spec:
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: ${metadata.name}-${instanceId}
+          name: ${metadata.name}-${instanceName}
         spec:
           accessModes:
             - ReadWriteOnce
@@ -408,7 +408,7 @@ spec:
           value:
             name: ${spec.volumeName}
             persistentVolumeClaim:
-              claimName: ${metadata.name}-${instanceId}
+              claimName: ${metadata.name}-${instanceName}
 
     # Mount the PVC into the developer-specified container at the mountPath
     - target:
@@ -509,13 +509,12 @@ spec:
       maxReplicas: 50
       targetCPUUtilization: 70
 
-  # Override addon values for the environment (keyed by addon name, then instanceId).
+  # Override addon values for the environment (keyed by instanceName).
   # These fields are defined in the addon's envOverrides section.
   addonOverrides:
-    persistent-volume-claim: # Addon name
-      app-data: # instanceId
-        size: 200Gi # Much larger in prod
-        storageClass: premium
+    app-data: # instanceName
+      size: 200Gi # Much larger in prod
+      storageClass: premium
 ```
 
 ### Addon Patch Syntax
@@ -623,7 +622,7 @@ spec:
       parameters: { ... }
       addons:
         - name: persistent-volume-claim
-          instanceId: app-data
+          instanceName: app-data
           config: { ... }
 
   addons:
