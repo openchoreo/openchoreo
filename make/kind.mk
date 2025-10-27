@@ -21,6 +21,7 @@ IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG)
 API_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
 UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
+THUNDER_IMAGE := ghcr.io/brionmario/thunder:0.0.16
 
 # Define OpenChoreo components for per-component operations
 KIND_COMPONENTS := controller api ui
@@ -88,7 +89,7 @@ kind.build: ## Build all OpenChoreo components
 
 
 .PHONY: kind.load.%
-kind.load.%: ## Load specific component image. Valid components: controller, api, ui, cilium. Usage: make kind.load.<component>
+kind.load.%: ## Load specific component image. Valid components: controller, api, ui, thunder, cilium. Usage: make kind.load.<component>
 	@$(call check_cluster_exists)
 	@case "$*" in \
 		cilium) \
@@ -102,6 +103,15 @@ kind.load.%: ## Load specific component image. Valid components: controller, api
 				kind load docker-image $$image --name "$(KIND_CLUSTER_NAME)"; \
 			done; \
 			$(call log_success, Cilium images loaded!); \
+			;; \
+		thunder) \
+			$(call log_info, Loading Thunder image into cluster...); \
+			if ! docker image inspect $(THUNDER_IMAGE) > /dev/null 2>&1; then \
+				$(call log_info, Pulling $(THUNDER_IMAGE)...); \
+				docker pull $(THUNDER_IMAGE); \
+			fi; \
+			kind load docker-image $(THUNDER_IMAGE) --name $(KIND_CLUSTER_NAME); \
+			$(call log_success, Thunder image loaded!); \
 			;; \
 		controller|api|ui) \
 			if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
@@ -118,7 +128,7 @@ kind.load.%: ## Load specific component image. Valid components: controller, api
 			$(call log_success, $* image loaded!); \
 			;; \
 		*) \
-			$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
+			$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), thunder, cilium); \
 			exit 1; \
 			;; \
 	esac

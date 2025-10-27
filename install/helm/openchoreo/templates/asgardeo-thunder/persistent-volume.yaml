@@ -9,7 +9,7 @@ spec:
     storage: {{ .Values.asgardeoThunder.persistence.database.size }}
   accessModes:
     - {{ .Values.asgardeoThunder.persistence.database.accessMode }}
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: {{ .Values.asgardeoThunder.persistence.database.reclaimPolicy }}
   hostPath:
     path: /mnt/shared/platform-identity-provider-db
 {{- end }}

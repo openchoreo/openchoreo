@@ -754,6 +754,16 @@
                     "boolean"
                   ]
                 },
+                "reclaimPolicy": {
+                  "default": "Delete",
+                  "description": "persistent volume reclaim policy",
+                  "required": [],
+                  "title": "reclaimPolicy",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "size": {
                   "default": "500Mi",
                   "description": "Storage size",
