@@ -16,7 +16,7 @@ type ComponentTypeDefinitionSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;job
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
-	WorkloadType WorkloadKind `json:"workloadType"`
+	WorkloadType string `json:"workloadType"`
 
 	// Schema defines what developers can configure when creating components of this type
 	// +optional
@@ -27,20 +27,6 @@ type ComponentTypeDefinitionSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
 }
-
-// WorkloadKind defines the primary workload resource type
-type WorkloadKind string
-
-const (
-	// WorkloadKindDeployment represents a Kubernetes Deployment
-	WorkloadKindDeployment WorkloadKind = "deployment"
-	// WorkloadKindStatefulSet represents a Kubernetes StatefulSet
-	WorkloadKindStatefulSet WorkloadKind = "statefulset"
-	// WorkloadKindCronJob represents a Kubernetes CronJob
-	WorkloadKindCronJob WorkloadKind = "cronjob"
-	// WorkloadKindJob represents a Kubernetes Job
-	WorkloadKindJob WorkloadKind = "job"
-)
 
 // ComponentTypeSchema defines the configurable parameters for a component type
 // Parameters and EnvOverrides are nested map structures where keys are field names
@@ -105,18 +91,11 @@ type ResourceTemplate struct {
 	// CEL expressions are enclosed in ${...} and will be evaluated at runtime
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Template runtime.RawExtension `json:"template"`
+	Template *runtime.RawExtension `json:"template"`
 }
 
 // ComponentTypeDefinitionStatus defines the observed state of ComponentTypeDefinition.
 type ComponentTypeDefinitionStatus struct {
-	// ObservedGeneration reflects the generation of the most recently observed ComponentTypeDefinition
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// Conditions represent the latest available observations of the ComponentTypeDefinition's state
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -141,14 +120,6 @@ type ComponentTypeDefinitionList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ComponentTypeDefinition `json:"items"`
-}
-
-func (c *ComponentTypeDefinition) GetConditions() []metav1.Condition {
-	return c.Status.Conditions
-}
-
-func (c *ComponentTypeDefinition) SetConditions(conditions []metav1.Condition) {
-	c.Status.Conditions = conditions
 }
 
 func init() {

@@ -26,29 +26,9 @@ type Reconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
-	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
-	if err := r.Get(ctx, req.NamespacedName, ctd); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	log.Info("Reconciling ComponentTypeDefinition", "name", ctd.Name)
-
-	// Update observedGeneration in status
-	// Note: Validation is now handled by CEL validations at admission time,
-	// so invalid resources are rejected before they reach the controller.
-	if err := r.updateStatus(ctx, ctd); err != nil {
-		return ctrl.Result{}, err
-	}
+	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
-}
-
-// updateStatus updates the ComponentTypeDefinition status
-func (r *Reconciler) updateStatus(ctx context.Context, ctd *openchoreov1alpha1.ComponentTypeDefinition) error {
-	ctd.Status.ObservedGeneration = ctd.Generation
-	return r.Status().Update(ctx, ctd)
 }
 
 // SetupWithManager sets up the controller with the Manager.

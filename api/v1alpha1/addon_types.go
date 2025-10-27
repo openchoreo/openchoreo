@@ -29,7 +29,7 @@ type AddonCreate struct {
 	// CEL expressions are enclosed in ${...} and will be evaluated at runtime
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Template runtime.RawExtension `json:"template"`
+	Template *runtime.RawExtension `json:"template"`
 }
 
 // AddonSchema defines the configurable parameters for an addon
@@ -136,13 +136,6 @@ type JSONPatchOperation struct {
 
 // AddonStatus defines the observed state of Addon.
 type AddonStatus struct {
-	// ObservedGeneration reflects the generation of the most recently observed Addon
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// Conditions represent the latest available observations of the Addon's state
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -166,14 +159,6 @@ type AddonList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Addon `json:"items"`
-}
-
-func (a *Addon) GetConditions() []metav1.Condition {
-	return a.Status.Conditions
-}
-
-func (a *Addon) SetConditions(conditions []metav1.Condition) {
-	a.Status.Conditions = conditions
 }
 
 func init() {

@@ -125,7 +125,7 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 	}
 
 	// Verify workloadType matches
-	if string(ctd.Spec.WorkloadType) != workloadType {
+	if ctd.Spec.WorkloadType != workloadType {
 		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentTypeDefinition has %s",
 			workloadType, ctd.Spec.WorkloadType)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)

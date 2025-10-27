@@ -52,7 +52,7 @@ var _ = Describe("ComponentEnvSnapshot Controller", func() {
 								Resources: []openchoreov1alpha1.ResourceTemplate{
 									{
 										ID: "deployment",
-										Template: runtime.RawExtension{
+										Template: &runtime.RawExtension{
 											Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"test"}},"template":{"metadata":{"labels":{"app":"test"}},"spec":{"containers":[{"name":"test","image":"nginx"}]}}}}`),
 										},
 									},

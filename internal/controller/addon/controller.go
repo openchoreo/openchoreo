@@ -26,29 +26,9 @@ type Reconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
-	addon := &openchoreov1alpha1.Addon{}
-	if err := r.Get(ctx, req.NamespacedName, addon); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	log.Info("Reconciling Addon", "name", addon.Name)
-
-	// Update observedGeneration in status
-	// Note: Validation is now handled by CEL validations at admission time,
-	// so invalid resources are rejected before they reach the controller.
-	if err := r.updateStatus(ctx, addon); err != nil {
-		return ctrl.Result{}, err
-	}
+	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
-}
-
-// updateStatus updates the Addon status
-func (r *Reconciler) updateStatus(ctx context.Context, addon *openchoreov1alpha1.Addon) error {
-	addon.Status.ObservedGeneration = addon.Generation
-	return r.Status().Update(ctx, addon)
 }
 
 // SetupWithManager sets up the controller with the Manager.

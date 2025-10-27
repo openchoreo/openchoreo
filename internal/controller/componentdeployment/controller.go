@@ -214,9 +214,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		// Check if we own this Release
-		if !r.isOwnedByComponentDeployment(release, componentDeployment) && release.UID != "" {
-			// Release exists but not owned by us
-			return fmt.Errorf("release exists but is not owned by this ComponentDeployment")
+		if release.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(release.GetOwnerReferences(), componentDeployment, r.Scheme)
+			if err != nil {
+				return fmt.Errorf("failed to check owner reference: %w", err)
+			}
+			if !hasOwner {
+				// Release exists but not owned by us
+				return fmt.Errorf("release exists but is not owned by this ComponentDeployment")
+			}
 		}
 
 		// Set labels (replace entire map to ensure old labels don't persist)
@@ -276,17 +282,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	}
 
 	return nil
-}
-
-// isOwnedByComponentDeployment checks if the Release is owned by the given ComponentDeployment
-func (r *Reconciler) isOwnedByComponentDeployment(release *openchoreov1alpha1.Release,
-	componentDeployment *openchoreov1alpha1.ComponentDeployment) bool {
-	for _, ref := range release.GetOwnerReferences() {
-		if ref.UID == componentDeployment.UID {
-			return true
-		}
-	}
-	return false
 }
 
 // SetupWithManager sets up the controller with the Manager.
