@@ -1022,7 +1022,7 @@ backstage:
     # type: [null, string]
     # @schema
     # -- Container image repository
-    repository: ghcr.io/openchoreo/ui
+    repository: ghcr.io/openchoreo/openchoreo-ui
     # @schema
     # type: [null, string]
     # @schema
