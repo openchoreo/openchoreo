@@ -169,7 +169,6 @@ export const useStyles = makeStyles(theme => ({
     borderStyle: 'none',
   },
   welcomeCard: {
-    minHeight: '200px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',

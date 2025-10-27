@@ -5,7 +5,6 @@ import {
   HomePageRecentlyVisited,
   HomePageStarredEntities,
   HomePageToolkit,
-  TemplateBackstageLogoIcon,
 } from '@backstage/plugin-home';
 import { HomePageSearchBar } from '@backstage/plugin-search';
 import { SearchContextProvider } from '@backstage/plugin-search-react';
@@ -26,6 +25,39 @@ import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import ViewListIcon from '@material-ui/icons/ViewList';
 import AppsIcon from '@material-ui/icons/Apps';
 import FeaturedPlayListOutlinedIcon from '@material-ui/icons/FeaturedPlayListOutlined';
+import CreateNewFolderIcon from '@material-ui/icons/CreateNewFolder';
+
+/**
+ * Toolkit tools for the home page
+ */
+const toolkitTools = [
+  {
+    url: '/create/templates/default/create-openchoreo-component',
+    label: 'Create Component',
+    icon: <AddCircleOutlineIcon color="primary" />,
+  },
+  {
+    url: '/create/templates/default/create-openchoreo-project',
+    label: 'Create Project',
+    icon: <CreateNewFolderIcon color="primary" />,
+  },
+  {
+    url: '/catalog?filters[kind]=System&filters[user]=owned',
+    label: 'View My Projects',
+    icon: <ViewListIcon color="primary" />,
+  },
+  {
+    url: '/catalog?filters[kind]=Component&filters[user]=owned',
+    label: 'View My Components',
+    icon: <AppsIcon color="primary" />,
+  },
+  {
+    url: '/create',
+    label: 'Browse Templates',
+    icon: <FeaturedPlayListOutlinedIcon color="primary" />,
+  },
+]
+
 /**
  * Custom HomePage that shows different content based on user groups
  */
@@ -78,39 +110,6 @@ export const HomePage = () => {
     }
   };
 
-  // Get quick actions based on role
-  const getQuickActions = () => {
-    if (userGroups.includes('admins') || userGroups.includes('managers')) {
-      return [
-        { title: 'Manage Users', link: '/catalog?filters[kind]=user' },
-        {
-          title: 'View All Components',
-          link: '/catalog?filters[kind]=component',
-        },
-        { title: 'Create New Component', link: '/create' },
-        { title: 'System Overview', link: '/catalog?filters[kind]=system' },
-      ];
-    }
-    if (userGroups.includes('developers')) {
-      return [
-        {
-          title: 'My Components',
-          link: `/catalog?filters[kind]=component&filters[owners]=${userName}`,
-        },
-        { title: 'Create Component', link: '/create' },
-        { title: 'Browse Catalog', link: '/catalog' },
-        { title: 'Documentation', link: '/docs' },
-      ];
-    }
-    // Viewers
-    return [
-      { title: 'Browse Catalog', link: '/catalog' },
-      { title: 'Documentation', link: '/docs' },
-      { title: 'API Docs', link: '/api-docs' },
-      { title: 'Tech Radar', link: '/tech-radar' },
-    ];
-  };
-
   if (loading) {
     return (
       <Page themeId="home">
@@ -127,9 +126,9 @@ export const HomePage = () => {
       <Page themeId="home">
         <Header title={`Welcome, ${userName}!`} subtitle={getUserRole()} />
         <Content>
-          <Grid container justifyContent="center" spacing={6}>
+          <Grid container spacing={3}>
             {/* Search Bar */}
-            <Grid container item xs={12} justifyContent="center">
+            <Grid item xs={12} justifyContent="center">
               <HomePageSearchBar
                 InputProps={{
                   classes: {
@@ -142,33 +141,34 @@ export const HomePage = () => {
             </Grid>
 
             {/* Welcome Card with Role Information */}
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Card className={classes.welcomeCard}>
-                  <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                      {getWelcomeMessage()}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="textSecondary"
-                      gutterBottom
-                    >
-                      Your groups:
-                    </Typography>
-                    <div>
-                      {userGroups.map(group => (
-                        <span key={group} className={classes.groupBadge}>
-                          {group}
-                        </span>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Grid>
+            <Grid item xs={12} md={6}>
+              <Card className={classes.welcomeCard}>
+                <CardContent>
+                  <Typography variant="h5" gutterBottom>
+                    {getWelcomeMessage()}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="textSecondary"
+                    gutterBottom
+                  >
+                    Your groups:
+                  </Typography>
+                  <div>
+                    {userGroups.map(group => (
+                      <span key={group} className={classes.groupBadge}>
+                        {group}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
 
+            <Grid item xs={12} md={8}>
+              {/* Platform Engineer Overview Section */}
               {getUserRole() === 'platformengineer' && (
-                <Grid item xs={12} md={8}>
+                <>
                   {/* Platform Metrics Section */}
                   <Box className={classes.overviewSection}>
                     <Typography variant="h3">Platform Overview</Typography>
@@ -186,116 +186,48 @@ export const HomePage = () => {
                   <Box className={classes.platformDetailsSection}>
                     <HomePagePlatformDetailsCard />
                   </Box>
-                </Grid>
+                </>
               )}
-
+              {/* Developer Overview Section */}
               {getUserRole() === 'developer' && (
-                <Grid item xs={12} md={8}>
-                  {/* My Projects Widget Section */}
-                  <Box className={classes.overviewSection}>
-                    <Typography variant="h3">Overview</Typography>
-                    <Grid container className={classes.widgetContainer}>
-                      <Grid item xs={12} md={5} sm={12}>
-                        <MyProjectsWidget />
-                      </Grid>
+                <Box className={classes.overviewSection}>
+                  <Typography variant="h3">Overview</Typography>
+                  <Grid container className={classes.widgetContainer}>
+                    <Grid item xs={12} md={5} sm={12}>
+                      <MyProjectsWidget />
                     </Grid>
-                  </Box>
-                </Grid>
-              )}
-
-              {/* Right Sidebar - Quick Access */}
-              <Grid item xs={12} md={4}>
-                <Grid container justifyContent="flex-end">
-                  <Grid item md={10} xs={12} className={classes.sidebarSection}>
-                    <Typography variant="h4" color="secondary">
-                      Recent Activity
-                    </Typography>
-
-                    <Box className={classes.sidebarWidget}>
-                      <HomePageStarredEntities />
-                    </Box>
-
-                    <Box className={classes.sidebarWidget}>
-                      <HomePageRecentlyVisited />
-                    </Box>
                   </Grid>
-                </Grid>
-              </Grid>
-
-              {/* Quick Actions based on role */}
-              {/* <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Quick Actions
-                    </Typography>
-                    <Grid container spacing={2}>
-                      {getQuickActions().map(action => (
-                        <Grid item xs={6} key={action.title}>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <a
-                                href={action.link}
-                                style={{
-                                  textDecoration: 'none',
-                                  color: 'inherit',
-                                }}
-                              >
-                                <Typography variant="body2">
-                                  {action.title}
-                                </Typography>
-                              </a>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid> */}
+                </Box>
+              )}
+              {/* Toolkit - conditional based on role */}
+              {(userGroups.includes('admin') ||
+                userGroups.includes('manager') ||
+                userGroups.includes('developer')) && (
+                  <HomePageToolkit
+                    title="Quick Actions"
+                    tools={toolkitTools}
+                  />
+              )}
             </Grid>
 
-            {/* Starred Entities - shown to all users */}
-            {/* <Grid container item xs={12} md={6}>
-              <HomePageStarredEntities />
-            </Grid> */}
+            {/* Right Sidebar - Quick Access */}
+            <Grid item xs={12} md={4}>
+              <Grid container justifyContent="flex-end">
+                <Grid item md={10} xs={12} className={classes.sidebarSection}>
+                  <Typography variant="h4" color="secondary">
+                    Recent Activity
+                  </Typography>
 
-            {/* Toolkit - conditional based on role */}
-            {(userGroups.includes('admins') ||
-              userGroups.includes('managers') ||
-              userGroups.includes('developers')) && (
-              <Grid container item xs={12} md={6}>
-                <HomePageToolkit
-                  tools={[
-                    {
-                      url: '/create/templates/default/create-openchoreo-component',
-                      label: 'Create Component',
-                      icon: <AddCircleOutlineIcon />,
-                    },
-                    {
-                      url: '/catalog-import',
-                      label: 'Import Entity',
-                      icon: <TemplateBackstageLogoIcon />,
-                    },
-                    {
-                      url: '/catalog?filters[kind]=System&filters[user]=owned',
-                      label: 'View My Projects',
-                      icon: <ViewListIcon />,
-                    },
-                    {
-                      url: '/catalog?filters[kind]=Component&filters[user]=owned',
-                      label: 'View My Components',
-                      icon: <AppsIcon />,
-                    },
-                    {
-                      url: '/create',
-                      label: 'Browse Templates',
-                      icon: <FeaturedPlayListOutlinedIcon />,
-                    },
-                  ]}
-                />
+                  <Box className={classes.sidebarWidget}>
+                    <HomePageStarredEntities />
+                  </Box>
+
+                  <Box className={classes.sidebarWidget}>
+                    <HomePageRecentlyVisited />
+                  </Box>
+                </Grid>
               </Grid>
-            )}
+            </Grid>
           </Grid>
         </Content>
       </Page>

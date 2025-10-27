@@ -29,7 +29,7 @@ import { ChoreoCatalogFilters } from './components/catalog/ChoreoCatalogFilters'
 import { choreoCatalogTableColumns } from './components/catalog/ChoreoCatalogTableColumns';
 import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
-import { HomePage } from './components/Home/HomePage';
+import { HomePage } from './components/Home';
 
 import {
   AlertDisplay,
@@ -46,11 +46,7 @@ import {
   openChoreoTheme,
 } from '@openchoreo/backstage-design-system';
 import { UnifiedThemeProvider } from '@backstage/theme';
-import { PlatformEngineerViewPage } from '@openchoreo/backstage-plugin-platform-engineer-core';
 import { VisitListener } from '@backstage/plugin-home';
-// import { DeveloperHome } from './components/Home';
-// import { DeveloperHomePage } from '@openchoreo/backstage-plugin';
-// import { HomePage } from './components/home/HomePage';
 
 const app = createApp({
   apis,
@@ -153,11 +149,6 @@ const routes = (
     </Route>
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
-    <Route
-      path="/platform-engineer-view"
-      element={<PlatformEngineerViewPage />}
-    />
-    {/* <Route path="/developer-home" element={<DeveloperHome />} /> */}
   </FlatRoutes>
 );
 

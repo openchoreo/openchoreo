@@ -1,7 +1,7 @@
-import { platformEngineerViewPlugin } from './plugin';
+import { platformEngineerCorePlugin } from './plugin';
 
-describe('platformEngineerViewPlugin', () => {
+describe('platformEngineerCorePlugin', () => {
   it('should export plugin', () => {
-    expect(platformEngineerViewPlugin).toBeDefined();
+    expect(platformEngineerCorePlugin).toBeDefined();
   });
 });
