@@ -3,17 +3,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: envsettings.openchoreo.dev
+  name: componentdeployments.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: EnvSettings
-    listKind: EnvSettingsList
-    plural: envsettings
+    kind: ComponentDeployment
+    listKind: ComponentDeploymentList
+    plural: componentdeployments
     shortNames:
-    - envsetting
-    - envsettings
-    singular: envsettings
+    - compdeployment
+    - compdeployments
+    singular: componentdeployment
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -29,7 +29,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: EnvSettings is the Schema for the envsettings API.
+        description: ComponentDeployment is the Schema for the componentdeployments
+          API.
         properties:
           apiVersion:
             description: |-
@@ -49,7 +50,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: EnvSettingsSpec defines the desired state of EnvSettings.
+            description: ComponentDeploymentSpec defines the desired state of ComponentDeployment.
             properties:
               addonOverrides:
                 additionalProperties:
@@ -62,8 +63,8 @@ spec:
                   Structure: map[addonName]map[instanceId]overrideValues
                 type: object
               environment:
-                description: Environment is the name of the environment these settings
-                  apply to
+                description: Environment is the name of the environment this deployment
+                  applies to
                 minLength: 1
                 type: string
               overrides:
@@ -73,12 +74,12 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               owner:
-                description: Owner identifies the component this settings applies
+                description: Owner identifies the component this deployment applies
                   to
                 properties:
                   componentName:
-                    description: ComponentName is the name of the component these
-                      settings apply to
+                    description: ComponentName is the name of the component this deployment
+                      applies to
                     minLength: 1
                     type: string
                   projectName:
@@ -95,11 +96,11 @@ spec:
             - owner
             type: object
           status:
-            description: EnvSettingsStatus defines the observed state of EnvSettings.
+            description: ComponentDeploymentStatus defines the observed state of ComponentDeployment.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of the EnvSettings's state
+                  of the ComponentDeployment's state
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -157,7 +158,7 @@ spec:
                 type: array
               observedGeneration:
                 description: ObservedGeneration reflects the generation of the most
-                  recently observed EnvSettings
+                  recently observed ComponentDeployment
                 format: int64
                 type: integer
             type: object

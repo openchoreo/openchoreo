@@ -30,6 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
 	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttypedefinition"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
@@ -39,7 +40,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
-	"github.com/openchoreo/openchoreo/internal/controller/envsettings"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
@@ -277,12 +277,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// EnvSettings controller
-	if err = (&envsettings.Reconciler{
+	// ComponentDeployment controller
+	if err = (&componentdeployment.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "EnvSettings")
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
 		os.Exit(1)
 	}
 

@@ -65,7 +65,7 @@ type ComponentTypeSchema struct {
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides can be overridden per environment via EnvSettings by platform engineers.
+	// EnvOverrides can be overridden per environment via ComponentDeployment by platform engineers.
 	// These are also exposed to developers but can be changed per environment.
 	// Same nested map structure and type definition format as Parameters.
 	// +optional
@@ -121,7 +121,7 @@ type ComponentTypeDefinitionStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=ctd;ctds
+// +kubebuilder:resource:scope=Namespaced,shortName=ctd;ctds
 // +kubebuilder:printcolumn:name="WorkloadType",type=string,JSONPath=`.spec.workloadType`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

@@ -52,7 +52,6 @@ type ComponentSpec struct {
 
 	// Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
 	// This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
-	// Values provided here can be overridden per environment via EnvSettings
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless

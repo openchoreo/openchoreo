@@ -2,6 +2,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Addon
 metadata:
   name: simple-pvc
+  namespace: default
 spec:
   schema:
     # Developer-facing parameters
@@ -17,18 +18,19 @@ spec:
 
   # New resources created by this addon
   creates:
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: ${metadata.name}-${instanceId}
-        namespace: ${metadata.namespace}
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: ${spec.size}
-        storageClassName: ${spec.storageClass}
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${instanceId}
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${spec.size}
+          storageClassName: ${spec.storageClass}
 
   # Patches to apply to existing resources
   patches:

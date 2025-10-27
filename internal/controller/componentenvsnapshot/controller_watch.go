@@ -40,20 +40,20 @@ func (r *Reconciler) setupEnvironmentRefIndex(ctx context.Context, mgr ctrl.Mana
 		})
 }
 
-// listSnapshotsForEnvSettings returns reconcile requests for all snapshots using this EnvSettings
-func (r *Reconciler) listSnapshotsForEnvSettings(ctx context.Context, obj client.Object) []reconcile.Request {
-	envSettings := obj.(*openchoreov1alpha1.EnvSettings)
+// listSnapshotsForComponentDeployment returns reconcile requests for all snapshots using this ComponentDeployment
+func (r *Reconciler) listSnapshotsForComponentDeployment(ctx context.Context, obj client.Object) []reconcile.Request {
+	componentDeployment := obj.(*openchoreov1alpha1.ComponentDeployment)
 
 	// Find all snapshots for this component + environment
 	var snapshots openchoreov1alpha1.ComponentEnvSnapshotList
 	if err := r.List(ctx, &snapshots,
-		client.InNamespace(envSettings.Namespace),
+		client.InNamespace(componentDeployment.Namespace),
 		client.MatchingFields{
-			componentNameIndex: envSettings.Spec.Owner.ComponentName,
-			environmentIndex:   envSettings.Spec.Environment,
+			componentNameIndex: componentDeployment.Spec.Owner.ComponentName,
+			environmentIndex:   componentDeployment.Spec.Environment,
 		}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list ComponentEnvSnapshots for EnvSettings", "envSettings", envSettings.Name, "namespace", envSettings.Namespace)
+		logger.Error(err, "Failed to list ComponentEnvSnapshots for ComponentDeployment", "componentDeployment", componentDeployment.Name, "namespace", componentDeployment.Namespace)
 		return nil
 	}
 

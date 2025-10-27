@@ -15,7 +15,7 @@ spec:
     - addon
     - addons
     singular: addon
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .metadata.creationTimestamp
@@ -50,8 +50,18 @@ spec:
                 description: Creates defines new Kubernetes resources to create when
                   this addon is applied
                 items:
+                  description: AddonCreate defines a resource template to be created
+                    by the addon
+                  properties:
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with CEL expressions
+                        CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - template
                   type: object
-                  x-kubernetes-preserve-unknown-fields: true
                 type: array
               patches:
                 description: Patches defines modifications to existing resources generated
@@ -149,7 +159,7 @@ spec:
                 properties:
                   envOverrides:
                     description: |-
-                      EnvOverrides can be overridden per environment via EnvSettings.
+                      EnvOverrides can be overridden per environment via ComponentDeployment.
                       Same nested map structure and type definition format as Parameters.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true

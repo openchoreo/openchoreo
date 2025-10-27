@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package envsettings
+package componentdeployment
 
 import (
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -10,7 +10,7 @@ import (
 // Constants for condition types
 
 const (
-	// ConditionReady indicates that the EnvSettings has successfully created/updated
+	// ConditionReady indicates that the ComponentDeployment has successfully created/updated
 	// the Release and the deployment is ready.
 	ConditionReady controller.ConditionType = "Ready"
 )
@@ -27,7 +27,7 @@ const (
 
 	// ReasonComponentEnvSnapshotNotFound indicates the referenced ComponentEnvSnapshot doesn't exist
 	ReasonComponentEnvSnapshotNotFound controller.ConditionReason = "ComponentEnvSnapshotNotFound"
-	// ReasonInvalidConfiguration indicates the EnvSettings configuration is invalid
+	// ReasonInvalidConfiguration indicates the ComponentDeployment configuration is invalid
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 	// ReasonInvalidSnapshotConfiguration indicates the ComponentEnvSnapshot has invalid configuration
 	ReasonInvalidSnapshotConfiguration controller.ConditionReason = "InvalidSnapshotConfiguration"
@@ -45,7 +45,7 @@ const (
 	ReasonReleaseCreationFailed controller.ConditionReason = "ReleaseCreationFailed"
 	// ReasonReleaseUpdateFailed indicates failure to update the Release
 	ReasonReleaseUpdateFailed controller.ConditionReason = "ReleaseUpdateFailed"
-	// ReasonReleaseOwnershipConflict indicates Release exists but not owned by this EnvSettings
+	// ReasonReleaseOwnershipConflict indicates Release exists but not owned by this ComponentDeployment
 	ReasonReleaseOwnershipConflict controller.ConditionReason = "ReleaseOwnershipConflict"
 
 	// Resource health issues (Status=False/Unknown)

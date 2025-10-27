@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package envsettings
+package componentdeployment
 
 import (
 	"context"
@@ -27,15 +27,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// Reconciler reconciles an EnvSettings object
+// Reconciler reconciles an ComponentDeployment object
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=envsettings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=envsettings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=envsettings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentdeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentdeployments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentdeployments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentenvsnapshots,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -44,52 +44,52 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
 
-	// Fetch EnvSettings (primary resource)
-	envSettings := &openchoreov1alpha1.EnvSettings{}
-	if err := r.Get(ctx, req.NamespacedName, envSettings); err != nil {
+	// Fetch ComponentDeployment (primary resource)
+	componentDeployment := &openchoreov1alpha1.ComponentDeployment{}
+	if err := r.Get(ctx, req.NamespacedName, componentDeployment); err != nil {
 		if client.IgnoreNotFound(err) != nil {
-			logger.Error(err, "Failed to get EnvSettings")
+			logger.Error(err, "Failed to get ComponentDeployment")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info("Reconciling EnvSettings",
-		"name", envSettings.Name,
-		"component", envSettings.Spec.Owner.ComponentName,
-		"environment", envSettings.Spec.Environment)
+	logger.Info("Reconciling ComponentDeployment",
+		"name", componentDeployment.Name,
+		"component", componentDeployment.Spec.Owner.ComponentName,
+		"environment", componentDeployment.Spec.Environment)
 
 	// Keep a copy for comparison
-	old := envSettings.DeepCopy()
+	old := componentDeployment.DeepCopy()
 
 	// Deferred status update
 	defer func() {
 		// Update observed generation
-		envSettings.Status.ObservedGeneration = envSettings.Generation
+		componentDeployment.Status.ObservedGeneration = componentDeployment.Generation
 
 		// Skip update if nothing changed
-		if apiequality.Semantic.DeepEqual(old.Status, envSettings.Status) {
+		if apiequality.Semantic.DeepEqual(old.Status, componentDeployment.Status) {
 			return
 		}
 
 		// Update the status
-		if err := r.Status().Update(ctx, envSettings); err != nil {
-			logger.Error(err, "Failed to update EnvSettings status")
+		if err := r.Status().Update(ctx, componentDeployment); err != nil {
+			logger.Error(err, "Failed to update ComponentDeployment status")
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
 
 	// Find the corresponding ComponentEnvSnapshot
-	snapshot, err := r.findSnapshot(ctx, envSettings)
+	snapshot, err := r.findSnapshot(ctx, componentDeployment)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Snapshot not found - cannot create Release without snapshot
-			msg := fmt.Sprintf("ComponentEnvSnapshot %q not found", r.buildSnapshotName(envSettings))
-			controller.MarkFalseCondition(envSettings, ConditionReady,
+			msg := fmt.Sprintf("ComponentEnvSnapshot %q not found", r.buildSnapshotName(componentDeployment))
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
 				ReasonComponentEnvSnapshotNotFound, msg)
 			logger.Info(msg,
-				"component", envSettings.Spec.Owner.ComponentName,
-				"environment", envSettings.Spec.Environment)
+				"component", componentDeployment.Spec.Owner.ComponentName,
+				"environment", componentDeployment.Spec.Environment)
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get ComponentEnvSnapshot")
@@ -99,14 +99,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// Validate snapshot configuration
 	if err := r.validateSnapshot(snapshot); err != nil {
 		msg := fmt.Sprintf("Invalid snapshot configuration: %v", err)
-		controller.MarkFalseCondition(envSettings, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
 			ReasonInvalidSnapshotConfiguration, msg)
 		logger.Error(err, "Snapshot validation failed")
 		return ctrl.Result{}, nil
 	}
 
 	// Create or update Release
-	if err := r.reconcileRelease(ctx, envSettings, snapshot); err != nil {
+	if err := r.reconcileRelease(ctx, componentDeployment, snapshot); err != nil {
 		logger.Error(err, "Failed to reconcile Release")
 		return ctrl.Result{}, err
 	}
@@ -114,12 +114,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	return ctrl.Result{}, nil
 }
 
-// findSnapshot finds the ComponentEnvSnapshot for the given EnvSettings
-func (r *Reconciler) findSnapshot(ctx context.Context, envSettings *openchoreov1alpha1.EnvSettings) (*openchoreov1alpha1.ComponentEnvSnapshot, error) {
+// findSnapshot finds the ComponentEnvSnapshot for the given ComponentDeployment
+func (r *Reconciler) findSnapshot(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment) (*openchoreov1alpha1.ComponentEnvSnapshot, error) {
 	snapshot := &openchoreov1alpha1.ComponentEnvSnapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      r.buildSnapshotName(envSettings),
-		Namespace: envSettings.Namespace,
+		Name:      r.buildSnapshotName(componentDeployment),
+		Namespace: componentDeployment.Namespace,
 	}, snapshot); err != nil {
 		return nil, err
 	}
@@ -127,10 +127,10 @@ func (r *Reconciler) findSnapshot(ctx context.Context, envSettings *openchoreov1
 	return snapshot, nil
 }
 
-// buildSnapshotName constructs the ComponentEnvSnapshot name for the given EnvSettings
-func (r *Reconciler) buildSnapshotName(envSettings *openchoreov1alpha1.EnvSettings) string {
+// buildSnapshotName constructs the ComponentEnvSnapshot name for the given ComponentDeployment
+func (r *Reconciler) buildSnapshotName(componentDeployment *openchoreov1alpha1.ComponentDeployment) string {
 	// Snapshot name format: {componentName}-{environment}
-	return fmt.Sprintf("%s-%s", envSettings.Spec.Owner.ComponentName, envSettings.Spec.Environment)
+	return fmt.Sprintf("%s-%s", componentDeployment.Spec.Owner.ComponentName, componentDeployment.Spec.Environment)
 }
 
 // validateSnapshot validates the ComponentEnvSnapshot configuration
@@ -162,10 +162,10 @@ func (r *Reconciler) validateSnapshot(snapshot *openchoreov1alpha1.ComponentEnvS
 }
 
 // reconcileRelease creates or updates the Release resource
-func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchoreov1alpha1.EnvSettings, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error { //nolint:unparam // snapshot will be used when rendering pipeline is implemented
+func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error { //nolint:unparam // snapshot will be used when rendering pipeline is implemented
 	logger := log.FromContext(ctx)
 
-	// TODO: Use envSettings and snapshot data to generate actual resources.
+	// TODO: Use componentDeployment and snapshot data to generate actual resources.
 	// This is a simplified implementation that creates a sample ConfigMap.
 	// In production, this should use the rendering pipeline to generate resources.
 
@@ -176,14 +176,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 			Kind:       "ConfigMap",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-config", envSettings.Spec.Owner.ComponentName),
-			Namespace: envSettings.Namespace,
+			Name:      fmt.Sprintf("%s-config", componentDeployment.Spec.Owner.ComponentName),
+			Namespace: componentDeployment.Namespace,
 		},
 		Data: map[string]string{
-			"component":   envSettings.Spec.Owner.ComponentName,
-			"environment": envSettings.Spec.Environment,
-			"project":     envSettings.Spec.Owner.ProjectName,
-			"message":     "Sample ConfigMap from EnvSettings controller",
+			"component":   componentDeployment.Spec.Owner.ComponentName,
+			"environment": componentDeployment.Spec.Environment,
+			"project":     componentDeployment.Spec.Owner.ProjectName,
+			"message":     "Sample ConfigMap from ComponentDeployment controller",
 		},
 	}
 
@@ -191,7 +191,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 	configMapBytes, err := json.Marshal(configMap)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to marshal resources: %v", err)
-		controller.MarkFalseCondition(envSettings, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
 			ReasonRenderingFailed, msg)
 		return fmt.Errorf("failed to marshal configmap: %w", err)
 	}
@@ -207,44 +207,44 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 	// Create or update Release
 	release := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      envSettings.Name,
-			Namespace: envSettings.Namespace,
+			Name:      componentDeployment.Name,
+			Namespace: componentDeployment.Namespace,
 		},
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
 		// Check if we own this Release
-		if !r.isOwnedByEnvSettings(release, envSettings) && release.UID != "" {
+		if !r.isOwnedByComponentDeployment(release, componentDeployment) && release.UID != "" {
 			// Release exists but not owned by us
-			return fmt.Errorf("release exists but is not owned by this EnvSettings")
+			return fmt.Errorf("release exists but is not owned by this ComponentDeployment")
 		}
 
 		// Set labels (replace entire map to ensure old labels don't persist)
 		release.Labels = map[string]string{
-			labels.LabelKeyOrganizationName: envSettings.Namespace,
-			labels.LabelKeyProjectName:      envSettings.Spec.Owner.ProjectName,
-			labels.LabelKeyComponentName:    envSettings.Spec.Owner.ComponentName,
-			labels.LabelKeyEnvironmentName:  envSettings.Spec.Environment,
+			labels.LabelKeyOrganizationName: componentDeployment.Namespace,
+			labels.LabelKeyProjectName:      componentDeployment.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:    componentDeployment.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName:  componentDeployment.Spec.Environment,
 		}
 
 		// Set spec
 		release.Spec = openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
-				ProjectName:   envSettings.Spec.Owner.ProjectName,
-				ComponentName: envSettings.Spec.Owner.ComponentName,
+				ProjectName:   componentDeployment.Spec.Owner.ProjectName,
+				ComponentName: componentDeployment.Spec.Owner.ComponentName,
 			},
-			EnvironmentName: envSettings.Spec.Environment,
+			EnvironmentName: componentDeployment.Spec.Environment,
 			Resources:       releaseResources,
 		}
 
-		return controllerutil.SetControllerReference(envSettings, release, r.Scheme)
+		return controllerutil.SetControllerReference(componentDeployment, release, r.Scheme)
 	})
 
 	if err != nil {
 		// Check for ownership conflict (permanent error - don't retry)
 		if strings.Contains(err.Error(), "not owned by") {
 			msg := fmt.Sprintf("Release %q exists but is owned by another resource", release.Name)
-			controller.MarkFalseCondition(envSettings, ConditionReady,
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
 				ReasonReleaseOwnershipConflict, msg)
 			logger.Error(err, msg)
 			return nil
@@ -258,7 +258,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 			reason = ReasonReleaseUpdateFailed
 		}
 		msg := fmt.Sprintf("Failed to reconcile Release: %v", err)
-		controller.MarkFalseCondition(envSettings, ConditionReady, reason, msg)
+		controller.MarkFalseCondition(componentDeployment, ConditionReady, reason, msg)
 		logger.Error(err, "Failed to reconcile Release", "release", release.Name)
 		return err
 	}
@@ -268,7 +268,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 		op == controllerutil.OperationResultUpdated {
 		msg := fmt.Sprintf("Release %q successfully %s with %d resources",
 			release.Name, op, len(releaseResources))
-		controller.MarkTrueCondition(envSettings, ConditionReady, ReasonReleaseReady, msg)
+		controller.MarkTrueCondition(componentDeployment, ConditionReady, ReasonReleaseReady, msg)
 		logger.Info("Successfully reconciled Release",
 			"release", release.Name,
 			"operation", op,
@@ -278,11 +278,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, envSettings *openchor
 	return nil
 }
 
-// isOwnedByEnvSettings checks if the Release is owned by the given EnvSettings
-func (r *Reconciler) isOwnedByEnvSettings(release *openchoreov1alpha1.Release,
-	envSettings *openchoreov1alpha1.EnvSettings) bool {
+// isOwnedByComponentDeployment checks if the Release is owned by the given ComponentDeployment
+func (r *Reconciler) isOwnedByComponentDeployment(release *openchoreov1alpha1.Release,
+	componentDeployment *openchoreov1alpha1.ComponentDeployment) bool {
 	for _, ref := range release.GetOwnerReferences() {
-		if ref.UID == envSettings.UID {
+		if ref.UID == componentDeployment.UID {
 			return true
 		}
 	}
@@ -302,10 +302,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.EnvSettings{}).
+		For(&openchoreov1alpha1.ComponentDeployment{}).
 		Owns(&openchoreov1alpha1.Release{}).
 		Watches(&openchoreov1alpha1.ComponentEnvSnapshot{},
-			handler.EnqueueRequestsFromMapFunc(r.listEnvSettingsForSnapshot)).
-		Named("envsettings").
+			handler.EnqueueRequestsFromMapFunc(r.listComponentDeploymentForSnapshot)).
+		Named("componentdeployments").
 		Complete(r)
 }

@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: EnvSettings
+kind: ComponentDeployment
 metadata:
   name: test-service-development
   namespace: default

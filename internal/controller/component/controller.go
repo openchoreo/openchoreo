@@ -111,9 +111,9 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch ComponentTypeDefinition
+	// Fetch ComponentTypeDefinition (in the same namespace as the Component)
 	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ctdName}, ctd); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: ctdName, Namespace: comp.Namespace}, ctd); err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("ComponentTypeDefinition %q not found", ctdName)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeDefinitionNotFound, msg)
@@ -147,8 +147,8 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, err
 	}
 
-	// Fetch all referenced Addons
-	addons, err := r.fetchAddons(ctx, comp.Spec.Addons)
+	// Fetch all referenced Addons (in the same namespace as the Component)
+	addons, err := r.fetchAddons(ctx, comp.Spec.Addons, comp.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Extract addon name from custom error type
@@ -264,12 +264,12 @@ func (e *addonFetchError) Unwrap() error {
 }
 
 // fetchAddons fetches all Addon resources referenced by the component
-func (r *Reconciler) fetchAddons(ctx context.Context, addonRefs []openchoreov1alpha1.ComponentAddon) ([]openchoreov1alpha1.Addon, error) {
+func (r *Reconciler) fetchAddons(ctx context.Context, addonRefs []openchoreov1alpha1.ComponentAddon, namespace string) ([]openchoreov1alpha1.Addon, error) {
 	addons := make([]openchoreov1alpha1.Addon, 0, len(addonRefs))
 
 	for _, ref := range addonRefs {
 		addon := &openchoreov1alpha1.Addon{}
-		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name}, addon); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, addon); err != nil {
 			return nil, &addonFetchError{addonName: ref.Name, err: err}
 		}
 		addons = append(addons, *addon)

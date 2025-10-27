@@ -87,7 +87,7 @@ kubectl get release test-service-development -n default -o jsonpath='{.spec.reso
    - Creates a `ComponentEnvSnapshot` with exact copies of all resources
    - The snapshot preserves the inline schema format from the original definitions
 
-2. **EnvSettings Controller**:
+2. **ComponentDeployment Controller**:
    - Finds the corresponding ComponentEnvSnapshot
    - Creates a `Release` resource containing the Kubernetes resources to be deployed
    - The Release contains a sample ConfigMap embedded in `spec.resources`

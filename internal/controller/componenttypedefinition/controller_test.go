@@ -20,9 +20,11 @@ import (
 var _ = Describe("ComponentTypeDefinition Controller", func() {
 	Context("When reconciling a ComponentTypeDefinition resource", func() {
 		const ctdName = "test-componenttypedefinition"
+		const ctdNamespace = "default"
 
 		ctdNamespacedName := types.NamespacedName{
-			Name: ctdName,
+			Name:      ctdName,
+			Namespace: ctdNamespace,
 		}
 
 		It("should successfully reconcile the resource", func() {
@@ -32,7 +34,8 @@ var _ = Describe("ComponentTypeDefinition Controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				ctd = &openchoreov1alpha1.ComponentTypeDefinition{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: ctdName,
+						Name:      ctdName,
+						Namespace: ctdNamespace,
 					},
 					Spec: openchoreov1alpha1.ComponentTypeDefinitionSpec{
 						WorkloadType: "deployment",

@@ -70,8 +70,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ComponentEnvSnapshot{}).
-		Watches(&openchoreov1alpha1.EnvSettings{},
-			handler.EnqueueRequestsFromMapFunc(r.listSnapshotsForEnvSettings)).
+		Watches(&openchoreov1alpha1.ComponentDeployment{},
+			handler.EnqueueRequestsFromMapFunc(r.listSnapshotsForComponentDeployment)).
 		Watches(&openchoreov1alpha1.Addon{},
 			handler.EnqueueRequestsFromMapFunc(r.listSnapshotsUsingAddon)).
 		Named("componentenvsnapshot").
