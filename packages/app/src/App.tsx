@@ -29,7 +29,7 @@ import { ChoreoCatalogFilters } from './components/catalog/ChoreoCatalogFilters'
 import { choreoCatalogTableColumns } from './components/catalog/ChoreoCatalogTableColumns';
 import { searchPage } from './components/search/SearchPage';
 import { Root } from './components/Root';
-import { HomePage } from './components/home/HomePage';
+import { HomePage } from './components/Home/HomePage';
 
 import {
   AlertDisplay,
