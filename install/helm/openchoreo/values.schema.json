@@ -143,8 +143,16 @@
               ]
             },
             "redirectUrls": {
-              "default": ["https://localhost:7007/api/auth/oidc/handler/frame"],
               "description": "OAuth redirect URLs",
+              "items": {
+                "anyOf": [
+                  {
+                    "required": [],
+                    "type": "string"
+                  }
+                ],
+                "required": []
+              },
               "required": [],
               "title": "redirectUrls",
               "type": [
@@ -368,38 +376,6 @@
                 "object"
               ]
             },
-            "security": {
-              "additionalProperties": false,
-              "description": "Security configuration",
-              "properties": {
-                "certFile": {
-                  "default": "repository/resources/security/server.cert",
-                  "description": "Path to the SSL/TLS certificate file",
-                  "required": [],
-                  "title": "certFile",
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "keyFile": {
-                  "default": "repository/resources/security/server.key",
-                  "description": "Path to the SSL/TLS key file",
-                  "required": [],
-                  "title": "keyFile",
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                }
-              },
-              "required": [],
-              "title": "security",
-              "type": [
-                "null",
-                "object"
-              ]
-            },
             "oauth": {
               "additionalProperties": false,
               "description": "OAuth configuration",
@@ -471,6 +447,38 @@
               },
               "required": [],
               "title": "oauth",
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "security": {
+              "additionalProperties": false,
+              "description": "Security configuration",
+              "properties": {
+                "certFile": {
+                  "default": "repository/resources/security/server.cert",
+                  "description": "Path to the SSL/TLS certificate file",
+                  "required": [],
+                  "title": "certFile",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "keyFile": {
+                  "default": "repository/resources/security/server.key",
+                  "description": "Path to the SSL/TLS key file",
+                  "required": [],
+                  "title": "keyFile",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "required": [],
+              "title": "security",
               "type": [
                 "null",
                 "object"
@@ -756,7 +764,7 @@
                 },
                 "reclaimPolicy": {
                   "default": "Delete",
-                  "description": "persistent volume reclaim policy",
+                  "description": "Volume reclaim policy",
                   "required": [],
                   "title": "reclaimPolicy",
                   "type": [
@@ -875,6 +883,59 @@
                 "null",
                 "integer"
               ]
+            },
+            "runAsGroup": {
+              "default": 1000,
+              "description": "Group ID to run the container as",
+              "required": [],
+              "title": "runAsGroup",
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run containers as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID to run the container as",
+              "required": [],
+              "title": "runAsUser",
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile configuration",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": [
+                "null",
+                "object"
+              ]
             }
           },
           "required": [],
@@ -991,6 +1052,12 @@
                 "drop": {
                   "description": "Capabilities to drop",
                   "items": {
+                    "anyOf": [
+                      {
+                        "required": [],
+                        "type": "string"
+                      }
+                    ],
                     "required": []
                   },
                   "required": [],
@@ -1311,6 +1378,7 @@
     },
     "backstage": {
       "additionalProperties": false,
+      "description": "Backstage UI configuration",
       "properties": {
         "affinity": {
           "additionalProperties": false,
@@ -2522,7 +2590,10 @@
       },
       "required": [],
       "title": "backstage",
-      "type": "object"
+      "type": [
+        "null",
+        "object"
+      ]
     },
     "controllerManager": {
       "additionalProperties": false,
@@ -5037,8 +5108,6 @@
       ]
     }
   },
-  "required": [
-    "backstage"
-  ],
+  "required": [],
   "type": "object"
 }

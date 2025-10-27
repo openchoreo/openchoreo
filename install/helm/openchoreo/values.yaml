@@ -1524,6 +1524,31 @@ asgardeoThunder:
   # -- Pod security context
   podSecurityContext:
     # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Run containers as non-root user
+    runAsNonRoot: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Seccomp profile configuration
+    seccompProfile:
+      # @schema
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # @schema
+      # -- Seccomp profile type
+      type: RuntimeDefault
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- User ID to run the container as
+    runAsUser: 1000
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Group ID to run the container as
+    runAsGroup: 1000
+    # @schema
     # type: [null, integer]
     # @schema
     # -- Filesystem group
