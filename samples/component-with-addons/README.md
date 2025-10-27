@@ -4,11 +4,12 @@ This example demonstrates how to use ComponentTypeDefinitions and Addons to crea
 
 ## Resources
 
-- **componenttypedefinition.yaml**: Defines a simple deployment component type with configurable replicas and resources
-- **addon.yaml**: Defines a PVC addon that creates a PersistentVolumeClaim and mounts it to the deployment
-- **component.yaml**: A component instance using the simple-deployment type with the PVC addon
-- **workload.yaml**: The workload spec (normally created by the build process)
-- **envsettings.yaml**: Environment-specific settings that override default values for the development environment
+- **component-with-addons.yaml**: Contains all resources needed for this example:
+  - ComponentTypeDefinition: Defines a simple deployment component type with configurable replicas and resources
+  - Addon: Defines a PVC addon that creates a PersistentVolumeClaim and mounts it to the deployment
+  - Workload: The workload spec (normally created by the build process)
+  - Component: A component instance using the simple-deployment type with the PVC addon
+  - ComponentDeployment: Environment-specific settings that override default values for the development environment
 
 ## Key Features
 
@@ -51,15 +52,8 @@ Addons can:
 ## Applying the Example
 
 ```bash
-# Apply all resources from this directory
-kubectl apply -f samples/component-with-addons/
-
-# Or apply individually in order
-kubectl apply -f samples/component-with-addons/componenttypedefinition.yaml
-kubectl apply -f samples/component-with-addons/addon.yaml
-kubectl apply -f samples/component-with-addons/workload.yaml
-kubectl apply -f samples/component-with-addons/component.yaml
-kubectl apply -f samples/component-with-addons/envsettings.yaml
+# Apply all resources
+kubectl apply -f samples/component-with-addons/component-with-addons.yaml
 
 # Check the generated resources
 kubectl get componentenvsnapshot -n default
