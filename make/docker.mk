@@ -30,7 +30,8 @@ DOCKER_BUILD_IMAGES := \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
-	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR)
+	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR) \
+	backstage:$(PROJECT_DIR)/ui/packages/backend/Dockerfile:$(PROJECT_DIR)/ui
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 

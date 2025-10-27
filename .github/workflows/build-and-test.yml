@@ -50,6 +50,43 @@ jobs:
         run: |
           make test
 
+  ui-build-and-test:
+    name: UI Build and Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    strategy:
+      matrix:
+        node-version: [22]
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          cache-dependency-path: ui/yarn.lock
+
+      - name: Install Dependencies
+        run: yarn install --immutable
+
+      - name: Check Type Errors
+        run: yarn tsc
+
+      - name: Build Project
+        run: yarn build:all
+
+      - name: Lint Files
+        run: yarn lint:all
+
+      - name: Check Prettier
+        run: yarn prettier --check .
+
   build:
     name: Build
     runs-on: ubuntu-24.04
@@ -151,10 +188,10 @@ jobs:
       - name: Set commit SHA
         run: echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build and push multiarch commit images
+      - name: Build and push multiarch commit images (including UI)
         run: make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
 
-      - name: Build and push multiarch latest-dev images
+      - name: Build and push multiarch latest-dev images (including UI)
         if: github.ref == 'refs/heads/main'
         run: make docker.push-multiarch
 
