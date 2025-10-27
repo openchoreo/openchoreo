@@ -76,7 +76,10 @@ spec:
                       "client_id": "{{ .Values.asgardeoThunder.backstagePortal.clientId }}",
                       "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
                       "redirect_uris": [
-                        "{{ .Values.asgardeoThunder.backstagePortal.redirectUrl }}"
+                        {{- range $index, $url := .Values.asgardeoThunder.backstagePortal.redirectUrls }}
+                        {{- if $index }},{{ end }}
+                        "{{ $url }}"
+                        {{- end }}
                       ],
                       "grant_types": [
                         "authorization_code"
@@ -85,7 +88,7 @@ spec:
                         "code"
                       ],
                       "token_endpoint_auth_methods": [
-                        "none"
+                        "client_secret_basic"
                       ],
                       "pkce_required": false,
                       "public_client": false,

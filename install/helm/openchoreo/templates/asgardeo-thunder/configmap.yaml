@@ -20,11 +20,9 @@ data:
       login_path: {{ .Values.asgardeoThunder.config.gateClient.loginPath | quote }}
       error_path: {{ .Values.asgardeoThunder.config.gateClient.errorPath | quote }}
    
-    {{- if not .Values.asgardeoThunder.config.server.httpOnly }}
     security:
-      cert_file: "repository/resources/security/server.cert"
-      key_file: "repository/resources/security/server.key"
-    {{- end }}
+      cert_file: {{ .Values.asgardeoThunder.config.security.certFile | quote }}
+      key_file: {{ .Values.asgardeoThunder.config.security.keyFile | quote }}
 
     database:
       identity:
@@ -53,7 +51,7 @@ data:
         - "https://localhost:9090"
         {{- if .Values.asgardeoThunder.ingress.enabled }}
         {{- range .Values.asgardeoThunder.ingress.hosts }}
-        - "https://{{ .host }}"
+        - "http{{ if $.Values.asgardeoThunder.ingress.tls }}s{{ end }}://{{ .host }}"
         {{- end }}
         {{- end }}
 {{- end }}

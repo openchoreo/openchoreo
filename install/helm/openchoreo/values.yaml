@@ -1716,6 +1716,21 @@ asgardeoThunder:
     # @schema
     # type: [null, object]
     # @schema
+    # -- Security configuration
+    security:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Path to the SSL/TLS certificate file
+      certFile: "repository/resources/security/server.cert"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Path to the SSL/TLS key file
+      keyFile: "repository/resources/security/server.key"
+    # @schema
+    # type: [null, object]
+    # @schema
     # -- Database configuration
     database:
       # @schema
@@ -1874,10 +1889,11 @@ asgardeoThunder:
     # -- OAuth client secret (auto-generated if not provided)
     clientSecret: ""
     # @schema
-    # type: [null, string]
+    # type: [null, array]
     # @schema
-    # -- OAuth redirect URL
-    redirectUrl: "https://localhost:7007/api/auth/oidc/handler/frame"
+    # -- OAuth redirect URLs
+    redirectUrls:
+      - "https://localhost:7007/api/auth/oidc/handler/frame"
   # @schema
   # type: [null, object]
   # @schema

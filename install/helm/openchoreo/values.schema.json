@@ -142,14 +142,14 @@
                 "string"
               ]
             },
-            "redirectUrl": {
-              "default": "https://localhost:7007/api/auth/oidc/handler/frame",
-              "description": "OAuth redirect URL",
+            "redirectUrls": {
+              "default": ["https://localhost:7007/api/auth/oidc/handler/frame"],
+              "description": "OAuth redirect URLs",
               "required": [],
-              "title": "redirectUrl",
+              "title": "redirectUrls",
               "type": [
                 "null",
-                "string"
+                "array"
               ]
             }
           },
@@ -363,6 +363,38 @@
               },
               "required": [],
               "title": "gateClient",
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "security": {
+              "additionalProperties": false,
+              "description": "Security configuration",
+              "properties": {
+                "certFile": {
+                  "default": "repository/resources/security/server.cert",
+                  "description": "Path to the SSL/TLS certificate file",
+                  "required": [],
+                  "title": "certFile",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "keyFile": {
+                  "default": "repository/resources/security/server.key",
+                  "description": "Path to the SSL/TLS key file",
+                  "required": [],
+                  "title": "keyFile",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "required": [],
+              "title": "security",
               "type": [
                 "null",
                 "object"
@@ -4333,6 +4365,28 @@
           },
           "required": [],
           "title": "ingress",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "mcp": {
+          "additionalProperties": false,
+          "description": "MCP (Model Context Protocol) Server Configuration",
+          "properties": {
+            "toolsets": {
+              "default": "core",
+              "description": "Comma-separated list of enabled toolsets\nAvailable toolsets: core",
+              "required": [],
+              "title": "toolsets",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "mcp",
           "type": [
             "null",
             "object"
