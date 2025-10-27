@@ -202,7 +202,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         e => e.kind === 'Component',
       ).length;
       const apiCount = allEntities.filter(e => e.kind === 'API').length;
-      const environmentCount = allEntities.filter(e => e.kind === 'Environment').length;
+      const environmentCount = allEntities.filter(
+        e => e.kind === 'Environment',
+      ).length;
       this.logger.info(
         `Successfully processed ${allEntities.length} entities (${domainEntities.length} domains, ${systemCount} systems, ${componentCount} components, ${apiCount} apis, ${environmentCount} environments)`,
       );
@@ -295,7 +297,8 @@ export class OpenChoreoEntityProvider implements EntityProvider {
       metadata: {
         name: environment.name,
         title: environment.displayName || environment.name,
-        description: environment.description || `${environment.name} environment`,
+        description:
+          environment.description || `${environment.name} environment`,
         tags: [
           'openchoreo',
           'environment',
@@ -315,7 +318,9 @@ export class OpenChoreoEntityProvider implements EntityProvider {
         },
         labels: {
           [CHOREO_LABELS.MANAGED]: 'true',
-          'openchoreo.io/environment-type': environment.isProduction ? 'production' : 'non-production',
+          'openchoreo.io/environment-type': environment.isProduction
+            ? 'production'
+            : 'non-production',
         },
       },
       spec: {

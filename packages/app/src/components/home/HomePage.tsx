@@ -2,53 +2,30 @@ import { useState, useEffect } from 'react';
 
 import { Content, Page, Header } from '@backstage/core-components';
 import {
+  HomePageRecentlyVisited,
   HomePageStarredEntities,
   HomePageToolkit,
   TemplateBackstageLogoIcon,
 } from '@backstage/plugin-home';
 import { HomePageSearchBar } from '@backstage/plugin-search';
 import { SearchContextProvider } from '@backstage/plugin-search-react';
-import {
-  Grid,
-  makeStyles,
-  Typography,
-  Card,
-  CardContent,
-} from '@material-ui/core';
+import { Grid, Typography, Card, CardContent, Box } from '@material-ui/core';
 import {
   useApi,
   identityApiRef,
   errorApiRef,
 } from '@backstage/core-plugin-api';
-
-const useStyles = makeStyles(theme => ({
-  searchBarInput: {
-    maxWidth: '60vw',
-    margin: 'auto',
-    backgroundColor: theme.palette.background.paper,
-    borderRadius: '50px',
-    boxShadow: theme.shadows[1],
-  },
-  searchBarOutline: {
-    borderStyle: 'none',
-  },
-  welcomeCard: {
-    minHeight: '200px',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-  },
-  groupBadge: {
-    display: 'inline-block',
-    padding: '4px 12px',
-    margin: '4px',
-    borderRadius: '12px',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontSize: '0.875rem',
-  },
-}));
-
+import { useStyles } from './styles';
+import {
+  DeveloperPortalWidget,
+  HomePagePlatformDetailsCard,
+  InfrastructureWidget,
+} from '@openchoreo/backstage-plugin-platform-engineer-core';
+import { MyProjectsWidget } from '@openchoreo/backstage-plugin';
+import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
+import ViewListIcon from '@material-ui/icons/ViewList';
+import AppsIcon from '@material-ui/icons/Apps';
+import FeaturedPlayListOutlinedIcon from '@material-ui/icons/FeaturedPlayListOutlined';
 /**
  * Custom HomePage that shows different content based on user groups
  */
@@ -165,7 +142,7 @@ export const HomePage = () => {
             </Grid>
 
             {/* Welcome Card with Role Information */}
-            <Grid container item xs={12}>
+            <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <Card className={classes.welcomeCard}>
                   <CardContent>
@@ -190,8 +167,63 @@ export const HomePage = () => {
                 </Card>
               </Grid>
 
+              {getUserRole() === 'platformengineer' && (
+                <Grid item xs={12} md={8}>
+                  {/* Platform Metrics Section */}
+                  <Box className={classes.overviewSection}>
+                    <Typography variant="h3">Platform Overview</Typography>
+                    <Grid container className={classes.widgetContainer}>
+                      <Grid item xs={12} md={5} sm={12}>
+                        <InfrastructureWidget />
+                      </Grid>
+                      <Grid item xs={12} md={5} sm={12}>
+                        <DeveloperPortalWidget />
+                      </Grid>
+                    </Grid>
+                  </Box>
+
+                  {/* Platform Details Section */}
+                  <Box className={classes.platformDetailsSection}>
+                    <HomePagePlatformDetailsCard />
+                  </Box>
+                </Grid>
+              )}
+
+              {getUserRole() === 'developer' && (
+                <Grid item xs={12} md={8}>
+                  {/* My Projects Widget Section */}
+                  <Box className={classes.overviewSection}>
+                    <Typography variant="h3">Overview</Typography>
+                    <Grid container className={classes.widgetContainer}>
+                      <Grid item xs={12} md={5} sm={12}>
+                        <MyProjectsWidget />
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Grid>
+              )}
+
+              {/* Right Sidebar - Quick Access */}
+              <Grid item xs={12} md={4}>
+                <Grid container justifyContent="flex-end">
+                  <Grid item md={10} xs={12} className={classes.sidebarSection}>
+                    <Typography variant="h4" color="secondary">
+                      Recent Activity
+                    </Typography>
+
+                    <Box className={classes.sidebarWidget}>
+                      <HomePageStarredEntities />
+                    </Box>
+
+                    <Box className={classes.sidebarWidget}>
+                      <HomePageRecentlyVisited />
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Grid>
+
               {/* Quick Actions based on role */}
-              <Grid item xs={12} md={6}>
+              {/* <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -220,13 +252,13 @@ export const HomePage = () => {
                     </Grid>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Grid> */}
             </Grid>
 
             {/* Starred Entities - shown to all users */}
-            <Grid container item xs={12} md={6}>
+            {/* <Grid container item xs={12} md={6}>
               <HomePageStarredEntities />
-            </Grid>
+            </Grid> */}
 
             {/* Toolkit - conditional based on role */}
             {(userGroups.includes('admins') ||
@@ -236,14 +268,29 @@ export const HomePage = () => {
                 <HomePageToolkit
                   tools={[
                     {
-                      url: '/create',
+                      url: '/create/templates/default/create-openchoreo-component',
                       label: 'Create Component',
-                      icon: <TemplateBackstageLogoIcon />,
+                      icon: <AddCircleOutlineIcon />,
                     },
                     {
                       url: '/catalog-import',
                       label: 'Import Entity',
                       icon: <TemplateBackstageLogoIcon />,
+                    },
+                    {
+                      url: '/catalog?filters[kind]=System&filters[user]=owned',
+                      label: 'View My Projects',
+                      icon: <ViewListIcon />,
+                    },
+                    {
+                      url: '/catalog?filters[kind]=Component&filters[user]=owned',
+                      label: 'View My Components',
+                      icon: <AppsIcon />,
+                    },
+                    {
+                      url: '/create',
+                      label: 'Browse Templates',
+                      icon: <FeaturedPlayListOutlinedIcon />,
                     },
                   ]}
                 />

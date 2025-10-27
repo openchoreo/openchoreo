@@ -54,8 +54,9 @@ export const apis: AnyApiFactory[] = [
     api: visitsApiRef,
     deps: {
       identityApi: identityApiRef,
-      errorApi: errorApiRef
+      errorApi: errorApiRef,
     },
-    factory: ({ identityApi, errorApi }) => VisitsWebStorageApi.create({ identityApi, errorApi }),
+    factory: ({ identityApi, errorApi }) =>
+      VisitsWebStorageApi.create({ identityApi, errorApi }),
   }),
 ];

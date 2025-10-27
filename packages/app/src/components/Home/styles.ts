@@ -158,4 +158,29 @@ export const useStyles = makeStyles(theme => ({
     color: theme.palette.text.secondary,
     opacity: 0.6,
   },
+  searchBarInput: {
+    maxWidth: '60vw',
+    margin: 'auto',
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: '50px',
+    boxShadow: theme.shadows[1],
+  },
+  searchBarOutline: {
+    borderStyle: 'none',
+  },
+  welcomeCard: {
+    minHeight: '200px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  groupBadge: {
+    display: 'inline-block',
+    padding: '4px 12px',
+    margin: '4px',
+    borderRadius: '12px',
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    fontSize: '0.875rem',
+  },
 }));

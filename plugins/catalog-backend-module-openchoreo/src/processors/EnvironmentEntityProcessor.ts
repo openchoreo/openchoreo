@@ -4,10 +4,7 @@ import {
   processingResult,
 } from '@backstage/plugin-catalog-node';
 import { LocationSpec } from '@backstage/plugin-catalog-common';
-import { 
-  RELATION_OWNED_BY,
-  RELATION_PART_OF,
-} from '@backstage/catalog-model';
+import { RELATION_OWNED_BY, RELATION_PART_OF } from '@backstage/catalog-model';
 import { EnvironmentEntityV1alpha1 } from '../kinds/EnvironmentEntityV1alpha1';
 
 /**
@@ -18,7 +15,9 @@ export class EnvironmentEntityProcessor implements CatalogProcessor {
     return 'EnvironmentEntityProcessor';
   }
 
-  async validateEntityKind(entity: EnvironmentEntityV1alpha1): Promise<boolean> {
+  async validateEntityKind(
+    entity: EnvironmentEntityV1alpha1,
+  ): Promise<boolean> {
     return entity.kind === 'Environment';
   }
 
@@ -45,20 +44,32 @@ export class EnvironmentEntityProcessor implements CatalogProcessor {
 
       // Emit partOf relationship to domain
       if (entity.spec.domain) {
-        emit(processingResult.relation({
-          source: sourceRef,
-          target: { kind: 'domain', namespace: 'default', name: entity.spec.domain },
-          type: RELATION_PART_OF,
-        }));
+        emit(
+          processingResult.relation({
+            source: sourceRef,
+            target: {
+              kind: 'domain',
+              namespace: 'default',
+              name: entity.spec.domain,
+            },
+            type: RELATION_PART_OF,
+          }),
+        );
       }
 
       // Emit ownedBy relationship to owner
       if (entity.spec.owner) {
-        emit(processingResult.relation({
-          source: sourceRef,
-          target: { kind: 'group', namespace: 'default', name: entity.spec.owner },
-          type: RELATION_OWNED_BY,
-        }));
+        emit(
+          processingResult.relation({
+            source: sourceRef,
+            target: {
+              kind: 'group',
+              namespace: 'default',
+              name: entity.spec.owner,
+            },
+            type: RELATION_OWNED_BY,
+          }),
+        );
       }
     }
 
@@ -93,7 +104,7 @@ export class EnvironmentEntityProcessor implements CatalogProcessor {
 
     // Emit the processed entity
     emit(processingResult.entity(location, entity));
-    
+
     return entity;
   }
 }

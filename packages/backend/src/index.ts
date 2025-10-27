@@ -62,6 +62,8 @@ backend.add(
     '@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users'
   ),
 );
-backend.add(import('@openchoreo/backstage-plugin-platform-engineer-core-backend'));
+backend.add(
+  import('@openchoreo/backstage-plugin-platform-engineer-core-backend'),
+);
 // backend.add(import('@openchoreo/backstage-plugin-home-backend'));
 backend.start();
