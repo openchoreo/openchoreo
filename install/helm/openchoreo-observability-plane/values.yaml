@@ -8,7 +8,7 @@ global:
   # minimal: Single replica OpenSearch instance will be deployed
   installationMode: minimal
 
-opensearch:
+openSearch:
   enabled: true
 
   extraEnvs:
@@ -16,7 +16,9 @@ opensearch:
       value: ThisIsTheOpenSearchPassword1
     - name: DISABLE_SECURITY_PLUGIN
       value: "true"
-
+  nameOverride: "opensearch"
+  image:
+    tag: "3.3.0"
   masterService: opensearch
   securityConfig:
     enabled: false
@@ -76,19 +78,20 @@ openSearchCluster:
       description: "Admin user"
 
 # Customizing OpenSearch Dashboards configurations
-opensearchDashboard:
-  image:
-    repository: opensearchproject/opensearch-dashboards
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
-
-  service:
-    type: NodePort
-    port: 5601
+openSearchDashboards:
+  enabled: true
 
   config:
-    disableSecurity: true
+    disableSecurity: "true"
 
+  extraEnvs:
+  - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+    value: "true"
+
+  fullnameOverride: "opensearch-dashboards"
+  image:
+    tag: "3.3.0"
+  opensearchHosts: "http://opensearch:9200"
   replicas: 1
 
 # OpenChoreo Observer Service Configuration
