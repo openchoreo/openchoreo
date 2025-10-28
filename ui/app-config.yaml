@@ -71,14 +71,15 @@ auth:
   providers:
     # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
     # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
-    # For local development with Kind: set THUNDER_BASE_URL via install/dev/openchoreo-values.yaml (e.g., http://sts.openchoreo.localhost)
+    # Client credentials are automatically configured from asgardeoThunder.backstagePortal values
+    # For local development with Kind: URLs set via install/dev/openchoreo-values.yaml (e.g., http://sts.openchoreo.localhost)
     # For production: set via install/helm/openchoreo/values.yaml backstage.thunder.baseUrl (external URL with ingress/load balancer)
     default-idp:
       development:
-        clientId: 'openchoreo-platform-idp-client'
-        clientSecret: 'openchoreo-platform-idp-client-secret'
-        authorizationUrl: '${THUNDER_BASE_URL}/oauth2/authorize'
-        tokenUrl: '${THUNDER_BASE_URL}/oauth2/token'
+        clientId: ${OPENCHOREO_AUTH_CLIENT_ID}
+        clientSecret: ${OPENCHOREO_AUTH_CLIENT_SECRET}
+        authorizationUrl: ${OPENCHOREO_AUTH_AUTHORIZATION_URL}
+        tokenUrl: ${OPENCHOREO_AUTH_TOKEN_URL}
         scope: 'openid profile email'
 
 scaffolder:
