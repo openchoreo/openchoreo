@@ -1,0 +1,55 @@
+name: PR Builder
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# Avoid running multiple builds for the same PR.
+concurrency:
+  group: pr-builder-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: PR Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22]
+        yarn-version: [latest]
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup node
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install Dependencies
+        id: install-dependencies
+        run: yarn install --immutable
+
+      - name: Check Type Errors
+        run: yarn tsc
+
+      - name: Build Project
+        id: build
+        run: yarn build:all
+
+      - name: Lint Files
+        id: lint-files
+        run: yarn lint:all
+
+      - name: Check Prettier
+        id: check-prettier
+        run: yarn prettier --check .

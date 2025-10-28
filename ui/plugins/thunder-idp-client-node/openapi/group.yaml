@@ -1,0 +1,793 @@
+openapi: 3.0.3
+info:
+  title: Group Management API
+  version: '1.0'
+  description: This API is used to manage groups.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: https://{host}:{port}
+    variables:
+      host:
+        default: 'localhost'
+      port:
+        default: '8090'
+
+tags:
+  - name: groups
+    description: Operations related to group management
+  - name: groups-by-path
+    description: Operations related to group management using hierarchical handle paths
+
+paths:
+  /groups:
+    get:
+      tags:
+        - groups
+      summary: List groups
+      parameters:
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+              example:
+                totalResults: 5
+                startIndex: 1
+                count: 2
+                groups:
+                  - id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                    name: 'Sports'
+                    description: 'Sports group'
+                    organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+                  - id: '257e528f-eb24-48b6-884d-20460e190957'
+                    name: 'Managers'
+                    description: 'Manager group'
+                    organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+                links:
+                  - href: 'groups?offset=2&limit=2'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'GRP-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'GRP-1011'
+                    message: 'Invalid limit parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'GRP-1012'
+                    message: 'Invalid offset parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+    post:
+      tags:
+        - groups
+      summary: Create a new group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+            example:
+              name: 'Sports'
+              description: 'Sports group'
+              organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+              members:
+                - type: 'user'
+                  id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                - type: 'user'
+                  id: '9f1e47d3-0347-4464-9f02-e0bfae02e896'
+                - type: 'group'
+                  id: '6b1e7b8d-7e19-41eb-8fa2-c0ee5bb67a94'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+              example:
+                id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                name: 'Sports'
+                description: 'Sports group'
+                organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'GRP-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-user-id:
+                  summary: Invalid member ID
+                  value:
+                    code: 'GRP-1007'
+                    message: 'Invalid member ID'
+                    description: 'One or more member IDs in the request do not exist'
+                ou-not-found:
+                  summary: Organization unit not found
+                  value:
+                    code: 'GRP-1005'
+                    message: 'Organization unit not found'
+                    description: 'Organization unit not found'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1004'
+                message: 'Group name conflict'
+                description: 'A group with the same name exists under the same organization unit'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+  /groups/{id}:
+    get:
+      tags:
+        - groups
+      summary: Get a group by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+              example:
+                id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                name: 'Sports'
+                description: 'Sports group'
+                organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1002'
+                message: 'Invalid request format'
+                description: 'Group ID is required'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1003'
+                message: 'Group not found'
+                description: 'The group with the specified id does not exist'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+    put:
+      tags:
+        - groups
+      summary: Update a group by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+            example:
+              name: 'Activities'
+              description: 'Activities group'
+              organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+              members:
+                - type: 'user'
+                  id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                - type: 'user'
+                  id: '9f1e47d3-0347-4464-9f02-e0bfae02e896'
+                - type: 'group'
+                  id: '6b1e7b8d-7e19-41eb-8fa2-c0ee5bb67a94'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+              example:
+                id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                name: 'Activities'
+                description: 'Activities group'
+                organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing-group-id:
+                  summary: Missing group ID
+                  value:
+                    code: 'GRP-1002'
+                    message: 'Invalid request format'
+                    description: 'Group ID is required'
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'GRP-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-user-id:
+                  summary: Invalid member ID
+                  value:
+                    code: 'GRP-1007'
+                    message: 'Invalid member ID'
+                    description: 'One or more member IDs in the request do not exist'
+                ou-not-found:
+                  summary: Organization unit not found
+                  value:
+                    code: 'GRP-1005'
+                    message: 'Organization unit not found'
+                    description: 'Organization unit not found'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1003'
+                message: 'Group not found'
+                description: 'The group with the specified id does not exist'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1004'
+                message: 'Group name conflict'
+                description: 'A group with the same name exists under the same organization unit'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+    delete:
+      tags:
+        - groups
+      summary: Delete a group by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Group deleted
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing-group-id:
+                  summary: Missing group ID
+                  value:
+                    code: 'GRP-1002'
+                    message: 'Invalid request format'
+                    description: 'Group ID is required'
+                cannot-delete-group:
+                  summary: Cannot delete group
+                  value:
+                    code: 'GRP-1006'
+                    message: 'Cannot delete group'
+                    description: 'Cannot delete group with child groups'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+  /groups/{id}/members:
+    get:
+      tags:
+        - groups
+      summary: List members in group
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+      responses:
+        '200':
+          description: List of members in the group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberListResponse'
+              example:
+                totalResults: 5
+                startIndex: 1
+                count: 2
+                members:
+                  - type: 'user'
+                    id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                  - type: 'group'
+                    id: '8c2f8e9e-8f2a-4f5b-9c3d-4e5f6a7b8c9d'
+                links:
+                  - href: 'groups/3fa85f64-5717-4562-b3fc-2c963f66afa6/members?offset=2&limit=2'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'GRP-1011'
+                    message: 'Invalid limit parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'GRP-1012'
+                    message: 'Invalid offset parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1003'
+                message: 'Group not found'
+                description: 'The group with the specified id does not exist'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+  /groups/tree/{path}:
+    get:
+      tags:
+        - groups-by-path
+      summary: List groups in organization unit specified by handle path
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+          style: simple
+          explode: false
+          description: |
+            Hierarchical path of organization unit handles separated by forward slashes.
+            Examples:
+            - `engineering` - Lists groups in the "engineering" OU
+            - `engineering/frontend` - Lists groups in "engineering/frontend"
+          example: 'engineering/frontend'
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+      responses:
+        '200':
+          description: List of groups in the organization unit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+              example:
+                totalResults: 5
+                startIndex: 1
+                count: 2
+                groups:
+                  - id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                    name: 'Sports'
+                    description: 'Sports group'
+                    organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+                  - id: '257e528f-eb24-48b6-884d-20460e190957'
+                    name: 'Managers'
+                    description: 'Manager group'
+                    organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+                links:
+                  - href: 'groups/tree/engineering/frontend?offset=2&limit=2'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'GRP-1011'
+                    message: 'Invalid limit parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'GRP-1012'
+                    message: 'Invalid offset parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+        '404':
+          description: Organization unit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                path-not-found:
+                  summary: Handle path not found
+                  value:
+                    code: 'GRP-1008'
+                    message: 'Organization unit not found'
+                    description: 'The organization unit with the specified handle path does not exist'
+                invalid-path:
+                  summary: Invalid path structure
+                  value:
+                    code: 'GRP-1009'
+                    message: 'Invalid handle path'
+                    description: 'The handle path does not represent a valid organizational hierarchy'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+    post:
+      tags:
+        - groups-by-path
+      summary: Create a new group under the organization unit specified by the handle path
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+          style: simple
+          explode: false
+          description: |
+            Hierarchical path of organization unit handles separated by forward slashes.
+            The new group will be created under the organization unit specified by this path.
+            Examples:
+            - `engineering` - Creates a new group under the "engineering" OU
+            - `engineering/frontend` - Creates a new group under "engineering/frontend"
+          example: 'engineering/frontend'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupByPathRequest'
+            example:
+              name: 'Sports'
+              description: 'Sports group'
+              members:
+                - type: 'user'
+                  id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                - type: 'user'
+                  id: '9f1e47d3-0347-4464-9f02-e0bfae02e896'
+                - type: 'group'
+                  id: '6b1e7b8d-7e19-41eb-8fa2-c0ee5bb67a94'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+              example:
+                id: '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                name: 'Sports'
+                description: 'Sports group'
+                organizationUnitId: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'GRP-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-member-id:
+                  summary: Invalid member ID
+                  value:
+                    code: 'GRP-1007'
+                    message: 'Invalid member ID'
+                    description: 'One or more member IDs in the request do not exist'
+                parent-path-not-found:
+                  summary: Organization unit path not found
+                  value:
+                    code: 'GRP-1008'
+                    message: 'Organization unit handle path not found'
+                    description: 'The specified organization unit handle path does not exist'
+        '404':
+          description: Organization unit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                path-not-found:
+                  summary: Handle path not found
+                  value:
+                    code: 'GRP-1008'
+                    message: 'Organization unit not found'
+                    description: 'The organization unit with the specified handle path does not exist'
+                invalid-path:
+                  summary: Invalid path structure
+                  value:
+                    code: 'GRP-1009'
+                    message: 'Invalid handle path'
+                    description: 'The handle path does not represent a valid organizational hierarchy'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'GRP-1004'
+                message: 'Group name conflict'
+                description: 'A group with the same name exists under the same organization unit'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+components:
+  parameters:
+    limitQueryParam:
+      in: query
+      name: limit
+      required: false
+      description: |
+        Maximum number of records to return.
+      schema:
+        type: integer
+        minimum: 1
+        default: 30
+    offsetQueryParam:
+      in: query
+      name: offset
+      required: false
+      description: |
+        Number of records to skip for pagination.
+      schema:
+        type: integer
+        default: 0
+
+  schemas:
+    Member:
+      type: object
+      required: [id, type]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - user
+            - group
+
+    Group:
+      type: object
+      required: [id, name, organizationUnitId]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        organizationUnitId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+
+    CreateGroupRequest:
+      type: object
+      required: [name, organizationUnitId]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        organizationUnitId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+
+    UpdateGroupRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateGroupRequest'
+
+    GroupListResponse:
+      type: object
+      properties:
+        totalResults:
+          type: integer
+          description: 'Number of results that match the listing operation.'
+          example: 8
+        startIndex:
+          type: integer
+          description: 'Index of the first element of the page, which will be equal to offset + 1.'
+          example: 1
+        count:
+          type: integer
+          description: 'Number of elements in the returned page.'
+          example: 5
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    MemberListResponse:
+      type: object
+      properties:
+        totalResults:
+          type: integer
+          description: 'Number of results that match the listing operation.'
+          example: 20
+        startIndex:
+          type: integer
+          description: 'Index of the first element of the page, which will be equal to offset + 1.'
+          example: 1
+        count:
+          type: integer
+          description: 'Number of elements in the returned page.'
+          example: 10
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    CreateGroupByPathRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: 'The display name of the group'
+          example: 'Sports Team'
+        description:
+          type: string
+          description: 'Optional description of the group'
+          example: 'Group for sports activities and events'
+        members:
+          type: array
+          description: 'Optional list of initial members (users and groups)'
+          items:
+            $ref: '#/components/schemas/Member'
+
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+          example: 'groups?offset=20&limit=10'
+        rel:
+          type: string
+          example: 'next'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Error code
+          example: 'GRP-1001'
+        message:
+          type: string
+          description: Error message
+          example: 'Invalid request format'
+        description:
+          type: string
+          description: Detailed error description
+          example: 'The request body is malformed or contains invalid data'
