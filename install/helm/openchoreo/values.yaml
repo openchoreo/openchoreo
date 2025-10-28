@@ -1152,6 +1152,36 @@ backstage:
   # @schema
   # type: [null, object]
   # @schema
+  # -- Thunder IdP configuration for Backstage
+  thunder:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Base URL of the Thunder identity provider (defaults to internal service URL if empty)
+    baseUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Authentication token for Thunder API (optional, for future use)
+    token: ""
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Authentication provider configuration
+  auth:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth authorization endpoint URL (defaults to Thunder baseUrl + /oauth2/authorize)
+    authorizationUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth token endpoint URL (defaults to Thunder baseUrl + /oauth2/token)
+    tokenUrl: ""
+  # @schema
+  # type: [null, object]
+  # @schema
   # -- Horizontal Pod Autoscaler configuration
   autoscaling:
     # @schema
