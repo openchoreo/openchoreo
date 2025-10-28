@@ -72,6 +72,15 @@ spec:
           value: {{ .Values.backstage.auth.authorizationUrl | default (printf "%s/oauth2/authorize" (.Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)))) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
           value: {{ .Values.backstage.auth.tokenUrl | default (printf "%s/oauth2/token" (.Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)))) }}
+        {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
+        - name: OPENCHOREO_AUTH_CLIENT_ID
+          value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}
+        - name: OPENCHOREO_AUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-secrets
+              key: backstage-client-secret
+        {{- end }}
         {{- end }}
         livenessProbe:
           httpGet:
