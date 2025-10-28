@@ -70,6 +70,9 @@ auth:
   environment: development
   providers:
     # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
+    # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+    # For local development with Kind: set THUNDER_BASE_URL via install/dev/openchoreo-values.yaml (e.g., http://sts.openchoreo.localhost)
+    # For production: set via install/helm/openchoreo/values.yaml backstage.thunder.baseUrl (external URL with ingress/load balancer)
     default-idp:
       development:
         clientId: 'openchoreo-platform-idp-client'
@@ -82,6 +85,9 @@ scaffolder:
   # see https://backstage.io/docs/features/software-templates/configuration for software template options
 
 openchoreo:
+  # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # For local Kind: defaults to http://openchoreo-api.openchoreo.svc.cluster.local:8080/api/v1
+  # For production: set via install/helm/openchoreo/values.yaml backstage.openchoreoApi.url
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
   defaultOwner: 'platformengineer' # Default owner for catalog entities
@@ -90,8 +96,11 @@ openchoreo:
     timeout: 120 # seconds for timeout (default: 120)
 
 thunder:
-  baseUrl: ${THUNDER_BASE_URL} # e.g., https://thunder.example.com:8090
-  token: ${THUNDER_TOKEN} # optional for now: for authentication
+  # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # For local Kind: set THUNDER_BASE_URL via install/dev/openchoreo-values.yaml (defaults to internal service URL)
+  # For production: set via install/helm/openchoreo/values.yaml backstage.thunder.baseUrl
+  baseUrl: ${THUNDER_BASE_URL} # e.g., http://sts.openchoreo.localhost or https://idp.example.com
+  # token: ${THUNDER_TOKEN} # Optional: uncomment if you need Thunder API authentication
   defaultNamespace: 'default' # Default namespace for User and Group entities
   schedule:
     frequency: 600 # seconds between runs (default: 600 = 10 minutes)

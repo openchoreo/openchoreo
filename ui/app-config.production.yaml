@@ -1,4 +1,5 @@
 app:
+  title: OpenChoreo Portal
   # Should be the same as backend.baseUrl when using the `app-backend` plugin.
   baseUrl: http://localhost:7007
 
@@ -45,6 +46,9 @@ techdocs:
 auth:
   providers:
     # OpenChoreo Default IDP - Custom OAuth provider (without discovery endpoint)
+    # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+    # OPENCHOREO_AUTH_AUTHORIZATION_URL and OPENCHOREO_AUTH_TOKEN_URL are auto-configured from backstage.thunder.baseUrl
+    # or can be explicitly set via backstage.auth.authorizationUrl and backstage.auth.tokenUrl in Helm values
     default-idp:
       development:
         clientId: 'openchoreo-platform-idp-client'
@@ -65,6 +69,8 @@ catalog:
         - allow: [Template]
 
 openchoreo:
+  # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # OPENCHOREO_API_URL: defaults to internal K8s service URL or set via backstage.openchoreoApi.url
   baseUrl: ${OPENCHOREO_API_URL}
   token: ${OPENCHOREO_TOKEN} # optional for now: for authentication
   defaultOwner: 'platformengineer' # Default owner for catalog entities
@@ -73,8 +79,11 @@ openchoreo:
     timeout: 120 # seconds for timeout (default: 120)
 
 thunder:
-  baseUrl: ${THUNDER_BASE_URL} # e.g., https://thunder.example.com:8090
-  token: ${THUNDER_TOKEN} # Authentication token for Thunder IdP API
+  # Environment variables are injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # THUNDER_BASE_URL: set via backstage.thunder.baseUrl in Helm values (e.g., https://idp.example.com)
+  # THUNDER_TOKEN: set via backstage.thunder.token in Helm values (optional, for API authentication)
+  baseUrl: ${THUNDER_BASE_URL} # e.g., https://idp.example.com or http://sts.openchoreo.localhost
+  # token: ${THUNDER_TOKEN} # Optional: uncomment and set backstage.thunder.token in Helm values if needed
   defaultNamespace: 'default' # Default namespace for User and Group entities
   schedule:
     frequency: 600 # seconds between runs (default: 600 = 10 minutes)
