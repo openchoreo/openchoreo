@@ -54,10 +54,13 @@ backstage:
   # Thunder IdP configuration (uses ingress URL for browser-accessible endpoints)
   thunder:
     baseUrl: "http://sts.openchoreo.localhost"
-  # Auth endpoints (uses ingress URLs for OAuth flow)
+  # Auth endpoints
+  # - authorizationUrl: MUST be external (browser-accessible) for OAuth redirect
+  # - tokenUrl: MUST be internal (K8s service URL) for backend token exchange
   auth:
     authorizationUrl: "http://sts.openchoreo.localhost/oauth2/authorize"
-    tokenUrl: "http://sts.openchoreo.localhost/oauth2/token"
+    # Leave tokenUrl empty to use default internal K8s service URL
+    # tokenUrl: ""  # Defaults to internal service URL
 asgardeoThunder:
   image:
     repository: ghcr.io/brionmario/thunder
