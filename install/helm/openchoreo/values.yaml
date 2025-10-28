@@ -1150,6 +1150,14 @@ backstage:
     - name: PORT
       value: "7007"
   # @schema
+  # type: [null, string]
+  # @schema
+  # -- Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)
+  # This should be the externally accessible URL (e.g., via ingress)
+  # For local Kind: http://openchoreo.localhost
+  # For production: https://backstage.example.com
+  baseUrl: ""
+  # @schema
   # type: [null, object]
   # @schema
   # -- Thunder IdP configuration for Backstage

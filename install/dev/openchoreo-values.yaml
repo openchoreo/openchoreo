@@ -49,6 +49,8 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
+  # Backstage base URL (externally accessible URL via ingress)
+  baseUrl: "http://openchoreo.localhost"
   # Thunder IdP configuration (uses ingress URL for browser-accessible endpoints)
   thunder:
     baseUrl: "http://sts.openchoreo.localhost"

@@ -2125,6 +2125,16 @@
             "object"
           ]
         },
+        "baseUrl": {
+          "default": "",
+          "description": "Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)",
+          "required": [],
+          "title": "baseUrl",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "thunder": {
           "additionalProperties": false,
           "description": "Thunder IdP configuration for Backstage",
