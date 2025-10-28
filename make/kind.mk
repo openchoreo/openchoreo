@@ -74,7 +74,6 @@ kind.build.%: ## Build specific component, (controller, api, ui)
 			$(MAKE) docker.build.openchoreo-api TAG=$(OPENCHOREO_IMAGE_TAG); \
 			;; \
 		ui) \
-			cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all; \
 			docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui; \
 			;; \
 	esac
