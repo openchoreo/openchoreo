@@ -1954,7 +1954,7 @@ asgardeoThunder:
     # @schema
     # -- OAuth redirect URLs
     redirectUrls:
-      - "https://localhost:7007/api/auth/oidc/handler/frame"
+      - "https://localhost:7007/api/auth/default-idp/handler/frame"
   # @schema
   # type: [null, object]
   # @schema

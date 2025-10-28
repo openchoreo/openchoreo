@@ -104,5 +104,5 @@ asgardeoThunder:
             port: 9090
   backstagePortal:
     redirectUrls:
-      - "http://openchoreo.localhost/api/auth/oidc/handler/frame"
+      - "http://openchoreo.localhost/api/auth/default-idp/handler/frame"
     clientSecret: backstage-portal-secret
