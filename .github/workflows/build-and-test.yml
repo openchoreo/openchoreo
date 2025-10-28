@@ -82,7 +82,7 @@ jobs:
         run: yarn build:all
 
       - name: Lint Files
-        run: yarn lint:all
+        run: yarn lint
 
       - name: Check Prettier
         run: yarn prettier --check .

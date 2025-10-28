@@ -56,7 +56,7 @@ const toolkitTools = [
     label: 'Browse Templates',
     icon: <FeaturedPlayListOutlinedIcon color="primary" />,
   },
-]
+];
 
 /**
  * Custom HomePage that shows different content based on user groups
@@ -203,10 +203,7 @@ export const HomePage = () => {
               {(userGroups.includes('admin') ||
                 userGroups.includes('manager') ||
                 userGroups.includes('developer')) && (
-                  <HomePageToolkit
-                    title="Quick Actions"
-                    tools={toolkitTools}
-                  />
+                <HomePageToolkit title="Quick Actions" tools={toolkitTools} />
               )}
             </Grid>
 

@@ -165,7 +165,8 @@ export const openChoreoTheme = createUnifiedTheme({
     BackstageHeader: {
       styleOverrides: {
         header: {
-          backgroundImage: 'linear-gradient(45deg, #4d5ec0 0%, #5567d5 50%, #a6B3ff 100%)',
+          backgroundImage:
+            'linear-gradient(45deg, #4d5ec0 0%, #5567d5 50%, #a6B3ff 100%)',
           height: 98,
         },
         title: {
