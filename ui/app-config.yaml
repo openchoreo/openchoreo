@@ -1,6 +1,9 @@
 app:
   title: OpenChoreo Portal
-  baseUrl: https://localhost:3000
+  # Environment variable is injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # For local Kind: http://openchoreo.localhost (set via install/dev/openchoreo-values.yaml)
+  # For production: external ingress URL (set via install/helm/openchoreo/values.yaml backstage.baseUrl)
+  baseUrl: ${BACKSTAGE_BASE_URL}
 
 organization:
   name: OpenChoreo
@@ -15,7 +18,10 @@ backend:
   #     - secret: ${BACKEND_SECRET}
   auth:
     dangerouslyDisableDefaultAuthPolicy: true # TODO: Remove this when added auth properly
-  baseUrl: https://localhost:7007
+  # Environment variable is injected by Helm chart (see install/helm/openchoreo/templates/backstage/deployment.yaml)
+  # For local Kind: http://openchoreo.localhost (set via install/dev/openchoreo-values.yaml)
+  # For production: external ingress URL (set via install/helm/openchoreo/values.yaml backstage.baseUrl)
+  baseUrl: ${BACKSTAGE_BASE_URL}
   listen:
     port: 7007
     # Uncomment the following host directive to bind to specific interfaces
