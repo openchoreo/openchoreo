@@ -782,11 +782,11 @@
                     "string"
                   ]
                 },
-                "storageClass": {
+                "storageClassName": {
                   "default": "",
                   "description": "Storage class name",
                   "required": [],
-                  "title": "storageClass",
+                  "title": "storageClassName",
                   "type": [
                     "null",
                     "string"

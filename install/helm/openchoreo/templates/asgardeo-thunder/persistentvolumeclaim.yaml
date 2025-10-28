@@ -10,7 +10,7 @@ metadata:
 spec:
   accessModes:
     - {{ .Values.asgardeoThunder.persistence.database.accessMode }}
-  # storageClassName: {{ .Values.asgardeoThunder.persistence.database.storageClass }}
+  storageClassName: {{ .Values.asgardeoThunder.persistence.database.storageClassName }}
   resources:
     requests:
       storage: {{ .Values.asgardeoThunder.persistence.database.size }}
