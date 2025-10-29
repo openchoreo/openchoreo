@@ -112,3 +112,65 @@ Phase 1 database layer is complete and compiles successfully.
 
 ## Phase 2 Complete - Ready for Phase 3
 Phase 2 parent controller resolution is complete. Next step is Phase 3: Integrate Checkov CLI to scan Kubernetes manifests and parse results.
+
+# Phase 3: Checkov Integration - COMPLETED
+
+## Checkov Package Created
+- `internal/security-scanner/checkov/types.go` - Defines Finding struct and Checkov JSON output types
+- `internal/security-scanner/checkov/checkov.go` - Implements RunCheckov function with CLI execution and JSON parsing
+- `internal/security-scanner/checkov/checkov_test.go` - Comprehensive test suite with unit and integration tests
+
+## Core Types
+- Finding struct with CheckID, CheckName, Severity, Category, Description, Remediation fields
+- Severity enum: CRITICAL, HIGH, MEDIUM, LOW, INFO, UNKNOWN
+- Checkov JSON parsing structs (checkovOutput, checkovResults, checkovCheck, checkovCheckResult)
+
+## RunCheckov Implementation
+- Creates temporary file for Kubernetes manifest
+- Executes checkov CLI with flags: -f <file> --framework kubernetes --output json --quiet
+- Parses JSON output into Finding structs
+- Maps Checkov severity to scanner severity levels (defaults to MEDIUM when null)
+- Extracts category from check_class field
+- Handles checkov command failures gracefully
+- Cleans up temporary files
+
+## Severity Mapping
+- Checkov severity to scanner Severity enum
+- Empty/null severity defaults to MEDIUM (since Checkov often doesn't provide severity)
+- Maps CRITICAL, HIGH, MEDIUM, LOW, INFO, INFORMATIONAL
+
+## Category Extraction
+- Extracts category from check_class field (e.g., "checkov.kubernetes.SecurityCheck" → "security")
+- Uses bc_category if available, otherwise derives from check_class
+- Defaults to "security" if no category found
+
+## JSON Parsing
+- Handles Checkov JSON structure with check_result as nested object (not string)
+- Supports nullable fields (description, short_description, severity, bc_category)
+- Uses check_name for CheckName, falls back to short_description if available
+
+## Unit Tests
+- TestMapSeverity - Tests severity mapping including empty string → MEDIUM
+- TestCategorizeCheck - Tests category extraction from check_class
+
+## Integration Tests
+- TestRunCheckov - Tests with vulnerable deployment manifest, verifies findings are returned
+- TestRunCheckov_ValidManifest - Tests with secure deployment, expects fewer findings
+- Tests skip gracefully if checkov is not installed
+
+## Dockerfile Update
+- `cmd/security-scanner/Dockerfile` - Multi-stage build with Alpine downloader and distroless runtime
+- Downloads Checkov binary from GitHub releases in Alpine stage
+- Supports amd64 (x86_64) and arm64 architectures
+- Checkov version pinned to 3.2.331
+- Final image uses gcr.io/distroless/static:nonroot for minimal attack surface
+- No package manager or shell in final image
+
+## Test Results
+- All 4 tests pass (TestMapSeverity, TestCategorizeCheck, TestRunCheckov, TestRunCheckov_ValidManifest)
+- Verified Checkov successfully scans Kubernetes manifests and returns findings
+- Verified JSON parsing handles actual Checkov output format
+
+## Phase 3 Complete - Ready for Phase 4
+Phase 3 Checkov integration is complete. Next step is Phase 4: Update Pod controller to call Checkov, generate YAML manifests, store findings in database.
+
