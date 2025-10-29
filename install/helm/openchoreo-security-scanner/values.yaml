@@ -1,0 +1,424 @@
+# @schema
+# type: object
+# @schema
+# -- Security Scanner Values
+# @schema
+# type: [null, integer]
+# @schema
+# -- Number of security-scanner replicas
+replicas: 1
+
+# @schema
+# type: [null, string]
+# @schema
+# -- Override the full name of security scanner resources
+fullnameOverride: openchoreo-security-scanner
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Container image configuration
+image:
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Container image repository
+  repository: ghcr.io/openchoreo/security-scanner
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Container image tag
+  tag: latest-dev
+  # @schema
+  # enum: [Always, IfNotPresent, Never]
+  # @schema
+  # -- Image pull policy
+  pullPolicy: Always
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Resource limits and requests for the security scanner
+resources:
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource limits
+  limits:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- CPU limit
+    cpu: 500m
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Memory limit
+    memory: 512Mi
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource requests
+  requests:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- CPU request
+    cpu: 100m
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Memory request
+    memory: 128Mi
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Service account configuration
+serviceAccount:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Create a new service account
+  create: true
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Annotations to add to the service account
+  annotations: {}
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Priority class configuration
+priorityClass:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Create a priority class
+  create: false
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Priority class name
+  name: security-scanner
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Priority class value
+  value: 700000
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Service configuration
+service:
+  # @schema
+  # enum: [ClusterIP, NodePort, LoadBalancer]
+  # @schema
+  # -- Service type
+  type: ClusterIP
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Service port
+  port: 8080
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Node port (required when type is NodePort)
+  nodePort: null
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Horizontal Pod Autoscaler configuration
+autoscaling:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable autoscaling
+  enabled: false
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Minimum replicas
+  minReplicas: 1
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Maximum replicas
+  maxReplicas: 3
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 70
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Target memory utilization percentage
+  targetMemoryUtilizationPercentage: 80
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Autoscaling behavior configuration
+  behavior:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Scale down behavior
+    scaleDown:
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Stabilization window in seconds
+      stabilizationWindowSeconds: 300
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Scale down policies
+      policies:
+        # @schema
+        # enum: [Percent, Pods]
+        # @schema
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Scale up behavior
+    scaleUp:
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Stabilization window in seconds
+      stabilizationWindowSeconds: 0
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Scale up policies
+      policies:
+        # @schema
+        # enum: [Percent, Pods]
+        # @schema
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        # @schema
+        # enum: [Percent, Pods]
+        # @schema
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+      # @schema
+      # enum: [Min, Max, Disabled]
+      # @schema
+      # -- Policy selection
+      selectPolicy: Max
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Pod Disruption Budget configuration
+podDisruptionBudget:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable Pod Disruption Budget
+  enabled: false
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Minimum available pods
+  minAvailable: 1
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Network policy configuration
+networkPolicy:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable network policy
+  enabled: false
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Ingress rules
+  ingress: []
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Egress rules
+  egress: []
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Metrics configuration
+metrics:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable metrics collection
+  enabled: true
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- ServiceMonitor configuration for Prometheus
+  serviceMonitor:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable ServiceMonitor
+    enabled: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Namespace for ServiceMonitor
+    namespace: monitoring
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Scrape interval
+    interval: 30s
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Scrape timeout
+    scrapeTimeout: 10s
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Labels for ServiceMonitor
+    labels:
+      prometheus: kube-prometheus
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Relabelings for ServiceMonitor
+    relabelings: []
+
+# @schema
+# type: [null, array]
+# @schema
+# -- Topology spread constraints for pod distribution
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: security-scanner
+        app.kubernetes.io/component: security-scanner
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: security-scanner
+        app.kubernetes.io/component: security-scanner
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Node selector for pod assignment
+nodeSelector: {}
+
+# @schema
+# type: [null, array]
+# @schema
+# -- Tolerations for pod assignment
+tolerations: []
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Affinity rules for pod assignment
+affinity: {}
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Pod-level security context
+podSecurityContext:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Run containers as non-root user
+  runAsNonRoot: true
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Seccomp profile configuration
+  seccompProfile:
+    # @schema
+    # enum: [RuntimeDefault, Localhost, Unconfined]
+    # @schema
+    # -- Seccomp profile type
+    type: RuntimeDefault
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- User ID to run the container as
+  runAsUser: 65532
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Group ID to run the container as
+  runAsGroup: 65532
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Filesystem group
+  fsGroup: 65532
+
+# @schema
+# type: [null, object]
+# @schema
+# -- Container-level security context
+containerSecurityContext:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Allow privilege escalation
+  allowPrivilegeEscalation: false
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Linux capabilities
+  capabilities:
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Capabilities to drop
+    drop:
+      - ALL
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Read-only root filesystem
+  readOnlyRootFilesystem: true
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Seccomp profile configuration
+  seccompProfile:
+    # @schema
+    # enum: [RuntimeDefault, Localhost, Unconfined]
+    # @schema
+    # -- Seccomp profile type
+    type: RuntimeDefault
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- AppArmor profile configuration
+  appArmorProfile:
+    # @schema
+    # enum: [RuntimeDefault, Localhost, Unconfined]
+    # @schema
+    # -- AppArmor profile type
+    type: RuntimeDefault

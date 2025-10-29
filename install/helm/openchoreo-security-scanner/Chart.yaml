@@ -1,0 +1,22 @@
+apiVersion: v2
+name: openchoreo-security-scanner
+description: OpenChoreo Security Scanner
+type: application
+
+version: 0.0.0-latest-dev
+appVersion: "latest-dev"
+
+home: https://github.com/openchoreo/openchoreo
+icon: https://openchoreo.dev/img/openchoreo-logo.svg
+sources:
+  - https://github.com/openchoreo/openchoreo
+
+keywords:
+  - openchoreo
+  - security
+  - scanner
+  - vulnerability
+
+maintainers:
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/openchoreo

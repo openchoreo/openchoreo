@@ -49,3 +49,15 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
+
+# Security Scanner configuration
+securityScanner:
+  enabled: true
+  image:
+    repository: ghcr.io/openchoreo/security-scanner
+    tag: dev
+    pullPolicy: IfNotPresent
+  # Disable AppArmor for local development (not supported on macOS/Kind)
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined

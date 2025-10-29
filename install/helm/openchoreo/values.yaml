@@ -1624,3 +1624,18 @@ backstage:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
+# @schema
+# type: [null, object]
+# @schema
+# -- Security Scanner configuration
+securityScanner:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable security scanner deployment
+  enabled: true
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Override the full name of security scanner resources
+  fullnameOverride: openchoreo-security-scanner
