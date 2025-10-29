@@ -5,8 +5,6 @@ package controller
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,32 +31,43 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	podFullName := pod.Namespace + "/" + pod.Name
-
-	podExists, err := r.Queries.GetScannedPodByName(ctx, podFullName)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("Failed to get pod from database",
-			"name", podFullName,
-			"error", err)
-		return ctrl.Result{}, err
-	}
-	if podExists.ID != 0 {
-		logger.Info("Pod already exists in database",
-			"name", podFullName)
-		return ctrl.Result{}, nil
-	}
-
-	if err := r.Queries.InsertScannedPod(ctx, podFullName); err != nil {
-		logger.Error("Failed to insert pod into database",
-			"name", podFullName,
+	resourceID, err := r.Queries.UpsertResource(ctx,
+		"Pod",
+		pod.Namespace,
+		pod.Name,
+		string(pod.UID),
+		pod.ResourceVersion)
+	if err != nil {
+		logger.Error("Failed to upsert pod resource",
+			"namespace", pod.Namespace,
+			"name", pod.Name,
 			"error", err)
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("New pod created and stored",
+	if err := r.Queries.DeleteResourceLabels(ctx, resourceID); err != nil {
+		logger.Error("Failed to delete old resource labels",
+			"resourceID", resourceID,
+			"error", err)
+		return ctrl.Result{}, err
+	}
+
+	for key, value := range pod.Labels {
+		if err := r.Queries.InsertResourceLabel(ctx, resourceID, key, value); err != nil {
+			logger.Error("Failed to insert resource label",
+				"resourceID", resourceID,
+				"key", key,
+				"value", value,
+				"error", err)
+			return ctrl.Result{}, err
+		}
+	}
+
+	logger.Info("Pod resource upserted with labels",
 		"name", pod.Name,
 		"namespace", pod.Namespace,
-		"phase", pod.Status.Phase)
+		"resourceID", resourceID,
+		"labelCount", len(pod.Labels))
 
 	return ctrl.Result{}, nil
 }

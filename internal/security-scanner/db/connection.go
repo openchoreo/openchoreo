@@ -41,14 +41,14 @@ func InitDB(cfg Config) (*DBConnection, error) {
 		if err != nil {
 			return nil, err
 		}
-		querier = backend.NewGenericAdapter(sqlite.New(db))
+		querier = backend.NewSQLiteAdapter(sqlite.New(db))
 
 	case Postgres:
 		db, err = initPostgres(cfg.DSN)
 		if err != nil {
 			return nil, err
 		}
-		querier = backend.NewGenericAdapter(postgres.New(db))
+		querier = backend.NewPostgresAdapter(postgres.New(db))
 
 	default:
 		return nil, fmt.Errorf("unsupported database backend: %s", cfg.Backend)

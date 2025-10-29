@@ -24,17 +24,20 @@ func Example() {
 	}
 	defer sqliteConn.Close()
 
-	if err := sqliteConn.Querier().InsertScannedPod(ctx, "test-pod"); err != nil {
-		panic(err)
-	}
-
-	pods, err := sqliteConn.Querier().ListScannedPods(ctx)
+	resourceID, err := sqliteConn.Querier().UpsertResource(ctx, "Pod", "default", "test-pod", "uid-123", "version-1")
 	if err != nil {
 		panic(err)
 	}
 
-	for _, pod := range pods {
-		fmt.Printf("Pod: %s\n", pod.PodName)
+	if err := sqliteConn.Querier().InsertResourceLabel(ctx, resourceID, "app", "test"); err != nil {
+		panic(err)
+	}
+
+	scanned, err := sqliteConn.Querier().GetPostureScannedResource(ctx, "Pod", "default", "test-pod")
+	if err != nil {
+		fmt.Printf("Resource not yet scanned: %v\n", err)
+	} else {
+		fmt.Printf("Resource scanned at version: %s\n", scanned.ResourceVersion)
 	}
 
 	pgConn, err := db.InitDB(db.Config{
