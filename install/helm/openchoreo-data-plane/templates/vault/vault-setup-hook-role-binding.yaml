@@ -1,16 +1,17 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: vault-wait-rolebinding
+  name: vault-setup-hook-rolebinding
   annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "5"
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
   namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: vault-wait-sa
+    name: vault-setup-hook-sa
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: vault-wait-role
+  name: vault-setup-hook-role
   apiGroup: rbac.authorization.k8s.io
