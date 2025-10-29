@@ -51,5 +51,64 @@
 - Fixed adapter type conversions for sql.NullTime fields
 - Verified compilation succeeds across entire security-scanner package
 
-## Phase 1 Complete - Ready for Phase 2
-Phase 1 database layer is complete and compiles successfully. Next step is Phase 2: Implement parent controller resolution (Pod → ReplicaSet → Deployment) in `internal/security-scanner/resolver/` package.
+## Phase 1 Complete
+Phase 1 database layer is complete and compiles successfully.
+
+# Phase 2: Parent Controller Resolution - COMPLETED
+
+## Resolver Package Created
+- `internal/security-scanner/resolver/resolver.go` - Implements ResolveParentController function with full traversal logic
+- Defines ControllerType enum (Deployment, StatefulSet, DaemonSet, Job, CronJob, ReplicaSet, Pod)
+- Defines ResolvedController struct (Type, Object, Namespace, Name, UID, ResourceVersion, Labels)
+
+## Controller Resolution Logic
+- Pod → ReplicaSet → Deployment traversal
+- Direct Pod → StatefulSet resolution
+- Direct Pod → DaemonSet resolution
+- Pod → Job → CronJob traversal
+- Direct Pod → Job resolution (standalone jobs)
+- Standalone Pod resolution (orphaned/static pods like kube-controller-manager)
+- Handles missing owners with proper error messages
+
+## Unit Tests
+- `internal/security-scanner/resolver/resolver_test.go` - Comprehensive test suite with 9 test cases
+- Tests nil pod handling
+- Tests orphaned pod handling (returns ControllerTypePod)
+- Tests Pod → Deployment chain
+- Tests Pod → StatefulSet direct
+- Tests Pod → DaemonSet direct
+- Tests Pod → CronJob chain
+- Tests Pod → Job direct
+- Tests standalone ReplicaSet
+- Tests missing owner error handling
+- All tests pass using fake Kubernetes client
+
+## Pod Controller Integration
+- `internal/security-scanner/controller/pod_controller.go` - Updated to use resolver
+- Calls ResolveParentController to get parent controller instead of storing Pod directly
+- Upserts resolved controller (not Pod) to resources table
+- Checks if resourceVersion already scanned using GetPostureScannedResource
+- Skips scanning if resource already scanned at same resourceVersion
+- Stores resolved controller labels instead of Pod labels
+- Logs detailed information about resolution and scanning decisions
+
+## Bug Fix: Support Pod Type
+- Fixed issue where standalone pods were marked as type "None"
+- Changed ControllerTypeNone to ControllerTypePod
+- Static pods like kube-controller-manager now correctly identified as type "Pod"
+- Both orphaned pods and pods with unknown owner types return ControllerTypePod
+
+## Bug Fix: ResourceVersion Deduplication Not Working
+- Added missing call to UpsertPostureScannedResource after resource is ready to scan
+- Now properly marks resources as scanned with their resourceVersion
+- Second reconcile of same pod now triggers "Resource already scanned at this version, skipping" log
+- Placeholder implementation (nil scanDurationMs) until Phase 3 adds actual Checkov scanning
+
+## Verification
+- All resolver tests pass (9 test cases)
+- Entire security-scanner package compiles successfully
+- Pod controller correctly integrates resolver and checks resourceVersion before scanning
+- Standalone pods like kube-controller-manager-openchoreo-control-plane now show type=Pod in logs
+
+## Phase 2 Complete - Ready for Phase 3
+Phase 2 parent controller resolution is complete. Next step is Phase 3: Integrate Checkov CLI to scan Kubernetes manifests and parse results.

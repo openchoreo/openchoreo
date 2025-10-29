@@ -5,6 +5,8 @@ package controller
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/openchoreo/openchoreo/internal/security-scanner/db/backend"
+	"github.com/openchoreo/openchoreo/internal/security-scanner/resolver"
 )
 
 type PodReconciler struct {
@@ -31,18 +34,56 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	resourceID, err := r.Queries.UpsertResource(ctx,
-		"Pod",
-		pod.Namespace,
-		pod.Name,
-		string(pod.UID),
-		pod.ResourceVersion)
+	resolved, err := resolver.ResolveParentController(ctx, r.Client, pod)
 	if err != nil {
-		logger.Error("Failed to upsert pod resource",
+		logger.Error("Failed to resolve parent controller",
 			"namespace", pod.Namespace,
 			"name", pod.Name,
 			"error", err)
 		return ctrl.Result{}, err
+	}
+
+	logger.Info("Resolved parent controller",
+		"pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
+		"controllerType", resolved.Type,
+		"controller", fmt.Sprintf("%s/%s", resolved.Namespace, resolved.Name),
+		"resourceVersion", resolved.ResourceVersion)
+
+	resourceID, err := r.Queries.UpsertResource(ctx,
+		string(resolved.Type),
+		resolved.Namespace,
+		resolved.Name,
+		resolved.UID,
+		resolved.ResourceVersion)
+	if err != nil {
+		logger.Error("Failed to upsert resource",
+			"type", resolved.Type,
+			"namespace", resolved.Namespace,
+			"name", resolved.Name,
+			"error", err)
+		return ctrl.Result{}, err
+	}
+
+	scannedResource, err := r.Queries.GetPostureScannedResource(ctx,
+		string(resolved.Type),
+		resolved.Namespace,
+		resolved.Name)
+	if err != nil && err != sql.ErrNoRows {
+		logger.Error("Failed to get scanned resource",
+			"type", resolved.Type,
+			"namespace", resolved.Namespace,
+			"name", resolved.Name,
+			"error", err)
+		return ctrl.Result{}, err
+	}
+
+	if err == nil && scannedResource.ResourceVersion == resolved.ResourceVersion {
+		logger.Info("Resource already scanned at this version, skipping",
+			"type", resolved.Type,
+			"namespace", resolved.Namespace,
+			"name", resolved.Name,
+			"resourceVersion", resolved.ResourceVersion)
+		return ctrl.Result{}, nil
 	}
 
 	if err := r.Queries.DeleteResourceLabels(ctx, resourceID); err != nil {
@@ -52,7 +93,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	for key, value := range pod.Labels {
+	for key, value := range resolved.Labels {
 		if err := r.Queries.InsertResourceLabel(ctx, resourceID, key, value); err != nil {
 			logger.Error("Failed to insert resource label",
 				"resourceID", resourceID,
@@ -63,11 +104,27 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 	}
 
-	logger.Info("Pod resource upserted with labels",
-		"name", pod.Name,
-		"namespace", pod.Namespace,
+	logger.Info("Ready to scan resource",
+		"type", resolved.Type,
+		"namespace", resolved.Namespace,
+		"name", resolved.Name,
 		"resourceID", resourceID,
-		"labelCount", len(pod.Labels))
+		"resourceVersion", resolved.ResourceVersion,
+		"labelCount", len(resolved.Labels))
+
+	if err := r.Queries.UpsertPostureScannedResource(ctx, resourceID, resolved.ResourceVersion, nil); err != nil {
+		logger.Error("Failed to upsert posture scanned resource",
+			"resourceID", resourceID,
+			"resourceVersion", resolved.ResourceVersion,
+			"error", err)
+		return ctrl.Result{}, err
+	}
+
+	logger.Info("Marked resource as scanned",
+		"type", resolved.Type,
+		"namespace", resolved.Namespace,
+		"name", resolved.Name,
+		"resourceVersion", resolved.ResourceVersion)
 
 	return ctrl.Result{}, nil
 }
