@@ -219,7 +219,6 @@ rules:
   - openchoreo.dev
   resources:
   - configurationgroups
-  - envsettings
   verbs:
   - get
   - list

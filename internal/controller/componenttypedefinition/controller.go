@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -26,8 +25,7 @@ type Reconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
+	// No-op controller - ComponentTypeDefinitions are managed externally
 	return ctrl.Result{}, nil
 }
 
