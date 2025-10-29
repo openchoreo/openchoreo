@@ -53,3 +53,24 @@ spec:
             policies=openchoreo-secret-reader-policy \
             ttl=20m
 
+          # Create ESO policy for read-only access to secrets
+          vault policy write eso-policy - <<EOF
+          # Read-only access to all secrets
+          path "secret/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/data/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/metadata/*" {
+            capabilities = ["read", "list"]
+          }
+          EOF
+
+          # Create Kubernetes auth role for ESO
+          vault write auth/kubernetes/role/external-secrets \
+            bound_service_account_names=external-secrets \
+            bound_service_account_namespaces={{ .Release.Namespace }} \
+            policies=eso-policy \
+            ttl=24h
+

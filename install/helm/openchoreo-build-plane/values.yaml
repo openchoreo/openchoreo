@@ -52,6 +52,54 @@ argo-workflows:
   workflowNamespaces:
     - argo-build
 
+# Vault configuration for secret management
+# Single cluster: Keep disabled (false) to use data plane's Vault
+# Multi-cluster: Enable (true) to install dedicated Vault for build plane
+vault:
+  enabled: false
+  fullnameOverride: hashicorp-vault
+  nameOverride: hashicorp-vault
+  server:
+    # -- Resource limits and requests for the vault server
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+    dev:
+      enabled: true
+      devRootToken: "root"
+      logLevel: "info"
+    # Add readiness probe configuration
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+      initialDelaySeconds: 5
+      timeoutSeconds: 10  # Increase from default
+      periodSeconds: 10
+      failureThreshold: 3
+  injector:
+    enabled: false
+    # -- Resource limits and requests for the vault injector
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+# External Secrets Operator configuration for secret management
+# Single cluster: Keep disabled (false) to use data plane's ESO
+# Multi-cluster: Enable (true) to install dedicated ESO for build plane
+# Note: ClusterSecretStore is only created when BOTH vault.enabled AND external-secrets.enabled are true
+external-secrets:
+  enabled: false
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
 fluentBit:
   enabled: false
 
