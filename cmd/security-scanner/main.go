@@ -12,13 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/security-scanner/api"
-	"github.com/openchoreo/openchoreo/internal/security-scanner/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/openchoreo/openchoreo/internal/security-scanner/api"
+	"github.com/openchoreo/openchoreo/internal/security-scanner/controller"
+	"github.com/openchoreo/openchoreo/internal/security-scanner/db"
 )
 
 var (
@@ -36,6 +38,26 @@ func main() {
 
 	logger.Info("Starting security-scanner")
 
+	dbBackend := os.Getenv("DB_BACKEND")
+	if dbBackend == "" {
+		dbBackend = "sqlite"
+	}
+
+	dbDSN := os.Getenv("DB_DSN")
+	if dbDSN == "" {
+		dbDSN = "/tmp/security-scanner.db"
+	}
+
+	dbConn, err := db.InitDB(db.Config{
+		Backend: db.DBBackend(dbBackend),
+		DSN:     dbDSN,
+	})
+	if err != nil {
+		logger.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
+	}
+	defer dbConn.Close()
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -48,8 +70,9 @@ func main() {
 	}
 
 	podReconciler := &controller.PodReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Queries: dbConn.Querier(),
 	}
 
 	if err := podReconciler.SetupWithManager(mgr); err != nil {
@@ -61,8 +84,9 @@ func main() {
 	api.RegisterRoutes(mux)
 
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: mux,
+		Addr:              ":8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

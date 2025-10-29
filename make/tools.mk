@@ -31,6 +31,7 @@ ENVTEST ?= $(TOOL_BIN)/setup-envtest
 GOLANGCI_LINT ?= $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
 YQ ?= $(TOOL_BIN)/yq
+SQLC ?= $(TOOL_BIN)/sqlc
 KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 
 ## Tool Versions
@@ -40,6 +41,7 @@ ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v1.64.8
 HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
+SQLC_VERSION ?= v1.30.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -71,3 +73,7 @@ yq: $(YQ) ## Download yq locally if necessary.
 $(YQ): $(TOOL_BIN)
 	$(call go_install_tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
 
+.PHONY: sqlc
+sqlc: $(SQLC) ## Download sqlc locally if necessary.
+$(SQLC): $(TOOL_BIN)
+	$(call go_install_tool,$(SQLC),github.com/sqlc-dev/sqlc/cmd/sqlc,$(SQLC_VERSION))

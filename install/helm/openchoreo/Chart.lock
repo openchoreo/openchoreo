@@ -2,5 +2,5 @@ dependencies:
 - name: openchoreo-security-scanner
   repository: file://../openchoreo-security-scanner
   version: 0.0.0-latest-dev
-digest: sha256:8d30875f06f908bda363e11f92cc877fb4c3ce798dbf6b625d239e4b22999bff
-generated: "2025-10-29T11:55:22.689387+05:30"
+digest: sha256:d088a4c4244d5b45d547ae8856ae35f16b3e3f2853c0be11d779648cdf8a8a5d
+generated: "2025-10-29T16:04:58.157072+05:30"
