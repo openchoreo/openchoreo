@@ -149,11 +149,11 @@ This proposal introduces a flexible, schema-driven architecture using four key c
 
 **OpenChoreo CI Flow**
 
-![OpenChoreo CI](https://github.com/user-attachments/assets/8b470dbb-f478-4a11-a52c-d360eb384f8f)
+![OpenChoreo CI](assets/0669-ci-design.png)
 
 **Generic Workflows Flow**
 
-![Generic Workflows](https://github.com/user-attachments/assets/9643356f-a613-4145-bff4-128395195864)
+![Generic Workflows](assets/0669-generic-workflows-design.png)
 
 ### Design Principles
 
