@@ -100,3 +100,13 @@ resources:
   - build_admin_role.yaml
   - build_editor_role.yaml
   - build_viewer_role.yaml
+# For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the openchoreo itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
+- workflowdefinition_admin_role.yaml
+- workflowdefinition_editor_role.yaml
+- workflowdefinition_viewer_role.yaml
+- workflow_admin_role.yaml
+- workflow_editor_role.yaml
+- workflow_viewer_role.yaml
