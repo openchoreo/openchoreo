@@ -1,3 +1,6 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright 2024 Choreo LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

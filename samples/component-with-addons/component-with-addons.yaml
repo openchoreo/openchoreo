@@ -1,0 +1,200 @@
+# Component with Addons Example - All Resources
+# This file contains all resources needed to demonstrate ComponentTypeDefinitions and Addons
+
+# ComponentTypeDefinition: Defines a simple deployment component type
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentTypeDefinition
+metadata:
+  name: simple-deployment
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    # Parameters are static across environments
+    parameters:
+      imagePullPolicy: "string | default=IfNotPresent"
+      replicas: "integer | default=1"
+
+    # EnvOverrides can be overridden per environment
+    envOverrides:
+      resources:
+        limits:
+          cpu: "string | default=500m"
+          memory: "string | default=512Mi"
+        requests:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          replicas: ${spec.replicas}
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: app
+                  image: nginx:latest
+                  imagePullPolicy: ${spec.imagePullPolicy}
+                  resources:
+                    limits:
+                      cpu: ${spec.resources.limits.cpu}
+                      memory: ${spec.resources.limits.memory}
+                    requests:
+                      cpu: ${spec.resources.requests.cpu}
+                      memory: ${spec.resources.requests.memory}
+
+# Addon: Defines a PVC addon that creates storage and mounts it
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Addon
+metadata:
+  name: simple-pvc
+  namespace: default
+spec:
+  schema:
+    # Developer-facing parameters
+    parameters:
+      volumeName: "string | required=true"
+      mountPath: "string | required=true"
+      containerName: "string"
+
+    # Environment-specific overrides
+    envOverrides:
+      size: "string | default=10Gi"
+      storageClass: "string | default=standard"
+
+  # New resources created by this addon
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${instanceName}
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${spec.size}
+          storageClassName: ${spec.storageClass}
+
+  # Patches to apply to existing resources
+  patches:
+    # Add volume to deployment
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${spec.volumeName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${instanceName}
+
+    # Mount volume to container
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          value:
+            name: ${spec.volumeName}
+            mountPath: ${spec.mountPath}
+
+# Workload: The workload spec (normally created by the build process)
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: test-service
+
+  # Container definitions (populated after build)
+  containers:
+    app:
+      image: nginx:latest
+
+# Component: A component instance using the simple-deployment type with the PVC addon
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  # Component type reference (format: {workloadType}/{componentTypeDefinitionName})
+  componentType: deployment/simple-deployment
+
+  # Component parameters (static across environments)
+  parameters:
+    imagePullPolicy: Always
+    replicas: 2
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+  # Addons to apply to this component
+  addons:
+    - name: simple-pvc
+      instanceName: data-volume
+      config:
+        volumeName: app-data
+        mountPath: /var/data
+        containerName: app
+        # Environment overrides
+        size: 20Gi
+        storageClass: fast
+
+# ComponentDeployment: Environment-specific settings for the development environment
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: test-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: test-service
+  environment: development
+
+  # Environment-specific overrides for the component
+  # These override the default values from the ComponentTypeDefinition
+  overrides:
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi

@@ -23,12 +23,16 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/addon"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
+	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
+	"github.com/openchoreo/openchoreo/internal/controller/componenttypedefinition"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
 	"github.com/openchoreo/openchoreo/internal/controller/deployment"
@@ -55,7 +59,6 @@ import (
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -253,6 +256,42 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Component")
+		os.Exit(1)
+	}
+
+	// ComponentTypeDefinition controller
+	if err = (&componenttypedefinition.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentTypeDefinition")
+		os.Exit(1)
+	}
+
+	// Addon controller
+	if err = (&addon.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Addon")
+		os.Exit(1)
+	}
+
+	// ComponentDeployment controller
+	if err = (&componentdeployment.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
+		os.Exit(1)
+	}
+
+	// ComponentEnvSnapshot controller
+	if err = (&componentenvsnapshot.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
 		os.Exit(1)
 	}
 

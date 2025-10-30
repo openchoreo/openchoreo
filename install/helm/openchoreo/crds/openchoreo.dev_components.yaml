@@ -41,6 +41,35 @@ spec:
           spec:
             description: ComponentSpec defines the desired state of Component.
             properties:
+              addons:
+                description: |-
+                  Addons to compose into this component
+                  Each addon can be instantiated multiple times with different instanceNames
+                items:
+                  description: ComponentAddon represents an addon instance attached
+                    to a component
+                  properties:
+                    config:
+                      description: |-
+                        Config contains the addon parameter values
+                        The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
+                      x-kubernetes-preserve-unknown-fields: true
+                    instanceName:
+                      description: |-
+                        InstanceName uniquely identifies this addon instance within the component
+                        Allows the same addon to be used multiple times with different configurations
+                        Must be unique across all addons in the component
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name is the name of the Addon resource to use
+                      minLength: 1
+                      type: string
+                  required:
+                  - instanceName
+                  - name
+                  type: object
+                type: array
               build:
                 description: Build defines the build configuration for the component
                 properties:
@@ -110,6 +139,16 @@ spec:
                 - repository
                 - templateRef
                 type: object
+              componentType:
+                description: |-
+                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
+                  Example: "deployment/web-app", "cronjob/scheduled-task"
+                  This field is used with ComponentTypeDefinitions (new model)
+                pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+                x-kubernetes-validations:
+                - message: spec.componentType cannot be changed after creation
+                  rule: self == oldSelf
               owner:
                 description: Owner defines the ownership information for the component
                 properties:
@@ -119,14 +158,23 @@ spec:
                 required:
                 - projectName
                 type: object
+              parameters:
+                description: |-
+                  Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
+                  This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
+                x-kubernetes-preserve-unknown-fields: true
               type:
-                description: Type specifies the component type (e.g., Service, WebApplication,
-                  etc.)
+                description: |-
+                  Type specifies the component type (e.g., Service, WebApplication, etc.)
+                  LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
                 type: string
             required:
             - owner
-            - type
             type: object
+            x-kubernetes-validations:
+            - message: Component must have either spec.type or spec.componentType
+                set
+              rule: has(self.type) || has(self.componentType)
           status:
             description: ComponentStatus defines the observed state of Component.
             properties:

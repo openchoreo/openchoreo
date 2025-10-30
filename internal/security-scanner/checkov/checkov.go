@@ -1,3 +1,6 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright 2024 Choreo LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +20,7 @@ package checkov
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,11 +42,17 @@ func RunCheckov(ctx context.Context, manifest []byte) ([]Finding, error) {
 		return nil, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	cmd := exec.CommandContext(ctx, "checkov", "-f", tmpFile.Name(), "--framework", "kubernetes", "--output", "json", "--quiet")
+	// Validate the temp file path to prevent command injection
+	tmpFilePath := tmpFile.Name()
+	if !isValidFilePath(tmpFilePath) {
+		return nil, fmt.Errorf("invalid temp file path: %s", tmpFilePath)
+	}
+
+	cmd := exec.CommandContext(ctx, "checkov", "-f", tmpFilePath, "--framework", "kubernetes", "--output", "json", "--quiet")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		exitErr, ok := err.(*exec.ExitError)
-		if !ok || exitErr.ExitCode() == 127 {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() == 127 {
 			return nil, fmt.Errorf("checkov command failed: %w (output: %s)", err, string(output))
 		}
 	}
@@ -117,10 +127,20 @@ func categorizeCheck(checkClass string) string {
 	if len(parts) > 0 {
 		category := parts[len(parts)-1]
 		category = strings.ToLower(category)
-		if strings.HasSuffix(category, "check") {
-			category = strings.TrimSuffix(category, "check")
-		}
+		category = strings.TrimSuffix(category, "check")
 		return category
 	}
 	return "security"
+}
+
+func isValidFilePath(path string) bool {
+	// Basic validation to prevent command injection
+	// Only allow alphanumeric characters, dots, hyphens, underscores, and forward slashes
+	for _, r := range path {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '.' || r == '-' || r == '_' || r == '/') {
+			return false
+		}
+	}
+	return true
 }

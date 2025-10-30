@@ -6,6 +6,7 @@ package backend
 import (
 	"context"
 	"database/sql"
+	"math"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/security-scanner/db/backend/postgres"
@@ -189,14 +190,14 @@ func (a *postgresAdapter) UpsertResource(ctx context.Context, resourceType, reso
 
 func (a *postgresAdapter) InsertResourceLabel(ctx context.Context, resourceID int64, labelKey, labelValue string) error {
 	return a.q.InsertResourceLabel(ctx, postgres.InsertResourceLabelParams{
-		ResourceID: int32(resourceID),
+		ResourceID: safeInt64ToInt32(resourceID),
 		LabelKey:   labelKey,
 		LabelValue: labelValue,
 	})
 }
 
 func (a *postgresAdapter) DeleteResourceLabels(ctx context.Context, resourceID int64) error {
-	return a.q.DeleteResourceLabels(ctx, int32(resourceID))
+	return a.q.DeleteResourceLabels(ctx, safeInt64ToInt32(resourceID))
 }
 
 func (a *postgresAdapter) GetPostureScannedResource(ctx context.Context, resourceType, resourceNamespace, resourceName string) (PostureScannedResource, error) {
@@ -214,10 +215,10 @@ func (a *postgresAdapter) GetPostureScannedResource(ctx context.Context, resourc
 func (a *postgresAdapter) UpsertPostureScannedResource(ctx context.Context, resourceID int64, resourceVersion string, scanDurationMs *int64) error {
 	var scanDuration sql.NullInt32
 	if scanDurationMs != nil {
-		scanDuration = sql.NullInt32{Int32: int32(*scanDurationMs), Valid: true}
+		scanDuration = sql.NullInt32{Int32: safeInt64ToInt32(*scanDurationMs), Valid: true}
 	}
 	return a.q.UpsertPostureScannedResource(ctx, postgres.UpsertPostureScannedResourceParams{
-		ResourceID:      int32(resourceID),
+		ResourceID:      safeInt64ToInt32(resourceID),
 		ResourceVersion: resourceVersion,
 		ScanDurationMs:  scanDuration,
 	})
@@ -225,7 +226,7 @@ func (a *postgresAdapter) UpsertPostureScannedResource(ctx context.Context, reso
 
 func (a *postgresAdapter) InsertPostureFinding(ctx context.Context, resourceID int64, checkID, checkName, severity string, category, description, remediation *string, resourceVersion string) error {
 	return a.q.InsertPostureFinding(ctx, postgres.InsertPostureFindingParams{
-		ResourceID:      int32(resourceID),
+		ResourceID:      safeInt64ToInt32(resourceID),
 		CheckID:         checkID,
 		CheckName:       checkName,
 		Severity:        severity,
@@ -237,13 +238,13 @@ func (a *postgresAdapter) InsertPostureFinding(ctx context.Context, resourceID i
 }
 
 func (a *postgresAdapter) DeletePostureFindingsByResourceID(ctx context.Context, resourceID int64) error {
-	return a.q.DeletePostureFindingsByResourceID(ctx, int32(resourceID))
+	return a.q.DeletePostureFindingsByResourceID(ctx, safeInt64ToInt32(resourceID))
 }
 
 func (a *postgresAdapter) ListPostureFindings(ctx context.Context, limit, offset int64) ([]PostureFindingWithResource, error) {
 	rows, err := a.q.ListPostureFindings(ctx, postgres.ListPostureFindingsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  safeInt64ToInt32(limit),
+		Offset: safeInt64ToInt32(offset),
 	})
 	if err != nil {
 		return nil, err
@@ -256,7 +257,7 @@ func (a *postgresAdapter) ListPostureFindings(ctx context.Context, limit, offset
 }
 
 func (a *postgresAdapter) GetResource(ctx context.Context, resourceID int64) (Resource, error) {
-	r, err := a.q.GetResource(ctx, int32(resourceID))
+	r, err := a.q.GetResource(ctx, safeInt64ToInt32(resourceID))
 	if err != nil {
 		return Resource{}, err
 	}
@@ -264,7 +265,7 @@ func (a *postgresAdapter) GetResource(ctx context.Context, resourceID int64) (Re
 }
 
 func (a *postgresAdapter) GetResourceLabels(ctx context.Context, resourceID int64) (map[string]string, error) {
-	labels, err := a.q.GetResourceLabels(ctx, int32(resourceID))
+	labels, err := a.q.GetResourceLabels(ctx, safeInt64ToInt32(resourceID))
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +277,7 @@ func (a *postgresAdapter) GetResourceLabels(ctx context.Context, resourceID int6
 }
 
 func (a *postgresAdapter) GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]PostureFinding, error) {
-	findings, err := a.q.GetPostureFindingsByResourceID(ctx, int32(resourceID))
+	findings, err := a.q.GetPostureFindingsByResourceID(ctx, safeInt64ToInt32(resourceID))
 	if err != nil {
 		return nil, err
 	}
@@ -289,8 +290,8 @@ func (a *postgresAdapter) GetPostureFindingsByResourceID(ctx context.Context, re
 
 func (a *postgresAdapter) ListResourcesWithPostureFindings(ctx context.Context, limit, offset int64) ([]Resource, error) {
 	resources, err := a.q.ListResourcesWithPostureFindings(ctx, postgres.ListResourcesWithPostureFindingsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  safeInt64ToInt32(limit),
+		Offset: safeInt64ToInt32(offset),
 	})
 	if err != nil {
 		return nil, err
@@ -304,7 +305,7 @@ func (a *postgresAdapter) ListResourcesWithPostureFindings(ctx context.Context, 
 
 func (a *postgresAdapter) CountResourcesWithPostureFindings(ctx context.Context) (int64, error) {
 	count, err := a.q.CountResourcesWithPostureFindings(ctx)
-	return int64(count), err
+	return count, err
 }
 
 func convertSQLitePostureScannedResource(r sqlite.PostureScannedResource) PostureScannedResource {
@@ -490,4 +491,14 @@ func convertPostgresPostureFinding(f postgres.PostureFinding) PostureFinding {
 		ResourceVersion: f.ResourceVersion,
 		CreatedAt:       createdAt,
 	}
+}
+
+func safeInt64ToInt32(val int64) int32 {
+	if val > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if val < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(val)
 }
