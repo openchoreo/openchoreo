@@ -174,3 +174,88 @@ Phase 2 parent controller resolution is complete. Next step is Phase 3: Integrat
 ## Phase 3 Complete - Ready for Phase 4
 Phase 3 Checkov integration is complete. Next step is Phase 4: Update Pod controller to call Checkov, generate YAML manifests, store findings in database.
 
+# Phase 4: Pod Watcher and Reconciliation Logic - COMPLETED
+
+## Pod Controller Updates
+- `internal/security-scanner/controller/pod_controller.go` - Updated with complete reconciliation flow
+- Added imports for appsv1, batchv1, checkov package, and sigs.k8s.io/yaml
+- Added generateManifest method to convert K8s objects to YAML manifests
+- Added comprehensive error handling and logging throughout the flow
+
+## Complete Reconciliation Flow
+1. **Pod Event Handling**: Controller watches Pod create/update events
+2. **Parent Resolution**: Uses resolver to traverse Pod → ReplicaSet → Deployment chain
+3. **Resource Storage**: Upserts resolved parent controller to resources table
+4. **Deduplication Check**: Queries posture_scanned_resources to avoid redundant scans
+5. **Label Management**: Deletes old labels and inserts new labels from parent controller
+6. **Manifest Generation**: Converts parent controller object to YAML manifest
+7. **Checkov Scanning**: Runs Checkov against generated manifest
+8. **Findings Storage**: Deletes old findings and inserts new findings from scan
+9. **Scan Tracking**: Upserts posture_scanned_resources with scan duration
+
+## ResourceVersion-Based Deduplication
+- Checks GetPostureScannedResource before scanning
+- Skips scanning if resourceVersion matches previously scanned version
+- Logs "Resource already scanned at this version, skipping" for deduplication
+- Prevents redundant Checkov scans on unchanged resources
+
+## Label Extraction and Storage
+- Extracts labels from resolved parent controller (not Pod)
+- Deletes old labels with DeleteResourceLabels before inserting new ones
+- Inserts each label with InsertResourceLabel
+- Logs label count in scan preparation logs
+
+## YAML Manifest Generation
+- generateManifest method supports all controller types:
+  - Deployment, StatefulSet, DaemonSet (apps/v1)
+  - Job, CronJob (batch/v1) 
+  - Pod (core/v1)
+- Preserves TypeMeta (APIVersion, Kind) and ObjectMeta
+- Extracts only the Spec field for scanning (removes status, managedFields)
+- Uses sigs.k8s.io/yaml for proper K8s YAML serialization
+
+## Checkov Integration
+- Calls checkov.RunCheckov with generated manifest
+- Handles Checkov failures gracefully with error logging
+- Processes findings array and converts to database format
+- Maps nullable fields (category, description, remediation) to pointers
+
+## Database Operations
+- DeletePostureFindingsByResourceID before inserting new findings
+- InsertPostureFinding for each Checkov finding with proper field mapping
+- UpsertPostureScannedResource with actual scan duration in milliseconds
+- All database operations include comprehensive error handling
+
+## Event Filter Updates
+- UpdateFunc now checks resourceVersion changes
+- Only processes updates when ResourceVersion actually changed
+- Prevents unnecessary reconciliations for status-only updates
+
+## Logging and Error Handling
+- Structured logging with slog at each major step
+- Error logging includes resource identifiers and operation context
+- Info logging for successful operations with timing and counts
+- All errors return ctrl.Result{} to trigger requeue if needed
+
+## Performance Tracking
+- Measures scan duration with time.Since(scanStartTime).Milliseconds()
+- Stores scan duration in posture_scanned_resources table
+- Logs scan duration and findings count for monitoring
+
+## Compilation and Testing
+- All code compiles successfully with no errors
+- Fixed linting issue with error comparison (errors.Is instead of !=)
+- Ready for integration testing with actual Kubernetes clusters
+
+## Phase 4 Complete - Ready for Phase 5
+Phase 4 Pod watcher and reconciliation logic is complete. The security scanner now:
+- Watches Pods and resolves parent controllers
+- Generates YAML manifests from K8s objects
+- Runs Checkov policy scans
+- Stores findings with labels in database
+- Tracks resourceVersion to prevent redundant scans
+- Provides comprehensive logging and error handling
+
+Next step is Phase 5: REST API for Findings Retrieval.
+
+- Updated ClusterRole to include get/list permissions for apps/v1 resources (Deployments, ReplicaSets, StatefulSets, DaemonSets) and batch/v1 resources (Jobs, CronJobs)

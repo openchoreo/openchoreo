@@ -42,14 +42,34 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- if .Values.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "security-scanner.fullname" . }}-data
+      {{- end }}
       containers:
       - name: security-scanner
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: DB_BACKEND
+          value: {{ .Values.database.backend | quote }}
+        - name: DB_DSN
+          value: {{ .Values.database.dsn | quote }}
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: /data
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health

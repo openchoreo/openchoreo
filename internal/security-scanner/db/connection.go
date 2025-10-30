@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
+	_ "modernc.org/sqlite"
 
 	"github.com/openchoreo/openchoreo/internal/security-scanner/db/backend"
 	"github.com/openchoreo/openchoreo/internal/security-scanner/db/backend/postgres"
@@ -24,10 +24,8 @@ var sqliteMigrations embed.FS
 var postgresMigrations embed.FS
 
 type Config struct {
-	Backend      DBBackend
-	DSN          string
-	MaxOpenConns int
-	MaxIdleConns int
+	Backend DBBackend
+	DSN     string
 }
 
 func InitDB(cfg Config) (*DBConnection, error) {
@@ -54,13 +52,6 @@ func InitDB(cfg Config) (*DBConnection, error) {
 		return nil, fmt.Errorf("unsupported database backend: %s", cfg.Backend)
 	}
 
-	if cfg.MaxOpenConns > 0 {
-		db.SetMaxOpenConns(cfg.MaxOpenConns)
-	}
-	if cfg.MaxIdleConns > 0 {
-		db.SetMaxIdleConns(cfg.MaxIdleConns)
-	}
-
 	return &DBConnection{
 		db:      db,
 		backend: cfg.Backend,
@@ -69,13 +60,22 @@ func InitDB(cfg Config) (*DBConnection, error) {
 }
 
 func initSQLite(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open("sqlite", dsn+"?_journal_mode=WAL&_cache_size=1000&_synchronous=NORMAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite: %w", err)
 	}
 
+	// Configure connection pool for better memory management
+	db.SetMaxOpenConns(1) // SQLite works best with single connection
+	db.SetMaxIdleConns(1)
+
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
+	}
+
 	goose.SetBaseFS(sqliteMigrations)
-	if err := goose.SetDialect("sqlite3"); err != nil {
+	if err := goose.SetDialect("sqlite"); err != nil {
 		return nil, fmt.Errorf("failed to set SQLite dialect: %w", err)
 	}
 

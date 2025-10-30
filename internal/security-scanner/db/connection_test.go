@@ -13,10 +13,8 @@ func TestInitDB_SQLite(t *testing.T) {
 	defer os.Remove(tmpFile)
 
 	cfg := Config{
-		Backend:      SQLite,
-		DSN:          tmpFile,
-		MaxOpenConns: 10,
-		MaxIdleConns: 5,
+		Backend: SQLite,
+		DSN:     tmpFile,
 	}
 
 	conn, err := InitDB(cfg)

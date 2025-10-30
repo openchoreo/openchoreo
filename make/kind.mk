@@ -189,6 +189,22 @@ kind.install: ## Install Cilium CNI and OpenChoreo to kind cluster
 	@$(MAKE) kind.install.openchoreo
 	@$(call log_success, All components installed successfully!)
 
+.PHONY: kind.install.template
+kind.install.template: ## Generate OpenChoreo Helm template without installing
+	@$(call check_cluster_exists)
+	@if ! helm list --namespace cilium --kube-context kind-$(KIND_CLUSTER_NAME) | grep -q "^cilium"; then \
+		$(call log_error, Cilium is not installed. Run 'make kind.install.cilium' first); \
+		exit 1; \
+	fi
+	@$(call log_info, Generating OpenChoreo Helm template...)
+	@helm template openchoreo $(HELM_DIR) \
+		--namespace $(OPENCHOREO_NAMESPACE) \
+		--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
+		--set controllerManager.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+		--set openchoreoApi.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+		--set backstage.image.tag=$(OPENCHOREO_IMAGE_TAG)
+	@$(call log_success, OpenChoreo Helm template generated!)
+
 
 .PHONY: kind.uninstall.%
 kind.uninstall.%: ## Uninstall specific component. Valid components: cilium, openchoreo. Usage: make kind.uninstall.<component>
