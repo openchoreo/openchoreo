@@ -84,7 +84,15 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		ctx["workload"] = workloadData
 	}
 
-	// 6. Add component metadata
+	// 6. Extract configurations (env and file from all containers)
+	if input.Workload != nil {
+		configurations := extractConfigurationsFromWorkload(input.Workload)
+		if configurations != nil {
+			ctx["configurations"] = configurations
+		}
+	}
+
+	// 7. Add component metadata
 	componentMeta := map[string]any{
 		"name": input.Component.Name,
 	}
@@ -93,12 +101,12 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["component"] = componentMeta
 
-	// 7. Add environment
+	// 8. Add environment
 	if input.Environment != "" {
 		ctx["environment"] = input.Environment
 	}
 
-	// 8. Add structured metadata for resource generation
+	// 9. Add structured metadata for resource generation
 	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.
 	metadataMap := map[string]any{
 		"name":      input.Metadata.Name,
@@ -174,6 +182,100 @@ func extractWorkloadData(workload *v1alpha1.Workload) map[string]any {
 	}
 
 	return data
+}
+
+// extractConfigurationsFromWorkload extracts env and file configurations from workload containers
+// and separates them into configs vs secrets based on valueFrom usage.
+func extractConfigurationsFromWorkload(workload *v1alpha1.Workload) map[string]any {
+	if workload == nil || len(workload.Spec.Containers) == 0 {
+		return nil
+	}
+
+	configs := map[string][]map[string]any{
+		"envs":  []map[string]any{},
+		"files": []map[string]any{},
+	}
+	secrets := map[string][]map[string]any{
+		"envs":  []map[string]any{},
+		"files": []map[string]any{},
+	}
+
+	// Process all containers
+	for _, container := range workload.Spec.Containers {
+		// Process environment variables
+		for _, env := range container.Env {
+			envMap := map[string]any{
+				"name": env.Key,
+			}
+
+			if env.Value != "" {
+				// Direct value - goes to configs
+				envMap["value"] = env.Value
+				configs["envs"] = append(configs["envs"], envMap)
+			} else if env.ValueFrom != nil {
+				// Reference to external source - goes to secrets
+				if env.ValueFrom.SecretRef != nil {
+					envMap["remoteRef"] = map[string]any{
+						"key":      fmt.Sprintf("secret/data/%s", env.ValueFrom.SecretRef.Name),
+						"property": env.ValueFrom.SecretRef.Key,
+					}
+					secrets["envs"] = append(secrets["envs"], envMap)
+				} else if env.ValueFrom.ConfigurationGroupRef != nil {
+					// ConfigurationGroup references also go to configs
+					envMap["remoteRef"] = map[string]any{
+						"key":      fmt.Sprintf("configmap/data/%s", env.ValueFrom.ConfigurationGroupRef.Name),
+						"property": env.ValueFrom.ConfigurationGroupRef.Key,
+					}
+					configs["envs"] = append(configs["envs"], envMap)
+				}
+			}
+		}
+
+		// Process file configurations
+		for _, file := range container.File {
+			fileMap := map[string]any{
+				"name":      file.Key,
+				"mountPath": file.MountPath,
+			}
+
+			if file.Value != "" {
+				// Direct content - goes to configs
+				fileMap["value"] = file.Value
+				configs["files"] = append(configs["files"], fileMap)
+			} else if file.ValueFrom != nil {
+				// Reference to external source - goes to secrets
+				if file.ValueFrom.SecretRef != nil {
+					fileMap["remoteRef"] = map[string]any{
+						"key":      fmt.Sprintf("secret/data/%s", file.ValueFrom.SecretRef.Name),
+						"property": file.ValueFrom.SecretRef.Key,
+					}
+					secrets["files"] = append(secrets["files"], fileMap)
+				} else if file.ValueFrom.ConfigurationGroupRef != nil {
+					// ConfigurationGroup references also go to configs
+					fileMap["remoteRef"] = map[string]any{
+						"key":      fmt.Sprintf("configmap/data/%s", file.ValueFrom.ConfigurationGroupRef.Name),
+						"property": file.ValueFrom.ConfigurationGroupRef.Key,
+					}
+					configs["files"] = append(configs["files"], fileMap)
+				}
+			}
+		}
+	}
+
+	// Always include sections with empty arrays if no data
+	result := make(map[string]any)
+
+	configsResult := make(map[string]any)
+	configsResult["envs"] = configs["envs"]   // Always include, even if empty
+	configsResult["files"] = configs["files"] // Always include, even if empty
+	result["configs"] = configsResult
+
+	secretsResult := make(map[string]any)
+	secretsResult["envs"] = secrets["envs"]   // Always include, even if empty
+	secretsResult["files"] = secrets["files"] // Always include, even if empty
+	result["secrets"] = secretsResult
+
+	return result
 }
 
 // buildStructuralSchema creates a structural schema from schema input.

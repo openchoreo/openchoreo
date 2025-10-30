@@ -42,6 +42,19 @@ spec:
                 - name: app
                   image: ${workload.containers["app"].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
+                  envFrom: |
+                    ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                      [{
+                        "configMapRef": {
+                          "name": sanitizeK8sResourceName(metadata.name, "env-configs")
+                        }
+                      }] : []) +
+                     (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                      [{
+                        "secretRef": {
+                          "name": sanitizeK8sResourceName(metadata.name, "secret-configs")
+                        }
+                      }] : [])}
                   ports:
                     - name: http
                       containerPort: ${parameters.port}
@@ -70,6 +83,15 @@ spec:
               port: 80
               targetPort: ${parameters.port}
               protocol: TCP
+    - id: env-config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
+          namespace: ${metadata.namespace}
+        data: |
+          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
