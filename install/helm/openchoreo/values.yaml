@@ -1464,6 +1464,7 @@ backstage:
       # -- AppArmor profile type
       type: RuntimeDefault
 # @schema
+# additionalProperties: true
 # type: [null, object]
 # @schema
 # -- Security Scanner configuration
@@ -1494,6 +1495,7 @@ securityScanner:
     # -- Database connection string
     dsn: /data/security-scanner.db
   # @schema
+  # additionalProperties: true
   # type: [null, object]
   # @schema
   # -- Persistent volume configuration

@@ -1,7 +1,9 @@
 # @schema
-# type: object
+# type: [null, boolean]
 # @schema
-# -- Security Scanner Values
+# -- Enable security scanner deployment
+enabled: true
+
 # @schema
 # type: [null, integer]
 # @schema
