@@ -51,9 +51,11 @@ backstage:
             pathType: Prefix
   # Backstage base URL (externally accessible URL via ingress)
   baseUrl: "http://openchoreo.localhost"
-  # Thunder IdP configuration (uses ingress URL for browser-accessible endpoints)
+  # Thunder IdP configuration
+  # - thunder.baseUrl: Used for backend API calls (User/Group provider) → MUST be internal K8s service URL
+  # - Leave empty to use default internal service URL
   thunder:
-    baseUrl: "http://sts.openchoreo.localhost"
+    baseUrl: ""  # Defaults to internal K8s service URL (http://openchoreo-asgardeo-thunder.openchoreo.svc.cluster.local:8090)
   # Auth endpoints
   # - authorizationUrl: MUST be external (browser-accessible) for OAuth redirect
   # - tokenUrl: MUST be internal (K8s service URL) for backend token exchange
