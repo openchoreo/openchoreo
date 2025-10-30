@@ -9,12 +9,17 @@ import (
 )
 
 type Querier interface {
+	CountResourcesWithPostureFindings(ctx context.Context) (int64, error)
 	DeletePostureFindingsByResourceID(ctx context.Context, resourceID int32) error
 	DeleteResourceLabels(ctx context.Context, resourceID int32) error
+	GetPostureFindingsByResourceID(ctx context.Context, resourceID int32) ([]PostureFinding, error)
 	GetPostureScannedResource(ctx context.Context, arg GetPostureScannedResourceParams) (PostureScannedResource, error)
+	GetResource(ctx context.Context, id int32) (Resource, error)
+	GetResourceLabels(ctx context.Context, resourceID int32) ([]GetResourceLabelsRow, error)
 	InsertPostureFinding(ctx context.Context, arg InsertPostureFindingParams) error
 	InsertResourceLabel(ctx context.Context, arg InsertResourceLabelParams) error
 	ListPostureFindings(ctx context.Context, arg ListPostureFindingsParams) ([]ListPostureFindingsRow, error)
+	ListResourcesWithPostureFindings(ctx context.Context, arg ListResourcesWithPostureFindingsParams) ([]Resource, error)
 	UpsertPostureScannedResource(ctx context.Context, arg UpsertPostureScannedResourceParams) error
 	UpsertResource(ctx context.Context, arg UpsertResourceParams) (int32, error)
 }

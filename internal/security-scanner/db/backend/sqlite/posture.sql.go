@@ -10,6 +10,19 @@ import (
 	"database/sql"
 )
 
+const countResourcesWithPostureFindings = `-- name: CountResourcesWithPostureFindings :one
+SELECT COUNT(DISTINCT r.id) as count
+FROM resources r
+JOIN posture_findings f ON r.id = f.resource_id
+`
+
+func (q *Queries) CountResourcesWithPostureFindings(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countResourcesWithPostureFindings)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deletePostureFindingsByResourceID = `-- name: DeletePostureFindingsByResourceID :exec
 DELETE FROM posture_findings WHERE resource_id = ?
 `
@@ -17,6 +30,44 @@ DELETE FROM posture_findings WHERE resource_id = ?
 func (q *Queries) DeletePostureFindingsByResourceID(ctx context.Context, resourceID int64) error {
 	_, err := q.db.ExecContext(ctx, deletePostureFindingsByResourceID, resourceID)
 	return err
+}
+
+const getPostureFindingsByResourceID = `-- name: GetPostureFindingsByResourceID :many
+SELECT id, resource_id, check_id, check_name, severity, category, description, remediation, resource_version, created_at FROM posture_findings WHERE resource_id = ? ORDER BY created_at DESC
+`
+
+func (q *Queries) GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]PostureFinding, error) {
+	rows, err := q.db.QueryContext(ctx, getPostureFindingsByResourceID, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PostureFinding{}
+	for rows.Next() {
+		var i PostureFinding
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResourceID,
+			&i.CheckID,
+			&i.CheckName,
+			&i.Severity,
+			&i.Category,
+			&i.Description,
+			&i.Remediation,
+			&i.ResourceVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getPostureScannedResource = `-- name: GetPostureScannedResource :one
@@ -127,6 +178,51 @@ func (q *Queries) ListPostureFindings(ctx context.Context, arg ListPostureFindin
 			&i.ResourceType,
 			&i.ResourceNamespace,
 			&i.ResourceName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourcesWithPostureFindings = `-- name: ListResourcesWithPostureFindings :many
+SELECT DISTINCT r.id, r.resource_type, r.resource_namespace, r.resource_name, r.resource_uid, r.resource_version, r.created_at, r.updated_at
+FROM resources r
+JOIN posture_findings f ON r.id = f.resource_id
+ORDER BY r.updated_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListResourcesWithPostureFindingsParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) ListResourcesWithPostureFindings(ctx context.Context, arg ListResourcesWithPostureFindingsParams) ([]Resource, error) {
+	rows, err := q.db.QueryContext(ctx, listResourcesWithPostureFindings, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Resource{}
+	for rows.Next() {
+		var i Resource
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResourceType,
+			&i.ResourceNamespace,
+			&i.ResourceName,
+			&i.ResourceUid,
+			&i.ResourceVersion,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

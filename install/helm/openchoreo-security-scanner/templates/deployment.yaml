@@ -1,3 +1,4 @@
+{{- include "security-scanner.validateSQLite" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,7 +8,13 @@ metadata:
     {{- include "security-scanner.labels" . | nindent 4 }}
     app.kubernetes.io/component: security-scanner
 spec:
+  {{- if eq .Values.database.backend "sqlite" }}
+  replicas: 1
+  strategy:
+    type: Recreate
+  {{- else }}
   replicas: {{ .Values.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: security-scanner
@@ -72,13 +79,13 @@ spec:
         {{- end }}
         livenessProbe:
           httpGet:
-            path: /health
+            path: /api/v1/health
             port: http
           initialDelaySeconds: 15
           periodSeconds: 20
         readinessProbe:
           httpGet:
-            path: /health
+            path: /api/v1/health
             port: http
           initialDelaySeconds: 5
           periodSeconds: 10

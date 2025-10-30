@@ -14,16 +14,21 @@ import (
 
 type Querier interface {
 	UpsertResource(ctx context.Context, resourceType, resourceNamespace, resourceName, resourceUID, resourceVersion string) (int64, error)
+	GetResource(ctx context.Context, resourceID int64) (Resource, error)
 
 	InsertResourceLabel(ctx context.Context, resourceID int64, labelKey, labelValue string) error
 	DeleteResourceLabels(ctx context.Context, resourceID int64) error
+	GetResourceLabels(ctx context.Context, resourceID int64) (map[string]string, error)
 
 	GetPostureScannedResource(ctx context.Context, resourceType, resourceNamespace, resourceName string) (PostureScannedResource, error)
 	UpsertPostureScannedResource(ctx context.Context, resourceID int64, resourceVersion string, scanDurationMs *int64) error
 
 	InsertPostureFinding(ctx context.Context, resourceID int64, checkID, checkName, severity string, category, description, remediation *string, resourceVersion string) error
 	DeletePostureFindingsByResourceID(ctx context.Context, resourceID int64) error
+	GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]PostureFinding, error)
 	ListPostureFindings(ctx context.Context, limit, offset int64) ([]PostureFindingWithResource, error)
+	ListResourcesWithPostureFindings(ctx context.Context, limit, offset int64) ([]Resource, error)
+	CountResourcesWithPostureFindings(ctx context.Context) (int64, error)
 }
 
 type sqliteAdapter struct {
@@ -112,6 +117,57 @@ func (a *sqliteAdapter) ListPostureFindings(ctx context.Context, limit, offset i
 	return result, nil
 }
 
+func (a *sqliteAdapter) GetResource(ctx context.Context, resourceID int64) (Resource, error) {
+	r, err := a.q.GetResource(ctx, resourceID)
+	if err != nil {
+		return Resource{}, err
+	}
+	return convertSQLiteResource(r), nil
+}
+
+func (a *sqliteAdapter) GetResourceLabels(ctx context.Context, resourceID int64) (map[string]string, error) {
+	labels, err := a.q.GetResourceLabels(ctx, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(labels))
+	for _, label := range labels {
+		result[label.LabelKey] = label.LabelValue
+	}
+	return result, nil
+}
+
+func (a *sqliteAdapter) GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]PostureFinding, error) {
+	findings, err := a.q.GetPostureFindingsByResourceID(ctx, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PostureFinding, len(findings))
+	for i, f := range findings {
+		result[i] = convertSQLitePostureFinding(f)
+	}
+	return result, nil
+}
+
+func (a *sqliteAdapter) ListResourcesWithPostureFindings(ctx context.Context, limit, offset int64) ([]Resource, error) {
+	resources, err := a.q.ListResourcesWithPostureFindings(ctx, sqlite.ListResourcesWithPostureFindingsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Resource, len(resources))
+	for i, r := range resources {
+		result[i] = convertSQLiteResource(r)
+	}
+	return result, nil
+}
+
+func (a *sqliteAdapter) CountResourcesWithPostureFindings(ctx context.Context) (int64, error) {
+	return a.q.CountResourcesWithPostureFindings(ctx)
+}
+
 type postgresAdapter struct {
 	q *postgres.Queries
 }
@@ -197,6 +253,58 @@ func (a *postgresAdapter) ListPostureFindings(ctx context.Context, limit, offset
 		result[i] = convertPostgresPostureFindingRow(r)
 	}
 	return result, nil
+}
+
+func (a *postgresAdapter) GetResource(ctx context.Context, resourceID int64) (Resource, error) {
+	r, err := a.q.GetResource(ctx, int32(resourceID))
+	if err != nil {
+		return Resource{}, err
+	}
+	return convertPostgresResource(r), nil
+}
+
+func (a *postgresAdapter) GetResourceLabels(ctx context.Context, resourceID int64) (map[string]string, error) {
+	labels, err := a.q.GetResourceLabels(ctx, int32(resourceID))
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(labels))
+	for _, label := range labels {
+		result[label.LabelKey] = label.LabelValue
+	}
+	return result, nil
+}
+
+func (a *postgresAdapter) GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]PostureFinding, error) {
+	findings, err := a.q.GetPostureFindingsByResourceID(ctx, int32(resourceID))
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PostureFinding, len(findings))
+	for i, f := range findings {
+		result[i] = convertPostgresPostureFinding(f)
+	}
+	return result, nil
+}
+
+func (a *postgresAdapter) ListResourcesWithPostureFindings(ctx context.Context, limit, offset int64) ([]Resource, error) {
+	resources, err := a.q.ListResourcesWithPostureFindings(ctx, postgres.ListResourcesWithPostureFindingsParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Resource, len(resources))
+	for i, r := range resources {
+		result[i] = convertPostgresResource(r)
+	}
+	return result, nil
+}
+
+func (a *postgresAdapter) CountResourcesWithPostureFindings(ctx context.Context) (int64, error) {
+	count, err := a.q.CountResourcesWithPostureFindings(ctx)
+	return int64(count), err
 }
 
 func convertSQLitePostureScannedResource(r sqlite.PostureScannedResource) PostureScannedResource {
@@ -302,4 +410,84 @@ func fromNullInt32(i sql.NullInt32) *int64 {
 	}
 	result := int64(i.Int32)
 	return &result
+}
+
+func convertSQLiteResource(r sqlite.Resource) Resource {
+	createdAt := r.CreatedAt.Time
+	if !r.CreatedAt.Valid {
+		createdAt = time.Time{}
+	}
+	updatedAt := r.UpdatedAt.Time
+	if !r.UpdatedAt.Valid {
+		updatedAt = time.Time{}
+	}
+	return Resource{
+		ID:                r.ID,
+		ResourceType:      r.ResourceType,
+		ResourceNamespace: r.ResourceNamespace,
+		ResourceName:      r.ResourceName,
+		ResourceUID:       r.ResourceUid,
+		ResourceVersion:   r.ResourceVersion,
+		CreatedAt:         createdAt,
+		UpdatedAt:         updatedAt,
+	}
+}
+
+func convertPostgresResource(r postgres.Resource) Resource {
+	createdAt := r.CreatedAt.Time
+	if !r.CreatedAt.Valid {
+		createdAt = time.Time{}
+	}
+	updatedAt := r.UpdatedAt.Time
+	if !r.UpdatedAt.Valid {
+		updatedAt = time.Time{}
+	}
+	return Resource{
+		ID:                int64(r.ID),
+		ResourceType:      r.ResourceType,
+		ResourceNamespace: r.ResourceNamespace,
+		ResourceName:      r.ResourceName,
+		ResourceUID:       r.ResourceUid,
+		ResourceVersion:   r.ResourceVersion,
+		CreatedAt:         createdAt,
+		UpdatedAt:         updatedAt,
+	}
+}
+
+func convertSQLitePostureFinding(f sqlite.PostureFinding) PostureFinding {
+	createdAt := f.CreatedAt.Time
+	if !f.CreatedAt.Valid {
+		createdAt = time.Time{}
+	}
+	return PostureFinding{
+		ID:              f.ID,
+		ResourceID:      f.ResourceID,
+		CheckID:         f.CheckID,
+		CheckName:       f.CheckName,
+		Severity:        f.Severity,
+		Category:        fromNullString(f.Category),
+		Description:     fromNullString(f.Description),
+		Remediation:     fromNullString(f.Remediation),
+		ResourceVersion: f.ResourceVersion,
+		CreatedAt:       createdAt,
+	}
+}
+
+func convertPostgresPostureFinding(f postgres.PostureFinding) PostureFinding {
+	createdAt := f.CreatedAt.Time
+	if !f.CreatedAt.Valid {
+		createdAt = time.Time{}
+	}
+	return PostureFinding{
+		ID:              int64(f.ID),
+		ResourceID:      int64(f.ResourceID),
+		CheckID:         f.CheckID,
+		CheckName:       f.CheckName,
+		Severity:        f.Severity,
+		Category:        fromNullString(f.Category),
+		Description:     fromNullString(f.Description),
+		Remediation:     fromNullString(f.Remediation),
+		ResourceVersion: f.ResourceVersion,
+		CreatedAt:       createdAt,
+	}
 }

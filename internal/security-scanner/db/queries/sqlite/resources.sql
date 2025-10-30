@@ -15,3 +15,9 @@ ON CONFLICT(resource_id, label_key) DO UPDATE SET label_value = excluded.label_v
 
 -- name: DeleteResourceLabels :exec
 DELETE FROM resource_labels WHERE resource_id = ?;
+
+-- name: GetResource :one
+SELECT * FROM resources WHERE id = ?;
+
+-- name: GetResourceLabels :many
+SELECT label_key, label_value FROM resource_labels WHERE resource_id = ?;

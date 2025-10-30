@@ -25,3 +25,18 @@ FROM posture_findings f
 JOIN resources r ON f.resource_id = r.id
 ORDER BY f.created_at DESC
 LIMIT $1 OFFSET $2;
+
+-- name: GetPostureFindingsByResourceID :many
+SELECT * FROM posture_findings WHERE resource_id = $1 ORDER BY created_at DESC;
+
+-- name: ListResourcesWithPostureFindings :many
+SELECT DISTINCT r.*
+FROM resources r
+JOIN posture_findings f ON r.id = f.resource_id
+ORDER BY r.updated_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountResourcesWithPostureFindings :one
+SELECT COUNT(DISTINCT r.id) as count
+FROM resources r
+JOIN posture_findings f ON r.id = f.resource_id;

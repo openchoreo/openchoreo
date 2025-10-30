@@ -18,6 +18,58 @@ func (q *Queries) DeleteResourceLabels(ctx context.Context, resourceID int32) er
 	return err
 }
 
+const getResource = `-- name: GetResource :one
+SELECT id, resource_type, resource_namespace, resource_name, resource_uid, resource_version, created_at, updated_at FROM resources WHERE id = $1
+`
+
+func (q *Queries) GetResource(ctx context.Context, id int32) (Resource, error) {
+	row := q.db.QueryRowContext(ctx, getResource, id)
+	var i Resource
+	err := row.Scan(
+		&i.ID,
+		&i.ResourceType,
+		&i.ResourceNamespace,
+		&i.ResourceName,
+		&i.ResourceUid,
+		&i.ResourceVersion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getResourceLabels = `-- name: GetResourceLabels :many
+SELECT label_key, label_value FROM resource_labels WHERE resource_id = $1
+`
+
+type GetResourceLabelsRow struct {
+	LabelKey   string `json:"label_key"`
+	LabelValue string `json:"label_value"`
+}
+
+func (q *Queries) GetResourceLabels(ctx context.Context, resourceID int32) ([]GetResourceLabelsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getResourceLabels, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetResourceLabelsRow{}
+	for rows.Next() {
+		var i GetResourceLabelsRow
+		if err := rows.Scan(&i.LabelKey, &i.LabelValue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertResourceLabel = `-- name: InsertResourceLabel :exec
 INSERT INTO resource_labels (resource_id, label_key, label_value)
 VALUES ($1, $2, $3)

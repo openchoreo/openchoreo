@@ -80,8 +80,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	apiHandler := api.NewHandler(dbConn.Querier(), logger)
+
 	mux := http.NewServeMux()
-	api.RegisterRoutes(mux)
+	api.RegisterRoutes(mux, apiHandler)
 
 	server := &http.Server{
 		Addr:              ":8080",

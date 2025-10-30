@@ -60,3 +60,17 @@ Service account name
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate SQLite configuration requirements
+*/}}
+{{- define "security-scanner.validateSQLite" -}}
+{{- if eq .Values.database.backend "sqlite" }}
+  {{- if not (eq (int .Values.replicas) 1) }}
+    {{- fail "SQLite backend requires replicas to be set to 1 to prevent database corruption" }}
+  {{- end }}
+  {{- if not .Values.persistence.enabled }}
+    {{- fail "SQLite backend requires persistence to be enabled" }}
+  {{- end }}
+{{- end }}
+{{- end }}

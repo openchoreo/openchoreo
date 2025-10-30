@@ -108,8 +108,43 @@ func (m *mockQuerier) DeletePostureFindingsByResourceID(ctx context.Context, res
 	return nil
 }
 
+func (m *mockQuerier) GetResource(ctx context.Context, resourceID int64) (backend.Resource, error) {
+	for _, r := range m.resources {
+		if r.ID == resourceID {
+			return backend.Resource{
+				ID:                r.ID,
+				ResourceType:      r.Type,
+				ResourceNamespace: r.Namespace,
+				ResourceName:      r.Name,
+				ResourceUID:       r.UID,
+				ResourceVersion:   r.ResourceVersion,
+			}, nil
+		}
+	}
+	return backend.Resource{}, sql.ErrNoRows
+}
+
+func (m *mockQuerier) GetResourceLabels(ctx context.Context, resourceID int64) (map[string]string, error) {
+	if labels, exists := m.labels[resourceID]; exists {
+		return labels, nil
+	}
+	return make(map[string]string), nil
+}
+
+func (m *mockQuerier) GetPostureFindingsByResourceID(ctx context.Context, resourceID int64) ([]backend.PostureFinding, error) {
+	return []backend.PostureFinding{}, nil
+}
+
 func (m *mockQuerier) ListPostureFindings(ctx context.Context, limit, offset int64) ([]backend.PostureFindingWithResource, error) {
-	return nil, nil
+	return []backend.PostureFindingWithResource{}, nil
+}
+
+func (m *mockQuerier) ListResourcesWithPostureFindings(ctx context.Context, limit, offset int64) ([]backend.Resource, error) {
+	return []backend.Resource{}, nil
+}
+
+func (m *mockQuerier) CountResourcesWithPostureFindings(ctx context.Context) (int64, error) {
+	return 0, nil
 }
 
 func TestPodReconciler_StandalonePod(t *testing.T) {
