@@ -544,6 +544,19 @@ mixed: |
 - {}
 `,
 		},
+		{
+			name: "sha256sum function",
+			template: `
+hash: ${sha256sum("hello world")}
+dynamicHash: ${sha256sum(metadata.value)}
+`,
+			inputs: `{
+  "metadata": {"value": "test data"}
+}`,
+			want: `hash: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+dynamicHash: 916f0027a575074ce72a331777c3478d6513f786a591bd892da1a577bf2335f9
+`,
+		},
 	}
 
 	engine := NewEngine()

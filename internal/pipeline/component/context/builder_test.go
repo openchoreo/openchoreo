@@ -162,6 +162,16 @@ spec:
 						},
 					},
 				},
+				"configurations": map[string]any{
+					"configs": map[string]any{
+						"envs":  []map[string]any{},
+						"files": []map[string]any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []map[string]any{},
+						"files": []map[string]any{},
+					},
+				},
 				"environment": "dev",
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",

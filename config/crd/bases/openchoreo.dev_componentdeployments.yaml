@@ -62,6 +62,109 @@ spec:
                   Keyed by instanceName (which must be unique across all addons in the component)
                   Structure: map[instanceName]overrideValues
                 type: object
+              configurationOverrides:
+                description: |-
+                  ConfigurationOverrides provides environment-specific overrides for workload configurations
+                  These values override or add to the configurations defined in the workload.yaml
+                properties:
+                  env:
+                    description: Environment variable overrides
+                    items:
+                      description: EnvVar represents an environment variable present
+                        in the container.
+                      properties:
+                        key:
+                          description: The environment variable key.
+                          type: string
+                        value:
+                          description: |-
+                            The literal value of the environment variable.
+                            Mutually exclusive with valueFrom.
+                          type: string
+                        valueFrom:
+                          description: |-
+                            Extract the environment variable value from another resource.
+                            Mutually exclusive with value.
+                          properties:
+                            configurationGroupRef:
+                              description: Reference to a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: Reference to a secret resource.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - key
+                      type: object
+                    type: array
+                  file:
+                    description: File configuration overrides
+                    items:
+                      description: |-
+                        FileVar represents a file configuration in a container.
+                        FileVar represents a file configuration in a container.
+                      properties:
+                        key:
+                          description: The file key/name.
+                          type: string
+                        mountPath:
+                          description: The mount path where the file will be mounted.
+                          type: string
+                        value:
+                          description: |-
+                            The literal content of the file.
+                            Mutually exclusive with secretKeyRef.
+                          type: string
+                        valueFrom:
+                          description: |-
+                            Extract the environment variable value from another resource.
+                            Mutually exclusive with value.
+                          properties:
+                            configurationGroupRef:
+                              description: Reference to a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: Reference to a secret resource.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - key
+                      - mountPath
+                      type: object
+                    type: array
+                type: object
               environment:
                 description: Environment is the name of the environment this deployment
                   applies to

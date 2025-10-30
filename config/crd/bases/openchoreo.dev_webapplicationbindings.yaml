@@ -193,6 +193,58 @@ spec:
                             - key
                             type: object
                           type: array
+                        file:
+                          description: File configurations.
+                          items:
+                            description: |-
+                              FileVar represents a file configuration in a container.
+                              FileVar represents a file configuration in a container.
+                            properties:
+                              key:
+                                description: The file key/name.
+                                type: string
+                              mountPath:
+                                description: The mount path where the file will be
+                                  mounted.
+                                type: string
+                              value:
+                                description: |-
+                                  The literal content of the file.
+                                  Mutually exclusive with secretKeyRef.
+                                type: string
+                              valueFrom:
+                                description: |-
+                                  Extract the environment variable value from another resource.
+                                  Mutually exclusive with value.
+                                properties:
+                                  configurationGroupRef:
+                                    description: Reference to a configuration group.
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                  secretRef:
+                                    description: Reference to a secret resource.
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                type: object
+                            required:
+                            - key
+                            - mountPath
+                            type: object
+                          type: array
                         image:
                           description: OCI image to run (digest or tag).
                           minLength: 1
