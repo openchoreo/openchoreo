@@ -14,6 +14,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -121,16 +122,78 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		return nil, fmt.Errorf("failed to list components: %w", err)
 	}
 
+	// Use index to get stable pointer to slice element (not loop variable)
+	// This prevents pointer aliasing issues where range copies the value
 	components := make([]*models.ComponentResponse, 0, len(componentList.Items))
-	for _, item := range componentList.Items {
+	for i := range componentList.Items {
 		// Only include components that belong to the specified project
-		if item.Spec.Owner.ProjectName == projectName {
-			components = append(components, s.toComponentResponse(&item, make(map[string]interface{})))
+		if componentList.Items[i].Spec.Owner.ProjectName == projectName {
+			components = append(components, s.toComponentResponse(&componentList.Items[i], make(map[string]interface{})))
 		}
 	}
 
 	s.logger.Debug("Listed components", "org", orgName, "project", projectName, "count", len(components))
 	return components, nil
+}
+
+// ListComponentsWithCursor lists components for a project with cursor-based pagination
+// Note: continueToken is validated at the handler layer before reaching this service.
+// The Kubernetes API server performs additional validation and will return appropriate
+// errors if the token is malformed or expired, which are handled below.
+func (s *ComponentService) ListComponentsWithCursor(
+	ctx context.Context,
+	orgName string,
+	projectName string,
+	continueToken string,
+	limit int64,
+) ([]*models.ComponentResponse, string, error) {
+	s.logger.Debug("Listing components with cursor",
+		"org", orgName,
+		"project", projectName,
+		"continue", continueToken,
+		"limit", limit)
+
+	var componentList openchoreov1alpha1.ComponentList
+
+	listOpts := []client.ListOption{
+		client.InNamespace(orgName),
+		client.Limit(limit),
+		client.MatchingLabels{
+			labels.LabelKeyProjectName: projectName,
+		},
+	}
+
+	if continueToken != "" {
+		listOpts = append(listOpts, client.Continue(continueToken))
+	}
+
+	if err := s.k8sClient.List(ctx, &componentList, listOpts...); err != nil {
+		if isExpiredTokenError(err) {
+			return nil, "", ErrContinueTokenExpired
+		}
+		if isInvalidCursorError(err) {
+			return nil, "", ErrInvalidCursorFormat
+		}
+		if isServiceUnavailableError(err) {
+			return nil, "", fmt.Errorf("service unavailable: %w", err)
+		}
+		return nil, "", fmt.Errorf("failed to list components: %w", err)
+	}
+
+	components := make([]*models.ComponentResponse, 0, len(componentList.Items))
+	for i := range componentList.Items {
+		components = append(components, s.toComponentResponse(&componentList.Items[i], make(map[string]interface{})))
+	}
+
+	nextContinue := componentList.Continue
+
+	s.logger.Debug("Listed components",
+		"org", orgName,
+		"project", projectName,
+		"count", len(components),
+		"nextContinue", nextContinue)
+
+	return components, nextContinue, nil
 }
 
 // GetComponent retrieves a specific component
@@ -190,7 +253,8 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 
 		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
 		if err != nil {
-			if client.IgnoreNotFound(err) == nil {
+			// Check if this is a "not found" error from the fetcher
+			if errors.Is(err, ErrComponentResourceNotFound) {
 				s.logger.Warn(
 					"Resource not found for fetcher",
 					"fetcherKey", fetcherKey,
@@ -1482,9 +1546,10 @@ func (s *ComponentService) createServiceResource(ctx context.Context, orgName, p
 	}
 
 	// Check if service already exists for this component
-	for _, service := range serviceList.Items {
-		if service.Spec.Owner.ComponentName == componentName && service.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("Service already exists for component", "service", service.Name, "component", componentName)
+	// Use index to get stable pointer to slice element (not loop variable)
+	for i := range serviceList.Items {
+		if serviceList.Items[i].Spec.Owner.ComponentName == componentName && serviceList.Items[i].Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("Service already exists for component", "service", serviceList.Items[i].Name, "component", componentName)
 			return nil
 		}
 	}
@@ -1522,9 +1587,10 @@ func (s *ComponentService) createWebApplicationResource(ctx context.Context, org
 	}
 
 	// Check if web application already exists for this component
-	for _, webApp := range webAppList.Items {
-		if webApp.Spec.Owner.ComponentName == componentName && webApp.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("WebApplication already exists for component", "webApp", webApp.Name, "component", componentName)
+	// Use index to get stable pointer to slice element (not loop variable)
+	for i := range webAppList.Items {
+		if webAppList.Items[i].Spec.Owner.ComponentName == componentName && webAppList.Items[i].Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("WebApplication already exists for component", "webApp", webAppList.Items[i].Name, "component", componentName)
 			return nil
 		}
 	}
@@ -1562,9 +1628,10 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 	}
 
 	// Check if scheduled task already exists for this component
-	for _, scheduledTask := range scheduledTaskList.Items {
-		if scheduledTask.Spec.Owner.ComponentName == componentName && scheduledTask.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("ScheduledTask already exists for component", "scheduledTask", scheduledTask.Name, "component", componentName)
+	// Use index to get stable pointer to slice element (not loop variable)
+	for i := range scheduledTaskList.Items {
+		if scheduledTaskList.Items[i].Spec.Owner.ComponentName == componentName && scheduledTaskList.Items[i].Spec.Owner.ProjectName == projectName {
+			s.logger.Debug("ScheduledTask already exists for component", "scheduledTask", scheduledTaskList.Items[i].Name, "component", componentName)
 			return nil
 		}
 	}

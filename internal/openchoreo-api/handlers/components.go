@@ -69,11 +69,65 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 	orgName := r.PathValue("orgName")
 	projectName := r.PathValue("projectName")
 	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+		logger.Warn("Organization and project names are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Organization and project names are required", services.CodeInvalidInput)
 		return
 	}
 
+	// Check for cursor-based pagination
+	cursor, limit, useCursor, err := parseCursorParams(r)
+	if err != nil {
+		errorCode := services.GetPaginationErrorCode(err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), errorCode)
+		return
+	}
+
+	if useCursor {
+		// only validate non-empty cursors
+		if cursor != "" {
+			if err := validateCursorWithContext(cursor); err != nil {
+				logger.Warn("Invalid cursor", "error", err, "ip", r.RemoteAddr)
+				writeErrorResponse(w, http.StatusBadRequest,
+					"Invalid cursor parameter", services.CodeInvalidCursorFormat)
+				return
+			}
+		}
+
+		components, nextCursor, err := h.services.ComponentService.ListComponentsWithCursor(
+			ctx, orgName, projectName, cursor, limit)
+		if err != nil {
+			if errors.Is(err, services.ErrProjectNotFound) {
+				writeErrorResponse(w, http.StatusNotFound,
+					"Project not found", services.CodeProjectNotFound)
+				return
+			}
+			if errors.Is(err, services.ErrContinueTokenExpired) {
+				writeTokenExpiredError(w)
+				return
+			}
+			if errors.Is(err, services.ErrInvalidCursorFormat) {
+				logger.Error("Invalid cursor format", "error", err, "ip", r.RemoteAddr)
+				writeErrorResponse(w, http.StatusBadRequest,
+					"Invalid cursor format", services.CodeInvalidCursorFormat)
+				return
+			}
+			if strings.Contains(err.Error(), "service unavailable") {
+				writeErrorResponse(w, http.StatusServiceUnavailable,
+					"Service temporarily unavailable", services.CodeInternalError)
+				return
+			}
+			logger.Error("Failed to list components with cursor", "error", err)
+			writeErrorResponse(w, http.StatusInternalServerError,
+				"Internal server error", services.CodeInternalError)
+			return
+		}
+
+		writeCursorListResponse(w, components, nextCursor)
+		return
+	}
+
+	// Legacy mode
 	// Call service to list components
 	components, err := h.services.ComponentService.ListComponents(ctx, orgName, projectName)
 	if err != nil {

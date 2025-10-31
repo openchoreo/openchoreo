@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -22,7 +23,8 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	orgName := r.PathValue("orgName")
 	if orgName == "" {
 		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Organization name is required", "INVALID_ORG_NAME")
 		return
 	}
 
@@ -62,15 +64,70 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	orgName := r.PathValue("orgName")
 	if orgName == "" {
 		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Organization name is required", services.CodeInvalidInput)
 		return
 	}
 
+	// Check for cursor-based pagination
+	cursor, limit, useCursor, err := parseCursorParams(r)
+	if err != nil {
+		errorCode := services.GetPaginationErrorCode(err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), errorCode)
+		return
+	}
+
+	if useCursor {
+		// only validate non-empty cursors
+		if cursor != "" {
+			if err := validateCursorWithContext(cursor); err != nil {
+				logger.Warn("Invalid cursor", "error", err, "ip", r.RemoteAddr)
+				writeErrorResponse(w, http.StatusBadRequest,
+					"Invalid cursor parameter", services.CodeInvalidCursorFormat)
+				return
+			}
+		}
+
+		projects, nextCursor, err := h.services.ProjectService.ListProjectsWithCursor(
+			ctx, orgName, cursor, limit)
+		if err != nil {
+			if errors.Is(err, services.ErrOrganizationNotFound) {
+				writeErrorResponse(w, http.StatusNotFound,
+					"Organization not found", services.CodeOrganizationNotFound)
+				return
+			}
+			if errors.Is(err, services.ErrContinueTokenExpired) {
+				writeTokenExpiredError(w)
+				return
+			}
+			if errors.Is(err, services.ErrInvalidCursorFormat) {
+				logger.Error("Invalid cursor format", "error", err, "ip", r.RemoteAddr)
+				writeErrorResponse(w, http.StatusBadRequest,
+					"Invalid cursor format", services.CodeInvalidCursorFormat)
+				return
+			}
+			if strings.Contains(err.Error(), "service unavailable") {
+				writeErrorResponse(w, http.StatusServiceUnavailable,
+					"Service temporarily unavailable", services.CodeInternalError)
+				return
+			}
+			logger.Error("Failed to list projects with cursor", "error", err)
+			writeErrorResponse(w, http.StatusInternalServerError,
+				"Internal server error", services.CodeInternalError)
+			return
+		}
+
+		writeCursorListResponse(w, projects, nextCursor)
+		return
+	}
+
+	// Legacy mode
 	// Call service to list projects
 	projects, err := h.services.ProjectService.ListProjects(ctx, orgName)
 	if err != nil {
 		logger.Error("Failed to list projects", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		writeErrorResponse(w, http.StatusInternalServerError,
+			"Internal server error", services.CodeInternalError)
 		return
 	}
 
