@@ -42,34 +42,6 @@ spec:
                 - name: app
                   image: ${workload.containers["app"].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
-                  envFrom: |
-                    ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
-                      [{
-                        "configMapRef": {
-                          "name": sanitizeK8sResourceName(metadata.name, "env-configs")
-                        }
-                      }] : []) +
-                     (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
-                      [{
-                        "secretRef": {
-                          "name": sanitizeK8sResourceName(metadata.name, "secret-configs")
-                        }
-                      }] : [])}
-                  volumeMounts: |
-                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                        configurations.configs.files.map(f, {
-                          "name": sanitizeK8sResourceName(f.name,"config-volume"),
-                          "mountPath": f.mountPath,
-                          "subPath": "config"
-                        }) : []) +
-                       (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                        configurations.secrets.files.map(f, {
-                          "name": sanitizeK8sResourceName(f.name,"secret-volume"),
-                          "mountPath": f.mountPath,
-                          "subPath": f.name
-                        }) : [])
-                    : omit()}
                   ports:
                     - name: http
                       containerPort: ${parameters.port}
@@ -81,23 +53,6 @@ spec:
                     limits:
                       cpu: ${parameters.resources.limits.cpu}
                       memory: ${parameters.resources.limits.memory}
-              volumes: |
-                ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                  (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                    configurations.configs.files.map(f, {
-                      "name": sanitizeK8sResourceName(f.name,"config-volume"),
-                      "configMap": {
-                        "name": sanitizeK8sResourceName(metadata.name, "config", f.name)
-                      }
-                    }) : []) +
-                   (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                    configurations.secrets.files.map(f, {
-                      "name": sanitizeK8sResourceName(f.name,"secret-volume"),
-                      "secret": {
-                        "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name)
-                      }
-                    }) : [])
-                : omit()}
 
     - id: service
       template:
@@ -115,28 +70,6 @@ spec:
               port: 80
               targetPort: ${parameters.port}
               protocol: TCP
-    - id: env-config
-      template:
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
-          namespace: ${metadata.namespace}
-        data: |
-          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
-    - id: file-config
-      includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
-      forEach: ${configurations.configs.files}
-      var: config
-      template:
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "config", config.name)}
-          namespace: ${metadata.namespace}
-        data:
-          ${config.name}: |
-            ${config.value}
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -241,15 +174,6 @@ spec:
   containers:
     app:
       image: "nginx:1.25-alpine"
-      env:
-        - key: LOG_LEVEL
-          value: info1
-      file:
-        - key: application.toml
-          mountPath: /tmp
-          value: |
-            schema_generation:
-              enable: true 
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -277,8 +201,3 @@ spec:
     data-storage:
       size: "5Gi"
       storageClass: "standard"
-  
-  configurationOverrides:
-    env:
-      - key: LOG_LEVEL
-        value: debug

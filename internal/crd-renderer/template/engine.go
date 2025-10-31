@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"regexp"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -17,6 +16,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/parser"
+	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // omitValue is a sentinel used to mark values that should be pruned after rendering.
@@ -260,17 +260,11 @@ func (e *Engine) getOrCreateEnv(inputs map[string]any) (*cel.Env, error) {
 // sanitizeK8sNameFromStrings collapses fragments into a DNS-ish identifier so templates can stitch
 // together names without worrying about illegal characters.
 func sanitizeK8sNameFromStrings(parts []string) ref.Val {
-	// Concatenate all parts
-	concatenated := strings.Join(parts, "")
-
-	// Replace everything except alphanumeric with empty string
-	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
-	sanitized := reg.ReplaceAllString(concatenated, "")
-
-	// Convert to lowercase for K8s convention
-	sanitized = strings.ToLower(sanitized)
-
-	return types.String(sanitized)
+	cleanedNames := make([]string, len(parts))
+	for i, name := range parts {
+		cleanedNames[i] = strings.ReplaceAll(name, ".", "-")
+	}
+	return types.String(kubernetes.GenerateK8sNameWithLengthLimit(63, cleanedNames...))
 }
 
 func sanitizeK8sName(arg ref.Val) ref.Val {

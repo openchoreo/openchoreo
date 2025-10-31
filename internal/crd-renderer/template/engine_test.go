@@ -116,37 +116,37 @@ spec:
 name: ${sanitizeK8sResourceName("Hello World!")}
 `,
 			inputs: `{}`,
-			want: `name: helloworld
+			want: `name: hello-world-7f83b165
 `,
 		},
 		{
 			name: "sanitizeK8sResourceName with multiple arguments",
 			template: `
-name: ${sanitizeK8sResourceName("my-app", "-", "v1.2.3")}
+name: ${sanitizeK8sResourceName("my-app","v1.2.3")}
 `,
 			inputs: `{}`,
-			want: `name: myappv123
+			want: `name: my-app-v1-2-3-5283a5e7
 `,
 		},
 		{
 			name: "sanitizeK8sResourceName with many arguments",
 			template: `
-name: ${sanitizeK8sResourceName("front", "-", "end", "-", "prod", "-", "us-west", "-", "99")}
+name: ${sanitizeK8sResourceName("front","end","prod","us-west","99")}
 `,
 			inputs: `{}`,
-			want: `name: frontendproduswest99
+			want: `name: front-end-prod-us-west-99-c89a6670
 `,
 		},
 		{
 			name: "sanitizeK8sResourceName with dynamic values",
 			template: `
-name: ${sanitizeK8sResourceName(metadata.name, "-", spec.version)}
+name: ${sanitizeK8sResourceName(metadata.name, spec.version)}
 `,
 			inputs: `{
   "metadata": {"name": "payment-service"},
   "spec": {"version": "v2.0"}
 }`,
-			want: `name: paymentservicev20
+			want: `name: payment-service-v2-0-9f452954
 `,
 		},
 		{
