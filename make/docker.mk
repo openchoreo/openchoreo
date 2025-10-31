@@ -30,6 +30,7 @@ DOCKER_BUILD_IMAGES := \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
+	security-scanner:$(PROJECT_DIR)/cmd/security-scanner/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
@@ -71,6 +72,7 @@ docker.build.controller: go.build-multiarch.manager
 docker.build.quick-start: go.build-multiarch.choreoctl
 docker.build.openchoreo-api: go.build-multiarch.openchoreo-api
 docker.build.observer: go.build-multiarch.observer
+docker.build.security-scanner: go.build-multiarch.security-scanner
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)

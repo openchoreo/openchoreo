@@ -1,0 +1,16 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "security-scanner.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "security-scanner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: security-scanner
+      {{- include "security-scanner.selectorLabels" . | nindent 6 }}
+{{- end }}

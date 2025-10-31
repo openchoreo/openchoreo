@@ -21,11 +21,13 @@ IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG)
 API_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
 UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
+SECURITY_SCANNER_IMAGE := $(IMAGE_REPO_PREFIX)/security-scanner:$(OPENCHOREO_IMAGE_TAG)
+OBSERVER_IMAGE := $(IMAGE_REPO_PREFIX)/observer:$(OPENCHOREO_IMAGE_TAG)
 THUNDER_IMAGE := ghcr.io/brionmario/thunder:0.0.16
 
 # Define OpenChoreo components for per-component operations
-KIND_COMPONENTS := controller api ui
-KIND_COMPONENT_IMAGES := controller:$(CONTROLLER_IMAGE) api:$(API_IMAGE) ui:$(UI_IMAGE)
+KIND_COMPONENTS := controller api ui security-scanner observer
+KIND_COMPONENT_IMAGES := controller:$(CONTROLLER_IMAGE) api:$(API_IMAGE) ui:$(UI_IMAGE) security-scanner:$(SECURITY_SCANNER_IMAGE) observer:$(OBSERVER_IMAGE)
 
 # Helper functions
 get_component_image = $(patsubst $(1):%,%,$(filter $(1):%, $(KIND_COMPONENT_IMAGES)))
@@ -61,7 +63,7 @@ kind.up: ## Create the kind cluster without cni and kube-proxy
 
 
 .PHONY: kind.build.%
-kind.build.%: ## Build specific component, (controller, api, ui)
+kind.build.%: ## Build specific component, (controller, api, ui, security-scanner, observer)
 	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
 		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
 		exit 1; \
@@ -78,6 +80,12 @@ kind.build.%: ## Build specific component, (controller, api, ui)
 			cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all; \
 			docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui; \
 			;; \
+		security-scanner) \
+			$(MAKE) docker.build.security-scanner TAG=$(OPENCHOREO_IMAGE_TAG); \
+			;; \
+		observer) \
+			$(MAKE) docker.build.observer TAG=$(OPENCHOREO_IMAGE_TAG); \
+			;; \
 	esac
 	@$(call log_success, $* component built!)
 
@@ -89,7 +97,7 @@ kind.build: ## Build all OpenChoreo components
 
 
 .PHONY: kind.load.%
-kind.load.%: ## Load specific component image. Valid components: controller, api, ui, thunder, cilium. Usage: make kind.load.<component>
+kind.load.%: ## Load specific component image. Valid components: controller, api, ui, security-scanner, observer, thunder, cilium. Usage: make kind.load.<component>
 	@$(call check_cluster_exists)
 	@case "$*" in \
 		cilium) \
@@ -113,7 +121,7 @@ kind.load.%: ## Load specific component image. Valid components: controller, api
 			kind load docker-image $(THUNDER_IMAGE) --name $(KIND_CLUSTER_NAME); \
 			$(call log_success, Thunder image loaded!); \
 			;; \
-		controller|api|ui) \
+		controller|api|ui|security-scanner|observer) \
 			if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
 				$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
 				exit 1; \
@@ -191,6 +199,22 @@ kind.install: ## Install Cilium CNI and OpenChoreo to kind cluster
 	@$(MAKE) kind.install.openchoreo
 	@$(call log_success, All components installed successfully!)
 
+.PHONY: kind.install.template
+kind.install.template: ## Generate OpenChoreo Helm template without installing
+	@$(call check_cluster_exists)
+	@if ! helm list --namespace cilium --kube-context kind-$(KIND_CLUSTER_NAME) | grep -q "^cilium"; then \
+		$(call log_error, Cilium is not installed. Run 'make kind.install.cilium' first); \
+		exit 1; \
+	fi
+	@$(call log_info, Generating OpenChoreo Helm template...)
+	@helm template openchoreo $(HELM_DIR) \
+		--namespace $(OPENCHOREO_NAMESPACE) \
+		--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
+		--set controllerManager.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+		--set openchoreoApi.image.tag=$(OPENCHOREO_IMAGE_TAG) \
+		--set backstage.image.tag=$(OPENCHOREO_IMAGE_TAG)
+	@$(call log_success, OpenChoreo Helm template generated!)
+
 
 .PHONY: kind.uninstall.%
 kind.uninstall.%: ## Uninstall specific component. Valid components: cilium, openchoreo. Usage: make kind.uninstall.<component>
@@ -220,7 +244,7 @@ kind.uninstall: ## Uninstall OpenChoreo and Cilium from kind cluster
 
 
 .PHONY: kind.update.%
-kind.update.%: ## Update specific component, (controller, api, ui)
+kind.update.%: ## Update specific component, (controller, api, ui, security-scanner, observer)
 	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
 		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
 		exit 1; \
@@ -242,6 +266,14 @@ kind.update.%: ## Update specific component, (controller, api, ui)
 			kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) || true; \
 			kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
 			;; \
+		security-scanner) \
+			kubectl rollout restart deployment/openchoreo-security-scanner -n $(OPENCHOREO_NAMESPACE) || true; \
+			kubectl rollout status deployment/openchoreo-security-scanner -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
+			;; \
+		observer) \
+			kubectl rollout restart deployment/openchoreo-observer -n $(OPENCHOREO_NAMESPACE) || true; \
+			kubectl rollout status deployment/openchoreo-observer -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true; \
+			;; \
 	esac
 	@$(call log_success, $* component updated!)
 
@@ -254,10 +286,14 @@ kind.update: ## Rebuild and reload all OpenChoreo components
 	@kubectl rollout restart deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) || true
 	@kubectl rollout restart deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) || true
 	@kubectl rollout restart deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) || true
+	@kubectl rollout restart deployment/openchoreo-security-scanner -n $(OPENCHOREO_NAMESPACE) || true
+	@kubectl rollout restart deployment/openchoreo-observer -n $(OPENCHOREO_NAMESPACE) || true
 	@$(call log_info, Waiting for rollout restarts to complete...)
 	@kubectl rollout status deployment/openchoreo-controller-manager -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
 	@kubectl rollout status deployment/openchoreo-api -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
 	@kubectl rollout status deployment/openchoreo-ui -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
+	@kubectl rollout status deployment/openchoreo-security-scanner -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
+	@kubectl rollout status deployment/openchoreo-observer -n $(OPENCHOREO_NAMESPACE) --timeout=300s || true
 	@$(call log_success, OpenChoreo update completed successfully!)
 
 

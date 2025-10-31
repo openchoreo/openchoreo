@@ -16,6 +16,7 @@ GO_BUILD_BINARIES := \
 	choreoctl:$(PROJECT_DIR)/cmd/choreoctl/main.go \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/main.go \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
+	security-scanner:$(PROJECT_DIR)/cmd/security-scanner/main.go \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/main.go
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
@@ -45,7 +46,8 @@ define go_build
 	$(eval GO_LDFLAGS := $(GO_LDFLAGS_COMMON))
 	$(eval GO_LDFLAGS += $(GO_LDFLAGS_BUILD_DATA))
 	$(eval GO_LDFLAGS += -X $(GO_VERSION_PACKAGE).componentName=$$(COMMAND))
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) \
+	$(eval CGO_SETTING := 0)
+	CGO_ENABLED=$(CGO_SETTING) GOOS=$(OS) GOARCH=$(ARCH) \
 		$(GO) build -o $(OUTPUT_PATH)/$(COMMAND) -ldflags "$(GO_LDFLAGS)" \
 		$(MAIN_PACKAGE_PATH)
 endef
@@ -165,8 +167,8 @@ vet: ## Run go vet against code.
 ENVTEST_K8S_VERSION := 1.32.0
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOL_BIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+test: manifests generate fmt vet envtest checkov ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOL_BIN) -p path)" PATH="$(TOOL_BIN):$(PATH)" CGO_ENABLED=0 go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 .PHONY: go.mod.tidy
 go.mod.tidy: ## Run go mod tidy to clean up go.mod file.
@@ -175,3 +177,50 @@ go.mod.tidy: ## Run go mod tidy to clean up go.mod file.
 
 .PHONY: go.mod.lint
 go.mod.lint: go.mod.tidy ## Lint go.mod file.
+
+.PHONY: sqlc-generate
+sqlc-generate: sqlc ## Generate SQLC code from SQL queries.
+	@$(call log_info, "Generating SQLC code")
+	@$(SQLC) generate -f internal/security-scanner/db/sqlc.yaml
+
+#-----------------------------------------------------------------------------
+# Local Development targets
+#-----------------------------------------------------------------------------
+
+##@ Local Development
+
+GO_DEV_DB_DIR := $(PROJECT_BIN_DIR)/db
+
+.PHONY: dev.setup
+dev.setup: ## Setup local development environment (create directories)
+	@$(call log_info, "Setting up local development environment")
+	@mkdir -p $(GO_DEV_DB_DIR)
+	@$(call log_success, "Development environment setup complete")
+
+.PHONY: dev.security-scanner
+dev.security-scanner: go.build.security-scanner dev.setup ## Run security-scanner locally with SQLite
+	@$(call log_info, "Starting security-scanner locally")
+	@$(eval OS := $(call get_platform_os,$(GO_CURRENT_PLATFORM)))
+	@$(eval ARCH := $(call get_platform_arch,$(GO_CURRENT_PLATFORM)))
+	@DB_BACKEND=sqlite \
+		DB_DSN=$(GO_DEV_DB_DIR)/security-scanner.db \
+		$(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH)/security-scanner
+
+.PHONY: dev.security-scanner.postgres
+dev.security-scanner.postgres: go.build.security-scanner dev.setup ## Run security-scanner locally with PostgreSQL
+	@$(call log_info, "Starting security-scanner with PostgreSQL")
+	@$(eval OS := $(call get_platform_os,$(GO_CURRENT_PLATFORM)))
+	@$(eval ARCH := $(call get_platform_arch,$(GO_CURRENT_PLATFORM)))
+	@if [ -z "$(DB_DSN)" ]; then \
+		$(call log_error, "DB_DSN environment variable is required for PostgreSQL. Example: DB_DSN='postgres://user:pass@localhost:5432/security_scanner?sslmode=disable'"); \
+		exit 1; \
+	fi
+	@DB_BACKEND=postgres \
+		DB_DSN=$(DB_DSN) \
+		$(GO_BUILD_OUTPUT_DIR)/$(OS)/$(ARCH)/security-scanner
+
+.PHONY: dev.clean
+dev.clean: ## Clean local development artifacts
+	@$(call log_info, "Cleaning local development artifacts")
+	@rm -rf $(GO_DEV_DB_DIR)
+	@$(call log_success, "Development artifacts cleaned")

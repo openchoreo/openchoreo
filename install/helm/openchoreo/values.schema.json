@@ -875,7 +875,7 @@
           "description": "Pod security context",
           "properties": {
             "fsGroup": {
-              "default": 1000,
+              "default": 802,
               "description": "Filesystem group",
               "required": [],
               "title": "fsGroup",
@@ -885,7 +885,7 @@
               ]
             },
             "runAsGroup": {
-              "default": 1000,
+              "default": 802,
               "description": "Group ID to run the container as",
               "required": [],
               "title": "runAsGroup",
@@ -905,7 +905,7 @@
               ]
             },
             "runAsUser": {
-              "default": 1000,
+              "default": 802,
               "description": "User ID to run the container as",
               "required": [],
               "title": "runAsUser",
@@ -1086,7 +1086,7 @@
               ]
             },
             "runAsUser": {
-              "default": 1000,
+              "default": 802,
               "description": "User ID to run the container as",
               "required": [],
               "title": "runAsUser",
@@ -1371,10 +1371,7 @@
       },
       "required": [],
       "title": "asgardeoThunder",
-      "type": [
-        "null",
-        "object"
-      ]
+      "type": "object"
     },
     "backstage": {
       "additionalProperties": false,
@@ -5106,8 +5103,127 @@
         "null",
         "object"
       ]
+    },
+    "securityScanner": {
+      "additionalProperties": true,
+      "description": "Security Scanner configuration",
+      "properties": {
+        "database": {
+          "additionalProperties": false,
+          "description": "Database configuration",
+          "properties": {
+            "backend": {
+              "default": "sqlite",
+              "description": "Database backend type",
+              "enum": [
+                "sqlite",
+                "postgres"
+              ],
+              "required": [],
+              "title": "backend"
+            },
+            "dsn": {
+              "default": "/data/security-scanner.db",
+              "description": "Database connection string",
+              "required": [],
+              "title": "dsn",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "database",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "enabled": {
+          "additionalProperties": true,
+          "default": false,
+          "description": "Enable security scanner deployment",
+          "required": [],
+          "title": "enabled",
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "fullnameOverride": {
+          "default": "openchoreo-security-scanner",
+          "description": "Override the full name of security scanner resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "persistence": {
+          "additionalProperties": true,
+          "description": "Persistent volume configuration",
+          "properties": {
+            "accessMode": {
+              "default": "ReadWriteOnce",
+              "description": "Access mode for PVC",
+              "required": [],
+              "title": "accessMode",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable persistence for database",
+              "required": [],
+              "title": "enabled",
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "size": {
+              "default": "1Gi",
+              "description": "Size of the persistent volume",
+              "required": [],
+              "title": "size",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "storageClassName": {
+              "default": "null",
+              "description": "Storage class name",
+              "required": [],
+              "title": "storageClassName",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "persistence",
+          "type": [
+            "null",
+            "object"
+          ]
+        }
+      },
+      "required": [],
+      "title": "securityScanner",
+      "type": [
+        "null",
+        "object"
+      ]
     }
   },
-  "required": [],
+  "required": [
+    "asgardeoThunder"
+  ],
   "type": "object"
 }
