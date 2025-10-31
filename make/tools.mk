@@ -32,6 +32,7 @@ GOLANGCI_LINT ?= $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
 YQ ?= $(TOOL_BIN)/yq
 SQLC ?= $(TOOL_BIN)/sqlc
+CHECKOV ?= $(TOOL_BIN)/checkov
 KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 
 ## Tool Versions
@@ -42,6 +43,7 @@ GOLANGCI_LINT_VERSION ?= v1.64.8
 HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
 SQLC_VERSION ?= v1.30.0
+CHECKOV_VERSION ?= 3.2.489
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -77,3 +79,49 @@ $(YQ): $(TOOL_BIN)
 sqlc: $(SQLC) ## Download sqlc locally if necessary.
 $(SQLC): $(TOOL_BIN)
 	$(call go_install_tool,$(SQLC),github.com/sqlc-dev/sqlc/cmd/sqlc,$(SQLC_VERSION))
+
+.PHONY: checkov
+checkov: $(CHECKOV) ## Download checkov locally if necessary.
+$(CHECKOV): $(TOOL_BIN)
+	@echo "Installing checkov $(CHECKOV_VERSION) to $(TOOL_BIN)"; \
+	mkdir -p $(TOOL_BIN); \
+	OS=$$(uname -s); \
+	ARCH=$$(uname -m); \
+	case "$$OS" in \
+		Darwin) \
+			CHECKOV_OS="darwin"; \
+			CHECKOV_ARCH="X86_64"; \
+			;; \
+		Linux) \
+			CHECKOV_OS="linux"; \
+			case "$$ARCH" in \
+				x86_64|amd64) \
+					CHECKOV_ARCH="X86_64"; \
+					;; \
+				arm64|aarch64) \
+					CHECKOV_ARCH="arm64"; \
+					;; \
+				*) \
+					echo "Unsupported architecture: $$ARCH"; \
+					exit 1; \
+					;; \
+			esac; \
+			;; \
+		MINGW*|MSYS*|CYGWIN*) \
+			CHECKOV_OS="windows"; \
+			CHECKOV_ARCH="X86_64"; \
+			;; \
+		*) \
+			echo "Unsupported OS: $$OS"; \
+			exit 1; \
+			;; \
+	esac; \
+	CHECKOV_URL="https://github.com/bridgecrewio/checkov/releases/download/$(CHECKOV_VERSION)/checkov_$${CHECKOV_OS}_$${CHECKOV_ARCH}.zip"; \
+	echo "Downloading checkov from $$CHECKOV_URL"; \
+	curl -fsSL "$$CHECKOV_URL" -o /tmp/checkov.zip; \
+	mkdir -p /tmp/checkov-extract; \
+	unzip -q /tmp/checkov.zip -d /tmp/checkov-extract; \
+	mv /tmp/checkov-extract/dist/checkov $(CHECKOV); \
+	rm -rf /tmp/checkov.zip /tmp/checkov-extract; \
+	chmod +x $(CHECKOV); \
+	echo "checkov $(CHECKOV_VERSION) installed successfully";

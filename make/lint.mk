@@ -7,10 +7,8 @@ ALL_GO_FILES := $(shell \
 	find . -type f -name '*.go' \
 		! -path './internal/dataplane/kubernetes/types/*' \
 		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
-		! -path './internal/security-scanner/db/db.go' \
-		! -path './internal/security-scanner/db/models.go' \
-		! -path './internal/security-scanner/db/querier.go' \
-		! -path './internal/security-scanner/db/*.sql.go' \
+		! -path './internal/security-scanner/db/backend/postgres/*' \
+		! -path './internal/security-scanner/db/backend/sqlite/*' \
 	| sort)
 
 # Path to your tool (update if different)
