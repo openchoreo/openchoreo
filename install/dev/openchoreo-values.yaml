@@ -92,5 +92,5 @@ asgardeoThunder:
   backstagePortal:
     redirectUrls:
       - "http://openchoreo.localhost/api/auth/oidc/handler/frame"
-      - "https://localhost:7007/api/auth/default-idp/handler/frame"
+      - "http://localhost:7007/api/auth/default-idp/handler/frame"
     clientSecret: backstage-portal-secret
