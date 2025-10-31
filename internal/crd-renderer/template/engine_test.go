@@ -125,7 +125,7 @@ name: ${sanitizeK8sResourceName("Hello World!")}
 name: ${sanitizeK8sResourceName("my-app","v1.2.3")}
 `,
 			inputs: `{}`,
-			want: `name: my-app-v1.2.3-4f878dd8
+			want: `name: my-app-v1-2-3-5283a5e7
 `,
 		},
 		{
@@ -146,7 +146,7 @@ name: ${sanitizeK8sResourceName(metadata.name, spec.version)}
   "metadata": {"name": "payment-service"},
   "spec": {"version": "v2.0"}
 }`,
-			want: `name: payment-service-v2.0-bd17faf1
+			want: `name: payment-service-v2-0-9f452954
 `,
 		},
 		{
