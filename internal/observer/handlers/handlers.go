@@ -316,6 +316,35 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
+func (h *Handler) GetComponentTraces(w http.ResponseWriter, r *http.Request) {
+	// Bind JSON request body
+	var req opensearch.ComponentTracesRequestParams
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Set defaults
+	if req.Limit == 0 {
+		req.Limit = 100
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = defaultSortOrder
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetComponentTraces(ctx, req)
+	if err != nil {
+		h.logger.Error("Failed to get component traces", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}
+
 // Health handles GET /health
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
