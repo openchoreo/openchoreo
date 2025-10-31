@@ -1,0 +1,42 @@
+{
+  "name": "@openchoreo/backstage-plugin-thunder-idp-client-node",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "Node.js library for the thunder-idp-client plugin",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "node-library",
+    "pluginId": "thunder-idp-client"
+  },
+  "thunderVersion": "v0.10.0",
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "clean:generated": "rimraf src/generated openapi src/version.ts",
+    "generate:clients": "bash scripts/generate-clients.sh",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "dependencies": {
+    "@backstage/backend-plugin-api": "^1.4.3",
+    "@backstage/config": "^1.3.4",
+    "openapi-fetch": "^0.13.3"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.34.3",
+    "openapi-typescript": "^7.4.4",
+    "rimraf": "^5.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

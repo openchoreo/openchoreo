@@ -2,6 +2,11 @@
   "name": "root",
   "version": "1.0.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openchoreo/openchoreo.git",
+    "directory": "ui"
+  },
   "engines": {
     "node": "20 || 22"
   },
@@ -20,7 +25,10 @@
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
     "prettier:check": "prettier --check .",
-    "new": "backstage-cli new"
+    "prettier:write": "prettier --write .",
+    "new": "backstage-cli new",
+    "release:version": "changeset version && yarn prettier --write '{packages,plugins}/*/{package.json,CHANGELOG.md}' && yarn install",
+    "release:publish": "changeset publish"
   },
   "workspaces": {
     "packages": [
@@ -29,8 +37,9 @@
     ]
   },
   "devDependencies": {
-    "@backstage/cli": "^0.34.4",
+    "@backstage/cli": "^0.34.3",
     "@backstage/e2e-test-utils": "^0.1.1",
+    "@changesets/cli": "^2.29.6",
     "@playwright/test": "^1.32.3",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",

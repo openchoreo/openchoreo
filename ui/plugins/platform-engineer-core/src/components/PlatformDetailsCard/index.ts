@@ -1,0 +1,1 @@
+export { PlatformDetailsCard } from './PlatformDetailsCard';

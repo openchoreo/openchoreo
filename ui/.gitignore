@@ -1,12 +1,16 @@
 # macOS
 .DS_Store
 
+# IDE files
+.idea
+
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
 # Coverage directory generated when running tests with coverage
 coverage
@@ -37,6 +41,9 @@ dist-types
 # Temporary change files created by Vim
 *.swp
 
+# Helm packaged files
+*.tgz
+
 # MkDocs build output
 site
 
@@ -51,6 +58,3 @@ site
 
 # E2E test reports
 e2e-test-report/
-
-# Cache
-.cache/

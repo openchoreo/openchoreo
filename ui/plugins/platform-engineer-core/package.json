@@ -1,0 +1,72 @@
+{
+  "name": "@openchoreo/backstage-plugin-platform-engineer-core",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openchoreo/backstage-plugins.git",
+    "directory": "plugins/platform-engineer-core"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "plugin-platform-engineer-core",
+    "pluginPackages": [
+      "@openchoreo/backstage-plugin-platform-engineer-core"
+    ]
+  },
+  "sideEffects": false,
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "dependencies": {
+    "@backstage/catalog-client": "^1.12.0",
+    "@backstage/catalog-model": "^1.7.5",
+    "@backstage/core-components": "^0.18.1",
+    "@backstage/core-plugin-api": "^1.11.0",
+    "@backstage/plugin-catalog": "^1.31.4",
+    "@backstage/plugin-catalog-react": "^1.15.1",
+    "@backstage/theme": "^0.6.8",
+    "@material-ui/core": "^4.9.13",
+    "@material-ui/icons": "^4.11.3",
+    "@material-ui/lab": "^4.0.0-alpha.61",
+    "react-router-dom": "^6.3.0",
+    "react-use": "^17.2.4"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "resolutions": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.34.3",
+    "@backstage/core-app-api": "^1.19.0",
+    "@backstage/dev-utils": "^1.1.14",
+    "@backstage/test-utils": "^1.7.11",
+    "@testing-library/dom": "^9.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/react": "^18.0.0",
+    "msw": "^1.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

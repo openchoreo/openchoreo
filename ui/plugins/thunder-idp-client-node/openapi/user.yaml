@@ -1,0 +1,1443 @@
+openapi: 3.0.3
+info:
+  title: User Management API
+  version: '1.0'
+  description: This API is used to manage users.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: https://{host}:{port}
+    variables:
+      host:
+        default: 'localhost'
+      port:
+        default: '8090'
+
+tags:
+  - name: users
+    description: Operations related to user management
+  - name: users-by-path
+    description: Operations related to user management using hierarchical handle paths
+  - name: user-schemas
+    description: Operations related to user type schema management
+
+paths:
+  /users:
+    get:
+      tags:
+        - users
+      summary: List users
+      parameters:
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+        - $ref: '#/components/parameters/filterParam'
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                totalResults: 5
+                startIndex: 1
+                count: 3
+                users:
+                  - id: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+                    organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                    type: 'customer'
+                    attributes:
+                      age: 24
+                      email: 'jane.doe@example.com'
+                      mobile: '+1-650-555-1234'
+                      address:
+                        city: 'Mountain View'
+                        zip: '94040'
+                      contactPreferences:
+                        - email
+                        - sms
+                  - id: '039bda67-a80d-4b7b-ac0f-36db85332089'
+                    organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                    type: 'customer'
+                    attributes:
+                      age: 31
+                      email: 'john.smith@example.com'
+                      mobile: '+1-650-903-0002'
+                      address:
+                        city: 'Palo Alto'
+                        zip: '94301'
+                      contactPreferences:
+                        - sms
+                  - id: 'e1b6ba6c-deb2-4d24-87b0-bbf79fa4487c'
+                    organizationUnit: '26eec421-f1bb-4deb-a5d3-9ab6554c2ae6'
+                    type: 'employee'
+                    attributes:
+                      username: 'alice.wu'
+                      firstname: 'Alice'
+                      lastname: 'Wu'
+                      department: 'Engineering'
+                      email: 'alice.wu@company.inc'
+                links:
+                  - href: 'users?offset=3&limit=3'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'USR-1011'
+                    message: 'Invalid pagination parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'USR-1012'
+                    message: 'Invalid pagination parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+                invalid-filter:
+                  summary: Invalid filter parameter
+                  value:
+                    code: 'USR-1020'
+                    message: 'Invalid filter parameter'
+                    description: 'The filter format is invalid'
+        '500':
+          description: Internal server error
+    post:
+      tags:
+        - users
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+              type: 'customer'
+              groups:
+                - '550e8400-e29b-41d4-a716-446655440000'
+                - '660e8400-e29b-41d4-a716-446655440001'
+              attributes:
+                age: 24
+                email: 'jane.doe@example.com'
+                mobile: '+1-650-555-1234'
+                address:
+                  city: 'Mountain View'
+                  zip: '94040'
+                contactPreferences:
+                  - email
+                  - sms
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+                organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                type: 'customer'
+                attributes:
+                  age: 24
+                  email: 'jane.doe@example.com'
+                  mobile: '+1-650-555-1234'
+                  address:
+                    city: 'Mountain View'
+                    zip: '94040'
+                  contactPreferences:
+                    - email
+                    - sms
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'USR-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-group-id:
+                  summary: Invalid group ID
+                  value:
+                    code: 'USR-1007'
+                    message: 'Invalid group ID'
+                    description: 'One or more group IDs in the request do not exist'
+                ou-not-found:
+                  summary: Organization unit not found
+                  value:
+                    code: 'USR-1005'
+                    message: 'Organization unit not found'
+                    description: 'The specified organization unit does not exist'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+
+  /users/{id}:
+    get:
+      tags:
+        - users
+      summary: Get a user by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+                organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                type: 'customer'
+                attributes:
+                  age: 24
+                  email: 'jane.doe@example.com'
+                  mobile: '+1-650-555-1234'
+                  address:
+                    city: 'Mountain View'
+                    zip: '94040'
+                  contactPreferences:
+                    - email
+                    - sms
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+    put:
+      tags:
+        - users
+      summary: Update a user by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+              type: 'customer'
+              groups:
+                - '550e8400-e29b-41d4-a716-446655440000'
+              attributes:
+                age: 25
+                email: 'jane.doe@example.com'
+                mobile: '+1-650-555-5678'
+                address:
+                  city: 'Mountain View'
+                  zip: '94040'
+                contactPreferences:
+                  - email
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+                organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                type: 'customer'
+                attributes:
+                  age: 25
+                  email: 'jane.doe@example.com'
+                  mobile: '+1-650-555-5678'
+                  address:
+                    city: 'Mountain View'
+                    zip: '94040'
+                  contactPreferences:
+                    - email
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'USR-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-group-id:
+                  summary: Invalid group ID
+                  value:
+                    code: 'USR-1007'
+                    message: 'Invalid group ID'
+                    description: 'One or more group IDs in the request do not exist'
+                ou-not-found:
+                  summary: Organization unit not found
+                  value:
+                    code: 'USR-1005'
+                    message: 'Organization unit not found'
+                    description: 'The specified organization unit does not exist'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USR-1003'
+                message: 'User not found'
+                description: 'The user with the specified id does not exist'
+        '500':
+          description: Internal server error
+    delete:
+      tags:
+        - users
+      summary: Delete a user by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+      responses:
+        '204':
+          description: User deleted
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+
+  /users/{id}/groups:
+    get:
+      tags:
+        - users
+      summary: List groups that the user belongs to
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: 'The unique identifier of the user'
+          example: '9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3'
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+      responses:
+        '200':
+          description: List of groups that the user belongs to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGroupListResponse'
+              example:
+                totalResults: 3
+                startIndex: 1
+                count: 2
+                groups:
+                  - id: '550e8400-e29b-41d4-a716-446655440000'
+                    name: 'Premium Customers'
+                    organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                  - id: '660e8400-e29b-41d4-a716-446655440001'
+                    name: 'Mobile App Users'
+                    organizationUnit: '456e8400-e29b-41d4-a716-446655440001'
+                links:
+                  - href: 'users/9a475e1e-b0cb-4b29-8df5-2e5b24fb0ed3/groups?offset=2&limit=2'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing-user-id:
+                  summary: Missing user ID
+                  value:
+                    code: 'USR-1002'
+                    message: 'Invalid request format'
+                    description: 'User ID is required'
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'USR-1011'
+                    message: 'Invalid pagination parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'USR-1012'
+                    message: 'Invalid pagination parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USR-1003'
+                message: 'User not found'
+                description: 'The user with the specified id does not exist'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USR-5001'
+                message: 'Internal server error'
+                description: 'An unexpected error occurred while processing the request'
+
+  /users/tree/{path}:
+    get:
+      tags:
+        - users-by-path
+      summary: List users in organization unit specified by handle path
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+          style: simple
+          explode: false
+          description: |
+            Hierarchical path of organization unit handles separated by forward slashes.
+            Examples:
+            - `engineering` - Lists users in the "engineering" OU
+            - `engineering/frontend` - Lists users in "engineering/frontend"
+          example: 'engineering/frontend'
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+        - $ref: '#/components/parameters/filterParam'
+      responses:
+        '200':
+          description: List of users in the organization unit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                totalResults: 5
+                startIndex: 1
+                count: 2
+                users:
+                  - id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                  - id: '9f1e47d3-0347-4464-9f02-e0bfae02e896'
+                links:
+                  - href: 'users/tree/engineering/frontend?offset=10&limit=10'
+                    rel: 'next'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'USR-1011'
+                    message: 'Invalid pagination parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'USR-1012'
+                    message: 'Invalid pagination parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+                invalid-filter:
+                  summary: Invalid filter parameter
+                  value:
+                    code: 'USR-1020'
+                    message: 'Invalid filter parameter'
+                    description: 'The filter format is invalid'
+        '404':
+          description: Organization unit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                path-not-found:
+                  summary: Handle path not found
+                  value:
+                    code: 'USR-1003'
+                    message: 'Organization unit not found'
+                    description: 'The organization unit with the specified handle path does not exist'
+                invalid-path:
+                  summary: Invalid path structure
+                  value:
+                    code: 'USR-1008'
+                    message: 'Invalid handle path'
+                    description: 'The handle path does not represent a valid organizational hierarchy'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+    post:
+      tags:
+        - users-by-path
+      summary: Create a new user under the organization unit specified by the handle path
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+          style: simple
+          explode: false
+          description: |
+            Hierarchical path of organization unit handles separated by forward slashes.
+            The new user will be created under the organization unit specified by this path.
+            Examples:
+            - `engineering` - Creates a new user under the "engineering" OU
+            - `engineering/frontend` - Creates a new user under "engineering/frontend"
+          example: 'engineering/frontend'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserByPathRequest'
+            example:
+              organizationUnit: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+              type: 'employee'
+              groups:
+                - '880e8400-e29b-41d4-a716-446655440003'
+                - '990e8400-e29b-41d4-a716-446655440004'
+              attributes:
+                username: 'john.doe'
+                firstname: 'John'
+                lastname: 'Doe'
+                email: 'john.doe@company.com'
+                department: 'Engineering'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: '7a4b1f8e-5c69-4b60-9232-2b0aaf65ef3c'
+                organizationUnit: 'a839f4bd-39dc-4eaa-b5cc-210d8ecaee87'
+                type: 'employee'
+                attributes:
+                  username: 'john.doe'
+                  firstname: 'John'
+                  lastname: 'Doe'
+                  email: 'john.doe@company.com'
+                  department: 'Engineering'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'USR-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed, contains invalid data, or required fields are missing/empty'
+                username-conflict:
+                  summary: Username already exists
+                  value:
+                    code: 'USR-1014'
+                    message: 'Username conflict'
+                    description: 'A user with the same username already exists'
+                email-conflict:
+                  summary: Email already exists
+                  value:
+                    code: 'USR-1015'
+                    message: 'Email conflict'
+                    description: 'A user with the same email already exists'
+                invalid-group-id:
+                  summary: Invalid group ID
+                  value:
+                    code: 'USR-1007'
+                    message: 'Invalid group ID'
+                    description: 'One or more group IDs in the request do not exist'
+        '404':
+          description: Organization unit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                path-not-found:
+                  summary: Handle path not found
+                  value:
+                    code: 'USR-1003'
+                    message: 'Organization unit not found'
+                    description: 'The organization unit with the specified handle path does not exist'
+                invalid-path:
+                  summary: Invalid path structure
+                  value:
+                    code: 'USR-1008'
+                    message: 'Invalid handle path'
+                    description: 'The handle path does not represent a valid organizational hierarchy'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                username-conflict:
+                  summary: Username already exists
+                  value:
+                    code: 'USR-1014'
+                    message: 'Username conflict'
+                    description: 'A user with the same username already exists'
+                email-conflict:
+                  summary: Email already exists
+                  value:
+                    code: 'USR-1015'
+                    message: 'Email conflict'
+                    description: 'A user with the same email already exists'
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Internal server error'
+
+  /user-schemas:
+    get:
+      tags:
+        - user-schemas
+      summary: List user type schemas
+      description: |
+        Retrieves a list of all user type schemas that define the structure 
+        and attributes for different user types.
+      parameters:
+        - $ref: '#/components/parameters/limitQueryParam'
+        - $ref: '#/components/parameters/offsetQueryParam'
+      responses:
+        '200':
+          description: List of user type schemas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSchemaListResponse'
+              example:
+                totalResults: 3
+                startIndex: 1
+                count: 3
+                schemas:
+                  - id: '660e8400-e29b-41d4-a716-446655440001'
+                    name: 'employee'
+                  - id: '550e8400-e29b-41d4-a716-446655440000'
+                    name: 'customer'
+                  - id: '770e8400-e29b-41d4-a716-446655440002'
+                    name: 'partner'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-limit:
+                  summary: Invalid limit parameter
+                  value:
+                    code: 'USRS-1005'
+                    message: 'Invalid pagination parameter'
+                    description: 'The limit parameter must be a positive integer'
+                invalid-offset:
+                  summary: Invalid offset parameter
+                  value:
+                    code: 'USRS-1006'
+                    message: 'Invalid pagination parameter'
+                    description: 'The offset parameter must be a non-negative integer'
+        '500':
+          description: Internal server error
+
+    post:
+      tags:
+        - user-schemas
+      summary: Create a new user type schema
+      description: |
+        Creates a new user type schema that defines the structure and attributes
+        for a specific user type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserSchemaRequest'
+            example:
+              name: 'partner'
+              schema:
+                firstname:
+                  type: 'string'
+                lastname:
+                  type: 'string'
+                  required: true
+                email:
+                  type: 'string'
+                  required: true
+                  unique: true
+                company:
+                  type: 'string'
+                role:
+                  type: 'string'
+                partnershipType:
+                  type: 'string'
+                  enum: ['technology', 'business', 'strategic']
+                phoneNumber:
+                  type: 'string'
+      responses:
+        '201':
+          description: User schema created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSchema'
+              example:
+                id: '880e8400-e29b-41d4-a716-446655440003'
+                name: 'partner'
+                schema:
+                  firstname:
+                    type: 'string'
+                  lastname:
+                    type: 'string'
+                    required: true
+                  email:
+                    type: 'string'
+                    required: true
+                    unique: true
+                  company:
+                    type: 'string'
+                  role:
+                    type: 'string'
+                  partnershipType:
+                    type: 'string'
+                    enum: ['technology', 'business', 'strategic']
+                  phoneNumber:
+                    type: 'string'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'USRS-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-attribute-definition:
+                  summary: Invalid attribute definition
+                  value:
+                    code: 'USRS-1004'
+                    message: 'Invalid user schema request'
+                    description: 'One or more attribute definitions are invalid'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USRS-1003'
+                message: 'User schema name conflict'
+                description: 'A user schema with the same name already exists'
+        '500':
+          description: Internal server error
+
+  /user-schemas/{id}:
+    get:
+      tags:
+        - user-schemas
+      summary: Get a user type schema by ID
+      description: |
+        Retrieves the details of a specific user type schema by its ID.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+      responses:
+        '200':
+          description: User schema details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSchema'
+              examples:
+                simple:
+                  summary: Employee schema with simple attributes
+                  value:
+                    id: '660e8400-e29b-41d4-a716-446655440001'
+                    name: 'employee'
+                    schema:
+                      firstname:
+                        type: 'string'
+                      lastname:
+                        type: 'string'
+                        required: true
+                      username:
+                        type: 'string'
+                        required: true
+                        unique: true
+                      password:
+                        type: 'string'
+                        required: true
+                        regex: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{8,}$"
+                      employeeId:
+                        type: 'number'
+                        unique: true
+                      department:
+                        type: 'string'
+                        enum:
+                          [
+                            'Engineering',
+                            'Marketing',
+                            'Sales',
+                            'HR',
+                            'Finance',
+                            'Operations',
+                          ]
+                      isActive:
+                        type: 'boolean'
+                complex:
+                  summary: Customer schema with complex attributes
+                  value:
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    name: 'customer'
+                    schema:
+                      email:
+                        type: 'string'
+                        required: true
+                        unique: true
+                        regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+                      mobile:
+                        type: 'string'
+                        regex: "^\\+?[1-9]\\d{1,14}$"
+                      address:
+                        type: 'object'
+                        required: true
+                        properties:
+                          street:
+                            type: 'string'
+                          city:
+                            type: 'string'
+                            required: true
+                          zipCode:
+                            type: 'string'
+                            regex: "^\\d{5}(-\\d{4})?$"
+                          country:
+                            type: 'string'
+                      contactPreferences:
+                        type: 'array'
+                        items:
+                          type: 'string'
+                          enum: ['email', 'sms', 'phone', 'mail']
+        '404':
+          description: User schema not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USRS-1002'
+                message: 'User schema not found'
+                description: 'The user schema with the specified id does not exist'
+        '500':
+          description: Internal server error
+
+    put:
+      tags:
+        - user-schemas
+      summary: Update a user type schema by ID
+      description: |
+        Updates an existing user type schema with new attribute definitions.
+        This operation replaces the entire schema definition.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserSchemaRequest'
+            example:
+              name: 'customer'
+              schema:
+                email:
+                  type: 'string'
+                  required: true
+                  unique: true
+                age:
+                  type: 'number'
+                mobile:
+                  type: 'string'
+                preferredLanguage:
+                  type: 'string'
+                  enum: ['en', 'es', 'fr', 'de', 'it']
+                loyaltyTier:
+                  type: 'string'
+                  enum: ['bronze', 'silver', 'gold', 'platinum']
+      responses:
+        '200':
+          description: User schema updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSchema'
+              example:
+                id: '550e8400-e29b-41d4-a716-446655440000'
+                name: 'customer'
+                schema:
+                  email:
+                    type: 'string'
+                    required: true
+                    unique: true
+                  age:
+                    type: 'number'
+                  mobile:
+                    type: 'string'
+                  preferredLanguage:
+                    type: 'string'
+                    enum: ['en', 'es', 'fr', 'de', 'it']
+                  loyaltyTier:
+                    type: 'string'
+                    enum: ['bronze', 'silver', 'gold', 'platinum']
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid-request-format:
+                  summary: Invalid request format
+                  value:
+                    code: 'USRS-1001'
+                    message: 'Invalid request format'
+                    description: 'The request body is malformed or contains invalid data'
+                invalid-attribute-definition:
+                  summary: Invalid attribute definition
+                  value:
+                    code: 'USRS-1004'
+                    message: 'Invalid user schema request'
+                    description: 'One or more attribute definitions are invalid'
+        '404':
+          description: User schema not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USRS-1002'
+                message: 'User schema not found'
+                description: 'The user schema with the specified id does not exist'
+        '409':
+          description: User schema name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USRS-1003'
+                message: 'User schema name conflict'
+                description: 'A user schema with the same name already exists'
+        '500':
+          description: Internal server error
+
+    delete:
+      tags:
+        - user-schemas
+      summary: Delete a user type schema by ID
+      description: |
+        Deletes a user type schema. This operation will fail if there are 
+        existing users of this type.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+      responses:
+        '204':
+          description: User schema deleted
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'USRS-1004'
+                message: 'Invalid user schema request'
+                description: 'Cannot delete schema because users of this type exist'
+        '500':
+          description: Internal server error
+
+components:
+  parameters:
+    limitQueryParam:
+      in: query
+      name: limit
+      required: false
+      description: |
+        Maximum number of records to return.
+      schema:
+        type: integer
+        minimum: 1
+        default: 30
+    offsetQueryParam:
+      in: query
+      name: offset
+      required: false
+      description: |
+        Number of records to skip for pagination.
+      schema:
+        type: integer
+        default: 0
+    filterParam:
+      in: query
+      name: filter
+      required: false
+      description: |
+        Filter users by attribute values.
+        Supported operators: eq (ie. equals).
+        Format: `attribute operator "value"`.
+        Examples:
+        - `username eq "john.doe"` - Users with username = "john.doe"'
+        - `age eq 25` - Users with age = 25
+        - `address.city eq "Mountain View"` - Users with address.city = "Mountain View"
+      schema:
+        type: string
+      examples:
+        simple-string:
+          summary: Simple string filter
+          value: 'username eq "john.doe"'
+        simple-number:
+          summary: Simple number filter
+          value: 'age eq 25'
+        complex:
+          summary: Complex filtering
+          value: 'address.city eq "Mountain View"'
+  schemas:
+    User:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationUnit:
+          type: string
+          format: uuid
+        type:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+          example: 'organization-units?offset=20&limit=10'
+        rel:
+          type: string
+          example: 'next'
+
+    UserGroup:
+      type: object
+      required: [id, name, organizationUnit]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 'The unique identifier of the group'
+        name:
+          type: string
+          description: 'The name of the group'
+        organizationUnit:
+          type: string
+          format: uuid
+          description: 'The organization unit ID that the group belongs to'
+
+    UserListResponse:
+      type: object
+      properties:
+        totalResults:
+          type: integer
+          description: 'Number of results that match the listing operation.'
+          example: 25
+        startIndex:
+          type: integer
+          description: 'Index of the first element of the page, which will be equal to offset + 1.'
+          example: 1
+        count:
+          type: integer
+          description: 'Number of elements in the returned page.'
+          example: 10
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    UserGroupListResponse:
+      type: object
+      properties:
+        totalResults:
+          type: integer
+          description: 'Number of results that match the listing operation.'
+          example: 8
+        startIndex:
+          type: integer
+          description: 'Index of the first element of the page, which will be equal to offset + 1.'
+          example: 1
+        count:
+          type: integer
+          description: 'Number of elements in the returned page.'
+          example: 5
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserGroup'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    CreateUserByPathRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          description: 'The type of user'
+          example: 'employee'
+        groups:
+          type: array
+          description: 'List of groups that the user should belong to'
+          items:
+            type: string
+            format: uuid
+            description: 'Group ID'
+        attributes:
+          type: object
+          description: 'User attributes'
+          additionalProperties: true
+          example:
+            username: 'john.doe'
+            firstname: 'John'
+            lastname: 'Doe'
+            email: 'john.doe@company.com'
+            department: 'Engineering'
+
+    CreateUserRequest:
+      type: object
+      required: [organizationUnit, type]
+      properties:
+        organizationUnit:
+          type: string
+          format: uuid
+          description: 'The organization unit ID where the user will be created'
+        type:
+          type: string
+          description: 'The type of user'
+          example: 'customer'
+        groups:
+          type: array
+          description: 'List of groups that the user should belong to'
+          items:
+            type: string
+            format: uuid
+            description: 'Group ID'
+        attributes:
+          type: object
+          description: 'User attributes'
+          additionalProperties: true
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        organizationUnit:
+          type: string
+          format: uuid
+          description: 'The organization unit ID where the user belongs'
+        type:
+          type: string
+          description: 'The type of user'
+        groups:
+          type: array
+          description: 'List of groups that the user should belong to'
+          items:
+            type: string
+            format: uuid
+            description: 'Group ID'
+        attributes:
+          type: object
+          description: 'User attributes'
+          additionalProperties: true
+
+    UserSchema:
+      type: object
+      required: [id, name, schema]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 'The unique identifier of the user schema'
+        name:
+          type: string
+          description: 'The user type this schema defines'
+        schema:
+          type: object
+          description: 'JSON Schema definition for the user type'
+          additionalProperties:
+            oneOf:
+              - type: object
+                description: 'Leaf property definition (string, number, or boolean type)'
+                required: [type]
+                properties:
+                  type:
+                    type: string
+                    enum: ['string', 'number', 'boolean']
+                    description: 'Data type of the property'
+                  required:
+                    type: boolean
+                    default: false
+                    description: 'Whether this attribute must be provided for the user type'
+                  unique:
+                    type: boolean
+                    default: false
+                    description: 'Whether this property must be unique across all users'
+                  enum:
+                    type: array
+                    items:
+                      type: string
+                    description: 'List of allowed values for this property'
+                  regex:
+                    type: string
+                    description: 'Regular expression pattern for validating the property value'
+                additionalProperties: false
+              - type: object
+                description: 'Object property definition'
+                required: [type, properties]
+                properties:
+                  type:
+                    type: string
+                    enum: ['object']
+                    description: 'Data type (object)'
+                  required:
+                    type: boolean
+                    default: false
+                    description: 'Whether this attribute must be provided for the user type'
+                  properties:
+                    type: object
+                    description: 'Nested properties of the object'
+                    additionalProperties:
+                      $ref: '#/components/schemas/UserSchema/properties/schema/additionalProperties'
+                additionalProperties: false
+              - type: object
+                description: 'Array property definition'
+                required: [type, items]
+                properties:
+                  type:
+                    type: string
+                    enum: ['array']
+                    description: 'Data type (array)'
+                  required:
+                    type: boolean
+                    default: false
+                    description: 'Whether this attribute must be provided for the user type'
+                  items:
+                    oneOf:
+                      - type: object
+                        description: 'Array of strings, numbers, or booleans'
+                        required: [type]
+                        properties:
+                          type:
+                            type: string
+                            enum: ['string', 'number', 'boolean']
+                          enum:
+                            type: array
+                            items:
+                              type: string
+                        additionalProperties: false
+                      - type: object
+                        description: 'Array of objects'
+                        required: [type, properties]
+                        properties:
+                          type:
+                            type: string
+                            enum: ['object']
+                          properties:
+                            type: object
+                            additionalProperties:
+                              $ref: '#/components/schemas/UserSchema/properties/schema/additionalProperties'
+                        additionalProperties: false
+                additionalProperties: false
+          example:
+            email:
+              type: 'string'
+              required: true
+              unique: true
+              regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            password:
+              type: 'string'
+              required: true
+              regex: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]).{8,}$"
+            age:
+              type: 'number'
+            isActive:
+              type: 'boolean'
+            phoneNumber:
+              type: 'string'
+              regex: "^\\+?[1-9]\\d{1,14}$"
+            role:
+              type: 'string'
+              enum: ['admin', 'user', 'guest']
+            address:
+              type: 'object'
+              required: true
+              properties:
+                street:
+                  type: 'string'
+                city:
+                  type: 'string'
+                  required: true
+                zipCode:
+                  type: 'string'
+                  regex: "^\\d{5}(-\\d{4})?$"
+            tags:
+              type: 'array'
+              items:
+                type: 'string'
+                enum: ['vip', 'premium', 'standard']
+
+    UserSchemaListResponse:
+      type: object
+      properties:
+        totalResults:
+          type: integer
+          description: 'Number of results that match the listing operation.'
+          example: 5
+        startIndex:
+          type: integer
+          description: 'Index of the first element of the page, which will be equal to offset + 1.'
+          example: 1
+        count:
+          type: integer
+          description: 'Number of elements in the returned page.'
+          example: 3
+        schemas:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: 'The unique identifier of the user schema'
+              name:
+                type: string
+                description: 'The user type this schema defines'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    CreateUserSchemaRequest:
+      type: object
+      required: [name, schema]
+      properties:
+        name:
+          type: string
+          description: 'The user type this schema will define'
+        schema:
+          type: object
+          description: 'JSON Schema definition for the user type'
+          additionalProperties:
+            $ref: '#/components/schemas/UserSchema/properties/schema/additionalProperties'
+
+    UpdateUserSchemaRequest:
+      type: object
+      required: [name, schema]
+      properties:
+        name:
+          type: string
+          description: 'The user type this schema defines'
+        schema:
+          type: object
+          description: 'JSON Schema definition for the user type'
+          additionalProperties:
+            $ref: '#/components/schemas/UserSchema/properties/schema/additionalProperties'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        description:
+          type: string

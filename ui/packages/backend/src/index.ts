@@ -7,27 +7,25 @@
  */
 
 import { createBackend } from '@backstage/backend-defaults';
+import { OpenChoreoDefaultAuthModule } from '@openchoreo/backstage-plugin-auth-backend-module-openchoreo-default';
+import { rootHttpRouterServiceFactory } from '@backstage/backend-defaults/rootHttpRouter';
 
 const backend = createBackend();
 
+backend.add(rootHttpRouterServiceFactory());
+
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
-
-// scaffolder plugin
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
-backend.add(
-  import('@backstage/plugin-scaffolder-backend-module-notifications'),
-);
-
-// techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
 
 // auth plugin
 backend.add(import('@backstage/plugin-auth-backend'));
 // See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
-backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
-// See https://backstage.io/docs/auth/guest/provider
+
+// OpenChoreo Default IDP OAuth provider
+backend.add(OpenChoreoDefaultAuthModule);
 
 // catalog plugin
 backend.add(import('@backstage/plugin-catalog-backend'));
@@ -56,11 +54,16 @@ backend.add(import('@backstage/plugin-search-backend-module-pg'));
 backend.add(import('@backstage/plugin-search-backend-module-catalog'));
 backend.add(import('@backstage/plugin-search-backend-module-techdocs'));
 
-// kubernetes plugin
-backend.add(import('@backstage/plugin-kubernetes-backend'));
-
-// notifications and signals plugins
-backend.add(import('@backstage/plugin-notifications-backend'));
-backend.add(import('@backstage/plugin-signals-backend'));
-
+backend.add(import('@openchoreo/backstage-plugin-backend'));
+backend.add(import('@openchoreo/backstage-plugin-catalog-backend-module'));
+backend.add(import('@openchoreo/backstage-plugin-scaffolder-backend-module'));
+backend.add(
+  import(
+    '@openchoreo/backstage-plugin-catalog-backend-module-openchoreo-users'
+  ),
+);
+backend.add(
+  import('@openchoreo/backstage-plugin-platform-engineer-core-backend'),
+);
+// backend.add(import('@openchoreo/backstage-plugin-home-backend'));
 backend.start();
