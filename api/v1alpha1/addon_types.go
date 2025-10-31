@@ -45,6 +45,13 @@ type AddonCreate struct {
 //	  size: "string | default=10Gi"
 //	  storageClass: "string | default=standard"
 type AddonSchema struct {
+	// Types defines reusable type definitions that can be referenced in schema fields
+	// This is a nested map structure where keys are type names and values are type definitions
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Types *runtime.RawExtension `json:"types,omitempty"`
+
 	// Parameters are developer-facing configuration options.
 	// This is a nested map structure where keys are field names and values
 	// are either nested maps or type definition strings.

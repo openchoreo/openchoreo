@@ -225,6 +225,12 @@ spec:
                                 Type definition format: "type | default=value | required=true | enum=val1,val2"
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
+                            types:
+                              description: |-
+                                Types defines reusable type definitions that can be referenced in schema fields
+                                This is a nested map structure where keys are type names and values are type definitions
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
                           type: object
                       type: object
                     status:
@@ -583,6 +589,12 @@ spec:
                               when creating a Component of this type. This is a nested map structure where
                               keys are field names and values are either nested maps or type definition strings.
                               Type definition format: "type | default=value | required=true | enum=val1,val2"
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          types:
+                            description: |-
+                              Types defines reusable type definitions that can be referenced in schema fields
+                              This is a nested map structure where keys are type names and values are type definitions
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
                         type: object

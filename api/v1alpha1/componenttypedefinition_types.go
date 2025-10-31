@@ -42,6 +42,13 @@ type ComponentTypeDefinitionSpec struct {
 //	    terminationGracePeriodSeconds: "integer | default=30"
 //	    imagePullPolicy: "string | default=IfNotPresent | enum=Always,IfNotPresent,Never"
 type ComponentTypeSchema struct {
+	// Types defines reusable type definitions that can be referenced in schema fields
+	// This is a nested map structure where keys are type names and values are type definitions
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Types *runtime.RawExtension `json:"types,omitempty"`
+
 	// Parameters are static across environments and exposed as inputs to developers
 	// when creating a Component of this type. This is a nested map structure where
 	// keys are field names and values are either nested maps or type definition strings.
