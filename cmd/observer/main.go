@@ -17,6 +17,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/k8s"
 	"github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -50,11 +51,23 @@ func main() {
 	// Initialize logging service
 	loggingService := service.NewLoggingService(osClient, cfg, logger)
 
+	// Initialize RCA service if enabled
+	var rcaService *service.RCAService
+	if cfg.RCA.Enabled {
+		k8sClient, err := k8s.NewClient()
+		if err != nil {
+			logger.Warn("Failed to initialize Kubernetes client, RCA features will be unavailable", "error", err)
+		} else {
+			logger.Info("Kubernetes client initialized successfully")
+			rcaService = service.NewRCAService(k8sClient, cfg, logger)
+		}
+	}
+
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger)
+	handler := handlers.NewHandler(loggingService, rcaService, logger)
 
 	// Health check endpoint
 	mux.HandleFunc("GET /health", handler.Health)
@@ -64,6 +77,7 @@ func main() {
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+	mux.HandleFunc("POST /api/analyze", handler.Analyze)
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(

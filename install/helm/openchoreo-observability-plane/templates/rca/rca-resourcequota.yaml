@@ -1,0 +1,12 @@
+{{- if and .Values.observer.rca.enabled .Values.observer.rca.resourceQuota }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rca-jobs-quota
+  namespace: {{ .Values.observer.rca.jobsNamespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer-rca") | nindent 4 }}
+spec:
+  hard:
+    count/jobs.batch: "{{ .Values.observer.rca.resourceQuota.maxJobs }}"
+{{- end }}

@@ -1,0 +1,17 @@
+{{- if .Values.observer.rca.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rca-manager-binding
+  namespace: {{ .Values.observer.rca.jobsNamespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer-rca") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rca-job-manager
+subjects:
+- kind: ServiceAccount
+  name: observer
+  namespace: {{ .Release.Namespace }}
+{{- end }}
