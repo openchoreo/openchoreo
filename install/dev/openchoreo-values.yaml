@@ -49,6 +49,20 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
+  # Backstage base URL (externally accessible URL via ingress)
+  baseUrl: "http://openchoreo.localhost"
+  # Thunder IdP configuration
+  # - thunder.baseUrl: Used for backend API calls (User/Group provider) → MUST be internal K8s service URL
+  # - Leave empty to use default internal service URL
+  thunder:
+    baseUrl: ""  # Defaults to internal K8s service URL (http://openchoreo-asgardeo-thunder.openchoreo.svc.cluster.local:8090)
+  # Auth endpoints
+  # - authorizationUrl: MUST be external (browser-accessible) for OAuth redirect
+  # - tokenUrl: MUST be internal (K8s service URL) for backend token exchange
+  auth:
+    authorizationUrl: "http://sts.openchoreo.localhost/oauth2/authorize"
+    # Leave tokenUrl empty to use default internal K8s service URL
+    # tokenUrl: ""  # Defaults to internal service URL
 asgardeoThunder:
   image:
     repository: ghcr.io/brionmario/thunder
@@ -91,6 +105,6 @@ asgardeoThunder:
             port: 9090
   backstagePortal:
     redirectUrls:
-      - "http://openchoreo.localhost/api/auth/oidc/handler/frame"
       - "http://localhost:7007/api/auth/default-idp/handler/frame"
+      - "http://openchoreo.localhost/api/auth/default-idp/handler/frame"
     clientSecret: backstage-portal-secret
