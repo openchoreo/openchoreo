@@ -14,12 +14,16 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/crd-renderer/component-pipeline"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -31,6 +35,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var k8sManager manager.Manager
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -68,8 +73,49 @@ var _ = BeforeSuite(func() {
 
 	// +kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	// Create a manager to properly set up field indexes
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Cache: cache.Options{
+			DefaultNamespaces: map[string]cache.Config{},
+		},
+	})
 	Expect(err).NotTo(HaveOccurred())
+
+	// Set up field indexes without registering the controller
+	// This allows tests to call Reconcile manually without conflicts
+	reconciler := &Reconciler{
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
+	}
+
+	// Register field indexes manually (without the controller)
+	err = reconciler.setupComponentIndex(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = reconciler.setupEnvironmentIndex(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = reconciler.setupComponentDeploymentCompositeIndex(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = reconciler.setupSnapshotOwnerIndex(ctx, k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Start the manager in the background
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
+
+	// Wait for the cache to sync before running tests
+	By("Waiting for cache to sync")
+	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	// Use the manager's client for tests
+	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
 })

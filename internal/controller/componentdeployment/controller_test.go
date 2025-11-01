@@ -14,11 +14,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/crd-renderer/component-pipeline"
 )
 
 var _ = Describe("ComponentDeployment Controller", func() {
 	Context("When reconciling an ComponentDeployment resource", func() {
-		const componentDeploymentName = "test-componentdeployments"
+		const componentDeploymentName = "test-componentdeployment"
 		const namespace = "default"
 
 		componentDeploymentNamespacedName := types.NamespacedName{
@@ -49,8 +50,9 @@ var _ = Describe("ComponentDeployment Controller", func() {
 
 			By("Reconciling the ComponentDeployment resource")
 			componentDeploymentReconciler := &Reconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Pipeline: componentpipeline.NewPipeline(),
 			}
 			_, err = componentDeploymentReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: componentDeploymentNamespacedName,
