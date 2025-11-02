@@ -327,6 +327,230 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name: "component with env configurations",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentTypeDefinition:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                          [{
+                            "configMapRef": {
+                              "name": sanitizeK8sResourceName(metadata.name, "env-configs")
+                            }
+                          }] : [])}
+        - id: env-config
+          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
+            data: |
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          env:
+            - key: LOG_LEVEL
+              value: info
+            - key: DEBUG_MODE
+              value: "true"
+`,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-env-configs-3e553e36
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    LOG_LEVEL: info
+    DEBUG_MODE: "true"
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom:
+              - configMapRef:
+                  name: test-component-dev-12345678-env-configs-3e553e36
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with file configurations",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentTypeDefinition:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      volumeMounts: |
+                        ${(has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                          configurations.configs.files.map(file, {
+                            "name": sanitizeK8sResourceName(metadata.name, "file-configs"),
+                            "mountPath": file.mountPath,
+                            "subPath": file.name
+                          }) : [])}
+                  volumes: |
+                    ${(has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                      [{
+                        "name": sanitizeK8sResourceName(metadata.name, "file-configs"),
+                        "configMap": {
+                          "name": sanitizeK8sResourceName(metadata.name, "file-configs")
+                        }
+                      }] : [])}
+        - id: file-config
+          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+          forEach: ${configurations.configs.files}
+          var: config
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${sanitizeK8sResourceName(metadata.name, "config", config.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            data:
+              ${config.name}: |
+                ${config.value}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          file:
+            - key: config.json
+              value: |
+                {
+                  "database": {
+                    "host": "localhost",
+                    "port": 5432
+                  }
+                }
+              mountPath: /etc/config/config.json
+            - key: app.properties
+              value: |
+                app.name=myapp
+                app.version=1.0.0
+                log.level=INFO
+              mountPath: /etc/config/app.properties
+`,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-app-properties-7a40d758
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    app.properties: |
+      app.name=myapp
+      app.version=1.0.0
+      log.level=INFO
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-config-json-4334abe4
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    config.json: |
+      {
+        "database": {
+          "host": "localhost",
+          "port": 5432
+        }
+      }
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            volumeMounts:
+              - name: test-component-dev-12345678-file-configs-91f94a62
+                mountPath: /etc/config/config.json
+                subPath: config.json
+              - name: test-component-dev-12345678-file-configs-91f94a62
+                mountPath: /etc/config/app.properties
+                subPath: app.properties
+        volumes:
+          - name: test-component-dev-12345678-file-configs-91f94a62
+            configMap:
+              name: test-component-dev-12345678-file-configs-91f94a62
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

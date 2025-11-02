@@ -260,11 +260,7 @@ func (e *Engine) getOrCreateEnv(inputs map[string]any) (*cel.Env, error) {
 // sanitizeK8sNameFromStrings collapses fragments into a DNS-ish identifier so templates can stitch
 // together names without worrying about illegal characters.
 func sanitizeK8sNameFromStrings(parts []string) ref.Val {
-	cleanedNames := make([]string, len(parts))
-	for i, name := range parts {
-		cleanedNames[i] = strings.ReplaceAll(name, ".", "-")
-	}
-	return types.String(kubernetes.GenerateK8sNameWithLengthLimit(63, cleanedNames...))
+	return types.String(kubernetes.GenerateK8sNameWithLengthLimit(kubernetes.MaxResourceNameLength, parts...))
 }
 
 func sanitizeK8sName(arg ref.Val) ref.Val {
