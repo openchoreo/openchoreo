@@ -24,7 +24,8 @@ UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
 THUNDER_IMAGE := ghcr.io/brionmario/thunder:0.0.16
 
 # Define OpenChoreo components for per-component operations
-KIND_COMPONENTS := controller api ui
+# Note: ui is not included here as it's built externally from backstage-plugins repo
+KIND_COMPONENTS := controller api
 KIND_COMPONENT_IMAGES := controller:$(CONTROLLER_IMAGE) api:$(API_IMAGE) ui:$(UI_IMAGE)
 
 # Helper functions
@@ -73,10 +74,6 @@ kind.build.%: ## Build specific component, (controller, api, ui)
 			;; \
 		api) \
 			$(MAKE) docker.build.openchoreo-api TAG=$(OPENCHOREO_IMAGE_TAG); \
-			;; \
-		ui) \
-			cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all; \
-			docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui; \
 			;; \
 	esac
 	@$(call log_success, $* component built!)
