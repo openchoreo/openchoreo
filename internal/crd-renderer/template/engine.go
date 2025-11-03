@@ -4,6 +4,8 @@
 package template
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -377,6 +379,15 @@ func buildEnv(inputs map[string]any) (*cel.Env, error) {
 			),
 			cel.Overload("sanitize_k8s_resource_name_list", []*cel.Type{cel.ListType(cel.StringType)}, cel.StringType,
 				cel.UnaryBinding(sanitizeK8sName),
+			),
+		),
+		cel.Function("sha256sum",
+			cel.Overload("sha256sum_string", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					input := arg.Value().(string)
+					hash := sha256.Sum256([]byte(input))
+					return types.String(hex.EncodeToString(hash[:]))
+				}),
 			),
 		),
 	)

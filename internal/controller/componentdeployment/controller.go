@@ -26,8 +26,6 @@ import (
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/crd-renderer/component-pipeline/context"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
-	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
 // Reconciler reconciles an ComponentDeployment object
@@ -382,7 +380,13 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	name, _ := metadata["name"].(string)
 
 	if kind != "" && name != "" {
-		return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		resourceID := fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		if len(resourceID) > dpkubernetes.MaxLabelNameLength {
+			return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+				strings.ToLower(kind),
+				name)
+		}
+		return resourceID
 	}
 
 	// Fallback: use index

@@ -59,13 +59,13 @@ spec:
                     ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                       (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                         configurations.configs.files.map(f, {
-                          "name": sanitizeK8sResourceName(f.name,"config-volume"),
+                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
                           "mountPath": f.mountPath+"/"+f.name ,
                           "subPath": f.name
                         }) : []) +
                        (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                         configurations.secrets.files.map(f, {
-                          "name": sanitizeK8sResourceName(f.name,"secret-volume"),
+                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
                           "mountPath": f.mountPath+"/"+f.name,
                           "subPath": f.name
                         }) : [])
@@ -85,16 +85,16 @@ spec:
                 ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                   (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                     configurations.configs.files.map(f, {
-                      "name": sanitizeK8sResourceName(f.name,"config-volume"),
+                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
                       "configMap": {
-                        "name": sanitizeK8sResourceName(metadata.name, "config", f.name)
+                        "name": sanitizeK8sResourceName(metadata.name, "config", f.name).replace(".", "-")
                       }
                     }) : []) +
                    (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                     configurations.secrets.files.map(f, {
-                      "name": sanitizeK8sResourceName(f.name,"secret-volume"),
+                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
                       "secret": {
-                        "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name)
+                        "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name).replace(".", "-")
                       }
                     }) : [])
                 : omit()}
@@ -116,6 +116,7 @@ spec:
               targetPort: ${parameters.port}
               protocol: TCP
     - id: env-config
+      includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
       template:
         apiVersion: v1
         kind: ConfigMap
@@ -132,7 +133,7 @@ spec:
         apiVersion: v1
         kind: ConfigMap
         metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "config", config.name)}
+          name: ${sanitizeK8sResourceName(metadata.name, "config", config.name).replace(".", "-")}
           namespace: ${metadata.namespace}
         data:
           ${config.name}: |
@@ -176,7 +177,7 @@ spec:
       image: "nginx:1.25-alpine"
       env:
         - key: LOG_LEVEL
-          value: info1
+          value: info
       file:
         - key: application.toml
           mountPath: /conf
@@ -214,4 +215,4 @@ spec:
   configurationOverrides:
     env:
       - key: LOG_LEVEL
-        value: error
+        value: debug

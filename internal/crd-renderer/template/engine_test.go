@@ -125,7 +125,7 @@ name: ${sanitizeK8sResourceName("Hello World!")}
 name: ${sanitizeK8sResourceName("my-app","v1.2.3")}
 `,
 			inputs: `{}`,
-			want: `name: my-app-v1-2-3-5283a5e7
+			want: `name: my-app-v1.2.3-4f878dd8
 `,
 		},
 		{
@@ -146,7 +146,7 @@ name: ${sanitizeK8sResourceName(metadata.name, spec.version)}
   "metadata": {"name": "payment-service"},
   "spec": {"version": "v2.0"}
 }`,
-			want: `name: payment-service-v2-0-9f452954
+			want: `name: payment-service-v2.0-bd17faf1
 `,
 		},
 		{
@@ -160,6 +160,19 @@ services:
 }`,
 			want: `services:
   port-8080: web-service
+`,
+		},
+		{
+			name: "sha256sum function",
+			template: `
+hash: ${sha256sum("hello world")}
+dynamicHash: ${sha256sum(metadata.value)}
+`,
+			inputs: `{
+  "metadata": {"value": "test data"}
+}`,
+			want: `hash: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+dynamicHash: 916f0027a575074ce72a331777c3478d6513f786a591bd892da1a577bf2335f9
 `,
 		},
 	}
