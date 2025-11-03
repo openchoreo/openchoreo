@@ -384,7 +384,13 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	name, _ := metadata["name"].(string)
 
 	if kind != "" && name != "" {
-		return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		resourceID := fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		if len(resourceID) > dpkubernetes.MaxLabelNameLength {
+			return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+				strings.ToLower(kind),
+				name)
+		}
+		return resourceID
 	}
 
 	// Fallback: use index

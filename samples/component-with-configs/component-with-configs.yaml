@@ -1,0 +1,218 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentTypeDefinition
+metadata:
+  name: web-service
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
+
+    envOverrides:
+      resources:
+        requests:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          cpu: "string | default=500m"
+          memory: "string | default=512Mi"
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  envFrom: |
+                    ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                      [{
+                        "configMapRef": {
+                          "name": sanitizeK8sResourceName(metadata.name, "env-configs")
+                        }
+                      }] : []) +
+                     (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                      [{
+                        "secretRef": {
+                          "name": sanitizeK8sResourceName(metadata.name, "secret-configs")
+                        }
+                      }] : [])}
+                  volumeMounts: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                        configurations.configs.files.map(f, {
+                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                          "mountPath": f.mountPath+"/"+f.name ,
+                          "subPath": f.name
+                        }) : []) +
+                       (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                        configurations.secrets.files.map(f, {
+                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                          "mountPath": f.mountPath+"/"+f.name,
+                          "subPath": f.name
+                        }) : [])
+                    : omit()}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${parameters.resources.requests.cpu}
+                      memory: ${parameters.resources.requests.memory}
+                    limits:
+                      cpu: ${parameters.resources.limits.cpu}
+                      memory: ${parameters.resources.limits.memory}
+              volumes: |
+                ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                  (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                    configurations.configs.files.map(f, {
+                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                      "configMap": {
+                        "name": sanitizeK8sResourceName(metadata.name, "config", f.name).replace(".", "-")
+                      }
+                    }) : []) +
+                   (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                    configurations.secrets.files.map(f, {
+                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                      "secret": {
+                        "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name).replace(".", "-")
+                      }
+                    }) : [])
+                : omit()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+    - id: env-config
+      includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
+          namespace: ${metadata.namespace}
+        data: |
+          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
+    - id: file-config
+      includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+      forEach: ${configurations.configs.files}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${sanitizeK8sResourceName(metadata.name, "config", config.name).replace(".", "-")}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  componentType: deployment/web-service
+
+  parameters:
+    replicas: 2
+    port: 8080
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app
+
+  containers:
+    app:
+      image: "nginx:1.25-alpine"
+      env:
+        - key: LOG_LEVEL
+          value: info
+      file:
+        - key: application.toml
+          mountPath: /conf
+          value: |
+            schema_generation:
+              enable: true 
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: demo-app-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app
+
+  environment: development
+
+  overrides:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  addonOverrides:
+    data-storage:
+      size: "5Gi"
+      storageClass: "standard"
+  
+  configurationOverrides:
+    env:
+      - key: LOG_LEVEL
+        value: debug
