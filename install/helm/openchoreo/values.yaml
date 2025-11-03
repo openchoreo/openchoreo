@@ -602,6 +602,26 @@ openchoreoApi:
   # @schema
   # type: [null, object]
   # @schema
+  # -- JWT authentication configuration
+  jwt:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWT issuer
+    issuer: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWKS URL for JWT validation
+    jwksUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWT audience
+    audience: ""
+  # @schema
+  # type: [null, object]
+  # @schema
   # -- Resource limits and requests for the API server
   resources:
     # @schema
@@ -1931,7 +1951,7 @@ asgardeoThunder:
       # type: [null, string]
       # @schema
       # -- Storage class name
-      storageClassName: ""
+      storageClassName: "standard"
       # @schema
       # enum: [ReadWriteOnce, ReadOnlyMany, ReadWriteMany]
       # @schema

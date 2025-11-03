@@ -53,6 +53,12 @@ spec:
         env:
         - name: MCP_TOOLSETS
           value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
+        - name: JWT_ISSUER
+          value: {{ .Values.openchoreoApi.jwt.issuer | quote }}
+        - name: JWKS_URL
+          value: {{ .Values.openchoreoApi.jwt.jwksUrl | quote }}
+        - name: JWT_AUDIENCE
+          value: {{ .Values.openchoreoApi.jwt.audience | quote }}
         livenessProbe:
           httpGet:
             path: /health

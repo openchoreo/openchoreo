@@ -14,6 +14,9 @@ controllerManager:
 
 # OpenChoreo API configuration
 openchoreoApi:
+  jwt:
+    issuer: thunder
+    jwksUrl: http://openchoreo-asgardeo-thunder:8090/oauth2/jwks
   image:
     repository: ghcr.io/openchoreo/openchoreo-api
     tag: dev

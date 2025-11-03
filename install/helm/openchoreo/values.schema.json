@@ -4573,6 +4573,48 @@
             "object"
           ]
         },
+        "jwt": {
+          "additionalProperties": false,
+          "description": "JWT authentication configuration",
+          "properties": {
+            "audience": {
+              "default": "",
+              "description": "JWT audience",
+              "required": [],
+              "title": "audience",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "issuer": {
+              "default": "",
+              "description": "JWT issuer",
+              "required": [],
+              "title": "issuer",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "jwksUrl": {
+              "default": "",
+              "description": "JWKS URL for JWT validation",
+              "required": [],
+              "title": "jwksUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "jwt",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
         "mcp": {
           "additionalProperties": false,
           "description": "MCP (Model Context Protocol) Server Configuration",
