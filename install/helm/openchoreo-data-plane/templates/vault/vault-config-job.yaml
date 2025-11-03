@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "9"
+    "helm.sh/hook-weight": "1"
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:
   backoffLimit: 3
@@ -13,7 +13,21 @@ spec:
     metadata:
       name: vault-config
     spec:
-      #serviceAccountName: vault-config-sa
+      serviceAccountName: vault-setup-hook-sa
+      initContainers:
+        - name: wait-for-ready
+          image: {{ .Values.waitJob.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+          args:
+            - wait
+            - --namespace={{ .Release.Namespace }}
+            - --for=condition=Ready
+            - pods
+            - -l
+            - app.kubernetes.io/name=hashicorp-vault,component=server
+            - --timeout=900s
       restartPolicy: OnFailure
       containers:
       - name: vault-config
@@ -21,7 +35,8 @@ spec:
         command:
         - /bin/sh
         - -c
-        - |          
+        - |
+          echo "Configuring Vault..."
           # Set environment variables
           export VAULT_ADDR=http://hashicorp-vault.{{ .Release.Namespace }}.svc:8200
           export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
@@ -52,4 +67,4 @@ spec:
             bound_service_account_namespaces="dp*" \
             policies=openchoreo-secret-reader-policy \
             ttl=20m
-
+          echo "Vault configuration completed..."

@@ -46,4 +46,4 @@ cilium:
   rollOutCiliumPods: true
 waitJob:
   enabled: true
-  image: bitnamilegacy/kubectl:1.33.4
+  image: rancher/kubectl:v1.32.9
