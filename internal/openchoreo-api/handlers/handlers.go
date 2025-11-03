@@ -4,11 +4,10 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
-
-	"golang.org/x/exp/slog"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"

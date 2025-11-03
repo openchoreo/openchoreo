@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
