@@ -132,8 +132,8 @@ metadata:
   name: $DATAPLANE_KIND_NAME
   namespace: default
 spec:
-  registry:
-    prefix: registry.openchoreo-data-plane:5000
+  secretStoreRef:
+    name: default
   gateway:
     organizationVirtualHost: openchoreoapis.internal
     publicVirtualHost: openchoreoapis.localhost

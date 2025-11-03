@@ -171,8 +171,8 @@ type DataPlaneResponse struct {
 	Namespace               string    `json:"namespace"`
 	DisplayName             string    `json:"displayName,omitempty"`
 	Description             string    `json:"description,omitempty"`
-	RegistryPrefix          string    `json:"registryPrefix"`
-	RegistrySecretRef       string    `json:"registrySecretRef,omitempty"`
+	ImagePullSecretRefs     []string  `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
 	KubernetesClusterName   string    `json:"kubernetesClusterName"`
 	APIServerURL            string    `json:"apiServerURL"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
