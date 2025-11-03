@@ -5,6 +5,7 @@ package checkov
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -62,6 +63,9 @@ func TestCategorizeCheck(t *testing.T) {
 }
 
 func TestRunCheckov(t *testing.T) {
+	SetMockScanner(&MockScanner{})
+	defer ResetScanner()
+
 	manifest := []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -88,8 +92,7 @@ spec:
 
 	findings, err := RunCheckov(context.Background(), manifest)
 	if err != nil {
-		t.Skipf("Skipping test because checkov is not installed: %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if len(findings) == 0 {
@@ -101,9 +104,30 @@ spec:
 			t.Error("Finding has empty CheckID")
 		}
 	}
+
+	foundPrivileged := false
+	foundRunAsRoot := false
+	for _, finding := range findings {
+		if finding.CheckID == "CKV_K8S_16" {
+			foundPrivileged = true
+		}
+		if finding.CheckID == "CKV_K8S_40" {
+			foundRunAsRoot = true
+		}
+	}
+
+	if !foundPrivileged {
+		t.Error("Expected to find privileged container check (CKV_K8S_16)")
+	}
+	if !foundRunAsRoot {
+		t.Error("Expected to find run as root check (CKV_K8S_40)")
+	}
 }
 
 func TestRunCheckov_ValidManifest(t *testing.T) {
+	SetMockScanner(&MockScanner{})
+	defer ResetScanner()
+
 	manifest := []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -155,11 +179,84 @@ spec:
 
 	findings, err := RunCheckov(context.Background(), manifest)
 	if err != nil {
-		t.Skipf("Skipping test because checkov is not installed: %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(findings) > 5 {
-		t.Logf("Secure manifest still has %d findings (this is expected as checkov has many checks)", len(findings))
+	if len(findings) > 0 {
+		t.Logf("Secure manifest has %d findings", len(findings))
+	}
+
+	for _, finding := range findings {
+		if finding.CheckID == "CKV_K8S_16" {
+			t.Error("Should not find privileged container check for secure manifest")
+		}
+		if finding.CheckID == "CKV_K8S_20" {
+			t.Error("Should not find privilege escalation check for secure manifest")
+		}
+		if finding.CheckID == "CKV_K8S_22" {
+			t.Error("Should not find read-only filesystem check for secure manifest")
+		}
+	}
+}
+
+func TestMockScanner_Error(t *testing.T) {
+	expectedErr := errors.New("mock error")
+	SetMockScanner(&MockScanner{Err: expectedErr})
+	defer ResetScanner()
+
+	manifest := []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    image: nginx
+`)
+
+	_, err := RunCheckov(context.Background(), manifest)
+	if err == nil {
+		t.Error("Expected error from mock scanner")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("Expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestMockScanner_CustomFindings(t *testing.T) {
+	customFindings := []Finding{
+		{
+			CheckID:     "CUSTOM_1",
+			CheckName:   "Custom Check",
+			Severity:    SeverityCritical,
+			Category:    "custom",
+			Description: "This is a custom finding",
+			Remediation: "Fix it",
+		},
+	}
+	SetMockScanner(&MockScanner{Findings: customFindings})
+	defer ResetScanner()
+
+	manifest := []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  name: test
+spec:
+  containers:
+  - name: test
+    image: nginx
+`)
+
+	findings, err := RunCheckov(context.Background(), manifest)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(findings) != 1 {
+		t.Errorf("Expected 1 finding, got %d", len(findings))
+	}
+
+	if len(findings) > 0 && findings[0].CheckID != "CUSTOM_1" {
+		t.Errorf("Expected CUSTOM_1, got %s", findings[0].CheckID)
 	}
 }

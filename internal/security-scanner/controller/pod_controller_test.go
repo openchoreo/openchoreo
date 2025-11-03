@@ -16,6 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/openchoreo/openchoreo/internal/security-scanner/checkov"
 	"github.com/openchoreo/openchoreo/internal/security-scanner/db/backend"
 )
 
@@ -148,6 +149,9 @@ func (m *mockQuerier) CountResourcesWithPostureFindings(ctx context.Context) (in
 }
 
 func TestPodReconciler_StandalonePod(t *testing.T) {
+	checkov.SetMockScanner(&checkov.MockScanner{})
+	defer checkov.ResetScanner()
+
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 
@@ -212,6 +216,9 @@ func TestPodReconciler_StandalonePod(t *testing.T) {
 }
 
 func TestPodReconciler_PodWithDeployment(t *testing.T) {
+	checkov.SetMockScanner(&checkov.MockScanner{})
+	defer checkov.ResetScanner()
+
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
@@ -309,6 +316,9 @@ func TestPodReconciler_PodWithDeployment(t *testing.T) {
 }
 
 func TestPodReconciler_ResourceVersionDeduplication(t *testing.T) {
+	checkov.SetMockScanner(&checkov.MockScanner{})
+	defer checkov.ResetScanner()
+
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 
@@ -361,6 +371,9 @@ func TestPodReconciler_ResourceVersionDeduplication(t *testing.T) {
 }
 
 func TestPodReconciler_ResourceVersionChanged(t *testing.T) {
+	checkov.SetMockScanner(&checkov.MockScanner{})
+	defer checkov.ResetScanner()
+
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 

@@ -49,23 +49,6 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
-# Security Scanner configuration
-securityScanner:
-  enabled: false
-  image:
-    repository: ghcr.io/openchoreo/security-scanner
-    tag: dev
-    pullPolicy: IfNotPresent
-  # Disable AppArmor for local development (not supported on macOS/Kind)
-  containerSecurityContext:
-    appArmorProfile:
-      type: Unconfined
-  database:
-    backend: sqlite
-    dsn: /data/security-scanner.db
-  persistence:
-    enabled: true
-    size: 1Gi
 asgardeoThunder:
   image:
     repository: ghcr.io/brionmario/thunder

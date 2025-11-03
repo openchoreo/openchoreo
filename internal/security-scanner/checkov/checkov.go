@@ -13,7 +13,19 @@ import (
 	"strings"
 )
 
+type Scanner interface {
+	Scan(ctx context.Context, manifest []byte) ([]Finding, error)
+}
+
+type checkovScanner struct{}
+
+var defaultScanner Scanner = &checkovScanner{}
+
 func RunCheckov(ctx context.Context, manifest []byte) ([]Finding, error) {
+	return defaultScanner.Scan(ctx, manifest)
+}
+
+func (s *checkovScanner) Scan(ctx context.Context, manifest []byte) ([]Finding, error) {
 	tmpFile, err := os.CreateTemp("", "checkov-manifest-*.yaml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
@@ -28,7 +40,6 @@ func RunCheckov(ctx context.Context, manifest []byte) ([]Finding, error) {
 		return nil, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Validate the temp file path to prevent command injection
 	tmpFilePath := tmpFile.Name()
 	if !isValidFilePath(tmpFilePath) {
 		return nil, fmt.Errorf("invalid temp file path: %s", tmpFilePath)

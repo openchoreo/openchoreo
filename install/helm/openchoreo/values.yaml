@@ -1464,62 +1464,8 @@ backstage:
       # -- AppArmor profile type
       type: RuntimeDefault
 # @schema
-# additionalProperties: true
 # type: [null, object]
 # @schema
-# -- Security Scanner configuration
-securityScanner:
-  # @schema
-  # type: [null, boolean]
-  # @schema
-  # -- Enable security scanner deployment
-  enabled: false
-  # @schema
-  # type: [null, string]
-  # @schema
-  # -- Override the full name of security scanner resources
-  fullnameOverride: openchoreo-security-scanner
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Database configuration
-  database:
-    # @schema
-    # enum: [sqlite, postgres]
-    # @schema
-    # -- Database backend type
-    backend: sqlite
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Database connection string
-    dsn: /data/security-scanner.db
-  # @schema
-  # additionalProperties: true
-  # type: [null, object]
-  # @schema
-  # -- Persistent volume configuration
-  persistence:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Enable persistence for database
-    enabled: true
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Storage class name
-    storageClassName: null
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Access mode for PVC
-    accessMode: ReadWriteOnce
-    # @schema
-    # type: [null, string]
-    # @schema
-    # -- Size of the persistent volume
-    size: 1Gi
 # -- Asgardeo Thunder (Platform Identity Provider) configuration
 asgardeoThunder:
   # @schema
