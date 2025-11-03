@@ -1,31 +1,26 @@
-# Component with Addons Example - All Resources
-# This file contains all resources needed to demonstrate ComponentTypeDefinitions and Addons
-
-# ComponentTypeDefinition: Defines a simple deployment component type
----
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentTypeDefinition
 metadata:
-  name: simple-deployment
+  name: web-service
   namespace: default
 spec:
   workloadType: deployment
 
   schema:
-    # Parameters are static across environments
-    parameters:
-      imagePullPolicy: "string | default=IfNotPresent"
-      replicas: "integer | default=1"
+    types:
+      Resources:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
 
-    # EnvOverrides can be overridden per environment
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
+
     envOverrides:
       resources:
-        limits:
-          cpu: "string | default=500m"
-          memory: "string | default=512Mi"
-        requests:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
+        requests: Resources
+        limits: Resources
 
   resources:
     - id: deployment
@@ -35,67 +30,81 @@ spec:
         metadata:
           name: ${metadata.name}
           namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
         spec:
-          replicas: ${spec.replicas}
+          replicas: ${parameters.replicas}
           selector:
-            matchLabels:
-              app: ${metadata.name}
+            matchLabels: ${metadata.podSelectors}
           template:
             metadata:
-              labels:
-                app: ${metadata.name}
+              labels: ${metadata.podSelectors}
             spec:
               containers:
                 - name: app
-                  image: nginx:latest
-                  imagePullPolicy: ${spec.imagePullPolicy}
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
                   resources:
-                    limits:
-                      cpu: ${spec.resources.limits.cpu}
-                      memory: ${spec.resources.limits.memory}
                     requests:
-                      cpu: ${spec.resources.requests.cpu}
-                      memory: ${spec.resources.requests.memory}
+                      cpu: ${parameters.resources.requests.cpu}
+                      memory: ${parameters.resources.requests.memory}
+                    limits:
+                      cpu: ${parameters.resources.limits.cpu}
+                      memory: ${parameters.resources.limits.memory}
 
-# Addon: Defines a PVC addon that creates storage and mounts it
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Addon
 metadata:
-  name: simple-pvc
+  name: persistent-volume
   namespace: default
 spec:
   schema:
-    # Developer-facing parameters
     parameters:
       volumeName: "string | required=true"
       mountPath: "string | required=true"
-      containerName: "string"
+      containerName: "string | default=app"
 
-    # Environment-specific overrides
     envOverrides:
       size: "string | default=10Gi"
       storageClass: "string | default=standard"
 
-  # New resources created by this addon
   creates:
     - template:
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: ${metadata.name}-${instanceName}
+          name: ${metadata.name}-${addon.instanceName}
           namespace: ${metadata.namespace}
         spec:
           accessModes:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${spec.size}
-          storageClassName: ${spec.storageClass}
+              storage: ${parameters.size}
+          storageClassName: ${parameters.storageClass}
 
-  # Patches to apply to existing resources
   patches:
-    # Add volume to deployment
     - target:
         group: apps
         version: v1
@@ -104,97 +113,170 @@ spec:
         - op: add
           path: /spec/template/spec/volumes/-
           value:
-            name: ${spec.volumeName}
+            name: ${parameters.volumeName}
             persistentVolumeClaim:
-              claimName: ${metadata.name}-${instanceName}
+              claimName: ${metadata.name}-${addon.instanceName}
 
-    # Mount volume to container
     - target:
         group: apps
         version: v1
         kind: Deployment
       operations:
         - op: add
-          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
           value:
-            name: ${spec.volumeName}
-            mountPath: ${spec.mountPath}
+            name: ${parameters.volumeName}
+            mountPath: ${parameters.mountPath}
 
-# Workload: The workload spec (normally created by the build process)
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
+kind: Addon
 metadata:
-  name: test-service
-  namespace: default
+  name: emptydir-volume
 spec:
-  owner:
-    projectName: default
-    componentName: test-service
+  schema:
+    # Define custom type for mount configuration
+    types:
+      MountConfig:
+        containerName: string | required=true
+        mountPath: string | required=true
+        readOnly: boolean | default=false
+        subPath: string | default=""
 
-  # Container definitions (populated after build)
-  containers:
-    app:
-      image: nginx:latest
+    parameters:
+      volumeName: string | required=true
+      mounts: "[]MountConfig | required=true minItems=1"
 
-# Component: A component instance using the simple-deployment type with the PVC addon
+    envOverrides:
+      sizeLimit: string | default=""
+      medium: string | default="" # "" for disk, "Memory" for tmpfs
+
+  # Patch the Deployment to add emptyDir volume
+  patches:
+    # Add emptyDir volume to pod spec
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${parameters.volumeName}
+            emptyDir: |
+              ${parameters.sizeLimit != "" || parameters.medium != "" ? {
+                "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : omit(),
+                "medium": parameters.medium != "" ? parameters.medium : omit()
+              } : {}}
+
+    # Add volumeMounts to each specified container
+    # This will be applied per mount in the mounts array
+    - forEach: ${parameters.mounts}
+      var: mount
+      target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${mount.containerName}')]/volumeMounts/-
+          value:
+            name: ${parameters.volumeName}
+            mountPath: ${mount.mountPath}
+            readOnly: |
+              ${has(mount.readOnly) ? mount.readOnly : false}
+            subPath: |
+              ${has(mount.subPath) ? mount.subPath : ""}
+
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: test-service
+  name: demo-app
   namespace: default
 spec:
   owner:
     projectName: default
 
-  # Component type reference (format: {workloadType}/{componentTypeDefinitionName})
-  componentType: deployment/simple-deployment
+  componentType: deployment/web-service
 
-  # Component parameters (static across environments)
   parameters:
-    imagePullPolicy: Always
     replicas: 2
+    port: 8080
     resources:
-      limits:
-        cpu: 1000m
-        memory: 1Gi
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
 
-  # Addons to apply to this component
   addons:
-    - name: simple-pvc
-      instanceName: data-volume
+    - name: persistent-volume
+      instanceName: data-storage
       config:
         volumeName: app-data
         mountPath: /var/data
         containerName: app
-        # Environment overrides
-        size: 20Gi
-        storageClass: fast
+        size: "20Gi"
+        storageClass: "fast"
+    - name: emptydir-volume
+      instanceName: cache
+      config:
+        volumeName: cache-vol
+        mounts:
+          - containerName: app
+            mountPath: /tmp/cache
+            readOnly: false
+    - name: emptydir-volume
+      instanceName: workspace
+      config:
+        volumeName: workspace-vol
+        mounts:
+          - containerName: app
+            mountPath: /tmp/work
+            readOnly: false
+        medium: ""
+        sizeLimit: 1Gi
 
-# ComponentDeployment: Environment-specific settings for the development environment
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: Workload
 metadata:
-  name: test-service-development
+  name: demo-app-workload
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: test-service
+    componentName: demo-app
+
+  containers:
+    app:
+      image: "nginx:1.25-alpine"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: demo-app-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app
+
   environment: development
 
-  # Environment-specific overrides for the component
-  # These override the default values from the ComponentTypeDefinition
   overrides:
     resources:
-      limits:
-        cpu: 2000m
-        memory: 2Gi
       requests:
-        cpu: 500m
-        memory: 1Gi
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  addonOverrides:
+    data-storage:
+      size: "5Gi"
+      storageClass: "standard"

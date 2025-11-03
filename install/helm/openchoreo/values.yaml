@@ -597,8 +597,8 @@ openchoreoApi:
     # type: [null, string]
     # @schema
     # -- Comma-separated list of enabled toolsets
-    # -- Available toolsets: core
-    toolsets: "core"
+    # -- Available toolsets: organization, project, component, build, deployment, infrastructure
+    toolsets: "organization,project,component,build,deployment,infrastructure"
   # @schema
   # type: [null, object]
   # @schema
