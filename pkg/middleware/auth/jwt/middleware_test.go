@@ -17,9 +17,9 @@ import (
 const testSecret = "test-secret-key-for-hmac-signing"
 
 // createTestToken creates a JWT token for testing
-func createTestToken(claims jwt.MapClaims, secret string) string {
+func createTestToken(claims jwt.MapClaims) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte(secret))
+	tokenString, _ := token.SignedString([]byte(testSecret))
 	return tokenString
 }
 
@@ -30,7 +30,7 @@ func TestMiddleware_Success(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey:     []byte(testSecret),
@@ -51,7 +51,7 @@ func TestMiddleware_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -71,7 +71,7 @@ func TestMiddleware_CaseInsensitiveBearerScheme(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey: []byte(testSecret),
@@ -127,7 +127,7 @@ func TestMiddleware_MissingToken(t *testing.T) {
 	}
 
 	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 	if response["error"] != "MISSING_TOKEN" {
 		t.Errorf("Expected error code 'missing_token', got %s", response["error"])
 	}
@@ -154,7 +154,7 @@ func TestMiddleware_InvalidToken(t *testing.T) {
 	}
 
 	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 	if response["error"] != "INVALID_TOKEN" {
 		t.Errorf("Expected error code 'invalid_token', got %s", response["error"])
 	}
@@ -166,7 +166,7 @@ func TestMiddleware_ExpiredToken(t *testing.T) {
 		"exp": time.Now().Add(-time.Hour).Unix(), // Expired 1 hour ago
 		"iat": time.Now().Add(-2 * time.Hour).Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey: []byte(testSecret),
@@ -195,7 +195,7 @@ func TestMiddleware_InvalidIssuer(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey:     []byte(testSecret),
@@ -218,7 +218,7 @@ func TestMiddleware_InvalidIssuer(t *testing.T) {
 	}
 
 	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 	if response["error"] != "INVALID_CLAIMS" {
 		t.Errorf("Expected error code 'invalid_claims', got %s", response["error"])
 	}
@@ -231,7 +231,7 @@ func TestMiddleware_ValidAudience(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey:       []byte(testSecret),
@@ -261,7 +261,7 @@ func TestMiddleware_InvalidAudience(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey:       []byte(testSecret),
@@ -291,10 +291,10 @@ func TestMiddleware_NoAudienceValidationWhenNotConfigured(t *testing.T) {
 		"iat": time.Now().Unix(),
 		// No audience claim
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:    []byte(testSecret),
+		SigningKey: []byte(testSecret),
 		// ValidateAudience is not set
 	}
 
@@ -320,11 +320,11 @@ func TestMiddleware_TokenFromQuery(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:    []byte(testSecret),
-		TokenLookup:   "query:token",
+		SigningKey:  []byte(testSecret),
+		TokenLookup: "query:token",
 	}
 
 	middleware := Middleware(config)
@@ -348,11 +348,11 @@ func TestMiddleware_TokenFromCookie(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:    []byte(testSecret),
-		TokenLookup:   "cookie:jwt",
+		SigningKey:  []byte(testSecret),
+		TokenLookup: "cookie:jwt",
 	}
 
 	middleware := Middleware(config)
@@ -378,11 +378,11 @@ func TestMiddleware_SuccessHandler(t *testing.T) {
 		"exp":  time.Now().Add(time.Hour).Unix(),
 		"iat":  time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	successHandlerCalled := false
 	config := Config{
-		SigningKey:    []byte(testSecret),
+		SigningKey: []byte(testSecret),
 		SuccessHandler: func(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) error {
 			successHandlerCalled = true
 			// Custom authorization logic
@@ -420,10 +420,10 @@ func TestMiddleware_SuccessHandlerRejects(t *testing.T) {
 		"exp":  time.Now().Add(time.Hour).Unix(),
 		"iat":  time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:    []byte(testSecret),
+		SigningKey: []byte(testSecret),
 		SuccessHandler: func(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) error {
 			if claims["role"] != "admin" {
 				return fmt.Errorf("insufficient permissions")
@@ -448,7 +448,7 @@ func TestMiddleware_SuccessHandlerRejects(t *testing.T) {
 	}
 
 	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 	if response["error"] != "AUTHORIZATION_FAILED" {
 		t.Errorf("Expected error code 'authorization_failed', got %s", response["error"])
 	}
@@ -460,10 +460,10 @@ func TestGetClaimValue(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:    []byte(testSecret),
+		SigningKey: []byte(testSecret),
 	}
 
 	middleware := Middleware(config)
@@ -504,7 +504,7 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"iat": time.Now().Unix(),
 	}
-	token := createTestToken(claims, testSecret)
+	token := createTestToken(claims)
 
 	config := Config{
 		SigningKey:       []byte(testSecret),
@@ -530,11 +530,11 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 func TestMiddleware_CustomErrorHandler(t *testing.T) {
 	errorHandlerCalled := false
 	config := Config{
-		SigningKey:    []byte(testSecret),
+		SigningKey: []byte(testSecret),
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			errorHandlerCalled = true
 			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte("custom error"))
+			_, _ = w.Write([]byte("custom error"))
 		},
 	}
 

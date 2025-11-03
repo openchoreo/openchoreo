@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/openchoreo/openchoreo/pkg/middleware/auth"
 )
 
