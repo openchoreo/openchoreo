@@ -36,7 +36,7 @@ Users can choose the approach that best fits their workflow, or even mix both wi
 
 With the introduction of ComponentTypeDefinitions, Addons, and Workloads ([Proposal #537](0537-introduce-component-type-definitions.md)), OpenChoreo needs a robust deployment and promotion workflow that:
 
-1. **Supports both UI/CLI and GitOps**: Users should be able to deploy and promote components through either the OpenChoreo UI/CLI or through GitOps workflows (ArgoCD, Flux) using the same underlying mechanism.
+1. **Supports both UI/CLI and GitOps**: Users should be able to deploy and promote components through either the OpenChoreo UI/CLI or through GitOps workflows (ArgoCD, Flux, etc.) using the same underlying mechanism.
 
 2. **Maintains environment isolation**: Promotable content (ComponentTypeDefinitions, Addons, Components, Workloads) should be separated from environment-specific configuration (EnvSettings).
 
@@ -254,7 +254,7 @@ spec:
 #### When to Use Each Approach
 
 **Use Git References when:**
-- Working with GitOps workflows (ArgoCD, Flux)
+- Working with GitOps workflows (ArgoCD, Flux, etc.)
 - You want clean, readable git diffs for promotion reviews (Release is only ~2-5 KB)
 - You want traceability to exact git commits
 - ComponentTypeDefinitions/Addons are reused across multiple components
