@@ -46,30 +46,30 @@ spec:
                     ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
                       [{
                         "configMapRef": {
-                          "name": sanitizeK8sResourceName(metadata.name, "env-configs")
+                          "name": oc_generate_name(metadata.name, "env-configs")
                         }
                       }] : []) +
                      (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
                       [{
                         "secretRef": {
-                          "name": sanitizeK8sResourceName(metadata.name, "env-secrets")
+                          "name": oc_generate_name(metadata.name, "env-secrets")
                         }
                       }] : [])}
                   volumeMounts: |
                     ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                       (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                         configurations.configs.files.map(f, {
-                          "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                           "mountPath": f.mountPath+"/"+f.name ,
                           "subPath": f.name
                         }) : []) +
                        (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                         configurations.secrets.files.map(f, {
-                          "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                           "mountPath": f.mountPath+"/"+f.name,
                           "subPath": f.name
                         }) : [])
-                    : omit()}
+                    : oc_omit()}
                   ports:
                     - name: http
                       containerPort: ${parameters.port}
@@ -85,19 +85,19 @@ spec:
                 ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                   (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                     configurations.configs.files.map(f, {
-                      "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
+                      "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                       "configMap": {
-                        "name": sanitizeK8sResourceName(metadata.name, "config", f.name).replace(".", "-")
+                        "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
                       }
                     }) : []) +
                    (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                     configurations.secrets.files.map(f, {
-                      "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
+                      "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                       "secret": {
-                        "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name).replace(".", "-")
+                        "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
                       }
                     }) : [])
-                : omit()}
+                : oc_omit()}
 
     - id: service
       template:
@@ -121,10 +121,10 @@ spec:
         apiVersion: v1
         kind: ConfigMap
         metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
+          name: ${oc_generate_name(metadata.name, "env-configs")}
           namespace: ${metadata.namespace}
         data: |
-          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
+          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
     - id: file-config
       includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
       forEach: ${configurations.configs.files}
@@ -133,26 +133,26 @@ spec:
         apiVersion: v1
         kind: ConfigMap
         metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "config", config.name).replace(".", "-")}
+          name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
           namespace: ${metadata.namespace}
         data:
           ${config.name}: |
             ${config.value}
     - id: secret-env-external
-      includeWhen: ${has(configurations.secrets.envs)}
+      includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
       template:
-        apiVersion: external-secrets.io/v1beta1
+        apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "env-secrets")}
+          name: ${oc_generate_name(metadata.name, "env-secrets")}
           namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
             name: ${dataplane.secretStore}
-            kind: SecretStore
+            kind: ClusterSecretStore
           target:
-            name: ${sanitizeK8sResourceName(metadata.name, "env-secrets")}
+            name: ${oc_generate_name(metadata.name, "env-secrets")}
             creationPolicy: Owner
           data: |
             ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
@@ -161,7 +161,30 @@ spec:
                 "key": secret.remoteRef.key,
                 "property": secret.remoteRef.property
               }
-            }) : omit()}
+            }) : oc_omit()}
+    - id: secret-file-external
+      includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
+      forEach: ${configurations.secrets.files}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${sanitizeK8sResourceName(metadata.name, "secret", file.name)}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name:  ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: ${file.remoteRef.property}
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
@@ -202,6 +225,11 @@ spec:
       env:
         - key: LOG_LEVEL
           value: info
+        - key: DATABASE_URL
+          valueFrom:
+            secretRef:
+              name: database-secret
+              key: password
       file:
         - key: application.toml
           mountPath: /conf

@@ -547,8 +547,8 @@ mixed: |
 		{
 			name: "hash function",
 			template: `
-hash: ${hash("hello world")}
-dynamicHash: ${hash(metadata.value)}
+hash: ${oc_hash("hello world")}
+dynamicHash: ${oc_hash(metadata.value)}
 `,
 			inputs: `{
   "metadata": {"value": "test data"}

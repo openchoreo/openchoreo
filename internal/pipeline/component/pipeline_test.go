@@ -360,7 +360,7 @@ spec:
                         ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
                           [{
                             "configMapRef": {
-                              "name": sanitizeK8sResourceName(metadata.name, "env-configs")
+                              "name": oc_generate_name(metadata.name, "env-configs")
                             }
                           }] : [])}
         - id: env-config
@@ -369,9 +369,9 @@ spec:
             apiVersion: v1
             kind: ConfigMap
             metadata:
-              name: ${sanitizeK8sResourceName(metadata.name, "env-configs")}
+              name: ${oc_generate_name(metadata.name, "env-configs")}
             data: |
-              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : omit()}
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
   workload:
     spec:
       containers:
@@ -446,16 +446,16 @@ spec:
                       volumeMounts: |
                         ${(has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                           configurations.configs.files.map(file, {
-                            "name": sanitizeK8sResourceName(metadata.name, "file-configs"),
+                            "name": oc_generate_name(metadata.name, "file-configs"),
                             "mountPath": file.mountPath,
                             "subPath": file.name
                           }) : [])}
                   volumes: |
                     ${(has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                       [{
-                        "name": sanitizeK8sResourceName(metadata.name, "file-configs"),
+                        "name": oc_generate_name(metadata.name, "file-configs"),
                         "configMap": {
-                          "name": sanitizeK8sResourceName(metadata.name, "file-configs")
+                          "name": oc_generate_name(metadata.name, "file-configs")
                         }
                       }] : [])}
         - id: file-config
@@ -466,7 +466,7 @@ spec:
             apiVersion: v1
             kind: ConfigMap
             metadata:
-              name: ${sanitizeK8sResourceName(metadata.name, "config", config.name).replace(".", "-")}
+              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
               namespace: ${metadata.namespace}
             data:
               ${config.name}: |

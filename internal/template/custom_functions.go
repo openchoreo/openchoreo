@@ -4,6 +4,8 @@
 package template
 
 import (
+	"fmt"
+	"hash/fnv"
 	"maps"
 	"reflect"
 
@@ -180,6 +182,16 @@ func CustomFunctions() []cel.EnvOption {
 				[]*cel.Type{cel.ListType(cel.StringType)},
 				cel.StringType,
 				cel.UnaryBinding(generateK8sName),
+			),
+		),
+		cel.Function("oc_hash",
+			cel.Overload("oc_hash_string", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					input := arg.Value().(string)
+					h := fnv.New32a()
+					h.Write([]byte(input))
+					return types.String(fmt.Sprintf("%08x", h.Sum32()))
+				}),
 			),
 		),
 	}

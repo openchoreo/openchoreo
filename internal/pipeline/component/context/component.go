@@ -98,7 +98,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 		// 8. Apply configuration overrides from ComponentDeployment if present
 		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+			configurations = applyConfigurationOverrides(input.Context, input.Client, input.Namespace, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
 		}
 
 		if configurations != nil {
@@ -369,7 +369,7 @@ func extractConfigurationsFromWorkload(ctx context.Context, client client.Client
 
 // applyConfigurationOverrides merges configuration overrides from ComponentDeployment into existing configurations.
 // If a configuration with the same name exists, it updates the value. If it's new, it adds it.
-func applyConfigurationOverrides(baseConfigurations map[string]any, overrides *v1alpha1.EnvConfigurationOverrides) map[string]any {
+func applyConfigurationOverrides(ctx context.Context, client client.Client, namespace string, baseConfigurations map[string]any, overrides *v1alpha1.EnvConfigurationOverrides) map[string]any {
 	// Create maps for easy lookup by name
 	configEnvMap := make(map[string]map[string]any)
 	configFileMap := make(map[string]map[string]any)
@@ -421,10 +421,35 @@ func applyConfigurationOverrides(baseConfigurations map[string]any, overrides *v
 		if envOverride.Value != "" {
 			// Direct value - goes to configs
 			envMap["value"] = envOverride.Value
-		} else if envOverride.ValueFrom != nil {
-			// TODO: Handle environment variables as secrets
+			configEnvMap[envOverride.Key] = envMap
+		} else if envOverride.ValueFrom != nil && envOverride.ValueFrom.SecretRef != nil {
+			// Fetch SecretReference from cluster
+			if ctx != nil && client != nil && namespace != "" {
+				secretRef := &v1alpha1.SecretReference{}
+				secretRefKey := types.NamespacedName{
+					Name:      envOverride.ValueFrom.SecretRef.Name,
+					Namespace: namespace,
+				}
+				if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
+					// Find the matching secret key in the SecretReference data
+					for _, dataSource := range secretRef.Spec.Data {
+						if dataSource.SecretKey == envOverride.ValueFrom.SecretRef.Key {
+							// Add remoteRef information to secrets
+							secretEnvMap[envOverride.Key] = map[string]any{
+								"name": envOverride.Key,
+								"remoteRef": map[string]any{
+									"key": dataSource.RemoteRef.Key,
+								},
+							}
+							if dataSource.RemoteRef.Property != "" {
+								secretEnvMap[envOverride.Key]["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
+							}
+							break
+						}
+					}
+				}
+			}
 		}
-		configEnvMap[envOverride.Key] = envMap
 	}
 
 	// Process file overrides
@@ -436,10 +461,36 @@ func applyConfigurationOverrides(baseConfigurations map[string]any, overrides *v
 
 		if fileOverride.Value != "" {
 			fileMap["value"] = fileOverride.Value
-		} else if fileOverride.ValueFrom != nil {
-			// TODO: Handle file as secrets
+			configFileMap[fileOverride.Key] = fileMap
+		} else if fileOverride.ValueFrom != nil && fileOverride.ValueFrom.SecretRef != nil {
+			// Fetch SecretReference from cluster
+			if ctx != nil && client != nil && namespace != "" {
+				secretRef := &v1alpha1.SecretReference{}
+				secretRefKey := types.NamespacedName{
+					Name:      fileOverride.ValueFrom.SecretRef.Name,
+					Namespace: namespace,
+				}
+				if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
+					// Find the matching secret key in the SecretReference data
+					for _, dataSource := range secretRef.Spec.Data {
+						if dataSource.SecretKey == fileOverride.ValueFrom.SecretRef.Key {
+							// Add remoteRef information to secrets
+							secretFileMap[fileOverride.Key] = map[string]any{
+								"name":      fileOverride.Key,
+								"mountPath": fileOverride.MountPath,
+								"remoteRef": map[string]any{
+									"key": dataSource.RemoteRef.Key,
+								},
+							}
+							if dataSource.RemoteRef.Property != "" {
+								secretFileMap[fileOverride.Key]["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
+							}
+							break
+						}
+					}
+				}
+			}
 		}
-		configFileMap[fileOverride.Key] = fileMap
 	}
 
 	// Convert maps back to arrays
