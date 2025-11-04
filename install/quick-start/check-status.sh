@@ -12,7 +12,6 @@ CILIUM_NS="cilium"
 get_component_group() {
     local group="$1"
     case "$group" in
-        "Networking") echo "cilium" ;;
         "Control_Plane") echo "cert_manager_cp controller_manager api_server" ;;
         "Data_Plane") echo "vault registry redis envoy_gateway external_gateway internal_gateway fluent_bit_dp" ;;
         "Build_Plane") echo "build_plane" ;;
@@ -24,13 +23,12 @@ get_component_group() {
 }
 
 # Group order for display (using underscores for bash compatibility)
-group_order=("Networking" "Control_Plane" "Data_Plane" "Build_Plane" "Identity_Provider" "Observability_Plane" "Backstage_Demo")
+group_order=("Control_Plane" "Data_Plane" "Build_Plane" "Identity_Provider" "Observability_Plane" "Backstage_Demo")
 
 # Group display names
 get_group_display_name() {
     local group="$1"
     case "$group" in
-        "Networking") echo "Networking" ;;
         "Control_Plane") echo "Control Plane" ;;
         "Data_Plane") echo "Data Plane" ;;
         "Build_Plane") echo "Build Plane" ;;
@@ -50,7 +48,7 @@ components_dp=(
 )
 
 # Core vs optional component classification
-core_components=("cilium" "cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "envoy_gateway" "external_gateway" "internal_gateway" "fluent_bit_dp")
+core_components=("cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "envoy_gateway" "external_gateway" "internal_gateway" "fluent_bit_dp")
 optional_components=("build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer" "backstage")
 
 # Function to get component configuration (namespace:label)
@@ -159,9 +157,6 @@ print_grouped_components() {
         # Determine group type
         local group_type=""
         case "$group" in
-            "Networking")
-                group_type="Infrastructure"
-                ;;
             "Control_Plane")
                 group_type="Core"
                 ;;

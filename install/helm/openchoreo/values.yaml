@@ -1,7 +1,7 @@
 # @schema
 # type: object
 # title: OpenChoreo Secure Core Values
-# description: Installs controller, openchoreo-api, backstage with optional cilium
+# description: Installs controller, openchoreo-api, backstage
 # @schema
 
 # @schema

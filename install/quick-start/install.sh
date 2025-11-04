@@ -73,13 +73,10 @@ create_kind_cluster
 # Step 3: Setup kubeconfig
 setup_kubeconfig
 
-# Step 4: Install Cilium (networking)
-install_cilium
-
-# Step 5: Install OpenChoreo Control Plane
+# Step 4: Install OpenChoreo Control Plane
 install_control_plane
 
-# Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
+# Step 5-7: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
 log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
 
 # Start installations in background
@@ -121,33 +118,33 @@ fi
 
 log_info "All parallel installations completed successfully"
 
-# Step 9: Install OpenChoreo Observability Plane (optional)
+# Step 8: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 10: Install Backstage Demo
+# Step 9: Install Backstage Demo
 install_backstage_demo
 
-# Step 11: Setup port forwarding
+# Step 10: Setup port forwarding
 setup_port_forwarding
 
-# Step 12: Setup choreoctl auto-completion
+# Step 11: Setup choreoctl auto-completion
 setup_choreoctl_completion
 
-# Step 13: Check installation status
+# Step 12: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 14: Add default dataplane
+# Step 13: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
 else
     log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
 fi
 
-# Step 15: Add default BuildPlane
+# Step 14: Add default BuildPlane
 if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-build-plane.sh"
 else

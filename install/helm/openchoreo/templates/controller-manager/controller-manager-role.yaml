@@ -65,18 +65,6 @@ rules:
     - update
     - watch
 - apiGroups:
-    - cilium.io
-  resources:
-    - ciliumnetworkpolicies
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
     - gateway.envoyproxy.io
   resources:
     - backendtrafficpolicies

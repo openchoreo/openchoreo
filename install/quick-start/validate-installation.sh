@@ -29,7 +29,6 @@ validate_helm_releases() {
     log_info "Validating Helm releases..."
     
     local expected_releases=(
-        "cilium:$CILIUM_NS"
         "openchoreo-data-plane:$DATA_PLANE_NS"
         "openchoreo-control-plane:$CONTROL_PLANE_NS"
         "openchoreo-build-plane:$BUILD_PLANE_NS"
@@ -60,7 +59,6 @@ validate_namespaces() {
     log_info "Validating namespaces..."
     
     local expected_namespaces=(
-        "$CILIUM_NS"
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
         "$BUILD_PLANE_NS"
@@ -87,7 +85,6 @@ validate_pods() {
     log_info "Validating pod readiness..."
     
     local namespaces=(
-        "$CILIUM_NS"
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
         "$BUILD_PLANE_NS"

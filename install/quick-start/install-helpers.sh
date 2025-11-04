@@ -20,7 +20,6 @@ HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
 
 # Namespace definitions
-CILIUM_NS="cilium"
 CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
 BUILD_PLANE_NS="openchoreo-build-plane"
@@ -122,8 +121,6 @@ nodes:
   extraMounts:
   - hostPath: /tmp/kind-shared
     containerPath: /mnt/shared
-networking:
-  disableDefaultCNI: true
 EOF
     
     if kind create cluster --name "$CLUSTER_NAME" --image "$NODE_IMAGE" --config /tmp/kind-config.yaml; then
@@ -250,13 +247,6 @@ install_helm_chart() {
             return 1
         fi
     fi
-}
-
-# Install Cilium
-install_cilium() {
-    log_info "Installing Cilium networking..."
-    install_helm_chart "cilium" "cilium" "$CILIUM_NS" "true" "true" "1800"
-    wait_for_pods "$CILIUM_NS" 300 "k8s-app=cilium"
 }
 
 # Install OpenChoreo Data Plane
