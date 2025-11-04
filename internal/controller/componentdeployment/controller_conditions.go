@@ -27,6 +27,10 @@ const (
 
 	// ReasonComponentEnvSnapshotNotFound indicates the referenced ComponentEnvSnapshot doesn't exist
 	ReasonComponentEnvSnapshotNotFound controller.ConditionReason = "ComponentEnvSnapshotNotFound"
+	// ReasonEnvironmentNotFound indicates the referenced Environment doesn't exist
+	ReasonEnvironmentNotFound controller.ConditionReason = "EnvironmentNotFound"
+	// ReasonDataPlaneNotFound indicates the referenced DataPlane doesn't exist
+	ReasonDataPlaneNotFound controller.ConditionReason = "DataPlaneNotFound"
 	// ReasonInvalidConfiguration indicates the ComponentDeployment configuration is invalid
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 	// ReasonInvalidSnapshotConfiguration indicates the ComponentEnvSnapshot has invalid configuration

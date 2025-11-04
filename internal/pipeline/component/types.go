@@ -43,6 +43,10 @@ type RenderInput struct {
 	// Optional - if nil, no environment overrides are applied.
 	ComponentDeployment *v1alpha1.ComponentDeployment
 
+	// DataPlane contains the data plane configuration.
+	// Optional - can be nil if no data plane is configured.
+	DataPlane *v1alpha1.DataPlane
+
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
 	Metadata context.MetadataContext

@@ -113,8 +113,39 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	// Fetch Environment object
+	environment := &openchoreov1alpha1.Environment{}
+	environmentKey := client.ObjectKey{
+		Name:      snapshot.Spec.Environment,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, environmentKey, environment); err != nil {
+		msg := fmt.Sprintf("Failed to get Environment %q: %v", snapshot.Spec.Environment, err)
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			ReasonEnvironmentNotFound, msg)
+		logger.Error(err, "Failed to get Environment", "environment", snapshot.Spec.Environment)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch DataPlane object
+	var dataPlane *openchoreov1alpha1.DataPlane
+	if environment.Spec.DataPlaneRef != "" {
+		dataPlane = &openchoreov1alpha1.DataPlane{}
+		dataPlaneKey := client.ObjectKey{
+			Name:      environment.Spec.DataPlaneRef,
+			Namespace: snapshot.Namespace,
+		}
+		if err := r.Get(ctx, dataPlaneKey, dataPlane); err != nil {
+			msg := fmt.Sprintf("Failed to get DataPlane %q: %v", environment.Spec.DataPlaneRef, err)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonDataPlaneNotFound, msg)
+			logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Create or update Release
-	if err := r.reconcileRelease(ctx, componentDeployment, snapshot); err != nil {
+	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, dataPlane); err != nil {
 		logger.Error(err, "Failed to reconcile Release")
 		return ctrl.Result{}, err
 	}
@@ -237,7 +268,7 @@ func (r *Reconciler) buildMetadataContext(
 }
 
 // reconcileRelease creates or updates the Release resource
-func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error {
+func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, dataPlane *openchoreov1alpha1.DataPlane) error {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
@@ -251,6 +282,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		Workload:                &snapshot.Spec.Workload,
 		Environment:             snapshot.Spec.Environment,
 		ComponentDeployment:     componentDeployment,
+		DataPlane:               dataPlane,
 		Metadata:                metadataContext,
 	}
 

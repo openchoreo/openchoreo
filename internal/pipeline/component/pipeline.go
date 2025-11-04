@@ -68,6 +68,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Workload:                input.Workload,
 		Environment:             input.Environment,
 		ComponentDeployment:     input.ComponentDeployment,
+		DataPlane:               input.DataPlane,
 		Metadata:                input.Metadata,
 	})
 	if err != nil {

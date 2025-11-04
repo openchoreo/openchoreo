@@ -134,6 +134,17 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["metadata"] = metadataMap
 
+	// 12. Add dataplane context with secretStore if available
+	if input.DataPlane != nil {
+		dataPlaneContext := make(map[string]any)
+		if input.DataPlane.Spec.SecretStoreRef != nil {
+			dataPlaneContext["secretStore"] = input.DataPlane.Spec.SecretStoreRef.Name
+		}
+		if len(dataPlaneContext) > 0 {
+			ctx["dataplane"] = dataPlaneContext
+		}
+	}
+
 	return ctx, nil
 }
 

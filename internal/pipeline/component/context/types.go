@@ -56,6 +56,10 @@ type ComponentContextInput struct {
 	// Environment is the name of the environment being rendered for.
 	Environment string
 
+	// DataPlane contains the data plane configuration.
+	// Optional - can be nil if no data plane is configured.
+	DataPlane *v1alpha1.DataPlane
+
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext
