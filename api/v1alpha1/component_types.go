@@ -97,12 +97,18 @@ type ComponentOwner struct {
 // BuildSpecInComponent defines the build configuration for a component
 // This specification is used to create Build resources when builds are triggered
 type BuildSpecInComponent struct {
-	// Repository defines the source repository configuration where the component code resides
-	Repository BuildRepository `json:"repository"`
+	// WorkflowTemplate specifies the WorkflowDefinition to use for building this component
+	// This references a WorkflowDefinition resource that defines the build workflow template
+	// and schema for developer-provided parameters
+	// +required
+	WorkflowTemplate string `json:"workflowTemplate,omitempty"`
 
-	// TemplateRef defines the build template reference and configuration
-	// This references a ClusterWorkflowTemplate in the build plane
-	TemplateRef TemplateRef `json:"templateRef"`
+	// Parameters contains developer-provided build parameters that conform to the schema
+	// defined in the referenced WorkflowDefinition
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Schema *runtime.RawExtension `json:"schema,omitempty"`
 }
 
 // BuildRepository defines the source repository configuration for component builds

@@ -5,21 +5,97 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// WorkflowDefinitionSpec defines the desired state of WorkflowDefinition
+// WorkflowDefinitionSpec defines the desired state of WorkflowDefinition.
+// WorkflowDefinition provides a schema-driven template for workflow execution
+// with developer-facing schemas, PE-controlled fixed parameters, and CEL-based
+// resource rendering.
 type WorkflowDefinitionSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
-	// foo is an example field of WorkflowDefinition. Edit workflowdefinition_types.go to remove/update
+	// Schema defines the developer-facing parameters that can be configured
+	// when creating a Workflow instance. Uses the same shorthand schema syntax
+	// as ComponentTypeDefinition.
+	//
+	// Schema format: nested maps where keys are field names and values are either
+	// nested maps or type definition strings.
+	// Type definition format: "type | default=value minimum=2 enum=[val1,val2]"
+	//
+	// Example:
+	//   repository:
+	//     url: "string"
+	//     revision:
+	//       branch: "string | default=main"
+	//       commit: "string | default=HEAD"
+	//     appPath: "string | default=."
+	//     credentialsRef: "string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev"
+	//   version: "integer | default=1"
+	//   testMode: "string | enum=unit,integration,none default=unit"
+	//
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Schema *runtime.RawExtension `json:"schema,omitempty"`
+
+	// FixedParameters are static, PE-controlled parameters that are hidden from developers.
+	// These parameters are used for security policies, compliance requirements, and
+	// platform-level configuration that should not be modified by developers.
+	//
+	// Can be overridden per ComponentTypeDefinition to allow component-type-specific policies.
+	//
+	// +optional
+	FixedParameters []WorkflowParameter `json:"fixedParameters,omitempty"`
+
+	// Secrets lists the secret references that should be synchronized to the build plane.
+	// Can reference fields from the schema using CEL expressions like ${schema.repository.credentialsRef}.
+	//
+	// +optional
+	Secrets []string `json:"secrets,omitempty"`
+
+	// Resource contains the template for the workflow resource to be rendered.
+	// The template can contain CEL expressions that will be evaluated with:
+	//   - ${ctx.*} - Context variables (componentName, projectName, orgName, timestamp, uuid)
+	//   - ${schema.*} - Developer-provided values from the schema
+	//   - ${fixedParameters.*} - PE-controlled fixed parameters
+	//
+	// +required
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Resource WorkflowResource `json:"resource"`
+}
+
+// WorkflowParameter represents a name-value parameter pair for PE-controlled configuration.
+type WorkflowParameter struct {
+	// Name is the parameter name
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Value is the parameter value
+	// +required
+	Value string `json:"value"`
+}
+
+// WorkflowResource defines the resource template to be rendered.
+type WorkflowResource struct {
+	// Template contains the Kubernetes resource (typically an Argo Workflow)
+	// with CEL expressions enclosed in ${...} that will be evaluated at runtime.
+	//
+	// Available CEL variables:
+	//   - ${ctx.workflowName} - Workflow name
+	//   - ${ctx.componentName} - Component name
+	//   - ${ctx.projectName} - Project name
+	//   - ${ctx.orgName} - Organization name
+	//   - ${ctx.timestamp} - Unix timestamp
+	//   - ${ctx.uuid} - Short UUID (8 chars)
+	//   - ${schema.*} - Developer-provided values from schema
+	//   - ${fixedParameters.*} - PE-controlled fixed parameters
+	//
+	// +required
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Template *runtime.RawExtension `json:"template"`
 }
 
 // WorkflowDefinitionStatus defines the observed state of WorkflowDefinition.

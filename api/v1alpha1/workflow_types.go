@@ -5,40 +5,69 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// WorkflowSpec defines the desired state of Workflow
+// WorkflowSpec defines the desired state of Workflow.
 type WorkflowSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// Owner identifies the Component that owns this Workflow.
+	// This is used for tracking and reporting purposes.
+	// +required
+	Owner WorkflowOwner `json:"owner"`
 
-	// foo is an example field of Workflow. Edit workflow_types.go to remove/update
+	// WorkflowDefinitionRef references the WorkflowDefinition to use for this execution.
+	// The WorkflowDefinition contains the schema, fixed parameters, and resource template.
+	// +required
+	WorkflowDefinitionRef string `json:"workflowDefinitionRef"`
+
+	// Parameters contains the developer-provided values that conform to the schema
+	// defined in the referenced WorkflowDefinition.
+	//
+	// These parameters are merged with fixed parameters and context variables
+	// when rendering the final workflow resource.
+	//
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Schema *runtime.RawExtension `json:"schema,omitempty"`
+}
+
+// WorkflowOwner identifies the Component that owns a Workflow execution.
+type WorkflowOwner struct {
+	// ProjectName is the name of the owning Project
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+
+	// ComponentName is the name of the owning Component
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	ComponentName string `json:"componentName"`
 }
 
 // WorkflowStatus defines the observed state of Workflow.
 type WorkflowStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Phase represents the current phase of the workflow execution.
+	// Possible values: Pending, Running, Succeeded, Failed, Error
+	// +optional
+	Phase string `json:"phase,omitempty"`
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+	// Message provides a human-readable message about the workflow status
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// StartTime is the time when the workflow started execution
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// CompletionTime is the time when the workflow completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
 	// conditions represent the current state of the Workflow resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -49,6 +78,7 @@ type WorkflowStatus struct {
 // +kubebuilder:subresource:status
 
 // Workflow is the Schema for the workflows API
+// Workflow represents a runtime execution instance of a WorkflowDefinition.
 type Workflow struct {
 	metav1.TypeMeta `json:",inline"`
 

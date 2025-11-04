@@ -26,6 +26,12 @@ type ComponentTypeDefinitionSpec struct {
 	// At least one resource must be defined with an id matching the workloadType
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
+
+	// Build defines the build configuration for this component type,
+	// specifying which WorkflowDefinitions developers can use and
+	// any component-type-specific parameter overrides.
+	// +optional
+	Build *ComponentTypeBuildConfig `json:"build,omitempty"`
 }
 
 // ComponentTypeSchema defines the configurable parameters for a component type
@@ -99,6 +105,34 @@ type ResourceTemplate struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Template *runtime.RawExtension `json:"template"`
+}
+
+// ComponentTypeBuildConfig defines build configuration for a component type.
+type ComponentTypeBuildConfig struct {
+	// AllowedTemplates lists the WorkflowDefinitions that developers can use
+	// for building components of this type. Each template can have
+	// component-type-specific parameter overrides.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	AllowedTemplates []AllowedWorkflowTemplate `json:"allowedTemplates,omitempty"`
+}
+
+// AllowedWorkflowTemplate references a WorkflowDefinition and provides
+// component-type-specific parameter overrides.
+type AllowedWorkflowTemplate struct {
+	// Name is the name of the WorkflowDefinition
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// FixedParameters are component-type-specific parameter overrides
+	// that override the WorkflowDefinition's default fixed parameters.
+	// This allows platform engineers to configure different policies
+	// per component type (e.g., enable SCA for services but not for scheduled tasks).
+	//
+	// +optional
+	FixedParameters []WorkflowParameter `json:"fixedParameters,omitempty"`
 }
 
 // ComponentTypeDefinitionStatus defines the observed state of ComponentTypeDefinition.
