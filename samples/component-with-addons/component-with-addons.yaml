@@ -165,8 +165,8 @@ spec:
             name: ${parameters.volumeName}
             emptyDir: |
               ${parameters.sizeLimit != "" || parameters.medium != "" ? {
-                "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : omit(),
-                "medium": parameters.medium != "" ? parameters.medium : omit()
+                "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : oc_omit(),
+                "medium": parameters.medium != "" ? parameters.medium : oc_omit()
               } : {}}
 
     # Add volumeMounts to each specified container

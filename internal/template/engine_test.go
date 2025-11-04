@@ -48,8 +48,8 @@ numeric: 2
 			name: "map with omit and merge helpers",
 			template: `
 annotations:
-  base: '${merge({"team": "platform"}, metadata.labels)}'
-  optional: '${has(spec.flag) && spec.flag ? {"enabled": "true"} : omit()}'
+  base: '${oc_merge({"team": "platform"}, metadata.labels)}'
+  optional: '${has(spec.flag) && spec.flag ? {"enabled": "true"} : oc_omit()}'
 `,
 			inputs: `{
   "metadata": {"labels": {"team": "payments", "region": "us"}},
@@ -64,12 +64,48 @@ annotations:
 `,
 		},
 		{
-			name: "omit() inside map literals with conditional fields",
+			name: "variadic oc_merge with three maps",
+			template: `
+config: '${oc_merge({"a": 1, "b": 2}, {"b": 20, "c": 30}, {"c": 300, "d": 400})}'
+`,
+			inputs: `{}`,
+			want: `config:
+  a: 1
+  b: 20
+  c: 300
+  d: 400
+`,
+		},
+		{
+			name: "variadic oc_merge with four maps - layer overriding",
+			template: `
+labels: '${oc_merge(
+  {"app": "default", "env": "dev", "version": "v1"},
+  metadata.labels,
+  parameters.labels,
+  {"final": "true"}
+)}'
+`,
+			inputs: `{
+  "metadata": {"labels": {"env": "staging", "team": "platform"}},
+  "parameters": {"labels": {"version": "v2", "canary": "true"}}
+}`,
+			want: `labels:
+  app: default
+  canary: "true"
+  env: staging
+  final: "true"
+  team: platform
+  version: v2
+`,
+		},
+		{
+			name: "oc_omit() inside map literals with conditional fields",
 			template: `
 config: |
   ${parameters.sizeLimit != "" || parameters.medium != "" ? {
-    "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : omit(),
-    "medium": parameters.medium != "" ? parameters.medium : omit()
+    "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : oc_omit(),
+    "medium": parameters.medium != "" ? parameters.medium : oc_omit()
   } : {}}
 `,
 			inputs: `{
@@ -83,20 +119,20 @@ config: |
 `,
 		},
 		{
-			name: "omit() inside map literals removes all omitted fields",
+			name: "oc_omit() inside map literals removes all omitted fields",
 			template: `
 volumes:
   - name: cache
     emptyDir: |
       ${parameters.cache.sizeLimit != "" || parameters.cache.medium != "" ? {
-        "sizeLimit": parameters.cache.sizeLimit != "" ? parameters.cache.sizeLimit : omit(),
-        "medium": parameters.cache.medium != "" ? parameters.cache.medium : omit()
+        "sizeLimit": parameters.cache.sizeLimit != "" ? parameters.cache.sizeLimit : oc_omit(),
+        "medium": parameters.cache.medium != "" ? parameters.cache.medium : oc_omit()
       } : {}}
   - name: workspace
     emptyDir: |
       ${parameters.workspace.sizeLimit != "" || parameters.workspace.medium != "" ? {
-        "sizeLimit": parameters.workspace.sizeLimit != "" ? parameters.workspace.sizeLimit : omit(),
-        "medium": parameters.workspace.medium != "" ? parameters.workspace.medium : omit()
+        "sizeLimit": parameters.workspace.sizeLimit != "" ? parameters.workspace.sizeLimit : oc_omit(),
+        "medium": parameters.workspace.medium != "" ? parameters.workspace.medium : oc_omit()
       } : {}}
 `,
 			inputs: `{
@@ -150,36 +186,36 @@ spec:
 `,
 		},
 		{
-			name: "sanitizeK8sResourceName with single argument",
+			name: "oc_generate_name with single argument",
 			template: `
-name: ${sanitizeK8sResourceName("Hello World!")}
+name: ${oc_generate_name("Hello World!")}
 `,
 			inputs: `{}`,
 			want: `name: hello-world-7f83b165
 `,
 		},
 		{
-			name: "sanitizeK8sResourceName with multiple arguments",
+			name: "oc_generate_name with multiple arguments",
 			template: `
-name: ${sanitizeK8sResourceName("my-app", "v1.2.3")}
+name: ${oc_generate_name("my-app", "v1.2.3")}
 `,
 			inputs: `{}`,
 			want: `name: my-app-v1.2.3-4f878dd8
 `,
 		},
 		{
-			name: "sanitizeK8sResourceName with many arguments",
+			name: "oc_generate_name with many arguments",
 			template: `
-name: ${sanitizeK8sResourceName("front", "-", "end", "-", "prod", "-", "us-west", "-", "99")}
+name: ${oc_generate_name("front", "-", "end", "-", "prod", "-", "us-west", "-", "99")}
 `,
 			inputs: `{}`,
 			want: `name: front--end--prod--us-west--99-d5cf2aae
 `,
 		},
 		{
-			name: "sanitizeK8sResourceName with dynamic values",
+			name: "oc_generate_name with dynamic values",
 			template: `
-name: ${sanitizeK8sResourceName(metadata.name, "-", spec.version)}
+name: ${oc_generate_name(metadata.name, "-", spec.version)}
 `,
 			inputs: `{
   "metadata": {"name": "payment-service"},
@@ -278,14 +314,14 @@ services:
 `,
 		},
 		{
-			name: "omit() in list - removes omitted elements",
+			name: "oc_omit() in list - removes omitted elements",
 			template: `
 items: |
   ${[
     "first",
-    parameters.includeSecond ? "second" : omit(),
+    parameters.includeSecond ? "second" : oc_omit(),
     "third",
-    parameters.includeFourth ? "fourth" : omit()
+    parameters.includeFourth ? "fourth" : oc_omit()
   ]}
 `,
 			inputs: `{
@@ -301,21 +337,21 @@ items: |
 `,
 		},
 		{
-			name: "omit() in nested maps within list",
+			name: "oc_omit() in nested maps within list",
 			template: `
 resources: |
   ${[
     {
       "name": "cpu-request",
-      "value": parameters.cpuRequest != "" ? parameters.cpuRequest : omit()
+      "value": parameters.cpuRequest != "" ? parameters.cpuRequest : oc_omit()
     },
     {
       "name": "memory-request",
-      "value": parameters.memRequest != "" ? parameters.memRequest : omit()
+      "value": parameters.memRequest != "" ? parameters.memRequest : oc_omit()
     },
     {
       "name": "cpu-limit",
-      "value": parameters.cpuLimit != "" ? parameters.cpuLimit : omit()
+      "value": parameters.cpuLimit != "" ? parameters.cpuLimit : oc_omit()
     }
   ]}
 `,
@@ -335,19 +371,19 @@ resources: |
 `,
 		},
 		{
-			name: "omit() in deeply nested structures",
+			name: "oc_omit() in deeply nested structures",
 			template: `
 config: |
   ${{
     "level1": {
       "level2": {
         "enabled": parameters.enabled,
-        "setting1": parameters.setting1 != "" ? parameters.setting1 : omit(),
-        "setting2": parameters.setting2 != "" ? parameters.setting2 : omit()
+        "setting1": parameters.setting1 != "" ? parameters.setting1 : oc_omit(),
+        "setting2": parameters.setting2 != "" ? parameters.setting2 : oc_omit()
       },
       "optional": parameters.optionalEnabled ? {
         "value": parameters.optionalValue
-      } : omit()
+      } : oc_omit()
     }
   }}
 `,
@@ -368,20 +404,20 @@ config: |
 `,
 		},
 		{
-			name: "omit() in list of lists with nested structures",
+			name: "oc_omit() in list of lists with nested structures",
 			template: `
 matrix: |
   ${[
     [
       "always-present",
-      parameters.includeOptional1 ? "optional1" : omit()
+      parameters.includeOptional1 ? "optional1" : oc_omit()
     ],
     parameters.includeRow2 ? [
       "row2-item1",
       "row2-item2"
-    ] : omit(),
+    ] : oc_omit(),
     [
-      parameters.includeOptional2 ? "optional2" : omit(),
+      parameters.includeOptional2 ? "optional2" : oc_omit(),
       "always-present-2"
     ]
   ]}
@@ -400,22 +436,22 @@ matrix: |
 `,
 		},
 		{
-			name: "omit() in map of maps with nested omissions",
+			name: "oc_omit() in map of maps with nested omissions",
 			template: `
 settings: |
   ${{
     "database": {
       "host": parameters.dbHost,
-      "port": parameters.dbPort != 0 ? parameters.dbPort : omit(),
+      "port": parameters.dbPort != 0 ? parameters.dbPort : oc_omit(),
       "ssl": parameters.dbSSL != "" ? {
         "enabled": true,
         "cert": parameters.dbSSL
-      } : omit()
+      } : oc_omit()
     },
     "cache": parameters.cacheEnabled ? {
       "host": parameters.cacheHost,
-      "ttl": parameters.cacheTTL != 0 ? parameters.cacheTTL : omit()
-    } : omit()
+      "ttl": parameters.cacheTTL != 0 ? parameters.cacheTTL : oc_omit()
+    } : oc_omit()
   }}
 `,
 			inputs: `{
@@ -436,13 +472,13 @@ settings: |
 `,
 		},
 		{
-			name: "omit() with list comprehension and filtering",
+			name: "oc_omit() with list comprehension and filtering",
 			template: `
 volumes: |
   ${[
     {"name": "config", "configMap": {"name": "app-config"}},
-    parameters.tmpStorage ? {"name": "tmp", "emptyDir": {}} : omit(),
-    parameters.secretName != "" ? {"name": "secret", "secret": {"secretName": parameters.secretName}} : omit()
+    parameters.tmpStorage ? {"name": "tmp", "emptyDir": {}} : oc_omit(),
+    parameters.secretName != "" ? {"name": "secret", "secret": {"secretName": parameters.secretName}} : oc_omit()
   ]}
 `,
 			inputs: `{
@@ -460,16 +496,16 @@ volumes: |
 `,
 		},
 		{
-			name: "omit() in mixed list with maps and primitives",
+			name: "oc_omit() in mixed list with maps and primitives",
 			template: `
 mixed: |
   ${[
     "string-value",
     42,
-    parameters.includeMap ? {"key": "value"} : omit(),
+    parameters.includeMap ? {"key": "value"} : oc_omit(),
     true,
-    parameters.includeNumber ? 99 : omit(),
-    {"nested": parameters.includeNested ? "present" : omit()}
+    parameters.includeNumber ? 99 : oc_omit(),
+    {"nested": parameters.includeNested ? "present" : oc_omit()}
   ]}
 `,
 			inputs: `{
@@ -662,6 +698,23 @@ flags:
 			inputs:      `{"metadata": {"enabled": true}}`,
 			wantErr:     true,
 			errContains: "must evaluate to a string",
+		},
+		// Variadic merge error cases
+		{
+			name:        "oc_merge with no arguments",
+			template:    `value: ${oc_merge()}`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "oc_merge requires at least 2 arguments",
+		},
+		{
+			name: "oc_merge with single argument",
+			template: `
+value: '${oc_merge({"a": 1})}'
+`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "oc_merge requires at least 2 arguments",
 		},
 	}
 

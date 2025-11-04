@@ -62,51 +62,59 @@ func (o *omitCELValue) Value() interface{} {
 // These functions provide additional capabilities beyond the standard CEL-go extensions.
 //
 // Available custom functions:
-//   - omit(): Returns a sentinel value that causes the field to be removed from output
-//   - merge(map1, map2): Merges two maps, with map2 values overriding map1
-//   - sanitizeK8sResourceName(...strings): Converts strings to valid K8s resource names
+//   - oc_omit(): Returns a sentinel value that causes the field to be removed from output
+//   - oc_merge(map1, map2, ...mapN): Merges multiple maps, with later maps overriding earlier ones
+//   - oc_generate_name(...strings): Generates a valid K8s resource name with hash suffix for uniqueness
+//
+// All custom functions use the "oc_" prefix to avoid potential conflicts with upstream CEL-go.
 func CustomFunctions() []cel.EnvOption {
 	return []cel.EnvOption{
-		cel.Macros(sanitizeK8sResourceNameMacro),
-		cel.Function("omit",
-			cel.Overload("omit", []*cel.Type{}, cel.DynType,
+		cel.Macros(generateNameMacro, mergeMacro),
+		cel.Function("oc_omit",
+			cel.Overload("oc_omit", []*cel.Type{}, cel.DynType,
 				cel.FunctionBinding(func(values ...ref.Val) ref.Val {
 					return omitCEL
 				}),
 			),
 		),
-		cel.Function("merge",
-			cel.Overload("merge_map_map",
+		cel.Function("oc_merge",
+			cel.Overload("oc_merge_map_map",
 				[]*cel.Type{cel.MapType(cel.StringType, cel.DynType), cel.MapType(cel.StringType, cel.DynType)},
 				cel.MapType(cel.StringType, cel.DynType),
 				cel.BinaryBinding(mergeMapFunction),
 			),
 		),
-		cel.Function("sanitizeK8sResourceName",
-			cel.Overload("sanitize_k8s_resource_name_string",
+		cel.Function("oc_generate_name",
+			cel.Overload("oc_generate_name_string",
 				[]*cel.Type{cel.StringType},
 				cel.StringType,
 				cel.UnaryBinding(func(arg ref.Val) ref.Val {
-					return sanitizeK8sNameFromStrings([]string{arg.Value().(string)})
+					return generateK8sNameFromStrings([]string{arg.Value().(string)})
 				}),
 			),
-			cel.Overload("sanitize_k8s_resource_name_list",
+			cel.Overload("oc_generate_name_list",
 				[]*cel.Type{cel.ListType(cel.StringType)},
 				cel.StringType,
-				cel.UnaryBinding(sanitizeK8sName),
+				cel.UnaryBinding(generateK8sName),
 			),
 		),
 	}
 }
 
-// mergeMapFunction implements the merge() CEL function.
+// mergeMapFunction implements the oc_merge() CEL function.
 // It performs a shallow merge of two maps, with values from the second map
 // overriding values from the first map.
 //
+// The macro expansion allows variadic usage:
+//   - oc_merge(a, b) → direct binary merge
+//   - oc_merge(a, b, c) → oc_merge(oc_merge(a, b), c)
+//   - oc_merge(a, b, c, d) → oc_merge(oc_merge(oc_merge(a, b), c), d)
+//
 // Example usage in templates:
 //
-//	${merge(defaults, overrides)}
-//	${merge({replicas: 1, memory: "256Mi"}, spec.resources)}
+//	${oc_merge(defaults, overrides)}
+//	${oc_merge({replicas: 1}, spec.resources, env.overrides)}
+//	${oc_merge(base, layer1, layer2, layer3)}
 func mergeMapFunction(lhs, rhs ref.Val) ref.Val {
 	baseVal := lhs.Value()
 	overrideVal := rhs.Value()
@@ -148,33 +156,33 @@ func mergeMapFunction(lhs, rhs ref.Val) ref.Val {
 	return types.NewDynamicMap(types.DefaultTypeAdapter, celResult)
 }
 
-// sanitizeK8sNameFromStrings converts arbitrary strings into valid Kubernetes resource names.
+// generateK8sNameFromStrings generates a valid Kubernetes resource name from arbitrary strings.
 //
 // This function uses GenerateK8sNameWithLengthLimit to ensure the generated name:
 //   - Follows DNS subdomain rules (lowercase alphanumeric, hyphens, dots)
 //   - Is truncated to fit within 253 characters (default K8s limit)
-//   - Includes a hash suffix for uniqueness when names are long
+//   - Includes a hash suffix for uniqueness
 //   - Starts and ends with alphanumeric characters
 //
 // This function enables templates to construct resource names from user input or component
 // metadata without manual sanitization. For example:
 //   - "My App!", "v2" -> "my-app-v2-a1b2c3d4"
 //   - "payment-service", "prod" -> "payment-service-prod-e5f6g7h8"
-func sanitizeK8sNameFromStrings(parts []string) ref.Val {
+func generateK8sNameFromStrings(parts []string) ref.Val {
 	result := kubernetes.GenerateK8sNameWithLengthLimit(kubernetes.MaxResourceNameLength, parts...)
 	return types.String(result)
 }
 
-// sanitizeK8sName is the CEL binding for sanitizeK8sResourceName().
-// It handles multiple input formats from CEL expressions to provide flexible name sanitization.
+// generateK8sName is the CEL binding for oc_generate_name().
+// It handles multiple input formats from CEL expressions to provide flexible name generation.
 //
 // Supported input types:
-//   - Single string: sanitizeK8sResourceName("My App")
-//   - List of strings: sanitizeK8sResourceName(["my", "app", "v2"])
-//   - Variadic args: sanitizeK8sResourceName("my", "app", "v2") (via macro expansion)
+//   - Single string: oc_generate_name("My App")
+//   - List of strings: oc_generate_name(["my", "app", "v2"])
+//   - Variadic args: oc_generate_name("my", "app", "v2") (via macro expansion)
 //
 // Non-string list items are silently ignored, allowing mixed-type lists to be processed.
-func sanitizeK8sName(arg ref.Val) ref.Val {
+func generateK8sName(arg ref.Val) ref.Val {
 	// CEL callers can hand us either a list (`["foo", "-", "bar"]`) or a dynamic list of ref.Val.
 	// Accept all of them so reusable template helpers keep working unchanged.
 	parts := []string{}
@@ -197,29 +205,63 @@ func sanitizeK8sName(arg ref.Val) ref.Val {
 		}
 	}
 
-	return sanitizeK8sNameFromStrings(parts)
+	return generateK8sNameFromStrings(parts)
 }
 
-// sanitizeK8sResourceNameMacro enables variadic syntax for sanitizeK8sResourceName in templates.
+// generateNameMacro enables variadic syntax for oc_generate_name in templates.
 //
 // This macro transforms variadic calls into list-based calls that the runtime function can handle:
-//   - sanitizeK8sResourceName("a", "b", "c") → sanitizeK8sResourceName(["a", "b", "c"])
-//   - sanitizeK8sResourceName() → sanitizeK8sResourceName([])
-//   - sanitizeK8sResourceName("single") → passes through unchanged (no macro expansion needed)
+//   - oc_generate_name("a", "b", "c") → oc_generate_name(["a", "b", "c"])
+//   - oc_generate_name() → oc_generate_name([])
+//   - oc_generate_name("single") → passes through unchanged (no macro expansion needed)
 //
-// This allows template authors to use natural syntax like ${sanitizeK8sResourceName(component.name, "-", environment)}
-// instead of the more verbose ${sanitizeK8sResourceName([component.name, "-", environment])}.
-var sanitizeK8sResourceNameMacro = cel.GlobalVarArgMacro("sanitizeK8sResourceName",
+// This allows template authors to use natural syntax like ${oc_generate_name(component.name, "-", environment)}
+// instead of the more verbose ${oc_generate_name([component.name, "-", environment])}.
+var generateNameMacro = cel.GlobalVarArgMacro("oc_generate_name",
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		switch len(args) {
 		case 0:
 			// No args: convert to empty list
-			return eh.NewCall("sanitizeK8sResourceName", eh.NewList()), nil
+			return eh.NewCall("oc_generate_name", eh.NewList()), nil
 		case 1:
 			// Single arg: no macro expansion needed, pass through to function
 			return nil, nil
 		default:
 			// Multiple args: wrap in list for function to process
-			return eh.NewCall("sanitizeK8sResourceName", eh.NewList(args...)), nil
+			return eh.NewCall("oc_generate_name", eh.NewList(args...)), nil
+		}
+	})
+
+// mergeMacro enables variadic syntax for oc_merge in templates.
+//
+// This macro transforms variadic calls into nested binary calls that chain the merges:
+//   - oc_merge(a, b) → passes through unchanged (binary function handles it)
+//   - oc_merge(a, b, c) → oc_merge(oc_merge(a, b), c)
+//   - oc_merge(a, b, c, d) → oc_merge(oc_merge(oc_merge(a, b), c), d)
+//
+// This allows template authors to merge multiple maps in a single call:
+//
+//	${oc_merge(defaults, component.spec, env.overrides)}
+//
+// The merge is left-associative, meaning later arguments override earlier ones.
+var mergeMacro = cel.GlobalVarArgMacro("oc_merge",
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		switch len(args) {
+		case 0, 1:
+			// Need at least 2 arguments for merge
+			return nil, &common.Error{
+				Message: "oc_merge requires at least 2 arguments",
+			}
+		case 2:
+			// Binary call: no macro expansion needed, pass through to function
+			return nil, nil
+		default:
+			// Variadic call: chain merges left-to-right
+			// oc_merge(a, b, c, d) becomes oc_merge(oc_merge(oc_merge(a, b), c), d)
+			result := eh.NewCall("oc_merge", args[0], args[1])
+			for i := 2; i < len(args); i++ {
+				result = eh.NewCall("oc_merge", result, args[i])
+			}
+			return result, nil
 		}
 	})

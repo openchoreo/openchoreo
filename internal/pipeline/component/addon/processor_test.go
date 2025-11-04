@@ -119,7 +119,7 @@ spec:
         kind: ConfigMap
         metadata:
           name: config
-          annotations: ${omit()}
+          annotations: ${oc_omit()}
 `,
 			context: map[string]any{},
 			wantResourcesYAML: `

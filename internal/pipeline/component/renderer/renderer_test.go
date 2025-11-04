@@ -387,7 +387,7 @@ template:
   kind: ConfigMap
   metadata:
     name: test
-    annotations: ${omit()}
+    annotations: ${oc_omit()}
 `,
 			context: map[string]any{},
 			wantErr: false,
