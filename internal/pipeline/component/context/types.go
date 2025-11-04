@@ -4,8 +4,11 @@
 package context
 
 import (
+	"context"
+
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -59,6 +62,18 @@ type ComponentContextInput struct {
 	// DataPlane contains the data plane configuration.
 	// Optional - can be nil if no data plane is configured.
 	DataPlane *v1alpha1.DataPlane
+
+	// Client is the Kubernetes client for fetching SecretReferences.
+	// Optional - can be nil if no secret references need to be resolved.
+	Client client.Client
+
+	// Context is the context for Kubernetes API calls.
+	// Optional - can be nil if no secret references need to be resolved.
+	Context context.Context
+
+	// Namespace is the namespace to fetch SecretReferences from.
+	// Required if Client is provided.
+	Namespace string
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.

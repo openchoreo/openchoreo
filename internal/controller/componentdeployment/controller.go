@@ -283,6 +283,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		Environment:             snapshot.Spec.Environment,
 		ComponentDeployment:     componentDeployment,
 		DataPlane:               dataPlane,
+		Client:                  r.Client,
+		Context:                 ctx,
+		Namespace:               snapshot.Namespace,
 		Metadata:                metadataContext,
 	}
 

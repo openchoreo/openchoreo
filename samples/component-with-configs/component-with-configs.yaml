@@ -52,7 +52,7 @@ spec:
                      (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
                       [{
                         "secretRef": {
-                          "name": sanitizeK8sResourceName(metadata.name, "secret-configs")
+                          "name": sanitizeK8sResourceName(metadata.name, "env-secrets")
                         }
                       }] : [])}
                   volumeMounts: |
@@ -138,6 +138,30 @@ spec:
         data:
           ${config.name}: |
             ${config.value}
+    - id: secret-env-external
+      includeWhen: ${has(configurations.secrets.envs)}
+      template:
+        apiVersion: external-secrets.io/v1beta1
+        kind: ExternalSecret
+        metadata:
+          name: ${sanitizeK8sResourceName(metadata.name, "env-secrets")}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: SecretStore
+          target:
+            name: ${sanitizeK8sResourceName(metadata.name, "env-secrets")}
+            creationPolicy: Owner
+          data: |
+            ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": secret.remoteRef.property
+              }
+            }) : omit()}
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component

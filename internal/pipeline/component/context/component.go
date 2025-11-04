@@ -4,11 +4,14 @@
 package context
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -91,7 +94,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	// 7. Extract configurations from workload
 	if input.Workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.Workload)
+		configurations := extractConfigurationsFromWorkload(input.Context, input.Client, input.Namespace, input.Workload)
 
 		// 8. Apply configuration overrides from ComponentDeployment if present
 		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
@@ -249,7 +252,7 @@ func structToMap(v any) (any, error) {
 
 // extractConfigurationsFromWorkload extracts env and file configurations from workload containers
 // and separates them into configs vs secrets based on valueFrom usage.
-func extractConfigurationsFromWorkload(workload *v1alpha1.Workload) map[string]any {
+func extractConfigurationsFromWorkload(ctx context.Context, client client.Client, namespace string, workload *v1alpha1.Workload) map[string]any {
 
 	configs := map[string][]any{
 		"envs":  make([]any, 0),
@@ -273,8 +276,34 @@ func extractConfigurationsFromWorkload(workload *v1alpha1.Workload) map[string]a
 					// Direct value - goes to configs
 					envMap["value"] = env.Value
 					configs["envs"] = append(configs["envs"], envMap)
-				} else if env.ValueFrom != nil {
-					// TODO: Handle environment variables as secrets
+				} else if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					// Fetch SecretReference from cluster
+					if ctx != nil && client != nil && namespace != "" {
+						secretRef := &v1alpha1.SecretReference{}
+						secretRefKey := types.NamespacedName{
+							Name:      env.ValueFrom.SecretRef.Name,
+							Namespace: namespace,
+						}
+						if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
+							// Find the matching secret key in the SecretReference data
+							for _, dataSource := range secretRef.Spec.Data {
+								if dataSource.SecretKey == env.ValueFrom.SecretRef.Key {
+									// Add remoteRef information to secrets
+									secretEnvMap := map[string]any{
+										"name": env.Key,
+										"remoteRef": map[string]any{
+											"key": dataSource.RemoteRef.Key,
+										},
+									}
+									if dataSource.RemoteRef.Property != "" {
+										secretEnvMap["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
+									}
+									secrets["envs"] = append(secrets["envs"], secretEnvMap)
+									break
+								}
+							}
+						}
+					}
 				}
 			}
 
@@ -289,8 +318,35 @@ func extractConfigurationsFromWorkload(workload *v1alpha1.Workload) map[string]a
 					// Direct content - goes to configs
 					fileMap["value"] = file.Value
 					configs["files"] = append(configs["files"], fileMap)
-				} else if file.ValueFrom != nil {
-					// TODO: Handle file as secrets
+				} else if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					// Fetch SecretReference from cluster
+					if ctx != nil && client != nil && namespace != "" {
+						secretRef := &v1alpha1.SecretReference{}
+						secretRefKey := types.NamespacedName{
+							Name:      file.ValueFrom.SecretRef.Name,
+							Namespace: namespace,
+						}
+						if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
+							// Find the matching secret key in the SecretReference data
+							for _, dataSource := range secretRef.Spec.Data {
+								if dataSource.SecretKey == file.ValueFrom.SecretRef.Key {
+									// Add remoteRef information to secrets
+									secretFileMap := map[string]any{
+										"name":      file.Key,
+										"mountPath": file.MountPath,
+										"remoteRef": map[string]any{
+											"key": dataSource.RemoteRef.Key,
+										},
+									}
+									if dataSource.RemoteRef.Property != "" {
+										secretFileMap["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
+									}
+									secrets["files"] = append(secrets["files"], secretFileMap)
+									break
+								}
+							}
+						}
+					}
 				}
 			}
 		}

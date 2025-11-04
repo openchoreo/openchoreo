@@ -4,8 +4,12 @@
 package component
 
 import (
+	"context"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -47,9 +51,21 @@ type RenderInput struct {
 	// Optional - can be nil if no data plane is configured.
 	DataPlane *v1alpha1.DataPlane
 
+	// Client is the Kubernetes client for fetching SecretReferences.
+	// Optional - can be nil if no secret references need to be resolved.
+	Client client.Client
+
+	// Context is the context for Kubernetes API calls.
+	// Optional - can be nil if no secret references need to be resolved.
+	Context context.Context
+
+	// Namespace is the namespace to fetch SecretReferences from.
+	// Required if Client is provided.
+	Namespace string
+
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
-	Metadata context.MetadataContext
+	Metadata pipelinecontext.MetadataContext
 }
 
 // RenderOutput contains the results of the rendering process.
