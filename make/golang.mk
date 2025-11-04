@@ -16,6 +16,7 @@ GO_BUILD_BINARIES := \
 	choreoctl:$(PROJECT_DIR)/cmd/choreoctl/main.go \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/main.go \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
+	security-scanner:$(PROJECT_DIR)/cmd/security-scanner/main.go \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/main.go
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
@@ -166,7 +167,7 @@ ENVTEST_K8S_VERSION := 1.32.0
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOL_BIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOL_BIN) -p path)" CGO_ENABLED=0 go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 .PHONY: go.mod.tidy
 go.mod.tidy: ## Run go mod tidy to clean up go.mod file.
@@ -175,3 +176,8 @@ go.mod.tidy: ## Run go mod tidy to clean up go.mod file.
 
 .PHONY: go.mod.lint
 go.mod.lint: go.mod.tidy ## Lint go.mod file.
+
+.PHONY: sqlc-generate
+sqlc-generate: sqlc ## Generate SQLC code from SQL queries.
+	@$(call log_info, "Generating SQLC code")
+	@$(SQLC) generate -f internal/security-scanner/db/sqlc.yaml

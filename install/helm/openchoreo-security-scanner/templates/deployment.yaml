@@ -1,0 +1,97 @@
+{{- include "security-scanner.validateSQLite" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "security-scanner.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "security-scanner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+spec:
+  {{- if eq .Values.database.backend "sqlite" }}
+  replicas: 1
+  strategy:
+    type: Recreate
+  {{- else }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: security-scanner
+      {{- include "security-scanner.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: security-scanner
+        {{- include "security-scanner.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "security-scanner.serviceAccountName" . }}
+      {{- if .Values.priorityClass.create }}
+      priorityClassName: {{ .Values.priorityClass.name }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- if .Values.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "security-scanner.fullname" . }}-data
+      {{- end }}
+      containers:
+      - name: security-scanner
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: DB_BACKEND
+          value: {{ .Values.database.backend | quote }}
+        - name: DB_DSN
+          value: {{ .Values.database.dsn | quote }}
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: /data
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- with .Values.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "security-scanner.fullname" . }}-rolebinding
+  labels:
+    {{- include "security-scanner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: security-scanner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "security-scanner.fullname" . }}-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "security-scanner.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
