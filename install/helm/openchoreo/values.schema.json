@@ -1390,6 +1390,38 @@
             "object"
           ]
         },
+        "auth": {
+          "additionalProperties": false,
+          "description": "Authentication provider configuration",
+          "properties": {
+            "authorizationUrl": {
+              "default": "",
+              "description": "OAuth authorization endpoint URL (defaults to Thunder baseUrl + /oauth2/authorize)",
+              "required": [],
+              "title": "authorizationUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "tokenUrl": {
+              "default": "",
+              "description": "OAuth token endpoint URL (defaults to Thunder baseUrl + /oauth2/token)",
+              "required": [],
+              "title": "tokenUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "auth",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
         "autoscaling": {
           "additionalProperties": false,
           "description": "Horizontal Pod Autoscaler configuration",
@@ -1644,6 +1676,16 @@
             "string"
           ]
         },
+        "baseUrl": {
+          "default": "",
+          "description": "Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)\nThis should be the externally accessible URL (e.g., via ingress)\nFor local Kind: http://openchoreo.localhost\nFor production: https://backstage.example.com",
+          "required": [],
+          "title": "baseUrl",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "containerSecurityContext": {
           "additionalProperties": false,
           "description": "Container-level security context",
@@ -1848,7 +1890,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/ui",
+              "default": "ghcr.io/openchoreo/openchoreo-ui",
               "description": "Container image repository",
               "required": [],
               "title": "repository",
@@ -2120,80 +2162,6 @@
           },
           "required": [],
           "title": "openchoreoApi",
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "baseUrl": {
-          "default": "",
-          "description": "Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)",
-          "required": [],
-          "title": "baseUrl",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "thunder": {
-          "additionalProperties": false,
-          "description": "Thunder IdP configuration for Backstage",
-          "properties": {
-            "baseUrl": {
-              "default": "",
-              "description": "Base URL of the Thunder identity provider (defaults to internal service URL if empty)",
-              "required": [],
-              "title": "baseUrl",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "token": {
-              "default": "",
-              "description": "Authentication token for Thunder API (optional, for future use)",
-              "required": [],
-              "title": "token",
-              "type": [
-                "null",
-                "string"
-              ]
-            }
-          },
-          "required": [],
-          "title": "thunder",
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "auth": {
-          "additionalProperties": false,
-          "description": "Authentication provider configuration",
-          "properties": {
-            "authorizationUrl": {
-              "default": "",
-              "description": "OAuth authorization endpoint URL (defaults to Thunder baseUrl + /oauth2/authorize)",
-              "required": [],
-              "title": "authorizationUrl",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "tokenUrl": {
-              "default": "",
-              "description": "OAuth token endpoint URL (defaults to Thunder baseUrl + /oauth2/token)",
-              "required": [],
-              "title": "tokenUrl",
-              "type": [
-                "null",
-                "string"
-              ]
-            }
-          },
-          "required": [],
-          "title": "auth",
           "type": [
             "null",
             "object"
@@ -2504,6 +2472,38 @@
           },
           "required": [],
           "title": "serviceAccount",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "thunder": {
+          "additionalProperties": false,
+          "description": "Thunder IdP configuration for Backstage",
+          "properties": {
+            "baseUrl": {
+              "default": "",
+              "description": "Base URL of the Thunder identity provider (defaults to internal service URL if empty)",
+              "required": [],
+              "title": "baseUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "token": {
+              "default": "",
+              "description": "Authentication token for Thunder API (optional, for future use)",
+              "required": [],
+              "title": "token",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "thunder",
           "type": [
             "null",
             "object"
