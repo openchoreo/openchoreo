@@ -14,7 +14,7 @@ RESET='\033[0m'
 
 # Configuration variables
 CLUSTER_NAME="openchoreo-quick-start"
-NODE_IMAGE="kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027"
+K3S_IMAGE="rancher/k3s:v1.31.5-k3s1"
 KUBECONFIG_PATH="/state/kube/config-internal.yaml"
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
@@ -48,9 +48,9 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check if kind cluster exists
+# Check if k3d cluster exists
 cluster_exists() {
-    kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"
+    k3d cluster list 2>/dev/null | grep -q "^${CLUSTER_NAME} "
 }
 
 # Check if namespace exists
@@ -97,38 +97,29 @@ wait_for_pods() {
     log_success "All pods in namespace '$namespace' are ready"
 }
 
-# Create Kind cluster with specific configuration
-create_kind_cluster() {
+# Create k3d cluster with specific configuration
+create_k3d_cluster() {
     if cluster_exists; then
-        log_warning "Kind cluster '$CLUSTER_NAME' already exists, skipping creation"
+        log_warning "k3d cluster '$CLUSTER_NAME' already exists, skipping creation"
         return 0
     fi
     
-    log_info "Creating Kind cluster '$CLUSTER_NAME'..."
+    log_info "Creating k3d cluster '$CLUSTER_NAME'..."
     
-    # Create the /tmp/kind-shared directory if it doesn't exist
-    mkdir -p /tmp/kind-shared
+    # Create the /tmp/k3d-shared directory if it doesn't exist
+    mkdir -p /tmp/k3d-shared
     
-    # Create kind cluster config
-    cat > /tmp/kind-config.yaml << EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-- role: worker
-  labels:
-    openchoreo.dev/noderole: workflow-runner
-  extraMounts:
-  - hostPath: /tmp/kind-shared
-    containerPath: /mnt/shared
-EOF
-    
-    if kind create cluster --name "$CLUSTER_NAME" --image "$NODE_IMAGE" --config /tmp/kind-config.yaml; then
-        log_success "Kind cluster '$CLUSTER_NAME' created successfully"
-        rm -f /tmp/kind-config.yaml
+    if k3d cluster create "$CLUSTER_NAME" \
+        --image "$K3S_IMAGE" \
+        --agents 1 \
+        --servers 1 \
+        --volume /tmp/k3d-shared:/mnt/shared@agent:0 \
+        --k3s-arg "--disable=traefik@server:*" \
+        --k3s-arg "--disable=metrics-server@server:0" \
+        --wait; then
+        log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
-        log_error "Failed to create Kind cluster '$CLUSTER_NAME'"
-        rm -f /tmp/kind-config.yaml
+        log_error "Failed to create k3d cluster '$CLUSTER_NAME'"
         return 1
     fi
 }
@@ -140,7 +131,7 @@ setup_kubeconfig() {
     # Create directory if it doesn't exist
     mkdir -p "$(dirname "$KUBECONFIG_PATH")"
     
-    if kind export kubeconfig --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG_PATH" --internal; then
+    if k3d kubeconfig get "$CLUSTER_NAME" > "$KUBECONFIG_PATH"; then
         log_success "Kubeconfig exported to $KUBECONFIG_PATH"
         export KUBECONFIG="$KUBECONFIG_PATH"
     else
@@ -149,29 +140,29 @@ setup_kubeconfig() {
     fi
 }
 
-# Connect container to kind network
-connect_to_kind_network() {
+# Connect container to k3d network
+connect_to_k3d_network() {
     local container_id
     container_id="$(cat /etc/hostname)"
     
-    log_info "Connecting container to kind network..."
+    log_info "Connecting container to k3d network..."
     
-    # Check if the "kind" network exists
-    if ! docker network inspect kind &>/dev/null; then
-        log_warning "Docker network 'kind' does not exist. Skipping connection."
+    # Check if the "k3d-$CLUSTER_NAME" network exists
+    if ! docker network inspect "k3d-${CLUSTER_NAME}" &>/dev/null; then
+        log_warning "Docker network 'k3d-${CLUSTER_NAME}' does not exist yet. Will be created with cluster."
         return 0
     fi
     
     # Check if the container is already connected
-    if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${container_id}")" = "null" ]; then
-        if docker network connect "kind" "${container_id}"; then
-            log_success "Connected container ${container_id} to kind network"
+    if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.k3d-'"${CLUSTER_NAME}"'}}' "${container_id}")" = "null" ]; then
+        if docker network connect "k3d-${CLUSTER_NAME}" "${container_id}"; then
+            log_success "Connected container ${container_id} to k3d-${CLUSTER_NAME} network"
         else
-            log_error "Failed to connect container to kind network"
+            log_error "Failed to connect container to k3d network"
             return 1
         fi
     else
-        log_warning "Container ${container_id} is already connected to kind network"
+        log_warning "Container ${container_id} is already connected to k3d-${CLUSTER_NAME} network"
     fi
 }
 
@@ -315,7 +306,7 @@ setup_port_forwarding() {
     fi
     
     log_info "Setting up port-forwarding proxy from 8443 to the gateway NodePort..."
-    socat TCP-LISTEN:8443,fork TCP:openchoreo-quick-start-worker:$nodeport_eg &
+    socat TCP-LISTEN:8443,fork TCP:k3d-${CLUSTER_NAME}-agent-0:$nodeport_eg &
     
     log_info "Finding backstage nodeport..."
     local nodeport_backstage
@@ -337,7 +328,7 @@ setup_port_forwarding() {
     fi
     
     log_info "Setting up port-forwarding proxy from 7007 to the Backstage NodePort..."
-    socat TCP-LISTEN:7007,fork TCP:openchoreo-quick-start-worker:$nodeport_backstage &
+    socat TCP-LISTEN:7007,fork TCP:k3d-${CLUSTER_NAME}-agent-0:$nodeport_backstage &
     
     log_success "Port forwarding setup complete"
 }
@@ -366,8 +357,8 @@ verify_prerequisites() {
     
     local missing_tools=()
     
-    if ! command_exists kind; then
-        missing_tools+=("kind")
+    if ! command_exists k3d; then
+        missing_tools+=("k3d")
     fi
     
     if ! command_exists kubectl; then
@@ -394,10 +385,99 @@ verify_prerequisites() {
     log_success "All prerequisites verified"
 }
 
+
+# Get list of docker images used by OpenChoreo
+get_openchoreo_images() {
+    # Core images that are always needed
+    local images=(
+        # Control Plane
+        "docker.io/rancher/local-path-provisioner:v0.0.30"
+        "docker.io/rancher/mirrored-coredns-coredns:1.12.0"
+        "ghcr.io/openchoreo/controller:v0.3.2"
+        "ghcr.io/openchoreo/openchoreo-api:v0.3.2"
+        "quay.io/jetstack/cert-manager-webhook:v1.16.2"
+        "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
+    )
+    
+    # Add observability images if enabled
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        images+=(
+            "docker.io/opensearchproject/opensearch:2.18.0"
+            "docker.io/opensearchproject/opensearch-dashboards:2.18.0"
+        )
+    fi
+    
+    echo "${images[@]}"
+}
+
+# Pull docker images
+pull_images() {
+    log_info "Pulling required docker images..."
+    
+    local images=($@)
+    local total=${#images[@]}
+    local current=0
+    
+    for image in "${images[@]}"; do
+        current=$((current + 1))
+        log_info "[$current/$total] Pulling $image..."
+        
+        if docker pull "$image" >/dev/null 2>&1; then
+            log_success "Pulled $image"
+        else
+            log_warning "Failed to pull $image (may already exist locally)"
+        fi
+    done
+    
+    log_success "Image pull complete"
+}
+
+# Load images into k3d cluster
+load_images_to_cluster() {
+    if ! cluster_exists; then
+        log_error "Cluster '$CLUSTER_NAME' does not exist. Cannot load images."
+        return 1
+    fi
+    
+    log_info "Loading images into k3d cluster..."
+    
+    local images=($@)
+    local total=${#images[@]}
+    local current=0
+    
+    for image in "${images[@]}"; do
+        current=$((current + 1))
+        log_info "[$current/$total] Loading $image into cluster..."
+        
+        if k3d image import "$image" -c "$CLUSTER_NAME" >/dev/null 2>&1; then
+            log_success "Loaded $image"
+        else
+            log_warning "Failed to load $image (may already exist in cluster)"
+        fi
+    done
+    
+    log_success "All images loaded into cluster"
+}
+
+# Pull and load all required images
+prepare_images() {
+    log_info "Preparing docker images for installation..."
+    
+    local images=($(get_openchoreo_images))
+    
+    # Pull images
+    pull_images "${images[@]}"
+    
+    # Load images into cluster
+    load_images_to_cluster "${images[@]}"
+    
+    log_success "Image preparation complete"
+}
+
 # Clean up function
 cleanup() {
     log_info "Cleaning up temporary files..."
-    rm -f /tmp/kind-config.yaml
+    rm -f /tmp/k3d-config.yaml
 }
 
 # Register cleanup function

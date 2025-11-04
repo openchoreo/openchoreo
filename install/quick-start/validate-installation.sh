@@ -9,20 +9,20 @@ source "${SCRIPT_DIR}/install-helpers.sh"
 
 # Validation functions
 validate_cluster() {
-    log_info "Validating Kind cluster..."
+    log_info "Validating k3d cluster..."
     
     if ! cluster_exists; then
-        log_error "Kind cluster '$CLUSTER_NAME' does not exist"
+        log_error "k3d cluster '$CLUSTER_NAME' does not exist"
         return 1
     fi
     
     # Check cluster is accessible
-    if ! kubectl cluster-info --context "kind-$CLUSTER_NAME" >/dev/null 2>&1; then
-        log_error "Kind cluster '$CLUSTER_NAME' is not accessible"
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        log_error "k3d cluster '$CLUSTER_NAME' is not accessible"
         return 1
     fi
     
-    log_success "Kind cluster validation passed"
+    log_success "k3d cluster validation passed"
 }
 
 validate_helm_releases() {

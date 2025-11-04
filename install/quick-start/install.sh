@@ -52,7 +52,7 @@ done
 log_info "Starting OpenChoreo installation..."
 log_info "Configuration:"
 log_info "  Cluster Name: $CLUSTER_NAME"
-log_info "  Node Image: $NODE_IMAGE"
+log_info "  K3s Image: $K3S_IMAGE"
 log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
 if [[ -n "$OPENCHOREO_VERSION" ]]; then
     log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
@@ -64,19 +64,22 @@ log_info "  Enable Observability: $ENABLE_OBSERVABILITY"
 # Verify prerequisites
 verify_prerequisites
 
-# Step 1: Connect container to kind network
-connect_to_kind_network
+# Step 1: Create k3d cluster
+create_k3d_cluster
 
-# Step 2: Create Kind cluster
-create_kind_cluster
-
-# Step 3: Setup kubeconfig
+# Step 2: Setup kubeconfig
 setup_kubeconfig
 
-# Step 4: Install OpenChoreo Control Plane
+# Step 3: Connect container to k3d network
+connect_to_k3d_network
+
+# Step 4: Pull and load docker images
+prepare_images
+
+# Step 5: Install OpenChoreo Control Plane
 install_control_plane
 
-# Step 5-7: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
+# Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
 log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
 
 # Start installations in background
@@ -118,33 +121,33 @@ fi
 
 log_info "All parallel installations completed successfully"
 
-# Step 8: Install OpenChoreo Observability Plane (optional)
+# Step 9: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 9: Install Backstage Demo
+# Step 10: Install Backstage Demo
 install_backstage_demo
 
-# Step 10: Setup port forwarding
+# Step 11: Setup port forwarding
 setup_port_forwarding
 
-# Step 11: Setup choreoctl auto-completion
+# Step 12: Setup choreoctl auto-completion
 setup_choreoctl_completion
 
-# Step 12: Check installation status
+# Step 13: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 13: Add default dataplane
+# Step 14: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
 else
     log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
 fi
 
-# Step 14: Add default BuildPlane
+# Step 15: Add default BuildPlane
 if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-build-plane.sh"
 else

@@ -2,14 +2,14 @@
 
 container_id="$(cat /etc/hostname)"
 
-# Check if the "kind" network exists and connect the container to kind network
-if docker network inspect kind &>/dev/null; then
+# Check if the "k3d-openchoreo-quick-start" network exists and connect the container to k3d network
+if docker network inspect k3d-openchoreo-quick-start &>/dev/null; then
   # Check if the container is already connected
-  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${container_id}")" = "null" ]; then
-    docker network connect "kind" "${container_id}"
-    echo "Connected container ${container_id} to kind network."
+  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.k3d-openchoreo-quick-start}}' "${container_id}")" = "null" ]; then
+    docker network connect "k3d-openchoreo-quick-start" "${container_id}"
+    echo "Connected container ${container_id} to k3d-openchoreo-quick-start network."
   else
-    echo "Container ${container_id} is already connected to kind network."
+    echo "Container ${container_id} is already connected to k3d-openchoreo-quick-start network."
   fi
 fi
 
