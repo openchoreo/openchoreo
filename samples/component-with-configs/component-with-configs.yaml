@@ -59,13 +59,13 @@ spec:
                     ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                       (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                         configurations.configs.files.map(f, {
-                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                          "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
                           "mountPath": f.mountPath+"/"+f.name ,
                           "subPath": f.name
                         }) : []) +
                        (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                         configurations.secrets.files.map(f, {
-                          "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                          "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
                           "mountPath": f.mountPath+"/"+f.name,
                           "subPath": f.name
                         }) : [])
@@ -85,14 +85,14 @@ spec:
                 ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                   (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
                     configurations.configs.files.map(f, {
-                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                      "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
                       "configMap": {
                         "name": sanitizeK8sResourceName(metadata.name, "config", f.name).replace(".", "-")
                       }
                     }) : []) +
                    (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
                     configurations.secrets.files.map(f, {
-                      "name": "file-mount-"+sha256sum(f.mountPath+"/"+f.name).substring(0,8),
+                      "name": "file-mount-"+hash(f.mountPath+"/"+f.name),
                       "secret": {
                         "secretName": sanitizeK8sResourceName(metadata.name, "secret", f.name).replace(".", "-")
                       }
