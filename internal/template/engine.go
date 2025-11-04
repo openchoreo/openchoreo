@@ -191,12 +191,37 @@ func findCELExpressions(str string) []celMatch {
 		// e.g., ${merge({a: 1}, {b: 2})} requires counting to find the correct closing brace
 		brace := 1
 		pos := start + 2
+		inSingleQuote := false
+		inDoubleQuote := false
+		escaped := false
 		for pos < len(str) && brace > 0 {
 			switch str[pos] {
+			case '\\':
+				if inSingleQuote || inDoubleQuote {
+					escaped = !escaped
+				}
+			case '\'':
+				if !inDoubleQuote && !escaped {
+					inSingleQuote = !inSingleQuote
+				}
+				escaped = false
+			case '"':
+				if !inSingleQuote && !escaped {
+					inDoubleQuote = !inDoubleQuote
+				}
+				escaped = false
 			case '{':
-				brace++
+				if !inSingleQuote && !inDoubleQuote {
+					brace++
+				}
+				escaped = false
 			case '}':
-				brace--
+				if !inSingleQuote && !inDoubleQuote {
+					brace--
+				}
+				escaped = false
+			default:
+				escaped = false
 			}
 			pos++
 		}
