@@ -31,6 +31,26 @@ plain: hello
 `,
 		},
 		{
+			name: "string literal braces inside expression",
+			template: `
+literal: ${"{"}
+`,
+			inputs: `{}`,
+			want: `literal: "{"
+`,
+		},
+		{
+			name: "string literal closed braces inside expression",
+			template: `
+literal: ${"{metadata.name}=" + metadata.name}
+`,
+			inputs: `{
+  "metadata": {"name": "checkout"}
+			}`,
+			want: `literal: '{metadata.name}=checkout'
+`,
+		},
+		{
 			name: "string interpolation and numeric result",
 			template: `
 message: "${metadata.name} has ${spec.replicas} replicas"
