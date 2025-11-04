@@ -619,6 +619,13 @@ func TestRenderErrors(t *testing.T) {
 			wantIsMissing: true,
 		},
 		{
+			name:        "nested expression without quoting",
+			template:    `value: ${outer(${inner})}`,
+			inputs:      `{"inner": "value"}`,
+			wantErr:     true,
+			errContains: "nested CEL expressions",
+		},
+		{
 			name:          "undeclared variable in string value - compile error",
 			template:      `value: "${undeclaredVariable}"`,
 			inputs:        `{}`,
