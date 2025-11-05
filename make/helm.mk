@@ -33,11 +33,11 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
 		fi \
 	fi
-	@# Copy CRDs and RBAC to openchoreo chart
-	@if [ ${CHART_NAME} == "openchoreo" ]; then \
-		$(call log_info, Generating resources for secure-core chart); \
+	@# Copy CRDs and RBAC to openchoreo-control-plane chart
+	@if [ ${CHART_NAME} == "openchoreo-control-plane" ]; then \
+		$(call log_info, Generating resources for control-plane chart); \
 		$(MAKE) manifests; \
-		$(call log_info, Running helm-gen for openchoreo chart); \
+		$(call log_info, Running helm-gen for openchoreo-control-plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
 		VALUES_FILE=$(CHART_PATH)/values.yaml; \
 		if [ -f "$$VALUES_FILE" ]; then \

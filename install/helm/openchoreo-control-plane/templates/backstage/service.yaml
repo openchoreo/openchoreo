@@ -1,0 +1,23 @@
+{{- if .Values.backstage.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-control-plane.fullname" . }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  type: {{ .Values.backstage.service.type }}
+  ports:
+  - port: {{ .Values.backstage.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+    {{- if and (eq .Values.backstage.service.type "NodePort") .Values.backstage.service.nodePort }}
+    nodePort: {{ .Values.backstage.service.nodePort }}
+    {{- end }}
+  selector:
+    app.kubernetes.io/component: backstage
+    {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
+{{- end }}

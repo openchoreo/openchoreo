@@ -121,3 +121,28 @@ Parameters:
 {{ include "openchoreo-control-plane.selectorLabels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
+
+{{/*
+Backstage service account name
+Always returns openchoreo-backstage (or custom name from values).
+Service account is always created when backstage is enabled for security.
+*/}}
+{{- define "openchoreo-control-plane.backstage.serviceAccountName" -}}
+{{- default "openchoreo-backstage" .Values.backstage.serviceAccount.name }}
+{{- end }}
+
+{{/*
+OpenChoreo API service account name
+*/}}
+{{- define "openchoreo-control-plane.openchoreoApi.serviceAccountName" -}}
+{{- default "openchoreo-api" .Values.openchoreoApi.serviceAccount.name }}
+{{- end }}
+
+{{/*
+OpenChoreo API resource name
+Returns a static name for openchoreo-api resources (Service, Deployment, ClusterRole, etc.)
+This keeps resource names clean and consistent (e.g., "openchoreo-api" instead of "my-release-openchoreo-control-plane-api")
+*/}}
+{{- define "openchoreo-control-plane.openchoreoApi.name" -}}
+{{- default "openchoreo-api" .Values.openchoreoApi.name }}
+{{- end }}

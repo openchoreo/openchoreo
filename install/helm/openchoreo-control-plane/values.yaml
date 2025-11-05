@@ -1,5 +1,7 @@
 # Global values shared across all components
 global:
+  # The name of the cluster where OpenChoreo is deployed
+  clusterName: openchoreo
   # Common labels to add to all resources
   commonLabels: {}
   # Default OpenChoreo resources created during installation
@@ -8,6 +10,9 @@ global:
     organization:
       displayName: Default Organization
       description: Getting started with your first organization
+    project:
+      displayName: Default Project
+      description: Your first project to get started
     environments:
       - name: development
         displayName: Development
@@ -36,39 +41,115 @@ global:
           targetEnvironmentRefs:
             - name: production
               requiresApproval: false
-    project:
-      displayName: Default Project
-      description: Your first project to get started
+# Override the full name of the chart release
+fullnameOverride: openchoreo
 controllerManager:
   name: controller-manager
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/controller
+    tag: latest-dev
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    create: true
+    annotations: {}
+  priorityClass:
+    create: false
+    name: openchoreo-controller-manager
+    value: 1000000
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: controller-manager
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: controller-manager
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: RuntimeDefault
   manager:
     args:
       - --metrics-bind-address=:8443
       - --leader-elect
       - --health-probe-bind-address=:8081
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
     env:
       enableWebhooks: "false"
-    image:
-      repository: ghcr.io/openchoreo/controller
-      tag: latest-dev
-    imagePullPolicy: Always
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 10m
-        memory: 64Mi
-  podSecurityContext:
-    runAsNonRoot: true
-  replicas: 1
-  serviceAccount:
-    annotations: {}
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
@@ -89,21 +170,114 @@ metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
 openchoreoApi:
-  name: api-server
+  name: openchoreo-api # Static name for all openchoreo-api resources (Service, Deployment, ClusterRole, etc.)
   enabled: true
-  image: "ghcr.io/openchoreo/openchoreo-api"
-  imagePullPolicy: Always
-  tag: "" # If no value is set, use Chart.AppVersion
   replicas: 1
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "128Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
+  image:
+    repository: ghcr.io/openchoreo/openchoreo-api
+    tag: "" # If no value is set, use Chart.AppVersion
+    pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  serviceAccount:
+    name: openchoreo-api # Service account name (always created when openchoreoApi.enabled is true)
+    annotations: {}
+  priorityClass:
+    create: false
+    name: openchoreo-api
+    value: 900000
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: api-server
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: api-server
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: RuntimeDefault
 # Dependency configurations
 
 # Cert-Manager configuration
@@ -136,3 +310,248 @@ cert-manager:
       limits:
         cpu: 50m
         memory: 64Mi
+# Backstage UI configuration
+backstage:
+  enabled: true
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/openchoreo-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 7007
+    nodePort: null
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    name: openchoreo-backstage # Service account name (always created when backstage.enabled is true)
+    annotations: {}
+  priorityClass:
+    create: false
+    name: openchoreo-backstage
+    value: 800000
+  backendSecret: ""
+  openchoreoApi:
+    url: ""
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+    - name: PORT
+      value: "7007"
+  baseUrl: ""
+  thunder:
+    baseUrl: ""
+    token: ""
+  auth:
+    authorizationUrl: ""
+    tokenUrl: ""
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 60
+        selectPolicy: Max
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      namespace: monitoring
+      interval: 30s
+      scrapeTimeout: 10s
+      labels:
+        prometheus: kube-prometheus
+      relabelings: []
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: backstage
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: openchoreo
+          app.kubernetes.io/component: backstage
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: RuntimeDefault
+# Asgardeo Thunder (Platform Identity Provider) configuration
+asgardeoThunder:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/asgardeo/thunder
+    pullPolicy: IfNotPresent
+    tag: "0.10.0"
+  imagePullSecrets: []
+  env: []
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 802
+    runAsGroup: 802
+    fsGroup: 802
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 802
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  service:
+    type: ClusterIP
+    port: 8090
+    targetPort: 8090
+    nodePort: null
+    gatePort: 9090
+    gateTargetPort: 9090
+    gateNodePort: null
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  volumes: []
+  volumeMounts: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  networkPolicy:
+    enabled: false
+    ingress: []
+    egress: []
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+  config:
+    server:
+      hostname: "0.0.0.0"
+      port: 8090
+      httpOnly: false
+    gateClient:
+      hostname: "localhost"
+      port: 9090
+      scheme: "https"
+      loginPath: "/login"
+      errorPath: "/error"
+    security:
+      certFile: "repository/resources/security/server.cert"
+      keyFile: "repository/resources/security/server.key"
+    database:
+      identity:
+        type: "sqlite"
+        path: "repository/database/thunderdb.db"
+        options: "_journal_mode=WAL&_busy_timeout=5000"
+      runtime:
+        type: "sqlite"
+        path: "repository/database/runtimedb.db"
+        options: "_journal_mode=WAL&_busy_timeout=5000"
+    oauth:
+      jwt:
+        issuer: "https://openchoreo.example.com"
+        validityPeriod: 3600
+      refreshToken:
+        renewOnGrant: false
+        validityPeriod: 86400
+    flow:
+      graphDirectory: "repository/resources/graphs/"
+      authn:
+        defaultFlow: "auth_flow_config_basic"
+  persistence:
+    database:
+      enabled: true
+      storageClassName: ""
+      accessMode: ReadWriteOnce
+      size: 500Mi
+      reclaimPolicy: Delete
+  backstagePortal:
+    enabled: true
+    name: "Backstage"
+    description: "OpenChoreo Backstage Portal"
+    clientId: "openchoreo-backstage-client"
+    clientSecret: ""
+    redirectUrls:
+      - "https://localhost:7007/api/auth/default-idp/handler/frame"
+  userDetails:
+    userSchemaName: "engineer"
+    users:
+      - username: "admin@openchoreo.dev"
+        password: "Admin@123"
+        given_name: "Admin"
+        family_name: "User"
