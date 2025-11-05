@@ -420,15 +420,15 @@ func TestPipeline_Render_ArrayAndObjectParameters(t *testing.T) {
 
 func TestPipeline_Render_ValidationErrors(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     *RenderInput
-		wantErr   bool
+		name        string
+		input       *RenderInput
+		wantErr     bool
 		errContains string
 	}{
 		{
-			name: "nil input",
-			input: nil,
-			wantErr: true,
+			name:        "nil input",
+			input:       nil,
+			wantErr:     true,
 			errContains: "input is nil",
 		},
 		{
@@ -441,7 +441,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "workflow definition",
 		},
 		{
@@ -457,7 +457,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "resource template",
 		},
 		{
@@ -476,7 +476,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "orgName",
 		},
 		{
@@ -495,7 +495,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "projectName",
 		},
 		{
@@ -514,7 +514,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ProjectName: "test-project",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "componentName",
 		},
 		{
@@ -541,7 +541,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "apiVersion",
 		},
 		{
@@ -568,7 +568,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "kind",
 		},
 		{
@@ -595,7 +595,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "metadata",
 		},
 		{
@@ -623,7 +623,7 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 					ComponentName: "test-component",
 				},
 			},
-			wantErr: true,
+			wantErr:     true,
 			errContains: "metadata.name",
 		},
 	}
