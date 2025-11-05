@@ -164,12 +164,12 @@ spec:
 				},
 				"configurations": map[string]any{
 					"configs": map[string]any{
-						"envs":  []map[string]any{},
-						"files": []map[string]any{},
+						"envs":  []any{},
+						"files": []any{},
 					},
 					"secrets": map[string]any{
-						"envs":  []map[string]any{},
-						"files": []map[string]any{},
+						"envs":  []any{},
+						"files": []any{},
 					},
 				},
 				"environment": "dev",
