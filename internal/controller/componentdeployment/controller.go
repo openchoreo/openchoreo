@@ -273,39 +273,37 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *open
 	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
 
 	// Collect from workload containers
-	if snapshot.Spec.Workload.Spec.Containers != nil {
-		for _, container := range snapshot.Spec.Workload.Spec.Containers {
-			// Collect from env configurations
-			for _, env := range container.Env {
-				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-					refName := env.ValueFrom.SecretRef.Name
-					if _, exists := secretRefs[refName]; !exists {
-						secretRef := &openchoreov1alpha1.SecretReference{}
-						if err := r.Get(ctx, client.ObjectKey{
-							Name:      refName,
-							Namespace: snapshot.Namespace,
-						}, secretRef); err != nil {
-							return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
-						}
-						secretRefs[refName] = secretRef
+	for _, container := range snapshot.Spec.Workload.Spec.Containers {
+		// Collect from env configurations
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+				refName := env.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
 					}
+					secretRefs[refName] = secretRef
 				}
 			}
+		}
 
-			// Collect from file configurations
-			for _, file := range container.File {
-				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-					refName := file.ValueFrom.SecretRef.Name
-					if _, exists := secretRefs[refName]; !exists {
-						secretRef := &openchoreov1alpha1.SecretReference{}
-						if err := r.Get(ctx, client.ObjectKey{
-							Name:      refName,
-							Namespace: snapshot.Namespace,
-						}, secretRef); err != nil {
-							return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
-						}
-						secretRefs[refName] = secretRef
+		// Collect from file configurations
+		for _, file := range container.File {
+			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+				refName := file.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
 					}
+					secretRefs[refName] = secretRef
 				}
 			}
 		}

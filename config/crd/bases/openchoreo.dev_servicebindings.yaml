@@ -220,9 +220,8 @@ spec:
                         file:
                           description: File configurations.
                           items:
-                            description: |-
-                              FileVar represents a file configuration in a container.
-                              FileVar represents a file configuration in a container.
+                            description: FileVar represents a file configuration in
+                              a container.
                             properties:
                               key:
                                 description: The file key/name.
