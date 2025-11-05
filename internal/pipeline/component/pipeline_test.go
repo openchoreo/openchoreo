@@ -819,12 +819,12 @@ spec:
           - name: app
             image: myapp:latest
             volumeMounts:
-              - name: file-mount-6c698306
-                mountPath: /etc/config/config.json
-                subPath: config.json
               - name: file-mount-d08babc2
                 mountPath: /etc/config/app.properties
                 subPath: app.properties
+              - name: file-mount-6c698306
+                mountPath: /etc/config/config.json
+                subPath: config.json
         volumes:
           - name: file-mount-6c698306
             configMap:
@@ -888,12 +888,73 @@ spec:
 					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 				}
 
-				// Normalize both sides by sorting nested slices
+				// Use cmp.Transformer to sort slices of maps with "name" field during comparison
 				// Configuration override merging uses maps which have non-deterministic iteration order
-				normalizeResources(wantResources)
-				normalizeResources(output.Resources)
+				sortSlicesByName := cmp.Transformer("SortSlicesByName", func(in []map[string]any) []map[string]any {
+					// Check if any map has a "name" field
+					hasName := false
+					for _, m := range in {
+						if _, exists := m["name"]; exists {
+							hasName = true
+							break
+						}
+					}
 
-				if diff := cmp.Diff(wantResources, output.Resources); diff != "" {
+					// If no "name" field, return as-is
+					if !hasName {
+						return in
+					}
+
+					// Create a copy and sort by name
+					out := make([]map[string]any, len(in))
+					copy(out, in)
+					sort.Slice(out, func(i, j int) bool {
+						ni, oki := out[i]["name"].(string)
+						nj, okj := out[j]["name"].(string)
+						if !oki || !okj {
+							return false
+						}
+						return ni < nj
+					})
+					return out
+				})
+
+				// Also handle []any slices that contain maps with "name" field
+				sortAnySlicesByName := cmp.Transformer("SortAnySlicesByName", func(in []any) []any {
+					// Check if this is a slice of maps with "name" field
+					if len(in) == 0 {
+						return in
+					}
+
+					firstMap, ok := in[0].(map[string]any)
+					if !ok {
+						return in
+					}
+
+					if _, hasName := firstMap["name"]; !hasName {
+						return in
+					}
+
+					// Create a copy and sort by name
+					out := make([]any, len(in))
+					copy(out, in)
+					sort.Slice(out, func(i, j int) bool {
+						mi, oki := out[i].(map[string]any)
+						mj, okj := out[j].(map[string]any)
+						if !oki || !okj {
+							return false
+						}
+						ni, oki := mi["name"].(string)
+						nj, okj := mj["name"].(string)
+						if !oki || !okj {
+							return false
+						}
+						return ni < nj
+					})
+					return out
+				})
+
+				if diff := cmp.Diff(wantResources, output.Resources, sortSlicesByName, sortAnySlicesByName); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -1140,98 +1201,5 @@ func TestSortResources(t *testing.T) {
 	metadata := resources[1]["metadata"].(map[string]any)
 	if metadata["name"] != "svc-a" {
 		t.Errorf("Expected svc-a second, got %v", metadata["name"])
-	}
-}
-
-// normalizeResources recursively sorts all slices of maps that contain a "name" field.
-// This ensures deterministic comparison when the order doesn't matter semantically.
-func normalizeResources(data any) {
-	switch v := data.(type) {
-	case []any:
-		// Sort if this is a slice of maps with "name" fields
-		if len(v) > 0 {
-			if _, ok := v[0].(map[string]any); ok {
-				// Check if maps have "name" field
-				hasName := false
-				for _, item := range v {
-					if m, ok := item.(map[string]any); ok {
-						if _, exists := m["name"]; exists {
-							hasName = true
-							break
-						}
-					}
-				}
-
-				if hasName {
-					// Sort by name field
-					sort.Slice(v, func(i, j int) bool {
-						mi, oki := v[i].(map[string]any)
-						mj, okj := v[j].(map[string]any)
-						if !oki || !okj {
-							return false
-						}
-						ni, oki := mi["name"].(string)
-						nj, okj := mj["name"].(string)
-						if !oki || !okj {
-							return false
-						}
-						return ni < nj
-					})
-				}
-			}
-		}
-
-		// Recursively normalize each element
-		for _, item := range v {
-			normalizeResources(item)
-		}
-	case []map[string]any:
-		// Handle []map[string]any which is what yaml.Unmarshal produces
-		// Convert to []any to use the same sorting logic
-		slice := make([]any, len(v))
-		for i := range v {
-			slice[i] = v[i]
-		}
-
-		// Sort if maps have "name" field
-		if len(slice) > 0 {
-			hasName := false
-			for _, item := range slice {
-				if m, ok := item.(map[string]any); ok {
-					if _, exists := m["name"]; exists {
-						hasName = true
-						break
-					}
-				}
-			}
-
-			if hasName {
-				// Sort by name field
-				sort.Slice(slice, func(i, j int) bool {
-					mi, oki := slice[i].(map[string]any)
-					mj, okj := slice[j].(map[string]any)
-					if !oki || !okj {
-						return false
-					}
-					ni, oki := mi["name"].(string)
-					nj, okj := mj["name"].(string)
-					if !oki || !okj {
-						return false
-					}
-					return ni < nj
-				})
-			}
-		}
-
-		// Copy sorted result back and recursively normalize
-		for i := range v {
-			v[i] = slice[i].(map[string]any)
-			normalizeResources(v[i])
-		}
-	case map[string]any:
-		// Recursively normalize each value
-		for _, val := range v {
-			normalizeResources(val)
-		}
 	}
 }
