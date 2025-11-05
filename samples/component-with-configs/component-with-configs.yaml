@@ -170,7 +170,7 @@ spec:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${sanitizeK8sResourceName(metadata.name, "secret", file.name)}
+          name:  ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
           namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
@@ -185,6 +185,51 @@ spec:
               remoteRef:
                 key: ${file.remoteRef.key}
                 property: ${file.remoteRef.property}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: database-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: password
+      remoteRef:
+        key: database/dev
+        property: password
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: application-config-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: application.yaml
+      remoteRef:
+        key: file
+        property: application.yaml
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: database-dev-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: password
+      remoteRef:
+        key: db/dev
+        property: password
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
@@ -225,7 +270,7 @@ spec:
       env:
         - key: LOG_LEVEL
           value: info
-        - key: DATABASE_URL
+        - key: DATABASE_PASSWORD
           valueFrom:
             secretRef:
               name: database-secret
@@ -235,7 +280,13 @@ spec:
           mountPath: /conf
           value: |
             schema_generation:
-              enable: true 
+              enable: true
+        - key: application.yaml
+          mountPath: /conf
+          valueFrom:
+            secretRef:
+              name: application-config-secret
+              key: application.yaml
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -268,3 +319,10 @@ spec:
     env:
       - key: LOG_LEVEL
         value: debug
+      - key: NEW_ENV_VAR
+        value: some_value
+      - key: DATABASE_PASSWORD
+        valueFrom:
+          secretRef:
+            name: database-dev-secret
+            key: password

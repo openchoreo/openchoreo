@@ -71,7 +71,6 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		DataPlane:               input.DataPlane,
 		Client:                  input.Client,
 		Context:                 input.Context,
-		Namespace:               input.Namespace,
 		Metadata:                input.Metadata,
 	})
 	if err != nil {

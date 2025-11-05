@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ConfigurationOverrides defines environment-specific configuration overrides.
+// EnvConfigurationOverrides defines environment-specific configuration overrides.
 type EnvConfigurationOverrides struct {
 	// Environment variable overrides
 	// +optional

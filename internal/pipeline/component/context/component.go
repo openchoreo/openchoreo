@@ -94,11 +94,11 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	// 7. Extract configurations from workload
 	if input.Workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.Context, input.Client, input.Namespace, input.Workload)
+		configurations := extractConfigurationsFromWorkload(input.Context, input.Client, input.Component.Namespace, input.Workload)
 
 		// 8. Apply configuration overrides from ComponentDeployment if present
 		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(input.Context, input.Client, input.Namespace, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+			configurations = applyConfigurationOverrides(input.Context, input.Client, input.Component.Namespace, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
 		}
 
 		if configurations != nil {
@@ -253,7 +253,6 @@ func structToMap(v any) (any, error) {
 // extractConfigurationsFromWorkload extracts env and file configurations from workload containers
 // and separates them into configs vs secrets based on valueFrom usage.
 func extractConfigurationsFromWorkload(ctx context.Context, client client.Client, namespace string, workload *v1alpha1.Workload) map[string]any {
-
 	configs := map[string][]any{
 		"envs":  make([]any, 0),
 		"files": make([]any, 0),
@@ -380,6 +379,29 @@ func applyConfigurationOverrides(ctx context.Context, client client.Client, name
 	configs := baseConfigurations["configs"].(map[string]any)
 	secrets := baseConfigurations["secrets"].(map[string]any)
 
+	populateConfigMaps(configs, secrets, configEnvMap, configFileMap, secretEnvMap, secretFileMap)
+
+	// Process environment variable overrides
+	processEnvOverrides(ctx, client, namespace, overrides.Env, configEnvMap, secretEnvMap)
+
+	// Process file overrides
+	processFileOverrides(ctx, client, namespace, overrides.Files, configFileMap, secretFileMap)
+
+	// Convert maps back to arrays and update base configurations
+	configs["envs"] = mapToSlice(configEnvMap)
+	configs["files"] = mapToSlice(configFileMap)
+	secrets["envs"] = mapToSlice(secretEnvMap)
+	secrets["files"] = mapToSlice(secretFileMap)
+
+	baseConfigurations["configs"] = configs
+	baseConfigurations["secrets"] = secrets
+
+	return baseConfigurations
+}
+
+// populateConfigMaps populates config and secret maps from base configurations.
+func populateConfigMaps(configs, secrets map[string]any,
+	configEnvMap, configFileMap, secretEnvMap, secretFileMap map[string]map[string]any) {
 	for _, envItem := range configs["envs"].([]any) {
 		if envMap, ok := envItem.(map[string]any); ok {
 			if name, ok := envMap["name"].(string); ok {
@@ -411,119 +433,117 @@ func applyConfigurationOverrides(ctx context.Context, client client.Client, name
 			}
 		}
 	}
+}
 
-	// Process environment variable overrides
-	for _, envOverride := range overrides.Env {
-		envMap := map[string]any{
-			"name": envOverride.Key,
-		}
-
+// processEnvOverrides processes environment variable overrides.
+func processEnvOverrides(ctx context.Context, client client.Client, namespace string,
+	envOverrides []v1alpha1.EnvVar, configEnvMap, secretEnvMap map[string]map[string]any) {
+	for _, envOverride := range envOverrides {
 		if envOverride.Value != "" {
 			// Direct value - goes to configs
-			envMap["value"] = envOverride.Value
-			configEnvMap[envOverride.Key] = envMap
+			configEnvMap[envOverride.Key] = map[string]any{
+				"name":  envOverride.Key,
+				"value": envOverride.Value,
+			}
 		} else if envOverride.ValueFrom != nil && envOverride.ValueFrom.SecretRef != nil {
-			// Fetch SecretReference from cluster
-			if ctx != nil && client != nil && namespace != "" {
-				secretRef := &v1alpha1.SecretReference{}
-				secretRefKey := types.NamespacedName{
-					Name:      envOverride.ValueFrom.SecretRef.Name,
-					Namespace: namespace,
-				}
-				if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
-					// Find the matching secret key in the SecretReference data
-					for _, dataSource := range secretRef.Spec.Data {
-						if dataSource.SecretKey == envOverride.ValueFrom.SecretRef.Key {
-							// Add remoteRef information to secrets
-							secretEnvMap[envOverride.Key] = map[string]any{
-								"name": envOverride.Key,
-								"remoteRef": map[string]any{
-									"key": dataSource.RemoteRef.Key,
-								},
-							}
-							if dataSource.RemoteRef.Property != "" {
-								secretEnvMap[envOverride.Key]["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
-							}
-							break
-						}
-					}
-				}
-			}
+			// Fetch SecretReference and add to secrets
+			resolveSecretRefForEnv(ctx, client, namespace, envOverride, secretEnvMap)
 		}
 	}
+}
 
-	// Process file overrides
-	for _, fileOverride := range overrides.Files {
-		fileMap := map[string]any{
-			"name":      fileOverride.Key,
-			"mountPath": fileOverride.MountPath,
-		}
-
+// processFileOverrides processes file configuration overrides.
+func processFileOverrides(ctx context.Context, client client.Client, namespace string,
+	fileOverrides []v1alpha1.FileVar, configFileMap, secretFileMap map[string]map[string]any) {
+	for _, fileOverride := range fileOverrides {
 		if fileOverride.Value != "" {
-			fileMap["value"] = fileOverride.Value
-			configFileMap[fileOverride.Key] = fileMap
-		} else if fileOverride.ValueFrom != nil && fileOverride.ValueFrom.SecretRef != nil {
-			// Fetch SecretReference from cluster
-			if ctx != nil && client != nil && namespace != "" {
-				secretRef := &v1alpha1.SecretReference{}
-				secretRefKey := types.NamespacedName{
-					Name:      fileOverride.ValueFrom.SecretRef.Name,
-					Namespace: namespace,
-				}
-				if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
-					// Find the matching secret key in the SecretReference data
-					for _, dataSource := range secretRef.Spec.Data {
-						if dataSource.SecretKey == fileOverride.ValueFrom.SecretRef.Key {
-							// Add remoteRef information to secrets
-							secretFileMap[fileOverride.Key] = map[string]any{
-								"name":      fileOverride.Key,
-								"mountPath": fileOverride.MountPath,
-								"remoteRef": map[string]any{
-									"key": dataSource.RemoteRef.Key,
-								},
-							}
-							if dataSource.RemoteRef.Property != "" {
-								secretFileMap[fileOverride.Key]["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
-							}
-							break
-						}
-					}
-				}
+			// Direct value - goes to configs
+			configFileMap[fileOverride.Key] = map[string]any{
+				"name":      fileOverride.Key,
+				"mountPath": fileOverride.MountPath,
+				"value":     fileOverride.Value,
 			}
+		} else if fileOverride.ValueFrom != nil && fileOverride.ValueFrom.SecretRef != nil {
+			// Fetch SecretReference and add to secrets
+			resolveSecretRefForFile(ctx, client, namespace, fileOverride, secretFileMap)
 		}
 	}
+}
 
-	// Convert maps back to arrays
-	configEnvs := make([]any, 0, len(configEnvMap))
-	for _, envMap := range configEnvMap {
-		configEnvs = append(configEnvs, envMap)
+// resolveSecretRefForEnv resolves a SecretReference for an environment variable.
+func resolveSecretRefForEnv(ctx context.Context, client client.Client, namespace string,
+	envOverride v1alpha1.EnvVar, secretEnvMap map[string]map[string]any) {
+	if ctx == nil || client == nil || namespace == "" {
+		return
 	}
 
-	configFiles := make([]any, 0, len(configFileMap))
-	for _, fileMap := range configFileMap {
-		configFiles = append(configFiles, fileMap)
+	secretRef := &v1alpha1.SecretReference{}
+	secretRefKey := types.NamespacedName{
+		Name:      envOverride.ValueFrom.SecretRef.Name,
+		Namespace: namespace,
 	}
 
-	secretEnvs := make([]any, 0, len(secretEnvMap))
-	for _, envMap := range secretEnvMap {
-		secretEnvs = append(secretEnvs, envMap)
+	if err := client.Get(ctx, secretRefKey, secretRef); err != nil {
+		return
 	}
 
-	secretFiles := make([]any, 0, len(secretFileMap))
-	for _, fileMap := range secretFileMap {
-		secretFiles = append(secretFiles, fileMap)
+	// Find the matching secret key in the SecretReference data
+	for _, dataSource := range secretRef.Spec.Data {
+		if dataSource.SecretKey == envOverride.ValueFrom.SecretRef.Key {
+			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
+			if dataSource.RemoteRef.Property != "" {
+				remoteRef["property"] = dataSource.RemoteRef.Property
+			}
+			secretEnvMap[envOverride.Key] = map[string]any{
+				"name":      envOverride.Key,
+				"remoteRef": remoteRef,
+			}
+			break
+		}
+	}
+}
+
+// resolveSecretRefForFile resolves a SecretReference for a file configuration.
+func resolveSecretRefForFile(ctx context.Context, client client.Client, namespace string,
+	fileOverride v1alpha1.FileVar, secretFileMap map[string]map[string]any) {
+	if ctx == nil || client == nil || namespace == "" {
+		return
 	}
 
-	// Update base configurations
-	configs["envs"] = configEnvs
-	configs["files"] = configFiles
-	secrets["envs"] = secretEnvs
-	secrets["files"] = secretFiles
+	secretRef := &v1alpha1.SecretReference{}
+	secretRefKey := types.NamespacedName{
+		Name:      fileOverride.ValueFrom.SecretRef.Name,
+		Namespace: namespace,
+	}
 
-	baseConfigurations["configs"] = configs
-	baseConfigurations["secrets"] = secrets
+	if err := client.Get(ctx, secretRefKey, secretRef); err != nil {
+		return
+	}
 
-	return baseConfigurations
+	// Find the matching secret key in the SecretReference data
+	for _, dataSource := range secretRef.Spec.Data {
+		if dataSource.SecretKey == fileOverride.ValueFrom.SecretRef.Key {
+			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
+			if dataSource.RemoteRef.Property != "" {
+				remoteRef["property"] = dataSource.RemoteRef.Property
+			}
+			secretFileMap[fileOverride.Key] = map[string]any{
+				"name":      fileOverride.Key,
+				"mountPath": fileOverride.MountPath,
+				"remoteRef": remoteRef,
+			}
+			break
+		}
+	}
+}
+
+// mapToSlice converts a map to a slice of its values.
+func mapToSlice(m map[string]map[string]any) []any {
+	result := make([]any, 0, len(m))
+	for _, v := range m {
+		result = append(result, v)
+	}
+	return result
 }
 
 // BuildStructuralSchema converts schema input into a Kubernetes structural schema.

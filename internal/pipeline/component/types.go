@@ -59,10 +59,6 @@ type RenderInput struct {
 	// Optional - can be nil if no secret references need to be resolved.
 	Context context.Context
 
-	// Namespace is the namespace to fetch SecretReferences from.
-	// Required if Client is provided.
-	Namespace string
-
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
 	Metadata pipelinecontext.MetadataContext
