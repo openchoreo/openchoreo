@@ -91,11 +91,11 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	// 7. Extract configurations from workload
 	if input.Workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.Context, input.Client, input.Component.Namespace, input.Workload)
+		configurations := extractConfigurationsFromWorkload(input.SecretReferences, input.Workload)
 
 		// 8. Apply configuration overrides from ComponentDeployment if present
 		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(input.Context, input.Client, input.Component.Namespace, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
 		}
 
 		if configurations != nil {

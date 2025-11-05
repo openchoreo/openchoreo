@@ -4,16 +4,12 @@
 package context
 
 import (
-	"context"
-
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // extractConfigurationsFromWorkload extracts env and file configurations from workload containers
 // and separates them into configs vs secrets based on valueFrom usage.
-func extractConfigurationsFromWorkload(ctx context.Context, client client.Client, namespace string, workload *v1alpha1.Workload) map[string]any {
+func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) map[string]any {
 	configs := map[string][]any{
 		"envs":  make([]any, 0),
 		"files": make([]any, 0),
@@ -28,84 +24,40 @@ func extractConfigurationsFromWorkload(ctx context.Context, client client.Client
 		for _, container := range workload.Spec.Containers {
 			// Process environment variables
 			for _, env := range container.Env {
-				envMap := map[string]any{
-					"name": env.Key,
-				}
-
 				if env.Value != "" {
 					// Direct value - goes to configs
-					envMap["value"] = env.Value
-					configs["envs"] = append(configs["envs"], envMap)
+					configs["envs"] = append(configs["envs"], map[string]any{
+						"name":  env.Key,
+						"value": env.Value,
+					})
 				} else if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-					// Fetch SecretReference from cluster
-					if ctx != nil && client != nil && namespace != "" {
-						secretRef := &v1alpha1.SecretReference{}
-						secretRefKey := types.NamespacedName{
-							Name:      env.ValueFrom.SecretRef.Name,
-							Namespace: namespace,
-						}
-						if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
-							// Find the matching secret key in the SecretReference data
-							for _, dataSource := range secretRef.Spec.Data {
-								if dataSource.SecretKey == env.ValueFrom.SecretRef.Key {
-									// Add remoteRef information to secrets
-									secretEnvMap := map[string]any{
-										"name": env.Key,
-										"remoteRef": map[string]any{
-											"key": dataSource.RemoteRef.Key,
-										},
-									}
-									if dataSource.RemoteRef.Property != "" {
-										secretEnvMap["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
-									}
-									secrets["envs"] = append(secrets["envs"], secretEnvMap)
-									break
-								}
-							}
-						}
+					// Resolve secret reference and add to secrets
+					if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretRef); remoteRef != nil {
+						secrets["envs"] = append(secrets["envs"], map[string]any{
+							"name":      env.Key,
+							"remoteRef": remoteRef,
+						})
 					}
 				}
 			}
 
 			// Process file configurations
 			for _, file := range container.File {
-				fileMap := map[string]any{
-					"name":      file.Key,
-					"mountPath": file.MountPath,
-				}
-
 				if file.Value != "" {
 					// Direct content - goes to configs
-					fileMap["value"] = file.Value
-					configs["files"] = append(configs["files"], fileMap)
+					configs["files"] = append(configs["files"], map[string]any{
+						"name":      file.Key,
+						"mountPath": file.MountPath,
+						"value":     file.Value,
+					})
 				} else if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-					// Fetch SecretReference from cluster
-					if ctx != nil && client != nil && namespace != "" {
-						secretRef := &v1alpha1.SecretReference{}
-						secretRefKey := types.NamespacedName{
-							Name:      file.ValueFrom.SecretRef.Name,
-							Namespace: namespace,
-						}
-						if err := client.Get(ctx, secretRefKey, secretRef); err == nil {
-							// Find the matching secret key in the SecretReference data
-							for _, dataSource := range secretRef.Spec.Data {
-								if dataSource.SecretKey == file.ValueFrom.SecretRef.Key {
-									// Add remoteRef information to secrets
-									secretFileMap := map[string]any{
-										"name":      file.Key,
-										"mountPath": file.MountPath,
-										"remoteRef": map[string]any{
-											"key": dataSource.RemoteRef.Key,
-										},
-									}
-									if dataSource.RemoteRef.Property != "" {
-										secretFileMap["remoteRef"].(map[string]any)["property"] = dataSource.RemoteRef.Property
-									}
-									secrets["files"] = append(secrets["files"], secretFileMap)
-									break
-								}
-							}
-						}
+					// Resolve secret reference and add to secrets
+					if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretRef); remoteRef != nil {
+						secrets["files"] = append(secrets["files"], map[string]any{
+							"name":      file.Key,
+							"mountPath": file.MountPath,
+							"remoteRef": remoteRef,
+						})
 					}
 				}
 			}
@@ -129,7 +81,7 @@ func extractConfigurationsFromWorkload(ctx context.Context, client client.Client
 
 // applyConfigurationOverrides merges configuration overrides from ComponentDeployment into existing configurations.
 // If a configuration with the same name exists, it updates the value. If it's new, it adds it.
-func applyConfigurationOverrides(ctx context.Context, client client.Client, namespace string, baseConfigurations map[string]any, overrides *v1alpha1.EnvConfigurationOverrides) map[string]any {
+func applyConfigurationOverrides(secretReferences map[string]*v1alpha1.SecretReference, baseConfigurations map[string]any, overrides *v1alpha1.EnvConfigurationOverrides) map[string]any {
 	// Create maps for easy lookup by name
 	configEnvMap := make(map[string]map[string]any)
 	configFileMap := make(map[string]map[string]any)
@@ -143,10 +95,10 @@ func applyConfigurationOverrides(ctx context.Context, client client.Client, name
 	populateConfigMaps(configs, secrets, configEnvMap, configFileMap, secretEnvMap, secretFileMap)
 
 	// Process environment variable overrides
-	processEnvOverrides(ctx, client, namespace, overrides.Env, configEnvMap, secretEnvMap)
+	processEnvOverrides(secretReferences, overrides.Env, configEnvMap, secretEnvMap)
 
 	// Process file overrides
-	processFileOverrides(ctx, client, namespace, overrides.Files, configFileMap, secretFileMap)
+	processFileOverrides(secretReferences, overrides.Files, configFileMap, secretFileMap)
 
 	// Convert maps back to arrays and update base configurations
 	configs["envs"] = mapToSlice(configEnvMap)
@@ -196,8 +148,35 @@ func populateConfigMaps(configs, secrets map[string]any,
 	}
 }
 
+// resolveSecretRef is a reusable helper that resolves a SecretReference to remoteRef information.
+// Returns nil if the SecretReference cannot be resolved.
+func resolveSecretRef(secretReferences map[string]*v1alpha1.SecretReference, secretRef *v1alpha1.SecretKeyRef) map[string]any {
+	if secretRef == nil {
+		return nil
+	}
+
+	// Look up SecretReference from map
+	ref, ok := secretReferences[secretRef.Name]
+	if !ok {
+		return nil
+	}
+
+	// Find the matching secret key in the SecretReference data
+	for _, dataSource := range ref.Spec.Data {
+		if dataSource.SecretKey == secretRef.Key {
+			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
+			if dataSource.RemoteRef.Property != "" {
+				remoteRef["property"] = dataSource.RemoteRef.Property
+			}
+			return remoteRef
+		}
+	}
+
+	return nil
+}
+
 // processEnvOverrides processes environment variable overrides.
-func processEnvOverrides(ctx context.Context, client client.Client, namespace string,
+func processEnvOverrides(secretReferences map[string]*v1alpha1.SecretReference,
 	envOverrides []v1alpha1.EnvVar, configEnvMap, secretEnvMap map[string]map[string]any) {
 	for _, envOverride := range envOverrides {
 		if envOverride.Value != "" {
@@ -207,14 +186,19 @@ func processEnvOverrides(ctx context.Context, client client.Client, namespace st
 				"value": envOverride.Value,
 			}
 		} else if envOverride.ValueFrom != nil && envOverride.ValueFrom.SecretRef != nil {
-			// Fetch SecretReference and add to secrets
-			resolveSecretRefForEnv(ctx, client, namespace, envOverride, secretEnvMap)
+			// Resolve secret reference and add to secrets
+			if remoteRef := resolveSecretRef(secretReferences, envOverride.ValueFrom.SecretRef); remoteRef != nil {
+				secretEnvMap[envOverride.Key] = map[string]any{
+					"name":      envOverride.Key,
+					"remoteRef": remoteRef,
+				}
+			}
 		}
 	}
 }
 
 // processFileOverrides processes file configuration overrides.
-func processFileOverrides(ctx context.Context, client client.Client, namespace string,
+func processFileOverrides(secretReferences map[string]*v1alpha1.SecretReference,
 	fileOverrides []v1alpha1.FileVar, configFileMap, secretFileMap map[string]map[string]any) {
 	for _, fileOverride := range fileOverrides {
 		if fileOverride.Value != "" {
@@ -225,75 +209,14 @@ func processFileOverrides(ctx context.Context, client client.Client, namespace s
 				"value":     fileOverride.Value,
 			}
 		} else if fileOverride.ValueFrom != nil && fileOverride.ValueFrom.SecretRef != nil {
-			// Fetch SecretReference and add to secrets
-			resolveSecretRefForFile(ctx, client, namespace, fileOverride, secretFileMap)
-		}
-	}
-}
-
-// resolveSecretRefForEnv resolves a SecretReference for an environment variable.
-func resolveSecretRefForEnv(ctx context.Context, client client.Client, namespace string,
-	envOverride v1alpha1.EnvVar, secretEnvMap map[string]map[string]any) {
-	if ctx == nil || client == nil || namespace == "" {
-		return
-	}
-
-	secretRef := &v1alpha1.SecretReference{}
-	secretRefKey := types.NamespacedName{
-		Name:      envOverride.ValueFrom.SecretRef.Name,
-		Namespace: namespace,
-	}
-
-	if err := client.Get(ctx, secretRefKey, secretRef); err != nil {
-		return
-	}
-
-	// Find the matching secret key in the SecretReference data
-	for _, dataSource := range secretRef.Spec.Data {
-		if dataSource.SecretKey == envOverride.ValueFrom.SecretRef.Key {
-			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
-			if dataSource.RemoteRef.Property != "" {
-				remoteRef["property"] = dataSource.RemoteRef.Property
+			// Resolve secret reference and add to secrets
+			if remoteRef := resolveSecretRef(secretReferences, fileOverride.ValueFrom.SecretRef); remoteRef != nil {
+				secretFileMap[fileOverride.Key] = map[string]any{
+					"name":      fileOverride.Key,
+					"mountPath": fileOverride.MountPath,
+					"remoteRef": remoteRef,
+				}
 			}
-			secretEnvMap[envOverride.Key] = map[string]any{
-				"name":      envOverride.Key,
-				"remoteRef": remoteRef,
-			}
-			break
-		}
-	}
-}
-
-// resolveSecretRefForFile resolves a SecretReference for a file configuration.
-func resolveSecretRefForFile(ctx context.Context, client client.Client, namespace string,
-	fileOverride v1alpha1.FileVar, secretFileMap map[string]map[string]any) {
-	if ctx == nil || client == nil || namespace == "" {
-		return
-	}
-
-	secretRef := &v1alpha1.SecretReference{}
-	secretRefKey := types.NamespacedName{
-		Name:      fileOverride.ValueFrom.SecretRef.Name,
-		Namespace: namespace,
-	}
-
-	if err := client.Get(ctx, secretRefKey, secretRef); err != nil {
-		return
-	}
-
-	// Find the matching secret key in the SecretReference data
-	for _, dataSource := range secretRef.Spec.Data {
-		if dataSource.SecretKey == fileOverride.ValueFrom.SecretRef.Key {
-			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
-			if dataSource.RemoteRef.Property != "" {
-				remoteRef["property"] = dataSource.RemoteRef.Property
-			}
-			secretFileMap[fileOverride.Key] = map[string]any{
-				"name":      fileOverride.Key,
-				"mountPath": fileOverride.MountPath,
-				"remoteRef": remoteRef,
-			}
-			break
 		}
 	}
 }

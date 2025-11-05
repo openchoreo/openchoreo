@@ -267,12 +267,106 @@ func (r *Reconciler) buildMetadataContext(
 	}
 }
 
+// collectSecretReferences collects all SecretReferences needed for rendering.
+// It fetches SecretReferences from the workload and ComponentDeployment configuration overrides.
+func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, componentDeployment *openchoreov1alpha1.ComponentDeployment) (map[string]*openchoreov1alpha1.SecretReference, error) {
+	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
+
+	// Collect from workload containers
+	if snapshot.Spec.Workload.Spec.Containers != nil {
+		for _, container := range snapshot.Spec.Workload.Spec.Containers {
+			// Collect from env configurations
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					refName := env.ValueFrom.SecretRef.Name
+					if _, exists := secretRefs[refName]; !exists {
+						secretRef := &openchoreov1alpha1.SecretReference{}
+						if err := r.Get(ctx, client.ObjectKey{
+							Name:      refName,
+							Namespace: snapshot.Namespace,
+						}, secretRef); err != nil {
+							return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+						}
+						secretRefs[refName] = secretRef
+					}
+				}
+			}
+
+			// Collect from file configurations
+			for _, file := range container.File {
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					refName := file.ValueFrom.SecretRef.Name
+					if _, exists := secretRefs[refName]; !exists {
+						secretRef := &openchoreov1alpha1.SecretReference{}
+						if err := r.Get(ctx, client.ObjectKey{
+							Name:      refName,
+							Namespace: snapshot.Namespace,
+						}, secretRef); err != nil {
+							return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+						}
+						secretRefs[refName] = secretRef
+					}
+				}
+			}
+		}
+	}
+
+	// Collect from ComponentDeployment configuration overrides
+	if componentDeployment != nil && componentDeployment.Spec.ConfigurationOverrides != nil {
+		// Collect from env overrides
+		for _, env := range componentDeployment.Spec.ConfigurationOverrides.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+				refName := env.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+
+		// Collect from file overrides
+		for _, file := range componentDeployment.Spec.ConfigurationOverrides.Files {
+			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+				refName := file.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+	}
+
+	return secretRefs, nil
+}
+
 // reconcileRelease creates or updates the Release resource
 func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, dataPlane *openchoreov1alpha1.DataPlane) error {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(snapshot)
+
+	// Collect all SecretReferences needed for rendering
+	secretReferences, err := r.collectSecretReferences(ctx, snapshot, componentDeployment)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to collect SecretReferences: %v", err)
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to collect SecretReferences")
+		return fmt.Errorf("failed to collect SecretReferences: %w", err)
+	}
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
@@ -283,8 +377,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		Environment:             snapshot.Spec.Environment,
 		ComponentDeployment:     componentDeployment,
 		DataPlane:               dataPlane,
-		Client:                  r.Client,
-		Context:                 ctx,
+		SecretReferences:        secretReferences,
 		Metadata:                metadataContext,
 	}
 
