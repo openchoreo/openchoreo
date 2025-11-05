@@ -5,19 +5,19 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	buildcontroller "github.com/openchoreo/openchoreo/internal/controller/build"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -88,11 +88,11 @@ func (s *BuildService) ListBuildTemplates(ctx context.Context, orgName string) (
 	return templateResponses, nil
 }
 
-// TriggerBuild creates a new build from a component
+// TriggerBuild creates a new workflow from a component's build configuration
 func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, componentName, commit string) (*models.BuildResponse, error) {
 	s.logger.Debug("Triggering build", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
 
-	// Retrieve component and use that to create the build
+	// Retrieve component and use that to create the workflow
 	var component openchoreov1alpha1.Component
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
@@ -104,128 +104,197 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	buildUUID := uuid.New().String()
-	buildID := strings.ReplaceAll(buildUUID[:8], "-", "")
+	// Check if component has build configuration
+	if component.Spec.Build.WorkflowTemplate == "" {
+		s.logger.Error("Component does not have a workflow template configured", "component", componentName)
+		return nil, fmt.Errorf("component %s does not have a workflow template configured", componentName)
+	}
 
-	buildName := fmt.Sprintf("%s-build-%s", componentName, buildID)
+	// Copy the schema from the component and update the commit
+	var schemaMap map[string]interface{}
+	if component.Spec.Build.Schema != nil && component.Spec.Build.Schema.Raw != nil {
+		if err := json.Unmarshal(component.Spec.Build.Schema.Raw, &schemaMap); err != nil {
+			s.logger.Error("Failed to unmarshal component schema", "error", err)
+			return nil, fmt.Errorf("failed to unmarshal component schema: %w", err)
+		}
+	} else {
+		schemaMap = make(map[string]interface{})
+	}
 
-	build := &openchoreov1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildName,
-			Namespace: orgName,
-			Labels: map[string]string{
-				labels.LabelKeyOrganizationName: orgName,
-				labels.LabelKeyProjectName:      projectName,
-				labels.LabelKeyComponentName:    componentName,
+	// Update the commit in the schema
+	if repo, ok := schemaMap["repository"].(map[string]interface{}); ok {
+		if revision, ok := repo["revision"].(map[string]interface{}); ok {
+			revision["commit"] = commit
+		} else {
+			repo["revision"] = map[string]interface{}{
+				"commit": commit,
+			}
+		}
+	} else {
+		schemaMap["repository"] = map[string]interface{}{
+			"revision": map[string]interface{}{
+				"commit": commit,
 			},
+		}
+	}
+
+	// Marshal the updated schema back to JSON
+	updatedSchemaBytes, err := json.Marshal(schemaMap)
+	if err != nil {
+		s.logger.Error("Failed to marshal updated schema", "error", err)
+		return nil, fmt.Errorf("failed to marshal updated schema: %w", err)
+	}
+
+	// Generate a unique workflow name with short UUID
+	uuid, err := generateShortUUID()
+	if err != nil {
+		s.logger.Error("Failed to generate UUID", "error", err)
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+	workflowName := fmt.Sprintf("%s-%s", componentName, uuid)
+
+	// Create the Workflow CR
+	workflow := &openchoreov1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowName,
+			Namespace: orgName,
 		},
-		Spec: openchoreov1alpha1.BuildSpec{
-			Owner: openchoreov1alpha1.BuildOwner{
+		Spec: openchoreov1alpha1.WorkflowSpec{
+			Owner: openchoreov1alpha1.WorkflowOwner{
 				ProjectName:   projectName,
 				ComponentName: componentName,
 			},
-			Repository: openchoreov1alpha1.Repository{
-				URL: component.Spec.Build.Repository.URL,
-				Revision: openchoreov1alpha1.Revision{
-					Branch: component.Spec.Build.Repository.Revision.Branch,
-					Commit: commit,
-				},
-				AppPath: component.Spec.Build.Repository.AppPath,
+			WorkflowDefinitionRef: component.Spec.Build.WorkflowTemplate,
+			Schema: &runtime.RawExtension{
+				Raw: updatedSchemaBytes,
 			},
-			TemplateRef: component.Spec.Build.TemplateRef,
 		},
 	}
 
-	err = s.k8sClient.Create(ctx, build)
-	if err != nil {
-		s.logger.Error("Failed to create build", "error", err)
-		return nil, fmt.Errorf("failed to create build: %w", err)
+	if err := s.k8sClient.Create(ctx, workflow); err != nil {
+		s.logger.Error("Failed to create workflow", "error", err)
+		return nil, fmt.Errorf("failed to create workflow: %w", err)
 	}
 
-	s.logger.Info("Build created successfully", "build", buildName)
+	s.logger.Info("Workflow created successfully", "workflow", workflowName, "component", componentName, "commit", commit)
 
-	if commit == "" {
-		commit = "latest"
-	}
-
+	// Return a BuildResponse for API compatibility
 	return &models.BuildResponse{
-		Name:          buildName,
-		UUID:          string(build.UID),
+		Name:          workflow.Name,
+		UUID:          string(workflow.UID),
 		ComponentName: componentName,
 		ProjectName:   projectName,
 		OrgName:       orgName,
 		Commit:        commit,
-		Status:        "Created",
-		CreatedAt:     build.CreationTimestamp.Time,
+		Status:        "Pending",
+		CreatedAt:     workflow.CreationTimestamp.Time,
+		Image:         "",
 	}, nil
 }
 
-// ListBuilds retrieves builds for a component using spec.owner fields instead of labels
+// ListBuilds retrieves workflows for a component using spec.owner fields
 func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, componentName string) ([]models.BuildResponse, error) {
 	s.logger.Debug("Listing builds", "org", orgName, "project", projectName, "component", componentName)
 
-	var builds openchoreov1alpha1.BuildList
-	err := s.k8sClient.List(ctx, &builds, client.InNamespace(orgName))
+	var workflows openchoreov1alpha1.WorkflowList
+	err := s.k8sClient.List(ctx, &workflows, client.InNamespace(orgName))
 	if err != nil {
-		s.logger.Error("Failed to list builds", "error", err)
-		return nil, fmt.Errorf("failed to list builds: %w", err)
+		s.logger.Error("Failed to list workflows", "error", err)
+		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
-	buildResponses := make([]models.BuildResponse, 0, len(builds.Items))
-	for _, build := range builds.Items {
-		// Filter by spec.owner fields instead of labels
-		if build.Spec.Owner.ProjectName != projectName || build.Spec.Owner.ComponentName != componentName {
+	buildResponses := make([]models.BuildResponse, 0, len(workflows.Items))
+	for _, workflow := range workflows.Items {
+		// Filter by spec.owner fields
+		if workflow.Spec.Owner.ProjectName != projectName || workflow.Spec.Owner.ComponentName != componentName {
 			continue
 		}
 
-		// This commit hash should always be there since the build is triggered with a commit
-		// If not provided, we can default to "latest" for now.
-		commit := build.Spec.Repository.Revision.Commit
+		// Extract commit from the workflow schema
+		commit := extractCommitFromSchema(workflow.Spec.Schema)
 		if commit == "" {
 			commit = "latest"
 		}
 
 		buildResponses = append(buildResponses, models.BuildResponse{
-			Name:          build.Name,
-			UUID:          string(build.UID),
+			Name:          workflow.Name,
+			UUID:          string(workflow.UID),
 			ComponentName: componentName,
 			ProjectName:   projectName,
 			OrgName:       orgName,
 			Commit:        commit,
-			Status:        GetLatestBuildStatus(build.Status.Conditions),
-			CreatedAt:     build.CreationTimestamp.Time,
-			Image:         build.Status.ImageStatus.Image,
+			Status:        GetLatestWorkflowStatus(workflow.Status.Conditions),
+			CreatedAt:     workflow.CreationTimestamp.Time,
+			Image:         workflow.Status.ImageStatus.Image,
 		})
 	}
 
 	return buildResponses, nil
 }
 
-func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
-	if len(buildConditions) == 0 {
-		return statusUnknown
+// extractCommitFromSchema extracts the commit hash from the workflow schema
+func extractCommitFromSchema(schema *runtime.RawExtension) string {
+	if schema == nil || schema.Raw == nil {
+		return ""
 	}
 
-	// Define the order of priority for build conditions (latest to earliest)
-	// WorkloadUpdated > BuildCompleted > BuildTriggered > BuildInitiated
-	conditionOrder := []string{
-		string(buildcontroller.ConditionWorkloadUpdated),
-		string(buildcontroller.ConditionBuildCompleted),
-		string(buildcontroller.ConditionBuildTriggered),
-		string(buildcontroller.ConditionBuildInitiated),
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(schema.Raw, &schemaMap); err != nil {
+		return ""
 	}
 
-	// Find the latest condition based on priority order
-	for _, conditionType := range conditionOrder {
-		for _, condition := range buildConditions {
-			if condition.Type == conditionType {
-				if condition.Type == string(buildcontroller.ConditionWorkloadUpdated) && condition.Status == metav1.ConditionTrue {
-					return "Completed"
-				}
-				return condition.Reason
+	// Navigate to repository.revision.commit
+	if repo, ok := schemaMap["repository"].(map[string]interface{}); ok {
+		if revision, ok := repo["revision"].(map[string]interface{}); ok {
+			if commit, ok := revision["commit"].(string); ok {
+				return commit
 			}
 		}
 	}
 
-	return statusUnknown
+	return ""
+}
+
+// GetLatestWorkflowStatus determines the user-friendly status from workflow conditions
+func GetLatestWorkflowStatus(workflowConditions []metav1.Condition) string {
+	if len(workflowConditions) == 0 {
+		return "Pending"
+	}
+
+	// Check conditions in priority order
+	// WorkloadUpdated > WorkflowCompleted > WorkflowRunning
+	for _, condition := range workflowConditions {
+		if condition.Type == "WorkloadUpdated" && condition.Status == metav1.ConditionTrue {
+			return "Completed"
+		}
+	}
+
+	for _, condition := range workflowConditions {
+		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
+			return "Failed"
+		}
+	}
+
+	for _, condition := range workflowConditions {
+		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
+			return "Succeeded"
+		}
+	}
+
+	for _, condition := range workflowConditions {
+		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
+			return "Running"
+		}
+	}
+
+	return "Pending"
+}
+
+// generateShortUUID generates a short 8-character UUID for workflow naming.
+func generateShortUUID() (string, error) {
+	bytes := make([]byte, 4) // 4 bytes = 8 hex characters
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
