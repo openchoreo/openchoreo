@@ -11,7 +11,6 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // FileVar represents a file configuration in a container.
-// FileVar represents a file configuration in a container.
 type FileVar struct {
 	// The file key/name.
 	// +kubebuilder:validation:Required
