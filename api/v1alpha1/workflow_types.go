@@ -72,6 +72,17 @@ type WorkflowStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ImageStatus contains information about the built image from the workflow
+	// +optional
+	ImageStatus WorkflowImage `json:"imageStatus,omitempty"`
+}
+
+// WorkflowImage contains information about a container image produced by a workflow
+type WorkflowImage struct {
+	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+	// +optional
+	Image string `json:"image,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -102,6 +113,16 @@ type WorkflowList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Workflow `json:"items"`
+}
+
+// GetConditions returns the conditions from the workflow status
+func (w *Workflow) GetConditions() []metav1.Condition {
+	return w.Status.Conditions
+}
+
+// SetConditions sets the conditions in the workflow status
+func (w *Workflow) SetConditions(conditions []metav1.Condition) {
+	w.Status.Conditions = conditions
 }
 
 func init() {

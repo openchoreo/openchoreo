@@ -144,6 +144,14 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              imageStatus:
+                description: ImageStatus contains information about the built image
+                  from the workflow
+                properties:
+                  image:
+                    description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+                    type: string
+                type: object
               message:
                 description: Message provides a human-readable message about the workflow
                   status
