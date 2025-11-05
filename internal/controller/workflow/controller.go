@@ -32,9 +32,6 @@ type Reconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
-	// Test hook: if set, this function provides the client to use for build-plane calls.
-	// In production this should be nil.
-	BuildPlaneClientProvider func(*openchoreodevv1alpha1.BuildPlane) (client.Client, error)
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch;create;update;patch;delete
@@ -96,7 +93,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
-	workflowName, workflowNamespace, err := r.getWorkflowMetadata(workflow, workflowDef)
+	workflowRunName, workflowRunNamespace, err := r.getWorkflowRunMetadata(workflow, workflowDef)
 	if err != nil {
 		logger.Error(err, "failed to get workflow run name and namespace")
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
@@ -104,20 +101,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	workflowRun := &argoproj.Workflow{}
 	err = bpClient.Get(ctx, types.NamespacedName{
-		Name:      workflowName,
-		Namespace: workflowNamespace,
+		Name:      workflowRunName,
+		Namespace: workflowRunNamespace,
 	}, workflowRun)
 
 	if err == nil {
 		return r.syncWorkflowRunStatus(ctx, oldWorkflow, workflow, workflowRun)
-	}
-
-	if !errors.IsNotFound(err) {
+	} else if !errors.IsNotFound(err) {
 		logger.Error(err, "failed to check workflow run existence")
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
-	return r.ensureWorkflowResource(ctx, oldWorkflow, workflow, workflowDef, bpClient)
+	return r.ensureWorkflowResource(ctx, oldWorkflow, workflow, workflowDef, workflowRunNamespace, bpClient)
 }
 
 func (r *Reconciler) handleWorkloadCreation(
@@ -156,6 +151,7 @@ func (r *Reconciler) ensureWorkflowResource(
 	ctx context.Context,
 	oldWorkflow, workflow *openchoreodevv1alpha1.Workflow,
 	workflowDef *openchoreodevv1alpha1.WorkflowDefinition,
+	workflowRunNamespace string,
 	bpClient client.Client,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -200,6 +196,18 @@ func (r *Reconciler) ensureWorkflowResource(
 	output, err := pipeline.Render(renderInput)
 	if err != nil {
 		logger.Error(err, "failed to render workflow run")
+		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
+	}
+
+	serviceAccountName, err := extractServiceAccountName(output.Resource)
+	if err != nil {
+		logger.Error(err, "failed to extract service account name from rendered resource")
+		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
+	}
+
+	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
+	if err := r.ensurePrerequisites(ctx, workflowRunNamespace, serviceAccountName, bpClient); err != nil {
+		logger.Error(err, "failed to ensure prerequisite resources")
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
@@ -326,7 +334,7 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 		return true, fmt.Errorf("failed to get WorkflowDefinition: %w", err)
 	}
 
-	workflowRunName, workflowRunNamespace, err := r.getWorkflowMetadata(workflow, workflowDef)
+	workflowRunName, workflowRunNamespace, err := r.getWorkflowRunMetadata(workflow, workflowDef)
 	if err != nil {
 		return true, fmt.Errorf("failed to get workflow run name and namespace: %w", err)
 	}
@@ -365,9 +373,6 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 }
 
 func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
-	if r.BuildPlaneClientProvider != nil {
-		return r.BuildPlaneClientProvider(buildPlane)
-	}
 	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
@@ -375,7 +380,7 @@ func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.Build
 	return bpClient, nil
 }
 
-func (r *Reconciler) getWorkflowMetadata(
+func (r *Reconciler) getWorkflowRunMetadata(
 	workflow *openchoreodevv1alpha1.Workflow,
 	workflowDef *openchoreodevv1alpha1.WorkflowDefinition,
 ) (string, string, error) {
@@ -571,4 +576,19 @@ func getImageNameFromWorkflow(output argoproj.Outputs) argoproj.AnyString {
 		}
 	}
 	return ""
+}
+
+// extractServiceAccountName extracts the service account name from the rendered workflow resource
+func extractServiceAccountName(resource map[string]any) (string, error) {
+	spec, ok := resource["spec"].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("spec not found in rendered resource")
+	}
+
+	serviceAccountName, ok := spec["serviceAccountName"].(string)
+	if !ok || serviceAccountName == "" {
+		return "", fmt.Errorf("serviceAccountName not found in rendered resource spec")
+	}
+
+	return serviceAccountName, nil
 }

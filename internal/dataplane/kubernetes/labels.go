@@ -14,6 +14,7 @@ const (
 	LabelKeyDeploymentTrackName = "deployment-track-name"
 	LabelKeyDeploymentTrackID   = "deployment-track-id"
 	LabelKeyBuildName           = "build-name"
+	LabelKeyWorkflowName        = "workflow-name"
 	LabelKeyDeploymentName      = "deployment-name"
 	LabelKeyDeploymentID        = "deployment-id"
 	LabelKeyManagedBy           = "managed-by"
