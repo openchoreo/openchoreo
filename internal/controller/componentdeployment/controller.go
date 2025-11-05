@@ -120,9 +120,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Namespace: snapshot.Namespace,
 	}
 	if err := r.Get(ctx, environmentKey, environment); err != nil {
-		msg := fmt.Sprintf("Failed to get Environment %q: %v", snapshot.Spec.Environment, err)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady,
-			ReasonEnvironmentNotFound, msg)
+		if apierrors.IsNotFound(err) {
+			// Environment not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Environment %q not found", snapshot.Spec.Environment)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonEnvironmentNotFound, msg)
+			logger.Info("Environment not found", "environment", snapshot.Spec.Environment)
+			return ctrl.Result{}, nil
+		}
 		logger.Error(err, "Failed to get Environment", "environment", snapshot.Spec.Environment)
 		return ctrl.Result{}, err
 	}
@@ -136,9 +141,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			Namespace: snapshot.Namespace,
 		}
 		if err := r.Get(ctx, dataPlaneKey, dataPlane); err != nil {
-			msg := fmt.Sprintf("Failed to get DataPlane %q: %v", environment.Spec.DataPlaneRef, err)
-			controller.MarkFalseCondition(componentDeployment, ConditionReady,
-				ReasonDataPlaneNotFound, msg)
+			if apierrors.IsNotFound(err) {
+				// DataPlane not found - don't requeue, wait for it to be created
+				msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
+				controller.MarkFalseCondition(componentDeployment, ConditionReady,
+					ReasonDataPlaneNotFound, msg)
+				logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
+				return ctrl.Result{}, nil
+			}
 			logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
 			return ctrl.Result{}, err
 		}
