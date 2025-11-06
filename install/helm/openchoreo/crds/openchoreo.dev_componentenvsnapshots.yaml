@@ -314,71 +314,19 @@ spec:
                         description: Build defines the build configuration for the
                           component
                         properties:
-                          repository:
-                            description: Repository defines the source repository
-                              configuration where the component code resides
-                            properties:
-                              appPath:
-                                description: |-
-                                  AppPath is the path to the application within the repository
-                                  This is relative to the repository root. Default is "." for root directory
-                                type: string
-                              revision:
-                                description: |-
-                                  Revision specifies the default revision configuration for builds
-                                  This can be overridden when triggering specific builds
-                                properties:
-                                  branch:
-                                    description: |-
-                                      Branch specifies the default branch to build from
-                                      This will be used when no specific commit is provided for a build
-                                    type: string
-                                required:
-                                - branch
-                                type: object
-                              url:
-                                description: |-
-                                  URL is the repository URL where the component source code is located
-                                  Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
-                                type: string
-                            required:
-                            - appPath
-                            - revision
-                            - url
-                            type: object
-                          templateRef:
+                          schema:
                             description: |-
-                              TemplateRef defines the build template reference and configuration
-                              This references a ClusterWorkflowTemplate in the build plane
-                            properties:
-                              engine:
-                                description: Engine specifies the build engine
-                                type: string
-                              name:
-                                description: Name is the template name
-                                type: string
-                              parameters:
-                                description: Parameters contains the template parameters
-                                items:
-                                  description: Parameter defines a template parameter
-                                  properties:
-                                    name:
-                                      description: Name is the parameter name
-                                      type: string
-                                    value:
-                                      description: Value is the parameter value
-                                      type: string
-                                  required:
-                                  - name
-                                  - value
-                                  type: object
-                                type: array
-                            required:
-                            - name
-                            type: object
+                              Parameters contains developer-provided build parameters that conform to the schema
+                              defined in the referenced WorkflowDefinition
+                            x-kubernetes-preserve-unknown-fields: true
+                          workflowTemplate:
+                            description: |-
+                              WorkflowTemplate specifies the WorkflowDefinition to use for building this component
+                              This references a WorkflowDefinition resource that defines the build workflow template
+                              and schema for developer-provided parameters
+                            type: string
                         required:
-                        - repository
-                        - templateRef
+                        - workflowTemplate
                         type: object
                       componentType:
                         description: |-
@@ -525,6 +473,54 @@ spec:
                     description: ComponentTypeDefinitionSpec defines the desired state
                       of ComponentTypeDefinition.
                     properties:
+                      build:
+                        description: |-
+                          Build defines the build configuration for this component type,
+                          specifying which WorkflowDefinitions developers can use and
+                          any component-type-specific parameter overrides.
+                        properties:
+                          allowedTemplates:
+                            description: |-
+                              AllowedTemplates lists the WorkflowDefinitions that developers can use
+                              for building components of this type. Each template can have
+                              component-type-specific parameter overrides.
+                            items:
+                              description: |-
+                                AllowedWorkflowTemplate references a WorkflowDefinition and provides
+                                component-type-specific parameter overrides.
+                              properties:
+                                fixedParameters:
+                                  description: |-
+                                    FixedParameters are component-type-specific parameter overrides
+                                    that override the WorkflowDefinition's default fixed parameters.
+                                    This allows platform engineers to configure different policies
+                                    per component type (e.g., enable SCA for services but not for scheduled tasks).
+                                  items:
+                                    description: WorkflowParameter represents a name-value
+                                      parameter pair for PE-controlled configuration.
+                                    properties:
+                                      name:
+                                        description: Name is the parameter name
+                                        minLength: 1
+                                        type: string
+                                      value:
+                                        description: Value is the parameter value
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                                name:
+                                  description: Name is the name of the WorkflowDefinition
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            minItems: 1
+                            type: array
+                        type: object
                       resources:
                         description: |-
                           Resources are templates that generate Kubernetes resources dynamically
