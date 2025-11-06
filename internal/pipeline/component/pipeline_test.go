@@ -1267,6 +1267,48 @@ spec:
               name: app
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			options: []Option{
 				WithResourceLabels(map[string]string{
 					"custom": "label",
@@ -1306,6 +1348,48 @@ spec:
               name: app
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			options: []Option{
 				WithResourceAnnotations(map[string]string{
 					"custom": "annotation",
