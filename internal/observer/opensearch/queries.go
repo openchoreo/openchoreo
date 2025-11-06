@@ -450,6 +450,46 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 	return query
 }
 
+func (qb *QueryBuilder) BuildComponentTracesQuery(params ComponentTracesRequestParams) map[string]interface{} {
+	query := map[string]interface{}{
+		"size": params.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter": []map[string]interface{}{
+					{
+						"term": map[string]interface{}{
+							"serviceName": params.ServiceName,
+						},
+					},
+					{
+						"range": map[string]interface{}{
+							"startTime": map[string]interface{}{
+								"gte": params.StartTime,
+							},
+						},
+					},
+					{
+						"range": map[string]interface{}{
+							"endTime": map[string]interface{}{
+								"lte": params.EndTime,
+							},
+						},
+					},
+				},
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"startTime": map[string]interface{}{
+					"order": params.SortOrder,
+				},
+			},
+		},
+	}
+
+	return query
+}
+
 // CheckQueryVersion determines if the index supports V2 wildcard queries
 func (qb *QueryBuilder) CheckQueryVersion(mapping *MappingResponse, indexName string) string {
 	for name, indexMapping := range mapping.Mappings {

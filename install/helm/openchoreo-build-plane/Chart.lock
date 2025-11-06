@@ -2,5 +2,11 @@ dependencies:
 - name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
   version: 0.45.2
-digest: sha256:15e94216202c4e76a313fcac0c5ed48b36978d2c8e3477f4b3201eb1fcdd4072
-generated: "2025-06-13T14:50:44.396944+05:30"
+- name: vault
+  repository: https://helm.releases.hashicorp.com
+  version: 0.29.1
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.19.2
+digest: sha256:64e4660569f47915def9afad946e0058bb376114dddb213441894723890a2da9
+generated: "2025-09-22T20:17:23.963494+05:30"

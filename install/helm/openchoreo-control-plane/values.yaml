@@ -103,7 +103,7 @@ openchoreoApi:
       cpu: "500m"
       memory: "512Mi"
   mcp:
-    toolsets: "core"
+    toolsets: "organization,project,component,build,deployment,infrastructure"
 # Dependency configurations
 
 # Cert-Manager configuration

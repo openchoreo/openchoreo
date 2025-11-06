@@ -5,11 +5,14 @@ dependencies:
 - name: secrets-store-csi-driver
   repository: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
   version: 1.4.0
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.19.2
 - name: gateway-helm
   repository: oci://registry-1.docker.io/envoyproxy
   version: 1.2.3
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:3972396d04ecb68d5d94cda6024bedcd756ec8b70900435cb005630aff5c59b8
-generated: "2025-09-23T15:12:32.5921223+05:30"
+digest: sha256:e6bac01d1d59fb866f7c7996b935f7e8b23880f680a130ddacb7faec7c6357cc
+generated: "2025-09-30T19:51:25.320589+05:30"

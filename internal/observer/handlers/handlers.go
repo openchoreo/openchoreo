@@ -316,6 +316,63 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
+func (h *Handler) GetComponentTraces(w http.ResponseWriter, r *http.Request) {
+	// Bind JSON request body
+	var req opensearch.ComponentTracesRequestParams
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Input validations
+	err := validateTimes(req.StartTime, req.EndTime)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	err = validateSortOrder(req.SortOrder)
+	if err != nil {
+		h.logger.Debug("Invalid sortOrder parameter", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	err = validateLimit(req.Limit)
+	if err != nil {
+		h.logger.Debug("Invalid limit parameter", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	if req.ServiceName == "" {
+		h.logger.Debug("Missing request parameters", "requestBody", req)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, "Required field serviceName not found")
+		return
+	}
+
+	// Set defaults
+	if req.Limit == 0 {
+		req.Limit = 100
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = defaultSortOrder
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetComponentTraces(ctx, req)
+	if err != nil {
+		h.logger.Error("Failed to get component traces", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}
+
 // Health handles GET /health
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

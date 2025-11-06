@@ -27,6 +27,9 @@ func makeScheduledTaskPodSpec(rCtx Context) *corev1.PodSpec {
 
 	ps.Containers = []corev1.Container{*mainContainer}
 
+	// Add imagePullSecrets from DataPlane configuration
+	ps.ImagePullSecrets = makeImagePullSecrets(rCtx)
+
 	// Scheduled tasks should not restart on failure - they should be retried by CronJob
 	ps.RestartPolicy = corev1.RestartPolicyOnFailure
 
@@ -83,4 +86,29 @@ func makeEnvironmentVariables(rCtx Context) []corev1.EnvVar {
 	}
 
 	return k8sEnvVars
+}
+
+// makeImagePullSecrets creates imagePullSecret references for the pod spec
+func makeImagePullSecrets(rCtx Context) []corev1.LocalObjectReference {
+	if rCtx.DataPlane == nil || len(rCtx.DataPlane.Spec.ImagePullSecretRefs) == 0 {
+		return nil
+	}
+
+	imagePullSecrets := make([]corev1.LocalObjectReference, 0, len(rCtx.DataPlane.Spec.ImagePullSecretRefs))
+
+	// Add a reference for each secret that will be created by ExternalSecret
+	for _, secretRefName := range rCtx.DataPlane.Spec.ImagePullSecretRefs {
+		secretRef, exists := rCtx.ImagePullSecretReferences[secretRefName]
+		if !exists {
+			// Error already added in ExternalSecrets function
+			continue
+		}
+
+		secretName := makeImagePullSecretName(rCtx, secretRef.Name)
+		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
+			Name: secretName,
+		})
+	}
+
+	return imagePullSecrets
 }

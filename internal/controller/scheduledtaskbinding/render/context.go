@@ -10,8 +10,10 @@ import (
 )
 
 type Context struct {
-	ScheduledTaskBinding *openchoreov1alpha1.ScheduledTaskBinding
-	ScheduledTaskClass   *openchoreov1alpha1.ScheduledTaskClass
+	ScheduledTaskBinding      *openchoreov1alpha1.ScheduledTaskBinding
+	ScheduledTaskClass        *openchoreov1alpha1.ScheduledTaskClass
+	DataPlane                 *openchoreov1alpha1.DataPlane
+	ImagePullSecretReferences map[string]*openchoreov1alpha1.SecretReference
 
 	// Stores the errors encountered during rendering.
 	errs []error

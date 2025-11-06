@@ -23,12 +23,16 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/addon"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
+	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
+	"github.com/openchoreo/openchoreo/internal/controller/componenttypedefinition"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
 	"github.com/openchoreo/openchoreo/internal/controller/deployment"
@@ -43,6 +47,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
+	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/service"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
@@ -52,10 +57,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
+	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
-	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -72,6 +78,7 @@ func init() {
 	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
+	utilruntime.Must(esv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -256,6 +263,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ComponentTypeDefinition controller
+	if err = (&componenttypedefinition.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentTypeDefinition")
+		os.Exit(1)
+	}
+
+	// Addon controller
+	if err = (&addon.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Addon")
+		os.Exit(1)
+	}
+
+	// ComponentDeployment controller
+	// Create a single pipeline instance shared across all reconciliations.
+	// This enables CEL environment caching for better performance (~4x faster after first render).
+	if err = (&componentdeployment.Reconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
+		os.Exit(1)
+	}
+
+	// ComponentEnvSnapshot controller
+	if err = (&componentenvsnapshot.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
+		os.Exit(1)
+	}
+
 	if err = (&gitcommitrequest.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -376,6 +422,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
+		os.Exit(1)
+	}
+	if err = (&secretreference.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SecretReference")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

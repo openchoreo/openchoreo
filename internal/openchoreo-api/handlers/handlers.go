@@ -119,8 +119,13 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	// Read toolsets from environment variable
 	toolsetsEnv := os.Getenv("MCP_TOOLSETS")
 	if toolsetsEnv == "" {
-		// Default to core toolset if not specified
-		toolsetsEnv = string(mcp.ToolsetCore)
+		// Default to all toolsets if not specified
+		toolsetsEnv = string(mcp.ToolsetOrganization) + "," +
+			string(mcp.ToolsetProject) + "," +
+			string(mcp.ToolsetComponent) + "," +
+			string(mcp.ToolsetBuild) + "," +
+			string(mcp.ToolsetDeployment) + "," +
+			string(mcp.ToolsetInfrastructure)
 	}
 
 	// Parse toolsets
@@ -134,14 +139,31 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	h.logger.Info("Initializing MCP server",
 		slog.Any("enabled_toolsets", enabledToolsets))
 
-	// Create handlers based on toolsets
+	handler := &mcphandlers.MCPHandler{Services: h.services}
+
+	// Create toolsets struct and enable based on configuration
 	toolsets := &mcp.Toolsets{}
 
 	for toolsetType := range toolsetsMap {
 		switch toolsetType {
-		case mcp.ToolsetCore:
-			toolsets.CoreToolset = &mcphandlers.MCPHandler{Services: h.services}
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "core"))
+		case mcp.ToolsetOrganization:
+			toolsets.OrganizationToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "organization"))
+		case mcp.ToolsetProject:
+			toolsets.ProjectToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
+		case mcp.ToolsetComponent:
+			toolsets.ComponentToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
+		case mcp.ToolsetBuild:
+			toolsets.BuildToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
+		case mcp.ToolsetDeployment:
+			toolsets.DeploymentToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
+		case mcp.ToolsetInfrastructure:
+			toolsets.InfrastructureToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
 		default:
 			h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}

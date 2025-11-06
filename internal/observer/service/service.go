@@ -215,6 +215,38 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	}, nil
 }
 
+func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (*opensearch.TraceResponse, error) {
+	s.logger.Info("Getting component traces",
+		"serviceName", params.ServiceName)
+
+	// Build component traces query
+	query := s.queryBuilder.BuildComponentTracesQuery(params)
+
+	// Execute search
+	response, err := s.osClient.Search(ctx, []string{"otel-v1-apm-span"}, query)
+	if err != nil {
+		s.logger.Error("Failed to execute component traces search", "error", err)
+		return nil, fmt.Errorf("failed to execute search: %w", err)
+	}
+
+	// Parse log entries
+	traces := make([]opensearch.Span, 0, len(response.Hits.Hits))
+	for _, hit := range response.Hits.Hits {
+		span := opensearch.ParseSpanEntry(hit)
+		traces = append(traces, span)
+	}
+
+	s.logger.Info("Component traces retrieved",
+		"count", len(traces),
+		"total", response.Hits.Total.Value)
+
+	return &opensearch.TraceResponse{
+		Spans:      traces,
+		TotalCount: response.Hits.Total.Value,
+		Took:       response.Took,
+	}, nil
+}
+
 // HealthCheck performs a health check on the service
 func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

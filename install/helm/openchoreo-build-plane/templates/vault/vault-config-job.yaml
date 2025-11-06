@@ -1,0 +1,60 @@
+{{- if and .Values.vault.enabled (index .Values "external-secrets" "enabled") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-config-job
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "9"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: vault-config
+      labels:
+        {{- include "openchoreo-build-plane.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: vault-config
+        image: hashicorp/vault:1.18.1
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Set environment variables
+          export VAULT_ADDR=http://hashicorp-vault.{{ .Release.Namespace }}.svc:8200
+          export VAULT_TOKEN={{ .Values.vault.server.dev.devRootToken }}
+
+          # Enable Kubernetes authentication
+          vault auth enable kubernetes
+
+          # Configure Kubernetes authentication
+          vault write auth/kubernetes/config \
+            kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+
+          # Create ESO policy for read-only access to secrets
+          vault policy write eso-policy - <<EOF
+          # Read-only access to all secrets
+          path "secret/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/data/*" {
+            capabilities = ["read", "list"]
+          }
+          path "secret/metadata/*" {
+            capabilities = ["read", "list"]
+          }
+          EOF
+
+          # Create Kubernetes auth role for ESO in build plane
+          vault write auth/kubernetes/role/external-secrets \
+            bound_service_account_names=external-secrets \
+            bound_service_account_namespaces=openchoreo-build-plane \
+            policies=eso-policy \
+            ttl=24h
+{{- end }}

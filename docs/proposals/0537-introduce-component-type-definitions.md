@@ -62,7 +62,7 @@ As a result, platform engineers lack the control needed to enforce organizationa
 
 This proposal introduces new CRDs and controller support:
 
-- New CRDs: `ComponentTypeDefinition` (v1alpha1), `Addon` (v1alpha1), and `EnvSettings` (v1alpha1)
+- New CRDs: `ComponentTypeDefinition` (v1alpha1), `Addon` (v1alpha1), and `ComponentDeployment` (v1alpha1)
 - New `v1alpha1` version of the `Component` CRD with `componentType` and `addons[]` fields
 - New controllers for rendering ComponentTypeDefinitions with CEL templating and applying addon composition
 
@@ -89,6 +89,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentTypeDefinition
 metadata:
   name: web-app
+  namespace: default
 spec:
   # Workload type - must be one of: deployment, statefulset, cronjob, job
   workloadType: deployment
@@ -100,7 +101,7 @@ spec:
       # Examples provided after Component definition section
 
     envOverrides:
-      # Can be overriden per environment via EnvironmentSettings by the PE
+      # Can be overriden per environment via ComponentDeployment by the PE
       # Examples provided after Component definition section
 
   # Templates generate K8s resources dynamically
@@ -265,7 +266,7 @@ spec:
   addons:
     # Create PVC and add volume to pod
     - name: persistent-volume-claim
-      instanceId: app-data
+      instanceName: app-data
       config:
         volumeName: app-data-vol
         mountPath: /app/data
@@ -274,7 +275,7 @@ spec:
 
     # Add logging sidecar for file-based logs
     - name: add-file-logging-sidecar
-      instanceId: app-logs
+      instanceName: app-logs
       config:
         logFilePath: /var/log/app/application.log
         containerName: app
@@ -301,7 +302,7 @@ The Component CRD uses a **oneOf schema** for the `parameters` field based on th
 
 - When `componentType: web-app`, the `parameters` field schema is the **merged schema** of the ComponentTypeDefinition's `parameters` and `envOverrides`
 - This allows developers to configure both static parameters and environment-overridable settings in one place
-- At runtime, these are split: `parameters` remain static, `envOverrides` can be overridden in EnvSettings
+- At runtime, these are split: `parameters` remain static, `envOverrides` can be overridden in ComponentDeployment
 - Templates access merged values via `${spec.*}` (e.g., `${spec.lifecycle.terminationGracePeriodSeconds}`, `${spec.resources.requests.cpu}`)
 
 **Workload Spec (extracted from source repo at build time):**
@@ -369,10 +370,8 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Addon
 metadata:
   name: add-volume-mount
+  namespace: default
 spec:
-  displayName: "Persistent Volume Claim with Mount"
-  description: "Provides a persistent volume and mounts it to the component container"
-
   schema:
     parameters: # Developer-facing parameters
       volumeName: string | required=true
@@ -384,17 +383,18 @@ spec:
       storageClass: string | default=standard
 
   creates:
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      metadata:
-        name: ${metadata.name}-${instanceId}
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: ${spec.size}
-        storageClassName: ${spec.storageClass}
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${instanceName}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${spec.size}
+          storageClassName: ${spec.storageClass}
 
   patches:
     # Attach PVC as a volume in the pod spec
@@ -408,7 +408,7 @@ spec:
           value:
             name: ${spec.volumeName}
             persistentVolumeClaim:
-              claimName: ${metadata.name}-${instanceId}
+              claimName: ${metadata.name}-${instanceName}
 
     # Mount the PVC into the developer-specified container at the mountPath
     - target:
@@ -430,6 +430,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Addon
 metadata:
   name: add-file-logging-sidecar
+  namespace: default
 spec:
   displayName: "Stream File Logs to Stdout"
   description: "Pushes logs from a log file to stdout so that logs will be collected by the system"
@@ -477,14 +478,14 @@ spec:
 
 ### Step 4: Environment-Specific Overrides
 
-- As both `ComponentTypeDefinitions` and `Addons` define `envOverrides` fields, this `EnvSettings` resource targeting a particular `Environment` can override the default values that need to be adjusted for a given environment.
+- As both `ComponentTypeDefinitions` and `Addons` define `envOverrides` fields, this `ComponentDeployment` resource targeting a particular `Environment` can override the default values that need to be adjusted for a given environment.
 - This is a more structured, strongly-typed and validate-able UX for the PE as opposed to using something like Kustomize patches.
 
-**Example: EnvSettings for the `production` environment for a component named "checkout-service"**
+**Example: ComponentDeployment for the `production` environment for a component named "checkout-service"**
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
-kind: EnvSettings
+kind: ComponentDeployment
 metadata:
   name: checkout-service-prod
 spec:
@@ -508,13 +509,12 @@ spec:
       maxReplicas: 50
       targetCPUUtilization: 70
 
-  # Override addon values for the environment (keyed by addon name, then instanceId).
+  # Override addon values for the environment (keyed by instanceName).
   # These fields are defined in the addon's envOverrides section.
   addonOverrides:
-    persistent-volume-claim: # Addon name
-      app-data: # instanceId
-        size: 200Gi # Much larger in prod
-        storageClass: premium
+    app-data: # instanceName
+      size: 200Gi # Much larger in prod
+      storageClass: premium
 ```
 
 ### Addon Patch Syntax
@@ -574,13 +574,13 @@ Addons apply changes to rendered resources through patch documents that mirror K
 
 ## Deployment Flow and Environment Promotion
 
-OpenChoreo separates **promotable content** from **environment-specific overrides** to enable safe, auditable deployments across environments. This uses EnvSettings (introduced earlier) along with **ComponentEnvSnapshot**, a new resource containing full copies of ComponentTypeDefinition, Component, Addons, and Workload.
+OpenChoreo separates **promotable content** from **environment-specific overrides** to enable safe, auditable deployments across environments. This uses ComponentDeployment (introduced earlier) along with **ComponentEnvSnapshot**, a new resource containing full copies of ComponentTypeDefinition, Component, Addons, and Workload.
 
 ### How It Works
 
-**Deployment**: When a Component, ComponentTypeDefinition, Addon, or Workload is updated, a ComponentEnvSnapshot is created or updated in the first environment of the deployment pipeline. The snapshot is rendered with that environment's EnvSettings to produce a Release containing final Kubernetes manifests. Changes to either the snapshot or EnvSettings trigger Release updates.
+**Deployment**: When a Component, ComponentTypeDefinition, Addon, or Workload is updated, a ComponentEnvSnapshot is created or updated in the first environment of the deployment pipeline. The snapshot is rendered with that environment's ComponentDeployment to produce a Release containing final Kubernetes manifests. Changes to either the snapshot or ComponentDeployment trigger Release updates.
 
-**Promotion**: Promotion copies the snapshot content to a target environment, where it's rendered with that environment's EnvSettings. The same snapshot content produces different Releases based on each environment's settings (e.g., 1 replica in dev, 10 in prod).
+**Promotion**: Promotion copies the snapshot content to a target environment, where it's rendered with that environment's ComponentDeployment. The same snapshot content produces different Releases based on each environment's settings (e.g., 1 replica in dev, 10 in prod).
 
 **Key Constraint**: Changes are automatically deployed only to the first environment. Other environments remain stable until explicitly promoted.
 
@@ -606,6 +606,7 @@ spec:
     kind: ComponentTypeDefinition
     metadata:
       name: web-app
+      namespace: default
     spec:
       workloadType: deployment
       schema: { ... }
@@ -621,7 +622,7 @@ spec:
       parameters: { ... }
       addons:
         - name: persistent-volume-claim
-          instanceId: app-data
+          instanceName: app-data
           config: { ... }
 
   addons:
@@ -629,6 +630,7 @@ spec:
       kind: Addon
       metadata:
         name: persistent-volume-claim
+        namespace: default
       spec:
         creates: [...]
         patches: [...]

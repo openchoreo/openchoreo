@@ -21,8 +21,20 @@ IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG)
 API_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
 UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
+THUNDER_IMAGE := ghcr.io/brionmario/thunder:0.0.16
+
+# UI Image configuration
+# Set USE_LOCAL_UI=true to use a locally-built image from backstage-plugins repo
+# Default: false (pulls from registry)
+# Usage: USE_LOCAL_UI=true make kind.load.ui
+USE_LOCAL_UI ?= false
+UI_IMAGE_TAG ?= $(OPENCHOREO_IMAGE_TAG)
+UI_IMAGE_LOCAL ?= openchoreo-ui:local
 
 # Define OpenChoreo components for per-component operations
+# KIND_BUILD_COMPONENTS: Components that can be built locally in this repo (controller, api)
+# KIND_COMPONENTS: All valid components including UI (which is built in backstage-plugins repo)
+KIND_BUILD_COMPONENTS := controller api
 KIND_COMPONENTS := controller api ui
 KIND_COMPONENT_IMAGES := controller:$(CONTROLLER_IMAGE) api:$(API_IMAGE) ui:$(UI_IMAGE)
 
@@ -60,9 +72,9 @@ kind.up: ## Create the kind cluster without cni and kube-proxy
 
 
 .PHONY: kind.build.%
-kind.build.%: ## Build specific component, (controller, api, ui)
-	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
-		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
+kind.build.%: ## Build specific component (controller, api). Note: UI is built in backstage-plugins repo.
+	@if [ -z "$(filter $*,$(KIND_BUILD_COMPONENTS))" ]; then \
+		$(call log_error, Invalid component '$*'. Buildable components: $(KIND_BUILD_COMPONENTS). Note: UI is built in backstage-plugins repo.); \
 		exit 1; \
 	fi
 	@$(call log_info, Building $* component...)
@@ -73,22 +85,18 @@ kind.build.%: ## Build specific component, (controller, api, ui)
 		api) \
 			$(MAKE) docker.build.openchoreo-api TAG=$(OPENCHOREO_IMAGE_TAG); \
 			;; \
-		ui) \
-			cd $(PROJECT_DIR)/ui && yarn install --immutable && yarn build:all; \
-			docker build -f $(PROJECT_DIR)/ui/packages/backend/Dockerfile -t $(UI_IMAGE) $(PROJECT_DIR)/ui; \
-			;; \
 	esac
 	@$(call log_success, $* component built!)
 
 .PHONY: kind.build
-kind.build: ## Build all OpenChoreo components
+kind.build: ## Build all locally-buildable OpenChoreo components
 	@$(call log_info, Building all OpenChoreo components...)
-	@$(foreach component,$(KIND_COMPONENTS),$(MAKE) kind.build.$(component);)
+	@$(foreach component,$(KIND_BUILD_COMPONENTS),$(MAKE) kind.build.$(component);)
 	@$(call log_success, All components built!)
 
 
 .PHONY: kind.load.%
-kind.load.%: ## Load specific component image. Valid components: controller, api, ui, cilium. Usage: make kind.load.<component>
+kind.load.%: ## Load specific component image. Valid components: controller, api, ui, thunder, cilium. Usage: make kind.load.<component>
 	@$(call check_cluster_exists)
 	@case "$*" in \
 		cilium) \
@@ -103,9 +111,18 @@ kind.load.%: ## Load specific component image. Valid components: controller, api
 			done; \
 			$(call log_success, Cilium images loaded!); \
 			;; \
-		controller|api|ui) \
-			if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
-				$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
+		thunder) \
+			$(call log_info, Loading Thunder image into cluster...); \
+			if ! docker image inspect $(THUNDER_IMAGE) > /dev/null 2>&1; then \
+				$(call log_info, Pulling $(THUNDER_IMAGE)...); \
+				docker pull $(THUNDER_IMAGE); \
+			fi; \
+			kind load docker-image $(THUNDER_IMAGE) --name $(KIND_CLUSTER_NAME); \
+			$(call log_success, Thunder image loaded!); \
+			;; \
+		controller|api) \
+			if [ -z "$(filter $*,$(KIND_BUILD_COMPONENTS))" ]; then \
+				$(call log_error, Invalid component '$*'. Available components: $(KIND_BUILD_COMPONENTS)); \
 				exit 1; \
 			fi; \
 			IMAGE=$(call get_component_image,$*); \
@@ -117,8 +134,28 @@ kind.load.%: ## Load specific component image. Valid components: controller, api
 			kind load docker-image $$IMAGE --name $(KIND_CLUSTER_NAME); \
 			$(call log_success, $* image loaded!); \
 			;; \
+		ui) \
+			IMAGE=$(call get_component_image,ui); \
+			if [ "$(USE_LOCAL_UI)" = "true" ]; then \
+				if ! docker image inspect $(UI_IMAGE_LOCAL) > /dev/null 2>&1; then \
+					$(call log_error, Local UI image '$(UI_IMAGE_LOCAL)' not found. Run 'yarn build-image' in backstage-plugins repo first.); \
+					exit 1; \
+				fi; \
+				$(call log_info, Using local UI image '$(UI_IMAGE_LOCAL)' - tagging as $$IMAGE); \
+				docker tag $(UI_IMAGE_LOCAL) $$IMAGE; \
+			elif ! docker image inspect $$IMAGE > /dev/null 2>&1; then \
+				$(call log_info, Pulling UI image from registry...); \
+				docker pull $$IMAGE || { \
+					$(call log_error, Failed to pull UI image '$$IMAGE'. Set USE_LOCAL_UI=true to use local image or check registry availability.); \
+					exit 1; \
+				}; \
+			fi; \
+			$(call log_info, Loading UI image into cluster...); \
+			kind load docker-image $$IMAGE --name $(KIND_CLUSTER_NAME); \
+			$(call log_success, UI image loaded!); \
+			;; \
 		*) \
-			$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), cilium); \
+			$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS), thunder, cilium); \
 			exit 1; \
 			;; \
 	esac
@@ -210,13 +247,15 @@ kind.uninstall: ## Uninstall OpenChoreo and Cilium from kind cluster
 
 
 .PHONY: kind.update.%
-kind.update.%: ## Update specific component, (controller, api, ui)
+kind.update.%: ## Update specific component (controller, api, ui). UI skips build step.
 	@if [ -z "$(filter $*,$(KIND_COMPONENTS))" ]; then \
 		$(call log_error, Invalid component '$*'. Available components: $(KIND_COMPONENTS)); \
 		exit 1; \
 	fi
 	@$(call log_info, Updating $* component...)
-	@$(MAKE) kind.build.$*
+	@if [ "$*" != "ui" ]; then \
+		$(MAKE) kind.build.$*; \
+	fi
 	@$(MAKE) kind.load.$*
 	@$(call log_info, Performing rollout restart for $*...)
 	@case "$*" in \

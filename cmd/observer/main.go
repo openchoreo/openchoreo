@@ -64,6 +64,7 @@ func main() {
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(

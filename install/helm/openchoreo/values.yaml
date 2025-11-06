@@ -1,8 +1,9 @@
 # @schema
 # type: object
+# title: OpenChoreo Secure Core Values
+# description: Installs controller, openchoreo-api, backstage with optional cilium
 # @schema
-# -- OpenChoreo Secure Core Values
-# Installs controller, openchoreo-api, backstage with optional cilium
+
 # @schema
 # type: [null, object]
 # @schema
@@ -557,87 +558,6 @@ controllerManager:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Pod-level security context
-  podSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Run containers as non-root user
-    runAsNonRoot: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- User ID to run the container as
-    runAsUser: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Group ID to run the container as
-    runAsGroup: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Filesystem group
-    fsGroup: 65532
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Container-level security context
-  containerSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Allow privilege escalation
-    allowPrivilegeEscalation: false
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Linux capabilities
-    capabilities:
-      # @schema
-      # type: [null, array]
-      # @schema
-      # -- Capabilities to drop
-      drop:
-        - ALL
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Read-only root filesystem
-    readOnlyRootFilesystem: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- AppArmor profile configuration
-    appArmorProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- AppArmor profile type
-      type: RuntimeDefault
 # @schema
 # type: [null, object]
 # @schema
@@ -677,8 +597,8 @@ openchoreoApi:
     # type: [null, string]
     # @schema
     # -- Comma-separated list of enabled toolsets
-    # -- Available toolsets: core
-    toolsets: "core"
+    # -- Available toolsets: organization, project, component, build, deployment, infrastructure
+    toolsets: "organization,project,component,build,deployment,infrastructure"
   # @schema
   # type: [null, object]
   # @schema
@@ -1083,87 +1003,6 @@ openchoreoApi:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Pod-level security context
-  podSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Run containers as non-root user
-    runAsNonRoot: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- User ID to run the container as
-    runAsUser: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Group ID to run the container as
-    runAsGroup: 65532
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Filesystem group
-    fsGroup: 65532
-  # @schema
-  # type: [null, object]
-  # @schema
-  # -- Container-level security context
-  containerSecurityContext:
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Allow privilege escalation
-    allowPrivilegeEscalation: false
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Linux capabilities
-    capabilities:
-      # @schema
-      # type: [null, array]
-      # @schema
-      # -- Capabilities to drop
-      drop:
-        - ALL
-    # @schema
-    # type: [null, boolean]
-    # @schema
-    # -- Read-only root filesystem
-    readOnlyRootFilesystem: true
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- Seccomp profile configuration
-    seccompProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- Seccomp profile type
-      type: RuntimeDefault
-    # @schema
-    # type: [null, object]
-    # @schema
-    # -- AppArmor profile configuration
-    appArmorProfile:
-      # @schema
-      # enum: [RuntimeDefault, Localhost, Unconfined]
-      # @schema
-      # -- AppArmor profile type
-      type: RuntimeDefault
 # @schema
 # type: [null, object]
 # @schema
@@ -1183,7 +1022,7 @@ backstage:
     # type: [null, string]
     # @schema
     # -- Container image repository
-    repository: ghcr.io/openchoreo/ui
+    repository: ghcr.io/openchoreo/openchoreo-ui
     # @schema
     # type: [null, string]
     # @schema
@@ -1310,6 +1149,44 @@ backstage:
       value: info
     - name: PORT
       value: "7007"
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)
+  # This should be the externally accessible URL (e.g., via ingress)
+  # For local Kind: http://openchoreo.localhost
+  # For production: https://backstage.example.com
+  baseUrl: ""
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Thunder IdP configuration for Backstage
+  thunder:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Base URL of the Thunder identity provider (defaults to internal service URL if empty)
+    baseUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Authentication token for Thunder API (optional, for future use)
+    token: ""
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Authentication provider configuration
+  auth:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth authorization endpoint URL (defaults to Thunder baseUrl + /oauth2/authorize)
+    authorizationUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth token endpoint URL (defaults to Thunder baseUrl + /oauth2/token)
+    tokenUrl: ""
   # @schema
   # type: [null, object]
   # @schema
@@ -1624,3 +1501,635 @@ backstage:
       # @schema
       # -- AppArmor profile type
       type: RuntimeDefault
+# @schema
+# type: [null, object]
+# @schema
+# -- Asgardeo Thunder (Platform Identity Provider) configuration
+asgardeoThunder:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Enable Asgardeo Thunder identity provider
+  enabled: true
+  # @schema
+  # type: [null, integer]
+  # @schema
+  # -- Number of replicas
+  replicaCount: 1
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Container image configuration
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Container image repository
+    repository: ghcr.io/asgardeo/thunder
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Image tag (overrides the chart appVersion)
+    tag: "0.10.0"
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Image pull secrets
+  imagePullSecrets: []
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Environment variables for the container
+  env: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod annotations
+  podAnnotations: {}
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod labels
+  podLabels: {}
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod security context
+  podSecurityContext:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Run containers as non-root user
+    runAsNonRoot: true
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Seccomp profile configuration
+    seccompProfile:
+      # @schema
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # @schema
+      # -- Seccomp profile type
+      type: RuntimeDefault
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- User ID to run the container as
+    runAsUser: 802
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Group ID to run the container as
+    runAsGroup: 802
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Filesystem group
+    fsGroup: 802
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Container security context
+  securityContext:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Run as non-root user
+    runAsNonRoot: true
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- User ID to run the container as
+    runAsUser: 802
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Allow privilege escalation
+    allowPrivilegeEscalation: false
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Linux capabilities
+    capabilities:
+      # @schema
+      # type: [null, array]
+      # @schema
+      # -- Capabilities to drop
+      drop:
+        - ALL
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Service configuration
+  service:
+    # @schema
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # @schema
+    # -- Service type
+    type: ClusterIP
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Main service port
+    port: 8090
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target port for main service
+    targetPort: 8090
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Node port for main service (when type is NodePort)
+    nodePort: null
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Gate service port
+    gatePort: 9090
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target port for gate service
+    gateTargetPort: 9090
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Node port for gate service (when type is NodePort)
+    gateNodePort: null
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Resource limits and requests
+  resources:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource limits
+    limits:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU limit
+      cpu: 500m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory limit
+      memory: 512Mi
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Resource requests
+    requests:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- CPU request
+      cpu: 100m
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Memory request
+      memory: 128Mi
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Additional volumes
+  volumes: []
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Additional volume mounts
+  volumeMounts: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Node selector for pod assignment
+  nodeSelector: {}
+  # @schema
+  # type: [null, array]
+  # @schema
+  # -- Tolerations for pod assignment
+  tolerations: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Affinity rules for pod assignment
+  affinity: {}
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Application configuration
+  config:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Server configuration
+    server:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Server hostname
+      hostname: "0.0.0.0"
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Server port
+      port: 8090
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- HTTP only mode (disable HTTPS)
+      httpOnly: false
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Gate client configuration
+    gateClient:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Gate hostname
+      hostname: "localhost"
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Gate port
+      port: 9090
+      # @schema
+      # enum: [http, https]
+      # @schema
+      # -- Gate scheme
+      scheme: "https"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Login path
+      loginPath: "/login"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Error path
+      errorPath: "/error"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Security configuration
+    security:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Path to the SSL/TLS certificate file
+      certFile: "repository/resources/security/server.cert"
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Path to the SSL/TLS key file
+      keyFile: "repository/resources/security/server.key"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Database configuration
+    database:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Identity database configuration
+      identity:
+        # @schema
+        # enum: [sqlite, postgres, mysql]
+        # @schema
+        # -- Database type
+        type: "sqlite"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Database path (for SQLite)
+        path: "repository/database/thunderdb.db"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Database options
+        options: "_journal_mode=WAL&_busy_timeout=5000"
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Runtime database configuration
+      runtime:
+        # @schema
+        # enum: [sqlite, postgres, mysql]
+        # @schema
+        # -- Database type
+        type: "sqlite"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Database path (for SQLite)
+        path: "repository/database/runtimedb.db"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Database options
+        options: "_journal_mode=WAL&_busy_timeout=5000"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- OAuth configuration
+    oauth:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- JWT configuration
+      jwt:
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- JWT issuer
+        issuer: "https://openchoreo.example.com"
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- JWT validity period in seconds
+        validityPeriod: 3600
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Refresh token configuration
+      refreshToken:
+        # @schema
+        # type: [null, boolean]
+        # @schema
+        # -- Renew refresh token on grant
+        renewOnGrant: false
+        # @schema
+        # type: [null, integer]
+        # @schema
+        # -- Refresh token validity period in seconds
+        validityPeriod: 86400
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Flow configuration
+    flow:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Graph directory path
+      graphDirectory: "repository/resources/graphs/"
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Authentication flow configuration
+      authn:
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Default authentication flow
+        defaultFlow: "auth_flow_config_basic"
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Persistence configuration for SQLite database
+  persistence:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Database persistence configuration
+    database:
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- Enable database persistence
+      enabled: true
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Storage class name
+      storageClassName: ""
+      # @schema
+      # enum: [ReadWriteOnce, ReadOnlyMany, ReadWriteMany]
+      # @schema
+      # -- Access mode
+      accessMode: ReadWriteOnce
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Storage size
+      size: 500Mi
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Volume reclaim policy
+      reclaimPolicy: Delete
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Backstage portal integration configuration
+  backstagePortal:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable Backstage portal application creation
+    enabled: true
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Application name
+    name: "Backstage"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Application description
+    description: "OpenChoreo Backstage Portal"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth client ID
+    clientId: "openchoreo-backstage-client"
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth client secret (auto-generated if not provided)
+    clientSecret: ""
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- OAuth redirect URLs
+    redirectUrls:
+      - "https://localhost:7007/api/auth/default-idp/handler/frame"
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- User details configuration
+  userDetails:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- User schema name
+    userSchemaName: "engineer"
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Default users to create
+    users:
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Platform engineer user
+      - username: "admin@openchoreo.dev"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- User password
+        password: "Admin@123"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Given name
+        given_name: "Admin"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Family name
+        family_name: "User"
+        # @schema
+        # enum: [platformEngineer, developer]
+        # @schema
+        # -- User group
+        group: "platformEngineer"
+      # @schema
+      # type: [null, object]
+      # @schema
+      # -- Developer user
+      - username: "dev@openchoreo.dev"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- User password
+        password: "Developer@123"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Given name
+        given_name: "Developer"
+        # @schema
+        # type: [null, string]
+        # @schema
+        # -- Family name
+        family_name: "User"
+        # @schema
+        # enum: [platformEngineer, developer]
+        # @schema
+        # -- User group
+        group: "developer"
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Horizontal Pod Autoscaler configuration
+  autoscaling:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable autoscaling
+    enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum replicas
+    minReplicas: 1
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Maximum replicas
+    maxReplicas: 3
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target CPU utilization percentage
+    targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Target memory utilization percentage
+    targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Autoscaling behavior configuration
+    behavior: {}
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Network policy configuration
+  networkPolicy:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable network policy
+    enabled: false
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Additional ingress rules
+    ingress: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Additional egress rules
+    egress: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Ingress configuration
+  ingress:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable ingress
+    enabled: true
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Ingress class name
+    ingressClassName: ""
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Additional ingress annotations
+    annotations: {}
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- Host configurations
+    hosts: []
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- TLS configurations
+    tls: []
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Pod Disruption Budget configuration
+  podDisruptionBudget:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Enable Pod Disruption Budget
+    enabled: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Minimum available pods
+    minAvailable: 1
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- Maximum unavailable pods
+    maxUnavailable: null

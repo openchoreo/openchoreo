@@ -49,3 +49,54 @@ backstage:
         paths:
           - path: /
             pathType: Prefix
+  # Backstage base URL (externally accessible URL via ingress)
+  baseUrl: "http://openchoreo.localhost"
+  # OAuth authorization endpoint (must be browser-accessible for OAuth redirect)
+  auth:
+    authorizationUrl: "http://sts.openchoreo.localhost/oauth2/authorize"
+  # Note: thunder.baseUrl and auth.tokenUrl use default K8s service URLs (not overridden)
+asgardeoThunder:
+  image:
+    repository: ghcr.io/brionmario/thunder
+    tag: 0.0.16
+  env:
+    - name: NEXT_PUBLIC_AUTHORIZATION_ENDPOINT
+      value: "http://sts.openchoreo.localhost/oauth2/authorize"
+    - name: NEXT_PUBLIC_FLOW_EXECUTION_ENDPOINT
+      value: "http://sts.openchoreo.localhost/flow/execute"
+    - name: ENABLE_HTTPS
+      value: "false"
+    - name: HOST
+      value: "0.0.0.0"
+  config:
+    server:
+      hostname: "0.0.0.0"
+      port: 8090
+      httpOnly: true
+    gateClient:
+      hostname: portal.sts.openchoreo.localhost
+      port: 80
+      scheme: http
+    oauth:
+      jwt:
+        issuer: "thunder"
+  ingress:
+    enabled: true
+    ingressClassName: cilium
+    annotations: {}
+    hosts:
+      - host: sts.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 8090
+      - host: portal.sts.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 9090
+  backstagePortal:
+    redirectUrls:
+      - "http://localhost:7007/api/auth/default-idp/handler/frame"
+      - "http://openchoreo.localhost/api/auth/default-idp/handler/frame"
+    clientSecret: backstage-portal-secret

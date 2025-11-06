@@ -3,79 +3,142 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
-# Customizing OpenSearch configurations
-opensearch:
-  image:
-    repository: opensearchproject/opensearch
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
-  
-  service:
-    type: NodePort
-    httpPort: 9200
-    transportPort: 9300
-    # NodePort configuration for cross-cluster access
-    nodePort: 30920  # Fixed port for external access from other clusters
-  
-  config:
-    clusterName: opensearch-cluster
-    discoveryType: single-node
-    javaOpts: "-Xms512m -Xmx512m"
-    memoryLock: false
-    disableSecurity: true
-  
-  authentication:
-    basicAuth:
-      username: admin
-      password: admin
+  # Installation mode for the OpenChoreo Observability Plane
+  # standard: Operator managed OpenSearch cluster will be deployed
+  # minimal: Single replica OpenSearch instance will be deployed
+  installationMode: minimal
+
+data-prepper:
+  enabled: true
+  fullnameOverride: "data-prepper"
+
+  pipelineConfig:
+    enabled: true
+    config:
+      trace-pipeline:
+        delay: "100"
+        source:
+          otel_trace_source:
+            ssl: false
+        buffer:
+          bounded_blocking:
+            buffer_size: 12800
+            batch_size: 200
+        sink:
+          - opensearch:
+              hosts: ["http://opensearch:9200"]
+              insecure: true
+              index_type: trace-analytics-raw
   
   resources:
     limits:
       cpu: 1000m
-      memory: 1Gi
+      memory: 500Mi
     requests:
-      cpu: 100m
-      memory: 512Mi
-  
-  persistence:
+      cpu: 1000m
+      memory: 500Mi
+
+openSearch:
+  enabled: true
+
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: ThisIsTheOpenSearchPassword1
+    - name: DISABLE_SECURITY_PLUGIN
+      value: "true"
+  nameOverride: "opensearch"
+  image:
+    tag: "3.3.0"
+  masterService: opensearch
+  securityConfig:
+    enabled: false
+  singleNode: true
+
+# OpenSearch cluster configuration
+openSearchCluster:
+  enabled: false
+  general:
+    version: 3.3.0
+    additionalConfig:
+      pluginsSecurityDisabled: "true"
+
+  dashboard:
     enabled: true
-    storageClass: ""
-    accessMode: ReadWriteOnce
-    size: 5Gi
-  
-  replicas: 1
+    replicas: 1
+    version: 3.3.0
+
+  nodePools:
+    data:
+      replicas: 2
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 700Mi
+    master:
+      replicas: 0
+      diskSize: 1Gi
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+
+  # Secrets
+  adminUsername: admin
+  adminUserPassword: admin
+  internalUsers: |
+    # This is the internal user database
+    # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
+
+    _meta:
+      type: "internalusers"
+      config_version: 2
+
+    admin:
+      hash: "%s"
+      reserved: true
+      backend_roles:
+      - "admin"
+      description: "Admin user"
 
 # Customizing OpenSearch Dashboards configurations
-opensearchDashboard:
-  image:
-    repository: opensearchproject/opensearch-dashboards
-    tag: "2.11.0"
-    pullPolicy: IfNotPresent
-  
-  service:
-    type: NodePort
-    port: 5601
-  
+openSearchDashboards:
+  enabled: true
+
   config:
-    disableSecurity: true
-  
+    disableSecurity: "true"
+
+  extraEnvs:
+  - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+    value: "true"
+
+  fullnameOverride: "opensearch-dashboards"
+  image:
+    tag: "3.3.0"
+  opensearchHosts: "http://opensearch:9200"
   replicas: 1
 
 # OpenChoreo Observer Service Configuration
 observer:
   replicas: 1
-  
+
   image:
     repository: ghcr.io/openchoreo/observer
     tag: ""  # If no value is set, use Chart.AppVersion
     pullPolicy: IfNotPresent
-  
+
   service:
     type: ClusterIP
     port: 8080
-  
+
   logLevel: info
-  
+
   resources:
     limits:
       cpu: 500m
@@ -83,3 +146,207 @@ observer:
     requests:
       cpu: 100m
       memory: 128Mi
+
+  openSearchUsername: admin
+  openSearchPassword: ThisIsTheOpenSearchPassword1
+
+# Fluent Bit configuration
+fluentBit:
+  enabled: false
+  config:
+    customParsers: |
+      [PARSER]
+          Name docker_no_time
+          Format json
+          Time_Keep Off
+          Time_Key time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    inputs: |
+      [INPUT]
+          Name tail
+          Buffer_Chunk_Size 32KB
+          Buffer_Max_Size 2MB
+          DB /var/lib/fluent-bit/db/tail-container-logs.db
+          Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-observability-plane_*.log
+          Inotify_Watcher false
+          Mem_Buf_Limit 256MB
+          Path /var/log/containers/*.log
+          multiline.parser docker, cri
+          Read_from_Head On
+          Refresh_Interval 5
+          Skip_Long_Lines On
+          Tag kube.*
+
+    filters: |
+      [FILTER]
+          Name kubernetes
+          Buffer_Size 32MB
+          K8S-Logging.Parser On
+          K8S-Logging.Exclude On
+          Keep_Log On
+          Match kube.*
+          Merge_Log Off
+          tls.verify Off
+          Use_Kubelet true
+
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd admin
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
+  dnsPolicy: ClusterFirstWithHostNet
+  hostNetwork: true
+
+  extraVolumeMounts:
+  - name: db
+    mountPath: "/var/lib/fluent-bit/db"
+    readOnly: false
+  extraVolumes:
+    - name: db
+      hostPath:
+        path: /var/lib/fluent-bit/db
+        type: DirectoryOrCreate
+
+  fullnameOverride: "fluent-bit"
+  metricsPort: 2021
+
+  rbac:
+    nodeAccess: true
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 10000
+
+  service:
+    port: 2021
+
+  testFramework:
+    enabled: false
+
+  initContainers:
+  - name: set-volume-ownership
+    image: busybox
+    command: ["sh", "-c", "chown -R 10000:10000 /var/lib/fluent-bit/db"]
+    resources:
+      limits:
+        cpu: 15m
+        memory: "32Mi"
+      requests:
+        cpu: 10m
+        memory: "24Mi"
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+      readOnlyRootFilesystem: true
+      runAsUser: 0
+    volumeMounts:
+    - name: db
+      mountPath: /var/lib/fluent-bit/db
+
+# Prometheus configuration
+prometheus:
+  enabled: false # minimal/legacy modes will set this to false
+  fullnameOverride: "prometheus"
+
+  ## Manages Prometheus and Alertmanager components
+  prometheusOperator:
+    enabled: true
+    fullnameOverride: prometheus-operator
+
+  ## Install Prometheus Operator CRDs
+  crds:
+    enabled: true
+
+  ## Setting to produces cleaner resource names
+  cleanPrometheusOperatorObjectNames: true
+
+  ## Configuration for alertmanager
+  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      podMetadata:
+        name: alertmanager
+
+  ## Configuration for grafana
+  # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: prom-operator
+
+  ## Flag to disable all the kubernetes component scrapers
+  kubernetesServiceMonitors:
+    enabled: true
+  ## Component scraping kube state metrics
+  kubeStateMetrics:
+    enabled: true # kubeStateMetrics service monitor needs to be custom defined
+  ## Configuration for kube-state-metrics subchart
+  kube-state-metrics:
+    fullnameOverride: kube-state-metrics
+
+  ## Deploy a Prometheus instance
+  prometheus:
+    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+
+  ## Configuration for thanosRuler
+  ## ref: https://thanos.io/tip/components/rule.md/
+  thanosRuler:
+    enabled: false # This section needs to be further configured for queryEndpoints etc.
+
+  ## Set the following flags to false when custom recording rules are added to templates
+  ## Create default rules for monitoring the cluster
+  defaultRules:
+    create: true
+  ## Component scraping the kubelet and kubelet-hosted cAdvisor
+  kubelet:
+    enabled: true
+
+  ## Set the following flags to false when custom recording rules are added to templates
+  ## Since openchoreo-observability not meant to monitor the kubernetes cluster
+  ## Component scraping the kube api server
+  kubeApiServer:
+    enabled: true
+  kubeControllerManager:
+    enabled: true
+  coreDns:
+    enabled: true
+  kubeEtcd:
+    enabled: true
+  kubeScheduler:
+    enabled: true
+  kubeProxy:
+    enabled: true
+  nodeExporter:
+    enabled: true
+
+  windowsMonitoring:
+    enabled: false # This is the base chart default, can be removed from values.yaml
