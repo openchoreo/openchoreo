@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opensearch-cluster-setup
+  namespace: openchoreo-observability-plane
+  annotations:
+    helm.sh/hook: post-install, post-upgrade
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: cluster-setup
+        image: "{{ .Values.openSearchClusterSetup.image.repository }}:{{ .Values.openSearchClusterSetup.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.openSearchClusterSetup.image.pullPolicy | default "IfNotPresent" }}
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+          limits:
+            memory: "75Mi"
+            cpu: "75m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsGroup: 10500
+          runAsUser: 10500
+
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: opensearch

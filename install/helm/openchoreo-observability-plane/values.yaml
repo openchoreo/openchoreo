@@ -50,6 +50,11 @@ openSearch:
   image:
     tag: "3.3.0"
   masterService: opensearch
+
+  rbac:
+    create: true
+    serviceAccountName: "opensearch"
+
   securityConfig:
     enabled: false
   singleNode: true
@@ -106,6 +111,11 @@ openSearchCluster:
       backend_roles:
       - "admin"
       description: "Admin user"
+
+openSearchClusterSetup:
+  image:
+    repository: ghcr.io/openchoreo/opensearch-cluster-setup
+    tag: ""
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
