@@ -39,34 +39,34 @@ The Build CR uses a fixed schema that cannot be extended by platform engineers. 
 apiVersion: openchoreo.dev/v1alpha1
 kind: Build
 metadata:
-  name: private-app-build
-  namespace: myorg
+   name: private-app-build
+   namespace: myorg
 spec:
-  owner:
-    projectName: "backend-services"
-    componentName: "user-service"
-  # Schema provided by OpenChoreo
-  repository: 
-    url: "https://github.com/myorg/private-user-service.git"
-    revision:
-      branch: "main"
-    appPath: "."
-    credentialsRef: "github-pat"  
-  templateRef:
-    engine: "argo"
-    name: "buildpack-nodejs"
-    # Developer params provided by PE
-    parameters:
-      - name: "buildpack"
-        value: "nodejs"
-      - name: "dev-registry-url" 
-        value: "docker.io/myorg-dev"
-      - name: "dev-registry-credentials" 
-        value: "dockerhub-push-dev"
-      - name: "prod-registry-url" 
-        value: "docker.io/myorg-prod"
-      - name: "prod-registry-credentials"
-        value: "dockerhub-push-prod"
+   owner:
+      projectName: "backend-services"
+      componentName: "user-service"
+   # Schema provided by OpenChoreo
+   repository:
+      url: "https://github.com/myorg/private-user-service.git"
+      revision:
+         branch: "main"
+      appPath: "."
+      credentialsRef: "github-pat"
+   templateRef:
+      engine: "argo"
+      name: "buildpack-nodejs"
+      # Developer params provided by PE
+      parameters:
+         - name: "buildpack"
+           value: "nodejs"
+         - name: "dev-registry-url"
+           value: "docker.io/myorg-dev"
+         - name: "dev-registry-credentials"
+           value: "dockerhub-push-dev"
+         - name: "prod-registry-url"
+           value: "docker.io/myorg-prod"
+         - name: "prod-registry-credentials"
+           value: "dockerhub-push-prod"
 ```
 
 **Problems:**
@@ -189,7 +189,17 @@ This proposal introduces a flexible, schema-driven architecture using four key c
 
 #### 1. WorkflowDefinition CR
 
-The WorkflowDefinition CRD defines the schema, parameter mappings, and PE-controlled fixed parameters for a workflow template.
+The WorkflowDefinition defines the schema for developer parameters and contains a resource template that will be rendered and applied to the build plane. Template variables are substituted at runtime by the controller.
+
+**Available Template Variables:**
+- `${ctx.workflowName}` - Workflow CR name
+- `${ctx.componentName}` - Component name
+- `${ctx.projectName}` - Project name
+- `${ctx.orgName}` - Organization name (namespace)
+- `${ctx.timestamp}` - Unix timestamp
+- `${ctx.uuid}` - UUID (8 chars)
+- `${schema.*}` - Developer-provided values from schema
+- `${fixedParameters.*}` - PE-controlled fixed parameters
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -199,14 +209,6 @@ metadata:
    annotations:
       openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:
-   # Template Variable Reference (processed by controller):
-   # ${ctx.componentName}           - Component name 
-   # ${ctx.projectName}             - Project name 
-   # ${ctx.orgName}                 - Organization name
-   # ${ctx.timestamp}               - Unix timestamp (e.g., 1234567890)
-   # ${ctx.uuid}                    - UUID (8 chars)
-   # ${schema.*}                    - Developer-provided values from schema
-   # ${fixedParameters.*}           - PE-controlled fixed parameters
    # Developer-facing schema with type validation
    schema:
       repository:
@@ -215,20 +217,30 @@ spec:
             branch: string | default=main
             commit: string | default=HEAD
          appPath: string | default=.
-         credentialsRef: string | enum=["checkout-repo-credentials-dev","payments-repo-credentials-dev"]
+         secretRef: string | enum=["reading-list-repo-credentials-dev","payments-repo-credentials-dev"]
       version: integer | default=1
-      testMode: string | enum=["unit", "integration", "none"] | default=unit
+      testMode: string | enum=["unit", "integration", "none"] default=unit
+      command: '[]string | default=[]'
+      args: "[]string | default=[]"
+      resources:
+         cpuCores: integer | default=1 minimum=1 maximum=8
+         memoryGb: integer | default=2 minimum=1 maximum=32
+      timeout: string | default="30m"
+      cache:
+         enabled: boolean | default=true
+         paths: '[]string | default=["/root/.cache"]'
+      limits:
+         maxRetries: integer | default=3 minimum=0 maximum=10
+         maxDurationMinutes: integer | default=60 minimum=5 maximum=240
 
    # Secret references to inject into build plane
    secrets:
-      - ${schema.repository.credentialsRef}
+      - ${schema.repository.secretRef}
 
    # Static, PE-controlled parameters (hidden from developer)
    fixedParameters:
       - name: builder-image
-        value: gcr.io/buildpacks/builder:v1
-      - name: registry-url
-        value: gcr.io/openchoreo-dev/images
+        value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
       - name: security-scan-enabled
         value: "true"
       - name: build-timeout
@@ -240,7 +252,7 @@ spec:
          apiVersion: argoproj.io/v1alpha1
          kind: Workflow
          metadata:
-            name: ${ctx.componentName}-${schema.repository.revision.commit}-${ctx.uuid} # PE needs to ensure uniqueness
+            name: ${ctx.workflowName} # PE needs to ensure uniqueness, workflowName is unique
             namespace: openchoreo-ci-${ctx.orgName}
          spec:
             arguments:
@@ -250,7 +262,7 @@ spec:
                   - name: project-name
                     value: ${ctx.projectName}
                   # Parameters from schema (developer-facing)
-                  - name: repo-url
+                  - name: git-repo
                     value: ${schema.repository.url}
                   - name: branch
                     value: ${schema.repository.revision.branch}
@@ -262,15 +274,37 @@ spec:
                     value: ${schema.version}
                   - name: test-mode
                     value: ${schema.testMode}
+                  - name: command
+                    value: ${schema.command}
+                  - name: args
+                    value: ${schema.args}
+                  - name: cpu-cores
+                    value: ${schema.resources.cpuCores}
+                  - name: memory-gb
+                    value: ${schema.resources.memoryGb}
+                  - name: timeout
+                    value: ${schema.timeout}
+                  - name: cache-enabled
+                    value: ${schema.cache.enabled}
+                  - name: cache-paths
+                    value: ${schema.cache.paths}
+                  - name: max-retries
+                    value: ${schema.limits.maxRetries}
+                  - name: max-duration-minutes
+                    value: ${schema.limits.maxDurationMinutes}
                   # Parameters from fixedParameters (PE-controlled)
                   - name: builder-image
-                    value: ${fixedParameters.builder-image}
+                    value: ${fixedParameters["builder-image"]}
                   - name: registry-url
-                    value: ${fixedParameters.registry-url}
+                    value: gcr.io/openchoreo-dev/images
                   - name: security-scan-enabled
-                    value: ${fixedParameters.security-scan-enabled}
+                    value: ${fixedParameters["security-scan-enabled"]}
                   - name: build-timeout
-                    value: ${fixedParameters.build-timeout}
+                    value: ${fixedParameters["build-timeout"]}
+                  - name: image-name
+                    value: ${ctx.projectName}-${ctx.componentName}-image
+                  - name: image-tag
+                    value: v${schema.version}
             serviceAccountName: workflow-sa
             workflowTemplateRef:
                clusterScope: true
@@ -291,19 +325,27 @@ ComponentTypeDefinition is extended to restrict which workflow templates develop
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentTypeDefinition
 metadata:
-  name: service
+   name: service
 spec:
-  # Restrict which workflow templates developers can use for this component type
-  build:
-    allowedTemplates:
-      - name: google-cloud-buildpacks
-        # PE-controlled parameters that override WorkflowDefinition defaults
-        fixedParameters:
-          - name: security-scan-enabled
-            value: false
-          - name: build-timeout
-            value: "45m"
-      - name: docker
+   # Restrict which workflow templates developers can use for this component type
+   build:
+      allowedTemplates:
+         - name: google-cloud-buildpacks
+            # PE-controlled parameters that override WorkflowDefinition defaults
+           fixedParameters:
+              - name: security-scan-enabled
+                value: "false"
+              - name: build-timeout
+                value: "45m"
+         - name: docker
+            # PE-controlled parameters that override WorkflowDefinition defaults
+           fixedParameters:
+              - name: build-timeout
+                value: "45m"
+
+   workloadType: deployment
+
+   # rest ... 
 ```
 
 **Key Features:**
@@ -319,28 +361,43 @@ Developer-created resource containing build configuration conforming to the Work
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: checkout-service
+   name: reading-list-service
 spec:
-  # References the ComponentTypeDefinition
-  componentType: deployment/service
-  
-  # Selects a WorkflowDefinition from allowed templates in ComponentTypeDefinition
-  workflowTemplate: google-cloud-buildpacks
-  
-  # Build configuration matching the schema from WorkflowDefinition
-  build:
-    # Nested structure from schema
-    repository:
-      url: "https://github.com/myorg/checkout-service.git"
-      revision:
-        branch: "release/v2"
-        commit: "a1b2c3d"
-      appPath: "./src"
-      credentialsRef: "checkout-repo-credentials-dev"
+   owner:
+      projectName: default
+   # References the ComponentTypeDefinition
+   componentType: deployment/service
 
-    # Simple schema fields
-    version: 3
-    testMode: "integration"  # From enum: ["unit", "integration", "none"]
+   # Build configuration matching the schema from WorkflowDefinition
+   build:
+      # Selects a WorkflowDefinition from allowed templates in ComponentTypeDefinition
+      workflowTemplate: google-cloud-buildpacks
+      schema:
+         # Nested structure from schema
+         repository:
+            url: "https://github.com/openchoreo/sample-workloads"
+            revision:
+               branch: "main"
+               commit: ""
+            appPath: "/service-go-reading-list"
+            secretRef: "reading-list-repo-credentials-dev"
+
+         version: 1
+         testMode: "integration"  # From enum: ["unit", "integration", "none"]
+         command: ["npm", "run", "build"]
+         args: ["--production", "--verbose"]
+         resources:
+            cpuCores: 2
+            memoryGb: 4
+         timeout: "45m"
+         cache:
+            enabled: true
+            paths: ["/root/.npm", "/root/.cache"]
+         limits:
+            maxRetries: 5
+            maxDurationMinutes: 90
+            
+   # rest ...
 ```
 
 **Key Features:**
@@ -357,29 +414,40 @@ Runtime execution resource created when triggering a workflow. Contains the same
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  # Should be unique per execution, PEs must ensure uniqueness
-  name: checkout-service-build-01-abc123
+   # Should be unique per execution, PEs must ensure uniqueness
+   name: reading-list-service-build-01
 spec:
-  # Ownership tracking for the workflow execution
-  owner:
-    projectName: "backend-services"
-    componentName: "checkout-service"
+   # Ownership tracking for the workflow execution
+   owner:
+      projectName: "default"
+      componentName: "reading-list-service"
 
-  # Developer parameters from Component CR
-  parameters:
-    repository:
-      url: "https://github.com/myorg/checkout-service.git"
-      revision:
-        branch: "release/v2"
-        commit: "a1b2c3d"
-      appPath: "./src"
-      credentialsRef: "checkout-repo-credentials-dev"
-    version: 3
-    testMode: "integration"
+   # Reference to WorkflowDefinition
+   workflowDefinitionRef: google-cloud-buildpacks
 
-status:
-  # Execution status tracking
-  phase: Running
+   # Developer parameters from Component CR (matching schema)
+   schema:
+      repository:
+         url: "https://github.com/openchoreo/sample-workloads"
+         revision:
+            branch: "main"
+            commit: ""
+         appPath: "/service-go-reading-list"
+         secretRef: "reading-list-repo-credentials-dev"
+      version: 1
+      testMode: "integration"
+      command: ["npm", "run", "build"]
+      args: ["--production", "--verbose"]
+      resources:
+         cpuCores: 2
+         memoryGb: 4
+      timeout: "45m"
+      cache:
+         enabled: true
+         paths: ["/root/.npm", "/root/.cache"]
+      limits:
+         maxRetries: 5
+         maxDurationMinutes: 90
 ```
 ---
 
@@ -391,128 +459,61 @@ The Workflow controller generates the final Argo Workflow CR by combining all pa
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  name: checkout-service-build-01-abc123
-  namespace: openchoreo-ci-default
-  labels:
-    openchoreo.dev/project: backend-services
-    openchoreo.dev/component: checkout-service
-    openchoreo.dev/workflow: checkout-service-build-01
+   name: reading-list-service-build-01
+   namespace: openchoreo-ci-default
 spec:
-  arguments:
-    parameters:
-      # Developer parameters (from schema)
-      - name: repo-url
-        value: https://github.com/myorg/checkout-service.git
-      - name: branch
-        value: release/v2
-      - name: commit
-        value: a1b2c3d
-      - name: app-path
-        value: ./src
-      - name: version
-        value: "3"
-      - name: test-mode
-        value: integration
-
-      # Fixed PE parameters (from WorkflowDefinition/ComponentTypeDefinition)
-      - name: language
-        value: go
-      - name: sca-scan
-        value: "true"
-      - name: cache-enabled
-        value: "true"
-
-      # OpenChoreo context parameters (injected by controller)
-      - name: project-name
-        value: backend-services
-      - name: component-name
-        value: checkout-service
-
-  # From WorkflowDefinition
-  serviceAccountName: choreo-build-bot
-
-  # Reference to the Argo Workflow template
-  workflowTemplateRef:
-    clusterScope: true
-    name: google-cloud-buildpacks
+   arguments:
+      parameters:
+         - name: component-name
+           value: reading-list-service
+         - name: project-name
+           value: default
+         - name: git-repo
+           value: https://github.com/openchoreo/sample-workloads
+         - name: branch
+           value: main
+         - name: commit
+           value: ""
+         - name: app-path
+           value: /service-go-greeter
+         - name: credentialsRef
+           value: reading-list-repo-credentials-dev
+         - name: version
+           value: "1"
+         - name: test-mode
+           value: integration
+         - name: command
+           value: '["npm","run","build"]'
+         - name: args
+           value: '["--production","--verbose"]'
+         - name: cpu-cores
+           value: "2"
+         - name: memory-gb
+           value: "4"
+         - name: timeout
+           value: 45m
+         - name: cache-enabled
+           value: "true"
+         - name: cache-paths
+           value: '["/root/.npm","/root/.cache"]'
+         - name: max-retries
+           value: "5"
+         - name: max-duration-minutes
+           value: "90"
+         - name: builder-image
+           value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
+         - name: registry-url
+           value: gcr.io/openchoreo-dev/images
+         - name: security-scan-enabled
+           value: unknown
+         - name: build-timeout
+           value: 0m
+         - name: image-name
+           value: reading-list-service-image
+         - name: image-tag
+           value: v1
+   serviceAccountName: workflow-sa
+   workflowTemplateRef:
+      clusterScope: true
+      name: google-cloud-buildpacks
 ```
-
----
-
-### Advanced WorkflowDefinition with Template Rendering
-
-For advanced use cases, WorkflowDefinition supports direct resource template rendering with contextual variables:
-
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowDefinition
-metadata:
-  name: google-cloud-buildpacks
-  annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
-spec:
-  # Template Variable Reference (processed by controller):
-  # ${ctx.componentName}           - Component name
-  # ${ctx.projectName}             - Project name
-  # ${ctx.orgName}                 - Organization name
-  # ${ctx.timestamp}               - Unix timestamp (e.g., 1234567890)
-  # ${ctx.uuid}                    - UUID (8 chars)
-  # ${schema.*}                    - Developer-provided values from schema
-  # ${fixedParameters.*}           - PE-controlled fixed parameters
-  
-  schema:
-        ...
-  fixedParameters:
-        ...
-  
-  # Rendered resource template
-  resource:
-    template:
-      apiVersion: argoproj.io/v1alpha1
-      kind: Workflow
-      metadata:
-        name: ${ctx.componentName}-${schema.repository.revision.commit}-${ctx.uuid}
-        namespace: openchoreo-ci-${ctx.orgName}
-      spec:
-        arguments:
-          parameters:
-            # Context parameters
-            - name: component-name
-              value: ${ctx.componentName}
-            - name: project-name
-              value: ${ctx.projectName}
-
-            # Parameters from schema (developer-facing)
-            - name: repo-url
-              value: ${schema.repository.url}
-            - name: branch
-              value: ${schema.repository.revision.branch}
-            - name: commit
-              value: ${schema.repository.revision.commit}
-            - name: app-path
-              value: ${schema.repository.appPath}
-            - name: version
-              value: ${schema.version}
-            - name: test-mode
-              value: ${schema.testMode}
-
-            # Parameters from fixedParameters (PE-controlled)
-            - name: builder-image
-              value: ${fixedParameters.builder-image}
-            - name: registry-url
-              value: ${fixedParameters.registry-url}
-            - name: security-scan-enabled
-              value: ${fixedParameters.security-scan-enabled}
-            - name: build-timeout
-              value: ${fixedParameters.build-timeout}
-
-        serviceAccountName: workflow-sa
-        workflowTemplateRef:
-          clusterScope: true
-          name: google-cloud-buildpacks
-```
-
-**Template Variables:**
-- **Context Variables** (`${ctx.*}`): Injected by the controller.
-- **Schema Variables** (`${schema.*}`): Developer-provided values from the Component CR.
-- **Fixed Parameters** (`${fixedParameters.*}`): PE-controlled values from WorkflowDefinition/ComponentTypeDefinition.
