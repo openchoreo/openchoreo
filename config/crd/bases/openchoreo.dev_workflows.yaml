@@ -79,10 +79,6 @@ spec:
           status:
             description: status defines the observed state of Workflow
             properties:
-              completionTime:
-                description: CompletionTime is the time when the workflow completed
-                format: date-time
-                type: string
               conditions:
                 description: conditions represent the current state of the Workflow
                   resource.
@@ -152,19 +148,20 @@ spec:
                     description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
                     type: string
                 type: object
-              message:
-                description: Message provides a human-readable message about the workflow
-                  status
-                type: string
-              phase:
+              runReference:
                 description: |-
-                  Phase represents the current phase of the workflow execution.
-                  Possible values: Pending, Running, Succeeded, Failed, Error
-                type: string
-              startTime:
-                description: StartTime is the time when the workflow started execution
-                format: date-time
-                type: string
+                  RunReference contains a reference to the workflow run resource that was applied to the cluster.
+                  This tracks the actual workflow execution instance in the target cluster.
+                properties:
+                  name:
+                    description: Name is the name of the workflow run resource in
+                      the target cluster
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the workflow run resource
+                      in the target cluster
+                    type: string
+                type: object
             type: object
         required:
         - spec

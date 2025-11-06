@@ -96,6 +96,23 @@ func setWorkflowFailedCondition(workflow *openchoreov1alpha1.Workflow) {
 	})
 }
 
+func setWorkflowNotFoundCondition(workflow *openchoreov1alpha1.Workflow) {
+	meta.SetStatusCondition(&workflow.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowRunning),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonWorkflowRunning),
+		Message:            "Workflow is not found in the cluster",
+		ObservedGeneration: workflow.Generation,
+	})
+	meta.SetStatusCondition(&workflow.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonWorkflowFailed),
+		Message:            "Workflow has been deleted from the cluster",
+		ObservedGeneration: workflow.Generation,
+	})
+}
+
 func setWorkloadUpdatedCondition(workflow *openchoreov1alpha1.Workflow) {
 	meta.SetStatusCondition(&workflow.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkloadUpdated),
@@ -124,8 +141,8 @@ func isWorkflowCompleted(workflow *openchoreov1alpha1.Workflow) bool {
 	return meta.IsStatusConditionTrue(workflow.Status.Conditions, string(ConditionWorkflowCompleted))
 }
 
-func isWorkflowFailed(workflow *openchoreov1alpha1.Workflow) bool {
-	return meta.IsStatusConditionTrue(workflow.Status.Conditions, string(ConditionWorkflowFailed))
+func isWorkflowSucceeded(workflow *openchoreov1alpha1.Workflow) bool {
+	return meta.IsStatusConditionTrue(workflow.Status.Conditions, string(ConditionWorkflowSucceeded))
 }
 
 func isWorkloadUpdated(workflow *openchoreov1alpha1.Workflow) bool {

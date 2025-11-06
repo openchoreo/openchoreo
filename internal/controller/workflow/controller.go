@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -61,10 +60,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if isWorkflowCompleted(workflow) {
-		if isWorkflowFailed(workflow) {
-			return ctrl.Result{}, nil
+		if isWorkflowSucceeded(workflow) {
+			return r.handleWorkloadCreation(ctx, oldWorkflow, workflow)
 		}
-		return r.handleWorkloadCreation(ctx, oldWorkflow, workflow)
+		return ctrl.Result{}, nil
 	}
 
 	if !isWorkflowInitiated(workflow) {
@@ -84,6 +83,26 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
+	if workflow.Status.RunReference.Name != "" && workflow.Status.RunReference.Namespace != "" {
+		// Use the stored reference to retrieve the workflow run
+		workflowRun := &argoproj.Workflow{}
+		err = bpClient.Get(ctx, types.NamespacedName{
+			Name:      workflow.Status.RunReference.Name,
+			Namespace: workflow.Status.RunReference.Namespace,
+		}, workflowRun)
+
+		if err == nil {
+			return r.syncWorkflowRunStatus(ctx, oldWorkflow, workflow, workflowRun)
+		} else if !errors.IsNotFound(err) {
+			logger.Error(err, "failed to get workflow run")
+			return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
+		}
+		// If not found, fail the workflow execution
+		setWorkflowNotFoundCondition(workflow)
+		return r.updateStatusAndReturn(ctx, oldWorkflow, workflow)
+	}
+
+	// Workflow run doesn't exist yet, create it
 	workflowDef := &openchoreodevv1alpha1.WorkflowDefinition{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      workflow.Spec.WorkflowDefinitionRef,
@@ -93,22 +112,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
-	workflowRunName, workflowRunNamespace, err := r.getWorkflowRunMetadata(workflow, workflowDef)
+	_, workflowRunNamespace, err := r.getWorkflowRunMetadata(workflow, workflowDef)
 	if err != nil {
 		logger.Error(err, "failed to get workflow run name and namespace")
-		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
-	}
-
-	workflowRun := &argoproj.Workflow{}
-	err = bpClient.Get(ctx, types.NamespacedName{
-		Name:      workflowRunName,
-		Namespace: workflowRunNamespace,
-	}, workflowRun)
-
-	if err == nil {
-		return r.syncWorkflowRunStatus(ctx, oldWorkflow, workflow, workflowRun)
-	} else if !errors.IsNotFound(err) {
-		logger.Error(err, "failed to check workflow run existence")
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
 	}
 
@@ -226,19 +232,12 @@ func (r *Reconciler) syncWorkflowRunStatus(
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	if workflow.Status.StartTime == nil && !workflowRun.Status.StartedAt.IsZero() {
-		workflow.Status.StartTime = &metav1.Time{Time: workflowRun.Status.StartedAt.Time}
-	}
-
 	switch workflowRun.Status.Phase {
 	case argoproj.WorkflowRunning:
 		setWorkflowRunningCondition(workflow)
 		return r.updateStatusAndRequeueAfter(ctx, oldWorkflow, workflow, 20*time.Second)
 	case argoproj.WorkflowSucceeded:
 		setWorkflowSucceededCondition(workflow)
-		if !workflowRun.Status.FinishedAt.IsZero() {
-			workflow.Status.CompletionTime = &metav1.Time{Time: workflowRun.Status.FinishedAt.Time}
-		}
 		// Extract image from push-step
 		if pushStep := getStepByTemplateName(workflowRun.Status.Nodes, engines.StepPush); pushStep != nil {
 			if image := getImageNameFromWorkflow(*pushStep.Outputs); image != "" {
@@ -252,9 +251,6 @@ func (r *Reconciler) syncWorkflowRunStatus(
 		return ctrl.Result{Requeue: true}, nil
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
 		setWorkflowFailedCondition(workflow)
-		if !workflowRun.Status.FinishedAt.IsZero() {
-			workflow.Status.CompletionTime = &metav1.Time{Time: workflowRun.Status.FinishedAt.Time}
-		}
 		return r.updateStatusAndReturn(ctx, oldWorkflow, workflow)
 	default:
 		return r.updateStatusAndRequeue(ctx, oldWorkflow, workflow)
@@ -291,6 +287,7 @@ func (r *Reconciler) applyRenderedResource(
 	existingResource := &unstructured.Unstructured{}
 	existingResource.SetGroupVersionKind(unstructuredResource.GroupVersionKind())
 
+	// Capture the name and namespace before applying
 	namespace := unstructuredResource.GetNamespace()
 	name := unstructuredResource.GetName()
 
@@ -301,22 +298,30 @@ func (r *Reconciler) applyRenderedResource(
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("creating rendered resource on build plane",
-				"kind", unstructuredResource.GetKind(),
-				"name", name,
-				"namespace", namespace)
-			return bpClient.Create(ctx, unstructuredResource)
+			if err := bpClient.Create(ctx, unstructuredResource); err != nil {
+				return err
+			}
+			// Update workflow status with the run reference after successful creation
+			workflow.Status.RunReference.Name = name
+			workflow.Status.RunReference.Namespace = namespace
+			if err := r.Status().Update(ctx, workflow); err != nil {
+				logger.Error(err, "Failed to update workflow status")
+				return err
+			}
+			return nil
 		}
 		return fmt.Errorf("failed to get existing resource: %w", err)
 	}
 
-	logger.Info("updating rendered resource on build plane",
-		"kind", unstructuredResource.GetKind(),
-		"name", name,
-		"namespace", namespace)
-
 	unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
-	return bpClient.Update(ctx, unstructuredResource)
+	if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+		return err
+	}
+
+	// Update workflow status with the run reference after successful update
+	workflow.Status.RunReference.Name = name
+	workflow.Status.RunReference.Namespace = namespace
+	return nil
 }
 
 func (r *Reconciler) createWorkloadFromWorkflowRun(
@@ -326,23 +331,16 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 ) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("workflow", workflow.Name)
 
-	workflowDef := &openchoreodevv1alpha1.WorkflowDefinition{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      workflow.Spec.WorkflowDefinitionRef,
-		Namespace: workflow.Namespace,
-	}, workflowDef); err != nil {
-		return true, fmt.Errorf("failed to get WorkflowDefinition: %w", err)
-	}
-
-	workflowRunName, workflowRunNamespace, err := r.getWorkflowRunMetadata(workflow, workflowDef)
-	if err != nil {
-		return true, fmt.Errorf("failed to get workflow run name and namespace: %w", err)
+	// Use the stored RunReference to retrieve the workflow run
+	if workflow.Status.RunReference.Name == "" || workflow.Status.RunReference.Namespace == "" {
+		logger.Error(nil, "workflow run reference not found in status")
+		return true, fmt.Errorf("workflow run reference not set in status")
 	}
 
 	argoWorkflow := &argoproj.Workflow{}
 	if err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      workflowRunName,
-		Namespace: workflowRunNamespace,
+		Name:      workflow.Status.RunReference.Name,
+		Namespace: workflow.Status.RunReference.Namespace,
 	}, argoWorkflow); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("argo workflow not found, skipping workload creation")
@@ -354,7 +352,7 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 	workloadCR := extractWorkloadCRFromArgoWorkflow(argoWorkflow)
 	if workloadCR == "" {
 		logger.Info("no workload CR found in argo workflow outputs")
-		return false, fmt.Errorf("no workload CR found in argo workflow outputs: %w", err)
+		return false, fmt.Errorf("no workload CR found in argo workflow outputs")
 	}
 
 	workload := &openchoreodevv1alpha1.Workload{}

@@ -50,23 +50,6 @@ type WorkflowOwner struct {
 
 // WorkflowStatus defines the observed state of Workflow.
 type WorkflowStatus struct {
-	// Phase represents the current phase of the workflow execution.
-	// Possible values: Pending, Running, Succeeded, Failed, Error
-	// +optional
-	Phase string `json:"phase,omitempty"`
-
-	// Message provides a human-readable message about the workflow status
-	// +optional
-	Message string `json:"message,omitempty"`
-
-	// StartTime is the time when the workflow started execution
-	// +optional
-	StartTime *metav1.Time `json:"startTime,omitempty"`
-
-	// CompletionTime is the time when the workflow completed
-	// +optional
-	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
-
 	// conditions represent the current state of the Workflow resource.
 	// +listType=map
 	// +listMapKey=type
@@ -76,6 +59,11 @@ type WorkflowStatus struct {
 	// ImageStatus contains information about the built image from the workflow
 	// +optional
 	ImageStatus WorkflowImage `json:"imageStatus,omitempty"`
+
+	// RunReference contains a reference to the workflow run resource that was applied to the cluster.
+	// This tracks the actual workflow execution instance in the target cluster.
+	// +optional
+	RunReference WorkflowRunReference `json:"runReference,omitempty"`
 }
 
 // WorkflowImage contains information about a container image produced by a workflow
@@ -83,6 +71,18 @@ type WorkflowImage struct {
 	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
 	// +optional
 	Image string `json:"image,omitempty"`
+}
+
+// WorkflowRunReference contains a reference to the workflow run resource applied to the cluster.
+// This allows tracking the actual workflow execution instance that was created in the target cluster.
+type WorkflowRunReference struct {
+	// Name is the name of the workflow run resource in the target cluster
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Namespace is the namespace of the workflow run resource in the target cluster
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true
