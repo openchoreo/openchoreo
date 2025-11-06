@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -32,12 +33,36 @@ var _ = Describe("WorkflowDefinition Controller", func() {
 			By("creating the custom resource for the Kind WorkflowDefinition")
 			err := k8sClient.Get(ctx, typeNamespacedName, workflowdefinition)
 			if err != nil && errors.IsNotFound(err) {
+				// Create a minimal valid WorkflowDefinition with required resource.template
 				resource := &openchoreodevv1alpha1.WorkflowDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: openchoreodevv1alpha1.WorkflowDefinitionSpec{
+						Resource: openchoreodevv1alpha1.WorkflowResource{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{
+									"apiVersion": "argoproj.io/v1alpha1",
+									"kind": "Workflow",
+									"metadata": {
+										"name": "test-workflow"
+									},
+									"spec": {
+										"entrypoint": "main",
+										"templates": [{
+											"name": "main",
+											"container": {
+												"image": "alpine:latest",
+												"command": ["echo"],
+												"args": ["Hello World"]
+											}
+										}]
+									}
+								}`),
+							},
+						},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
