@@ -74,13 +74,73 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 
+	// Use index to get stable pointer to slice element (not loop variable)
+	// This prevents pointer aliasing issues where range copies the value
 	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
-	for _, item := range projectList.Items {
-		projects = append(projects, s.toProjectResponse(&item))
+	for i := range projectList.Items {
+		projects = append(projects, s.toProjectResponse(&projectList.Items[i]))
 	}
 
 	s.logger.Debug("Listed projects", "org", orgName, "count", len(projects))
 	return projects, nil
+}
+
+// ListProjectsWithCursor lists projects for an org with cursor-based pagination
+// Note: continueToken is validated at the handler layer before reaching this service.
+// The Kubernetes API server performs additional validation and will return appropriate
+// errors if the token is malformed or expired, which are handled below.
+func (s *ProjectService) ListProjectsWithCursor(
+	ctx context.Context,
+	orgName string,
+	continueToken string,
+	limit int64,
+) ([]*models.ProjectResponse, string, error) {
+	s.logger.Debug("Listing projects with cursor",
+		"org", orgName,
+		"continue", continueToken,
+		"limit", limit)
+
+	var projectList openchoreov1alpha1.ProjectList
+
+	// List projects filtered by organization
+	listOpts := []client.ListOption{
+		client.Limit(limit),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: orgName,
+		},
+	}
+
+	if continueToken != "" {
+		listOpts = append(listOpts, client.Continue(continueToken))
+	}
+
+	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {
+		// Check if continue token expired
+		if isExpiredTokenError(err) {
+			return nil, "", ErrContinueTokenExpired
+		}
+		if isInvalidCursorError(err) {
+			return nil, "", ErrInvalidCursorFormat
+		}
+		if isServiceUnavailableError(err) {
+			return nil, "", fmt.Errorf("service unavailable: %w", err)
+		}
+		return nil, "", fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
+	for i := range projectList.Items {
+		projects = append(projects, s.toProjectResponse(&projectList.Items[i]))
+	}
+
+	nextContinue := projectList.Continue
+
+	s.logger.Debug("Listed projects",
+		"org", orgName,
+		"count", len(projects),
+		"nextContinue", nextContinue)
+
+	return projects, nextContinue, nil
 }
 
 // GetProject retrieves a specific project

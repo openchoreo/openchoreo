@@ -40,13 +40,70 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 		return nil, fmt.Errorf("failed to list organizations: %w", err)
 	}
 
+	// Use index to get stable pointer to slice element (not loop variable)
+	// This prevents pointer aliasing issues where range copies the value
 	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
-	for _, item := range orgList.Items {
-		organizations = append(organizations, s.toOrganizationResponse(&item))
+	for i := range orgList.Items {
+		organizations = append(organizations, s.toOrganizationResponse(&orgList.Items[i]))
 	}
 
 	s.logger.Debug("Listed organizations", "count", len(organizations))
 	return organizations, nil
+}
+
+// ListOrganizationsWithCursor lists organizations with cursor-based pagination
+// Note: continueToken is validated at the handler layer before reaching this service.
+// The Kubernetes API server performs additional validation and will return appropriate
+// errors if the token is malformed or expired, which are handled below.
+func (s *OrganizationService) ListOrganizationsWithCursor(
+	ctx context.Context,
+	continueToken string,
+	limit int64,
+) ([]*models.OrganizationResponse, string, error) {
+	s.logger.Debug("Listing organizations with cursor",
+		"continue", continueToken,
+		"limit", limit)
+
+	var orgList openchoreov1alpha1.OrganizationList
+
+	// Set up list options with K8s pagination
+	listOpts := []client.ListOption{
+		client.Limit(limit),
+	}
+
+	// Add continue token if provided
+	if continueToken != "" {
+		listOpts = append(listOpts, client.Continue(continueToken))
+	}
+
+	if err := s.k8sClient.List(ctx, &orgList, listOpts...); err != nil {
+		// Check if continue token expired
+		if isExpiredTokenError(err) {
+			return nil, "", ErrContinueTokenExpired
+		}
+		if isInvalidCursorError(err) {
+			return nil, "", ErrInvalidCursorFormat
+		}
+		if isServiceUnavailableError(err) {
+			return nil, "", fmt.Errorf("service unavailable: %w", err)
+		}
+		return nil, "", fmt.Errorf("failed to list organizations: %w", err)
+	}
+
+	// Convert to response models
+	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
+	for i := range orgList.Items {
+		organizations = append(organizations, s.toOrganizationResponse(&orgList.Items[i]))
+	}
+
+	// Get the next continue token from K8s response
+	nextContinue := orgList.Continue
+
+	s.logger.Debug("Listed organizations",
+		"count", len(organizations),
+		"nextContinue", nextContinue)
+
+	return organizations, nextContinue, nil
 }
 
 // GetOrganization retrieves a specific organization
@@ -76,16 +133,18 @@ func (s *OrganizationService) toOrganizationResponse(org *openchoreov1alpha1.Org
 	displayName := org.Annotations[controller.AnnotationKeyDisplayName]
 	description := org.Annotations[controller.AnnotationKeyDescription]
 
-	// Get status from conditions
+	// handle empty conditions slice
 	status := statusUnknown
 	if len(org.Status.Conditions) > 0 {
-		// Get the latest condition
+		// Get the latest condition safely
 		latestCondition := org.Status.Conditions[len(org.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
 			status = statusReady
 		} else {
 			status = statusNotReady
 		}
+	} else {
+		s.logger.Debug("Organization has no status conditions", "org", org.Name)
 	}
 
 	return &models.OrganizationResponse{
