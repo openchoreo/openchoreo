@@ -96,15 +96,18 @@ func TestPipeline_Render(t *testing.T) {
           basicAuth:
             username: admin
             password: secretpassword
+      secretStoreRef:
+        name: prod-vault-store
   `
 	tests := []struct {
-		name             string
-		snapshotYAML     string
-		settingsYAML     string
-		wantErr          bool
-		wantResourceYAML string
-		environmentYAML  string
-		dataplaneYAML    string
+		name                 string
+		snapshotYAML         string
+		settingsYAML         string
+		wantErr              bool
+		wantResourceYAML     string
+		environmentYAML      string
+		dataplaneYAML        string
+		secretReferencesYAML string
 	}{
 		{
 			name: "simple component without traits",
@@ -939,6 +942,740 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name: "component with env and file secrets",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 2
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                          [{
+                            "secretRef": {
+                              "name": oc_generate_name(metadata.name, "env-secrets")
+                            }
+                          }] : []}
+                      volumeMounts: |
+                        ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                          configurations.secrets.files.map(f, {
+                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                            "mountPath": f.mountPath+"/"+f.name,
+                            "subPath": f.name
+                          }) : oc_omit()}
+                  volumes: |
+                    ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      configurations.secrets.files.map(f, {
+                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                        "secret": {
+                          "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
+                        }
+                      }) : oc_omit()}
+        - id: secret-env-external
+          includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
+          template:
+            apiVersion: external-secrets.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-secrets")}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.secretStore}
+                kind: ClusterSecretStore
+              target:
+                name: ${oc_generate_name(metadata.name, "env-secrets")}
+                creationPolicy: Owner
+              data: |
+                ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+                  "secretKey": secret.name,
+                  "remoteRef": {
+                    "key": secret.remoteRef.key,
+                    "property": secret.remoteRef.property
+                  }
+                }) : oc_omit()}
+        - id: secret-file-external
+          includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
+          forEach: ${configurations.secrets.files}
+          var: file
+          template:
+            apiVersion: external-secrets.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.secretStore}
+                kind: ClusterSecretStore
+              target:
+                name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+                creationPolicy: Owner
+              data:
+                - secretKey: ${file.name}
+                  remoteRef:
+                    key: ${file.remoteRef.key}
+                    property: ${file.remoteRef.property}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          env:
+            - key: DB_PASSWORD
+              valueFrom:
+                secretRef:
+                  name: db-secret
+                  key: password
+            - key: API_KEY
+              valueFrom:
+                secretRef:
+                  name: api-secret
+                  key: api_key
+          files:
+            - key: tls.crt
+              mountPath: /etc/tls
+              valueFrom:
+                secretRef:
+                  name: tls-secret
+                  key: tls.crt
+            - key: application.yaml
+              mountPath: /etc/config
+              valueFrom:
+                secretRef:
+                  name: app-config-secret
+                  key: application.yaml
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			secretReferencesYAML: `
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: db-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: password
+        remoteRef:
+          key: prod/db
+          property: password
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: api-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: api_key
+        remoteRef:
+          key: prod/api
+          property: api_key
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: tls-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: tls.crt
+        remoteRef:
+          key: prod/certificates
+          property: tls.crt
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: app-config-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: application.yaml
+        remoteRef:
+          key: prod/config
+          property: application.yaml
+`,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom:
+              - secretRef:
+                  name: test-component-dev-12345678-env-secrets-7d163eae
+            volumeMounts:
+              - name: file-mount-5953ef7b
+                mountPath: /etc/config/application.yaml
+                subPath: application.yaml
+              - name: file-mount-9b2ef275
+                mountPath: /etc/tls/tls.crt
+                subPath: tls.crt
+        volumes:
+          - name: file-mount-5953ef7b
+            secret:
+              secretName: test-component-dev-12345678-secret-application-yaml-f2042975
+          - name: file-mount-9b2ef275
+            secret:
+              secretName: test-component-dev-12345678-secret-tls-crt-baf3eb48
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-env-secrets-7d163eae
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-env-secrets-7d163eae
+      creationPolicy: Owner
+    data:
+      - secretKey: DB_PASSWORD
+        remoteRef:
+          key: prod/db
+          property: password
+      - secretKey: API_KEY
+        remoteRef:
+          key: prod/api
+          property: api_key
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-application-yaml-f2042975
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-application-yaml-f2042975
+      creationPolicy: Owner
+    data:
+      - secretKey: application.yaml
+        remoteRef:
+          key: prod/config
+          property: application.yaml
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+      creationPolicy: Owner
+    data:
+      - secretKey: tls.crt
+        remoteRef:
+          key: prod/certificates
+          property: tls.crt
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with secret overrides",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                          [{
+                            "secretRef": {
+                              "name": oc_generate_name(metadata.name, "env-secrets")
+                            }
+                          }] : []}
+                      volumeMounts: |
+                        ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                          configurations.secrets.files.map(f, {
+                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                            "mountPath": f.mountPath+"/"+f.name,
+                            "subPath": f.name
+                          }) : oc_omit()}
+                  volumes: |
+                    ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      configurations.secrets.files.map(f, {
+                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                        "secret": {
+                          "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
+                        }
+                      }) : oc_omit()}
+        - id: secret-env-external
+          includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
+          template:
+            apiVersion: external-secrets.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-secrets")}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.secretStore}
+                kind: ClusterSecretStore
+              target:
+                name: ${oc_generate_name(metadata.name, "env-secrets")}
+                creationPolicy: Owner
+              data: |
+                ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+                  "secretKey": secret.name,
+                  "remoteRef": {
+                    "key": secret.remoteRef.key,
+                    "property": secret.remoteRef.property
+                  }
+                }) : oc_omit()}
+        - id: secret-file-external
+          includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
+          forEach: ${configurations.secrets.files}
+          var: file
+          template:
+            apiVersion: external-secrets.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            spec:
+              refreshInterval: 15s
+              secretStoreRef:
+                name: ${dataplane.secretStore}
+                kind: ClusterSecretStore
+              target:
+                name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+                creationPolicy: Owner
+              data:
+                - secretKey: ${file.name}
+                  remoteRef:
+                    key: ${file.remoteRef.key}
+                    property: ${file.remoteRef.property}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          env:
+            - key: DATABASE_PASSWORD
+              valueFrom:
+                secretRef:
+                  name: database-dev-secret
+                  key: password
+          files:
+            - key: config.yaml
+              mountPath: /etc/config
+              valueFrom:
+                secretRef:
+                  name: config-dev-secret
+                  key: config.yaml
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			secretReferencesYAML: `
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: database-dev-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: password
+        remoteRef:
+          key: database/dev
+          property: password
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: database-prod-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: password
+        remoteRef:
+          key: database/prod
+          property: password
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: api-prod-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: token
+        remoteRef:
+          key: api/prod
+          property: token
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: config-dev-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: config.yaml
+        remoteRef:
+          key: config/dev
+          property: config.yaml
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: config-prod-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: config.yaml
+        remoteRef:
+          key: config/prod
+          property: config.yaml
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: redis-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: url
+        remoteRef:
+          key: redis/prod
+          property: url
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: monitoring-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: monitoring.yaml
+        remoteRef:
+          key: monitoring/prod
+          property: monitoring.yaml
+`,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  configurationOverrides:
+    env:
+      - key: DATABASE_PASSWORD
+        valueFrom:
+          secretRef:
+            name: database-prod-secret
+            key: password
+      - key: API_TOKEN
+        valueFrom:
+          secretRef:
+            name: api-prod-secret
+            key: token
+      - key: REDIS_URL
+        valueFrom:
+          secretRef:
+            name: redis-secret
+            key: url
+    files:
+      - key: config.yaml
+        mountPath: /etc/config
+        valueFrom:
+          secretRef:
+            name: config-prod-secret
+            key: config.yaml
+      - key: monitoring.yaml
+        mountPath: /etc/monitoring
+        valueFrom:
+          secretRef:
+            name: monitoring-secret
+            key: monitoring.yaml
+`,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom:
+              - secretRef:
+                  name: test-component-dev-12345678-env-secrets-7d163eae
+            volumeMounts:
+              - name: file-mount-8bf9a3a3
+                mountPath: /etc/config/config.yaml
+                subPath: config.yaml
+              - name: file-mount-8dcd70ef
+                mountPath: /etc/monitoring/monitoring.yaml
+                subPath: monitoring.yaml
+        volumes:
+          - name: file-mount-8bf9a3a3
+            secret:
+              secretName: test-component-dev-12345678-secret-config-yaml-90b39a2c
+          - name: file-mount-8dcd70ef
+            secret:
+              secretName: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-env-secrets-7d163eae
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-env-secrets-7d163eae
+      creationPolicy: Owner
+    data:
+      - secretKey: API_TOKEN
+        remoteRef:
+          key: api/prod
+          property: token
+      - secretKey: REDIS_URL
+        remoteRef:
+          key: redis/prod
+          property: url
+      - secretKey: DATABASE_PASSWORD
+        remoteRef:
+          key: database/prod
+          property: password
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-config-yaml-90b39a2c
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-config-yaml-90b39a2c
+      creationPolicy: Owner
+    data:
+      - secretKey: config.yaml
+        remoteRef:
+          key: config/prod
+          property: config.yaml
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: prod-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
+      creationPolicy: Owner
+    data:
+      - secretKey: monitoring.yaml
+        remoteRef:
+          key: monitoring/prod
+          property: monitoring.yaml
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with no workload configurations and no config overrides",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                          [{
+                            "configMapRef": {
+                              "name": oc_generate_name(metadata.name, "env-configs")
+                            }
+                          }] : [])}
+                      volumeMounts: |
+                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                          configurations.configs.files.map(f, {
+                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                            "mountPath": f.mountPath+"/"+f.name,
+                            "subPath": f.name
+                          }) : oc_omit()}
+                  volumes: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                      configurations.configs.files.map(f, {
+                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                        "configMap": {
+                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
+                        }
+                      }) : oc_omit()}
+        - id: env-config
+          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-configs")}
+            data: |
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+        - id: file-config
+          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+          forEach: ${configurations.configs.files}
+          var: config
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            data:
+              ${config.name}: |
+                ${config.value}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  configurationOverrides: {}
+`,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom: []
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -976,6 +1713,19 @@ spec:
 				}
 			}
 
+			// Parse secret references if provided
+			var secretReferences map[string]*v1alpha1.SecretReference
+			if tt.secretReferencesYAML != "" {
+				var refs []v1alpha1.SecretReference
+				if err := yaml.Unmarshal([]byte(tt.secretReferencesYAML), &refs); err != nil {
+					t.Fatalf("Failed to parse secretReferences YAML: %v", err)
+				}
+				secretReferences = make(map[string]*v1alpha1.SecretReference)
+				for i := range refs {
+					secretReferences[refs[i].Name] = &refs[i]
+				}
+			}
+
 			// Create input
 			input := &RenderInput{
 				ComponentType:       &snapshot.Spec.ComponentType,
@@ -985,6 +1735,7 @@ spec:
 				Environment:         environment,
 				DataPlane:           dataplane,
 				ComponentDeployment: settings,
+				SecretReferences:    secretReferences,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",
@@ -1011,73 +1762,7 @@ spec:
 					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 				}
 
-				// Use cmp.Transformer to sort slices of maps with "name" field during comparison
-				// Configuration override merging uses maps which have non-deterministic iteration order
-				sortSlicesByName := cmp.Transformer("SortSlicesByName", func(in []map[string]any) []map[string]any {
-					// Check if any map has a "name" field
-					hasName := false
-					for _, m := range in {
-						if _, exists := m["name"]; exists {
-							hasName = true
-							break
-						}
-					}
-
-					// If no "name" field, return as-is
-					if !hasName {
-						return in
-					}
-
-					// Create a copy and sort by name
-					out := make([]map[string]any, len(in))
-					copy(out, in)
-					sort.Slice(out, func(i, j int) bool {
-						ni, oki := out[i]["name"].(string)
-						nj, okj := out[j]["name"].(string)
-						if !oki || !okj {
-							return false
-						}
-						return ni < nj
-					})
-					return out
-				})
-
-				// Also handle []any slices that contain maps with "name" field
-				sortAnySlicesByName := cmp.Transformer("SortAnySlicesByName", func(in []any) []any {
-					// Check if this is a slice of maps with "name" field
-					if len(in) == 0 {
-						return in
-					}
-
-					firstMap, ok := in[0].(map[string]any)
-					if !ok {
-						return in
-					}
-
-					if _, hasName := firstMap["name"]; !hasName {
-						return in
-					}
-
-					// Create a copy and sort by name
-					out := make([]any, len(in))
-					copy(out, in)
-					sort.Slice(out, func(i, j int) bool {
-						mi, oki := out[i].(map[string]any)
-						mj, okj := out[j].(map[string]any)
-						if !oki || !okj {
-							return false
-						}
-						ni, oki := mi["name"].(string)
-						nj, okj := mj["name"].(string)
-						if !oki || !okj {
-							return false
-						}
-						return ni < nj
-					})
-					return out
-				})
-
-				if diff := cmp.Diff(wantResources, output.Resources, sortSlicesByName, sortAnySlicesByName); diff != "" {
+				if diff := cmp.Diff(wantResources, output.Resources, sortSlicesByName(), sortAnySlicesByName()); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -1132,7 +1817,7 @@ func TestPipeline_Options(t *testing.T) {
 		options          []Option
 		wantResourceYAML string
 		environmentYAML  string
-		dataplneYAML     string
+		dataplaneYAML    string
 	}{
 		{
 			name: "with custom labels",
@@ -1158,7 +1843,7 @@ spec:
   workload: {}
 `,
 			environmentYAML: devEnvironmentYAML,
-			dataplneYAML:    devDataplaneYAML,
+			dataplaneYAML:   devDataplaneYAML,
 			options: []Option{
 				WithResourceLabels(map[string]string{
 					"custom": "label",
@@ -1199,7 +1884,7 @@ spec:
   workload: {}
 `,
 			environmentYAML: devEnvironmentYAML,
-			dataplneYAML:    devDataplaneYAML,
+			dataplaneYAML:   devDataplaneYAML,
 			options: []Option{
 				WithResourceAnnotations(map[string]string{
 					"custom": "annotation",
@@ -1238,9 +1923,9 @@ spec:
 
 			// Parse dataplane
 			var dataplane *v1alpha1.DataPlane
-			if tt.dataplneYAML != "" {
+			if tt.dataplaneYAML != "" {
 				dataplane = &v1alpha1.DataPlane{}
-				if err := yaml.Unmarshal([]byte(tt.dataplneYAML), dataplane); err != nil {
+				if err := yaml.Unmarshal([]byte(tt.dataplaneYAML), dataplane); err != nil {
 					t.Fatalf("Failed to parse dataplane YAML: %v", err)
 				}
 			}
@@ -1390,4 +2075,123 @@ func TestSortResources(t *testing.T) {
 	if metadata["name"] != "svc-a" {
 		t.Errorf("Expected svc-a second, got %v", metadata["name"])
 	}
+}
+
+// sortSlicesByName returns a cmp.Transformer to sort slices of maps with "name" or "secretKey" field during comparison.
+// Configuration override merging uses maps which have non-deterministic iteration order.
+func sortSlicesByName() cmp.Option {
+	return cmp.Transformer("SortSlicesByName", func(in []map[string]any) []map[string]any {
+		// Check if any map has a "name" or "secretKey" field
+		hasKey := false
+		for _, m := range in {
+			if _, exists := m["name"]; exists {
+				hasKey = true
+				break
+			}
+			if _, exists := m["secretKey"]; exists {
+				hasKey = true
+				break
+			}
+		}
+
+		// If no relevant field, return as-is
+		if !hasKey {
+			return in
+		}
+
+		// Helper to extract sort key (prefer "name" over "secretKey" if both exist)
+		getKey := func(m map[string]any) (string, bool) {
+			if v, ok := m["name"].(string); ok && v != "" {
+				return v, true
+			}
+			if v, ok := m["secretKey"].(string); ok && v != "" {
+				return v, true
+			}
+			return "", false
+		}
+
+		// Create a copy and sort by key
+		out := make([]map[string]any, len(in))
+		copy(out, in)
+		sort.SliceStable(out, func(i, j int) bool {
+			ki, iok := getKey(out[i])
+			kj, jok := getKey(out[j])
+
+			// Both missing keys -> preserve original order
+			if !iok && !jok {
+				return false
+			}
+			// i missing, j has -> j should come before i => return false
+			if !iok && jok {
+				return false
+			}
+			// i has, j missing -> i should come before j
+			if iok && !jok {
+				return true
+			}
+			// Both have keys -> compare lexicographically
+			return ki < kj
+		})
+		return out
+	})
+}
+
+// sortAnySlicesByName returns a cmp.Transformer to handle []any slices that contain maps with "name" or "secretKey" field.
+func sortAnySlicesByName() cmp.Option {
+	return cmp.Transformer("SortAnySlicesByName", func(in []any) []any {
+		// Check if this is a slice of maps with "name" or "secretKey" field
+		if len(in) == 0 {
+			return in
+		}
+
+		firstMap, ok := in[0].(map[string]any)
+		if !ok {
+			return in
+		}
+
+		if _, hasName := firstMap["name"]; !hasName {
+			if _, hasSecretKey := firstMap["secretKey"]; !hasSecretKey {
+				return in
+			}
+		}
+
+		// Helper to extract key from an any element (map[string]any)
+		getKeyAny := func(x any) (string, bool) {
+			m, ok := x.(map[string]any)
+			if !ok {
+				return "", false
+			}
+			if v, ok := m["name"].(string); ok && v != "" {
+				return v, true
+			}
+			if v, ok := m["secretKey"].(string); ok && v != "" {
+				return v, true
+			}
+			return "", false
+		}
+
+		// Create a copy and sort by key
+		out := make([]any, len(in))
+		copy(out, in)
+		sort.SliceStable(out, func(i, j int) bool {
+			ki, iok := getKeyAny(out[i])
+			kj, jok := getKeyAny(out[j])
+
+			// Both missing keys -> preserve original order
+			if !iok && !jok {
+				return false
+			}
+			// i missing, j has -> j should come before i => return false
+			if !iok && jok {
+				return false
+			}
+			// i has, j missing -> i should come before j
+			if iok && !jok {
+				return true
+			}
+			// Both have keys -> compare lexicographically
+			return ki < kj
+		})
+		return out
+	})
 }
