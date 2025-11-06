@@ -813,7 +813,7 @@ spec:
                                   value:
                                     description: |-
                                       The literal content of the file.
-                                      Mutually exclusive with secretKeyRef.
+                                      Mutually exclusive with valueFrom.
                                     type: string
                                   valueFrom:
                                     description: |-
@@ -848,6 +848,10 @@ spec:
                                 - key
                                 - mountPath
                                 type: object
+                                x-kubernetes-validations:
+                                - message: exactly one of value or valueFrom must
+                                    be set
+                                  rule: (has(self.value) && self.value != '') != has(self.valueFrom)
                               type: array
                             image:
                               description: OCI image to run (digest or tag).

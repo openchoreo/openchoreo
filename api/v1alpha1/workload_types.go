@@ -11,6 +11,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // FileVar represents a file configuration in a container.
+// +kubebuilder:validation:XValidation:rule="(has(self.value) && self.value != '') != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
 type FileVar struct {
 	// The file key/name.
 	// +kubebuilder:validation:Required
@@ -21,7 +22,7 @@ type FileVar struct {
 	MountPath string `json:"mountPath"`
 
 	// The literal content of the file.
-	// Mutually exclusive with secretKeyRef.
+	// Mutually exclusive with valueFrom.
 	// +optional
 	Value string `json:"value,omitempty"`
 
