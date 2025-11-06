@@ -92,6 +92,39 @@ Demonstrates a comprehensive buildpack-based workflow with extensive configurati
 - `security-scan-enabled` - Security scanning flag (overridden to `"false"` by ComponentTypeDefinition)
 - `build-timeout` - Build timeout (overridden to `"45m"` by ComponentTypeDefinition)
 
+### 3. React Web Application Workflow (`react-web-app.yaml`)
+
+Demonstrates a React-specific build workflow with web application deployment configuration.
+
+**What it shows:**
+- React build workflow definition with Node.js version configuration
+- Web application component type definition with Deployment and Service resources
+- Component configuration for React web apps
+- Workflow execution instance for React builds
+
+**Key Resources:**
+- **WorkflowDefinition**: `react` - Defines React build template with repository and Node.js parameters
+- **ComponentTypeDefinition**: `web-application` - Defines deployment resources (Deployment + Service) with resource limits
+- **Component**: `react-web-app` - Uses React workflow with Node v20 and custom resource configurations
+- **Workflow**: `react-web-app-build-01` - Execution instance for the React web application
+
+**Developer Parameters:**
+- `repository.url` - Git repository URL
+- `repository.revision.branch` - Git branch (default: `main`)
+- `repository.revision.commit` - Git commit SHA (default: `""`)
+- `repository.appPath` - Application path in repository (default: `.`)
+- `repository.secretRef` - Secret for git credentials
+- `nodeVersion` - Node.js version (default: `"18"`)
+
+**Component Type Parameters:**
+- `replicas` - Number of replicas (default: `1`)
+- `imagePullPolicy` - Image pull policy (default: `IfNotPresent`)
+- `port` - Container port (default: `80`)
+- `resources.requests.cpu` - CPU request (default: `100m`)
+- `resources.requests.memory` - Memory request (default: `256Mi`)
+- `resources.limits.cpu` - CPU limit
+- `resources.limits.memory` - Memory limit
+
 ## Key Concepts
 
 ### Parameter Merging Precedence
@@ -239,6 +272,9 @@ kubectl apply -f samples/workflow/docker-greeter-service.yaml
 
 # Apply Buildpacks sample
 kubectl apply -f samples/workflow/go-buildpack-reading-list-service.yaml
+
+# Apply React web app sample
+kubectl apply -f samples/workflow/react-web-app.yaml
 ```
 
 ## Troubleshooting

@@ -1,9 +1,9 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowDefinition
 metadata:
-  name: docker
+  name: react
   annotations:
-    openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+    openchoreo.dev/description: "Build workflow for React web applications"
 spec:
   # Template Variable Reference (processed by controller):
   # ${ctx.workflowName}            - Workflow name
@@ -13,7 +13,6 @@ spec:
   # ${ctx.timestamp}               - Unix timestamp (e.g., 1234567890)
   # ${ctx.uuid}                    - UUID (8 chars)
   # ${schema.*}                    - Developer-provided values from schema
-  # ${fixedParameters.*}           - PE-controlled fixed parameters
   # Developer-facing schema with type validation
   schema:
     repository:
@@ -23,20 +22,11 @@ spec:
         commit: string | default=""
       appPath: string | default=.
       secretRef: string
-    docker:
-      context: string | default=.
-      filePath: string | default=./Dockerfile
+    nodeVersion: string | default="18"
 
   # Secret references to inject into build plane
   secrets:
     - ${schema.repository.secretRef}
-
-  # Static, PE-controlled parameters (hidden from developer)
-  fixedParameters:
-    - name: registry-url
-      value: gcr.io/openchoreo-dev/images
-    - name: build-timeout
-      value: "30m"
 
   # Rendered resource
   resource:
@@ -62,45 +52,27 @@ spec:
               value: ${schema.repository.revision.commit}
             - name: app-path
               value: ${schema.repository.appPath}
-            - name: docker-context
-              value: ${schema.docker.context}
-            - name: dockerfile-path
-              value: ${schema.docker.filePath}
-            # Parameters from fixedParameters (PE-controlled)
-            - name: registry-url
-              value: ${fixedParameters["registry-url"]}
-            - name: build-timeout
-              value: ${fixedParameters["build-timeout"]}
+            - name: node-version
+              value: ${schema.nodeVersion}
             - name: image-name
-              value: ${ctx.projectName}-${ctx.componentName}-image
+              value: ${ctx.projectName}-${ctx.componentName}
             - name: image-tag
               value: v1
         serviceAccountName: workflow-sa
         workflowTemplateRef:
           clusterScope: true
-          name: docker
+          name: react
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentTypeDefinition
 metadata:
-  name: service
+  name: web-application
 spec:
   # Restrict which workflow templates developers can use for this component type
   build:
     allowedTemplates:
-      - name: docker
-        # PE-controlled parameters that override WorkflowDefinition defaults
-        fixedParameters:
-          - name: build-timeout
-            value: "45m"
-      - name: google-cloud-buildpacks
-        # PE-controlled parameters that override WorkflowDefinition defaults
-        fixedParameters:
-          - name: security-scan-enabled
-            value: "false"
-          - name: build-timeout
-            value: "45m"
+      - name: react
 
   workloadType: deployment
 
@@ -113,7 +85,7 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=8080"
+      port: "integer | default=80"
 
     envOverrides:
       resources:
@@ -175,17 +147,17 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: greeting-service
+  name: react-web-app
 spec:
   owner:
     projectName: default
   # References the ComponentTypeDefinition
-  componentType: deployment/service
+  componentType: deployment/web-application
 
   # Build configuration matching the schema from WorkflowDefinition
   build:
     # Selects a WorkflowDefinition from allowed templates in ComponentTypeDefinition
-    workflowTemplate: docker
+    workflowTemplate: react
     schema:
       # Nested structure from schema
       repository:
@@ -193,36 +165,32 @@ spec:
         revision:
           branch: "main"
           commit: ""
-        appPath: "/service-go-greeter"
-        secretRef: "greeting-repo-credentials-dev"
-
-      # Docker-specific parameters
-      docker:
-        context: "/service-go-greeter"
-        filePath: "/service-go-greeter/Dockerfile"
+        appPath: "/webapp-react-nginx"
+        secretRef: "react-repo-credentials-dev"
+      nodeVersion: "20"
   parameters:
     replicas: 2
-    port: 8080
+    port: 80
     resources:
       requests:
-        cpu: "200m"
-        memory: "512Mi"
+        cpu: "100m"
+        memory: "256Mi"
       limits:
-        cpu: "1000m"
-        memory: "1Gi"
+        cpu: "500m"
+        memory: "512Mi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: greeting-service-build-04
+  name: react-web-app-build-01
 spec:
   # Ownership tracking for the workflow execution
   owner:
     projectName: "default"
-    componentName: "greeting-service"
+    componentName: "react-web-app"
 
   # Reference to WorkflowDefinition
-  workflowDefinitionRef: docker
+  workflowDefinitionRef: react
 
   # Developer parameters from Component CR (matching schema)
   schema:
@@ -231,13 +199,9 @@ spec:
       revision:
         branch: "main"
         commit: ""
-      appPath: "/service-go-greeter"
-      secretRef: "greeting-repo-credentials-dev"
-    # Docker-specific parameters
-    docker:
-      context: "/service-go-greeter"
-      filePath: "/service-go-greeter/Dockerfile"
-
+      appPath: "/webapp-react-nginx"
+      secretRef: "react-repo-credentials-dev"
+    nodeVersion: "20"
 
 ---
 # Sample of rendered Argo Workflow from the WorkflowDefinition above
@@ -247,22 +211,22 @@ spec:
 #metadata:
 #  annotations:
 #    workflows.argoproj.io/pod-name-format: v2
-#  creationTimestamp: "2025-11-05T10:09:31Z"
-#  generation: 14
+#  creationTimestamp: "2025-11-06T10:25:37Z"
+#  generation: 11
 #  labels:
-#    openchoreo.dev/workflow: greeting-service-build-01
+#    openchoreo.dev/workflow: react-app-build-01
 #    openchoreo.dev/workflow-namespace: default
-#    workflows.argoproj.io/completed: "true"
-#    workflows.argoproj.io/phase: Succeeded
-#  name: greeting-service-build-01
+#    workflows.argoproj.io/completed: "false"
+#    workflows.argoproj.io/phase: Running
+#  name: react-web-app-build-01
 #  namespace: openchoreo-ci-default
-#  resourceVersion: "2618464"
-#  uid: d3ad5b72-08d0-4725-b896-c54fc928911e
+#  resourceVersion: "2787898"
+#  uid: 19407929-6f7e-488e-8307-818cf9cc0021
 #spec:
 #  arguments:
 #    parameters:
 #      - name: component-name
-#        value: greeting-service
+#        value: react-app
 #      - name: project-name
 #        value: default
 #      - name: git-repo
@@ -272,20 +236,14 @@ spec:
 #      - name: commit
 #        value: ""
 #      - name: app-path
-#        value: /service-go-greeter
-#      - name: docker-context
-#        value: /service-go-greeter
-#      - name: dockerfile-path
-#        value: /service-go-greeter/Dockerfile
-#      - name: registry-url
-#        value: gcr.io/openchoreo-dev/images
-#      - name: build-timeout
-#        value: 45m
+#        value: /webapp-react-nginx
+#      - name: node-version
+#        value: "20"
 #      - name: image-name
-#        value: default-greeting-service-image
+#        value: default-react-web-app
 #      - name: image-tag
 #        value: v1
 #  serviceAccountName: workflow-sa
 #  workflowTemplateRef:
 #    clusterScope: true
-#    name: docker
+#    name: react

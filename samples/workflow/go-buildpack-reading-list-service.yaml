@@ -1,11 +1,3 @@
-# Steps
-# 1. Define a WorkflowDefinition for Google Cloud Buildpacks
-# 2. Define a ComponentTypeDefinition that allows using this WorkflowDefinition
-# 3. Define a Component that uses this WorkflowDefinition. Component renders based on schema defined in WorkflowDefinition.
-# 4. Define a Workflow instance that represents a build execution for the Component.
-# 5. Define the rendered Argo Workflow that would be created based on the WorkflowDefinition schema and parameters, and Component values.
-
-
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowDefinition
 metadata:
@@ -220,7 +212,7 @@ metadata:
   name: reading-list-service
 spec:
   owner:
-    projectName: backend-services
+    projectName: default
   # References the ComponentTypeDefinition
   componentType: deployment/service
 
@@ -273,7 +265,7 @@ metadata:
 spec:
   # Ownership tracking for the workflow execution
   owner:
-    projectName: "backend-services"
+    projectName: "default"
     componentName: "reading-list-service"
 
   # Reference to WorkflowDefinition
@@ -328,7 +320,7 @@ spec:
 #      - name: component-name
 #        value: reading-list-service
 #      - name: project-name
-#        value: backend-services
+#        value: default
 #      - name: git-repo
 #        value: https://github.com/openchoreo/sample-workloads
 #      - name: branch
