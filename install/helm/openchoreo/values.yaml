@@ -1535,7 +1535,7 @@ asgardeoThunder:
     # type: [null, string]
     # @schema
     # -- Image tag (overrides the chart appVersion)
-    tag: "0.10.0"
+    tag: "0.11.0"
   # @schema
   # type: [null, array]
   # @schema
@@ -1647,21 +1647,6 @@ asgardeoThunder:
     # @schema
     # -- Node port for main service (when type is NodePort)
     nodePort: null
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Gate service port
-    gatePort: 9090
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Target port for gate service
-    gateTargetPort: 9090
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Node port for gate service (when type is NodePort)
-    gateNodePort: null
   # @schema
   # type: [null, object]
   # @schema
@@ -1771,7 +1756,7 @@ asgardeoThunder:
       # type: [null, string]
       # @schema
       # -- Login path
-      loginPath: "/login"
+      loginPath: "/signin"
       # @schema
       # type: [null, string]
       # @schema
@@ -1892,6 +1877,41 @@ asgardeoThunder:
         # @schema
         # -- Default authentication flow
         defaultFlow: "auth_flow_config_basic"
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Runtime configuration for Thunder Gate UI
+  runtimeConfig:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Client configuration
+    client:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Base path for signin
+      base: "/signin"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Server configuration
+    server:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Server hostname
+      hostname: "localhost"
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Server port
+      port: 8090
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- HTTP only mode (disable HTTPS)
+      httpOnly: false
   # @schema
   # type: [null, object]
   # @schema
