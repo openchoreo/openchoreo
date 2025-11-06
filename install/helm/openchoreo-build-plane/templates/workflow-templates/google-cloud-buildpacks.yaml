@@ -290,8 +290,7 @@ spec:
                 values:
                   - workflow-runner
   ttlStrategy:
-    secondsAfterFailure: 3600
-    secondsAfterSuccess: 3600
+    secondsAfterCompletion: 3600
   volumeClaimTemplates:
     - metadata:
         creationTimestamp: null
