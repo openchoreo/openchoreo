@@ -5,7 +5,6 @@ package jwt
 
 import (
 	"context"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"net/http"
@@ -84,6 +83,17 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 
 			// Parse and validate token
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				// Extract algorithm from token header
+				alg, ok := token.Header["alg"].(string)
+				if !ok {
+					return nil, errors.New("token missing 'alg' header")
+				}
+
+				// Validate algorithm against configured value if specified
+				if config.SignatureAlgorithm != "" && alg != config.SignatureAlgorithm {
+					return nil, fmt.Errorf("algorithm not allowed: token uses '%s' but only '%s' is accepted", alg, config.SignatureAlgorithm)
+				}
+
 				// Use JWKS if available
 				if cache != nil {
 					kid, ok := token.Header["kid"].(string)

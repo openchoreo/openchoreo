@@ -60,6 +60,12 @@ type Config struct {
 	// If empty, audience validation is skipped
 	ValidateAudience string
 
+	// SignatureAlgorithm specifies the expected signature algorithm (optional)
+	// Common values: RS256, RS384, RS512, HS256, HS384, HS512, ES256, ES384, ES512
+	// If set, incoming tokens must use this algorithm
+	// If empty, algorithm validation is skipped (except JWK alg validation if present)
+	SignatureAlgorithm string
+
 	// ClockSkew allows for clock skew when validating time-based claims
 	// Default: 0 (no skew tolerance)
 	ClockSkew time.Duration

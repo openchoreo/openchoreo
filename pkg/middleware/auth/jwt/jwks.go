@@ -33,10 +33,16 @@ type JWKS struct {
 	Keys []JWK `json:"keys"`
 }
 
+// cachedJWK holds a JWK and its parsed RSA public key
+type cachedJWK struct {
+	JWK       JWK
+	PublicKey *rsa.PublicKey
+}
+
 // jwksCache holds the cached JWKS and related metadata
 type jwksCache struct {
 	mu              sync.RWMutex
-	keys            map[string]*rsa.PublicKey
+	keys            map[string]*cachedJWK
 	lastRefresh     time.Time
 	jwksURL         string
 	refreshInterval time.Duration
@@ -44,16 +50,22 @@ type jwksCache struct {
 	logger          *slog.Logger
 }
 
-// getKey retrieves a public key from the cache by key ID
-func (c *jwksCache) getKey(kid string) (*rsa.PublicKey, error) {
+// getKey retrieves a public key from the cache by key ID and validates the algorithm
+func (c *jwksCache) getKey(kid string, tokenAlg string) (*rsa.PublicKey, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	key, exists := c.keys[kid]
+	cached, exists := c.keys[kid]
 	if !exists {
 		return nil, fmt.Errorf("key with kid '%s' not found in JWKS", kid)
 	}
-	return key, nil
+
+	// Validate algorithm if the JWK contains an alg parameter
+	if cached.JWK.Alg != "" && cached.JWK.Alg != tokenAlg {
+		return nil, fmt.Errorf("algorithm mismatch: JWK specifies '%s' but token uses '%s'", cached.JWK.Alg, tokenAlg)
+	}
+
+	return cached.PublicKey, nil
 }
 
 // refresh fetches the JWKS from the URL and updates the cache
@@ -84,7 +96,7 @@ func (c *jwksCache) refresh() error {
 	}
 
 	// Parse and store keys
-	newKeys := make(map[string]*rsa.PublicKey)
+	newKeys := make(map[string]*cachedJWK)
 	for _, jwk := range jwks.Keys {
 		if jwk.Kty != "RSA" {
 			c.logger.Debug("Skipping non-RSA key", "kid", jwk.Kid, "kty", jwk.Kty)
@@ -97,7 +109,10 @@ func (c *jwksCache) refresh() error {
 			continue
 		}
 
-		newKeys[jwk.Kid] = key
+		newKeys[jwk.Kid] = &cachedJWK{
+			JWK:       jwk,
+			PublicKey: key,
+		}
 	}
 
 	if len(newKeys) == 0 {
