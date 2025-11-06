@@ -177,7 +177,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 //	go test -bench=BenchmarkPipeline_RenderWithRealSample -benchmem -cpuprofile=cpu.prof
 func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 	// Load sample and build render input
-	samplePath := "../../../samples/component-with-addons/component-with-addons.yaml"
+	samplePath := "./testdata/component-with-addons.yaml"
 	input := buildRenderInputFromSample(b, samplePath)
 
 	// To test with no caching:
@@ -230,7 +230,7 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 //	go test -bench="BenchmarkPipeline_RenderWithRealSample" -benchmem
 func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 	// Load sample and build render input
-	samplePath := "../../../samples/component-with-addons/component-with-addons.yaml"
+	samplePath := "./testdata/component-with-addons.yaml"
 	input := buildRenderInputFromSample(b, samplePath)
 
 	// Verify it works before benchmarking
