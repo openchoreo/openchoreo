@@ -527,36 +527,3 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 	}
 }
 
-func TestMiddleware_CustomErrorHandler(t *testing.T) {
-	errorHandlerCalled := false
-	config := Config{
-		SigningKey: []byte(testSecret),
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			errorHandlerCalled = true
-			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte("custom error"))
-		},
-	}
-
-	middleware := Middleware(config)
-	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Handler should not be called")
-	}))
-
-	req := httptest.NewRequest("GET", "/test", nil)
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	if !errorHandlerCalled {
-		t.Error("Custom error handler was not called")
-	}
-
-	if w.Code != http.StatusForbidden {
-		t.Errorf("Expected status 403, got %d", w.Code)
-	}
-
-	if w.Body.String() != "custom error" {
-		t.Errorf("Expected custom error message, got %s", w.Body.String())
-	}
-}

@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-
-	"github.com/openchoreo/openchoreo/pkg/middleware/auth"
 )
 
 // Config holds the configuration for JWT authentication middleware
@@ -39,10 +37,6 @@ type Config struct {
 	// - "cookie:<name>" - extract from cookie (e.g., "cookie:jwt")
 	// Default: "header:Authorization"
 	TokenLookup string
-
-	// ErrorHandler is an optional custom error handler
-	// If not set, default error responses will be returned
-	ErrorHandler func(w http.ResponseWriter, r *http.Request, err error)
 
 	// SuccessHandler is an optional handler called after successful token validation
 	// Can be used for additional validation, logging, etc.
@@ -79,9 +73,6 @@ type Config struct {
 func (c *Config) setDefaults() {
 	if c.TokenLookup == "" {
 		c.TokenLookup = "header:Authorization"
-	}
-	if c.ErrorHandler == nil {
-		c.ErrorHandler = auth.DefaultErrorHandler
 	}
 	if c.Logger == nil {
 		c.Logger = slog.Default()

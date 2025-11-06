@@ -10,8 +10,6 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
-
-	"github.com/openchoreo/openchoreo/pkg/middleware/auth"
 )
 
 // Middleware creates a new JWT authentication middleware with the given configuration
@@ -25,12 +23,12 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 		// Return a middleware that always rejects requests with a generic server error
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					auth.CodeInternalError,
-					"Server error occurred while authenticating the user",
-					http.StatusInternalServerError,
-					err,
-				))
+				config.Logger.Error("JWT middleware configuration error",
+					"error", err,
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				writeErrorResponse(w, http.StatusInternalServerError, "Server error occurred while authenticating the user", "INTERNAL_ERROR")
 			})
 		}
 	}
@@ -42,12 +40,12 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 		// Return a middleware that always rejects requests with a generic server error
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					auth.CodeInternalError,
-					"Server error occurred while authenticating the user",
-					http.StatusInternalServerError,
-					err,
-				))
+				config.Logger.Error("Invalid TokenLookup configuration",
+					"error", err,
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				writeErrorResponse(w, http.StatusInternalServerError, "Server error occurred while authenticating the user", "INTERNAL_ERROR")
 			})
 		}
 	}
@@ -56,7 +54,7 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 	var cache *jwksCache
 	if config.JWKSURL != "" {
 		cache = &jwksCache{
-			keys:            make(map[string]*rsa.PublicKey),
+			keys:            make(map[string]*cachedJWK),
 			jwksURL:         config.JWKSURL,
 			refreshInterval: config.JWKSRefreshInterval,
 			httpClient:      config.HTTPClient,
@@ -72,12 +70,7 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 			// Extract token from request
 			tokenString, err := extractor(r)
 			if err != nil {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					CodeMissingToken,
-					ErrMissingToken.Error(),
-					http.StatusUnauthorized,
-					err,
-				))
+				writeErrorResponse(w, http.StatusUnauthorized, ErrMissingToken.Error(), CodeMissingToken)
 				return
 			}
 
@@ -106,7 +99,7 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 						config.Logger.Warn("Failed to refresh JWKS cache", "error", err)
 					}
 
-					return cache.getKey(kid)
+					return cache.getKey(kid, alg)
 				}
 
 				// Fall back to static signing key
@@ -114,47 +107,46 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 			})
 
 			if err != nil {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					CodeInvalidToken,
-					ErrInvalidToken.Error(),
-					http.StatusUnauthorized,
-					err,
-				))
+				config.Logger.Debug("Token validation failed",
+					"error", err,
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				writeErrorResponse(w, http.StatusUnauthorized, ErrInvalidToken.Error(), CodeInvalidToken)
 				return
 			}
 
 			// Extract claims
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok || !token.Valid {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					CodeInvalidClaims,
-					ErrInvalidClaims.Error(),
-					http.StatusUnauthorized,
-					errors.New("invalid claims format"),
-				))
+				config.Logger.Debug("Invalid token claims",
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				writeErrorResponse(w, http.StatusUnauthorized, ErrInvalidClaims.Error(), CodeInvalidClaims)
 				return
 			}
 
 			// Validate custom claims
 			if err := validateClaims(claims, config); err != nil {
-				config.ErrorHandler(w, r, auth.NewAuthError(
-					CodeInvalidClaims,
-					ErrInvalidClaims.Error(),
-					http.StatusUnauthorized,
-					err,
-				))
+				config.Logger.Debug("Token claims validation failed",
+					"error", err,
+					"path", r.URL.Path,
+					"method", r.Method,
+				)
+				writeErrorResponse(w, http.StatusUnauthorized, ErrInvalidClaims.Error(), CodeInvalidClaims)
 				return
 			}
 
 			// Call success handler if provided
 			if config.SuccessHandler != nil {
 				if err := config.SuccessHandler(w, r, claims); err != nil {
-					config.ErrorHandler(w, r, auth.NewAuthError(
-						CodeAuthorizationFailed,
-						ErrAuthorizationFailed.Error(),
-						http.StatusForbidden,
-						err,
-					))
+					config.Logger.Debug("Authorization failed",
+						"error", err,
+						"path", r.URL.Path,
+						"method", r.Method,
+					)
+					writeErrorResponse(w, http.StatusForbidden, ErrAuthorizationFailed.Error(), CodeAuthorizationFailed)
 					return
 				}
 			}
