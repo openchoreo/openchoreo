@@ -28,7 +28,12 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 					"path", r.URL.Path,
 					"method", r.Method,
 				)
-				writeErrorResponse(w, http.StatusInternalServerError, "Server error occurred while authenticating the user", "INTERNAL_ERROR")
+				writeErrorResponse(
+					w,
+					http.StatusInternalServerError,
+					"Server error occurred while authenticating the user",
+					"INTERNAL_ERROR",
+				)
 			})
 		}
 	}
@@ -45,7 +50,12 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 					"path", r.URL.Path,
 					"method", r.Method,
 				)
-				writeErrorResponse(w, http.StatusInternalServerError, "Server error occurred while authenticating the user", "INTERNAL_ERROR")
+				writeErrorResponse(
+					w,
+					http.StatusInternalServerError,
+					"Server error occurred while authenticating the user",
+					"INTERNAL_ERROR",
+				)
 			})
 		}
 	}
@@ -84,7 +94,11 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 
 				// Validate algorithm against configured value if specified
 				if config.SignatureAlgorithm != "" && alg != config.SignatureAlgorithm {
-					return nil, fmt.Errorf("algorithm not allowed: token uses '%s' but only '%s' is accepted", alg, config.SignatureAlgorithm)
+					return nil, fmt.Errorf(
+						"algorithm not allowed: token uses '%s' but only '%s' is accepted",
+						alg,
+						config.SignatureAlgorithm,
+					)
 				}
 
 				// Use JWKS if available

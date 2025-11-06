@@ -1951,7 +1951,7 @@ asgardeoThunder:
       # type: [null, string]
       # @schema
       # -- Storage class name
-      storageClassName: "standard"
+      storageClassName: ""
       # @schema
       # enum: [ReadWriteOnce, ReadOnlyMany, ReadWriteMany]
       # @schema

@@ -526,4 +526,3 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 		t.Errorf("Expected status 200 for valid audience in array, got %d", w.Code)
 	}
 }
-
