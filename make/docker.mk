@@ -130,3 +130,25 @@ docker.push-multiarch.%: ## Push a docker image for multiple platforms. Ex: make
 
 .PHONY: docker.push-multiarch
 docker.push-multiarch: $(addprefix docker.push-multiarch., $(DOCKER_BUILD_IMAGE_NAMES)) ## Push all docker images for the multiple platforms.
+
+# Quick-start dev mode - builds images from HEAD and runs quick-start with local helm charts
+QUICK_START_DEV_IMAGES := controller openchoreo-api observer
+QUICK_START_CONTAINER_NAME := openchoreo-quick-start-dev
+
+.PHONY: quick-start.dev
+quick-start.dev: TAG=dev
+quick-start.dev: $(addprefix docker.build., $(QUICK_START_DEV_IMAGES)) docker.build.quick-start ## Build and run quick-start with HEAD images and helm charts
+	@$(call log_info, Stopping any existing quick-start container)
+	@$(DOCKER) rm -f $(QUICK_START_CONTAINER_NAME) 2>/dev/null || true
+	@$(call log_info, Running quick-start container in dev mode)
+	@$(DOCKER) run -it --rm \
+		--name $(QUICK_START_CONTAINER_NAME) \
+		--privileged \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(PROJECT_DIR)/install/helm:/helm:ro \
+		-v openchoreo-quick-start-state:/state \
+		--network=host \
+		-e DEV_MODE=true \
+		-e OPENCHOREO_VERSION=$(TAG) \
+		$(IMAGE_REPO_PREFIX)/quick-start:$(TAG) \
+		/app/install.sh

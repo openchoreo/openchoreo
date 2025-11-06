@@ -54,7 +54,9 @@ log_info "Configuration:"
 log_info "  Cluster Name: $CLUSTER_NAME"
 log_info "  K3s Image: $K3S_IMAGE"
 log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
-if [[ -n "$OPENCHOREO_VERSION" ]]; then
+if [[ "$DEV_MODE" == "true" ]]; then
+    log_info "  Mode: DEV (using local images and helm charts)"
+elif [[ -n "$OPENCHOREO_VERSION" ]]; then
     log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
 else
     log_info "  OpenChoreo Version: latest"

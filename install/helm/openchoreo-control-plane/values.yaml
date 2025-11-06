@@ -48,7 +48,7 @@ controllerManager:
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/controller
-    tag: latest-dev
+    tag: "" # If no value is set, use Chart.AppVersion
     pullPolicy: Always
   resources:
     limits:
@@ -142,7 +142,7 @@ controllerManager:
     seccompProfile:
       type: RuntimeDefault
     appArmorProfile:
-      type: RuntimeDefault
+      type: Unconfined
   manager:
     args:
       - --metrics-bind-address=:8443
@@ -277,7 +277,7 @@ openchoreoApi:
     seccompProfile:
       type: RuntimeDefault
     appArmorProfile:
-      type: RuntimeDefault
+      type: Unconfined
 # Dependency configurations
 
 # Cert-Manager configuration
@@ -316,7 +316,7 @@ backstage:
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/openchoreo-ui
-    tag: latest
+    tag: "" # If no value is set, use Chart.AppVersion
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -433,7 +433,7 @@ backstage:
     seccompProfile:
       type: RuntimeDefault
     appArmorProfile:
-      type: RuntimeDefault
+      type: Unconfined
 # Asgardeo Thunder (Platform Identity Provider) configuration
 asgardeoThunder:
   enabled: true
@@ -503,7 +503,7 @@ asgardeoThunder:
     server:
       hostname: "0.0.0.0"
       port: 8090
-      httpOnly: false
+      httpOnly: true
     gateClient:
       hostname: "localhost"
       port: 9090

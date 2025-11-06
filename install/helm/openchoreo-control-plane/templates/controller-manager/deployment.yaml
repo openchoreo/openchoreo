@@ -81,12 +81,16 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+        {{- end }}
+      {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       volumes:
       - name: cert
         secret:
           defaultMode: 420
           secretName: {{ .Values.controllerManager.name }}-webhook-server-cert
+      {{- end }}

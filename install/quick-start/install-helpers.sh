@@ -14,10 +14,14 @@ RESET='\033[0m'
 
 # Configuration variables
 CLUSTER_NAME="openchoreo-quick-start"
-K3S_IMAGE="rancher/k3s:v1.31.5-k3s1"
+K3S_IMAGE="rancher/k3s:v1.32.9-k3s1"
 KUBECONFIG_PATH="/state/kube/config-internal.yaml"
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
-OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
+OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-latest}"
+
+# Dev mode configuration
+DEV_MODE="${DEV_MODE:-false}"
+DEV_HELM_CHARTS_DIR="/helm"
 
 # Namespace definitions
 CONTROL_PLANE_NS="openchoreo-control-plane"
@@ -106,14 +110,9 @@ create_k3d_cluster() {
     
     log_info "Creating k3d cluster '$CLUSTER_NAME'..."
     
-    # Create the /tmp/k3d-shared directory if it doesn't exist
-    mkdir -p /tmp/k3d-shared
-    
     if k3d cluster create "$CLUSTER_NAME" \
         --image "$K3S_IMAGE" \
-        --agents 1 \
         --servers 1 \
-        --volume /tmp/k3d-shared:/mnt/shared@agent:0 \
         --k3s-arg "--disable=traefik@server:*" \
         --k3s-arg "--disable=metrics-server@server:0" \
         --wait; then
@@ -127,10 +126,10 @@ create_k3d_cluster() {
 # Export kubeconfig for the cluster
 setup_kubeconfig() {
     log_info "Setting up kubeconfig..."
-    
+
     # Create directory if it doesn't exist
     mkdir -p "$(dirname "$KUBECONFIG_PATH")"
-    
+
     if k3d kubeconfig get "$CLUSTER_NAME" > "$KUBECONFIG_PATH"; then
         log_success "Kubeconfig exported to $KUBECONFIG_PATH"
         export KUBECONFIG="$KUBECONFIG_PATH"
@@ -166,6 +165,7 @@ connect_to_k3d_network() {
     fi
 }
 
+
 # Install a helm chart with idempotency
 install_helm_chart() {
     local release_name="$1"
@@ -176,33 +176,40 @@ install_helm_chart() {
     local timeout="${6:-1800}"
     shift 6
     local additional_args=("$@")
-    
+
     log_info "Installing Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
-    
-    # For OCI repositories, construct the full chart reference
-    local chart_ref="${HELM_REPO}/${chart_name}"
+
+    # Determine chart reference based on dev mode
+    local chart_ref
+    if [[ "$DEV_MODE" == "true" && -d "$DEV_HELM_CHARTS_DIR/$chart_name" ]]; then
+        chart_ref="$DEV_HELM_CHARTS_DIR/$chart_name"
+        log_info "Using local chart from $chart_ref"
+    else
+        # For OCI repositories, construct the full chart reference
+        chart_ref="${HELM_REPO}/${chart_name}"
+    fi
     
     # Check if release already exists
     if helm_release_exists "$release_name" "$namespace"; then
         log_warning "Helm release '$release_name' already exists in namespace '$namespace'"
-        
+
         # Try to upgrade the release
         local upgrade_args=(
             "upgrade" "$release_name" "$chart_ref"
             "--namespace" "$namespace"
             "--timeout" "${timeout}s"
         )
-        
+
         if [[ "$wait_flag" == "true" ]]; then
             upgrade_args+=("--wait")
         fi
-        
-        if [[ -n "$OPENCHOREO_VERSION" ]]; then
+
+        if [[ -n "$OPENCHOREO_VERSION" && "$DEV_MODE" != "true" ]]; then
             upgrade_args+=("--version" "$OPENCHOREO_VERSION")
         fi
-        
+
         upgrade_args+=("${additional_args[@]}")
-        
+
         if helm "${upgrade_args[@]}"; then
             log_success "Helm release '$release_name' upgraded successfully"
         else
@@ -216,21 +223,21 @@ install_helm_chart() {
             "--namespace" "$namespace"
             "--timeout" "${timeout}s"
         )
-        
+
         if [[ "$create_namespace" == "true" ]]; then
             install_args+=("--create-namespace")
         fi
-        
+
         if [[ "$wait_flag" == "true" ]]; then
             install_args+=("--wait")
         fi
-        
-        if [[ -n "$OPENCHOREO_VERSION" ]]; then
+
+        if [[ -n "$OPENCHOREO_VERSION" && "$DEV_MODE" != "true" ]]; then
             install_args+=("--version" "$OPENCHOREO_VERSION")
         fi
-        
+
         install_args+=("${additional_args[@]}")
-        
+
         if helm "${install_args[@]}"; then
             log_success "Helm release '$release_name' installed successfully"
         else
@@ -251,7 +258,13 @@ install_data_plane() {
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
-    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "1800"
+    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "1800" \
+        "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
+        "--set" "controllerManager.image.pullPolicy=IfNotPresent" \
+        "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
+        "--set" "openchoreoApi.image.pullPolicy=IfNotPresent" \
+        "--set" "backstage.image.tag=$OPENCHOREO_VERSION" \
+        "--set" "backstage.image.pullPolicy=IfNotPresent"
 }
 
 # Install OpenChoreo Build Plane
@@ -269,7 +282,8 @@ install_identity_provider() {
 # Install OpenChoreo Observability Plane (optional)
 install_observability_plane() {
     log_info "Installing OpenChoreo Observability Plane..."
-    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "false" "1800"
+    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "false" "1800" \
+        "--set" "observer.image.tag=$OPENCHOREO_VERSION"
 }
 
 # Install Backstage Demo
@@ -306,7 +320,7 @@ setup_port_forwarding() {
     fi
     
     log_info "Setting up port-forwarding proxy from 8443 to the gateway NodePort..."
-    socat TCP-LISTEN:8443,fork TCP:k3d-${CLUSTER_NAME}-agent-0:$nodeport_eg &
+    socat TCP-LISTEN:8443,fork TCP:k3d-${CLUSTER_NAME}-server-0:$nodeport_eg &
     
     log_info "Finding backstage nodeport..."
     local nodeport_backstage
@@ -328,7 +342,7 @@ setup_port_forwarding() {
     fi
     
     log_info "Setting up port-forwarding proxy from 7007 to the Backstage NodePort..."
-    socat TCP-LISTEN:7007,fork TCP:k3d-${CLUSTER_NAME}-agent-0:$nodeport_backstage &
+    socat TCP-LISTEN:7007,fork TCP:k3d-${CLUSTER_NAME}-server-0:$nodeport_backstage &
     
     log_success "Port forwarding setup complete"
 }
@@ -390,13 +404,23 @@ verify_prerequisites() {
 get_openchoreo_images() {
     # Core images that are always needed
     local images=(
-        # Control Plane
-        "docker.io/rancher/local-path-provisioner:v0.0.30"
-        "docker.io/rancher/mirrored-coredns-coredns:1.12.0"
-        "ghcr.io/openchoreo/controller:v0.3.2"
-        "ghcr.io/openchoreo/openchoreo-api:v0.3.2"
-        "quay.io/jetstack/cert-manager-webhook:v1.16.2"
+        # K3s base images (used by k3d cluster)
+        "docker.io/rancher/mirrored-coredns-coredns:1.12.3"
+        "docker.io/rancher/local-path-provisioner:v0.0.31"
+        
+        # OpenChoreo vendor images
+        "docker.io/curlimages/curl:8.4.0"
+        "ghcr.io/asgardeo/thunder:0.10.0"
         "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
+        "quay.io/jetstack/cert-manager-controller:v1.16.2"
+        "quay.io/jetstack/cert-manager-startupapicheck:v1.16.2"
+        "quay.io/jetstack/cert-manager-webhook:v1.16.2"
+        "docker.io/envoyproxy/gateway:v1.5.4"
+
+        # OpenChoreo component images
+        "ghcr.io/openchoreo/controller:${OPENCHOREO_VERSION:-latest}"
+        "ghcr.io/openchoreo/openchoreo-api:${OPENCHOREO_VERSION:-latest}"
+        "ghcr.io/openchoreo/openchoreo-ui:${OPENCHOREO_VERSION:-latest}"
     )
     
     # Add observability images if enabled
@@ -404,35 +428,65 @@ get_openchoreo_images() {
         images+=(
             "docker.io/opensearchproject/opensearch:2.18.0"
             "docker.io/opensearchproject/opensearch-dashboards:2.18.0"
+            "ghcr.io/openchoreo/observer:${OPENCHOREO_VERSION}"
         )
     fi
     
     echo "${images[@]}"
 }
 
-# Pull docker images
+# Pull docker images in parallel
 pull_images() {
-    log_info "Pulling required docker images..."
+    log_info "Pulling required docker images in parallel..."
     
     local images=($@)
     local total=${#images[@]}
-    local current=0
+    local pids=()
     
-    for image in "${images[@]}"; do
-        current=$((current + 1))
-        log_info "[$current/$total] Pulling $image..."
+    # Function to pull a single image
+    pull_single_image() {
+        local image="$1"
+        local index="$2"
+        local total="$3"
         
         if docker pull "$image" >/dev/null 2>&1; then
-            log_success "Pulled $image"
+            log_success "[$index/$total] Pulled $image"
+            return 0
         else
-            log_warning "Failed to pull $image (may already exist locally)"
+            log_warning "[$index/$total] Failed to pull $image (may already exist locally)"
+            return 1
+        fi
+    }
+    
+    export -f pull_single_image
+    export -f log_success
+    export -f log_warning
+    export -f log_error
+    export -f log_info
+    export BLUE GREEN YELLOW RED RESET
+    
+    # Start pulling all images in parallel
+    for i in "${!images[@]}"; do
+        pull_single_image "${images[$i]}" "$((i + 1))" "$total" &
+        pids+=($!)
+    done
+    
+    # Wait for all pull operations to complete
+    local failed=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            failed=$((failed + 1))
         fi
     done
+    
+    if [[ $failed -gt 0 ]]; then
+        log_warning "Failed to pull $failed image(s)"
+    fi
     
     log_success "Image pull complete"
 }
 
-# Load images into k3d cluster
+# Load images into k3d cluster (sequential to avoid containerd race conditions)
 load_images_to_cluster() {
     if ! cluster_exists; then
         log_error "Cluster '$CLUSTER_NAME' does not exist. Cannot load images."
@@ -444,17 +498,30 @@ load_images_to_cluster() {
     local images=($@)
     local total=${#images[@]}
     local current=0
+    local failed=0
     
     for image in "${images[@]}"; do
         current=$((current + 1))
         log_info "[$current/$total] Loading $image into cluster..."
         
-        if k3d image import "$image" -c "$CLUSTER_NAME" >/dev/null 2>&1; then
-            log_success "Loaded $image"
+        local output
+        if output=$(k3d image import "$image" -c "$CLUSTER_NAME" 2>&1); then
+            log_success "[$current/$total] Loaded $image"
         else
-            log_warning "Failed to load $image (may already exist in cluster)"
+            # k3d sometimes returns non-zero even on success, check output
+            if echo "$output" | grep -q "ERROR\|error\|failed"; then
+                log_error "[$current/$total] Failed to load $image: $output"
+                failed=$((failed + 1))
+            else
+                log_success "[$current/$total] Loaded $image"
+            fi
         fi
     done
+    
+    if [[ $failed -gt 0 ]]; then
+        log_error "Failed to load $failed image(s) into cluster"
+        return 1
+    fi
     
     log_success "All images loaded into cluster"
 }
@@ -462,15 +529,15 @@ load_images_to_cluster() {
 # Pull and load all required images
 prepare_images() {
     log_info "Preparing docker images for installation..."
-    
+
     local images=($(get_openchoreo_images))
-    
+
     # Pull images
     pull_images "${images[@]}"
-    
+
     # Load images into cluster
     load_images_to_cluster "${images[@]}"
-    
+
     log_success "Image preparation complete"
 }
 
