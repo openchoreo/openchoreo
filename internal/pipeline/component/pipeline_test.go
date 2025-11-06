@@ -21,6 +21,8 @@ func TestPipeline_Render(t *testing.T) {
 		settingsYAML     string
 		wantErr          bool
 		wantResourceYAML string
+		environmentYAML  string
+		dataplneYAML     string
 	}{
 		{
 			name: "simple component without addons",
@@ -48,6 +50,48 @@ spec:
               replicas: ${parameters.replicas}
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: apps/v1
   kind: Deployment
@@ -94,6 +138,48 @@ spec:
   overrides:
     replicas: 5
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+  namespace: test-namespace
+spec:
+  dataPlaneRef: prod-dataplane
+  isProduction: true
+  gateway:
+    dnsPrefix: prod
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: production-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: production-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: apps/v1
   kind: Deployment
@@ -138,6 +224,48 @@ spec:
               name: ${component.name}
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: apps/v1
   kind: Deployment
@@ -184,6 +312,48 @@ spec:
               name: ${secret}
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: v1
   kind: Secret
@@ -243,6 +413,48 @@ spec:
                 database: ${parameters.database}
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: apps/v1
   kind: Deployment
@@ -310,6 +522,48 @@ spec:
                   monitoring: enabled
   workload: {}
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: apps/v1
   kind: Deployment
@@ -854,13 +1108,32 @@ spec:
 				}
 			}
 
+			// Parse environment
+			var environment *v1alpha1.Environment
+			if tt.environmentYAML != "" {
+				environment = &v1alpha1.Environment{}
+				if err := yaml.Unmarshal([]byte(tt.environmentYAML), environment); err != nil {
+					t.Fatalf("Failed to parse environment YAML: %v", err)
+				}
+			}
+
+			// Parse dataplane
+			var dataplane *v1alpha1.DataPlane
+			if tt.dataplneYAML != "" {
+				dataplane = &v1alpha1.DataPlane{}
+				if err := yaml.Unmarshal([]byte(tt.dataplneYAML), dataplane); err != nil {
+					t.Fatalf("Failed to parse dataplane YAML: %v", err)
+				}
+			}
+
 			// Create input
 			input := &RenderInput{
 				ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
 				Component:               &snapshot.Spec.Component,
 				Addons:                  snapshot.Spec.Addons,
 				Workload:                &snapshot.Spec.Workload,
-				Environment:             snapshot.Spec.Environment,
+				Environment:             environment,
+				DataPlane:               dataplane,
 				ComponentDeployment:     settings,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
@@ -968,6 +1241,8 @@ func TestPipeline_Options(t *testing.T) {
 		snapshotYAML     string
 		options          []Option
 		wantResourceYAML string
+		environmentYAML  string
+		dataplneYAML     string
 	}{
 		{
 			name: "with custom labels",
@@ -1058,13 +1333,32 @@ spec:
 				t.Fatalf("Failed to parse snapshot YAML: %v", err)
 			}
 
+			// Parse environment
+			var environment *v1alpha1.Environment
+			if tt.environmentYAML != "" {
+				environment = &v1alpha1.Environment{}
+				if err := yaml.Unmarshal([]byte(tt.environmentYAML), environment); err != nil {
+					t.Fatalf("Failed to parse environment YAML: %v", err)
+				}
+			}
+
+			// Parse dataplane
+			var dataplane *v1alpha1.DataPlane
+			if tt.dataplneYAML != "" {
+				dataplane = &v1alpha1.DataPlane{}
+				if err := yaml.Unmarshal([]byte(tt.dataplneYAML), dataplane); err != nil {
+					t.Fatalf("Failed to parse dataplane YAML: %v", err)
+				}
+			}
+
 			// Create input
 			input := &RenderInput{
 				ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
 				Component:               &snapshot.Spec.Component,
 				Addons:                  snapshot.Spec.Addons,
 				Workload:                &snapshot.Spec.Workload,
-				Environment:             snapshot.Spec.Environment,
+				Environment:             environment,
+				DataPlane:               dataplane,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",

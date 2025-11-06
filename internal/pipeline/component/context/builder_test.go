@@ -60,7 +60,10 @@ spec:
 					"name":      "test-component",
 					"namespace": "default",
 				},
-				"environment": "dev",
+				"environment": map[string]any{
+					"name":  "dev",
+					"vhost": "api.example.com",
+				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -110,7 +113,10 @@ spec:
 				"component": map[string]any{
 					"name": "test-component",
 				},
-				"environment": "prod",
+				"environment": map[string]any{
+					"name":  "prod",
+					"vhost": "api.example.com",
+				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -172,7 +178,10 @@ spec:
 						"files": []any{},
 					},
 				},
-				"environment": "dev",
+				"environment": map[string]any{
+					"name":  "dev",
+					"vhost": "api.example.com",
+				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -199,7 +208,10 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
 			input := &ComponentContextInput{
-				Environment: tt.environment,
+				Environment: EnvironmentContext{
+					Name:        tt.environment,
+					VirtualHost: "api.example.com",
+				},
 				Metadata: MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",
@@ -315,7 +327,10 @@ config:
 				"component": map[string]any{
 					"name": "test-component",
 				},
-				"environment": "dev",
+				"environment": map[string]any{
+					"name":  "dev",
+					"vhost": "api.example.com",
+				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -374,7 +389,10 @@ spec:
 				"component": map[string]any{
 					"name": "test-component",
 				},
-				"environment": "prod",
+				"environment": map[string]any{
+					"name":  "prod",
+					"vhost": "api.example.com",
+				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -401,7 +419,10 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
 			input := &AddonContextInput{
-				Environment: tt.environment,
+				Environment: EnvironmentContext{
+					Name:        tt.environment,
+					VirtualHost: "api.example.com",
+				},
 				Metadata: MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",

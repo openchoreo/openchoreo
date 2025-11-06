@@ -121,9 +121,11 @@ func BuildAddonContext(input *AddonContextInput) (map[string]any, error) {
 	ctx["component"] = componentMeta
 
 	// 7. Add environment
-	if input.Environment != "" {
-		ctx["environment"] = input.Environment
+	environment := map[string]any{
+		"name":  input.Environment.Name,
+		"vhost": input.Environment.VirtualHost,
 	}
+	ctx["environment"] = environment
 
 	// 8. Add structured metadata for resource generation
 	// This is what templates and patches use via ${metadata.name}, ${metadata.namespace}, etc.

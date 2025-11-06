@@ -112,10 +112,12 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["component"] = componentMeta
 
-	// 10. Add environment
-	if input.Environment != "" {
-		ctx["environment"] = input.Environment
+	// 7. Add environment
+	environment := map[string]any{
+		"name":  input.Environment.Name,
+		"vhost": input.Environment.VirtualHost,
 	}
+	ctx["environment"] = environment
 
 	// 11. Add structured metadata for resource generation
 	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.

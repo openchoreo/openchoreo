@@ -53,8 +53,8 @@ type ComponentContextInput struct {
 	// Workload contains the workload specification with the built image.
 	Workload *v1alpha1.Workload
 
-	// Environment is the name of the environment being rendered for.
-	Environment string
+	// Environment to which the component is being deployed.
+	Environment EnvironmentContext
 
 	// DataPlane contains the data plane configuration.
 	// Optional - can be nil if no data plane is configured.
@@ -86,7 +86,7 @@ type AddonContextInput struct {
 	ComponentDeployment *v1alpha1.ComponentDeployment
 
 	// Environment is the name of the environment being rendered for.
-	Environment string
+	Environment EnvironmentContext
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
@@ -111,4 +111,12 @@ type SchemaInput struct {
 
 	// Structural is the compiled structural schema (cached).
 	Structural *apiextschema.Structural
+}
+
+type EnvironmentContext struct {
+	// Name is the name of the environment.
+	Name string
+
+	// VirtualHost is the virtual host that is associated with the environment.
+	VirtualHost string
 }

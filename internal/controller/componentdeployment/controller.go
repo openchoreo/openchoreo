@@ -155,7 +155,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	// Create or update Release
-	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, dataPlane); err != nil {
+	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, environment, dataPlane); err != nil {
 		logger.Error(err, "Failed to reconcile Release")
 		return ctrl.Result{}, err
 	}
@@ -360,7 +360,8 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *open
 }
 
 // reconcileRelease creates or updates the Release resource
-func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, dataPlane *openchoreov1alpha1.DataPlane) error {
+func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
+	environment *openchoreov1alpha1.Environment, dataPlane *openchoreov1alpha1.DataPlane) error {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
@@ -382,7 +383,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		Component:               &snapshot.Spec.Component,
 		Addons:                  snapshot.Spec.Addons,
 		Workload:                &snapshot.Spec.Workload,
-		Environment:             snapshot.Spec.Environment,
+		Environment:             environment,
 		ComponentDeployment:     componentDeployment,
 		DataPlane:               dataPlane,
 		SecretReferences:        secretReferences,

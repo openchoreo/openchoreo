@@ -35,9 +35,9 @@ type RenderInput struct {
 	// Required.
 	Workload *v1alpha1.Workload
 
-	// Environment is the name of the environment this component is being rendered for.
+	// Environment to which the component is being deployed.
 	// Required.
-	Environment string
+	Environment *v1alpha1.Environment
 
 	// ComponentDeployment contains environment-specific overrides for the component.
 	// Optional - if nil, no environment overrides are applied.

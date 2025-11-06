@@ -61,12 +61,18 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
+	// Build environment context
+	environment := context.EnvironmentContext{
+		Name:        input.Environment.Name,
+		VirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
+	}
+
 	// 2. Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
 		Component:               input.Component,
 		ComponentTypeDefinition: input.ComponentTypeDefinition,
 		Workload:                input.Workload,
-		Environment:             input.Environment,
+		Environment:             environment,
 		ComponentDeployment:     input.ComponentDeployment,
 		DataPlane:               input.DataPlane,
 		SecretReferences:        input.SecretReferences,
@@ -112,7 +118,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Addon:               addon,
 			Instance:            addonInstance,
 			Component:           input.Component,
-			Environment:         input.Environment,
+			Environment:         environment,
 			ComponentDeployment: input.ComponentDeployment,
 			Metadata:            input.Metadata,
 			SchemaCache:         schemaCache,
@@ -174,7 +180,7 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	if input.Workload == nil {
 		return fmt.Errorf("workload is nil")
 	}
-	if input.Environment == "" {
+	if input.Environment == nil {
 		return fmt.Errorf("environment is required")
 	}
 
@@ -198,7 +204,7 @@ func (p *Pipeline) postProcessResources(resources []map[string]any, input *Rende
 	// Add component metadata
 	if input.Component != nil {
 		commonLabels["openchoreo.org/component"] = input.Component.Name
-		commonLabels["openchoreo.org/environment"] = input.Environment
+		commonLabels["openchoreo.org/environment"] = input.Environment.Name
 	}
 
 	// Add configured labels/annotations

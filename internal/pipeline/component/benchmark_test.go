@@ -37,11 +37,13 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	docs := strings.Split(string(data), "\n---\n")
 
 	var (
-		ctd        *v1alpha1.ComponentTypeDefinition
-		addons     []v1alpha1.Addon
-		component  *v1alpha1.Component
-		workload   *v1alpha1.Workload
-		deployment *v1alpha1.ComponentDeployment
+		ctd         *v1alpha1.ComponentTypeDefinition
+		addons      []v1alpha1.Addon
+		component   *v1alpha1.Component
+		workload    *v1alpha1.Workload
+		deployment  *v1alpha1.ComponentDeployment
+		environment *v1alpha1.Environment
+		dataplane   *v1alpha1.DataPlane
 	)
 
 	// Parse each document by identifying its kind
@@ -89,6 +91,16 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 			if err := yaml.Unmarshal([]byte(doc), deployment); err != nil {
 				tb.Fatalf("Failed to parse ComponentDeployment: %v", err)
 			}
+		case "Environment":
+			environment = &v1alpha1.Environment{}
+			if err := yaml.Unmarshal([]byte(doc), environment); err != nil {
+				tb.Fatalf("Failed to parse Environment: %v", err)
+			}
+		case "DataPlane":
+			dataplane = &v1alpha1.DataPlane{}
+			if err := yaml.Unmarshal([]byte(doc), dataplane); err != nil {
+				tb.Fatalf("Failed to parse DataPlane: %v", err)
+			}
 
 		default:
 			tb.Logf("Skipping unknown resource kind: %s", kind.Kind)
@@ -132,7 +144,8 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 		Component:               &snapshot.Spec.Component,
 		Addons:                  snapshot.Spec.Addons,
 		Workload:                &snapshot.Spec.Workload,
-		Environment:             snapshot.Spec.Environment,
+		Environment:             environment,
+		DataPlane:               dataplane,
 		ComponentDeployment:     deployment,
 		Metadata: context.MetadataContext{
 			Name:      "demo-app-dev-12345678",
@@ -295,9 +308,63 @@ spec:
   workload: {}
 `
 
+	environmentYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`
+
+	dataplaneYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+`
+
 	snapshot := &v1alpha1.ComponentEnvSnapshot{}
 	if err := yaml.Unmarshal([]byte(snapshotYAML), snapshot); err != nil {
 		b.Fatalf("Failed to parse snapshot: %v", err)
+	}
+
+	environment := v1alpha1.Environment{}
+	if err := yaml.Unmarshal([]byte(environmentYAML), &environment); err != nil {
+		b.Fatalf("Failed to parse environment: %v", err)
+	}
+
+	dataplane := v1alpha1.DataPlane{}
+	if err := yaml.Unmarshal([]byte(dataplaneYAML), &dataplane); err != nil {
+		b.Fatalf("Failed to parse dataplane: %v", err)
 	}
 
 	input := &RenderInput{
@@ -305,7 +372,8 @@ spec:
 		Component:               &snapshot.Spec.Component,
 		Addons:                  snapshot.Spec.Addons,
 		Workload:                &snapshot.Spec.Workload,
-		Environment:             snapshot.Spec.Environment,
+		Environment:             &environment,
+		DataPlane:               &dataplane,
 		Metadata: context.MetadataContext{
 			Name:      "test-app-dev-12345678",
 			Namespace: "test-namespace",
@@ -373,9 +441,63 @@ spec:
   workload: {}
 `
 
+	environmentYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`
+
+	dataplaneYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+`
+
 	snapshot := &v1alpha1.ComponentEnvSnapshot{}
 	if err := yaml.Unmarshal([]byte(snapshotYAML), snapshot); err != nil {
 		b.Fatalf("Failed to parse snapshot: %v", err)
+	}
+
+	environment := v1alpha1.Environment{}
+	if err := yaml.Unmarshal([]byte(environmentYAML), &environment); err != nil {
+		b.Fatalf("Failed to parse environment: %v", err)
+	}
+
+	dataplane := v1alpha1.DataPlane{}
+	if err := yaml.Unmarshal([]byte(dataplaneYAML), &dataplane); err != nil {
+		b.Fatalf("Failed to parse dataplane: %v", err)
 	}
 
 	input := &RenderInput{
@@ -383,7 +505,8 @@ spec:
 		Component:               &snapshot.Spec.Component,
 		Addons:                  snapshot.Spec.Addons,
 		Workload:                &snapshot.Spec.Workload,
-		Environment:             snapshot.Spec.Environment,
+		Environment:             &environment,
+		DataPlane:               &dataplane,
 		Metadata: context.MetadataContext{
 			Name:      "test-app-dev-12345678",
 			Namespace: "test-namespace",
