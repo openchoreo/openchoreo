@@ -42,6 +42,9 @@ var _ = Describe("Component Controller", func() {
 							ProjectName: "test-project",
 						},
 						Type: openchoreov1alpha1.ComponentTypeService,
+						Build: openchoreov1alpha1.BuildSpecInComponent{
+							WorkflowTemplate: "test-workflow-template",
+						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
