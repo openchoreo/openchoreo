@@ -275,7 +275,7 @@ spec:
             secretRef:
               name: database-secret
               key: password
-      file:
+      files:
         - key: application.toml
           mountPath: /conf
           value: |

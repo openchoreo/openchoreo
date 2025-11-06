@@ -42,7 +42,7 @@ func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 			}
 
 			// Process file configurations
-			for _, file := range container.File {
+			for _, file := range container.Files {
 				if file.Value != "" {
 					// Direct content - goes to configs
 					configs["files"] = append(configs["files"], map[string]any{

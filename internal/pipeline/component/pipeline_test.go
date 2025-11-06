@@ -576,7 +576,7 @@ spec:
       containers:
         app:
           image: myapp:latest
-          file:
+          files:
             - key: config.json
               value: |
                 {
@@ -598,7 +598,7 @@ apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentDeployment
 spec:
   configurationOverrides:
-    file:
+    files:
       - key: config.json
         value: |
           {
@@ -757,7 +757,7 @@ spec:
       containers:
         app:
           image: myapp:latest
-          file:
+          files:
             - key: config.json
               value: |
                 {

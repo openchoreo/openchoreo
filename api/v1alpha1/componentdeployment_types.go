@@ -16,7 +16,7 @@ type EnvConfigurationOverrides struct {
 
 	// File configuration overrides
 	// +optional
-	Files []FileVar `json:"file,omitempty"`
+	Files []FileVar `json:"files,omitempty"`
 }
 
 // ComponentDeploymentSpec defines the desired state of ComponentDeployment.

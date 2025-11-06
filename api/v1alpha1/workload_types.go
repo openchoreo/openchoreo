@@ -11,7 +11,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // FileVar represents a file configuration in a container.
-// +kubebuilder:validation:XValidation:rule="(has(self.value) && self.value != '') != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
 type FileVar struct {
 	// The file key/name.
 	// +kubebuilder:validation:Required
@@ -51,7 +51,7 @@ type Container struct {
 
 	// File configurations.
 	// +optional
-	File []FileVar `json:"file,omitempty"`
+	Files []FileVar `json:"files,omitempty"`
 }
 
 // WorkloadEndpoint represents a simple network endpoint for basic exposure.

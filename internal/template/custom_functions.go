@@ -85,6 +85,8 @@ func (o *omitCELValue) Value() interface{} {
 //
 // oc_generate_name(...strings) - Generate valid Kubernetes resource names
 //
+// oc_hash(string) - Generate 8-character hash from input string
+//
 // # oc_omit() - Conditional Omission
 //
 // Returns a sentinel value that is removed during post-processing. Supports two use cases:
@@ -151,6 +153,16 @@ func (o *omitCELValue) Value() interface{} {
 //
 //	oc_generate_name("my-app")   -> "my-app-abc12345"
 //	oc_generate_name("My App!")  -> "my-app-def67890"  # Different hash
+//
+// # oc_hash() - String Hashing
+//
+// Generates an 8-character hexadecimal hash from an input string using the FNV-32a
+// algorithm. Useful for creating stable, deterministic identifiers or suffixes.
+//
+// The hash is deterministic - the same input always produces the same output:
+//
+//	oc_hash("test")  -> "4fdcca5d"  # Always produces this hash
+//	oc_hash("test")  -> "4fdcca5d"  # Same input, same output
 //
 // All custom functions use the "oc_" prefix to avoid potential conflicts with upstream CEL-go.
 func CustomFunctions() []cel.EnvOption {

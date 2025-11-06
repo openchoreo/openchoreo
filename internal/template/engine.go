@@ -7,12 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-<<<<<<< HEAD
-=======
-	"hash/fnv"
-	"maps"
-	"reflect"
->>>>>>> 592f47bd (Introduce cel function for hash)
 	"strings"
 
 	"github.com/google/cel-go/cel"

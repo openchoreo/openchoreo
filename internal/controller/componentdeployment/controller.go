@@ -302,7 +302,7 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *open
 		}
 
 		// Collect from file configurations
-		for _, file := range container.File {
+		for _, file := range container.Files {
 			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
 				refName := file.ValueFrom.SecretRef.Name
 				if _, exists := secretRefs[refName]; !exists {

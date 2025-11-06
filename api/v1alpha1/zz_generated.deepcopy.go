@@ -2092,8 +2092,8 @@ func (in *Container) DeepCopyInto(out *Container) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.File != nil {
-		in, out := &in.File, &out.File
+	if in.Files != nil {
+		in, out := &in.Files, &out.Files
 		*out = make([]FileVar, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
