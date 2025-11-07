@@ -1,0 +1,45 @@
+controllerManager:
+  image:
+    pullPolicy: IfNotPresent
+
+openchoreoApi:
+  image:
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: api.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 8080
+
+backstage:
+  image:
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 7007
+  baseUrl: http://openchoreo.localhost:7007
+  auth:
+    authorizationUrl: http://thunder.openchoreo.localhost:7007/oauth2/authorize
+
+asgardeoThunder:
+  image:
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: thunder.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 8090

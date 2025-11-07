@@ -441,9 +441,15 @@ asgardeoThunder:
   image:
     repository: ghcr.io/asgardeo/thunder
     pullPolicy: IfNotPresent
-    tag: "0.10.0"
+    tag: "0.11.0"
   imagePullSecrets: []
-  env: []
+  env:
+    - name: ENABLE_HTTPS
+      value: "false"
+    - name: PORT
+      value: "8090"
+    - name: HOST
+      value: "0.0.0.0"
   podAnnotations: {}
   podLabels: {}
   podSecurityContext:
@@ -465,9 +471,6 @@ asgardeoThunder:
     port: 8090
     targetPort: 8090
     nodePort: null
-    gatePort: 9090
-    gateTargetPort: 9090
-    gateNodePort: null
   resources:
     limits:
       cpu: 500m
@@ -505,10 +508,10 @@ asgardeoThunder:
       port: 8090
       httpOnly: true
     gateClient:
-      hostname: "localhost"
-      port: 9090
-      scheme: "https"
-      loginPath: "/login"
+      hostname: "thunder.openchoreo.localhost"
+      port: 7007
+      scheme: "http"
+      loginPath: "/signin"
       errorPath: "/error"
     security:
       certFile: "repository/resources/security/server.cert"
@@ -524,7 +527,7 @@ asgardeoThunder:
         options: "_journal_mode=WAL&_busy_timeout=5000"
     oauth:
       jwt:
-        issuer: "https://openchoreo.example.com"
+        issuer: "thunder"
         validityPeriod: 3600
       refreshToken:
         renewOnGrant: false
@@ -533,6 +536,13 @@ asgardeoThunder:
       graphDirectory: "repository/resources/graphs/"
       authn:
         defaultFlow: "auth_flow_config_basic"
+  runtimeConfig:
+    client:
+      base: "/signin"
+    server:
+      hostname: "thunder.openchoreo.localhost"
+      port: 7007
+      httpOnly: true
   persistence:
     database:
       enabled: true
@@ -545,9 +555,10 @@ asgardeoThunder:
     name: "Backstage"
     description: "OpenChoreo Backstage Portal"
     clientId: "openchoreo-backstage-client"
-    clientSecret: ""
+    clientSecret: "backstage-portal-secret"
     redirectUrls:
-      - "https://localhost:7007/api/auth/default-idp/handler/frame"
+      - "http://localhost:7007/api/auth/default-idp/handler/frame"
+      - "http://openchoreo.localhost:7007/api/auth/default-idp/handler/frame"
   userDetails:
     userSchemaName: "engineer"
     users:
@@ -555,3 +566,4 @@ asgardeoThunder:
         password: "Admin@123"
         given_name: "Admin"
         family_name: "User"
+        group: "platformEngineer"

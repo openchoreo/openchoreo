@@ -113,8 +113,8 @@ create_k3d_cluster() {
     if k3d cluster create "$CLUSTER_NAME" \
         --image "$K3S_IMAGE" \
         --servers 1 \
-        --k3s-arg "--disable=traefik@server:*" \
         --k3s-arg "--disable=metrics-server@server:0" \
+        --port "7007:80@loadbalancer" \
         --wait; then
         log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
@@ -259,12 +259,10 @@ install_data_plane() {
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "1800" \
+        "--values" "/app/openchoreo-cp-values.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "controllerManager.image.pullPolicy=IfNotPresent" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "openchoreoApi.image.pullPolicy=IfNotPresent" \
-        "--set" "backstage.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "backstage.image.pullPolicy=IfNotPresent"
+        "--set" "backstage.image.tag=$OPENCHOREO_VERSION"
 }
 
 # Install OpenChoreo Build Plane
@@ -293,58 +291,15 @@ install_backstage_demo() {
         "--set" "backstage.service.type=NodePort"
 }
 
-# Setup port forwarding for services
+# Setup port forwarding for services (DEPRECATED - Using Traefik Ingress on port 7007)
+# This function is kept for backward compatibility but is no longer used
 setup_port_forwarding() {
-    log_info "Setting up port forwarding..."
-    
-    # Kill existing socat processes
-    pkill socat 2>/dev/null || true
-    
-    log_info "Finding external gateway nodeport..."
-    local nodeport_eg
-    for i in {1..30}; do
-        nodeport_eg=$(kubectl get svc -n "$DATA_PLANE_NS" -l gateway.envoyproxy.io/owning-gateway-name=gateway-external \
-            -o jsonpath='{.items[0].spec.ports[0].nodePort}' 2>/dev/null) || true
-        
-        if [[ -n "$nodeport_eg" ]]; then
-            break
-        fi
-        
-        log_info "Waiting for external gateway service... (attempt $i/30)"
-        sleep 10
-    done
-    
-    if [[ -z "$nodeport_eg" ]]; then
-        log_error "Could not retrieve external gateway NodePort"
-        return 1
-    fi
-    
-    log_info "Setting up port-forwarding proxy from 8443 to the gateway NodePort..."
-    socat TCP-LISTEN:8443,fork TCP:k3d-${CLUSTER_NAME}-server-0:$nodeport_eg &
-    
-    log_info "Finding backstage nodeport..."
-    local nodeport_backstage
-    for i in {1..30}; do
-        nodeport_backstage=$(kubectl get svc -n "$CONTROL_PLANE_NS" -l app.kubernetes.io/component=backstage \
-            -o jsonpath='{.items[0].spec.ports[0].nodePort}' 2>/dev/null) || true
-        
-        if [[ -n "$nodeport_backstage" ]]; then
-            break
-        fi
-        
-        log_info "Waiting for backstage service... (attempt $i/30)"
-        sleep 10
-    done
-    
-    if [[ -z "$nodeport_backstage" ]]; then
-        log_error "Could not retrieve Backstage NodePort"
-        return 1
-    fi
-    
-    log_info "Setting up port-forwarding proxy from 7007 to the Backstage NodePort..."
-    socat TCP-LISTEN:7007,fork TCP:k3d-${CLUSTER_NAME}-server-0:$nodeport_backstage &
-    
-    log_success "Port forwarding setup complete"
+    log_info "Port forwarding via Traefik ingress on port 7007..."
+    log_info "Services are accessible via ingress:"
+    log_info "  - Thunder: http://thunder.openchoreo.localhost:7007/"
+    log_info "  - Backstage: http://backstage.openchoreo.localhost:7007/"
+    log_info "  - API: http://api.openchoreo.localhost:7007/"
+    log_success "Traefik ingress configured successfully"
 }
 
 # Setup choreoctl auto-completion
@@ -387,10 +342,6 @@ verify_prerequisites() {
         missing_tools+=("docker")
     fi
     
-    if ! command_exists socat; then
-        missing_tools+=("socat")
-    fi
-    
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         return 1
@@ -404,13 +355,10 @@ verify_prerequisites() {
 get_openchoreo_images() {
     # Core images that are always needed
     local images=(
-        # K3s base images (used by k3d cluster)
-        "docker.io/rancher/mirrored-coredns-coredns:1.12.3"
-        "docker.io/rancher/local-path-provisioner:v0.0.31"
         
         # OpenChoreo vendor images
         "docker.io/curlimages/curl:8.4.0"
-        "ghcr.io/asgardeo/thunder:0.10.0"
+        "ghcr.io/asgardeo/thunder:0.11.0"
         "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
         "quay.io/jetstack/cert-manager-controller:v1.16.2"
         "quay.io/jetstack/cert-manager-startupapicheck:v1.16.2"
