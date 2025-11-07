@@ -9,7 +9,7 @@ global:
   installationMode: minimal
 
 data-prepper:
-  enabled: true
+  enabled: false
   fullnameOverride: "data-prepper"
 
   pipelineConfig:
