@@ -35,6 +35,7 @@ spec:
       initContainers:
         - name: init-repository
           image: "{{ .Values.asgardeoThunder.image.repository }}:{{ .Values.asgardeoThunder.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.asgardeoThunder.image.pullPolicy }}
           securityContext:
             runAsUser: 802
             runAsGroup: 802

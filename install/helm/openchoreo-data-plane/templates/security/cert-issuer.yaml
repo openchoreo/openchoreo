@@ -1,3 +1,4 @@
+{{- if .Values.security.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -9,3 +10,4 @@ metadata:
   {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
 spec:
   selfSigned: {}
+{{- end }}

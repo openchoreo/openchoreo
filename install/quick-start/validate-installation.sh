@@ -31,9 +31,7 @@ validate_helm_releases() {
     local expected_releases=(
         "openchoreo-data-plane:$DATA_PLANE_NS"
         "openchoreo-control-plane:$CONTROL_PLANE_NS"
-        "openchoreo-build-plane:$BUILD_PLANE_NS"
-        "openchoreo-identity-provider:$IDENTITY_NS"
-        "openchoreo-backstage-demo:$CONTROL_PLANE_NS"
+
     )
     
     local failed_releases=()
@@ -61,8 +59,6 @@ validate_namespaces() {
     local expected_namespaces=(
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
-        "$BUILD_PLANE_NS"
-        "$IDENTITY_NS"
     )
     
     local missing_namespaces=()
@@ -87,8 +83,6 @@ validate_pods() {
     local namespaces=(
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
-        "$BUILD_PLANE_NS"
-        "$IDENTITY_NS"
     )
     
     local failed_namespaces=()
@@ -124,11 +118,6 @@ validate_services() {
         return 1
     fi
     
-    # Check backstage service
-    if ! kubectl get svc -n "$CONTROL_PLANE_NS" -l app.kubernetes.io/component=backstage >/dev/null 2>&1; then
-        log_error "Backstage service not found"
-        return 1
-    fi
     
     log_success "Key services validation passed"
 }

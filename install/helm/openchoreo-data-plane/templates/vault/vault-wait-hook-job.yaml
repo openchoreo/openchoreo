@@ -1,3 +1,4 @@
+{{- if .Values.vault.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -25,3 +26,4 @@ spec:
               --timeout=900s
       restartPolicy: Never
   backoffLimit: 5
+{{- end }}

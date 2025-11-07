@@ -1,4 +1,4 @@
-{{- if .Values.fluentBit.rbac.create }}
+{{- if and .Values.observability.enabled .Values.fluentBit.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
