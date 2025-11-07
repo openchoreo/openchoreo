@@ -1,7 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentTypeDefinition
 metadata:
-  name: web-service
+  name: web-service-with-configs
   namespace: default
 spec:
   workloadType: deployment
@@ -240,7 +240,7 @@ spec:
   owner:
     projectName: default
 
-  componentType: deployment/web-service
+  componentType: deployment/web-service-with-configs
 
   parameters:
     replicas: 2
