@@ -1,0 +1,8 @@
+{{- if .Values.observer.rca.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.observer.rca.jobsNamespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer-rca") | nindent 4 }}
+{{- end }}

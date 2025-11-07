@@ -160,6 +160,27 @@ observer:
   openSearchUsername: admin
   openSearchPassword: ThisIsTheOpenSearchPassword1
 
+  # RCA (Root Cause Analysis) configuration
+  rca:
+    enabled: false
+    jobsNamespace: openchoreo-rca-jobs # This is used by the ResourceQuota to limit jobs
+    jobSpec:
+      image:
+        repository: ghcr.io/openchoreo/rca-agent
+        tag: ""
+        pullPolicy: IfNotPresent
+      ttlSecondsAfterFinished: 600
+      # Resource limits and requests for RCA job pods
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    resourceQuota:
+      maxJobs: 5
+
 # Fluent Bit configuration
 fluentBit:
   enabled: false

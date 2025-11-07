@@ -68,6 +68,28 @@ spec:
             secretKeyRef:
               name: observer-opensearch
               key: password
+        {{- if .Values.observer.rca.enabled }}
+        - name: RCA_ENABLED
+          value: "true"
+        - name: RCA_NAMESPACE
+          value: {{ .Values.observer.rca.jobsNamespace | quote }}
+        - name: RCA_IMAGE_REPOSITORY
+          value: {{ .Values.observer.rca.jobSpec.image.repository | quote }}
+        - name: RCA_IMAGE_TAG
+          value: {{ .Values.observer.rca.jobSpec.image.tag | default .Chart.AppVersion | quote }}
+        - name: RCA_IMAGE_PULL_POLICY
+          value: {{ .Values.observer.rca.jobSpec.image.pullPolicy | quote }}
+        - name: RCA_TTL_SECONDS_AFTER_FINISHED
+          value: {{ .Values.observer.rca.jobSpec.ttlSecondsAfterFinished | quote }}
+        - name: RCA_RESOURCE_LIMITS_CPU
+          value: {{ .Values.observer.rca.jobSpec.resources.limits.cpu | quote }}
+        - name: RCA_RESOURCE_LIMITS_MEMORY
+          value: {{ .Values.observer.rca.jobSpec.resources.limits.memory | quote }}
+        - name: RCA_RESOURCE_REQUESTS_CPU
+          value: {{ .Values.observer.rca.jobSpec.resources.requests.cpu | quote }}
+        - name: RCA_RESOURCE_REQUESTS_MEMORY
+          value: {{ .Values.observer.rca.jobSpec.resources.requests.memory | quote }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health

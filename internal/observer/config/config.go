@@ -19,6 +19,7 @@ type Config struct {
 	OpenSearch OpenSearchConfig `koanf:"opensearch"`
 	Auth       AuthConfig       `koanf:"auth"`
 	Logging    LoggingConfig    `koanf:"logging"`
+	RCA        RCAConfig        `koanf:"rca"`
 	LogLevel   string           `koanf:"loglevel"`
 }
 
@@ -57,6 +58,20 @@ type LoggingConfig struct {
 	MaxLogLinesPerFile   int `koanf:"max.log.lines.per.file"`
 }
 
+// RCAConfig holds AI RCA (Root Cause Analysis) job configuration
+type RCAConfig struct {
+	Enabled                 bool   `koanf:"enabled"`
+	Namespace               string `koanf:"namespace"`
+	ImageRepository         string `koanf:"image.repository"`
+	ImageTag                string `koanf:"image.tag"`
+	ImagePullPolicy         string `koanf:"image.pull.policy"`
+	TTLSecondsAfterFinished int32  `koanf:"ttl.seconds.after.finished"`
+	ResourceLimitsCPU       string `koanf:"resource.limits.cpu"`
+	ResourceLimitsMemory    string `koanf:"resource.limits.memory"`
+	ResourceRequestsCPU     string `koanf:"resource.requests.cpu"`
+	ResourceRequestsMemory  string `koanf:"resource.requests.memory"`
+}
+
 // Load loads configuration from environment variables and defaults
 func Load() (*Config, error) {
 	k := koanf.New(".")
@@ -90,6 +105,16 @@ func Load() (*Config, error) {
 		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
 		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
+		"RCA_ENABLED":                     "rca.enabled",
+		"RCA_NAMESPACE":                   "rca.namespace",
+		"RCA_IMAGE_REPOSITORY":            "rca.image.repository",
+		"RCA_IMAGE_TAG":                   "rca.image.tag",
+		"RCA_IMAGE_PULL_POLICY":           "rca.image.pull.policy",
+		"RCA_TTL_SECONDS_AFTER_FINISHED":  "rca.ttl.seconds.after.finished",
+		"RCA_RESOURCE_LIMITS_CPU":         "rca.resource.limits.cpu",
+		"RCA_RESOURCE_LIMITS_MEMORY":      "rca.resource.limits.memory",
+		"RCA_RESOURCE_REQUESTS_CPU":       "rca.resource.requests.cpu",
+		"RCA_RESOURCE_REQUESTS_MEMORY":    "rca.resource.requests.memory",
 		"LOG_LEVEL":                       "loglevel",
 		"PORT":                            "server.port",           // Common alias
 		"JWT_SECRET":                      "auth.jwt.secret",       // Common alias
@@ -175,6 +200,9 @@ func getDefaults() map[string]interface{} {
 			"default.build.log.limit": 3000,
 			"max.log.lines.per.file":  600000,
 		},
+		"rca": map[string]interface{}{
+			"enabled": false,
+		},
 		"loglevel": "info",
 	}
 }
@@ -194,6 +222,33 @@ func (c *Config) validate() error {
 
 	if c.Logging.MaxLogLimit <= 0 {
 		return fmt.Errorf("max log limit must be positive")
+	}
+
+	if c.RCA.Enabled {
+		if c.RCA.Namespace == "" {
+			return fmt.Errorf("rca.namespace is required when RCA is enabled")
+		}
+		if c.RCA.ImageRepository == "" {
+			return fmt.Errorf("rca.image.repository is required when RCA is enabled")
+		}
+		if c.RCA.ImageTag == "" {
+			return fmt.Errorf("rca.image.tag is required when RCA is enabled")
+		}
+		if c.RCA.ImagePullPolicy == "" {
+			return fmt.Errorf("rca.image.pull.policy is required when RCA is enabled")
+		}
+		if c.RCA.ResourceLimitsCPU == "" {
+			return fmt.Errorf("rca.resource.limits.cpu is required when RCA is enabled")
+		}
+		if c.RCA.ResourceLimitsMemory == "" {
+			return fmt.Errorf("rca.resource.limits.memory is required when RCA is enabled")
+		}
+		if c.RCA.ResourceRequestsCPU == "" {
+			return fmt.Errorf("rca.resource.requests.cpu is required when RCA is enabled")
+		}
+		if c.RCA.ResourceRequestsMemory == "" {
+			return fmt.Errorf("rca.resource.requests.memory is required when RCA is enabled")
+		}
 	}
 
 	return nil

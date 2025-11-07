@@ -5,12 +5,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/rca"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // OpenSearchClient interface for testing
@@ -42,6 +45,22 @@ func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *sl
 		queryBuilder: opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
 		config:       cfg,
 		logger:       logger,
+	}
+}
+
+// RCAService provides AI-powered root cause analysis functionality
+type RCAService struct {
+	k8sClient client.Client
+	config    *config.Config
+	logger    *slog.Logger
+}
+
+// NewRCAService creates a new RCA service instance
+func NewRCAService(k8sClient client.Client, cfg *config.Config, logger *slog.Logger) *RCAService {
+	return &RCAService{
+		k8sClient: k8sClient,
+		config:    cfg,
+		logger:    logger,
 	}
 }
 
@@ -259,4 +278,76 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 
 	s.logger.Debug("Health check passed")
 	return nil
+}
+
+// RCARequest represents a request to perform AI-powered root cause analysis
+type RCARequest struct {
+	RCAID    string          `json:"rca_id"`
+	Metadata json.RawMessage `json:"metadata"`
+}
+
+// RCAResponse represents the response from creating an RCA job
+type RCAResponse struct {
+	JobName      string            `json:"jobName"`
+	JobNamespace string            `json:"jobNamespace"`
+	Status       string            `json:"status"`
+	CreatedAt    string            `json:"createdAt"`
+	Labels       map[string]string `json:"labels"`
+}
+
+// TriggerRCA creates a Kubernetes job to perform root cause analysis
+func (s *RCAService) TriggerRCA(ctx context.Context, req RCARequest) (*RCAResponse, error) {
+	if !s.config.RCA.Enabled {
+		return nil, fmt.Errorf("AI RCA feature is not enabled")
+	}
+
+	// Check if k8s client is initialized
+	if s.k8sClient == nil {
+		s.logger.Error("Kubernetes client is not initialized")
+		return nil, fmt.Errorf("kubernetes client not available")
+	}
+
+	s.logger.Info("Creating AI RCA job",
+		"rca_id", req.RCAID)
+
+	jobName := fmt.Sprintf("rca-%s", req.RCAID)
+
+	// RCA job specification
+	jobSpec := rca.JobSpec{
+		Name:                    jobName,
+		Namespace:               s.config.RCA.Namespace,
+		ImageRepository:         s.config.RCA.ImageRepository,
+		ImageTag:                s.config.RCA.ImageTag,
+		ImagePullPolicy:         s.config.RCA.ImagePullPolicy,
+		TTLSecondsAfterFinished: &s.config.RCA.TTLSecondsAfterFinished,
+		ResourceLimitsCPU:       s.config.RCA.ResourceLimitsCPU,
+		ResourceLimitsMemory:    s.config.RCA.ResourceLimitsMemory,
+		ResourceRequestsCPU:     s.config.RCA.ResourceRequestsCPU,
+		ResourceRequestsMemory:  s.config.RCA.ResourceRequestsMemory,
+	}
+
+	// RCA context
+	rcaContext := rca.RCAContext{
+		RCAID:    req.RCAID,
+		Metadata: req.Metadata,
+	}
+
+	// Create the job
+	job, err := rca.CreateJob(ctx, s.k8sClient, jobSpec, rcaContext)
+	if err != nil {
+		s.logger.Error("Failed to create RCA job", "error", err)
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+
+	s.logger.Info("RCA job created successfully", "job_name", job.Name, "namespace", job.Namespace)
+
+	response := &RCAResponse{
+		JobName:      job.Name,
+		JobNamespace: job.Namespace,
+		Status:       "Created",
+		CreatedAt:    job.CreationTimestamp.Format(time.RFC3339),
+		Labels:       job.Labels,
+	}
+
+	return response, nil
 }
