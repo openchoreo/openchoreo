@@ -39,12 +39,6 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		$(MAKE) manifests; \
 		$(call log_info, Running helm-gen for openchoreo-control-plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-		VALUES_FILE=$(CHART_PATH)/values.yaml; \
-		if [ -f "$$VALUES_FILE" ]; then \
-		  $(YQ) eval '.controllerManager.image.repository = "$(HELM_CONTROLLER_IMAGE)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
-		  $(YQ) eval '.controllerManager.image.pullPolicy = "$(HELM_CONTROLLER_IMAGE_PULL_POLICY)"' -i $$VALUES_FILE; \
-		fi \
 	fi
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)

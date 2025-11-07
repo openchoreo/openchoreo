@@ -1,0 +1,1015 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: componentenvsnapshots.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ComponentEnvSnapshot
+    listKind: ComponentEnvSnapshotList
+    plural: componentenvsnapshots
+    shortNames:
+    - snapshot
+    - snapshots
+    singular: componentenvsnapshot
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.componentName
+      name: Component
+      type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      type: string
+    - jsonPath: .status.releaseRef
+      name: Release
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ComponentEnvSnapshot is the Schema for the componentenvsnapshots
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ComponentEnvSnapshotSpec defines the desired state of ComponentEnvSnapshot.
+            properties:
+              addons:
+                description: |-
+                  Addons is an array of full embedded copies of all Addons used by the component
+                  This preserves the exact addon definitions at the time of snapshot
+                items:
+                  description: Addon is the Schema for the addons API.
+                  properties:
+                    apiVersion:
+                      description: |-
+                        APIVersion defines the versioned schema of this representation of an object.
+                        Servers should convert recognized schemas to the latest internal value, and
+                        may reject unrecognized values.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                      type: string
+                    kind:
+                      description: |-
+                        Kind is a string value representing the REST resource this object represents.
+                        Servers may infer this from the endpoint the client submits requests to.
+                        Cannot be updated.
+                        In CamelCase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    metadata:
+                      properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        finalizers:
+                          items:
+                            type: string
+                          type: array
+                        labels:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      type: object
+                    spec:
+                      description: AddonSpec defines the desired state of Addon.
+                      properties:
+                        creates:
+                          description: Creates defines new Kubernetes resources to
+                            create when this addon is applied
+                          items:
+                            description: AddonCreate defines a resource template to
+                              be created by the addon
+                            properties:
+                              template:
+                                description: |-
+                                  Template contains the Kubernetes resource with CEL expressions
+                                  CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                            required:
+                            - template
+                            type: object
+                          type: array
+                        patches:
+                          description: Patches defines modifications to existing resources
+                            generated by the ComponentTypeDefinition
+                          items:
+                            description: AddonPatch defines a modification to an existing
+                              resource
+                            properties:
+                              forEach:
+                                description: |-
+                                  ForEach repeats this patch for every item in a CEL-evaluated list
+                                  Requires 'var' to be set to name the binding used in operations
+                                  Example: forEach: ${spec.mounts}
+                                pattern: ^\$\{.+\}$
+                                type: string
+                              operations:
+                                description: Operations is the list of JSONPatch operations
+                                  to apply to the target resource
+                                items:
+                                  description: |-
+                                    JSONPatchOperation defines a JSONPatch operation
+                                    Supports standard operations (add, replace, remove) plus mergeShallow for map overlays
+                                  properties:
+                                    op:
+                                      description: |-
+                                        Op is the operation type
+                                        Standard operations: add, replace, remove (RFC 6902)
+                                        OpenChoreo extension: mergeShallow (overlays top-level map keys)
+                                      enum:
+                                      - add
+                                      - replace
+                                      - remove
+                                      - mergeShallow
+                                      type: string
+                                    path:
+                                      description: |-
+                                        Path is the JSON Pointer to the field to modify (RFC 6901)
+                                        Supports array filters: /spec/containers/[?(@.name=='app')]/volumeMounts/-
+                                      type: string
+                                    value:
+                                      description: |-
+                                        Value is the value to set (for add/replace/mergeShallow operations)
+                                        Not used for remove operations
+                                      type: object
+                                      x-kubernetes-preserve-unknown-fields: true
+                                  required:
+                                  - op
+                                  - path
+                                  type: object
+                                minItems: 1
+                                type: array
+                              target:
+                                description: Target specifies which resource to patch
+                                properties:
+                                  group:
+                                    description: |-
+                                      Group is the API group of the resource (e.g., "apps", "batch")
+                                      Use empty string for core resources
+                                    type: string
+                                  kind:
+                                    description: Kind is the resource type to patch
+                                      (e.g., "Deployment", "StatefulSet")
+                                    minLength: 1
+                                    type: string
+                                  version:
+                                    description: Version is the API version of the
+                                      resource (e.g., "v1", "v1beta1")
+                                    minLength: 1
+                                    type: string
+                                  where:
+                                    description: |-
+                                      Where is an optional CEL expression to filter which resources to patch
+                                      Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                                    type: string
+                                required:
+                                - kind
+                                - version
+                                type: object
+                              var:
+                                description: |-
+                                  Var names the binding for forEach iterations
+                                  Required when forEach is specified
+                                  Example: var: mount
+                                pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                                type: string
+                            required:
+                            - operations
+                            - target
+                            type: object
+                            x-kubernetes-validations:
+                            - message: var is required when forEach is specified
+                              rule: '!has(self.forEach) || has(self.var)'
+                          type: array
+                        schema:
+                          description: Schema defines addon parameters
+                          properties:
+                            envOverrides:
+                              description: |-
+                                EnvOverrides can be overridden per environment via ComponentDeployment.
+                                Same nested map structure and type definition format as Parameters.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            parameters:
+                              description: |-
+                                Parameters are developer-facing configuration options.
+                                This is a nested map structure where keys are field names and values
+                                are either nested maps or type definition strings.
+                                Type definition format: "type | default=value | required=true | enum=val1,val2"
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            types:
+                              description: |-
+                                Types defines reusable type definitions that can be referenced in schema fields
+                                This is a nested map structure where keys are type names and values are type definitions
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                      type: object
+                    status:
+                      description: AddonStatus defines the observed state of Addon.
+                      type: object
+                  type: object
+                type: array
+              component:
+                description: |-
+                  Component is a full embedded copy of the Component
+                  This preserves the exact component configuration at the time of snapshot
+                properties:
+                  apiVersion:
+                    description: |-
+                      APIVersion defines the versioned schema of this representation of an object.
+                      Servers should convert recognized schemas to the latest internal value, and
+                      may reject unrecognized values.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                    type: string
+                  kind:
+                    description: |-
+                      Kind is a string value representing the REST resource this object represents.
+                      Servers may infer this from the endpoint the client submits requests to.
+                      Cannot be updated.
+                      In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  metadata:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                  spec:
+                    description: ComponentSpec defines the desired state of Component.
+                    properties:
+                      addons:
+                        description: |-
+                          Addons to compose into this component
+                          Each addon can be instantiated multiple times with different instanceNames
+                        items:
+                          description: ComponentAddon represents an addon instance
+                            attached to a component
+                          properties:
+                            config:
+                              description: |-
+                                Config contains the addon parameter values
+                                The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
+                              x-kubernetes-preserve-unknown-fields: true
+                            instanceName:
+                              description: |-
+                                InstanceName uniquely identifies this addon instance within the component
+                                Allows the same addon to be used multiple times with different configurations
+                                Must be unique across all addons in the component
+                              minLength: 1
+                              type: string
+                            name:
+                              description: Name is the name of the Addon resource
+                                to use
+                              minLength: 1
+                              type: string
+                          required:
+                          - instanceName
+                          - name
+                          type: object
+                        type: array
+                      build:
+                        description: Build defines the build configuration for the
+                          component
+                        properties:
+                          repository:
+                            description: Repository defines the source repository
+                              configuration where the component code resides
+                            properties:
+                              appPath:
+                                description: |-
+                                  AppPath is the path to the application within the repository
+                                  This is relative to the repository root. Default is "." for root directory
+                                type: string
+                              revision:
+                                description: |-
+                                  Revision specifies the default revision configuration for builds
+                                  This can be overridden when triggering specific builds
+                                properties:
+                                  branch:
+                                    description: |-
+                                      Branch specifies the default branch to build from
+                                      This will be used when no specific commit is provided for a build
+                                    type: string
+                                required:
+                                - branch
+                                type: object
+                              url:
+                                description: |-
+                                  URL is the repository URL where the component source code is located
+                                  Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
+                                type: string
+                            required:
+                            - appPath
+                            - revision
+                            - url
+                            type: object
+                          templateRef:
+                            description: |-
+                              TemplateRef defines the build template reference and configuration
+                              This references a ClusterWorkflowTemplate in the build plane
+                            properties:
+                              engine:
+                                description: Engine specifies the build engine
+                                type: string
+                              name:
+                                description: Name is the template name
+                                type: string
+                              parameters:
+                                description: Parameters contains the template parameters
+                                items:
+                                  description: Parameter defines a template parameter
+                                  properties:
+                                    name:
+                                      description: Name is the parameter name
+                                      type: string
+                                    value:
+                                      description: Value is the parameter value
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - repository
+                        - templateRef
+                        type: object
+                      componentType:
+                        description: |-
+                          ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
+                          Example: "deployment/web-app", "cronjob/scheduled-task"
+                          This field is used with ComponentTypeDefinitions (new model)
+                        pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                        x-kubernetes-validations:
+                        - message: spec.componentType cannot be changed after creation
+                          rule: self == oldSelf
+                      owner:
+                        description: Owner defines the ownership information for the
+                          component
+                        properties:
+                          projectName:
+                            minLength: 1
+                            type: string
+                        required:
+                        - projectName
+                        type: object
+                      parameters:
+                        description: |-
+                          Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
+                          This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
+                        x-kubernetes-preserve-unknown-fields: true
+                      type:
+                        description: |-
+                          Type specifies the component type (e.g., Service, WebApplication, etc.)
+                          LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
+                        type: string
+                    required:
+                    - owner
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Component must have either spec.type or spec.componentType
+                        set
+                      rule: has(self.type) || has(self.componentType)
+                  status:
+                    description: ComponentStatus defines the observed state of Component.
+                    properties:
+                      conditions:
+                        items:
+                          description: Condition contains details for one aspect of
+                            the current state of this API Resource.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This may be an empty string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: |-
+                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                with respect to the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: |-
+                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected values and meanings for this field,
+                                and whether the values are considered a guaranteed API.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        type: array
+                      observedGeneration:
+                        format: int64
+                        type: integer
+                    type: object
+                type: object
+              componentTypeDefinition:
+                description: |-
+                  ComponentTypeDefinition is a full embedded copy of the ComponentTypeDefinition
+                  This ensures the snapshot is immutable and doesn't change if the CTD is updated
+                properties:
+                  apiVersion:
+                    description: |-
+                      APIVersion defines the versioned schema of this representation of an object.
+                      Servers should convert recognized schemas to the latest internal value, and
+                      may reject unrecognized values.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                    type: string
+                  kind:
+                    description: |-
+                      Kind is a string value representing the REST resource this object represents.
+                      Servers may infer this from the endpoint the client submits requests to.
+                      Cannot be updated.
+                      In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  metadata:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                  spec:
+                    description: ComponentTypeDefinitionSpec defines the desired state
+                      of ComponentTypeDefinition.
+                    properties:
+                      resources:
+                        description: |-
+                          Resources are templates that generate Kubernetes resources dynamically
+                          At least one resource must be defined with an id matching the workloadType
+                        items:
+                          description: ResourceTemplate defines a template for generating
+                            Kubernetes resources
+                          properties:
+                            forEach:
+                              description: |-
+                                ForEach enables generating multiple resources from a list using CEL expression
+                                Example: "${spec.configurations}" to iterate over a list
+                              pattern: ^\$\{.+\}$
+                              type: string
+                            id:
+                              description: |-
+                                ID uniquely identifies this resource within the component type
+                                For the primary workload resource, this must match the workloadType
+                              minLength: 1
+                              type: string
+                            includeWhen:
+                              description: |-
+                                IncludeWhen is a CEL expression that determines if this resource should be created
+                                If not specified, the resource is always created
+                                Example: "${spec.autoscaling.enabled}"
+                              type: string
+                            template:
+                              description: |-
+                                Template contains the Kubernetes resource with CEL expressions
+                                CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            var:
+                              description: |-
+                                Var is the loop variable name when using forEach
+                                Example: "config" will make each item available as ${config} in templates
+                              pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                              type: string
+                          required:
+                          - id
+                          - template
+                          type: object
+                          x-kubernetes-validations:
+                          - message: var is required when forEach is specified
+                            rule: '!has(self.forEach) || has(self.var)'
+                        minItems: 1
+                        type: array
+                      schema:
+                        description: Schema defines what developers can configure
+                          when creating components of this type
+                        properties:
+                          envOverrides:
+                            description: |-
+                              EnvOverrides can be overridden per environment via ComponentDeployment by platform engineers.
+                              These are also exposed to developers but can be changed per environment.
+                              Same nested map structure and type definition format as Parameters.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          parameters:
+                            description: |-
+                              Parameters are static across environments and exposed as inputs to developers
+                              when creating a Component of this type. This is a nested map structure where
+                              keys are field names and values are either nested maps or type definition strings.
+                              Type definition format: "type | default=value | required=true | enum=val1,val2"
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          types:
+                            description: |-
+                              Types defines reusable type definitions that can be referenced in schema fields
+                              This is a nested map structure where keys are type names and values are type definitions
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      workloadType:
+                        description: |-
+                          WorkloadType must be one of: deployment, statefulset, cronjob, job
+                          This determines the primary workload resource type for this component type
+                        enum:
+                        - deployment
+                        - statefulset
+                        - cronjob
+                        - job
+                        type: string
+                        x-kubernetes-validations:
+                        - message: spec.workloadType cannot be changed after creation
+                          rule: self == oldSelf
+                    required:
+                    - resources
+                    - workloadType
+                    type: object
+                    x-kubernetes-validations:
+                    - message: resources must contain a primary resource with id matching
+                        workloadType
+                      rule: self.resources.exists(r, r.id == self.workloadType)
+                  status:
+                    description: ComponentTypeDefinitionStatus defines the observed
+                      state of ComponentTypeDefinition.
+                    type: object
+                type: object
+              environment:
+                description: Environment is the name of the environment this snapshot
+                  is for
+                minLength: 1
+                type: string
+              owner:
+                description: Owner identifies the component and environment this snapshot
+                  belongs to
+                properties:
+                  componentName:
+                    description: ComponentName is the name of the component
+                    minLength: 1
+                    type: string
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      this component
+                    minLength: 1
+                    type: string
+                required:
+                - componentName
+                - projectName
+                type: object
+              workload:
+                description: |-
+                  Workload is a full embedded copy of the Workload
+                  This preserves the workload spec with the built image
+                properties:
+                  apiVersion:
+                    description: |-
+                      APIVersion defines the versioned schema of this representation of an object.
+                      Servers should convert recognized schemas to the latest internal value, and
+                      may reject unrecognized values.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+                    type: string
+                  kind:
+                    description: |-
+                      Kind is a string value representing the REST resource this object represents.
+                      Servers may infer this from the endpoint the client submits requests to.
+                      Cannot be updated.
+                      In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  metadata:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                  spec:
+                    properties:
+                      connections:
+                        additionalProperties:
+                          description: WorkloadConnection represents an internal API
+                            connection
+                          properties:
+                            inject:
+                              description: Inject defines how connection details are
+                                injected into the workload
+                              properties:
+                                env:
+                                  description: Environment variables to inject
+                                  items:
+                                    description: WorkloadConnectionEnvVar defines
+                                      an environment variable injection
+                                    properties:
+                                      name:
+                                        description: Environment variable name
+                                        type: string
+                                      value:
+                                        description: Template value using connection
+                                          properties (e.g., "{{ .url }}")
+                                        type: string
+                                    required:
+                                    - name
+                                    - value
+                                    type: object
+                                  type: array
+                              required:
+                              - env
+                              type: object
+                            params:
+                              additionalProperties:
+                                type: string
+                              description: Parameters for connection configuration
+                                (dynamic key-value pairs)
+                              type: object
+                            type:
+                              description: Type of connection - only "api" for now
+                              enum:
+                              - api
+                              type: string
+                          required:
+                          - inject
+                          - type
+                          type: object
+                        description: |-
+                          Connections define how this workload consumes internal and external resources.
+                          The key is the connection name, and the value is the connection specification.
+                        type: object
+                      containers:
+                        additionalProperties:
+                          description: Container represents a single container in
+                            the workload.
+                          properties:
+                            args:
+                              items:
+                                type: string
+                              type: array
+                            command:
+                              description: Container entrypoint & args.
+                              items:
+                                type: string
+                              type: array
+                            env:
+                              description: Explicit environment variables.
+                              items:
+                                description: EnvVar represents an environment variable
+                                  present in the container.
+                                properties:
+                                  key:
+                                    description: The environment variable key.
+                                    type: string
+                                  value:
+                                    description: |-
+                                      The literal value of the environment variable.
+                                      Mutually exclusive with valueFrom.
+                                    type: string
+                                  valueFrom:
+                                    description: |-
+                                      Extract the environment variable value from another resource.
+                                      Mutually exclusive with value.
+                                    properties:
+                                      configurationGroupRef:
+                                        description: Reference to a configuration
+                                          group.
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretRef:
+                                        description: Reference to a secret resource.
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
+                                required:
+                                - key
+                                type: object
+                              type: array
+                            files:
+                              description: File configurations.
+                              items:
+                                description: FileVar represents a file configuration
+                                  in a container.
+                                properties:
+                                  key:
+                                    description: The file key/name.
+                                    type: string
+                                  mountPath:
+                                    description: The mount path where the file will
+                                      be mounted.
+                                    type: string
+                                  value:
+                                    description: |-
+                                      The literal content of the file.
+                                      Mutually exclusive with valueFrom.
+                                    type: string
+                                  valueFrom:
+                                    description: |-
+                                      Extract the environment variable value from another resource.
+                                      Mutually exclusive with value.
+                                    properties:
+                                      configurationGroupRef:
+                                        description: Reference to a configuration
+                                          group.
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                      secretRef:
+                                        description: Reference to a secret resource.
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                        - key
+                                        - name
+                                        type: object
+                                    type: object
+                                required:
+                                - key
+                                - mountPath
+                                type: object
+                                x-kubernetes-validations:
+                                - message: exactly one of value or valueFrom must
+                                    be set
+                                  rule: has(self.value) != has(self.valueFrom)
+                              type: array
+                            image:
+                              description: OCI image to run (digest or tag).
+                              minLength: 1
+                              type: string
+                          required:
+                          - image
+                          type: object
+                        description: |-
+                          Containers define the container specifications for this workload.
+                          The key is the container name, and the value is the container specification.
+                        type: object
+                      endpoints:
+                        additionalProperties:
+                          description: WorkloadEndpoint represents a simple network
+                            endpoint for basic exposure.
+                          properties:
+                            port:
+                              description: Port number for the endpoint.
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                            schema:
+                              description: |-
+                                Optional schema for the endpoint.
+                                This can be used to define the actual API definition of the endpoint that is exposed by the workload.
+                              properties:
+                                content:
+                                  type: string
+                                type:
+                                  type: string
+                              type: object
+                            type:
+                              description: Type indicates the protocol/technology
+                                of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket,
+                                TCP, UDP).
+                              enum:
+                              - HTTP
+                              - REST
+                              - gRPC
+                              - GraphQL
+                              - Websocket
+                              - TCP
+                              - UDP
+                              type: string
+                          required:
+                          - port
+                          - type
+                          type: object
+                        description: |-
+                          Endpoints define simple network endpoints for basic port exposure.
+                          The key is the endpoint name, and the value is the endpoint specification.
+                        type: object
+                      owner:
+                        properties:
+                          componentName:
+                            minLength: 1
+                            type: string
+                          projectName:
+                            minLength: 1
+                            type: string
+                        required:
+                        - componentName
+                        - projectName
+                        type: object
+                    required:
+                    - owner
+                    type: object
+                  status:
+                    description: WorkloadStatus defines the observed state of Workload.
+                    type: object
+                type: object
+            required:
+            - component
+            - componentTypeDefinition
+            - environment
+            - owner
+            - workload
+            type: object
+          status:
+            description: ComponentEnvSnapshotStatus defines the observed state of
+              ComponentEnvSnapshot.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the ComponentEnvSnapshot's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration reflects the generation of the most
+                  recently observed ComponentEnvSnapshot
+                format: int64
+                type: integer
+              releaseRef:
+                description: ReleaseRef points to the Release resource generated from
+                  this snapshot
+                type: string
+              renderedResourceCount:
+                description: RenderedResourceCount is the number of Kubernetes resources
+                  rendered from this snapshot
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

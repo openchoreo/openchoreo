@@ -1,0 +1,56 @@
+{{- if .Values.openchoreoApi.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      app.kubernetes.io/name: {{ include "openchoreo.fullname" . }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backstage
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    {{- with .Values.openchoreoApi.networkPolicy.ingress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    {{- with .Values.openchoreoApi.networkPolicy.egress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

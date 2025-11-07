@@ -1,0 +1,21 @@
+{{- if .Values.backstage.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  {{- if .Values.backstage.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.backstage.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.backstage.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.backstage.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: backstage
+      app.kubernetes.io/name: {{ include "openchoreo.fullname" . }}
+{{- end }}

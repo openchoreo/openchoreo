@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  replicas: {{ .Values.openchoreoApi.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      {{- include "openchoreo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: api-server
+        {{- include "openchoreo.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "openchoreo.openchoreoApi.serviceAccountName" . }}
+      {{- if .Values.openchoreoApi.priorityClass.create }}
+      priorityClassName: {{ .Values.openchoreoApi.priorityClass.name }}
+      {{- end }}
+      {{- with .Values.openchoreoApi.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.openchoreoApi.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.openchoreoApi.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.openchoreoApi.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.openchoreoApi.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: api-server
+        image: "{{ .Values.openchoreoApi.image.repository }}:{{ .Values.openchoreoApi.image.tag }}"
+        imagePullPolicy: {{ .Values.openchoreoApi.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: MCP_TOOLSETS
+          value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.openchoreoApi.resources | nindent 12 }}
+        {{- with .Values.openchoreoApi.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
