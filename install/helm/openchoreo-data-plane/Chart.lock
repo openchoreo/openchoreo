@@ -9,10 +9,10 @@ dependencies:
   repository: https://charts.external-secrets.io
   version: 0.19.2
 - name: gateway-helm
-  repository: oci://registry-1.docker.io/envoyproxy
-  version: 1.2.3
+  repository: oci://docker.io/envoyproxy
+  version: v1.5.4
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:e6bac01d1d59fb866f7c7996b935f7e8b23880f680a130ddacb7faec7c6357cc
-generated: "2025-09-30T19:51:25.320589+05:30"
+digest: sha256:d0ff07cff236896bde97b6f6379e3f95c019f88bd54631c0ccb9e8de5ba7b3c9
+generated: "2025-11-07T18:34:56.592081+05:30"

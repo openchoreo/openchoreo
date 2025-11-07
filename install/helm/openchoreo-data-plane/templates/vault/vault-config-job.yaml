@@ -1,3 +1,4 @@
+{{- if .Values.vault.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -74,3 +75,4 @@ spec:
             policies=eso-policy \
             ttl=24h
 
+{{- end }}

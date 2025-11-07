@@ -1,3 +1,4 @@
+{{- if and .Values.vault.enabled (index .Values "secrets-store-csi-driver" "enabled") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -61,4 +62,4 @@ spec:
             path: "/etc/kubernetes/secrets-store-csi-providers"
       nodeSelector:
         kubernetes.io/os: linux
-
+{{- end }}

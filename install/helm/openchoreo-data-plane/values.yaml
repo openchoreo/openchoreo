@@ -9,6 +9,7 @@ waitJob:
 
 # customizing the vault configurations
 vault:
+  enabled: true
   fullnameOverride: hashicorp-vault
   nameOverride: hashicorp-vault
   server:
@@ -45,6 +46,7 @@ vault:
 
 # customizing the secrets-store-csi-driver configurations
 secrets-store-csi-driver:
+  enabled: true
   fullnameOverride: secrets-store-csi-driver
   nameOverride: secrets-store-csi-driver
   syncSecret:
@@ -72,21 +74,33 @@ registry:
     size: 2Gi
 
 # customizing the envoy gateway configurations
-gateway-helm:
+gateway:
+  enabled: true
+  nameOverride: envoy-controller
   config:
     envoyGateway:
-      rateLimit:
-        backend:
-          type: Redis
-          redis:
-            url: redis:6379
-  # -- Resource limits and requests for the gateway
+      gateway:
+        httpPort: 80
+        httpsPort: 443
+        controllerName: gateway.envoyproxy.io/gatewayclass-controller
+      provider:
+        kubernetes:
+          envoyDeployment:
+            name: openchoreo-gateway
   deployment:
     envoyGateway:
       resources:
         limits:
           cpu: 200m
           memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    envoy:
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
         requests:
           cpu: 100m
           memory: 128Mi
@@ -127,11 +141,21 @@ cert-manager:
 
 # customizing the external-secrets configurations
 external-secrets:
+  enabled: true
   fullnameOverride: external-secrets
   nameOverride: external-secrets
 
+# Customizing networking configurations
+networking:
+  enabled: true
+
+# Customizing security configurations  
+security:
+  enabled: true
+
 # Customizing overall observability configurations
 observability:
+  enabled: true
   logging:
     enabled: false
     publishers:
@@ -141,6 +165,7 @@ observability:
 
 # Customizing Fluent Bit configurations
 fluentBit:
+  enabled: true
   image:
     repository: fluent/fluent-bit
     tag: "2.1.10"

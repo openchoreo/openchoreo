@@ -81,85 +81,37 @@ prepare_images
 # Step 5: Install OpenChoreo Control Plane
 install_control_plane
 
-# # Step 6-8: Install OpenChoreo Data Plane, Build Plane, and Identity Provider in parallel
-# log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
+# Step 6: Install OpenChoreo Data Plane
+install_data_plane
 
-# # Start installations in background
-# install_data_plane &
-# DATA_PLANE_PID=$!
+# Step 7: Install OpenChoreo Observability Plane (optional)
+if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    install_observability_plane
+fi
 
-# install_build_plane &
-# BUILD_PLANE_PID=$!
+# Step 8: Check installation status
+if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
+    bash "${SCRIPT_DIR}/check-status.sh"
+fi
 
-# install_identity_provider &
-# IDENTITY_PROVIDER_PID=$!
+# Step 9: Add default dataplane
+if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
+    bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
+else
+    log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
+fi
 
-# # Wait for all installations to complete
-# log_info "Waiting for parallel installations to complete..."
-# wait $DATA_PLANE_PID
-# DATA_PLANE_EXIT=$?
-
-# wait $BUILD_PLANE_PID
-# BUILD_PLANE_EXIT=$?
-
-# wait $IDENTITY_PROVIDER_PID
-# IDENTITY_PROVIDER_EXIT=$?
-
-# # Check if any installation failed
-# if [[ $DATA_PLANE_EXIT -ne 0 ]]; then
-#     log_error "Data Plane installation failed with exit code $DATA_PLANE_EXIT"
-#     exit 1
-# fi
-
-# if [[ $BUILD_PLANE_EXIT -ne 0 ]]; then
-#     log_error "Build Plane installation failed with exit code $BUILD_PLANE_EXIT"
-#     exit 1
-# fi
-
-# if [[ $IDENTITY_PROVIDER_EXIT -ne 0 ]]; then
-#     log_error "Identity Provider installation failed with exit code $IDENTITY_PROVIDER_EXIT"
-#     exit 1
-# fi
-
-# log_info "All parallel installations completed successfully"
-
-# # Step 9: Install OpenChoreo Observability Plane (optional)
-# if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
-#     install_observability_plane
-# fi
-
-# # Step 10: Install Backstage Demo
-# install_backstage_demo
-
-# # Step 11: Setup port forwarding
-# setup_port_forwarding
-
-# # Step 12: Setup choreoctl auto-completion
-# setup_choreoctl_completion
-
-# # Step 13: Check installation status
-# if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
-#     bash "${SCRIPT_DIR}/check-status.sh"
-# fi
-
-# # Step 14: Add default dataplane
-# if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
-#     bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
-# else
-#     log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
-# fi
-
-# # Step 15: Add default BuildPlane
-# if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
-#     bash "${SCRIPT_DIR}/add-build-plane.sh"
-# else
-#     log_warning "add-build-plane.sh not found, skipping build plane configuration"
-# fi
-
-# log_success "OpenChoreo installation completed successfully!"
-# log_info "Access URLs:"
-# log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:7007/"
-# log_info "  Backstage UI: http://backstage.openchoreo.localhost:7007/"
-# log_info "  OpenChoreo API: http://api.openchoreo.localhost:7007/"
+log_success "OpenChoreo installation completed successfully!"
+log_info "Access URLs:"
+log_info "  Backstage UI: http://openchoreo.localhost:7007/"
+log_info "    Logins:"
+log_info "      Username: admin@openchoreo.dev"
+log_info "      Password: Admin@123"
+log_info "  OpenChoreo API: http://api.openchoreo.localhost:7007/"
+log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:7007/"
+echo ""
+log_info "Next Steps:"
+log_info "  Deploy your first application by running:"
+log_info "    ./deploy_web_application.sh"
 
 exec /bin/bash -l

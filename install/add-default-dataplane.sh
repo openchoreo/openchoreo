@@ -32,7 +32,7 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
   KUBE_SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
   
   # Check if server URL is loopback address
-  if [[ "$KUBE_SERVER_URL" =~ ^https?://(127\.0\.0\.1|localhost) ]]; then
+  if [[ "$KUBE_SERVER_URL" =~ ^https?://(127\.0\.0\.1|localhost|0\.0\.0\.0) ]]; then
     SERVER_URL="https://kubernetes.default.svc.cluster.local"
     echo "Running in single-cluster mode using context '$CONTEXT' with loopback server, using Kubernetes service DNS"
   else

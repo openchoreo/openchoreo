@@ -26,8 +26,6 @@ DEV_HELM_CHARTS_DIR="/helm"
 # Namespace definitions
 CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
-BUILD_PLANE_NS="openchoreo-build-plane"
-IDENTITY_NS="openchoreo-identity-system"
 OBSERVABILITY_NS="openchoreo-observability-plane"
 
 # Logging functions
@@ -57,48 +55,11 @@ cluster_exists() {
     k3d cluster list 2>/dev/null | grep -q "^${CLUSTER_NAME} "
 }
 
-# Check if namespace exists
-namespace_exists() {
-    local namespace="$1"
-    kubectl get namespace "$namespace" >/dev/null 2>&1
-}
-
 # Check if helm release exists
 helm_release_exists() {
     local release="$1"
     local namespace="$2"
     helm list -n "$namespace" --short | grep -q "^${release}$"
-}
-
-# Wait for pods to be ready in a namespace
-wait_for_pods() {
-    local namespace="$1"
-    local timeout="${2:-300}" # 5 minutes default
-    local label_selector="${3:-}"
-    
-    log_info "Waiting for pods in namespace '$namespace' to be ready..."
-    
-    local selector_flag=""
-    if [[ -n "$label_selector" ]]; then
-        selector_flag="-l $label_selector"
-    fi
-    
-    if ! timeout "$timeout" bash -c "
-        while true; do
-            if kubectl get pods -n '$namespace' $selector_flag --no-headers 2>/dev/null | grep -v 'Running\|Completed' | grep -q .; then
-                echo 'Waiting for pods to be ready...'
-                sleep 5
-            else
-                echo 'All pods are ready!'
-                break
-            fi
-        done
-    "; then
-        log_error "Timeout waiting for pods in namespace '$namespace'"
-        return 1
-    fi
-    
-    log_success "All pods in namespace '$namespace' are ready"
 }
 
 # Create k3d cluster with specific configuration
@@ -115,6 +76,7 @@ create_k3d_cluster() {
         --servers 1 \
         --k3s-arg "--disable=metrics-server@server:0" \
         --port "7007:80@loadbalancer" \
+        --port "8443:8443@loadbalancer" \
         --wait; then
         log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
@@ -249,10 +211,20 @@ install_helm_chart() {
 
 # Install OpenChoreo Data Plane
 install_data_plane() {
-    log_info "Installing OpenChoreo Data Plane..."
-    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "false" "1800" \
+    log_info "Installing OpenChoreo Data Plane with gateway enabled..."
+    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
+        "--set" "gateway.enabled=true" \
+        "--set" "vault.enabled=false" \
+        "--set" "secrets-store-csi-driver.enabled=false" \
+        "--set" "registry.enabled=false" \
         "--set" "cert-manager.enabled=false" \
-        "--set" "cert-manager.crds.enabled=false"
+        "--set" "cert-manager.crds.enabled=false" \
+        "--set" "external-secrets.enabled=false" \
+        "--set" "networking.enabled=false" \
+        "--set" "security.enabled=false" \
+        "--set" "observability.enabled=false" \
+        "--set" "gateway.deployment.httpPort=8080" \
+        "--set" "gateway.deployment.httpsPort=8443"
 }
 
 # Install OpenChoreo Control Plane
@@ -265,59 +237,12 @@ install_control_plane() {
         "--set" "backstage.image.tag=$OPENCHOREO_VERSION"
 }
 
-# Install OpenChoreo Build Plane
-install_build_plane() {
-    log_info "Installing OpenChoreo Build Plane..."
-    install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "false" "1800"
-}
-
-# Install OpenChoreo Identity Provider
-install_identity_provider() {
-    log_info "Installing OpenChoreo Identity Provider..."
-    install_helm_chart "openchoreo-identity-provider" "openchoreo-identity-provider" "$IDENTITY_NS" "true" "false" "1800"
-}
 
 # Install OpenChoreo Observability Plane (optional)
 install_observability_plane() {
     log_info "Installing OpenChoreo Observability Plane..."
-    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "false" "1800" \
+    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "1800" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
-}
-
-# Install Backstage Demo
-install_backstage_demo() {
-    log_info "Installing Backstage Demo..."
-    install_helm_chart "openchoreo-backstage-demo" "backstage-demo" "$CONTROL_PLANE_NS" "false" "false" "1800" \
-        "--set" "backstage.service.type=NodePort"
-}
-
-# Setup port forwarding for services (DEPRECATED - Using Traefik Ingress on port 7007)
-# This function is kept for backward compatibility but is no longer used
-setup_port_forwarding() {
-    log_info "Port forwarding via Traefik ingress on port 7007..."
-    log_info "Services are accessible via ingress:"
-    log_info "  - Thunder: http://thunder.openchoreo.localhost:7007/"
-    log_info "  - Backstage: http://backstage.openchoreo.localhost:7007/"
-    log_info "  - API: http://api.openchoreo.localhost:7007/"
-    log_success "Traefik ingress configured successfully"
-}
-
-# Setup choreoctl auto-completion
-setup_choreoctl_completion() {
-    if [ -f "$KUBECONFIG_PATH" ]; then
-        log_info "Enabling choreoctl auto-completion..."
-        if /usr/local/bin/choreoctl completion bash > /usr/local/bin/choreoctl-completion; then
-            chmod +x /usr/local/bin/choreoctl-completion
-            if ! grep -q "source /usr/local/bin/choreoctl-completion" /etc/profile; then
-                echo "source /usr/local/bin/choreoctl-completion" >> /etc/profile
-            fi
-            log_success "choreoctl auto-completion enabled"
-        else
-            log_warning "Failed to setup choreoctl auto-completion"
-        fi
-    else
-        log_warning "Kubeconfig not found, skipping choreoctl auto-completion setup"
-    fi
 }
 
 # Verify prerequisites
@@ -355,7 +280,14 @@ verify_prerequisites() {
 get_openchoreo_images() {
     # Core images that are always needed
     local images=(
-        
+        # K3s base images (used by k3d cluster)
+        "docker.io/rancher/mirrored-coredns-coredns:1.12.3"
+        "docker.io/rancher/local-path-provisioner:v0.0.31"
+        "docker.io/rancher/mirrored-library-traefik:3.3.6"
+        "docker.io/rancher/klipper-helm:v0.9.8-build20250709"
+        "docker.io/rancher/mirrored-library-busybox:1.36.1"
+        "docker.io/rancher/klipper-lb:v0.4.13"
+
         # OpenChoreo vendor images
         "docker.io/curlimages/curl:8.4.0"
         "ghcr.io/asgardeo/thunder:0.11.0"
@@ -364,6 +296,8 @@ get_openchoreo_images() {
         "quay.io/jetstack/cert-manager-startupapicheck:v1.16.2"
         "quay.io/jetstack/cert-manager-webhook:v1.16.2"
         "docker.io/envoyproxy/gateway:v1.5.4"
+        "bitnamilegacy/kubectl:1.33.4"
+        "docker.io/envoyproxy/envoy:distroless-v1.35.6"
 
         # OpenChoreo component images
         "ghcr.io/openchoreo/controller:${OPENCHOREO_VERSION:-latest}"

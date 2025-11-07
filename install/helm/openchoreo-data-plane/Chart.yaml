@@ -40,8 +40,9 @@ dependencies:
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
   - name: gateway-helm
-    repository: "oci://registry-1.docker.io/envoyproxy"
-    version: 1.2.3
+    repository: "oci://docker.io/envoyproxy"
+    version: v1.5.4
+    condition: gateway.enabled
   - name: cert-manager
     repository: oci://quay.io/jetstack/charts
     condition: cert-manager.enabled

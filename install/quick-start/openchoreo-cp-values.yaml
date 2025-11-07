@@ -1,10 +1,10 @@
 controllerManager:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
 
 openchoreoApi:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
   ingress:
     enabled: true
     ingressClassName: traefik
@@ -17,7 +17,7 @@ openchoreoApi:
 
 backstage:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
   ingress:
     enabled: true
     ingressClassName: traefik
@@ -33,7 +33,7 @@ backstage:
 
 asgardeoThunder:
   image:
-    pullPolicy: IfNotPresent
+    pullPolicy: Never
   ingress:
     enabled: true
     ingressClassName: traefik
