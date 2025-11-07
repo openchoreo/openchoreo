@@ -638,6 +638,48 @@ spec:
             - key: DEBUG_MODE
               value: "true"
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: v1
   kind: ConfigMap
@@ -736,6 +778,48 @@ spec:
       - key: NEW_KEY
         value: newValue
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+  namespace: test-namespace
+spec:
+  dataPlaneRef: prod-dataplane
+  isProduction: true
+  gateway:
+    dnsPrefix: prod
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: production-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: production-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: v1
   kind: ConfigMap
@@ -869,6 +953,48 @@ spec:
           setting: production
         mountPath: /etc/config
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+  namespace: test-namespace
+spec:
+  dataPlaneRef: prod-dataplane
+  isProduction: true
+  gateway:
+    dnsPrefix: prod
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: production-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: production-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: v1
   kind: ConfigMap
@@ -1028,6 +1154,48 @@ spec:
                 log.level=INFO
               mountPath: /etc/config
 `,
+			environmentYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+  namespace: test-namespace
+spec:
+  dataPlaneRef: dev-dataplane
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+    security:
+      remoteJwks:
+        uri: https://auth.example.com/.well-known/jwks.json
+`,
+			dataplneYAML: `
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: dev-dataplane
+  namespace: test-namespace
+spec:
+  kubernetesCluster:
+    name: development-cluster
+    credentials:
+      apiServerURL: https://k8s-api.example.com:6443
+      caCert: LS0tLS1CRUdJTi
+      clientCert: LS0tLS1CRUdJTi
+      clientKey: LS0tLS1CRUdJTi
+  registry:
+    prefix: docker.io/myorg
+    secretRef: registry-credentials
+  gateway:
+    publicVirtualHost: api.example.com
+    organizationVirtualHost: internal.example.com
+  observer:
+    url: https://observer.example.com
+    authentication:
+      basicAuth:
+        username: admin
+        password: secretpassword
+  `,
 			wantResourceYAML: `
 - apiVersion: v1
   kind: ConfigMap
