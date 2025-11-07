@@ -7,6 +7,6 @@ RUN apk upgrade && \
 
 USER opensearch
 
-COPY --chown=opensearch --chmod=0540 setup-opensearch-cluster.sh setup-opensearch-cluster.sh
+COPY --chown=opensearch --chmod=0540 install/init/observability/opensearch/setup-opensearch-cluster.sh setup-opensearch-cluster.sh
 
 CMD ["bash", "setup-opensearch-cluster.sh"]
