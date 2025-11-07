@@ -1,8 +1,10 @@
+
+{{- if or (.Values.openSearch.enabled) (.Values.openSearchCluster.enabled) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: opensearch-cluster-setup
-  namespace: openchoreo-observability-plane
+  namespace: {{.Release.Namespace}}
   annotations:
     helm.sh/hook: post-install, post-upgrade
 spec:
@@ -34,3 +36,4 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: opensearch
+{{- end }}

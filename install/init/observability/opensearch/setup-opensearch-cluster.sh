@@ -9,7 +9,10 @@
 openSearchHost="${OPENSEARCH_HOST:-http://opensearch:9200}"
 
 echo "Checking OpenSearch cluster status"
-while true; do
+attempt=1
+max_attempts=30
+
+while [ $attempt -le $max_attempts ]; do
     clusterHealth=$(curl --insecure \
                          --location "$openSearchHost/_cluster/health" \
                          --show-error \
@@ -20,8 +23,15 @@ while true; do
         echo -e "OpenSearch cluster ready. Continuing with setup...\n"
         break
     fi
-    echo "Waiting for OpenSearch cluster to become ready..."
-    sleep 20
+    echo "Waiting for OpenSearch cluster to become ready... (attempt $attempt/$max_attempts)"
+    
+    if [ $attempt -eq $max_attempts ]; then
+        echo "ERROR: OpenSearch cluster did not become ready after $max_attempts attempts. Exiting."
+        exit 1
+    fi
+    
+    attempt=$((attempt + 1))
+    sleep 10
 done
 
 

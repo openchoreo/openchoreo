@@ -114,7 +114,7 @@ openSearchCluster:
 
 openSearchClusterSetup:
   image:
-    repository: ghcr.io/openchoreo/opensearch-cluster-setup
+    repository: ghcr.io/openchoreo/init-observability-opensearch
     tag: ""
 
 # Customizing OpenSearch Dashboards configurations

@@ -1,7 +1,7 @@
 FROM alpine:latest
 
 RUN apk upgrade && \
-    apk add bash curl jq unzip && \
+    apk add bash curl jq && \
     addgroup -g 10500 opensearch && \
     adduser -D -u 10500 -G opensearch opensearch
 
