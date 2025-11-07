@@ -62,7 +62,12 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Build multiarch binaries
-        run: make go.build-multiarch
+        run: |
+          # Build all binaries for Linux (amd64, arm64)
+          make go.build-multiarch GO_TARGET_PLATFORMS="linux/amd64 linux/arm64"
+
+          # Build choreoctl for Darwin and Windows
+          make go.build-multiarch.choreoctl GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
 
       - name: Upload choreoctl binaries
         uses: actions/upload-artifact@v4
@@ -130,6 +135,8 @@ jobs:
         run: |
           chmod +x bin/dist/linux/amd64/choreoctl
           chmod +x bin/dist/linux/arm64/choreoctl
+          chmod +x bin/dist/darwin/amd64/choreoctl
+          chmod +x bin/dist/darwin/arm64/choreoctl
           chmod +x bin/dist/linux/amd64/manager
           chmod +x bin/dist/linux/arm64/manager
           chmod +x bin/dist/linux/amd64/openchoreo-api
