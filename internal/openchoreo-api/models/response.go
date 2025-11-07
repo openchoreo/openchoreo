@@ -249,3 +249,20 @@ func ErrorResponse(message, code string) APIResponse[any] {
 		Code:    code,
 	}
 }
+
+// ComponentTypeDefinitionResponse represents a ComponentTypeDefinition in API responses
+type ComponentTypeDefinitionResponse struct {
+	Name         string    `json:"name"`
+	DisplayName  string    `json:"displayName,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	WorkloadType string    `json:"workloadType"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// AddonResponse represents an Addon in API responses
+type AddonResponse struct {
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
