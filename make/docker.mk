@@ -28,6 +28,7 @@ BUILDX_TARGET_PLATFORMS := $(subst $(space),$(comma),$(IMAGE_TARGET_PLATFORMS))
 DOCKER_BUILD_IMAGES := \
 	controller:$(PROJECT_DIR)/Dockerfile:$(PROJECT_DIR) \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
+	init-observability-opensearch:$(PROJECT_DIR)/install/init/observability/opensearch/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR)

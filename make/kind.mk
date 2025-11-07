@@ -21,7 +21,7 @@ IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
 CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG)
 API_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG)
 UI_IMAGE := $(IMAGE_REPO_PREFIX)/openchoreo-ui:$(OPENCHOREO_IMAGE_TAG)
-THUNDER_IMAGE := ghcr.io/brionmario/thunder:0.0.16
+THUNDER_IMAGE := ghcr.io/asgardeo/thunder:0.11.0
 
 # UI Image configuration
 # Set USE_LOCAL_UI=true to use a locally-built image from backstage-plugins repo

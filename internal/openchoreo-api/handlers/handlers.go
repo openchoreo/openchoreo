@@ -65,6 +65,14 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
 
+	// ComponentTypeDefinition endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types", h.ListComponentTypeDefinitions)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types/{ctdName}/schema", h.GetComponentTypeDefinitionSchema)
+
+	// Addon endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/addons", h.ListAddons)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/addons/{addonName}/schema", h.GetAddonSchema)
+
 	// Project endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
 	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)

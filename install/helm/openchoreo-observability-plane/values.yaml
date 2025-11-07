@@ -9,7 +9,7 @@ global:
   installationMode: minimal
 
 data-prepper:
-  enabled: true
+  enabled: false
   fullnameOverride: "data-prepper"
 
   pipelineConfig:
@@ -29,7 +29,7 @@ data-prepper:
               hosts: ["http://opensearch:9200"]
               insecure: true
               index_type: trace-analytics-raw
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -50,6 +50,11 @@ openSearch:
   image:
     tag: "3.3.0"
   masterService: opensearch
+
+  rbac:
+    create: true
+    serviceAccountName: "opensearch"
+
   securityConfig:
     enabled: false
   singleNode: true
@@ -106,6 +111,11 @@ openSearchCluster:
       backend_roles:
       - "admin"
       description: "Admin user"
+
+openSearchClusterSetup:
+  image:
+    repository: ghcr.io/openchoreo/init-observability-opensearch
+    tag: ""
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
@@ -273,8 +283,8 @@ fluentBit:
 
 # Prometheus configuration
 prometheus:
-  enabled: false # minimal/legacy modes will set this to false
-  fullnameOverride: "prometheus"
+  enabled: false
+  fullnameOverride: openchoreo-observability
 
   ## Manages Prometheus and Alertmanager components
   prometheusOperator:
@@ -288,10 +298,14 @@ prometheus:
   ## Setting to produces cleaner resource names
   cleanPrometheusOperatorObjectNames: true
 
+  ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
+  prometheus:
+    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+
   ## Configuration for alertmanager
   ## ref: https://prometheus.io/docs/alerting/alertmanager/
   alertmanager:
-    enabled: true
+    enabled: false
     alertmanagerSpec:
       podMetadata:
         name: alertmanager
@@ -299,9 +313,28 @@ prometheus:
   ## Configuration for grafana
   # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
   grafana:
-    enabled: true
+    enabled: false
+    fullnameOverride: grafana
     adminUser: admin
-    adminPassword: prom-operator
+    adminPassword: admin
+    ## OpenChoreo Observability Plane does not ship default Grafana dashboards or datasources
+    ## OpenChoreo specific dashboards and datasources will be added separately
+    sidecar:
+      dashboards:
+        enabled: false
+      datasources:
+        enabled: false
+    defaultDashboardsEnabled: false
+    ## Datasources of OpenChoreo Observability Plane
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            access: proxy
+            url: http://openchoreo-observability-prometheus:9090
+            isDefault: true
 
   ## Flag to disable all the kubernetes component scrapers
   kubernetesServiceMonitors:
@@ -312,41 +345,51 @@ prometheus:
   ## Configuration for kube-state-metrics subchart
   kube-state-metrics:
     fullnameOverride: kube-state-metrics
-
-  ## Deploy a Prometheus instance
-  prometheus:
-    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    collectors:
+      - pods
+      # Jobs and Services to be added later
+    metricAllowlist:
+      - kube_pod_completion_time
+      - kube_pod_container_resource_limits
+      - kube_pod_container_resource_requests
+      - kube_pod_info
+      - kube_pod_init_container_resource_limits
+      - kube_pod_init_container_resource_requests
+      - kube_pod_labels
+      - kube_pod_start_time
+      - kube_pod_status_phase
+      # Jobs and Services to be added later
+    metricLabelsAllowlist:
+      - pods=[organization-name, project-name, component-name, environment-name]
+      # Jobs and Services to be added later
 
   ## Configuration for thanosRuler
   ## ref: https://thanos.io/tip/components/rule.md/
   thanosRuler:
     enabled: false # This section needs to be further configured for queryEndpoints etc.
 
-  ## Set the following flags to false when custom recording rules are added to templates
   ## Create default rules for monitoring the cluster
   defaultRules:
-    create: true
+    create: false
+
   ## Component scraping the kubelet and kubelet-hosted cAdvisor
+  ## Disable when cAdvisor ServiceMonitor is added
   kubelet:
     enabled: true
 
-  ## Set the following flags to false when custom recording rules are added to templates
-  ## Since openchoreo-observability not meant to monitor the kubernetes cluster
-  ## Component scraping the kube api server
+  ## Openchoreo Observability is not meant for monitoring the kubernetes cluster
+  ## Hence, following kube components are disabled
   kubeApiServer:
-    enabled: true
+    enabled: false
   kubeControllerManager:
-    enabled: true
+    enabled: false
   coreDns:
-    enabled: true
+    enabled: false
   kubeEtcd:
-    enabled: true
+    enabled: false
   kubeScheduler:
-    enabled: true
+    enabled: false
   kubeProxy:
-    enabled: true
+    enabled: false
   nodeExporter:
-    enabled: true
-
-  windowsMonitoring:
-    enabled: false # This is the base chart default, can be removed from values.yaml
+    enabled: false
