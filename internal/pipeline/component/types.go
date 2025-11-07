@@ -5,7 +5,7 @@ package component
 
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -43,9 +43,18 @@ type RenderInput struct {
 	// Optional - if nil, no environment overrides are applied.
 	ComponentDeployment *v1alpha1.ComponentDeployment
 
+	// DataPlane contains the data plane configuration.
+	// Optional - can be nil if no data plane is configured.
+	DataPlane *v1alpha1.DataPlane
+
+	// SecretReferences is a map of SecretReference objects needed for rendering.
+	// Keyed by SecretReference name.
+	// Optional - can be nil if no secret references need to be resolved.
+	SecretReferences map[string]*v1alpha1.SecretReference
+
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
-	Metadata context.MetadataContext
+	Metadata pipelinecontext.MetadataContext
 }
 
 // RenderOutput contains the results of the rendering process.

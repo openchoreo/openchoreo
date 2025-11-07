@@ -80,7 +80,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	parameters = schema.ApplyDefaults(parameters, structural)
 	ctx["parameters"] = parameters
 
-	// 5. Add workload information
+	// 6. Extract configurations (env and file from all containers)
 	if input.Workload != nil {
 		workloadData, err := extractWorkloadData(input.Workload)
 		if err != nil {
@@ -89,7 +89,21 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		ctx["workload"] = workloadData
 	}
 
-	// 6. Add component metadata
+	// 7. Extract configurations from workload
+	if input.Workload != nil {
+		configurations := extractConfigurationsFromWorkload(input.SecretReferences, input.Workload)
+
+		// 8. Apply configuration overrides from ComponentDeployment if present
+		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
+			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+		}
+
+		if configurations != nil {
+			ctx["configurations"] = configurations
+		}
+	}
+
+	// 9. Add component metadata
 	componentMeta := map[string]any{
 		"name": input.Component.Name,
 	}
@@ -98,12 +112,12 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["component"] = componentMeta
 
-	// 7. Add environment
+	// 10. Add environment
 	if input.Environment != "" {
 		ctx["environment"] = input.Environment
 	}
 
-	// 8. Add structured metadata for resource generation
+	// 11. Add structured metadata for resource generation
 	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.
 	metadataMap := map[string]any{
 		"name":      input.Metadata.Name,
@@ -119,6 +133,17 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		metadataMap["podSelectors"] = input.Metadata.PodSelectors
 	}
 	ctx["metadata"] = metadataMap
+
+	// 12. Add dataplane context with secretStore if available
+	if input.DataPlane != nil {
+		dataPlaneContext := make(map[string]any)
+		if input.DataPlane.Spec.SecretStoreRef != nil {
+			dataPlaneContext["secretStore"] = input.DataPlane.Spec.SecretStoreRef.Name
+		}
+		if len(dataPlaneContext) > 0 {
+			ctx["dataplane"] = dataPlaneContext
+		}
+	}
 
 	return ctx, nil
 }

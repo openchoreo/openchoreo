@@ -54,4 +54,15 @@ data:
         - "http{{ if $.Values.asgardeoThunder.ingress.tls }}s{{ end }}://{{ .host }}"
         {{- end }}
         {{- end }}
+  config.js: |
+    window.__THUNDER_RUNTIME_CONFIG__ = {
+      client: {
+        base: {{ .Values.asgardeoThunder.runtimeConfig.client.base | quote }},
+      },
+      server: {
+        hostname: {{ .Values.asgardeoThunder.runtimeConfig.server.hostname | quote }},
+        port: {{ .Values.asgardeoThunder.runtimeConfig.server.port }},
+        http_only: {{ .Values.asgardeoThunder.runtimeConfig.server.httpOnly }},
+      },
+    };
 {{- end }}

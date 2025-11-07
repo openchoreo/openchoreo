@@ -16,13 +16,6 @@ spec:
       {{- end }}
       protocol: TCP
       name: http
-    - port: {{ .Values.asgardeoThunder.service.gatePort }}
-      targetPort: {{ .Values.asgardeoThunder.service.gateTargetPort }}
-      {{- if and (eq .Values.asgardeoThunder.service.type "NodePort") .Values.asgardeoThunder.service.gateNodePort }}
-      nodePort: {{ .Values.asgardeoThunder.service.gateNodePort }}
-      {{- end }}
-      protocol: TCP
-      name: gate
   selector:
     {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: asgardeo-thunder

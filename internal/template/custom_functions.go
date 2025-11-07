@@ -4,6 +4,8 @@
 package template
 
 import (
+	"fmt"
+	"hash/fnv"
 	"maps"
 	"reflect"
 
@@ -18,6 +20,7 @@ import (
 )
 
 // omitValue is a sentinel used to mark values that should be pruned after rendering.
+// The template engine recognizes this sentinel and removes the containing field from output.
 type omitValue struct{}
 
 var omitSentinel = &omitValue{}
@@ -25,8 +28,18 @@ var omitSentinel = &omitValue{}
 const omitErrMsg = "__OC_RENDERER_OMIT__"
 
 // omitCELValue is a CEL value type that represents an omitted value.
-// This allows omit() to return a valid CEL value that can be used inside
-// map literals and arrays, rather than an error that propagates up.
+//
+// This internal type allows oc_omit() to return a valid CEL value (rather than an error)
+// that can be safely used inside map literals and arrays. The template engine's post-processing
+// phase detects the omitSentinel and removes the containing field, map key, or array element
+// from the final rendered output.
+//
+// Implementation notes:
+//   - ConvertToNative returns omitSentinel which the pruning logic recognizes
+//   - Type() returns a custom "omit" type to distinguish from other CEL values
+//   - Equal() only returns true when comparing two omitCELValue instances
+//
+// See CustomFunctions() documentation for usage examples.
 type omitCELValue struct{}
 
 var (
@@ -59,12 +72,97 @@ func (o *omitCELValue) Value() interface{} {
 }
 
 // CustomFunctions returns the CEL environment options for custom template functions.
-// These functions provide additional capabilities beyond the standard CEL-go extensions.
 //
-// Available custom functions:
-//   - oc_omit(): Returns a sentinel value that causes the field to be removed from output
-//   - oc_merge(map1, map2, ...mapN): Merges multiple maps, with later maps overriding earlier ones
-//   - oc_generate_name(...strings): Generates a valid K8s resource name with hash suffix for uniqueness
+// These functions provide additional capabilities beyond the standard CEL-go extensions,
+// designed for use in CEL-based templates throughout OpenChoreo. All custom functions use
+// the "oc_" prefix to avoid potential conflicts with upstream CEL-go.
+//
+// # Available Functions
+//
+// oc_omit() - Remove fields, map keys, or array items from rendered output
+//
+// oc_merge(map1, map2, ...mapN) - Shallow merge of multiple maps
+//
+// oc_generate_name(...strings) - Generate valid Kubernetes resource names
+//
+// oc_hash(string) - Generate 8-character hash from input string
+//
+// # oc_omit() - Conditional Omission
+//
+// Returns a sentinel value that is removed during post-processing. Supports two use cases:
+//
+// Use Case 1: Remove entire fields from YAML/JSON structure
+//
+//	metadata:
+//	  annotations: ${has(spec.annotations) ? spec.annotations : oc_omit()}
+//	  labels:
+//	    version: ${has(spec.version) ? spec.version : oc_omit()}
+//
+// Result when spec.annotations and spec.version are undefined:
+//
+//	metadata:
+//	  labels: {}
+//
+// Use Case 2: Remove map keys or array items within CEL expressions
+//
+//	# Conditional map keys
+//	labels: ${{"app": metadata.name, "env": has(spec.env) ? spec.env : oc_omit()}}
+//
+//	# Conditional array items
+//	args: ${["--port=8080", spec.debug ? "--debug" : oc_omit(), "--log=info"]}
+//
+// # oc_merge() - Shallow Map Merge
+//
+// Merges multiple maps left-to-right, with later maps overriding earlier ones.
+// IMPORTANT: This is a shallow merge - nested maps are replaced, not merged recursively.
+//
+//	# Basic merge
+//	env: ${oc_merge(defaults, spec.env, envOverrides)}
+//
+//	# Inline map literals
+//	resources: ${oc_merge({cpu: "100m", memory: "128Mi"}, spec.resources)}
+//
+//	# Variadic merge (3+ maps)
+//	config: ${oc_merge(base, layer1, layer2, layer3)}
+//
+// Shallow merge behavior:
+//
+//	base = {resources: {cpu: "100m", memory: "128Mi"}, replicas: 1}
+//	override = {resources: {cpu: "200m"}}
+//	result = {resources: {cpu: "200m"}, replicas: 1}
+//	# Note: memory is LOST because resources map was replaced entirely
+//
+// # oc_generate_name() - Kubernetes Name Generation
+//
+// Generates valid Kubernetes DNS subdomain names from arbitrary strings.
+// Names are sanitized, truncated to 253 characters, and include an 8-character
+// hash suffix for uniqueness.
+//
+//	# Variadic arguments
+//	name: ${oc_generate_name(component.name, environment, "cache")}
+//	# "payment-service", "prod", "cache" -> "payment-service-prod-cache-a1b2c3d4"
+//
+//	# Array input
+//	name: ${oc_generate_name([metadata.namespace, metadata.name, "worker"])}
+//
+//	# Single string (sanitized)
+//	name: ${oc_generate_name("My App!")}
+//	# "My App!" -> "my-app-e5f6g7h8"
+//
+// Hash suffix ensures uniqueness even when inputs sanitize to the same string:
+//
+//	oc_generate_name("my-app")   -> "my-app-abc12345"
+//	oc_generate_name("My App!")  -> "my-app-def67890"  # Different hash
+//
+// # oc_hash() - String Hashing
+//
+// Generates an 8-character hexadecimal hash from an input string using the FNV-32a
+// algorithm. Useful for creating stable, deterministic identifiers or suffixes.
+//
+// The hash is deterministic - the same input always produces the same output:
+//
+//	oc_hash("test")  -> "4fdcca5d"  # Always produces this hash
+//	oc_hash("test")  -> "4fdcca5d"  # Same input, same output
 //
 // All custom functions use the "oc_" prefix to avoid potential conflicts with upstream CEL-go.
 func CustomFunctions() []cel.EnvOption {
@@ -98,23 +196,28 @@ func CustomFunctions() []cel.EnvOption {
 				cel.UnaryBinding(generateK8sName),
 			),
 		),
+		cel.Function("oc_hash",
+			cel.Overload("oc_hash_string", []*cel.Type{cel.StringType}, cel.StringType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+					input := arg.Value().(string)
+					h := fnv.New32a()
+					h.Write([]byte(input))
+					return types.String(fmt.Sprintf("%08x", h.Sum32()))
+				}),
+			),
+		),
 	}
 }
 
-// mergeMapFunction implements the oc_merge() CEL function.
-// It performs a shallow merge of two maps, with values from the second map
-// overriding values from the first map.
+// mergeMapFunction implements the binary oc_merge() CEL function.
 //
-// The macro expansion allows variadic usage:
-//   - oc_merge(a, b) → direct binary merge
+// Performs a shallow merge of two maps, with values from rhs overriding values from lhs.
+// Nested maps are replaced entirely, not merged recursively.
+//
+// The mergeMacro expands variadic calls into nested binary calls:
 //   - oc_merge(a, b, c) → oc_merge(oc_merge(a, b), c)
-//   - oc_merge(a, b, c, d) → oc_merge(oc_merge(oc_merge(a, b), c), d)
 //
-// Example usage in templates:
-//
-//	${oc_merge(defaults, overrides)}
-//	${oc_merge({replicas: 1}, spec.resources, env.overrides)}
-//	${oc_merge(base, layer1, layer2, layer3)}
+// See CustomFunctions() for detailed usage examples.
 func mergeMapFunction(lhs, rhs ref.Val) ref.Val {
 	baseVal := lhs.Value()
 	overrideVal := rhs.Value()
@@ -158,30 +261,21 @@ func mergeMapFunction(lhs, rhs ref.Val) ref.Val {
 
 // generateK8sNameFromStrings generates a valid Kubernetes resource name from arbitrary strings.
 //
-// This function uses GenerateK8sNameWithLengthLimit to ensure the generated name:
-//   - Follows DNS subdomain rules (lowercase alphanumeric, hyphens, dots)
-//   - Is truncated to fit within 253 characters (default K8s limit)
-//   - Includes a hash suffix for uniqueness
-//   - Starts and ends with alphanumeric characters
+// Sanitizes input to follow DNS subdomain rules (lowercase alphanumeric, hyphens, dots),
+// truncates to 253 characters, and appends an 8-character hash suffix for uniqueness.
 //
-// This function enables templates to construct resource names from user input or component
-// metadata without manual sanitization. For example:
-//   - "My App!", "v2" -> "my-app-v2-a1b2c3d4"
-//   - "payment-service", "prod" -> "payment-service-prod-e5f6g7h8"
+// See CustomFunctions() for detailed usage examples.
 func generateK8sNameFromStrings(parts []string) ref.Val {
 	result := kubernetes.GenerateK8sNameWithLengthLimit(kubernetes.MaxResourceNameLength, parts...)
 	return types.String(result)
 }
 
 // generateK8sName is the CEL binding for oc_generate_name().
-// It handles multiple input formats from CEL expressions to provide flexible name generation.
 //
-// Supported input types:
-//   - Single string: oc_generate_name("My App")
-//   - List of strings: oc_generate_name(["my", "app", "v2"])
-//   - Variadic args: oc_generate_name("my", "app", "v2") (via macro expansion)
+// Handles multiple input formats (single string, array, variadic via macro).
+// Non-string list items are silently ignored, allowing mixed-type lists.
 //
-// Non-string list items are silently ignored, allowing mixed-type lists to be processed.
+// See CustomFunctions() for detailed usage examples.
 func generateK8sName(arg ref.Val) ref.Val {
 	// CEL callers can hand us either a list (`["foo", "-", "bar"]`) or a dynamic list of ref.Val.
 	// Accept all of them so reusable template helpers keep working unchanged.

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 )
 
@@ -28,6 +29,26 @@ plain: hello
 `,
 			inputs: `{}`,
 			want: `plain: hello
+`,
+		},
+		{
+			name: "string literal braces inside expression",
+			template: `
+literal: ${"{"}
+`,
+			inputs: `{}`,
+			want: `literal: "{"
+`,
+		},
+		{
+			name: "string literal closed braces inside expression",
+			template: `
+literal: ${"{metadata.name}=" + metadata.name}
+`,
+			inputs: `{
+  "metadata": {"name": "checkout"}
+			}`,
+			want: `literal: '{metadata.name}=checkout'
 `,
 		},
 		{
@@ -523,6 +544,19 @@ mixed: |
 - {}
 `,
 		},
+		{
+			name: "hash function",
+			template: `
+hash: ${oc_hash("hello world")}
+dynamicHash: ${oc_hash(metadata.value)}
+`,
+			inputs: `{
+  "metadata": {"value": "test data"}
+}`,
+			want: `hash: d58b3fa7
+dynamicHash: 578fbe87
+`,
+		},
 	}
 
 	engine := NewEngine()
@@ -597,6 +631,13 @@ func TestRenderErrors(t *testing.T) {
 			wantErr:       true,
 			errContains:   "no such key",
 			wantIsMissing: true,
+		},
+		{
+			name:        "nested expression without quoting",
+			template:    `value: ${outer(${inner})}`,
+			inputs:      `{"inner": "value"}`,
+			wantErr:     true,
+			errContains: "nested CEL expressions",
 		},
 		{
 			name:          "undeclared variable in string value - compile error",
@@ -864,4 +905,296 @@ item2: ${metadata.name}-${item}
 	}
 
 	t.Logf("Program cache contains %d entries", cacheSize)
+}
+
+func TestFindCELExpressions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		want    []celMatch
+		wantErr bool
+	}{
+		{
+			name:  "Simple expression",
+			input: "${resource.field}",
+			want: []celMatch{
+				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with function",
+			input: "${length(resource.list)}",
+			want: []celMatch{
+				{fullExpr: "${length(resource.list)}", innerExpr: "length(resource.list)"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with prefix",
+			input: "prefix-${resource.field}",
+			want: []celMatch{
+				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with suffix",
+			input: "${resource.field}-suffix",
+			want: []celMatch{
+				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Multiple expressions",
+			input: "${resource1.field}-middle-${resource2.field}",
+			want: []celMatch{
+				{fullExpr: "${resource1.field}", innerExpr: "resource1.field"},
+				{fullExpr: "${resource2.field}", innerExpr: "resource2.field"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with map access",
+			input: "${resource.map['key']}",
+			want: []celMatch{
+				{fullExpr: "${resource.map['key']}", innerExpr: "resource.map['key']"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with list index",
+			input: "${resource.list[0]}",
+			want: []celMatch{
+				{fullExpr: "${resource.list[0]}", innerExpr: "resource.list[0]"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Complex expression with operators",
+			input: "${resource.field == 'value' && resource.number > 5}",
+			want: []celMatch{
+				{fullExpr: "${resource.field == 'value' && resource.number > 5}", innerExpr: "resource.field == 'value' && resource.number > 5"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "No expressions",
+			input:   "plain string",
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "Empty string",
+			input:   "",
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "Incomplete expression - no closing brace",
+			input:   "${incomplete",
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:  "Expression with escaped quotes",
+			input: `${resource.field == "escaped\"quote"}`,
+			want: []celMatch{
+				{fullExpr: `${resource.field == "escaped\"quote"}`, innerExpr: `resource.field == "escaped\"quote"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Multiple expressions with whitespace",
+			input: "  ${resource1.field}  ${resource2.field}  ",
+			want: []celMatch{
+				{fullExpr: "${resource1.field}", innerExpr: "resource1.field"},
+				{fullExpr: "${resource2.field}", innerExpr: "resource2.field"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with newlines",
+			input: "${resource.list.map(\n  x,\n  x * 2\n)}",
+			want: []celMatch{
+				{fullExpr: "${resource.list.map(\n  x,\n  x * 2\n)}", innerExpr: "resource.list.map(\n  x,\n  x * 2\n)"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Nested expression without quotes - should error",
+			input:   "${outer(${inner})}",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:  "Expression with nested-like string literal in double quotes",
+			input: `${outer("${inner}")}`,
+			want: []celMatch{
+				{fullExpr: `${outer("${inner}")}`, innerExpr: `outer("${inner}")`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with nested-like string literal in single quotes",
+			input: "${outer('${inner}')}",
+			want: []celMatch{
+				{fullExpr: "${outer('${inner}')}", innerExpr: "outer('${inner}')"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "String literal with closing braces inside double quotes",
+			input: `${"text with }} inside"}`,
+			want: []celMatch{
+				{fullExpr: `${"text with }} inside"}`, innerExpr: `"text with }} inside"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "String literal with opening brace inside double quotes",
+			input: `${"text with { inside"}`,
+			want: []celMatch{
+				{fullExpr: `${"text with { inside"}`, innerExpr: `"text with { inside"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "String literal with opening brace inside single quotes",
+			input: "${'text with { inside'}",
+			want: []celMatch{
+				{fullExpr: "${'text with { inside'}", innerExpr: "'text with { inside'"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Expression with dictionary building",
+			input: "${true ? {'key': 'value'} : {'key': 'value2'}}",
+			want: []celMatch{
+				{fullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", innerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Multiple expressions with dictionary building",
+			input: "${true ? {'key': 'value'} : {'key': 'value2'}} somewhat ${resource.field} then ${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}",
+			want: []celMatch{
+				{fullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", innerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
+				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+				{fullExpr: "${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}", innerExpr: "false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Multiple incomplete expressions - nested at start",
+			input:   "${incomplete1 ${incomplete2",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:  "Mixed complete and incomplete - incomplete at end",
+			input: "${complete} ${complete2} ${incomplete",
+			want: []celMatch{
+				{fullExpr: "${complete}", innerExpr: "complete"},
+				{fullExpr: "${complete2}", innerExpr: "complete2"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Mixed incomplete and complete - nested incomplete",
+			input:   "${incomplete ${complete}",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:  "String literal with just opening brace - the fix case",
+			input: `${"{"}`,
+			want: []celMatch{
+				{fullExpr: `${"{"}`, innerExpr: `"{"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "String literal with closing brace",
+			input: `${"}"}`,
+			want: []celMatch{
+				{fullExpr: `${"}"}`, innerExpr: `"}"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "String literal braces with concatenation",
+			input: `${"{metadata.name}=" + metadata.name}`,
+			want: []celMatch{
+				{fullExpr: `${"{metadata.name}=" + metadata.name}`, innerExpr: `"{metadata.name}=" + metadata.name`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Merge function with nested braces",
+			input: "${merge({a: 1}, {b: 2})}",
+			want: []celMatch{
+				{fullExpr: "${merge({a: 1}, {b: 2})}", innerExpr: "merge({a: 1}, {b: 2})"},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Complex nested braces with strings",
+			input: `${data.map(x, {"key": x, "template": "value-{}" + x})}`,
+			want: []celMatch{
+				{fullExpr: `${data.map(x, {"key": x, "template": "value-{}" + x})}`, innerExpr: `data.map(x, {"key": x, "template": "value-{}" + x})`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Escaped backslash before quote",
+			input: `${field == "test\\\"value"}`,
+			want: []celMatch{
+				{fullExpr: `${field == "test\\\"value"}`, innerExpr: `field == "test\\\"value"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Single quote inside double quote",
+			input: `${field == "test'value"}`,
+			want: []celMatch{
+				{fullExpr: `${field == "test'value"}`, innerExpr: `field == "test'value"`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Double quote inside single quote",
+			input: `${field == 'test"value'}`,
+			want: []celMatch{
+				{fullExpr: `${field == 'test"value'}`, innerExpr: `field == 'test"value'`},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Escaped single quote in single quote string",
+			input: `${field == 'test\'value'}`,
+			want: []celMatch{
+				{fullExpr: `${field == 'test\'value'}`, innerExpr: `field == 'test\'value'`},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := findCELExpressions(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("findCELExpressions() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(celMatch{})); diff != "" {
+				t.Errorf("findCELExpressions() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

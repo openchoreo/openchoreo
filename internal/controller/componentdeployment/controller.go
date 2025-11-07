@@ -113,8 +113,49 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	// Fetch Environment object
+	environment := &openchoreov1alpha1.Environment{}
+	environmentKey := client.ObjectKey{
+		Name:      snapshot.Spec.Environment,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, environmentKey, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Environment not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Environment %q not found", snapshot.Spec.Environment)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonEnvironmentNotFound, msg)
+			logger.Info("Environment not found", "environment", snapshot.Spec.Environment)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Environment", "environment", snapshot.Spec.Environment)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch DataPlane object
+	var dataPlane *openchoreov1alpha1.DataPlane
+	if environment.Spec.DataPlaneRef != "" {
+		dataPlane = &openchoreov1alpha1.DataPlane{}
+		dataPlaneKey := client.ObjectKey{
+			Name:      environment.Spec.DataPlaneRef,
+			Namespace: snapshot.Namespace,
+		}
+		if err := r.Get(ctx, dataPlaneKey, dataPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				// DataPlane not found - don't requeue, wait for it to be created
+				msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
+				controller.MarkFalseCondition(componentDeployment, ConditionReady,
+					ReasonDataPlaneNotFound, msg)
+				logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
+				return ctrl.Result{}, nil
+			}
+			logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Create or update Release
-	if err := r.reconcileRelease(ctx, componentDeployment, snapshot); err != nil {
+	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, dataPlane); err != nil {
 		logger.Error(err, "Failed to reconcile Release")
 		return ctrl.Result{}, err
 	}
@@ -236,12 +277,104 @@ func (r *Reconciler) buildMetadataContext(
 	}
 }
 
+// collectSecretReferences collects all SecretReferences needed for rendering.
+// It fetches SecretReferences from the workload and ComponentDeployment configuration overrides.
+func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, componentDeployment *openchoreov1alpha1.ComponentDeployment) (map[string]*openchoreov1alpha1.SecretReference, error) {
+	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
+
+	// Collect from workload containers
+	for _, container := range snapshot.Spec.Workload.Spec.Containers {
+		// Collect from env configurations
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+				refName := env.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+
+		// Collect from file configurations
+		for _, file := range container.Files {
+			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+				refName := file.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+	}
+
+	// Collect from ComponentDeployment configuration overrides
+	if componentDeployment != nil && componentDeployment.Spec.ConfigurationOverrides != nil {
+		// Collect from env overrides
+		for _, env := range componentDeployment.Spec.ConfigurationOverrides.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+				refName := env.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+
+		// Collect from file overrides
+		for _, file := range componentDeployment.Spec.ConfigurationOverrides.Files {
+			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+				refName := file.ValueFrom.SecretRef.Name
+				if _, exists := secretRefs[refName]; !exists {
+					secretRef := &openchoreov1alpha1.SecretReference{}
+					if err := r.Get(ctx, client.ObjectKey{
+						Name:      refName,
+						Namespace: snapshot.Namespace,
+					}, secretRef); err != nil {
+						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+					}
+					secretRefs[refName] = secretRef
+				}
+			}
+		}
+	}
+
+	return secretRefs, nil
+}
+
 // reconcileRelease creates or updates the Release resource
-func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error {
+func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot, dataPlane *openchoreov1alpha1.DataPlane) error {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(snapshot)
+
+	// Collect all SecretReferences needed for rendering
+	secretReferences, err := r.collectSecretReferences(ctx, snapshot, componentDeployment)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to collect SecretReferences: %v", err)
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to collect SecretReferences")
+		return fmt.Errorf("failed to collect SecretReferences: %w", err)
+	}
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
@@ -251,6 +384,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		Workload:                &snapshot.Spec.Workload,
 		Environment:             snapshot.Spec.Environment,
 		ComponentDeployment:     componentDeployment,
+		DataPlane:               dataPlane,
+		SecretReferences:        secretReferences,
 		Metadata:                metadataContext,
 	}
 
@@ -384,7 +519,13 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	name, _ := metadata["name"].(string)
 
 	if kind != "" && name != "" {
-		return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		resourceID := fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		if len(resourceID) > dpkubernetes.MaxLabelNameLength {
+			return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+				strings.ToLower(kind),
+				name)
+		}
+		return resourceID
 	}
 
 	// Fallback: use index

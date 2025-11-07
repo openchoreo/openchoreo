@@ -339,7 +339,7 @@
                   ]
                 },
                 "loginPath": {
-                  "default": "/login",
+                  "default": "/signin",
                   "description": "Login path",
                   "required": [],
                   "title": "loginPath",
@@ -582,7 +582,7 @@
               ]
             },
             "tag": {
-              "default": "0.10.0",
+              "default": "0.11.0",
               "description": "Image tag (overrides the chart appVersion)",
               "required": [],
               "title": "tag",
@@ -875,7 +875,7 @@
           "description": "Pod security context",
           "properties": {
             "fsGroup": {
-              "default": 1000,
+              "default": 802,
               "description": "Filesystem group",
               "required": [],
               "title": "fsGroup",
@@ -885,7 +885,7 @@
               ]
             },
             "runAsGroup": {
-              "default": 1000,
+              "default": 802,
               "description": "Group ID to run the container as",
               "required": [],
               "title": "runAsGroup",
@@ -905,7 +905,7 @@
               ]
             },
             "runAsUser": {
-              "default": 1000,
+              "default": 802,
               "description": "User ID to run the container as",
               "required": [],
               "title": "runAsUser",
@@ -1031,6 +1031,82 @@
             "object"
           ]
         },
+        "runtimeConfig": {
+          "additionalProperties": false,
+          "description": "Runtime configuration for Thunder Gate UI",
+          "properties": {
+            "client": {
+              "additionalProperties": false,
+              "description": "Client configuration",
+              "properties": {
+                "base": {
+                  "default": "/signin",
+                  "description": "Base path for signin",
+                  "required": [],
+                  "title": "base",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "required": [],
+              "title": "client",
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "server": {
+              "additionalProperties": false,
+              "description": "Server configuration",
+              "properties": {
+                "hostname": {
+                  "default": "localhost",
+                  "description": "Server hostname",
+                  "required": [],
+                  "title": "hostname",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "httpOnly": {
+                  "default": false,
+                  "description": "HTTP only mode (disable HTTPS)",
+                  "required": [],
+                  "title": "httpOnly",
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "port": {
+                  "default": 8090,
+                  "description": "Server port",
+                  "required": [],
+                  "title": "port",
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
+                }
+              },
+              "required": [],
+              "title": "server",
+              "type": [
+                "null",
+                "object"
+              ]
+            }
+          },
+          "required": [],
+          "title": "runtimeConfig",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
         "securityContext": {
           "additionalProperties": false,
           "description": "Container security context",
@@ -1086,7 +1162,7 @@
               ]
             },
             "runAsUser": {
-              "default": 1000,
+              "default": 802,
               "description": "User ID to run the container as",
               "required": [],
               "title": "runAsUser",
@@ -1107,36 +1183,6 @@
           "additionalProperties": false,
           "description": "Service configuration",
           "properties": {
-            "gateNodePort": {
-              "default": "null",
-              "description": "Node port for gate service (when type is NodePort)",
-              "required": [],
-              "title": "gateNodePort",
-              "type": [
-                "null",
-                "integer"
-              ]
-            },
-            "gatePort": {
-              "default": 9090,
-              "description": "Gate service port",
-              "required": [],
-              "title": "gatePort",
-              "type": [
-                "null",
-                "integer"
-              ]
-            },
-            "gateTargetPort": {
-              "default": 9090,
-              "description": "Target port for gate service",
-              "required": [],
-              "title": "gateTargetPort",
-              "type": [
-                "null",
-                "integer"
-              ]
-            },
             "nodePort": {
               "default": "null",
               "description": "Node port for main service (when type is NodePort)",
@@ -4532,8 +4578,8 @@
           "description": "MCP (Model Context Protocol) Server Configuration",
           "properties": {
             "toolsets": {
-              "default": "core",
-              "description": "Comma-separated list of enabled toolsets\nAvailable toolsets: core",
+              "default": "organization,project,component,build,deployment,infrastructure",
+              "description": "Comma-separated list of enabled toolsets\nAvailable toolsets: organization, project, component, build, deployment, infrastructure",
               "required": [],
               "title": "toolsets",
               "type": [

@@ -5,6 +5,7 @@ package template
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -108,7 +109,10 @@ func (e *Engine) Render(data any, inputs map[string]any) (any, error) {
 //   - Booleans: formatted as "true" or "false"
 //   - Objects/arrays: JSON-marshaled, falling back to %v formatting on error
 func (e *Engine) renderString(str string, inputs map[string]any) (any, error) {
-	expressions := findCELExpressions(str)
+	expressions, err := findCELExpressions(str)
+	if err != nil {
+		return nil, err
+	}
 	if len(expressions) == 0 {
 		return str, nil
 	}
@@ -160,6 +164,8 @@ type celMatch struct {
 	innerExpr string
 }
 
+var errNestedExpression = errors.New("nested CEL expressions must be quoted")
+
 // findCELExpressions locates all ${...} expression markers within a string.
 //
 // This function performs brace-balanced parsing to handle nested curly braces correctly.
@@ -177,7 +183,7 @@ type celMatch struct {
 //   - Input: "image:${spec.image}:${spec.tag}"
 //   - Output: [{fullExpr: "${spec.image}", innerExpr: "spec.image"},
 //     {fullExpr: "${spec.tag}", innerExpr: "spec.tag"}]
-func findCELExpressions(str string) []celMatch {
+func findCELExpressions(str string) ([]celMatch, error) {
 	var matches []celMatch
 	i := 0
 	for i < len(str) {
@@ -191,12 +197,42 @@ func findCELExpressions(str string) []celMatch {
 		// e.g., ${merge({a: 1}, {b: 2})} requires counting to find the correct closing brace
 		brace := 1
 		pos := start + 2
+		inSingleQuote := false
+		inDoubleQuote := false
+		escaped := false
 		for pos < len(str) && brace > 0 {
 			switch str[pos] {
+			case '\\':
+				if inSingleQuote || inDoubleQuote {
+					escaped = !escaped
+				}
+			case '\'':
+				if !inDoubleQuote && !escaped {
+					inSingleQuote = !inSingleQuote
+				}
+				escaped = false
+			case '"':
+				if !inSingleQuote && !escaped {
+					inDoubleQuote = !inDoubleQuote
+				}
+				escaped = false
 			case '{':
-				brace++
+				if !inSingleQuote && !inDoubleQuote {
+					brace++
+				}
+				escaped = false
 			case '}':
-				brace--
+				if !inSingleQuote && !inDoubleQuote {
+					brace--
+				}
+				escaped = false
+			case '$':
+				if !inSingleQuote && !inDoubleQuote && pos+1 < len(str) && str[pos+1] == '{' {
+					return nil, fmt.Errorf("%w: %s", errNestedExpression, str[start:pos+2])
+				}
+				escaped = false
+			default:
+				escaped = false
 			}
 			pos++
 		}
@@ -212,7 +248,7 @@ func findCELExpressions(str string) []celMatch {
 			break
 		}
 	}
-	return matches
+	return matches, nil
 }
 
 // normalizeCELResult processes evaluation results to handle the special omit sentinel value.
