@@ -1,0 +1,15 @@
+# Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
+# This file contains overrides specific to running the observability plane in a k3d environment
+
+observer:
+  service:
+    type: LoadBalancer
+
+openSearchDashboards:
+  service:
+    type: LoadBalancer
+
+openSearch:
+  # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
+  service:
+    type: LoadBalancer

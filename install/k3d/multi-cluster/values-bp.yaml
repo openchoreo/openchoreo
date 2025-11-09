@@ -1,0 +1,23 @@
+# Helm values for OpenChoreo Build Plane in k3d multi-cluster setup
+# This file contains overrides specific to running the build plane in a k3d environment
+
+argo-workflows:
+  server:
+    # Argo Workflows UI is enabled only for testing/development purposes.
+    # Disable this to save resources in development setups.
+    enabled: true
+    serviceType: LoadBalancer
+    servicePort: 2746
+    authModes:
+      - server
+
+fluentBit:
+  # Enable Fluent Bit to collect Argo Workflows logs
+  enabled: true
+  config:
+    # OpenSearch connection for multi-cluster setup
+    # Points to OpenSearch in the observability plane via host.k3d.internal
+    # Routed though the host machine to reach the Observability Plane
+    opensearch:
+      host: "host.k3d.internal"
+      port: "11082"
