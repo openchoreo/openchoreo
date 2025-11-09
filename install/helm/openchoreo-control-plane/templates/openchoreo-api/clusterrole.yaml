@@ -10,12 +10,16 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
+  - addons
   - apibindings
   - apiclasses
   - apis
   - buildplanes
   - builds
+  - componentdeployments
+  - componentenvsnapshots
   - components
+  - componenttypedefinitions
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -48,12 +52,16 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
+  - addons/status
   - apibindings/status
   - apiclasses/status
   - apis/status
   - buildplanes/status
   - builds/status
+  - componentdeployments/status
+  - componentenvsnapshots/status
   - components/status
+  - componenttypedefinitions/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
