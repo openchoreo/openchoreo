@@ -1,0 +1,19 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-op
+image: rancher/k3s:v1.32.9-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "6553"
+# Observability Plane uses port range 11xxx
+ports:
+  # HTTP traffic to OpenSearch Dashboard and Observer API
+  - port: 11080:80
+    nodeFilters:
+      - loadbalancer
+  # HTTPS traffic to OpenSearch Dashboard and Observer API
+  - port: 11443:443
+    nodeFilters:
+      - loadbalancer

@@ -1,0 +1,28 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-bp
+image: rancher/k3s:v1.32.9-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "6552"
+# Build Plane uses port range 10xxx
+ports:
+  # HTTP traffic to Argo Workflows UI
+  - port: 10080:80
+    nodeFilters:
+      - loadbalancer
+  # HTTPS traffic to Argo Workflows UI
+  - port: 10443:443
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      # Add host.k3d.internal to API server TLS certificate SANs.
+      # This allows Control Plane pods to securely access the Build Plane API server
+      # via host.k3d.internal:6552 without TLS certificate verification errors.
+      - arg: "--tls-san=host.k3d.internal"
+        nodeFilters:
+          - server:*

@@ -1,0 +1,20 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-cp
+image: rancher/k3s:v1.32.9-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "6550"
+# Control Plane uses port range 8xxx
+ports:
+  # HTTP traffic to OpenChoreo UI and API
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  # HTTPS traffic to OpenChoreo UI and API
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+
