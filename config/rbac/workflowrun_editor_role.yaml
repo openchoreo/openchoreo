@@ -11,12 +11,12 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: workflowdefinition-editor-role
+  name: workflowrun-editor-role
 rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - workflowdefinitions
+  - workflowruns
   verbs:
   - create
   - delete
@@ -28,6 +28,6 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - workflowdefinitions/status
+  - workflowruns/status
   verbs:
   - get

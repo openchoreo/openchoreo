@@ -1,9 +1,9 @@
 # This rule is not used by the project openchoreo itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to openchoreo.dev resources.
-# This role is intended for users who need visibility into these resources
-# without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
+# Grants full permissions ('*') over openchoreo.dev.
+# This role is intended for users authorized to modify roles and bindings within the cluster,
+# enabling them to delegate specific permissions to other users or groups as needed.
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -11,19 +11,17 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: workflowdefinition-viewer-role
+  name: workflowrun-admin-role
 rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - workflowdefinitions
+  - workflowruns
   verbs:
-  - get
-  - list
-  - watch
+  - '*'
 - apiGroups:
   - openchoreo.dev
   resources:
-  - workflowdefinitions/status
+  - workflowruns/status
   verbs:
   - get

@@ -5,5 +5,7 @@ metadata:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
   name: workflow-sample
+  annotations:
+    openchoreo.dev/description: "Sample workflow for building container images"
 spec:
   # TODO(user): Add fields here

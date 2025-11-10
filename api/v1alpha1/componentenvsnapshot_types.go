@@ -18,10 +18,10 @@ type ComponentEnvSnapshotSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
 
-	// ComponentTypeDefinition is a full embedded copy of the ComponentTypeDefinition
-	// This ensures the snapshot is immutable and doesn't change if the CTD is updated
+	// ComponentType is a full embedded copy of the ComponentType
+	// This ensures the snapshot is immutable and doesn't change if the CT is updated
 	// +kubebuilder:validation:Required
-	ComponentTypeDefinition ComponentTypeDefinition `json:"componentTypeDefinition"`
+	ComponentType ComponentType `json:"componentType"`
 
 	// Component is a full embedded copy of the Component
 	// This preserves the exact component configuration at the time of snapshot

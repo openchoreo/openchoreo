@@ -173,7 +173,7 @@ spec:
                 type: string
               overrides:
                 description: |-
-                  Overrides for ComponentTypeDefinition envOverrides parameters
+                  Overrides for ComponentType envOverrides parameters
                   These values override the defaults defined in the Component for this specific environment
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

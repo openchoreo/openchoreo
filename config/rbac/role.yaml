@@ -111,7 +111,7 @@ rules:
   - componentdeployments
   - componentenvsnapshots
   - components
-  - componenttypedefinitions
+  - componenttypes
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -133,7 +133,7 @@ rules:
   - webapplicationbindings
   - webapplicationclasses
   - webapplications
-  - workflowdefinitions
+  - workflowruns
   - workflows
   - workloads
   verbs:
@@ -156,7 +156,7 @@ rules:
   - componentdeployments/finalizers
   - componentenvsnapshots/finalizers
   - components/finalizers
-  - componenttypedefinitions/finalizers
+  - componenttypes/finalizers
   - dataplanes/finalizers
   - deployableartifacts/finalizers
   - deploymentpipelines/finalizers
@@ -178,7 +178,7 @@ rules:
   - webapplicationbindings/finalizers
   - webapplicationclasses/finalizers
   - webapplications/finalizers
-  - workflowdefinitions/finalizers
+  - workflowruns/finalizers
   - workflows/finalizers
   - workloads/finalizers
   verbs:
@@ -195,7 +195,7 @@ rules:
   - componentdeployments/status
   - componentenvsnapshots/status
   - components/status
-  - componenttypedefinitions/status
+  - componenttypes/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
@@ -217,7 +217,7 @@ rules:
   - webapplicationbindings/status
   - webapplicationclasses/status
   - webapplications/status
-  - workflowdefinitions/status
+  - workflowruns/status
   - workflows/status
   - workloads/status
   verbs:

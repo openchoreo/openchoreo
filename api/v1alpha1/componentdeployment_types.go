@@ -30,7 +30,7 @@ type ComponentDeploymentSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
 
-	// Overrides for ComponentTypeDefinition envOverrides parameters
+	// Overrides for ComponentType envOverrides parameters
 	// These values override the defaults defined in the Component for this specific environment
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

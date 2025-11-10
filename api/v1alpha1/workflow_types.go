@@ -12,84 +12,88 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // WorkflowSpec defines the desired state of Workflow.
+// Workflow provides a schema-driven template for workflow execution
+// with developer-facing schemas and CEL-based resource rendering.
+// PE-controlled parameters should be hardcoded directly in the template.
 type WorkflowSpec struct {
-	// Owner identifies the Component that owns this Workflow.
-	// This is used for tracking and reporting purposes.
-	// +required
-	Owner WorkflowOwner `json:"owner"`
-
-	// WorkflowDefinitionRef references the WorkflowDefinition to use for this execution.
-	// The WorkflowDefinition contains the schema, fixed parameters, and resource template.
-	// +required
-	WorkflowDefinitionRef string `json:"workflowDefinitionRef"`
-
-	// Parameters contains the developer-provided values that conform to the schema
-	// defined in the referenced WorkflowDefinition.
+	// Schema defines the developer-facing parameters that can be configured
+	// when creating a WorkflowRun instance. Uses the same shorthand schema syntax
+	// as ComponentType.
 	//
-	// These parameters are merged with fixed parameters and context variables
-	// when rendering the final workflow resource.
+	// Schema format: nested maps where keys are field names and values are either
+	// nested maps or type definition strings.
+	// Type definition format: "type | default=value minimum=2 enum=[val1,val2]"
+	//
+	// Example:
+	//   repository:
+	//     url: "string"
+	//     revision:
+	//       branch: "string | default=main"
+	//       commit: "string | default=HEAD"
+	//     appPath: "string | default=."
+	//     credentialsRef: "string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev"
+	//   version: "integer | default=1"
+	//   testMode: "string | enum=unit,integration,none default=unit"
 	//
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Schema *runtime.RawExtension `json:"schema,omitempty"`
-}
 
-// WorkflowOwner identifies the Component that owns a Workflow execution.
-type WorkflowOwner struct {
-	// ProjectName is the name of the owning Project
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	ProjectName string `json:"projectName"`
+	// Secrets lists the secret references that should be synchronized to the build plane.
+	// Can reference fields from the schema using CEL expressions like ${schema.repository.credentialsRef}.
+	//
+	// +optional
+	Secrets []string `json:"secrets,omitempty"`
 
-	// ComponentName is the name of the owning Component
+	// Resource contains the Kubernetes resource (typically an Argo Workflow)
+	// with CEL expressions enclosed in ${...} that will be evaluated at runtime.
+	//
+	// Available CEL variables:
+	//   - ${ctx.workflowRunName} - WorkflowRun name (the execution instance)
+	//   - ${ctx.componentName} - Component name (if workflow is component-bound)
+	//   - ${ctx.projectName} - Project name (if workflow is component-bound)
+	//   - ${ctx.orgName} - Organization name
+	//   - ${ctx.timestamp} - Unix timestamp
+	//   - ${ctx.uuid} - Short UUID (8 chars)
+	//   - ${schema.*} - Developer-provided values from schema
+	//
+	// Note: PE-controlled parameters should be hardcoded directly in the resource.
+	//
 	// +required
-	// +kubebuilder:validation:MinLength=1
-	ComponentName string `json:"componentName"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Resource *runtime.RawExtension `json:"resource"`
 }
 
 // WorkflowStatus defines the observed state of Workflow.
 type WorkflowStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	// For Kubernetes API conventions, see:
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+
 	// conditions represent the current state of the Workflow resource.
+	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
+	//
+	// Standard condition types include:
+	// - "Available": the resource is fully functional
+	// - "Progressing": the resource is being created or updated
+	// - "Degraded": the resource failed to reach or maintain its desired state
+	//
+	// The status of each condition is one of True, False, or Unknown.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// ImageStatus contains information about the built image from the workflow
-	// +optional
-	ImageStatus WorkflowImage `json:"imageStatus,omitempty"`
-
-	// RunReference contains a reference to the workflow run resource that was applied to the cluster.
-	// This tracks the actual workflow execution instance in the target cluster.
-	// +optional
-	RunReference WorkflowRunReference `json:"runReference,omitempty"`
-}
-
-// WorkflowImage contains information about a container image produced by a workflow
-type WorkflowImage struct {
-	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
-	// +optional
-	Image string `json:"image,omitempty"`
-}
-
-// WorkflowRunReference contains a reference to the workflow run resource applied to the cluster.
-// This allows tracking the actual workflow execution instance that was created in the target cluster.
-type WorkflowRunReference struct {
-	// Name is the name of the workflow run resource in the target cluster
-	// +optional
-	Name string `json:"name,omitempty"`
-
-	// Namespace is the namespace of the workflow run resource in the target cluster
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
 // Workflow is the Schema for the workflows API
-// Workflow represents a runtime execution instance of a WorkflowDefinition.
+// Workflow provides a template definition for workflow execution with schema and resource templates.
 type Workflow struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -113,16 +117,6 @@ type WorkflowList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Workflow `json:"items"`
-}
-
-// GetConditions returns the conditions from the workflow status
-func (w *Workflow) GetConditions() []metav1.Condition {
-	return w.Status.Conditions
-}
-
-// SetConditions sets the conditions in the workflow status
-func (w *Workflow) SetConditions(conditions []metav1.Condition) {
-	w.Status.Conditions = conditions
 }
 
 func init() {

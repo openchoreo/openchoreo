@@ -8,15 +8,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ComponentTypeDefinitionSpec defines the desired state of ComponentTypeDefinition.
+// ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
-type ComponentTypeDefinitionSpec struct {
+type ComponentTypeSpec struct {
 	// WorkloadType must be one of: deployment, statefulset, cronjob, job
 	// This determines the primary workload resource type for this component type
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;job
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
+
+	// AllowedWorkflows restricts which Workflow CRs developers can use
+	// for building components of this type. If not specified, any workflow can be used.
+	// +optional
+	AllowedWorkflows []AllowedWorkflow `json:"allowedWorkflows,omitempty"`
 
 	// Schema defines what developers can configure when creating components of this type
 	// +optional
@@ -26,12 +31,6 @@ type ComponentTypeDefinitionSpec struct {
 	// At least one resource must be defined with an id matching the workloadType
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
-
-	// Build defines the build configuration for this component type,
-	// specifying which WorkflowDefinitions developers can use and
-	// any component-type-specific parameter overrides.
-	// +optional
-	Build *ComponentTypeBuildConfig `json:"build,omitempty"`
 }
 
 // ComponentTypeSchema defines the configurable parameters for a component type
@@ -107,62 +106,42 @@ type ResourceTemplate struct {
 	Template *runtime.RawExtension `json:"template"`
 }
 
-// ComponentTypeBuildConfig defines build configuration for a component type.
-type ComponentTypeBuildConfig struct {
-	// AllowedTemplates lists the WorkflowDefinitions that developers can use
-	// for building components of this type. Each template can have
-	// component-type-specific parameter overrides.
-	//
-	// +optional
-	// +kubebuilder:validation:MinItems=1
-	AllowedTemplates []AllowedWorkflowTemplate `json:"allowedTemplates,omitempty"`
-}
-
-// AllowedWorkflowTemplate references a WorkflowDefinition and provides
-// component-type-specific parameter overrides.
-type AllowedWorkflowTemplate struct {
-	// Name is the name of the WorkflowDefinition
+// AllowedWorkflow references a Workflow CR that developers can use for this component type.
+type AllowedWorkflow struct {
+	// Name is the name of the Workflow CR
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-
-	// FixedParameters are component-type-specific parameter overrides
-	// that override the WorkflowDefinition's default fixed parameters.
-	// This allows platform engineers to configure different policies
-	// per component type (e.g., enable SCA for services but not for scheduled tasks).
-	//
-	// +optional
-	FixedParameters []WorkflowParameter `json:"fixedParameters,omitempty"`
 }
 
-// ComponentTypeDefinitionStatus defines the observed state of ComponentTypeDefinition.
-type ComponentTypeDefinitionStatus struct {
+// ComponentTypeStatus defines the observed state of ComponentType.
+type ComponentTypeStatus struct {
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=ctd;ctds
+// +kubebuilder:resource:scope=Namespaced,shortName=ct;cts
 // +kubebuilder:printcolumn:name="WorkloadType",type=string,JSONPath=`.spec.workloadType`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// ComponentTypeDefinition is the Schema for the componenttypedefinitions API.
-type ComponentTypeDefinition struct {
+// ComponentType is the Schema for the componenttypes API.
+type ComponentType struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ComponentTypeDefinitionSpec   `json:"spec,omitempty"`
-	Status ComponentTypeDefinitionStatus `json:"status,omitempty"`
+	Spec   ComponentTypeSpec   `json:"spec,omitempty"`
+	Status ComponentTypeStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ComponentTypeDefinitionList contains a list of ComponentTypeDefinition.
-type ComponentTypeDefinitionList struct {
+// ComponentTypeList contains a list of ComponentType.
+type ComponentTypeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ComponentTypeDefinition `json:"items"`
+	Items           []ComponentType `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ComponentTypeDefinition{}, &ComponentTypeDefinitionList{})
+	SchemeBuilder.Register(&ComponentType{}, &ComponentTypeList{})
 }

@@ -34,6 +34,8 @@ resources:
   - deploymenttrack_viewer_role.yaml
   - component_editor_role.yaml
   - component_viewer_role.yaml
+  - componenttype_editor_role.yaml
+  - componenttype_viewer_role.yaml
   - deploymentpipeline_editor_role.yaml
   - deploymentpipeline_viewer_role.yaml
   - dataplane_editor_role.yaml
@@ -104,9 +106,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the openchoreo itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
-- workflowdefinition_admin_role.yaml
-- workflowdefinition_editor_role.yaml
-- workflowdefinition_viewer_role.yaml
-- workflow_admin_role.yaml
-- workflow_editor_role.yaml
-- workflow_viewer_role.yaml
+  - workflow_admin_role.yaml
+  - workflow_editor_role.yaml
+  - workflow_viewer_role.yaml
+  - workflowrun_admin_role.yaml
+  - workflowrun_editor_role.yaml
+  - workflowrun_viewer_role.yaml

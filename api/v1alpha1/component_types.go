@@ -38,20 +38,20 @@ type ComponentSpec struct {
 	Owner ComponentOwner `json:"owner"`
 
 	// Type specifies the component type (e.g., Service, WebApplication, etc.)
-	// LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
+	// LEGACY FIELD: Use componentType instead for new components with ComponentTypes
 	// +optional
-	Type CompType `json:"type,omitempty"`
+	Type DefinedComponentType `json:"type,omitempty"`
 
-	// ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
+	// ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
 	// Example: "deployment/web-app", "cronjob/scheduled-task"
-	// This field is used with ComponentTypeDefinitions (new model)
+	// This field is used with ComponentTypes (new model)
 	// +optional
 	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
 	ComponentType string `json:"componentType,omitempty"`
 
-	// Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
-	// This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
+	// Parameters from ComponentType (oneOf schema based on componentType)
+	// This is the merged schema of parameters + envOverrides from the ComponentType
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
@@ -62,9 +62,10 @@ type ComponentSpec struct {
 	// +optional
 	Addons []ComponentAddon `json:"addons,omitempty"`
 
-	// Build defines the build configuration for the component
+	// Workflow defines the workflow configuration for building the component
+	// This references a Workflow CR and provides developer-configured schema values
 	// +optional
-	Build BuildSpecInComponent `json:"build,omitempty"`
+	Workflow WorkflowConfig `json:"workflow,omitempty"`
 }
 
 // ComponentAddon represents an addon instance attached to a component
@@ -94,63 +95,24 @@ type ComponentOwner struct {
 	ProjectName string `json:"projectName"`
 }
 
-// BuildSpecInComponent defines the build configuration for a component
-// This specification is used to create Build resources when builds are triggered
-type BuildSpecInComponent struct {
-	// WorkflowTemplate specifies the WorkflowDefinition to use for building this component
-	// This references a WorkflowDefinition resource that defines the build workflow template
-	// and schema for developer-provided parameters
-	// +required
-	WorkflowTemplate string `json:"workflowTemplate,omitempty"`
-
-	// Parameters contains developer-provided build parameters that conform to the schema
-	// defined in the referenced WorkflowDefinition
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	Schema *runtime.RawExtension `json:"schema,omitempty"`
-}
-
-// BuildRepository defines the source repository configuration for component builds
-type BuildRepository struct {
-	// URL is the repository URL where the component source code is located
-	// Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
-	URL string `json:"url"`
-
-	// Revision specifies the default revision configuration for builds
-	// This can be overridden when triggering specific builds
-	Revision BuildRevision `json:"revision"`
-
-	// AppPath is the path to the application within the repository
-	// This is relative to the repository root. Default is "." for root directory
-	AppPath string `json:"appPath"`
-}
-
-// BuildRevision defines the revision specification for component builds
-type BuildRevision struct {
-	// Branch specifies the default branch to build from
-	// This will be used when no specific commit is provided for a build
-	Branch string `json:"branch"`
-}
-
 // ComponentStatus defines the observed state of Component.
 type ComponentStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// CompType defines how the component is deployed.
-type CompType string
+// ComponentType defines how the component is deployed.
+type DefinedComponentType string
 
 const (
-	ComponentTypeService        CompType = "Service"
-	ComponentTypeManualTask     CompType = "ManualTask"
-	ComponentTypeScheduledTask  CompType = "ScheduledTask"
-	ComponentTypeWebApplication CompType = "WebApplication"
-	ComponentTypeWebhook        CompType = "Webhook"
-	ComponentTypeAPIProxy       CompType = "APIProxy"
-	ComponentTypeTestRunner     CompType = "TestRunner"
-	ComponentTypeEventHandler   CompType = "EventHandler"
+	ComponentTypeService        DefinedComponentType = "Service"
+	ComponentTypeManualTask     DefinedComponentType = "ManualTask"
+	ComponentTypeScheduledTask  DefinedComponentType = "ScheduledTask"
+	ComponentTypeWebApplication DefinedComponentType = "WebApplication"
+	ComponentTypeWebhook        DefinedComponentType = "Webhook"
+	ComponentTypeAPIProxy       DefinedComponentType = "APIProxy"
+	ComponentTypeTestRunner     DefinedComponentType = "TestRunner"
+	ComponentTypeEventHandler   DefinedComponentType = "EventHandler"
 )
 
 // ComponentSource defines the source information of the component where the code or image is retrieved.

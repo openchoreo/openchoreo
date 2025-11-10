@@ -8,7 +8,7 @@ resources:
   - bases/openchoreo.dev_dataplanes.yaml
   - bases/openchoreo.dev_deploymentpipelines.yaml
   - bases/openchoreo.dev_components.yaml
-  - bases/openchoreo.dev_componenttypedefinitions.yaml
+  - bases/openchoreo.dev_componenttypes.yaml
   - bases/openchoreo.dev_componentdeployments.yaml
   - bases/openchoreo.dev_componentenvsnapshots.yaml
   - bases/openchoreo.dev_addons.yaml
@@ -35,7 +35,7 @@ resources:
   - bases/openchoreo.dev_builds.yaml
   - bases/openchoreo.dev_buildplanes.yaml
   - bases/openchoreo.dev_workflows.yaml
-  - bases/openchoreo.dev_workflowdefinitions.yaml
+  - bases/openchoreo.dev_workflowruns.yaml
   - bases/openchoreo.dev_secretreferences.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

@@ -4,6 +4,7 @@ resources:
   - openchoreo_v1alpha1_apibinding.yaml
   - openchoreo_v1alpha1_apiclass.yaml
   - openchoreo_v1alpha1_component.yaml
+  - openchoreo_v1alpha1_componenttype.yaml
   - openchoreo_v1alpha1_configurationgroup.yaml
   - openchoreo_v1alpha1_dataplane.yaml
   - openchoreo_v1alpha1_deployableartifact.yaml
@@ -28,7 +29,7 @@ resources:
   - openchoreo_v1alpha1_workload.yaml
   - openchoreo_v1alpha1_build.yaml
   - openchoreo_v1alpha1_buildplane.yaml
-  - v1alpha1_workflow.yaml
-  - v1alpha1_workflowdefinition.yaml
+  - openchoreo_v1alpha1_workflow.yaml
+  - openchoreo_v1alpha1_workflowrun.yaml
   - openchoreo_v1alpha1_secretreference.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
