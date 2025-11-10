@@ -35,6 +35,8 @@ const (
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 	// ReasonInvalidSnapshotConfiguration indicates the ComponentEnvSnapshot has invalid configuration
 	ReasonInvalidSnapshotConfiguration controller.ConditionReason = "InvalidSnapshotConfiguration"
+	// ReasonDataPlaneNotConfigured indicates the Environment has no DataPlaneRef configured
+	ReasonDataPlaneNotConfigured controller.ConditionReason = "DataPlaneNotConfigured"
 
 	// Rendering issues (Status=False)
 

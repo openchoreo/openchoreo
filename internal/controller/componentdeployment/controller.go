@@ -132,26 +132,33 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Check if DataPlaneRef is configured in the Environment.
+	if environment.Spec.DataPlaneRef == "" {
+		// Environment has no DataPlaneRef - mark as not ready
+		msg := fmt.Sprintf("Environment %q has no DataPlaneRef configured", environment.Name)
+		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			ReasonDataPlaneNotConfigured, msg)
+		logger.Info("Environment has no DataPlaneRef", "environment", environment.Name)
+		return ctrl.Result{}, nil
+	}
+
 	// Fetch DataPlane object
-	var dataPlane *openchoreov1alpha1.DataPlane
-	if environment.Spec.DataPlaneRef != "" {
-		dataPlane = &openchoreov1alpha1.DataPlane{}
-		dataPlaneKey := client.ObjectKey{
-			Name:      environment.Spec.DataPlaneRef,
-			Namespace: snapshot.Namespace,
+	dataPlane := &openchoreov1alpha1.DataPlane{}
+	dataPlaneKey := client.ObjectKey{
+		Name:      environment.Spec.DataPlaneRef,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, dataPlaneKey, dataPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			// DataPlane not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonDataPlaneNotFound, msg)
+			logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
+			return ctrl.Result{}, nil
 		}
-		if err := r.Get(ctx, dataPlaneKey, dataPlane); err != nil {
-			if apierrors.IsNotFound(err) {
-				// DataPlane not found - don't requeue, wait for it to be created
-				msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
-				controller.MarkFalseCondition(componentDeployment, ConditionReady,
-					ReasonDataPlaneNotFound, msg)
-				logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
-				return ctrl.Result{}, nil
-			}
-			logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
-			return ctrl.Result{}, err
-		}
+		logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
+		return ctrl.Result{}, err
 	}
 
 	// Create or update Release
