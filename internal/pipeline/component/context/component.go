@@ -112,7 +112,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["component"] = componentMeta
 
-	// 7. Add environment
+	// 10. Add environment
 	environment := map[string]any{
 		"name":  input.Environment.Name,
 		"vhost": input.Environment.VirtualHost,
