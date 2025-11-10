@@ -4,10 +4,10 @@ This directory contains sample configurations demonstrating OpenChoreo's schema-
 
 ## Overview
 
-OpenChoreo's Workflow system enables **Platform Engineers** to define reusable build templates (WorkflowDefinitions) that generate Argo Workflows, while **Developers** provide application-specific configuration through Component and Workflow resources. The workflow controller automatically:
+OpenChoreo's Workflow system enables **Platform Engineers** to define reusable build templates (Workflows) that generate Argo Workflows, while **Developers** provide application-specific configuration through Component and WorkflowRun resources. The workflowrun controller automatically:
 
 1. Renders Argo Workflows from templates using CEL expressions
-2. Merges developer parameters with platform engineer defaults
+2. Merges developer parameters with schema defaults
 3. Deploys workflows to the build plane for execution
 4. Extracts and creates Workload CRs from successful workflow outputs
 
@@ -16,11 +16,11 @@ OpenChoreo's Workflow system enables **Platform Engineers** to define reusable b
 ```
 Component (Developer Intent)
     ↓
-ComponentType (PE Governance) + WorkflowDefinition (PE Template)
+ComponentType (PE Governance) + Workflow (PE Template)
     ↓
-Workflow CR (Execution Instance)
+WorkflowRun CR (Execution Instance)
     ↓
-[Workflow Controller Renders]
+[WorkflowRun Controller Renders]
     ↓
 Argo Workflow (Build Plane)
     ↓
@@ -36,13 +36,13 @@ Demonstrates a Docker-based build workflow using a Dockerfile.
 **What it shows:**
 - Docker build workflow definition with minimal schema
 - Component configuration for Docker builds
-- Workflow execution instance
+- WorkflowRun execution instance
 
 **Key Resources:**
-- **WorkflowDefinition**: `docker` - Defines Docker build template with repository and Docker-specific parameters
-- **ComponentType**: `service` - Allows `docker` workflow with timeout overrides
+- **Workflow**: `docker` - Defines Docker build template with repository and Docker-specific parameters
+- **ComponentType**: `service` - Allows `docker` workflow
 - **Component**: `greeting-service` - Uses Docker workflow with Dockerfile at `/service-go-greeter/Dockerfile`
-- **Workflow**: `greeting-service-build-04` - Execution instance for the greeting service
+- **WorkflowRun**: `greeting-service-build-04` - Execution instance for the greeting service
 
 **Developer Parameters:**
 - `repository.url` - Git repository URL
@@ -53,25 +53,20 @@ Demonstrates a Docker-based build workflow using a Dockerfile.
 - `docker.context` - Docker build context (default: `.`)
 - `docker.filePath` - Path to Dockerfile (default: `./Dockerfile`)
 
-**Platform Engineer Parameters:**
-- `registry-url` - Container registry URL (fixed at `gcr.io/openchoreo-dev/images`)
-- `build-timeout` - Build timeout (overridden to `45m` by ComponentType)
-
 ### 2. Google Cloud Buildpacks Workflow (`go-buildpack-reading-list-service.yaml`)
 
 Demonstrates a comprehensive buildpack-based workflow with extensive configuration options.
 
 **What it shows:**
 - Complex schema with nested objects, arrays, enums, and type validation
-- Parameter merging with multiple precedence levels
 - Extensive build configuration options
 - Secret injection from control plane to build plane
 
 **Key Resources:**
-- **WorkflowDefinition**: `google-cloud-buildpacks` - Comprehensive buildpack template
+- **Workflow**: `google-cloud-buildpacks` - Comprehensive buildpack template
 - **ComponentType**: `service` - Allows both `google-cloud-buildpacks` and `docker` workflows
 - **Component**: `reading-list-service` - Uses buildpacks with full configuration
-- **Workflow**: `reading-list-service-build-01` - Execution instance for reading list service
+- **WorkflowRun**: `reading-list-service-build-01` - Execution instance for reading list service
 
 **Developer Parameters:**
 - `repository.*` - Git repository configuration (URL, branch, commit, path, secretRef)
@@ -87,11 +82,6 @@ Demonstrates a comprehensive buildpack-based workflow with extensive configurati
 - `limits.maxRetries` - Max retry attempts (0-10, default: 3)
 - `limits.maxDurationMinutes` - Max duration in minutes (5-240, default: 60)
 
-**Platform Engineer Parameters:**
-- `builder-image` - Buildpack builder image with SHA256 digest
-- `security-scan-enabled` - Security scanning flag (overridden to `"false"` by ComponentType)
-- `build-timeout` - Build timeout (overridden to `"45m"` by ComponentType)
-
 ### 3. React Web Application Workflow (`react-web-app.yaml`)
 
 Demonstrates a React-specific build workflow with web application deployment configuration.
@@ -100,13 +90,13 @@ Demonstrates a React-specific build workflow with web application deployment con
 - React build workflow definition with Node.js version configuration
 - Web application component type definition with Deployment and Service resources
 - Component configuration for React web apps
-- Workflow execution instance for React builds
+- WorkflowRun execution instance for React builds
 
 **Key Resources:**
-- **WorkflowDefinition**: `react` - Defines React build template with repository and Node.js parameters
+- **Workflow**: `react` - Defines React build template with repository and Node.js parameters
 - **ComponentType**: `web-application` - Defines deployment resources (Deployment + Service) with resource limits
 - **Component**: `react-web-app` - Uses React workflow with Node v20 and custom resource configurations
-- **Workflow**: `react-web-app-build-01` - Execution instance for the React web application
+- **WorkflowRun**: `react-web-app-build-01` - Execution instance for the React web application
 
 **Developer Parameters:**
 - `repository.url` - Git repository URL
@@ -127,40 +117,15 @@ Demonstrates a React-specific build workflow with web application deployment con
 
 ## Key Concepts
 
-### Parameter Merging Precedence
-
-Parameters are merged in the following order (highest to lowest priority):
-
-1. **ComponentType.fixedParameters** - Component-type-specific overrides by PE
-2. **WorkflowDefinition.fixedParameters** - Template defaults by PE
-3. **WorkflowDefinition.schema defaults** - Default values in schema definitions
-4. **Workflow.schema** - Developer-provided values (overrides schema defaults)
-
-Example:
-```yaml
-# WorkflowDefinition sets build-timeout to "30m"
-fixedParameters:
-  - name: build-timeout
-    value: "30m"
-
-# ComponentType overrides it to "45m"
-build:
-  allowedTemplates:
-    - name: docker
-      fixedParameters:
-        - name: build-timeout
-          value: "45m"  # This wins!
-```
-
 ### CEL Expression Support
 
 Templates support CEL expressions for dynamic value resolution:
 
 **Context Variables** (`${ctx.*}`):
 - `${ctx.orgName}` - Organization name (namespace)
-- `${ctx.projectName}` - Project name from Workflow.spec.owner
-- `${ctx.componentName}` - Component name from Workflow.spec.owner
-- `${ctx.workflowName}` - Workflow CR name
+- `${ctx.projectName}` - Project name from WorkflowRun.spec.owner
+- `${ctx.componentName}` - Component name from WorkflowRun.spec.owner
+- `${ctx.workflowRunName}` - WorkflowRun CR name
 - `${ctx.timestamp}` - Auto-generated Unix timestamp
 - `${ctx.uuid}` - Auto-generated 8-character UUID
 
@@ -169,13 +134,9 @@ Templates support CEL expressions for dynamic value resolution:
 - `${schema.version}` - Access simple developer parameters
 - `${schema.resources.cpuCores}` - Access nested developer parameters
 
-**Fixed Parameters** (`${fixedParameters.*}`):
-- `${fixedParameters["registry-url"]}` - Access PE-controlled parameters
-- `${fixedParameters["build-timeout"]}` - Access PE-controlled parameters
-
 ### Schema Format
 
-WorkflowDefinition schemas use a shorthand syntax:
+Workflow schemas use a shorthand syntax:
 
 ```yaml
 schema:
@@ -208,7 +169,7 @@ All parameter values are automatically converted to strings when applied to Argo
 
 ### Secret Injection
 
-WorkflowDefinitions can reference secrets that will be injected from the control plane to the build plane:
+Workflows can reference secrets that will be injected from the control plane to the build plane:
 
 ```yaml
 spec:
@@ -219,11 +180,11 @@ spec:
     - ${schema.repository.secretRef}  # Secret name from developer schema
 ```
 
-The workflow controller ensures these secrets exist in the build plane namespace before creating the Argo Workflow.
+The workflowrun controller ensures these secrets exist in the build plane namespace before creating the Argo Workflow.
 
 ### Workload Creation
 
-After an Argo Workflow completes successfully, the workflow controller automatically:
+After an Argo Workflow completes successfully, the workflowrun controller automatically:
 
 1. Looks for a step named `workload-create-step` in the workflow nodes
 2. Extracts the `workload-cr` output parameter from that step
@@ -236,31 +197,29 @@ This enables the build process to define the runtime workload specification (con
 
 ### For Platform Engineers
 
-1. **Define WorkflowDefinition**:
+1. **Define Workflow**:
    - Create a template with schema for developer parameters
-   - Define fixedParameters for PE-controlled values
    - Use CEL expressions in the resource template
    - Specify secrets to inject into build plane
 
 2. **Define ComponentType**:
-   - List allowed WorkflowDefinitions in `build.allowedTemplates`
-   - Override parameters per component type as needed
+   - List allowed Workflows in `build.allowedTemplates`
    - Define workload resource templates for deployment
 
 ### For Developers
 
 1. **Create Component**:
    - Reference a ComponentType via `componentType`
-   - Select a WorkflowDefinition from allowed templates via `build.workflowTemplate`
-   - Provide configuration in `build.schema` matching WorkflowDefinition schema
+   - Select a Workflow from allowed templates via `build.workflowTemplate`
+   - Provide configuration in `build.schema` matching Workflow schema
 
-2. **Create Workflow**:
-   - Reference the WorkflowDefinition via `workflowDefinitionRef`
+2. **Create WorkflowRun**:
+   - Reference the Workflow via `workflowRef`
    - Specify owner tracking (project and component names)
    - Provide developer parameters in `schema` field
 
-3. **Monitor Workflow**:
-   - Check Workflow status conditions: `WorkflowPending`, `WorkflowRunning`, `WorkflowSucceeded`, `WorkflowFailed`
+3. **Monitor WorkflowRun**:
+   - Check WorkflowRun status conditions: `WorkflowPending`, `WorkflowRunning`, `WorkflowSucceeded`, `WorkflowFailed`
    - Check Workload creation status: `WorkloadUpdated` condition
    - View rendered Argo Workflow in build plane namespace
 
@@ -279,16 +238,15 @@ kubectl apply -f samples/workflow/react-web-app.yaml
 
 ## Troubleshooting
 
-### Workflow stuck in Pending
+### WorkflowRun stuck in Pending
 
 - Check if BuildPlane resource exists and is accessible
 - Verify build plane cluster credentials are valid
-- Check workflow controller logs for errors
+- Check workflowrun controller logs for errors
 
 ### Rendered workflow has incorrect values
 
-- Verify parameter precedence (ComponentType overrides WorkflowDefinition)
-- Check CEL expressions in WorkflowDefinition template
+- Check CEL expressions in Workflow template
 - Review schema defaults and developer-provided values
 
 ### Workload not created after workflow succeeds
@@ -296,5 +254,5 @@ kubectl apply -f samples/workflow/react-web-app.yaml
 - Verify Argo Workflow has a step named `workload-create-step`
 - Check that step has succeeded (`phase: Succeeded`)
 - Ensure step outputs a parameter named `workload-cr` with valid YAML
-- Check workflow controller logs for extraction errors
-- Verify `WorkloadUpdated` condition in Workflow status
+- Check workflowrun controller logs for extraction errors
+- Verify `WorkloadUpdated` condition in WorkflowRun status
