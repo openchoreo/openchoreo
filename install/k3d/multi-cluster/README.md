@@ -103,6 +103,10 @@ Create DataPlane, BuildPlane resource in the control plane to connect to the oth
 - OpenChoreo API: http://api.openchoreo.localhost:8080
 - Asgardeo Thunder: http://thunder.openchoreo.localhost:8080
 
+### Data Plane
+
+- User Workloads: http://localhost:9080 (Envoy Gateway)
+
 ### Build Plane (if installed)
 
 - Argo Workflows UI: http://localhost:10081
