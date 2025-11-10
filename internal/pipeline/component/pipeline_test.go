@@ -22,7 +22,7 @@ func TestPipeline_Render(t *testing.T) {
 		wantErr          bool
 		wantResourceYAML string
 		environmentYAML  string
-		dataplneYAML     string
+		dataplaneYAML    string
 	}{
 		{
 			name: "simple component without addons",
@@ -65,7 +65,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -153,7 +153,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -239,7 +239,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -327,7 +327,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -428,7 +428,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -537,7 +537,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -653,7 +653,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -793,7 +793,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -968,7 +968,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -1169,7 +1169,7 @@ spec:
       remoteJwks:
         uri: https://auth.example.com/.well-known/jwks.json
 `,
-			dataplneYAML: `
+			dataplaneYAML: `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -1287,9 +1287,9 @@ spec:
 
 			// Parse dataplane
 			var dataplane *v1alpha1.DataPlane
-			if tt.dataplneYAML != "" {
+			if tt.dataplaneYAML != "" {
 				dataplane = &v1alpha1.DataPlane{}
-				if err := yaml.Unmarshal([]byte(tt.dataplneYAML), dataplane); err != nil {
+				if err := yaml.Unmarshal([]byte(tt.dataplaneYAML), dataplane); err != nil {
 					t.Fatalf("Failed to parse dataplane YAML: %v", err)
 				}
 			}
