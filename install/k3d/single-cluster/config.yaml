@@ -1,0 +1,56 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo
+image: rancher/k3s:v1.32.9-k3s1
+servers: 1
+agents: 2
+kubeAPI:
+  hostPort: "6550"
+# Single cluster mode exposes all plane port ranges for consistency with multi-cluster setup
+ports:
+  # Control Plane uses port range 8xxx
+  # HTTP traffic to OpenChoreo UI and API
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  # HTTPS traffic to OpenChoreo UI and API
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+  # Data Plane uses port range 9xxx
+  # HTTP traffic to workloads via Envoy Gateway (uses port 9080 to avoid conflict with Traefik)
+  - port: 9080:9080
+    nodeFilters:
+      - loadbalancer
+  # HTTPS traffic to workloads via Envoy Gateway
+  - port: 9443:9443
+    nodeFilters:
+      - loadbalancer
+  # Build Plane uses port range 10xxx
+  # Argo Workflows UI for development testing
+  - port: 10081:2746
+    nodeFilters:
+      - loadbalancer
+  # Observability Plane uses port range 11xxx
+  # Observer API
+  - port: 11080:8080
+    nodeFilters:
+      - loadbalancer
+  # OpenSearch Dashboard
+  - port: 11081:5601
+    nodeFilters:
+      - loadbalancer
+  # OpenSearch API for Fluent Bit data pushing
+  - port: 11082:9200
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      # Add host.k3d.internal to API server TLS certificate SANs.
+      # This allows consistent DataPlane configuration across single and multi-cluster setups
+      # where Control Plane pods can access the API server via host.k3d.internal:6550
+      - arg: "--tls-san=host.k3d.internal"
+        nodeFilters:
+          - server:*
