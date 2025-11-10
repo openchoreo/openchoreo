@@ -1,19 +1,16 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowDefinition
+kind: Workflow
 metadata:
   name: google-cloud-buildpacks
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:
   # Template Variable Reference (processed by controller):
-  # ${ctx.workflowName}            - Workflow name
-  # ${ctx.componentName}           - Component name
-  # ${ctx.projectName}             - Project name
-  # ${ctx.orgName}                 - Organization name
-  # ${ctx.timestamp}               - Unix timestamp (e.g., 1234567890)
-  # ${ctx.uuid}                    - UUID (8 chars)
+  # ${ctx.workflowRunName}         - WorkflowRun CR name
+  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
+  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
+  # ${ctx.orgName}                 - Organization name (namespace)
   # ${schema.*}                    - Developer-provided values from schema
-  # ${fixedParameters.*}           - PE-controlled fixed parameters
   # Developer-facing schema with type validation
   schema:
     repository:
@@ -42,100 +39,79 @@ spec:
   secrets:
     - ${schema.repository.secretRef}
 
-  # Static, PE-controlled parameters (hidden from developer)
-  fixedParameters:
-    - name: builder-image
-      value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
-    - name: security-scan-enabled
-      value: "true"
-    - name: build-timeout
-      value: "30m"
-
   # Rendered resource
   resource:
-    template:
-      apiVersion: argoproj.io/v1alpha1
-      kind: Workflow
-      metadata:
-        name: ${ctx.workflowName} # PE needs to ensure uniqueness, workflowName is unique
-        namespace: openchoreo-ci-${ctx.orgName}
-      spec:
-        arguments:
-          parameters:
-            - name: component-name
-              value: ${ctx.componentName}
-            - name: project-name
-              value: ${ctx.projectName}
-            # Parameters from schema (developer-facing)
-            - name: git-repo
-              value: ${schema.repository.url}
-            - name: branch
-              value: ${schema.repository.revision.branch}
-            - name: commit
-              value: ${schema.repository.revision.commit}
-            - name: app-path
-              value: ${schema.repository.appPath}
-            - name: version
-              value: ${schema.version}
-            - name: test-mode
-              value: ${schema.testMode}
-            - name: command
-              value: ${schema.command}
-            - name: args
-              value: ${schema.args}
-            - name: cpu-cores
-              value: ${schema.resources.cpuCores}
-            - name: memory-gb
-              value: ${schema.resources.memoryGb}
-            - name: timeout
-              value: ${schema.timeout}
-            - name: cache-enabled
-              value: ${schema.cache.enabled}
-            - name: cache-paths
-              value: ${schema.cache.paths}
-            - name: max-retries
-              value: ${schema.limits.maxRetries}
-            - name: max-duration-minutes
-              value: ${schema.limits.maxDurationMinutes}
-            # Parameters from fixedParameters (PE-controlled)
-            - name: builder-image
-              value: ${fixedParameters["builder-image"]}
-            - name: registry-url
-              value: gcr.io/openchoreo-dev/images
-            - name: security-scan-enabled
-              value: ${fixedParameters["security-scan-enabled"]}
-            - name: build-timeout
-              value: ${fixedParameters["build-timeout"]}
-            - name: image-name
-              value: ${ctx.projectName}-${ctx.componentName}-image
-            - name: image-tag
-              value: v${schema.version}
-        serviceAccountName: workflow-sa
-        workflowTemplateRef:
-          clusterScope: true
-          name: google-cloud-buildpacks
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${ctx.workflowRunName}
+      namespace: openchoreo-ci-${ctx.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${ctx.componentName}
+          - name: project-name
+            value: ${ctx.projectName}
+          # Parameters from schema (developer-facing)
+          - name: git-repo
+            value: ${schema.repository.url}
+          - name: branch
+            value: ${schema.repository.revision.branch}
+          - name: commit
+            value: ${schema.repository.revision.commit}
+          - name: app-path
+            value: ${schema.repository.appPath}
+          - name: version
+            value: ${schema.version}
+          - name: test-mode
+            value: ${schema.testMode}
+          - name: command
+            value: ${schema.command}
+          - name: args
+            value: ${schema.args}
+          - name: cpu-cores
+            value: ${schema.resources.cpuCores}
+          - name: memory-gb
+            value: ${schema.resources.memoryGb}
+          - name: timeout
+            value: ${schema.timeout}
+          - name: cache-enabled
+            value: ${schema.cache.enabled}
+          - name: cache-paths
+            value: ${schema.cache.paths}
+          - name: max-retries
+            value: ${schema.limits.maxRetries}
+          - name: max-duration-minutes
+            value: ${schema.limits.maxDurationMinutes}
+          # PE-controlled hardcoded parameters
+          - name: builder-image
+            value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
+          - name: registry-url
+            value: gcr.io/openchoreo-dev/images
+          - name: security-scan-enabled
+            value: "true"
+          - name: build-timeout
+            value: "30m"
+          - name: image-name
+            value: ${ctx.projectName}-${ctx.componentName}-image
+          - name: image-tag
+            value: v${schema.version}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: service
 spec:
-  # Restrict which workflow templates developers can use for this component type
-  build:
-    allowedTemplates:
-      - name: google-cloud-buildpacks
-        # PE-controlled parameters that override WorkflowDefinition defaults
-        fixedParameters:
-          - name: security-scan-enabled
-            value: "false"
-          - name: build-timeout
-            value: "45m"
-      - name: docker
-        # PE-controlled parameters that override WorkflowDefinition defaults
-        fixedParameters:
-          - name: build-timeout
-            value: "45m"
+  # Restrict which workflows developers can use for this component type
+  allowedWorkflows:
+    - name: google-cloud-buildpacks
+    - name: docker
 
   workloadType: deployment
 
@@ -213,13 +189,16 @@ metadata:
 spec:
   owner:
     projectName: default
-  # References the ComponentTypeDefinition
+
+  # References the ComponentType
   componentType: deployment/service
 
-  # Build configuration matching the schema from WorkflowDefinition
-  build:
-    # Selects a WorkflowDefinition from allowed templates in ComponentTypeDefinition
-    workflowTemplate: google-cloud-buildpacks
+  # Workflow configuration (developer-provided)
+  workflow:
+    # Reference to Workflow
+    name: google-cloud-buildpacks
+
+    # Schema matching the Workflow's schema section
     schema:
       # Nested structure from schema
       repository:
@@ -258,45 +237,45 @@ spec:
         memory: "1Gi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: WorkflowRun
 metadata:
-  # Should be unique per execution, PEs must ensure uniqueness
+  # Should be unique per execution
   name: reading-list-service-build-01
 spec:
-  # Ownership tracking for the workflow execution
+  # Ownership tracking for the workflow execution (optional)
   owner:
     projectName: "default"
     componentName: "reading-list-service"
 
-  # Reference to WorkflowDefinition
-  workflowDefinitionRef: google-cloud-buildpacks
+  workflow:
+    # Reference to Workflow
+    name: google-cloud-buildpacks
 
-  # Developer parameters from Component CR (matching schema)
-  schema:
-    repository:
-      url: "https://github.com/openchoreo/sample-workloads"
-      revision:
-        branch: "main"
-        commit: ""
-      appPath: "/service-go-reading-list"
-      secretRef: "reading-list-repo-credentials-dev"
-    version: 1
-    testMode: "integration"
-    command: ["npm", "run", "build"]
-    args: ["--production", "--verbose"]
-    resources:
-      cpuCores: 2
-      memoryGb: 4
-    timeout: "45m"
-    cache:
-      enabled: true
-      paths: ["/root/.npm", "/root/.cache"]
-    limits:
-      maxRetries: 5
-      maxDurationMinutes: 90
+    schema:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-go-reading-list"
+        secretRef: "reading-list-repo-credentials-dev"
+      version: 1
+      testMode: "integration"
+      command: ["npm", "run", "build"]
+      args: ["--production", "--verbose"]
+      resources:
+        cpuCores: 2
+        memoryGb: 4
+      timeout: "45m"
+      cache:
+        enabled: true
+        paths: ["/root/.npm", "/root/.cache"]
+      limits:
+        maxRetries: 5
+        maxDurationMinutes: 90
 
 ---
-# Generated Argo Workflow from the WorkflowDefinition above
+# Generated Argo Workflow from the Workflow above
 
 #apiVersion: argoproj.io/v1alpha1
 #kind: Workflow
@@ -358,9 +337,9 @@ spec:
 #      - name: registry-url
 #        value: gcr.io/openchoreo-dev/images
 #      - name: security-scan-enabled
-#        value: unknown
+#        value: "true"
 #      - name: build-timeout
-#        value: 0m
+#        value: "30m"
 #      - name: image-name
 #        value: reading-list-service-image
 #      - name: image-tag

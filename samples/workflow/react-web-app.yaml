@@ -1,17 +1,15 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowDefinition
+kind: Workflow
 metadata:
   name: react
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
   # Template Variable Reference (processed by controller):
-  # ${ctx.workflowName}            - Workflow name
-  # ${ctx.componentName}           - Component name
-  # ${ctx.projectName}             - Project name
-  # ${ctx.orgName}                 - Organization name
-  # ${ctx.timestamp}               - Unix timestamp (e.g., 1234567890)
-  # ${ctx.uuid}                    - UUID (8 chars)
+  # ${ctx.workflowRunName}         - WorkflowRun CR name
+  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
+  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
+  # ${ctx.orgName}                 - Organization name (namespace)
   # ${schema.*}                    - Developer-provided values from schema
   # Developer-facing schema with type validation
   schema:
@@ -30,49 +28,47 @@ spec:
 
   # Rendered resource
   resource:
-    template:
-      apiVersion: argoproj.io/v1alpha1
-      kind: Workflow
-      metadata:
-        name: ${ctx.workflowName}
-        namespace: openchoreo-ci-${ctx.orgName}
-      spec:
-        arguments:
-          parameters:
-            - name: component-name
-              value: ${ctx.componentName}
-            - name: project-name
-              value: ${ctx.projectName}
-            # Parameters from schema (developer-facing)
-            - name: git-repo
-              value: ${schema.repository.url}
-            - name: branch
-              value: ${schema.repository.revision.branch}
-            - name: commit
-              value: ${schema.repository.revision.commit}
-            - name: app-path
-              value: ${schema.repository.appPath}
-            - name: node-version
-              value: ${schema.nodeVersion}
-            - name: image-name
-              value: ${ctx.projectName}-${ctx.componentName}
-            - name: image-tag
-              value: v1
-        serviceAccountName: workflow-sa
-        workflowTemplateRef:
-          clusterScope: true
-          name: react
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${ctx.workflowRunName}
+      namespace: openchoreo-ci-${ctx.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${ctx.componentName}
+          - name: project-name
+            value: ${ctx.projectName}
+          # Parameters from schema (developer-facing)
+          - name: git-repo
+            value: ${schema.repository.url}
+          - name: branch
+            value: ${schema.repository.revision.branch}
+          - name: commit
+            value: ${schema.repository.revision.commit}
+          - name: app-path
+            value: ${schema.repository.appPath}
+          - name: node-version
+            value: ${schema.nodeVersion}
+          - name: image-name
+            value: ${ctx.projectName}-${ctx.componentName}
+          - name: image-tag
+            value: v1
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: react
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: web-application
 spec:
-  # Restrict which workflow templates developers can use for this component type
-  build:
-    allowedTemplates:
-      - name: react
+  # Restrict which workflows developers can use for this component type
+  allowedWorkflows:
+    - name: react
 
   workloadType: deployment
 
@@ -151,13 +147,16 @@ metadata:
 spec:
   owner:
     projectName: default
-  # References the ComponentTypeDefinition
+
+  # References the ComponentType
   componentType: deployment/web-application
 
-  # Build configuration matching the schema from WorkflowDefinition
-  build:
-    # Selects a WorkflowDefinition from allowed templates in ComponentTypeDefinition
-    workflowTemplate: react
+  # Workflow configuration (developer-provided)
+  workflow:
+    # Reference to Workflow
+    name: react
+
+    # Schema matching the Workflow's schema section
     schema:
       # Nested structure from schema
       repository:
@@ -180,31 +179,31 @@ spec:
         memory: "512Mi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: WorkflowRun
 metadata:
   name: react-web-app-build-01
 spec:
-  # Ownership tracking for the workflow execution
+  # Ownership tracking for the workflow execution (optional)
   owner:
     projectName: "default"
     componentName: "react-web-app"
 
-  # Reference to WorkflowDefinition
-  workflowDefinitionRef: react
+  workflow:
+    # Reference to Workflow
+    name: react
 
-  # Developer parameters from Component CR (matching schema)
-  schema:
-    repository:
-      url: "https://github.com/openchoreo/sample-workloads"
-      revision:
-        branch: "main"
-        commit: ""
-      appPath: "/webapp-react-nginx"
-      secretRef: "react-repo-credentials-dev"
-    nodeVersion: "20"
+    schema:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/webapp-react-nginx"
+        secretRef: "react-repo-credentials-dev"
+      nodeVersion: "20"
 
 ---
-# Sample of rendered Argo Workflow from the WorkflowDefinition above
+# Sample of rendered Argo Workflow from the Workflow above
 
 #apiVersion: argoproj.io/v1alpha1
 #kind: Workflow
