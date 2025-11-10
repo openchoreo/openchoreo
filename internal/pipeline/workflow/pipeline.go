@@ -46,7 +46,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build CEL context: %w", err)
 	}
 
-	resource, err := p.renderTemplate(input.WorkflowDefinition.Spec.Resource.Template, celContext)
+	resource, err := p.renderTemplate(input.Workflow.Spec.Resource, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
@@ -66,14 +66,14 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	if input == nil {
 		return fmt.Errorf("input is nil")
 	}
+	if input.WorkflowRun == nil {
+		return fmt.Errorf("workflow run is nil")
+	}
 	if input.Workflow == nil {
 		return fmt.Errorf("workflow is nil")
 	}
-	if input.WorkflowDefinition == nil {
-		return fmt.Errorf("workflow definition is nil")
-	}
-	if input.WorkflowDefinition.Spec.Resource.Template == nil {
-		return fmt.Errorf("workflow definition has no resource template")
+	if input.Workflow.Spec.Resource == nil {
+		return fmt.Errorf("workflow has no resource")
 	}
 
 	if input.Context.OrgName == "" {
@@ -129,41 +129,39 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 // buildCELContext builds the CEL evaluation context with ctx.*, schema.*, and fixedParameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	ctx := map[string]any{
-		"orgName":       input.Context.OrgName,
-		"projectName":   input.Context.ProjectName,
-		"componentName": input.Context.ComponentName,
-		"workflowName":  input.Context.WorkflowName,
-		"timestamp":     input.Context.Timestamp,
-		"uuid":          input.Context.UUID,
+		"orgName":         input.Context.OrgName,
+		"projectName":     input.Context.ProjectName,
+		"componentName":   input.Context.ComponentName,
+		"workflowRunName": input.Context.WorkflowRunName,
+		"timestamp":       input.Context.Timestamp,
+		"uuid":            input.Context.UUID,
 	}
 
-	structural, err := p.buildStructuralSchema(input.WorkflowDefinition)
+	structural, err := p.buildStructuralSchema(input.Workflow)
 	if err != nil {
 		return nil, err
 	}
 
-	developerParams, err := extractParameters(input.Workflow.Spec.Schema)
+	developerParams, err := extractParameters(input.WorkflowRun.Spec.Workflow.Schema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract workflow parameters: %w", err)
+		return nil, fmt.Errorf("failed to extract workflow run parameters: %w", err)
 	}
 
 	schemaParams := schema.ApplyDefaults(developerParams, structural)
-	fixedParams := p.buildFixedParameters(input)
 
 	return map[string]any{
-		"ctx":             ctx,
-		"schema":          schemaParams,
-		"fixedParameters": fixedParams,
+		"ctx":    ctx,
+		"schema": schemaParams,
 	}, nil
 }
 
-// buildStructuralSchema builds the structural schema from WorkflowDefinition for applying defaults.
-func (p *Pipeline) buildStructuralSchema(wd *v1alpha1.WorkflowDefinition) (*apiextschema.Structural, error) {
-	if wd.Spec.Schema == nil {
+// buildStructuralSchema builds the structural schema from Workflow for applying defaults.
+func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.Structural, error) {
+	if wf.Spec.Schema == nil {
 		return nil, nil
 	}
 
-	schemaMap, err := extractParameters(wd.Spec.Schema)
+	schemaMap, err := extractParameters(wf.Spec.Schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema: %w", err)
 	}
@@ -179,29 +177,6 @@ func (p *Pipeline) buildStructuralSchema(wd *v1alpha1.WorkflowDefinition) (*apie
 	}
 
 	return structural, nil
-}
-
-// buildFixedParameters merges fixed parameters from WorkflowDefinition and ComponentTypeDefinition.
-// ComponentTypeDefinition parameters override WorkflowDefinition parameters.
-func (p *Pipeline) buildFixedParameters(input *RenderInput) map[string]any {
-	fixedParams := make(map[string]any)
-
-	for _, param := range input.WorkflowDefinition.Spec.FixedParameters {
-		fixedParams[param.Name] = param.Value
-	}
-
-	if input.ComponentTypeDefinition != nil && input.ComponentTypeDefinition.Spec.Build != nil {
-		for _, allowedTemplate := range input.ComponentTypeDefinition.Spec.Build.AllowedTemplates {
-			if allowedTemplate.Name == input.WorkflowDefinition.Name {
-				for _, param := range allowedTemplate.FixedParameters {
-					fixedParams[param.Name] = param.Value
-				}
-				break
-			}
-		}
-	}
-
-	return fixedParams
 }
 
 // validateRenderedResource ensures the rendered resource has required Kubernetes fields.

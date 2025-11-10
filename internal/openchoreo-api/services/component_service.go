@@ -274,7 +274,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: projectName,
 			},
-			Type: openchoreov1alpha1.CompType(req.Type),
+			Type: openchoreov1alpha1.DefinedComponentType(req.Type),
 		},
 	}
 
@@ -285,7 +285,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			s.logger.Error("Failed to convert build config to build spec", "error", err)
 			return fmt.Errorf("failed to convert build config: %w", err)
 		}
-		componentCR.Spec.Build = buildSpec
+		componentCR.Spec.Workflow = buildSpec
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
@@ -306,8 +306,8 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 
 	// Convert workflow-based build configuration to API BuildConfig format
 	var buildConfig *models.BuildConfig
-	if component.Spec.Build.WorkflowTemplate != "" {
-		buildConfig = s.convertBuildSpecToBuildConfig(component.Spec.Build)
+	if component.Spec.Workflow.Name != "" {
+		buildConfig = s.convertBuildSpecToBuildConfig(component.Spec.Workflow)
 	}
 
 	response := &models.ComponentResponse{
@@ -394,7 +394,7 @@ func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, pro
 	// Determine binding type based on component type
 	var bindingResponse *models.BindingResponse
 	var err error
-	switch openchoreov1alpha1.CompType(componentType) {
+	switch openchoreov1alpha1.DefinedComponentType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		bindingResponse, err = s.getServiceBinding(ctx, orgName, componentName, environment)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -760,7 +760,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 
 // createOrUpdateTargetBinding creates or updates the binding in the target environment
 func (s *ComponentService) createOrUpdateTargetBinding(ctx context.Context, req *PromoteComponentPayload, componentType string) error {
-	switch openchoreov1alpha1.CompType(componentType) {
+	switch openchoreov1alpha1.DefinedComponentType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createOrUpdateServiceBinding(ctx, req)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -1436,7 +1436,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 }
 
 // createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
-func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.CompType) error {
+func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.DefinedComponentType) error {
 	switch componentType {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createServiceResource(ctx, orgName, projectName, componentName, workloadName)
@@ -1572,13 +1572,13 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 
 // convertBuildSpecToBuildConfig converts BuildSpecInComponent to API BuildConfig model
 // Extracts workflow parameters from the Schema RawExtension and maps them to the BuildConfig structure
-func (s *ComponentService) convertBuildSpecToBuildConfig(buildSpec openchoreov1alpha1.BuildSpecInComponent) *models.BuildConfig {
-	if buildSpec.WorkflowTemplate == "" {
+func (s *ComponentService) convertBuildSpecToBuildConfig(buildSpec openchoreov1alpha1.WorkflowConfig) *models.BuildConfig {
+	if buildSpec.Name == "" {
 		return nil
 	}
 
 	buildConfig := &models.BuildConfig{
-		BuildTemplateRef: buildSpec.WorkflowTemplate,
+		BuildTemplateRef: buildSpec.Name,
 	}
 
 	// If no schema is provided, return with just the template ref
@@ -1630,9 +1630,9 @@ func (s *ComponentService) convertBuildSpecToBuildConfig(buildSpec openchoreov1a
 
 // convertBuildConfigToBuildSpec converts API BuildConfig model to BuildSpecInComponent
 // Creates a Schema RawExtension with repository and other parameters
-func (s *ComponentService) convertBuildConfigToBuildSpec(buildConfig models.BuildConfig) (openchoreov1alpha1.BuildSpecInComponent, error) {
-	buildSpec := openchoreov1alpha1.BuildSpecInComponent{
-		WorkflowTemplate: buildConfig.BuildTemplateRef,
+func (s *ComponentService) convertBuildConfigToBuildSpec(buildConfig models.BuildConfig) (openchoreov1alpha1.WorkflowConfig, error) {
+	buildSpec := openchoreov1alpha1.WorkflowConfig{
+		Name: buildConfig.BuildTemplateRef,
 	}
 
 	// Build the schema structure

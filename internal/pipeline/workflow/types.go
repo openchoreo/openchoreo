@@ -8,22 +8,22 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// Pipeline orchestrates workflow rendering by combining Workflow, WorkflowDefinition,
-// and ComponentTypeDefinition to generate fully resolved resources (e.g., Argo Workflow).
+// Pipeline orchestrates workflow rendering by combining WorkflowRun, Workflow,
+// and ComponentType to generate fully resolved resources (e.g., Argo Workflow).
 type Pipeline struct {
 	templateEngine *template.Engine
 }
 
 // RenderInput contains all required inputs for workflow rendering.
 type RenderInput struct {
-	// Workflow is the workflow instance with developer parameters (required).
+	// WorkflowRun is the workflow execution instance with developer parameters (required).
+	WorkflowRun *v1alpha1.WorkflowRun
+
+	// Workflow contains the schema and resource template (required).
 	Workflow *v1alpha1.Workflow
 
-	// WorkflowDefinition contains the schema, fixed parameters, and resource template (required).
-	WorkflowDefinition *v1alpha1.WorkflowDefinition
-
-	// ComponentTypeDefinition provides component-type-specific parameter overrides (optional).
-	ComponentTypeDefinition *v1alpha1.ComponentTypeDefinition
+	// ComponentType provides component-type-specific configuration (optional).
+	ComponentType *v1alpha1.ComponentType
 
 	// Context provides workflow execution context metadata (required).
 	Context WorkflowContext
@@ -57,8 +57,8 @@ type WorkflowContext struct {
 	// ComponentName is the component name from the workflow owner.
 	ComponentName string
 
-	// WorkflowName is the name of the workflow CR.
-	WorkflowName string
+	// WorkflowRunName is the name of the workflow run CR.
+	WorkflowRunName string
 
 	// Timestamp is the Unix timestamp when rendering started (auto-generated).
 	Timestamp int64

@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package workflow
+package workflowrun
 
 import (
 	"context"
@@ -22,7 +22,7 @@ const (
 )
 
 // ensurePrerequisites creates prerequisite resources in the build plane
-// before creating the workflow: namespace, service account, role, and role binding.
+// before creating the workflowRun: create namespace, service account, role, and role binding.
 func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, bpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("namespace", namespace, "serviceAccount", serviceAccountName)
 

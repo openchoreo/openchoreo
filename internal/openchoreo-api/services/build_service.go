@@ -105,15 +105,15 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	}
 
 	// Check if component has build configuration
-	if component.Spec.Build.WorkflowTemplate == "" {
+	if component.Spec.Workflow.Name == "" {
 		s.logger.Error("Component does not have a workflow template configured", "component", componentName)
 		return nil, fmt.Errorf("component %s does not have a workflow template configured", componentName)
 	}
 
 	// Copy the schema from the component and update the commit
 	var schemaMap map[string]interface{}
-	if component.Spec.Build.Schema != nil && component.Spec.Build.Schema.Raw != nil {
-		if err := json.Unmarshal(component.Spec.Build.Schema.Raw, &schemaMap); err != nil {
+	if component.Spec.Workflow.Schema != nil && component.Spec.Workflow.Schema.Raw != nil {
+		if err := json.Unmarshal(component.Spec.Workflow.Schema.Raw, &schemaMap); err != nil {
 			s.logger.Error("Failed to unmarshal component schema", "error", err)
 			return nil, fmt.Errorf("failed to unmarshal component schema: %w", err)
 		}
@@ -153,25 +153,27 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	}
 	workflowName := fmt.Sprintf("%s-%s", componentName, uuid)
 
-	// Create the Workflow CR
-	workflow := &openchoreov1alpha1.Workflow{
+	// Create the Workflow Run CR
+	workflowRun := &openchoreov1alpha1.WorkflowRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workflowName,
 			Namespace: orgName,
 		},
-		Spec: openchoreov1alpha1.WorkflowSpec{
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
 			Owner: openchoreov1alpha1.WorkflowOwner{
 				ProjectName:   projectName,
 				ComponentName: componentName,
 			},
-			WorkflowDefinitionRef: component.Spec.Build.WorkflowTemplate,
-			Schema: &runtime.RawExtension{
-				Raw: updatedSchemaBytes,
+			Workflow: openchoreov1alpha1.WorkflowConfig{
+				Name: component.Spec.Workflow.Name,
+				Schema: &runtime.RawExtension{
+					Raw: updatedSchemaBytes,
+				},
 			},
 		},
 	}
 
-	if err := s.k8sClient.Create(ctx, workflow); err != nil {
+	if err := s.k8sClient.Create(ctx, workflowRun); err != nil {
 		s.logger.Error("Failed to create workflow", "error", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
 	}
@@ -180,14 +182,14 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 
 	// Return a BuildResponse for API compatibility
 	return &models.BuildResponse{
-		Name:          workflow.Name,
-		UUID:          string(workflow.UID),
+		Name:          workflowRun.Name,
+		UUID:          string(workflowRun.UID),
 		ComponentName: componentName,
 		ProjectName:   projectName,
 		OrgName:       orgName,
 		Commit:        commit,
 		Status:        "Pending",
-		CreatedAt:     workflow.CreationTimestamp.Time,
+		CreatedAt:     workflowRun.CreationTimestamp.Time,
 		Image:         "",
 	}, nil
 }
@@ -196,36 +198,36 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 func (s *BuildService) ListBuilds(ctx context.Context, orgName, projectName, componentName string) ([]models.BuildResponse, error) {
 	s.logger.Debug("Listing builds", "org", orgName, "project", projectName, "component", componentName)
 
-	var workflows openchoreov1alpha1.WorkflowList
-	err := s.k8sClient.List(ctx, &workflows, client.InNamespace(orgName))
+	var workflowRuns openchoreov1alpha1.WorkflowRunList
+	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(orgName))
 	if err != nil {
 		s.logger.Error("Failed to list workflows", "error", err)
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
-	buildResponses := make([]models.BuildResponse, 0, len(workflows.Items))
-	for _, workflow := range workflows.Items {
+	buildResponses := make([]models.BuildResponse, 0, len(workflowRuns.Items))
+	for _, workflowRun := range workflowRuns.Items {
 		// Filter by spec.owner fields
-		if workflow.Spec.Owner.ProjectName != projectName || workflow.Spec.Owner.ComponentName != componentName {
+		if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
 			continue
 		}
 
 		// Extract commit from the workflow schema
-		commit := extractCommitFromSchema(workflow.Spec.Schema)
+		commit := extractCommitFromSchema(workflowRun.Spec.Workflow.Schema)
 		if commit == "" {
 			commit = "latest"
 		}
 
 		buildResponses = append(buildResponses, models.BuildResponse{
-			Name:          workflow.Name,
-			UUID:          string(workflow.UID),
+			Name:          workflowRun.Name,
+			UUID:          string(workflowRun.UID),
 			ComponentName: componentName,
 			ProjectName:   projectName,
 			OrgName:       orgName,
 			Commit:        commit,
-			Status:        GetLatestWorkflowStatus(workflow.Status.Conditions),
-			CreatedAt:     workflow.CreationTimestamp.Time,
-			Image:         workflow.Status.ImageStatus.Image,
+			Status:        GetLatestWorkflowStatus(workflowRun.Status.Conditions),
+			CreatedAt:     workflowRun.CreationTimestamp.Time,
+			Image:         workflowRun.Status.ImageStatus.Image,
 		})
 	}
 

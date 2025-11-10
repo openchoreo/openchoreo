@@ -19,9 +19,9 @@ type Pipeline struct {
 
 // RenderInput contains all inputs needed to render a component's resources.
 type RenderInput struct {
-	// ComponentTypeDefinition is the component type definition containing resource templates.
+	// ComponentType is the component type containing resource templates.
 	// Required.
-	ComponentTypeDefinition *v1alpha1.ComponentTypeDefinition
+	ComponentType *v1alpha1.ComponentType
 
 	// Component is the component specification with parameters.
 	// Required.

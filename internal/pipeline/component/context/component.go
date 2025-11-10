@@ -28,7 +28,7 @@ import (
 // Parameter precedence (highest to lowest):
 //  1. ComponentDeployment.Spec.Overrides (environment-specific)
 //  2. Component.Spec.Parameters (component defaults)
-//  3. Schema defaults from ComponentTypeDefinition
+//  3. Schema defaults from ComponentType
 func BuildComponentContext(input *ComponentContextInput) (map[string]any, error) {
 	if input == nil {
 		return nil, fmt.Errorf("component context input is nil")
@@ -36,8 +36,8 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	if input.Component == nil {
 		return nil, fmt.Errorf("component is nil")
 	}
-	if input.ComponentTypeDefinition == nil {
-		return nil, fmt.Errorf("component type definition is nil")
+	if input.ComponentType == nil {
+		return nil, fmt.Errorf("component type  is nil")
 	}
 
 	// Validate metadata is provided
@@ -52,9 +52,9 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	// 1. Build and apply schema for defaulting
 	schemaInput := &SchemaInput{
-		Types:              input.ComponentTypeDefinition.Spec.Schema.Types,
-		ParametersSchema:   input.ComponentTypeDefinition.Spec.Schema.Parameters,
-		EnvOverridesSchema: input.ComponentTypeDefinition.Spec.Schema.EnvOverrides,
+		Types:              input.ComponentType.Spec.Schema.Types,
+		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
+		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
 	}
 	structural, err := BuildStructuralSchema(schemaInput)
 	if err != nil {

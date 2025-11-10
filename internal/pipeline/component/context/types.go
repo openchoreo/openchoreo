@@ -43,8 +43,8 @@ type ComponentContextInput struct {
 	// Component is the component definition.
 	Component *v1alpha1.Component
 
-	// ComponentTypeDefinition is the type definition for the component.
-	ComponentTypeDefinition *v1alpha1.ComponentTypeDefinition
+	// ComponentType is the type definition for the component.
+	ComponentType *v1alpha1.ComponentType
 
 	// ComponentDeployment contains environment-specific overrides.
 	// Can be nil if no overrides are needed.

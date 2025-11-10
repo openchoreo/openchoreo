@@ -70,7 +70,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// 2. Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
 		Component:               input.Component,
-		ComponentTypeDefinition: input.ComponentTypeDefinition,
+		ComponentType: 			 input.ComponentType,
 		Workload:                input.Workload,
 		Environment:             environment,
 		ComponentDeployment:     input.ComponentDeployment,
@@ -82,10 +82,10 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
 	}
 
-	// 3. Render base resources from ComponentTypeDefinition
+	// 3. Render base resources from ComponentType
 	resourceRenderer := renderer.NewRenderer(p.templateEngine)
 	resources, err := resourceRenderer.RenderResources(
-		input.ComponentTypeDefinition.Spec.Resources,
+		input.ComponentType.Spec.Resources,
 		componentContext,
 	)
 	if err != nil {
@@ -168,11 +168,11 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	if input == nil {
 		return fmt.Errorf("input is nil")
 	}
-	if input.ComponentTypeDefinition == nil {
-		return fmt.Errorf("component type definition is nil")
+	if input.ComponentType == nil {
+		return fmt.Errorf("component type is nil")
 	}
-	if input.ComponentTypeDefinition.Spec.Resources == nil {
-		return fmt.Errorf("component type definition has no resources")
+	if input.ComponentType.Spec.Resources == nil {
+		return fmt.Errorf("component type has no resources")
 	}
 	if input.Component == nil {
 		return fmt.Errorf("component is nil")
