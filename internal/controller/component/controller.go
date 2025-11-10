@@ -38,7 +38,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/finalizers,verbs=update
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=addons,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentenvsnapshots,verbs=get;list;watch;create;update;patch;delete
@@ -64,11 +64,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Detect mode based on which fields are set
 	// Note: API-level validation ensures at least one of type or componentType is set
 	if comp.Spec.ComponentType != "" {
-		// New ComponentTypeDefinition mode
-		logger.Info("Reconciling Component with ComponentTypeDefinition mode",
+		// New ComponentType mode
+		logger.Info("Reconciling Component with ComponentType mode",
 			"component", comp.Name,
 			"componentType", comp.Spec.ComponentType)
-		return r.reconcileWithComponentTypeDefinition(ctx, comp)
+		return r.reconcileWithComponentType(ctx, comp)
 	}
 
 	// Legacy mode - no action needed for now
@@ -78,8 +78,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-// reconcileWithComponentTypeDefinition handles components using ComponentTypeDefinitions
-func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, comp *openchoreov1alpha1.Component) (result ctrl.Result, rErr error) {
+// reconcileWithComponentType handles components using ComponentTypes
+func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openchoreov1alpha1.Component) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
 
 	// Keep a copy for comparison
@@ -102,8 +102,8 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		}
 	}()
 
-	// Parse componentType: {workloadType}/{componentTypeDefinitionName}
-	workloadType, ctdName, err := parseComponentType(comp.Spec.ComponentType)
+	// Parse componentType: {workloadType}/{componentTypeName}
+	workloadType, ctName, err := parseComponentType(comp.Spec.ComponentType)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid componentType format: %v", err)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
@@ -111,23 +111,23 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch ComponentTypeDefinition (in the same namespace as the Component)
-	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ctdName, Namespace: comp.Namespace}, ctd); err != nil {
+	// Fetch ComponentType (in the same namespace as the Component)
+	ct := &openchoreov1alpha1.ComponentType{}
+	if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentTypeDefinition %q not found", ctdName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeDefinitionNotFound, msg)
+			msg := fmt.Sprintf("ComponentType %q not found", ctName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to fetch ComponentTypeDefinition", "name", ctdName)
+		logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
 		return ctrl.Result{}, err
 	}
 
 	// Verify workloadType matches
-	if ctd.Spec.WorkloadType != workloadType {
-		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentTypeDefinition has %s",
-			workloadType, ctd.Spec.WorkloadType)
+	if ct.Spec.WorkloadType != workloadType {
+		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
+			workloadType, ct.Spec.WorkloadType)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
 		logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
 		return ctrl.Result{}, nil
@@ -236,7 +236,7 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.createOrUpdateSnapshot(ctx, comp, ctd, workload, addons, firstEnv); err != nil {
+	if err := r.createOrUpdateSnapshot(ctx, comp, ct, workload, addons, firstEnv); err != nil {
 		msg := fmt.Sprintf("Failed to create/update ComponentEnvSnapshot: %v", err)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonSnapshotCreationFailed, msg)
 		logger.Error(err, "Failed to create/update ComponentEnvSnapshot")
@@ -246,15 +246,15 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 	// Success - mark as ready
 	msg := fmt.Sprintf("ComponentEnvSnapshot successfully created/updated for environment %q", firstEnv)
 	controller.MarkTrueCondition(comp, ConditionReady, ReasonSnapshotReady, msg)
-	logger.Info("Successfully reconciled Component with ComponentTypeDefinition",
+	logger.Info("Successfully reconciled Component with ComponentType",
 		"component", comp.Name,
 		"environment", firstEnv)
 
 	return ctrl.Result{}, nil
 }
 
-// parseComponentType parses the componentType format: {workloadType}/{componentTypeDefinitionName}
-func parseComponentType(componentType string) (workloadType string, ctdName string, err error) {
+// parseComponentType parses the componentType format: {workloadType}/{componentTypeName}
+func parseComponentType(componentType string) (workloadType string, ctName string, err error) {
 	parts := strings.SplitN(componentType, "/", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid componentType format: expected {workloadType}/{name}, got %s", componentType)
@@ -295,7 +295,7 @@ func (r *Reconciler) fetchAddons(ctx context.Context, addonRefs []openchoreov1al
 func (r *Reconciler) createOrUpdateSnapshot(
 	ctx context.Context,
 	comp *openchoreov1alpha1.Component,
-	ctd *openchoreov1alpha1.ComponentTypeDefinition,
+	ct *openchoreov1alpha1.ComponentType,
 	workload *openchoreov1alpha1.Workload,
 	addons []openchoreov1alpha1.Addon,
 	environment string,
@@ -320,13 +320,13 @@ func (r *Reconciler) createOrUpdateSnapshot(
 			ComponentName: comp.Name,
 		}
 		snapshot.Spec.Environment = environment
-		sanitizedCTD := sanitizeComponentTypeDefinition(ctd)
+		sanitizedCT := sanitizeComponentType(ct)
 		sanitizedComponent := sanitizeComponent(comp)
 		sanitizedWorkload := sanitizeWorkload(workload)
 		sanitizedAddons := sanitizeAddons(addons)
 
-		if sanitizedCTD != nil {
-			snapshot.Spec.ComponentTypeDefinition = *sanitizedCTD
+		if sanitizedCT != nil {
+			snapshot.Spec.ComponentType = *sanitizedCT
 		}
 		if sanitizedComponent != nil {
 			snapshot.Spec.Component = *sanitizedComponent
@@ -392,13 +392,13 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 	return rootEnv, nil
 }
 
-func sanitizeComponentTypeDefinition(ctd *openchoreov1alpha1.ComponentTypeDefinition) *openchoreov1alpha1.ComponentTypeDefinition {
-	if ctd == nil {
+func sanitizeComponentType(ct *openchoreov1alpha1.ComponentType) *openchoreov1alpha1.ComponentType {
+	if ct == nil {
 		return nil
 	}
-	copy := ctd.DeepCopy()
+	copy := ct.DeepCopy()
 	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentTypeDefinitionStatus{}
+	copy.Status = openchoreov1alpha1.ComponentTypeStatus{}
 	return copy
 }
 
@@ -493,7 +493,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
 		Owns(&openchoreov1alpha1.ComponentEnvSnapshot{}).
-		Watches(&openchoreov1alpha1.ComponentTypeDefinition{},
+		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.Addon{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingAddon)).

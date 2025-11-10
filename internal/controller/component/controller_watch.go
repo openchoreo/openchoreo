@@ -62,11 +62,11 @@ func (r *Reconciler) setupWorkloadOwnerIndex(ctx context.Context, mgr ctrl.Manag
 		})
 }
 
-// listComponentsForComponentType returns reconcile requests for all Components using this ComponentTypeDefinition
+// listComponentsForComponentType returns reconcile requests for all Components using this ComponentType
 func (r *Reconciler) listComponentsForComponentType(ctx context.Context, obj client.Object) []reconcile.Request {
-	ctd := obj.(*openchoreov1alpha1.ComponentTypeDefinition)
+	ctd := obj.(*openchoreov1alpha1.ComponentType)
 
-	// Find all components using this ComponentTypeDefinition
+	// Find all components using this ComponentType
 	// ComponentType format: {workloadType}/{ctdName}
 	componentType := fmt.Sprintf("%s/%s", ctd.Spec.WorkloadType, ctd.Name)
 
@@ -74,7 +74,7 @@ func (r *Reconciler) listComponentsForComponentType(ctx context.Context, obj cli
 	if err := r.List(ctx, &components,
 		client.MatchingFields{componentTypeIndex: componentType}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list components for ComponentTypeDefinition", "componentTypeDefinition", ctd.Name)
+		logger.Error(err, "Failed to list components for ComponentType", "componentType", ctd.Name)
 		return nil
 	}
 

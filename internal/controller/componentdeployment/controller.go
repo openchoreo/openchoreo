@@ -210,9 +210,9 @@ func (r *Reconciler) findSnapshot(ctx context.Context, componentDeployment *open
 
 // validateSnapshot validates the ComponentEnvSnapshot configuration
 func (r *Reconciler) validateSnapshot(snapshot *openchoreov1alpha1.ComponentEnvSnapshot) error {
-	// Check ComponentTypeDefinition exists and has resources
-	if snapshot.Spec.ComponentTypeDefinition.Spec.Resources == nil {
-		return fmt.Errorf("component type definition has no resources")
+	// Check ComponentType exists and has resources
+	if snapshot.Spec.ComponentType.Spec.Resources == nil {
+		return fmt.Errorf("component type has no resources")
 	}
 
 	// Check Component is present
@@ -386,7 +386,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
-		ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
+		ComponentTypeDefinition: &snapshot.Spec.ComponentType,
 		Component:               &snapshot.Spec.Component,
 		Addons:                  snapshot.Spec.Addons,
 		Workload:                &snapshot.Spec.Workload,
