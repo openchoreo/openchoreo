@@ -37,61 +37,61 @@ func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger) *Comp
 func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName string) ([]*models.ComponentTypeResponse, error) {
 	s.logger.Debug("Listing ComponentTypes", "org", orgName)
 
-	var ctdList openchoreov1alpha1.ComponentTypeDefinitionList
+	var ctList openchoreov1alpha1.ComponentTypeList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
 	}
 
-	if err := s.k8sClient.List(ctx, &ctdList, listOpts...); err != nil {
+	if err := s.k8sClient.List(ctx, &ctList, listOpts...); err != nil {
 		s.logger.Error("Failed to list ComponentTypes", "error", err)
 		return nil, fmt.Errorf("failed to list ComponentTypes: %w", err)
 	}
 
-	ctds := make([]*models.ComponentTypeResponse, 0, len(ctdList.Items))
-	for i := range ctdList.Items {
-		ctds = append(ctds, s.toComponentTypeResponse(&ctdList.Items[i]))
+	cts := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
+	for i := range ctList.Items {
+		cts = append(cts, s.toComponentTypeResponse(&ctList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentTypes", "org", orgName, "count", len(ctds))
-	return ctds, nil
+	s.logger.Debug("Listed ComponentTypes", "org", orgName, "count", len(cts))
+	return cts, nil
 }
 
 // GetComponentType retrieves a specific ComponentType
-func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ctdName string) (*models.ComponentTypeResponse, error) {
-	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctdName)
+func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ctName string) (*models.ComponentTypeResponse, error) {
+	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctName)
 
-	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
+	ct := &openchoreov1alpha1.ComponentType{}
 	key := client.ObjectKey{
-		Name:      ctdName,
+		Name:      ctName,
 		Namespace: orgName,
 	}
 
-	if err := s.k8sClient.Get(ctx, key, ctd); err != nil {
+	if err := s.k8sClient.Get(ctx, key, ct); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
 			return nil, ErrComponentTypeNotFound
 		}
 		s.logger.Error("Failed to get ComponentType", "error", err)
 		return nil, fmt.Errorf("failed to get ComponentType: %w", err)
 	}
 
-	return s.toComponentTypeResponse(ctd), nil
+	return s.toComponentTypeResponse(ct), nil
 }
 
 // GetComponentTypeSchema retrieves the JSON schema for a ComponentType
-func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgName, ctdName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctdName)
+func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctName)
 
-	// First get the CTD
-	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
+	// First get the CT
+	ct := &openchoreov1alpha1.ComponentType{}
 	key := client.ObjectKey{
-		Name:      ctdName,
+		Name:      ctName,
 		Namespace: orgName,
 	}
 
-	if err := s.k8sClient.Get(ctx, key, ctd); err != nil {
+	if err := s.k8sClient.Get(ctx, key, ct); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
 			return nil, ErrComponentTypeNotFound
 		}
 		s.logger.Error("Failed to get ComponentType", "error", err)
@@ -100,8 +100,8 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 
 	// Extract types from RawExtension
 	var types map[string]any
-	if ctd.Spec.Schema.Types != nil && ctd.Spec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(ctd.Spec.Schema.Types.Raw, &types); err != nil {
+	if ct.Spec.Schema.Types != nil && ct.Spec.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(ct.Spec.Schema.Types.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -112,9 +112,9 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 	}
 
 	// Extract parameters schema from RawExtension
-	if ctd.Spec.Schema.Parameters != nil && ctd.Spec.Schema.Parameters.Raw != nil {
+	if ct.Spec.Schema.Parameters != nil && ct.Spec.Schema.Parameters.Raw != nil {
 		var params map[string]any
-		if err := json.Unmarshal(ctd.Spec.Schema.Parameters.Raw, &params); err != nil {
+		if err := json.Unmarshal(ct.Spec.Schema.Parameters.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 		def.Schemas = []map[string]any{params}
@@ -126,21 +126,21 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctdName)
+	s.logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctName)
 	return jsonSchema, nil
 }
 
 // toComponentTypeResponse converts a ComponentType CR to a ComponentTypeResponse
-func (s *ComponentTypeService) toComponentTypeResponse(ctd *openchoreov1alpha1.ComponentTypeDefinition) *models.ComponentTypeResponse {
+func (s *ComponentTypeService) toComponentTypeResponse(ct *openchoreov1alpha1.ComponentType) *models.ComponentTypeResponse {
 	// Extract display name and description from annotations
-	displayName := ctd.Annotations[controller.AnnotationKeyDisplayName]
-	description := ctd.Annotations[controller.AnnotationKeyDescription]
+	displayName := ct.Annotations[controller.AnnotationKeyDisplayName]
+	description := ct.Annotations[controller.AnnotationKeyDescription]
 
 	return &models.ComponentTypeResponse{
-		Name:         ctd.Name,
+		Name:         ct.Name,
 		DisplayName:  displayName,
 		Description:  description,
-		WorkloadType: ctd.Spec.WorkloadType,
-		CreatedAt:    ctd.CreationTimestamp.Time,
+		WorkloadType: ct.Spec.WorkloadType,
+		CreatedAt:    ct.CreationTimestamp.Time,
 	}
 }

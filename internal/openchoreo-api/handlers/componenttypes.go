@@ -26,7 +26,7 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call service to list ComponentTypes
-	ctds, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName)
+	cts, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName)
 	if err != nil {
 		logger.Error("Failed to list ComponentTypes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
@@ -34,12 +34,12 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to slice of values for the list response
-	ctdValues := make([]*models.ComponentTypeResponse, len(ctds))
-	copy(ctdValues, ctds)
+	ctValues := make([]*models.ComponentTypeResponse, len(cts))
+	copy(ctValues, cts)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(ctds))
-	writeListResponse(w, ctdValues, len(ctds), 1, len(ctds))
+	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(cts))
+	writeListResponse(w, ctValues, len(cts), 1, len(cts))
 }
 
 func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request) {
@@ -49,18 +49,18 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 
 	// Extract path parameters
 	orgName := r.PathValue("orgName")
-	ctdName := r.PathValue("ctdName")
-	if orgName == "" || ctdName == "" {
+	ctName := r.PathValue("ctName")
+	if orgName == "" || ctName == "" {
 		logger.Warn("Organization name and ComponentType name are required")
 		writeErrorResponse(w, http.StatusBadRequest, "Organization name and ComponentType name are required", services.CodeInvalidInput)
 		return
 	}
 
 	// Call service to get ComponentType schema
-	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, orgName, ctdName)
+	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, orgName, ctName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
-			logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
@@ -70,6 +70,6 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Success response
-	logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctdName)
+	logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

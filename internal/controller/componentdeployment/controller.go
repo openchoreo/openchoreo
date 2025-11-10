@@ -386,15 +386,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
-		ComponentTypeDefinition: &snapshot.Spec.ComponentType,
-		Component:               &snapshot.Spec.Component,
-		Addons:                  snapshot.Spec.Addons,
-		Workload:                &snapshot.Spec.Workload,
-		Environment:             environment,
-		ComponentDeployment:     componentDeployment,
-		DataPlane:               dataPlane,
-		SecretReferences:        secretReferences,
-		Metadata:                metadataContext,
+		ComponentType:       &snapshot.Spec.ComponentType,
+		Component:           &snapshot.Spec.Component,
+		Addons:              snapshot.Spec.Addons,
+		Workload:            &snapshot.Spec.Workload,
+		Environment:         environment,
+		ComponentDeployment: componentDeployment,
+		DataPlane:           dataPlane,
+		SecretReferences:    secretReferences,
+		Metadata:            metadataContext,
 	}
 
 	// Render resources using the shared pipeline instance
