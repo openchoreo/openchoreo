@@ -23,6 +23,7 @@ var (
 	ErrBindingNotFound            = errors.New("binding not found")
 	ErrDeploymentPipelineNotFound = errors.New("deployment pipeline not found")
 	ErrInvalidPromotionPath       = errors.New("invalid promotion path")
+	ErrWorkflowNotFound           = errors.New("workflow not found")
 )
 
 // Error codes for API responses
@@ -43,6 +44,7 @@ const (
 	CodeBindingNotFound            = "BINDING_NOT_FOUND"
 	CodeDeploymentPipelineNotFound = "DEPLOYMENT_PIPELINE_NOT_FOUND"
 	CodeInvalidPromotionPath       = "INVALID_PROMOTION_PATH"
+	CodeWorkflowNotFound           = "WORKFLOW_NOT_FOUND"
 	CodeInvalidInput               = "INVALID_INPUT"
 	CodeInternalError              = "INTERNAL_ERROR"
 )

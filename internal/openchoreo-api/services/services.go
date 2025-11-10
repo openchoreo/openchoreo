@@ -15,6 +15,7 @@ type Services struct {
 	ComponentService          *ComponentService
 	ComponentTypeService      *ComponentTypeService
 	AddonService              *AddonService
+	WorkflowService           *WorkflowService
 	OrganizationService       *OrganizationService
 	EnvironmentService        *EnvironmentService
 	DataPlaneService          *DataPlaneService
@@ -56,11 +57,15 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create Addon service
 	addonService := NewAddonService(k8sClient, logger.With("service", "addon"))
 
+	// Create Workflow service
+	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
 		ComponentTypeService:      componentTypeService,
 		AddonService:              addonService,
+		WorkflowService:           workflowService,
 		OrganizationService:       organizationService,
 		EnvironmentService:        environmentService,
 		DataPlaneService:          dataplaneService,

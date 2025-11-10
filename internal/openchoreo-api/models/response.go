@@ -266,3 +266,11 @@ type AddonResponse struct {
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
+
+// WorkflowResponse represents a Workflow in API responses
+type WorkflowResponse struct {
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
