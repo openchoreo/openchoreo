@@ -40,27 +40,25 @@ var _ = Describe("Workflow Controller", func() {
 						Namespace: "default",
 					},
 					Spec: openchoreodevv1alpha1.WorkflowSpec{
-						Resource: openchoreodevv1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{
-									"apiVersion": "argoproj.io/v1alpha1",
-									"kind": "Workflow",
-									"metadata": {
-										"name": "test-workflow"
-									},
-									"spec": {
-										"entrypoint": "main",
-										"templates": [{
-											"name": "main",
-											"container": {
-												"image": "alpine:latest",
-												"command": ["echo"],
-												"args": ["Hello World"]
-											}
-										}]
-									}
-								}`),
-							},
+						Resource: &runtime.RawExtension{
+							Raw: []byte(`{
+								"apiVersion": "argoproj.io/v1alpha1",
+								"kind": "Workflow",
+								"metadata": {
+									"name": "test-workflow"
+								},
+								"spec": {
+									"entrypoint": "main",
+									"templates": [{
+										"name": "main",
+										"container": {
+											"image": "alpine:latest",
+											"command": ["echo"],
+											"args": ["Hello World"]
+										}
+									}]
+								}
+							}`),
 						},
 					},
 				}

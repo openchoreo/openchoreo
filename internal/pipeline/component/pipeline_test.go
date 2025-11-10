@@ -119,7 +119,7 @@ spec:
     spec:
       parameters:
         replicas: 2
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -160,7 +160,7 @@ spec:
     spec:
       parameters:
         replicas: 2
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -208,7 +208,7 @@ spec:
     spec:
       parameters:
         expose: true
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -261,7 +261,7 @@ spec:
         secrets:
           - secret1
           - secret2
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: secrets
@@ -312,7 +312,7 @@ spec:
           instanceName: db-1
           config:
             database: mydb
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -373,7 +373,7 @@ spec:
         - name: monitoring
           instanceName: mon-1
           config: {}
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -437,7 +437,7 @@ spec:
     spec:
       parameters:
         replicas: 1
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -526,7 +526,7 @@ spec:
     spec:
       parameters:
         replicas: 1
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -627,7 +627,7 @@ spec:
     spec:
       parameters:
         replicas: 1
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -810,7 +810,7 @@ spec:
     spec:
       parameters:
         replicas: 1
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -978,13 +978,13 @@ spec:
 
 			// Create input
 			input := &RenderInput{
-				ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
-				Component:               &snapshot.Spec.Component,
-				Addons:                  snapshot.Spec.Addons,
-				Workload:                &snapshot.Spec.Workload,
-				Environment:             environment,
-				DataPlane:               dataplane,
-				ComponentDeployment:     settings,
+				ComponentType:       &snapshot.Spec.ComponentType,
+				Component:           &snapshot.Spec.Component,
+				Addons:              snapshot.Spec.Addons,
+				Workload:            &snapshot.Spec.Workload,
+				Environment:         environment,
+				DataPlane:           dataplane,
+				ComponentDeployment: settings,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",
@@ -1146,7 +1146,7 @@ spec:
       name: test-app
     spec:
       parameters: {}
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -1187,7 +1187,7 @@ spec:
       name: test-app
     spec:
       parameters: {}
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: deployment
@@ -1247,12 +1247,12 @@ spec:
 
 			// Create input
 			input := &RenderInput{
-				ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
-				Component:               &snapshot.Spec.Component,
-				Addons:                  snapshot.Spec.Addons,
-				Workload:                &snapshot.Spec.Workload,
-				Environment:             environment,
-				DataPlane:               dataplane,
+				ComponentType: &snapshot.Spec.ComponentType,
+				Component:     &snapshot.Spec.Component,
+				Addons:        snapshot.Spec.Addons,
+				Workload:      &snapshot.Spec.Workload,
+				Environment:   environment,
+				DataPlane:     dataplane,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",

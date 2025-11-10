@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: web-service
   namespace: default

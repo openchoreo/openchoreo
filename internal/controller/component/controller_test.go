@@ -42,8 +42,8 @@ var _ = Describe("Component Controller", func() {
 							ProjectName: "test-project",
 						},
 						Type: openchoreov1alpha1.ComponentTypeService,
-						Build: openchoreov1alpha1.BuildSpecInComponent{
-							WorkflowTemplate: "test-workflow-template",
+						Workflow: openchoreov1alpha1.WorkflowConfig{
+							Name: "test-workflow",
 						},
 					},
 				}

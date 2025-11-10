@@ -17,27 +17,27 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-var _ = Describe("ComponentTypeDefinition Controller", func() {
-	Context("When reconciling a ComponentTypeDefinition resource", func() {
-		const ctdName = "test-componenttypedefinition"
-		const ctdNamespace = "default"
+var _ = Describe("ComponentType Controller", func() {
+	Context("When reconciling a ComponentType resource", func() {
+		const ctName = "test-componenttype"
+		const ctNamespace = "default"
 
-		ctdNamespacedName := types.NamespacedName{
-			Name:      ctdName,
-			Namespace: ctdNamespace,
+		ctNamespacedName := types.NamespacedName{
+			Name:      ctName,
+			Namespace: ctNamespace,
 		}
 
 		It("should successfully reconcile the resource", func() {
-			By("Creating the ComponentTypeDefinition resource")
-			ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
-			err := k8sClient.Get(ctx, ctdNamespacedName, ctd)
+			By("Creating the ComponentType resource")
+			ctd := &openchoreov1alpha1.ComponentType{}
+			err := k8sClient.Get(ctx, ctNamespacedName, ctd)
 			if err != nil && errors.IsNotFound(err) {
-				ctd = &openchoreov1alpha1.ComponentTypeDefinition{
+				ctd = &openchoreov1alpha1.ComponentType{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      ctdName,
-						Namespace: ctdNamespace,
+						Name:      ctName,
+						Namespace: ctNamespace,
 					},
-					Spec: openchoreov1alpha1.ComponentTypeDefinitionSpec{
+					Spec: openchoreov1alpha1.ComponentTypeSpec{
 						WorkloadType: "deployment",
 						Resources: []openchoreov1alpha1.ResourceTemplate{
 							{
@@ -52,22 +52,22 @@ var _ = Describe("ComponentTypeDefinition Controller", func() {
 				Expect(k8sClient.Create(ctx, ctd)).To(Succeed())
 			}
 
-			By("Reconciling the ComponentTypeDefinition resource")
+			By("Reconciling the ComponentType resource")
 			ctdReconciler := &Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 			_, err = ctdReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: ctdNamespacedName,
+				NamespacedName: ctNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Checking the ComponentTypeDefinition resource exists")
+			By("Checking the ComponentType resource exists")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, ctdNamespacedName, ctd)
+				return k8sClient.Get(ctx, ctNamespacedName, ctd)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 
-			By("Cleaning up the ComponentTypeDefinition resource")
+			By("Cleaning up the ComponentType resource")
 			Expect(k8sClient.Delete(ctx, ctd)).To(Succeed())
 		})
 	})

@@ -24,7 +24,7 @@ type Definition struct {
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
 //
-// This is the primary entry point for converting ComponentTypeDefinition and Addon schemas
+// This is the primary entry point for converting ComponentType and Addon schemas
 // from the shorthand format into standard JSON Schema that can be used for validation.
 //
 // Process:
@@ -125,7 +125,7 @@ func ApplyDefaults(target map[string]any, structural *apiextschema.Structural) m
 
 // mergeFieldMaps combines multiple schema maps into a single unified schema.
 //
-// ComponentTypeDefinitions separate schemas into logical groups:
+// ComponentType separate schemas into logical groups:
 //   - schema.parameters: Component-level configuration
 //   - schema.envOverrides: Environment-specific overrides
 //   - schema.addonConfig: Addon instance configuration (for Addons)

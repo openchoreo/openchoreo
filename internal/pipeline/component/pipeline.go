@@ -3,10 +3,10 @@
 
 // Package component provides the main rendering pipeline for Component resources.
 //
-// The pipeline combines Component, ComponentTypeDefinition, Addons, Workload and ComponentDeployment
+// The pipeline combines Component, ComponentType, Addons, Workload and ComponentDeployment
 // to generate fully resolved Kubernetes resource manifests by:
 //  1. Building CEL evaluation contexts with parameters, overrides, and defaults
-//  2. Rendering base resources from ComponentTypeDefinition
+//  2. Rendering base resources from ComponentType
 //  3. Processing addons (creates and patches)
 //  4. Post-processing (validation, labels, annotations)
 package component
@@ -45,7 +45,7 @@ func NewPipeline(opts ...Option) *Pipeline {
 // Workflow:
 //  1. Validate input
 //  2. Build component context (parameters + overrides + defaults)
-//  3. Render base resources from ComponentTypeDefinition
+//  3. Render base resources from ComponentType
 //  4. Process addons (creates and patches)
 //  5. Post-process (validate, add labels/annotations, sort)
 //  6. Return output
@@ -69,14 +69,14 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// 2. Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
-		Component:               input.Component,
-		ComponentType: 			 input.ComponentType,
-		Workload:                input.Workload,
-		Environment:             environment,
-		ComponentDeployment:     input.ComponentDeployment,
-		DataPlane:               input.DataPlane,
-		SecretReferences:        input.SecretReferences,
-		Metadata:                input.Metadata,
+		Component:           input.Component,
+		ComponentType:       input.ComponentType,
+		Workload:            input.Workload,
+		Environment:         environment,
+		ComponentDeployment: input.ComponentDeployment,
+		DataPlane:           input.DataPlane,
+		SecretReferences:    input.SecretReferences,
+		Metadata:            input.Metadata,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component context: %w", err)

@@ -37,7 +37,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	docs := strings.Split(string(data), "\n---\n")
 
 	var (
-		ctd         *v1alpha1.ComponentTypeDefinition
+		ct          *v1alpha1.ComponentType
 		addons      []v1alpha1.Addon
 		component   *v1alpha1.Component
 		workload    *v1alpha1.Workload
@@ -61,10 +61,10 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 
 		// Unmarshal into appropriate type based on kind
 		switch kind.Kind {
-		case "ComponentTypeDefinition":
-			ctd = &v1alpha1.ComponentTypeDefinition{}
-			if err := yaml.Unmarshal([]byte(doc), ctd); err != nil {
-				tb.Fatalf("Failed to parse ComponentTypeDefinition: %v", err)
+		case "ComponentType":
+			ct = &v1alpha1.ComponentType{}
+			if err := yaml.Unmarshal([]byte(doc), ct); err != nil {
+				tb.Fatalf("Failed to parse ComponentType: %v", err)
 			}
 
 		case "Addon":
@@ -109,10 +109,10 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 
 	// Validate required resources and construct snapshot
 	// Using explicit checks to satisfy staticcheck SA5011
-	if ctd == nil || component == nil || workload == nil || deployment == nil {
+	if ct == nil || component == nil || workload == nil || deployment == nil {
 		var missing []string
-		if ctd == nil {
-			missing = append(missing, "ComponentTypeDefinition")
+		if ct == nil {
+			missing = append(missing, "ComponentType")
 		}
 		if component == nil {
 			missing = append(missing, "Component")
@@ -130,23 +130,23 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	// Build ComponentEnvSnapshot (all pointers guaranteed non-nil here)
 	snapshot := &v1alpha1.ComponentEnvSnapshot{
 		Spec: v1alpha1.ComponentEnvSnapshotSpec{
-			Environment:             deployment.Spec.Environment,
-			Component:               *component,
-			ComponentTypeDefinition: *ctd,
-			Workload:                *workload,
-			Addons:                  addons,
+			Environment:   deployment.Spec.Environment,
+			Component:     *component,
+			ComponentType: *ct,
+			Workload:      *workload,
+			Addons:        addons,
 		},
 	}
 
 	// Create render input
 	return &RenderInput{
-		ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
-		Component:               &snapshot.Spec.Component,
-		Addons:                  snapshot.Spec.Addons,
-		Workload:                &snapshot.Spec.Workload,
-		Environment:             environment,
-		DataPlane:               dataplane,
-		ComponentDeployment:     deployment,
+		ComponentType:       &snapshot.Spec.ComponentType,
+		Component:           &snapshot.Spec.Component,
+		Addons:              snapshot.Spec.Addons,
+		Workload:            &snapshot.Spec.Workload,
+		Environment:         environment,
+		DataPlane:           dataplane,
+		ComponentDeployment: deployment,
 		Metadata: context.MetadataContext{
 			Name:      "demo-app-dev-12345678",
 			Namespace: "dp-demo-project-development-x1y2z3w4",
@@ -272,7 +272,7 @@ spec:
       parameters:
         replicas: 2
         port: 8080
-  componentTypeDefinition:
+  componentType:
     spec:
       schema:
         parameters:
@@ -368,12 +368,12 @@ spec:
 	}
 
 	input := &RenderInput{
-		ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
-		Component:               &snapshot.Spec.Component,
-		Addons:                  snapshot.Spec.Addons,
-		Workload:                &snapshot.Spec.Workload,
-		Environment:             &environment,
-		DataPlane:               &dataplane,
+		ComponentType: &snapshot.Spec.ComponentType,
+		Component:     &snapshot.Spec.Component,
+		Addons:        snapshot.Spec.Addons,
+		Workload:      &snapshot.Spec.Workload,
+		Environment:   &environment,
+		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{
 			Name:      "test-app-dev-12345678",
 			Namespace: "test-namespace",
@@ -425,7 +425,7 @@ spec:
             value: value4
           - name: VAR5
             value: value5
-  componentTypeDefinition:
+  componentType:
     spec:
       resources:
         - id: configmaps
@@ -501,12 +501,12 @@ spec:
 	}
 
 	input := &RenderInput{
-		ComponentTypeDefinition: &snapshot.Spec.ComponentTypeDefinition,
-		Component:               &snapshot.Spec.Component,
-		Addons:                  snapshot.Spec.Addons,
-		Workload:                &snapshot.Spec.Workload,
-		Environment:             &environment,
-		DataPlane:               &dataplane,
+		ComponentType: &snapshot.Spec.ComponentType,
+		Component:     &snapshot.Spec.Component,
+		Addons:        snapshot.Spec.Addons,
+		Workload:      &snapshot.Spec.Workload,
+		Environment:   &environment,
+		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{
 			Name:      "test-app-dev-12345678",
 			Namespace: "test-namespace",

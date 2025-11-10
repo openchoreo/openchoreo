@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Package renderer handles ResourceTemplate orchestration for ComponentTypeDefinitions.
+// Package renderer handles ResourceTemplate orchestration for ComponentTypes.
 //
 // The renderer evaluates ResourceTemplate control flow (includeWhen, forEach) and
 // uses the template engine to render Kubernetes resources.
@@ -18,7 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// Renderer orchestrates the rendering of ResourceTemplates from ComponentTypeDefinitions.
+// Renderer orchestrates the rendering of ResourceTemplates from ComponentTypes.
 type Renderer struct {
 	templateEngine *template.Engine
 }
@@ -30,10 +30,10 @@ func NewRenderer(templateEngine *template.Engine) *Renderer {
 	}
 }
 
-// RenderResources renders all resources from a ComponentTypeDefinition.
+// RenderResources renders all resources from a ComponentType.
 //
 // The process:
-//  1. Iterate through ComponentTypeDefinition.Spec.Resources
+//  1. Iterate through ComponentType.Spec.Resources
 //  2. For each ResourceTemplate:
 //     - Evaluate includeWhen (skip if false)
 //     - Check forEach (render multiple times if present)

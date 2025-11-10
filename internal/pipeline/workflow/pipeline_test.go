@@ -8,11 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
+
+// These tests validate the Workflow pipeline rendering functionality.
+// The Workflow API uses a simplified design where Workflows define resource templates
+// and WorkflowRuns provide schema-based parameters for rendering.
+// The old WorkflowDefinition type with fixed parameters has been removed.
 
 func TestPipeline_Render(t *testing.T) {
 	tests := []struct {
@@ -24,52 +28,45 @@ func TestPipeline_Render(t *testing.T) {
 		{
 			name: "basic workflow rendering with context variables",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{
+				WorkflowRun: &v1alpha1.WorkflowRun{
+					Spec: v1alpha1.WorkflowRunSpec{
 						Owner: v1alpha1.WorkflowOwner{
 							ProjectName:   "test-project",
 							ComponentName: "test-component",
 						},
-						WorkflowDefinitionRef: "test-workflow-def",
-						Schema: &runtime.RawExtension{
-							Raw: []byte(`{"version": 1, "testMode": "unit"}`),
+						Workflow: v1alpha1.WorkflowConfig{
+							Name: "test-workflow",
+							Schema: &runtime.RawExtension{
+								Raw: []byte(`{"version": 1, "testMode": "unit"}`),
+							},
 						},
 					},
 				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						FixedParameters: []v1alpha1.WorkflowParameter{
-							{Name: "builder-image", Value: "gcr.io/buildpacks/builder:v1"},
-						},
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "argoproj.io/v1alpha1",
-									"kind":       "Workflow",
-									"metadata": map[string]any{
-										"name":      "${ctx.componentName}-${ctx.uuid}",
-										"namespace": "build-plane-${ctx.orgName}",
-									},
-									"spec": map[string]any{
-										"arguments": map[string]any{
-											"parameters": []any{
-												map[string]any{
-													"name":  "version",
-													"value": "${schema.version}",
-												},
-												map[string]any{
-													"name":  "test-mode",
-													"value": "${schema.testMode}",
-												},
-												map[string]any{
-													"name":  "builder-image",
-													"value": "${fixedParameters[\"builder-image\"]}",
-												},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "argoproj.io/v1alpha1",
+								"kind":       "Workflow",
+								"metadata": map[string]any{
+									"name":      "${ctx.componentName}-${ctx.uuid}",
+									"namespace": "build-plane-${ctx.orgName}",
+								},
+								"spec": map[string]any{
+									"arguments": map[string]any{
+										"parameters": []any{
+											map[string]any{
+												"name":  "version",
+												"value": "${schema.version}",
+											},
+											map[string]any{
+												"name":  "test-mode",
+												"value": "${schema.testMode}",
 											},
 										},
 									},
-								}),
-							},
+								},
+							}),
 						},
 					},
 				},
@@ -129,115 +126,13 @@ func TestPipeline_Render(t *testing.T) {
 				if testModeParam["value"] != "unit" {
 					t.Errorf("unexpected test-mode value: %v", testModeParam["value"])
 				}
-
-				// Validate builder-image parameter from fixedParameters
-				builderParam := params[2].(map[string]any)
-				if builderParam["value"] != "gcr.io/buildpacks/builder:v1" {
-					t.Errorf("unexpected builder-image value: %v", builderParam["value"])
-				}
-			},
-		},
-		{
-			name: "ComponentTypeDefinition overrides fixed parameters",
-			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{
-						Owner: v1alpha1.WorkflowOwner{
-							ProjectName:   "test-project",
-							ComponentName: "test-component",
-						},
-						WorkflowDefinitionRef: "google-cloud-buildpacks",
-					},
-				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "google-cloud-buildpacks",
-					},
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						FixedParameters: []v1alpha1.WorkflowParameter{
-							{Name: "security-scan-enabled", Value: "true"},
-							{Name: "build-timeout", Value: "30m"},
-						},
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "argoproj.io/v1alpha1",
-									"kind":       "Workflow",
-									"metadata": map[string]any{
-										"name": "${ctx.componentName}",
-									},
-									"spec": map[string]any{
-										"arguments": map[string]any{
-											"parameters": []any{
-												map[string]any{
-													"name":  "security-scan",
-													"value": "${fixedParameters[\"security-scan-enabled\"]}",
-												},
-												map[string]any{
-													"name":  "timeout",
-													"value": "${fixedParameters[\"build-timeout\"]}",
-												},
-											},
-										},
-									},
-								}),
-							},
-						},
-					},
-				},
-				ComponentTypeDefinition: &v1alpha1.ComponentTypeDefinition{
-					Spec: v1alpha1.ComponentTypeDefinitionSpec{
-						Build: &v1alpha1.ComponentTypeBuildConfig{
-							AllowedTemplates: []v1alpha1.AllowedWorkflowTemplate{
-								{
-									Name: "google-cloud-buildpacks",
-									FixedParameters: []v1alpha1.WorkflowParameter{
-										{Name: "security-scan-enabled", Value: "false"}, // Override
-										{Name: "build-timeout", Value: "45m"},           // Override
-									},
-								},
-							},
-						},
-					},
-				},
-				Context: WorkflowContext{
-					OrgName:       "test-org",
-					ProjectName:   "test-project",
-					ComponentName: "test-component",
-				},
-			},
-			wantErr: false,
-			validate: func(t *testing.T, output *RenderOutput) {
-				spec := output.Resource["spec"].(map[string]any)
-				args := spec["arguments"].(map[string]any)
-				params := args["parameters"].([]any)
-
-				// Security scan should be overridden to false
-				securityParam := params[0].(map[string]any)
-				if securityParam["value"] != "false" {
-					t.Errorf("expected security-scan to be 'false', got: %v", securityParam["value"])
-				}
-
-				// Timeout should be overridden to 45m
-				timeoutParam := params[1].(map[string]any)
-				if timeoutParam["value"] != "45m" {
-					t.Errorf("expected timeout to be '45m', got: %v", timeoutParam["value"])
-				}
 			},
 		},
 		{
 			name: "missing workflow should error",
 			input: &RenderInput{
-				Workflow: nil,
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{}`),
-							},
-						},
-					},
-				},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow:    nil,
 				Context: WorkflowContext{
 					OrgName:       "test-org",
 					ProjectName:   "test-project",
@@ -275,41 +170,42 @@ func TestPipeline_Render_ArrayAndObjectParameters(t *testing.T) {
 		{
 			name: "array parameters are converted to FlowStyleArray",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{
+				WorkflowRun: &v1alpha1.WorkflowRun{
+					Spec: v1alpha1.WorkflowRunSpec{
 						Owner: v1alpha1.WorkflowOwner{
 							ProjectName:   "test-project",
 							ComponentName: "test-component",
 						},
-						Schema: &runtime.RawExtension{
-							Raw: []byte(`{"command": ["npm", "run", "build"], "flags": ["--verbose", "--production"]}`),
+						Workflow: v1alpha1.WorkflowConfig{
+							Name: "test-workflow",
+							Schema: &runtime.RawExtension{
+								Raw: []byte(`{"command": ["npm", "run", "build"], "flags": ["--verbose", "--production"]}`),
+							},
 						},
 					},
 				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "argoproj.io/v1alpha1",
-									"kind":       "Workflow",
-									"metadata":   map[string]any{"name": "test"},
-									"spec": map[string]any{
-										"arguments": map[string]any{
-											"parameters": []any{
-												map[string]any{
-													"name":  "command",
-													"value": "${schema.command}",
-												},
-												map[string]any{
-													"name":  "flags",
-													"value": "${schema.flags}",
-												},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "argoproj.io/v1alpha1",
+								"kind":       "Workflow",
+								"metadata":   map[string]any{"name": "test"},
+								"spec": map[string]any{
+									"arguments": map[string]any{
+										"parameters": []any{
+											map[string]any{
+												"name":  "command",
+												"value": "${schema.command}",
+											},
+											map[string]any{
+												"name":  "flags",
+												"value": "${schema.flags}",
 											},
 										},
 									},
-								}),
-							},
+								},
+							}),
 						},
 					},
 				},
@@ -344,37 +240,38 @@ func TestPipeline_Render_ArrayAndObjectParameters(t *testing.T) {
 		{
 			name: "object parameters are converted to JSON strings",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{
+				WorkflowRun: &v1alpha1.WorkflowRun{
+					Spec: v1alpha1.WorkflowRunSpec{
 						Owner: v1alpha1.WorkflowOwner{
 							ProjectName:   "test-project",
 							ComponentName: "test-component",
 						},
-						Schema: &runtime.RawExtension{
-							Raw: []byte(`{"config": {"key1": "value1", "key2": "value2"}}`),
+						Workflow: v1alpha1.WorkflowConfig{
+							Name: "test-workflow",
+							Schema: &runtime.RawExtension{
+								Raw: []byte(`{"config": {"key1": "value1", "key2": "value2"}}`),
+							},
 						},
 					},
 				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "argoproj.io/v1alpha1",
-									"kind":       "Workflow",
-									"metadata":   map[string]any{"name": "test"},
-									"spec": map[string]any{
-										"arguments": map[string]any{
-											"parameters": []any{
-												map[string]any{
-													"name":  "config",
-													"value": "${schema.config}",
-												},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "argoproj.io/v1alpha1",
+								"kind":       "Workflow",
+								"metadata":   map[string]any{"name": "test"},
+								"spec": map[string]any{
+									"arguments": map[string]any{
+										"parameters": []any{
+											map[string]any{
+												"name":  "config",
+												"value": "${schema.config}",
 											},
 										},
 									},
-								}),
-							},
+								},
+							}),
 						},
 					},
 				},
@@ -432,9 +329,10 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 			errContains: "input is nil",
 		},
 		{
-			name: "missing workflow definition",
+			name: "missing workflow",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow:    nil,
 				Context: WorkflowContext{
 					OrgName:       "test-org",
 					ProjectName:   "test-project",
@@ -442,14 +340,14 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "workflow definition",
+			errContains: "workflow",
 		},
 		{
 			name: "missing resource template",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{},
 				},
 				Context: WorkflowContext{
 					OrgName:       "test-org",
@@ -458,17 +356,15 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "resource template",
+			errContains: "resource",
 		},
 		{
 			name: "missing org name",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{Raw: []byte(`{}`)},
-						},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{Raw: []byte(`{}`)},
 					},
 				},
 				Context: WorkflowContext{
@@ -482,12 +378,10 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "missing project name",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{Raw: []byte(`{}`)},
-						},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{Raw: []byte(`{}`)},
 					},
 				},
 				Context: WorkflowContext{
@@ -501,12 +395,10 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "missing component name",
 			input: &RenderInput{
-				Workflow: &v1alpha1.Workflow{},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{Raw: []byte(`{}`)},
-						},
+				WorkflowRun: &v1alpha1.WorkflowRun{},
+				Workflow: &v1alpha1.Workflow{
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{Raw: []byte(`{}`)},
 					},
 				},
 				Context: WorkflowContext{
@@ -520,18 +412,14 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "rendered resource missing apiVersion",
 			input: &RenderInput{
+				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{},
-				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"kind":     "Workflow",
-									"metadata": map[string]any{"name": "test"},
-								}),
-							},
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"kind":     "Workflow",
+								"metadata": map[string]any{"name": "test"},
+							}),
 						},
 					},
 				},
@@ -547,18 +435,14 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "rendered resource missing kind",
 			input: &RenderInput{
+				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{},
-				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "v1",
-									"metadata":   map[string]any{"name": "test"},
-								}),
-							},
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "v1",
+								"metadata":   map[string]any{"name": "test"},
+							}),
 						},
 					},
 				},
@@ -574,18 +458,14 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "rendered resource missing metadata",
 			input: &RenderInput{
+				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{},
-				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "v1",
-									"kind":       "Workflow",
-								}),
-							},
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "v1",
+								"kind":       "Workflow",
+							}),
 						},
 					},
 				},
@@ -601,19 +481,15 @@ func TestPipeline_Render_ValidationErrors(t *testing.T) {
 		{
 			name: "rendered resource missing metadata.name",
 			input: &RenderInput{
+				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{},
-				},
-				WorkflowDefinition: &v1alpha1.WorkflowDefinition{
-					Spec: v1alpha1.WorkflowDefinitionSpec{
-						Resource: v1alpha1.WorkflowResource{
-							Template: &runtime.RawExtension{
-								Raw: mustMarshalJSON(map[string]any{
-									"apiVersion": "v1",
-									"kind":       "Workflow",
-									"metadata":   map[string]any{},
-								}),
-							},
+					Spec: v1alpha1.WorkflowSpec{
+						Resource: &runtime.RawExtension{
+							Raw: mustMarshalJSON(map[string]any{
+								"apiVersion": "v1",
+								"kind":       "Workflow",
+								"metadata":   map[string]any{},
+							}),
 						},
 					},
 				},

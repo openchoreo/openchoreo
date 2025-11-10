@@ -32,7 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
 	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
-	"github.com/openchoreo/openchoreo/internal/controller/componenttypedefinition"
+	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
 	"github.com/openchoreo/openchoreo/internal/controller/deployment"
@@ -55,7 +55,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
-	"github.com/openchoreo/openchoreo/internal/controller/workflowdefinition"
+	"github.com/openchoreo/openchoreo/internal/controller/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
@@ -265,12 +265,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ComponentTypeDefinition controller
-	if err = (&componenttypedefinition.Reconciler{
+	// ComponentType controller
+	if err = (&componenttype.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentTypeDefinition")
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentType")
 		os.Exit(1)
 	}
 
@@ -412,19 +412,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&workflowdefinition.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WorkflowDefinition")
-		os.Exit(1)
-	}
-
 	if err := (&workflow.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workflow")
+		os.Exit(1)
+	}
+
+	if err := (&workflowrun.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
 		os.Exit(1)
 	}
 

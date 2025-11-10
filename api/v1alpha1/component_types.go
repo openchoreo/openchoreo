@@ -101,7 +101,7 @@ type ComponentStatus struct {
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// ComponentType defines how the component is deployed.
+// DefinedComponentType defines how the component is deployed.
 type DefinedComponentType string
 
 const (

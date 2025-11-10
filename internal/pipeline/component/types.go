@@ -10,7 +10,7 @@ import (
 )
 
 // Pipeline orchestrates the complete rendering workflow for Component resources.
-// It combines Component, ComponentTypeDefinition, Addons, Workload and ComponentDeployment
+// It combines Component, ComponentType, Addons, Workload and ComponentDeployment
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine
@@ -71,7 +71,7 @@ type RenderMetadata struct {
 	// ResourceCount is the total number of resources rendered.
 	ResourceCount int
 
-	// BaseResourceCount is the number of resources from the ComponentTypeDefinition.
+	// BaseResourceCount is the number of resources from the ComponentType.
 	BaseResourceCount int
 
 	// AddonCount is the number of addons processed.

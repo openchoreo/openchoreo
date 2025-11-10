@@ -41,7 +41,7 @@ spec:
 `,
 			componentTypeDefYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: service
 spec:
@@ -86,7 +86,7 @@ spec:
 `,
 			componentTypeDefYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: service
 spec:
@@ -137,7 +137,7 @@ spec:
 `,
 			componentTypeDefYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentTypeDefinition
+kind: ComponentType
 metadata:
   name: service
 spec:
@@ -230,11 +230,11 @@ spec:
 
 			// Parse component type definition
 			if tt.componentTypeDefYAML != "" {
-				ctd := &v1alpha1.ComponentTypeDefinition{}
+				ctd := &v1alpha1.ComponentType{}
 				if err := yaml.Unmarshal([]byte(tt.componentTypeDefYAML), ctd); err != nil {
-					t.Fatalf("Failed to parse ComponentTypeDefinition YAML: %v", err)
+					t.Fatalf("Failed to parse ComponentType YAML: %v", err)
 				}
-				input.ComponentTypeDefinition = ctd
+				input.ComponentType = ctd
 			}
 
 			// Parse env settings
