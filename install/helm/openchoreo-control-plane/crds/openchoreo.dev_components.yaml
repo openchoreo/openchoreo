@@ -70,80 +70,11 @@ spec:
                   - name
                   type: object
                 type: array
-              build:
-                description: Build defines the build configuration for the component
-                properties:
-                  repository:
-                    description: Repository defines the source repository configuration
-                      where the component code resides
-                    properties:
-                      appPath:
-                        description: |-
-                          AppPath is the path to the application within the repository
-                          This is relative to the repository root. Default is "." for root directory
-                        type: string
-                      revision:
-                        description: |-
-                          Revision specifies the default revision configuration for builds
-                          This can be overridden when triggering specific builds
-                        properties:
-                          branch:
-                            description: |-
-                              Branch specifies the default branch to build from
-                              This will be used when no specific commit is provided for a build
-                            type: string
-                        required:
-                        - branch
-                        type: object
-                      url:
-                        description: |-
-                          URL is the repository URL where the component source code is located
-                          Example: "https://github.com/org/repo" or "git@github.com:org/repo.git"
-                        type: string
-                    required:
-                    - appPath
-                    - revision
-                    - url
-                    type: object
-                  templateRef:
-                    description: |-
-                      TemplateRef defines the build template reference and configuration
-                      This references a ClusterWorkflowTemplate in the build plane
-                    properties:
-                      engine:
-                        description: Engine specifies the build engine
-                        type: string
-                      name:
-                        description: Name is the template name
-                        type: string
-                      parameters:
-                        description: Parameters contains the template parameters
-                        items:
-                          description: Parameter defines a template parameter
-                          properties:
-                            name:
-                              description: Name is the parameter name
-                              type: string
-                            value:
-                              description: Value is the parameter value
-                              type: string
-                          required:
-                          - name
-                          - value
-                          type: object
-                        type: array
-                    required:
-                    - name
-                    type: object
-                required:
-                - repository
-                - templateRef
-                type: object
               componentType:
                 description: |-
-                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
+                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
                   Example: "deployment/web-app", "cronjob/scheduled-task"
-                  This field is used with ComponentTypeDefinitions (new model)
+                  This field is used with ComponentTypes (new model)
                 pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
                 x-kubernetes-validations:
@@ -160,14 +91,36 @@ spec:
                 type: object
               parameters:
                 description: |-
-                  Parameters from ComponentTypeDefinition (oneOf schema based on componentType)
-                  This is the merged schema of parameters + envOverrides from the ComponentTypeDefinition
+                  Parameters from ComponentType (oneOf schema based on componentType)
+                  This is the merged schema of parameters + envOverrides from the ComponentType
                 x-kubernetes-preserve-unknown-fields: true
               type:
                 description: |-
                   Type specifies the component type (e.g., Service, WebApplication, etc.)
-                  LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
+                  LEGACY FIELD: Use componentType instead for new components with ComponentTypes
                 type: string
+              workflow:
+                description: |-
+                  Workflow defines the workflow configuration for building the component
+                  This references a Workflow CR and provides developer-configured schema values
+                properties:
+                  name:
+                    description: |-
+                      Name references the Workflow CR to use for this execution.
+                      The Workflow CR contains the schema definition and resource template.
+                    minLength: 1
+                    type: string
+                  schema:
+                    description: |-
+                      Schema contains the developer-provided values that conform to the schema
+                      defined in the referenced Workflow CR.
+
+                      These values are merged with context variables when rendering the final workflow resource.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - name
+                type: object
             required:
             - owner
             type: object

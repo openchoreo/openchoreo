@@ -3,23 +3,22 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: components.openchoreo.dev
+  name: workflowruns.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: Component
-    listKind: ComponentList
-    plural: components
-    shortNames:
-    - comp
-    - comps
-    singular: component
+    kind: WorkflowRun
+    listKind: WorkflowRunList
+    plural: workflowruns
+    singular: workflowrun
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Component is the Schema for the components API.
+        description: |-
+          WorkflowRun is the Schema for the workflowruns API
+          WorkflowRun represents a runtime execution instance of a Workflow.
         properties:
           apiVersion:
             description: |-
@@ -39,94 +38,54 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentSpec defines the desired state of Component.
+            description: spec defines the desired state of WorkflowRun
             properties:
-              addons:
-                description: |-
-                  Addons to compose into this component
-                  Each addon can be instantiated multiple times with different instanceNames
-                items:
-                  description: ComponentAddon represents an addon instance attached
-                    to a component
-                  properties:
-                    config:
-                      description: |-
-                        Config contains the addon parameter values
-                        The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
-                      x-kubernetes-preserve-unknown-fields: true
-                    instanceName:
-                      description: |-
-                        InstanceName uniquely identifies this addon instance within the component
-                        Allows the same addon to be used multiple times with different configurations
-                        Must be unique across all addons in the component
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name is the name of the Addon resource to use
-                      minLength: 1
-                      type: string
-                  required:
-                  - instanceName
-                  - name
-                  type: object
-                type: array
-              build:
-                description: Build defines the build configuration for the component
-                properties:
-                  schema:
-                    description: |-
-                      Parameters contains developer-provided build parameters that conform to the schema
-                      defined in the referenced WorkflowDefinition
-                    x-kubernetes-preserve-unknown-fields: true
-                  workflowTemplate:
-                    description: |-
-                      WorkflowTemplate specifies the WorkflowDefinition to use for building this component
-                      This references a WorkflowDefinition resource that defines the build workflow template
-                      and schema for developer-provided parameters
-                    type: string
-                required:
-                - workflowTemplate
-                type: object
-              componentType:
-                description: |-
-                  ComponentType specifies the component type in the format: {workloadType}/{componentTypenName}
-                  Example: "deployment/web-app", "cronjob/scheduled-task"
-                  This field is used with ComponentTypes (new model)
-                pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-                x-kubernetes-validations:
-                - message: spec.componentType cannot be changed after creation
-                  rule: self == oldSelf
               owner:
-                description: Owner defines the ownership information for the component
+                description: |-
+                  Owner identifies the Component that owns this WorkflowRun.
+                  This is optional for generic workflows not bound to components.
                 properties:
+                  componentName:
+                    description: ComponentName is the name of the owning Component
+                    minLength: 1
+                    type: string
                   projectName:
                     minLength: 1
                     type: string
                 required:
+                - componentName
                 - projectName
                 type: object
-              parameters:
-                description: |-
-                  Parameters from ComponentType (oneOf schema based on componentType)
-                  This is the merged schema of parameters + envOverrides from the ComponentType
-                x-kubernetes-preserve-unknown-fields: true
-              type:
-                description: |-
-                  Type specifies the component type (e.g., Service, WebApplication, etc.)
-                  LEGACY FIELD: Use componentType instead for new components with ComponentTypes
-                type: string
+              workflow:
+                description: Workflow configuration referencing the Workflow CR and
+                  providing schema values.
+                properties:
+                  name:
+                    description: |-
+                      Name references the Workflow CR to use for this execution.
+                      The Workflow CR contains the schema definition and resource template.
+                    minLength: 1
+                    type: string
+                  schema:
+                    description: |-
+                      Schema contains the developer-provided values that conform to the schema
+                      defined in the referenced Workflow CR.
+
+                      These values are merged with context variables when rendering the final workflow resource.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - name
+                type: object
             required:
-            - owner
+            - workflow
             type: object
-            x-kubernetes-validations:
-            - message: Component must have either spec.type or spec.componentType
-                set
-              rule: has(self.type) || has(self.componentType)
           status:
-            description: ComponentStatus defines the observed state of Component.
+            description: status defines the observed state of WorkflowRun
             properties:
               conditions:
+                description: conditions represent the current state of the WorkflowRun
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -182,10 +141,34 @@ spec:
                   - type
                   type: object
                 type: array
-              observedGeneration:
-                format: int64
-                type: integer
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              imageStatus:
+                description: ImageStatus contains information about the built image
+                  from the workflow
+                properties:
+                  image:
+                    description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+                    type: string
+                type: object
+              runReference:
+                description: |-
+                  RunReference contains a reference to the workflow run resource that was applied to the cluster.
+                  This tracks the actual workflow execution instance in the target cluster.
+                properties:
+                  name:
+                    description: Name is the name of the workflow run resource in
+                      the target cluster
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the workflow run resource
+                      in the target cluster
+                    type: string
+                type: object
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

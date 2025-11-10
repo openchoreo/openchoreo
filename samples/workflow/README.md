@@ -16,7 +16,7 @@ OpenChoreo's Workflow system enables **Platform Engineers** to define reusable b
 ```
 Component (Developer Intent)
     ↓
-ComponentTypeDefinition (PE Governance) + WorkflowDefinition (PE Template)
+ComponentType (PE Governance) + WorkflowDefinition (PE Template)
     ↓
 Workflow CR (Execution Instance)
     ↓
@@ -40,7 +40,7 @@ Demonstrates a Docker-based build workflow using a Dockerfile.
 
 **Key Resources:**
 - **WorkflowDefinition**: `docker` - Defines Docker build template with repository and Docker-specific parameters
-- **ComponentTypeDefinition**: `service` - Allows `docker` workflow with timeout overrides
+- **ComponentType**: `service` - Allows `docker` workflow with timeout overrides
 - **Component**: `greeting-service` - Uses Docker workflow with Dockerfile at `/service-go-greeter/Dockerfile`
 - **Workflow**: `greeting-service-build-04` - Execution instance for the greeting service
 
@@ -55,7 +55,7 @@ Demonstrates a Docker-based build workflow using a Dockerfile.
 
 **Platform Engineer Parameters:**
 - `registry-url` - Container registry URL (fixed at `gcr.io/openchoreo-dev/images`)
-- `build-timeout` - Build timeout (overridden to `45m` by ComponentTypeDefinition)
+- `build-timeout` - Build timeout (overridden to `45m` by ComponentType)
 
 ### 2. Google Cloud Buildpacks Workflow (`go-buildpack-reading-list-service.yaml`)
 
@@ -69,7 +69,7 @@ Demonstrates a comprehensive buildpack-based workflow with extensive configurati
 
 **Key Resources:**
 - **WorkflowDefinition**: `google-cloud-buildpacks` - Comprehensive buildpack template
-- **ComponentTypeDefinition**: `service` - Allows both `google-cloud-buildpacks` and `docker` workflows
+- **ComponentType**: `service` - Allows both `google-cloud-buildpacks` and `docker` workflows
 - **Component**: `reading-list-service` - Uses buildpacks with full configuration
 - **Workflow**: `reading-list-service-build-01` - Execution instance for reading list service
 
@@ -89,8 +89,8 @@ Demonstrates a comprehensive buildpack-based workflow with extensive configurati
 
 **Platform Engineer Parameters:**
 - `builder-image` - Buildpack builder image with SHA256 digest
-- `security-scan-enabled` - Security scanning flag (overridden to `"false"` by ComponentTypeDefinition)
-- `build-timeout` - Build timeout (overridden to `"45m"` by ComponentTypeDefinition)
+- `security-scan-enabled` - Security scanning flag (overridden to `"false"` by ComponentType)
+- `build-timeout` - Build timeout (overridden to `"45m"` by ComponentType)
 
 ### 3. React Web Application Workflow (`react-web-app.yaml`)
 
@@ -104,7 +104,7 @@ Demonstrates a React-specific build workflow with web application deployment con
 
 **Key Resources:**
 - **WorkflowDefinition**: `react` - Defines React build template with repository and Node.js parameters
-- **ComponentTypeDefinition**: `web-application` - Defines deployment resources (Deployment + Service) with resource limits
+- **ComponentType**: `web-application` - Defines deployment resources (Deployment + Service) with resource limits
 - **Component**: `react-web-app` - Uses React workflow with Node v20 and custom resource configurations
 - **Workflow**: `react-web-app-build-01` - Execution instance for the React web application
 
@@ -131,7 +131,7 @@ Demonstrates a React-specific build workflow with web application deployment con
 
 Parameters are merged in the following order (highest to lowest priority):
 
-1. **ComponentTypeDefinition.fixedParameters** - Component-type-specific overrides by PE
+1. **ComponentType.fixedParameters** - Component-type-specific overrides by PE
 2. **WorkflowDefinition.fixedParameters** - Template defaults by PE
 3. **WorkflowDefinition.schema defaults** - Default values in schema definitions
 4. **Workflow.schema** - Developer-provided values (overrides schema defaults)
@@ -143,7 +143,7 @@ fixedParameters:
   - name: build-timeout
     value: "30m"
 
-# ComponentTypeDefinition overrides it to "45m"
+# ComponentType overrides it to "45m"
 build:
   allowedTemplates:
     - name: docker
@@ -242,7 +242,7 @@ This enables the build process to define the runtime workload specification (con
    - Use CEL expressions in the resource template
    - Specify secrets to inject into build plane
 
-2. **Define ComponentTypeDefinition**:
+2. **Define ComponentType**:
    - List allowed WorkflowDefinitions in `build.allowedTemplates`
    - Override parameters per component type as needed
    - Define workload resource templates for deployment
@@ -250,7 +250,7 @@ This enables the build process to define the runtime workload specification (con
 ### For Developers
 
 1. **Create Component**:
-   - Reference a ComponentTypeDefinition via `componentType`
+   - Reference a ComponentType via `componentType`
    - Select a WorkflowDefinition from allowed templates via `build.workflowTemplate`
    - Provide configuration in `build.schema` matching WorkflowDefinition schema
 
@@ -287,7 +287,7 @@ kubectl apply -f samples/workflow/react-web-app.yaml
 
 ### Rendered workflow has incorrect values
 
-- Verify parameter precedence (ComponentTypeDefinition overrides WorkflowDefinition)
+- Verify parameter precedence (ComponentType overrides WorkflowDefinition)
 - Check CEL expressions in WorkflowDefinition template
 - Review schema defaults and developer-provided values
 

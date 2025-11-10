@@ -126,7 +126,7 @@ rules:
     - componentdeployments
     - componentenvsnapshots
     - components
-    - componenttypedefinitions
+    - componenttypes
     - dataplanes
     - deployableartifacts
     - deploymentpipelines
@@ -171,7 +171,7 @@ rules:
     - componentdeployments/finalizers
     - componentenvsnapshots/finalizers
     - components/finalizers
-    - componenttypedefinitions/finalizers
+    - componenttypes/finalizers
     - dataplanes/finalizers
     - deployableartifacts/finalizers
     - deploymentpipelines/finalizers
@@ -210,7 +210,7 @@ rules:
     - componentdeployments/status
     - componentenvsnapshots/status
     - components/status
-    - componenttypedefinitions/status
+    - componenttypes/status
     - dataplanes/status
     - deployableartifacts/status
     - deploymentpipelines/status

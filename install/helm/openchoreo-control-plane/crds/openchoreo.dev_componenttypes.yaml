@@ -3,17 +3,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: ComponentType.openchoreo.dev
+  name: componenttypes.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: ComponentTypeDefinition
-    listKind: ComponentTypeDefinitionList
-    plural: componenttypedefinitions
+    kind: ComponentType
+    listKind: ComponentTypeList
+    plural: componenttypes
     shortNames:
-    - ctd
-    - ctds
-    singular: componenttypedefinition
+    - ct
+    - cts
+    singular: componenttype
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -26,8 +26,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ComponentTypeDefinition is the Schema for the componenttypedefinitions
-          API.
+        description: ComponentType is the Schema for the componenttypes API.
         properties:
           apiVersion:
             description: |-
@@ -47,9 +46,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentTypeDefinitionSpec defines the desired state of
-              ComponentTypeDefinition.
+            description: ComponentTypeSpec defines the desired state of ComponentType.
             properties:
+              allowedWorkflows:
+                description: |-
+                  AllowedWorkflows restricts which Workflow CRs developers can use
+                  for building components of this type. If not specified, any workflow can be used.
+                items:
+                  description: AllowedWorkflow references a Workflow CR that developers
+                    can use for this component type.
+                  properties:
+                    name:
+                      description: Name is the name of the Workflow CR
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               resources:
                 description: |-
                   Resources are templates that generate Kubernetes resources dynamically
@@ -145,8 +159,7 @@ spec:
                 workloadType
               rule: self.resources.exists(r, r.id == self.workloadType)
           status:
-            description: ComponentTypeDefinitionStatus defines the observed state
-              of ComponentTypeDefinition.
+            description: ComponentTypeStatus defines the observed state of ComponentType.
             type: object
         type: object
     served: true

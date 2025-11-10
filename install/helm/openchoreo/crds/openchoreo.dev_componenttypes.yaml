@@ -3,17 +3,17 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: componenttypedefinitions.openchoreo.dev
+  name: componenttypes.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: ComponentTypeDefinition
-    listKind: ComponentTypeDefinitionList
-    plural: componenttypedefinitions
+    kind: ComponentType
+    listKind: ComponentTypeList
+    plural: componenttypes
     shortNames:
-    - ctd
-    - ctds
-    singular: componenttypedefinition
+    - ct
+    - cts
+    singular: componenttype
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -26,7 +26,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ComponentTypeDefinition is the Schema for the componenttypedefinitions
+        description: ComponentType is the Schema for the componenttypes
           API.
         properties:
           apiVersion:
@@ -47,8 +47,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentTypeDefinitionSpec defines the desired state of
-              ComponentTypeDefinition.
+            description: ComponentTypeSpec defines the desired state of
+              ComponentType.
             properties:
               build:
                 description: |-
@@ -193,8 +193,8 @@ spec:
                 workloadType
               rule: self.resources.exists(r, r.id == self.workloadType)
           status:
-            description: ComponentTypeDefinitionStatus defines the observed state
-              of ComponentTypeDefinition.
+            description: ComponentTypeStatus defines the observed state
+              of ComponentType.
             type: object
         type: object
     served: true

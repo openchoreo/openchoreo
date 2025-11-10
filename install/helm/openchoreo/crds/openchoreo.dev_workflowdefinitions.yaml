@@ -45,7 +45,7 @@ spec:
                   These parameters are used for security policies, compliance requirements, and
                   platform-level configuration that should not be modified by developers.
 
-                  Can be overridden per ComponentTypeDefinition to allow component-type-specific policies.
+                  Can be overridden per ComponentType to allow component-type-specific policies.
                 items:
                   description: WorkflowParameter represents a name-value parameter
                     pair for PE-controlled configuration.
@@ -94,7 +94,7 @@ spec:
                 description: |-
                   Schema defines the developer-facing parameters that can be configured
                   when creating a Workflow instance. Uses the same shorthand schema syntax
-                  as ComponentTypeDefinition.
+                  as ComponentType.
 
                   Schema format: nested maps where keys are field names and values are either
                   nested maps or type definition strings.

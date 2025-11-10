@@ -15,7 +15,7 @@ This example shows:
 
 The example includes a `component-with-addons.yaml` file containing all resources for easy deployment.
 
-### ComponentTypeDefinition
+### ComponentType
 
 Defines a `web-service` component type that creates:
 

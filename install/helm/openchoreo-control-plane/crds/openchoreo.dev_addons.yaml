@@ -64,7 +64,7 @@ spec:
                 type: array
               patches:
                 description: Patches defines modifications to existing resources generated
-                  by the ComponentTypeDefinition
+                  by the ComponentType
                 items:
                   description: AddonPatch defines a modification to an existing resource
                   properties:
