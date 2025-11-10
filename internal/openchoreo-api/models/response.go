@@ -250,8 +250,8 @@ func ErrorResponse(message, code string) APIResponse[any] {
 	}
 }
 
-// ComponentTypeDefinitionResponse represents a ComponentTypeDefinition in API responses
-type ComponentTypeDefinitionResponse struct {
+// ComponentTypeResponse represents a ComponentType in API responses
+type ComponentTypeResponse struct {
 	Name         string    `json:"name"`
 	DisplayName  string    `json:"displayName,omitempty"`
 	Description  string    `json:"description,omitempty"`

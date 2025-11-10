@@ -12,10 +12,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-func (h *Handler) ListComponentTypeDefinitions(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
-	logger.Debug("ListComponentTypeDefinitions handler called")
+	logger.Debug("ListComponentTypes handler called")
 
 	// Extract organization name from URL path
 	orgName := r.PathValue("orgName")
@@ -25,51 +25,51 @@ func (h *Handler) ListComponentTypeDefinitions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Call service to list ComponentTypeDefinitions
-	ctds, err := h.services.ComponentTypeDefinitionService.ListComponentTypeDefinitions(ctx, orgName)
+	// Call service to list ComponentTypes
+	ctds, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName)
 	if err != nil {
-		logger.Error("Failed to list ComponentTypeDefinitions", "error", err)
+		logger.Error("Failed to list ComponentTypes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
 	// Convert to slice of values for the list response
-	ctdValues := make([]*models.ComponentTypeDefinitionResponse, len(ctds))
+	ctdValues := make([]*models.ComponentTypeResponse, len(ctds))
 	copy(ctdValues, ctds)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed ComponentTypeDefinitions successfully", "org", orgName, "count", len(ctds))
+	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(ctds))
 	writeListResponse(w, ctdValues, len(ctds), 1, len(ctds))
 }
 
-func (h *Handler) GetComponentTypeDefinitionSchema(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
-	logger.Debug("GetComponentTypeDefinitionSchema handler called")
+	logger.Debug("GetComponentTypeSchema handler called")
 
 	// Extract path parameters
 	orgName := r.PathValue("orgName")
 	ctdName := r.PathValue("ctdName")
 	if orgName == "" || ctdName == "" {
-		logger.Warn("Organization name and ComponentTypeDefinition name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and ComponentTypeDefinition name are required", services.CodeInvalidInput)
+		logger.Warn("Organization name and ComponentType name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name and ComponentType name are required", services.CodeInvalidInput)
 		return
 	}
 
-	// Call service to get ComponentTypeDefinition schema
-	schema, err := h.services.ComponentTypeDefinitionService.GetComponentTypeDefinitionSchema(ctx, orgName, ctdName)
+	// Call service to get ComponentType schema
+	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, orgName, ctdName)
 	if err != nil {
-		if errors.Is(err, services.ErrComponentTypeDefinitionNotFound) {
-			logger.Warn("ComponentTypeDefinition not found", "org", orgName, "name", ctdName)
-			writeErrorResponse(w, http.StatusNotFound, "ComponentTypeDefinition not found", services.CodeComponentTypeDefinitionNotFound)
+		if errors.Is(err, services.ErrComponentTypeNotFound) {
+			logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
-		logger.Error("Failed to get ComponentTypeDefinition schema", "error", err)
+		logger.Error("Failed to get ComponentType schema", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
 	// Success response
-	logger.Debug("Retrieved ComponentTypeDefinition schema successfully", "org", orgName, "name", ctdName)
+	logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctdName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

@@ -19,23 +19,23 @@ import (
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
-// ComponentTypeDefinitionService handles ComponentTypeDefinition-related business logic
-type ComponentTypeDefinitionService struct {
+// ComponentTypeService handles ComponentType-related business logic
+type ComponentTypeService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
 }
 
-// NewComponentTypeDefinitionService creates a new ComponentTypeDefinition service
-func NewComponentTypeDefinitionService(k8sClient client.Client, logger *slog.Logger) *ComponentTypeDefinitionService {
-	return &ComponentTypeDefinitionService{
+// NewComponentTypeService creates a new ComponentType service
+func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger) *ComponentTypeService {
+	return &ComponentTypeService{
 		k8sClient: k8sClient,
 		logger:    logger,
 	}
 }
 
-// ListComponentTypeDefinitions lists all ComponentTypeDefinitions in the given organization
-func (s *ComponentTypeDefinitionService) ListComponentTypeDefinitions(ctx context.Context, orgName string) ([]*models.ComponentTypeDefinitionResponse, error) {
-	s.logger.Debug("Listing ComponentTypeDefinitions", "org", orgName)
+// ListComponentTypes lists all ComponentTypes in the given organization
+func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName string) ([]*models.ComponentTypeResponse, error) {
+	s.logger.Debug("Listing ComponentTypes", "org", orgName)
 
 	var ctdList openchoreov1alpha1.ComponentTypeDefinitionList
 	listOpts := []client.ListOption{
@@ -43,22 +43,22 @@ func (s *ComponentTypeDefinitionService) ListComponentTypeDefinitions(ctx contex
 	}
 
 	if err := s.k8sClient.List(ctx, &ctdList, listOpts...); err != nil {
-		s.logger.Error("Failed to list ComponentTypeDefinitions", "error", err)
-		return nil, fmt.Errorf("failed to list ComponentTypeDefinitions: %w", err)
+		s.logger.Error("Failed to list ComponentTypes", "error", err)
+		return nil, fmt.Errorf("failed to list ComponentTypes: %w", err)
 	}
 
-	ctds := make([]*models.ComponentTypeDefinitionResponse, 0, len(ctdList.Items))
+	ctds := make([]*models.ComponentTypeResponse, 0, len(ctdList.Items))
 	for i := range ctdList.Items {
-		ctds = append(ctds, s.toComponentTypeDefinitionResponse(&ctdList.Items[i]))
+		ctds = append(ctds, s.toComponentTypeResponse(&ctdList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentTypeDefinitions", "org", orgName, "count", len(ctds))
+	s.logger.Debug("Listed ComponentTypes", "org", orgName, "count", len(ctds))
 	return ctds, nil
 }
 
-// GetComponentTypeDefinition retrieves a specific ComponentTypeDefinition
-func (s *ComponentTypeDefinitionService) GetComponentTypeDefinition(ctx context.Context, orgName, ctdName string) (*models.ComponentTypeDefinitionResponse, error) {
-	s.logger.Debug("Getting ComponentTypeDefinition", "org", orgName, "name", ctdName)
+// GetComponentType retrieves a specific ComponentType
+func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ctdName string) (*models.ComponentTypeResponse, error) {
+	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctdName)
 
 	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
 	key := client.ObjectKey{
@@ -68,19 +68,19 @@ func (s *ComponentTypeDefinitionService) GetComponentTypeDefinition(ctx context.
 
 	if err := s.k8sClient.Get(ctx, key, ctd); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentTypeDefinition not found", "org", orgName, "name", ctdName)
-			return nil, ErrComponentTypeDefinitionNotFound
+			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			return nil, ErrComponentTypeNotFound
 		}
-		s.logger.Error("Failed to get ComponentTypeDefinition", "error", err)
-		return nil, fmt.Errorf("failed to get ComponentTypeDefinition: %w", err)
+		s.logger.Error("Failed to get ComponentType", "error", err)
+		return nil, fmt.Errorf("failed to get ComponentType: %w", err)
 	}
 
-	return s.toComponentTypeDefinitionResponse(ctd), nil
+	return s.toComponentTypeResponse(ctd), nil
 }
 
-// GetComponentTypeDefinitionSchema retrieves the JSON schema for a ComponentTypeDefinition
-func (s *ComponentTypeDefinitionService) GetComponentTypeDefinitionSchema(ctx context.Context, orgName, ctdName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting ComponentTypeDefinition schema", "org", orgName, "name", ctdName)
+// GetComponentTypeSchema retrieves the JSON schema for a ComponentType
+func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgName, ctdName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctdName)
 
 	// First get the CTD
 	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
@@ -91,11 +91,11 @@ func (s *ComponentTypeDefinitionService) GetComponentTypeDefinitionSchema(ctx co
 
 	if err := s.k8sClient.Get(ctx, key, ctd); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentTypeDefinition not found", "org", orgName, "name", ctdName)
-			return nil, ErrComponentTypeDefinitionNotFound
+			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctdName)
+			return nil, ErrComponentTypeNotFound
 		}
-		s.logger.Error("Failed to get ComponentTypeDefinition", "error", err)
-		return nil, fmt.Errorf("failed to get ComponentTypeDefinition: %w", err)
+		s.logger.Error("Failed to get ComponentType", "error", err)
+		return nil, fmt.Errorf("failed to get ComponentType: %w", err)
 	}
 
 	// Extract types from RawExtension
@@ -126,17 +126,17 @@ func (s *ComponentTypeDefinitionService) GetComponentTypeDefinitionSchema(ctx co
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved ComponentTypeDefinition schema successfully", "org", orgName, "name", ctdName)
+	s.logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctdName)
 	return jsonSchema, nil
 }
 
-// toComponentTypeDefinitionResponse converts a ComponentTypeDefinition CR to a ComponentTypeDefinitionResponse
-func (s *ComponentTypeDefinitionService) toComponentTypeDefinitionResponse(ctd *openchoreov1alpha1.ComponentTypeDefinition) *models.ComponentTypeDefinitionResponse {
+// toComponentTypeResponse converts a ComponentType CR to a ComponentTypeResponse
+func (s *ComponentTypeService) toComponentTypeResponse(ctd *openchoreov1alpha1.ComponentTypeDefinition) *models.ComponentTypeResponse {
 	// Extract display name and description from annotations
 	displayName := ctd.Annotations[controller.AnnotationKeyDisplayName]
 	description := ctd.Annotations[controller.AnnotationKeyDescription]
 
-	return &models.ComponentTypeDefinitionResponse{
+	return &models.ComponentTypeResponse{
 		Name:         ctd.Name,
 		DisplayName:  displayName,
 		Description:  description,

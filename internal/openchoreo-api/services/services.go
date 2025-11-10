@@ -11,17 +11,17 @@ import (
 )
 
 type Services struct {
-	ProjectService                 *ProjectService
-	ComponentService               *ComponentService
-	ComponentTypeDefinitionService *ComponentTypeDefinitionService
-	AddonService                   *AddonService
-	OrganizationService            *OrganizationService
-	EnvironmentService             *EnvironmentService
-	DataPlaneService               *DataPlaneService
-	BuildService                   *BuildService
-	BuildPlaneService              *BuildPlaneService
-	DeploymentPipelineService      *DeploymentPipelineService
-	k8sClient                      client.Client // Direct access to K8s client for apply operations
+	ProjectService            *ProjectService
+	ComponentService          *ComponentService
+	ComponentTypeService      *ComponentTypeService
+	AddonService              *AddonService
+	OrganizationService       *OrganizationService
+	EnvironmentService        *EnvironmentService
+	DataPlaneService          *DataPlaneService
+	BuildService              *BuildService
+	BuildPlaneService         *BuildPlaneService
+	DeploymentPipelineService *DeploymentPipelineService
+	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
@@ -50,24 +50,24 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
-	// Create ComponentTypeDefinition service
-	componentTypeDefinitionService := NewComponentTypeDefinitionService(k8sClient, logger.With("service", "componenttypedefinition"))
+	// Create ComponentType service
+	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"))
 
 	// Create Addon service
 	addonService := NewAddonService(k8sClient, logger.With("service", "addon"))
 
 	return &Services{
-		ProjectService:                 projectService,
-		ComponentService:               componentService,
-		ComponentTypeDefinitionService: componentTypeDefinitionService,
-		AddonService:                   addonService,
-		OrganizationService:            organizationService,
-		EnvironmentService:             environmentService,
-		DataPlaneService:               dataplaneService,
-		BuildService:                   buildService,
-		BuildPlaneService:              buildPlaneService,
-		DeploymentPipelineService:      deploymentPipelineService,
-		k8sClient:                      k8sClient,
+		ProjectService:            projectService,
+		ComponentService:          componentService,
+		ComponentTypeService:      componentTypeService,
+		AddonService:              addonService,
+		OrganizationService:       organizationService,
+		EnvironmentService:        environmentService,
+		DataPlaneService:          dataplaneService,
+		BuildService:              buildService,
+		BuildPlaneService:         buildPlaneService,
+		DeploymentPipelineService: deploymentPipelineService,
+		k8sClient:                 k8sClient,
 	}
 }
 
