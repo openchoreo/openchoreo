@@ -1,0 +1,24 @@
+# Helm values for OpenChoreo Build Plane in k3d single-cluster setup
+# This file contains overrides specific to running the build plane in a k3d environment
+
+argo-workflows:
+  server:
+    # Argo Workflows UI is enabled for testing/development purposes
+    enabled: true
+    serviceType: LoadBalancer
+    servicePort: 2746
+    authModes:
+      - server
+
+# Disable Vault and External Secrets since they're already in the Data Plane (single cluster)
+vault:
+  enabled: false
+
+external-secrets:
+  enabled: false
+
+# Disable Fluent Bit for Build Plane in single-cluster mode
+# Reason: Data Plane FluentBit (DaemonSet on all nodes) already collects logs from ALL namespaces,
+# including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
+fluentBit:
+  enabled: false
