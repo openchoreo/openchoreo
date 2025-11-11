@@ -15,7 +15,7 @@ Defines a reusable component type template for HTTP services. It:
 - Declares environment-specific overrides for resource limits
 - Templates the underlying Kubernetes resources (Deployment, Service, HTTPRoute)
 - Configures path-based routing with specific HTTP methods:
-  - `GET /{component-name}/greeter/greet`
+  - `GET /{component-name}/{resource-paths}`
 - Uses CEL expressions to dynamically populate values from component metadata and parameters
 
 This allows you to create multiple HTTP service components using the same template with different configurations.
@@ -54,9 +54,9 @@ Represents a deployment instance of the component to a specific environment:
 3. **Workload** specifies what container(s) to run (echo server for testing)
 4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides
 
-The controller reads these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
+The OpenChoreo controller manager uses these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
 
-## Apply resources
+## Deploy the sample
 
 Apply the sample:
 
@@ -75,4 +75,11 @@ kubectl get release demo-app-development -n default -o yaml
 
 # Check the rendered resources
 kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
+```
+
+## Test the Service by invoking
+
+```bash
+curl http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/demo-app-development-e040c964/greeter/greet
+Hello, Stranger!
 ```

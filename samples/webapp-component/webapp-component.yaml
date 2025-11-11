@@ -83,7 +83,7 @@ spec:
         spec:
           parentRefs:
             - name: gateway-external
-              namespace: openchoreo
+              namespace: openchoreo-data-plane
           hostnames:
             - ${metadata.name}-${environment.name}.${environment.vhost}
           rules:

@@ -74,3 +74,7 @@ kubectl get release demo-app-development -n default -o yaml
 # Check the rendered resources
 kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
 ```
+
+# Test the Web App by opening it via a web browser
+
+Open your web browser and go to `http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/`.
