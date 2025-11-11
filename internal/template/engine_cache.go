@@ -45,7 +45,7 @@ func DisableProgramCacheOnly() EngineOption {
 const (
 	defaultEnvCacheSize = 100 // CEL environments (typically 2-10 unique contexts)
 	// Compiled programs: ~875 expected for typical deployment
-	// Calculation: (5 CTDs × ~25 expressions) + (50 addons × ~15 expressions) = ~875
+	// Calculation: (5 CTs × ~25 expressions) + (50 traits × ~15 expressions) = ~875
 	// 2000 limit provides 2.3x headroom
 	defaultProgramCacheSize = 2000
 )
@@ -118,12 +118,12 @@ func (c *lruCache[T]) Set(key string, value T) {
 // Cache Architecture:
 //
 //	Level 1: ENV Cache (LRU, max 100 entries)
-//	  └─ envKey: ["addon", "metadata", ..."] → CEL Environment
+//	  └─ envKey: ["trait", "metadata", ..."] → CEL Environment
 //
 //	Level 2: PROGRAM Cache (LRU, max 2000 entries)
 //	  └─ (envKey + expression) → Compiled CEL Program
 //
-// For a deployment with 5 CTDs and 50 addons, expect ~875 cached programs.
+// For a deployment with 5 CTs and 50 traits, expect ~875 cached programs.
 // The 2000 entry limit provides 2x headroom and protects against edge cases
 // like dynamic template updates or multi-tenancy scenarios.
 type EngineCache struct {
@@ -226,7 +226,7 @@ func programCacheKey(envKey, expression string) string {
 //   - {"metadata": {"name": "app1"}, "parameters": {"replicas": 1}}
 //   - {"metadata": {"name": "app2"}, "parameters": {"replicas": 3}}
 //
-// This enables high cache hit rates in controller scenarios where the same CTD/addon
+// This enables high cache hit rates in controller scenarios where the same CT/trait
 // templates are applied to different components with varying values.
 func envCacheKey(inputs map[string]any) string {
 	if len(inputs) == 0 {

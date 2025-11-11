@@ -3,11 +3,11 @@
 
 // Package component provides the main rendering pipeline for Component resources.
 //
-// The pipeline combines Component, ComponentType, Addons, Workload and ComponentDeployment
+// The pipeline combines Component, ComponentType, Traits, Workload and ComponentDeployment
 // to generate fully resolved Kubernetes resource manifests by:
 //  1. Building CEL evaluation contexts with parameters, overrides, and defaults
 //  2. Rendering base resources from ComponentType
-//  3. Processing addons (creates and patches)
+//  3. Processing traits (creates and patches)
 //  4. Post-processing (validation, labels, annotations)
 package component
 
@@ -19,9 +19,9 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/pipeline/component/addon"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/trait"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -46,7 +46,7 @@ func NewPipeline(opts ...Option) *Pipeline {
 //  1. Validate input
 //  2. Build component context (parameters + overrides + defaults)
 //  3. Render base resources from ComponentType
-//  4. Process addons (creates and patches)
+//  4. Process traits (creates and patches)
 //  5. Post-process (validate, add labels/annotations, sort)
 //  6. Return output
 //
@@ -93,30 +93,30 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	}
 	metadata.BaseResourceCount = len(resources)
 
-	// 4. Process addons
-	addonProcessor := addon.NewProcessor(p.templateEngine)
+	// 4. Process traits
+	traitProcessor := trait.NewProcessor(p.templateEngine)
 
-	// Build addon map
-	addonMap := make(map[string]*v1alpha1.Addon)
-	for i := range input.Addons {
-		addon := &input.Addons[i]
-		addonMap[addon.Name] = addon
+	// Build trait map
+	traitMap := make(map[string]*v1alpha1.Trait)
+	for i := range input.Traits {
+		trait := &input.Traits[i]
+		traitMap[trait.Name] = trait
 	}
 
-	// Create schema cache for addon reuse within this render
+	// Create schema cache for trait reuse within this render
 	schemaCache := make(map[string]*apiextschema.Structural)
 
-	// Process each addon instance from the component
-	for _, addonInstance := range input.Component.Spec.Addons {
-		addon, ok := addonMap[addonInstance.Name]
+	// Process each trait instance from the component
+	for _, traitInstance := range input.Component.Spec.Traits {
+		trait, ok := traitMap[traitInstance.Name]
 		if !ok {
-			return nil, fmt.Errorf("addon %s referenced but not found in addons list", addonInstance.Name)
+			return nil, fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
 		}
 
-		// Build addon context (BuildAddonContext will handle schema caching)
-		addonContext, err := context.BuildAddonContext(&context.AddonContextInput{
-			Addon:               addon,
-			Instance:            addonInstance,
+		// Build trait context (BuildtraitContext will handle schema caching)
+		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
+			Trait:               trait,
+			Instance:            traitInstance,
 			Component:           input.Component,
 			Environment:         environment,
 			ComponentDeployment: input.ComponentDeployment,
@@ -124,21 +124,21 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			SchemaCache:         schemaCache,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to build addon context for %s/%s: %w",
-				addonInstance.Name, addonInstance.InstanceName, err)
+			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		// Process addon (creates + patches)
-		resources, err = addonProcessor.ProcessAddons(resources, addon, addonContext)
+		// Process trait (creates + patches)
+		resources, err = traitProcessor.ProcessTraits(resources, trait, traitContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to process addon %s/%s: %w",
-				addonInstance.Name, addonInstance.InstanceName, err)
+			return nil, fmt.Errorf("failed to process trait %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		metadata.AddonCount++
+		metadata.TraitCount++
 	}
 
-	metadata.AddonResourceCount = len(resources) - metadata.BaseResourceCount
+	metadata.TraitResourceCount = len(resources) - metadata.BaseResourceCount
 
 	// 5. Post-process resources
 	if err := p.postProcessResources(resources, input); err != nil {

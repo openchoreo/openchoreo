@@ -250,7 +250,7 @@ func structToMap(v any) (any, error) {
 }
 
 // BuildStructuralSchema converts schema input into a Kubernetes structural schema.
-// This function is exported to allow per-render caching of schemas for reused addons.
+// This function is exported to allow per-render caching of schemas for reused traits.
 func BuildStructuralSchema(input *SchemaInput) (*apiextschema.Structural, error) {
 	if input.Structural != nil {
 		return input.Structural, nil

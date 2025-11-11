@@ -15,15 +15,15 @@ import (
 
 func TestBuildComponentContext(t *testing.T) {
 	tests := []struct {
-		name                 string
-		componentYAML        string
-		componentTypeDefYAML string
-		envSettingsYAML      string
-		workloadYAML         string
-		environment          string
-		additionalMetadata   map[string]string
-		want                 map[string]any
-		wantErr              bool
+		name               string
+		componentYAML      string
+		componentTypeYAML  string
+		envSettingsYAML    string
+		workloadYAML       string
+		environment        string
+		additionalMetadata map[string]string
+		want               map[string]any
+		wantErr            bool
 	}{
 		{
 			name: "basic component with parameters",
@@ -39,7 +39,7 @@ spec:
     replicas: 3
     image: myapp:v1
 `,
-			componentTypeDefYAML: `
+			componentTypeYAML: `
 apiVersion: choreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -84,7 +84,7 @@ spec:
     replicas: 3
     cpu: "100m"
 `,
-			componentTypeDefYAML: `
+			componentTypeYAML: `
 apiVersion: choreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -135,7 +135,7 @@ spec:
   type: service
   parameters: {}
 `,
-			componentTypeDefYAML: `
+			componentTypeYAML: `
 apiVersion: choreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -190,7 +190,7 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "nil component type definition",
+			name: "nil component type",
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
 kind: Component
@@ -199,8 +199,8 @@ metadata:
 spec:
   type: service
 `,
-			componentTypeDefYAML: "", // Empty to test nil
-			wantErr:              true,
+			componentTypeYAML: "", // Empty to test nil
+			wantErr:           true,
 		},
 	}
 
@@ -228,13 +228,13 @@ spec:
 				input.Component = comp
 			}
 
-			// Parse component type definition
-			if tt.componentTypeDefYAML != "" {
-				ctd := &v1alpha1.ComponentType{}
-				if err := yaml.Unmarshal([]byte(tt.componentTypeDefYAML), ctd); err != nil {
+			// Parse component type
+			if tt.componentTypeYAML != "" {
+				ct := &v1alpha1.ComponentType{}
+				if err := yaml.Unmarshal([]byte(tt.componentTypeYAML), ct); err != nil {
 					t.Fatalf("Failed to parse ComponentType YAML: %v", err)
 				}
-				input.ComponentType = ctd
+				input.ComponentType = ct
 			}
 
 			// Parse env settings
@@ -272,10 +272,10 @@ spec:
 	}
 }
 
-func TestBuildAddonContext(t *testing.T) {
+func TestBuildTraitContext(t *testing.T) {
 	tests := []struct {
 		name               string
-		addonYAML          string
+		traitYAML          string
 		componentYAML      string
 		instanceYAML       string
 		envSettingsYAML    string
@@ -285,12 +285,12 @@ func TestBuildAddonContext(t *testing.T) {
 		wantErr            bool
 	}{
 		{
-			name: "basic addon with parameters",
-			addonYAML: `
+			name: "basic trait with parameters",
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: mysql-addon
+  name: mysql-trait
 spec:
   schema:
     parameters:
@@ -303,14 +303,14 @@ metadata:
   name: test-component
 spec:
   type: service
-  addons:
-    - name: mysql-addon
+  traits:
+    - name: mysql-trait
       instanceName: db-1
       config:
         database: mydb
 `,
 			instanceYAML: `
-name: mysql-addon
+name: mysql-trait
 instanceName: db-1
 config:
   database: mydb
@@ -320,8 +320,8 @@ config:
 				"parameters": map[string]any{
 					"database": "mydb",
 				},
-				"addon": map[string]any{
-					"name":         "mysql-addon",
+				"trait": map[string]any{
+					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
 				"component": map[string]any{
@@ -339,12 +339,12 @@ config:
 			wantErr: false,
 		},
 		{
-			name: "addon with environment overrides",
-			addonYAML: `
+			name: "trait with environment overrides",
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: mysql-addon
+  name: mysql-trait
 spec:
   schema:
     parameters:
@@ -360,7 +360,7 @@ spec:
   type: service
 `,
 			instanceYAML: `
-name: mysql-addon
+name: mysql-trait
 instanceName: db-1
 config:
   database: mydb
@@ -372,7 +372,7 @@ kind: ComponentDeployment
 metadata:
   name: test-component-prod
 spec:
-  addonOverrides:
+  traitOverrides:
     db-1:
       size: large
 `,
@@ -382,8 +382,8 @@ spec:
 					"database": "mydb",
 					"size":     "large", // Override applied
 				},
-				"addon": map[string]any{
-					"name":         "mysql-addon",
+				"trait": map[string]any{
+					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
 				"component": map[string]any{
@@ -401,7 +401,7 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "nil addon input",
+			name: "nil trait input",
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
 kind: Component
@@ -410,7 +410,7 @@ metadata:
 spec:
   type: service
 `,
-			addonYAML: "", // Empty to test nil
+			traitYAML: "", // Empty to test nil
 			wantErr:   true,
 		},
 	}
@@ -418,7 +418,7 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
-			input := &AddonContextInput{
+			input := &TraitContextInput{
 				Environment: EnvironmentContext{
 					Name:        tt.environment,
 					VirtualHost: "api.example.com",
@@ -430,13 +430,13 @@ spec:
 				},
 			}
 
-			// Parse addon
-			if tt.addonYAML != "" {
-				addon := &v1alpha1.Addon{}
-				if err := yaml.Unmarshal([]byte(tt.addonYAML), addon); err != nil {
-					t.Fatalf("Failed to parse Addon YAML: %v", err)
+			// Parse trait
+			if tt.traitYAML != "" {
+				trait := &v1alpha1.Trait{}
+				if err := yaml.Unmarshal([]byte(tt.traitYAML), trait); err != nil {
+					t.Fatalf("Failed to parse Trait YAML: %v", err)
 				}
-				input.Addon = addon
+				input.Trait = trait
 			}
 
 			// Parse component
@@ -448,11 +448,11 @@ spec:
 				input.Component = comp
 			}
 
-			// Parse addon instance
+			// Parse trait instance
 			if tt.instanceYAML != "" {
-				instance := v1alpha1.ComponentAddon{}
+				instance := v1alpha1.ComponentTrait{}
 				if err := yaml.Unmarshal([]byte(tt.instanceYAML), &instance); err != nil {
-					t.Fatalf("Failed to parse addon instance YAML: %v", err)
+					t.Fatalf("Failed to parse trait instance YAML: %v", err)
 				}
 				input.Instance = instance
 			}
@@ -466,9 +466,9 @@ spec:
 				input.ComponentDeployment = settings
 			}
 
-			got, err := BuildAddonContext(input)
+			got, err := BuildTraitContext(input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("BuildAddonContext() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("BuildTraitContext() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
@@ -477,7 +477,7 @@ spec:
 
 			// Compare the entire result using cmp.Diff
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("BuildAddonContext() mismatch (-want +got):\n%s", diff)
+				t.Errorf("BuildTraitContext() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

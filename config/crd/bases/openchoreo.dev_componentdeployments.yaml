@@ -53,15 +53,6 @@ spec:
           spec:
             description: ComponentDeploymentSpec defines the desired state of ComponentDeployment.
             properties:
-              addonOverrides:
-                additionalProperties:
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
-                description: |-
-                  AddonOverrides provides environment-specific overrides for addon configurations
-                  Keyed by instanceName (which must be unique across all addons in the component)
-                  Structure: map[instanceName]overrideValues
-                type: object
               configurationOverrides:
                 description: |-
                   ConfigurationOverrides provides environment-specific overrides for workload configurations
@@ -194,6 +185,15 @@ spec:
                 required:
                 - componentName
                 - projectName
+                type: object
+              traitOverrides:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: |-
+                  TraitOverrides provides environment-specific overrides for trait configurations
+                  Keyed by instanceName (which must be unique across all traits in the component)
+                  Structure: map[instanceName]overrideValues
                 type: object
             required:
             - environment

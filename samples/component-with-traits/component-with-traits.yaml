@@ -74,7 +74,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
   name: persistent-volume
   namespace: default
@@ -94,7 +94,7 @@ spec:
         apiVersion: v1
         kind: PersistentVolumeClaim
         metadata:
-          name: ${metadata.name}-${addon.instanceName}
+          name: ${metadata.name}-${trait.instanceName}
           namespace: ${metadata.namespace}
         spec:
           accessModes:
@@ -115,7 +115,7 @@ spec:
           value:
             name: ${parameters.volumeName}
             persistentVolumeClaim:
-              claimName: ${metadata.name}-${addon.instanceName}
+              claimName: ${metadata.name}-${trait.instanceName}
 
     - target:
         group: apps
@@ -130,7 +130,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
   name: emptydir-volume
 spec:
@@ -211,7 +211,7 @@ spec:
         cpu: "1000m"
         memory: "1Gi"
 
-  addons:
+  traits:
     - name: persistent-volume
       instanceName: data-storage
       config:
@@ -276,7 +276,7 @@ spec:
         cpu: "200m"
         memory: "256Mi"
 
-  addonOverrides:
+  traitOverrides:
     data-storage:
       size: "5Gi"
       storageClass: "standard"

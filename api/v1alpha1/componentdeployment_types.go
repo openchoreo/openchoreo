@@ -36,11 +36,11 @@ type ComponentDeploymentSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Overrides *runtime.RawExtension `json:"overrides,omitempty"`
 
-	// AddonOverrides provides environment-specific overrides for addon configurations
-	// Keyed by instanceName (which must be unique across all addons in the component)
+	// TraitOverrides provides environment-specific overrides for trait configurations
+	// Keyed by instanceName (which must be unique across all traits in the component)
 	// Structure: map[instanceName]overrideValues
 	// +optional
-	AddonOverrides map[string]runtime.RawExtension `json:"addonOverrides,omitempty"`
+	TraitOverrides map[string]runtime.RawExtension `json:"traitOverrides,omitempty"`
 
 	// ConfigurationOverrides provides environment-specific overrides for workload configurations
 	// These values override or add to the configurations defined in the workload.yaml

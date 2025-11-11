@@ -10,7 +10,7 @@ import (
 )
 
 // Pipeline orchestrates the complete rendering workflow for Component resources.
-// It combines Component, ComponentType, Addons, Workload and ComponentDeployment
+// It combines Component, ComponentType, Traits, Workload and ComponentDeployment
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine
@@ -27,9 +27,9 @@ type RenderInput struct {
 	// Required.
 	Component *v1alpha1.Component
 
-	// Addons is the list of addon definitions used by the component.
-	// Optional - if nil or empty, no addons are processed.
-	Addons []v1alpha1.Addon
+	// Traits is the list of trait definitions used by the component.
+	// Optional - if nil or empty, no traits are processed.
+	Traits []v1alpha1.Trait
 
 	// Workload contains the workload spec with build information.
 	// Required.
@@ -74,11 +74,11 @@ type RenderMetadata struct {
 	// BaseResourceCount is the number of resources from the ComponentType.
 	BaseResourceCount int
 
-	// AddonCount is the number of addons processed.
-	AddonCount int
+	// TraitCount is the number of traits processed.
+	TraitCount int
 
-	// AddonResourceCount is the number of resources created by addons.
-	AddonResourceCount int
+	// TraitResourceCount is the number of resources created by traits.
+	TraitResourceCount int
 
 	// Warnings contains non-fatal issues encountered during rendering.
 	Warnings []string

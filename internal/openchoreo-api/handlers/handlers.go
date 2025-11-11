@@ -73,9 +73,9 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows", h.ListWorkflows)
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
 
-	// Addon endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/addons", h.ListAddons)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/addons/{addonName}/schema", h.GetAddonSchema)
+	// Trait endpoints
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
+	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/traits/{traitName}/schema", h.GetTraitSchema)
 
 	// Project endpoints
 	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)

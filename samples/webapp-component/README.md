@@ -1,12 +1,12 @@
 # Web Application Component Sample
 
-This sample demonstrates how to deploy a web application component in OpenChoreo using the component type definitions.
+This sample demonstrates how to deploy a web application component in OpenChoreo using the component types.
 
 ## Overview
 
 This sample includes the following OpenChoreo Custom Resources:
 
-### ComponentTypeDefinition (`web-service`)
+### ComponentType (`web-service`)
 
 Defines a reusable component type template for web services. It:
 
@@ -47,7 +47,7 @@ Represents a deployment instance of the component to a specific environment:
 
 ## How It Works
 
-1. **ComponentTypeDefinition** acts as a template/blueprint
+1. **ComponentType** acts as a template/blueprint
 2. **Component** uses that template and provides base configuration
 3. **Workload** specifies what container(s) to run
 4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides

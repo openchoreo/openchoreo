@@ -259,8 +259,8 @@ type ComponentTypeResponse struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-// AddonResponse represents an Addon in API responses
-type AddonResponse struct {
+// TraitResponse represents an Trait in API responses
+type TraitResponse struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"displayName,omitempty"`
 	Description string    `json:"description,omitempty"`

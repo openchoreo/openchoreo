@@ -70,18 +70,18 @@ type ComponentContextInput struct {
 	Metadata MetadataContext
 }
 
-// AddonContextInput contains all inputs needed to build an addon rendering context.
-type AddonContextInput struct {
-	// Addon is the addon definition.
-	Addon *v1alpha1.Addon
+// TraitContextInput contains all inputs needed to build a trait rendering context.
+type TraitContextInput struct {
+	// Trait is the trait definition.
+	Trait *v1alpha1.Trait
 
 	// Instance contains the specific instance configuration.
-	Instance v1alpha1.ComponentAddon
+	Instance v1alpha1.ComponentTrait
 
-	// Component is the component this addon is being applied to.
+	// Component is the component this trait is being applied to.
 	Component *v1alpha1.Component
 
-	// ComponentDeployment contains environment-specific addon overrides.
+	// ComponentDeployment contains environment-specific trait overrides.
 	// Can be nil if no overrides are needed.
 	ComponentDeployment *v1alpha1.ComponentDeployment
 
@@ -92,9 +92,9 @@ type AddonContextInput struct {
 	// Required - controller must provide this.
 	Metadata MetadataContext
 
-	// SchemaCache is an optional cache for structural schemas, keyed by addon name.
-	// Used to avoid rebuilding schemas for the same addon used multiple times.
-	// BuildAddonContext will check this cache before building and populate it after.
+	// SchemaCache is an optional cache for structural schemas, keyed by trait name.
+	// Used to avoid rebuilding schemas for the same trait used multiple times.
+	// BuildTraitContext will check this cache before building and populate it after.
 	SchemaCache map[string]*apiextschema.Structural
 }
 

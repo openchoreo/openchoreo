@@ -388,7 +388,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:       &snapshot.Spec.ComponentType,
 		Component:           &snapshot.Spec.Component,
-		Addons:              snapshot.Spec.Addons,
+		Traits:              snapshot.Spec.Traits,
 		Workload:            &snapshot.Spec.Workload,
 		Environment:         environment,
 		ComponentDeployment: componentDeployment,

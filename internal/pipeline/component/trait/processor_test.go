@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package addon
+package trait
 
 import (
 	"testing"
@@ -13,14 +13,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-func TestApplyAddonCreates(t *testing.T) {
+func TestApplyTraitCreates(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
 	tests := []struct {
 		name              string
 		baseResourcesYAML string
-		addonYAML         string
+		traitYAML         string
 		context           map[string]any
 		wantResourcesYAML string
 		wantErr           bool
@@ -28,23 +28,23 @@ func TestApplyAddonCreates(t *testing.T) {
 		{
 			name:              "single create template",
 			baseResourcesYAML: `[]`,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: db-addon
+  name: db-trait
 spec:
   creates:
     - template:
         apiVersion: v1
         kind: Secret
         metadata:
-          name: ${addon.instanceName}-secret
+          name: ${trait.instanceName}-secret
         data:
           key: ${parameters.secretValue}
 `,
 			context: map[string]any{
-				"addon": map[string]any{
+				"trait": map[string]any{
 					"instanceName": "db-1",
 				},
 				"parameters": map[string]any{
@@ -69,11 +69,11 @@ spec:
   metadata:
     name: app
 `,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: config-addon
+  name: config-trait
 spec:
   creates:
     - template:
@@ -107,11 +107,11 @@ spec:
 		{
 			name:              "create with omit()",
 			baseResourcesYAML: `[]`,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: config-addon
+  name: config-trait
 spec:
   creates:
     - template:
@@ -140,10 +140,10 @@ spec:
 				t.Fatalf("Failed to parse base resources YAML: %v", err)
 			}
 
-			// Parse addon
-			var addon v1alpha1.Addon
-			if err := yaml.Unmarshal([]byte(tt.addonYAML), &addon); err != nil {
-				t.Fatalf("Failed to parse addon YAML: %v", err)
+			// Parse trait
+			var trait v1alpha1.Trait
+			if err := yaml.Unmarshal([]byte(tt.traitYAML), &trait); err != nil {
+				t.Fatalf("Failed to parse trait YAML: %v", err)
 			}
 
 			// Parse expected resources
@@ -152,33 +152,33 @@ spec:
 				t.Fatalf("Failed to parse expected resources YAML: %v", err)
 			}
 
-			got, err := processor.ApplyAddonCreates(baseResources, &addon, tt.context)
+			got, err := processor.ApplyTraitCreates(baseResources, &trait, tt.context)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ApplyAddonCreates() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ApplyTraitCreates() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				if len(got) != len(wantResources) {
-					t.Errorf("ApplyAddonCreates() got %d resources, want %d", len(got), len(wantResources))
+					t.Errorf("ApplyTraitCreates() got %d resources, want %d", len(got), len(wantResources))
 				}
 
 				// Compare resources
 				if diff := cmp.Diff(wantResources, got); diff != "" {
-					t.Errorf("ApplyAddonCreates() mismatch (-want +got):\n%s", diff)
+					t.Errorf("ApplyTraitCreates() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
 	}
 }
 
-func TestApplyAddonPatches(t *testing.T) {
+func TestApplyTraitPatches(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
 	tests := []struct {
 		name              string
 		resourcesYAML     string
-		addonYAML         string
+		traitYAML         string
 		context           map[string]any
 		wantResourcesYAML string
 		wantErr           bool
@@ -197,11 +197,11 @@ func TestApplyAddonPatches(t *testing.T) {
           - name: app
             image: myapp:latest
 `,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: label-addon
+  name: label-trait
 spec:
   patches:
     - target:
@@ -212,7 +212,7 @@ spec:
         - op: add
           path: /metadata/labels
           value:
-            managed-by: addon
+            managed-by: trait
 `,
 			context: map[string]any{},
 			wantResourcesYAML: `
@@ -221,7 +221,7 @@ spec:
   metadata:
     name: app
     labels:
-      managed-by: addon
+      managed-by: trait
   spec:
     template:
       spec:
@@ -241,11 +241,11 @@ spec:
   data:
     key: oldvalue
 `,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: config-addon
+  name: config-trait
 spec:
   patches:
     - target:
@@ -286,11 +286,11 @@ spec:
             image: myapp:latest
             volumeMounts: []
 `,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: volume-addon
+  name: volume-trait
 spec:
   patches:
     - forEach: ${parameters.volumes}
@@ -343,10 +343,10 @@ spec:
 				t.Fatalf("Failed to parse resources YAML: %v", err)
 			}
 
-			// Parse addon
-			var addon v1alpha1.Addon
-			if err := yaml.Unmarshal([]byte(tt.addonYAML), &addon); err != nil {
-				t.Fatalf("Failed to parse addon YAML: %v", err)
+			// Parse trait
+			var trait v1alpha1.Trait
+			if err := yaml.Unmarshal([]byte(tt.traitYAML), &trait); err != nil {
+				t.Fatalf("Failed to parse trait YAML: %v", err)
 			}
 
 			// Parse expected resources
@@ -361,46 +361,46 @@ spec:
 				resourcesCopy[i] = deepCopy(r)
 			}
 
-			err := processor.ApplyAddonPatches(resourcesCopy, &addon, tt.context)
+			err := processor.ApplyTraitPatches(resourcesCopy, &trait, tt.context)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ApplyAddonPatches() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ApplyTraitPatches() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				// Compare resources
 				if diff := cmp.Diff(wantResources, resourcesCopy); diff != "" {
-					t.Errorf("ApplyAddonPatches() mismatch (-want +got):\n%s", diff)
+					t.Errorf("ApplyTraitPatches() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
 	}
 }
 
-func TestProcessAddons(t *testing.T) {
+func TestProcessTraits(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
 	tests := []struct {
 		name              string
 		resourcesYAML     string
-		addonYAML         string
+		traitYAML         string
 		context           map[string]any
 		wantResourcesYAML string
 		wantErr           bool
 	}{
 		{
-			name: "addon with creates and patches",
+			name: "trait with creates and patches",
 			resourcesYAML: `
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
     name: app
 `,
-			addonYAML: `
+			traitYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: Addon
+kind: Trait
 metadata:
-  name: full-addon
+  name: full-trait
 spec:
   creates:
     - template:
@@ -417,7 +417,7 @@ spec:
         - op: add
           path: /metadata/labels
           value:
-            addon: enabled
+            trait: enabled
 `,
 			context: map[string]any{},
 			wantResourcesYAML: `
@@ -426,7 +426,7 @@ spec:
   metadata:
     name: app
     labels:
-      addon: enabled
+      trait: enabled
 - apiVersion: v1
   kind: Secret
   metadata:
@@ -444,10 +444,10 @@ spec:
 				t.Fatalf("Failed to parse resources YAML: %v", err)
 			}
 
-			// Parse addon
-			var addon v1alpha1.Addon
-			if err := yaml.Unmarshal([]byte(tt.addonYAML), &addon); err != nil {
-				t.Fatalf("Failed to parse addon YAML: %v", err)
+			// Parse trait
+			var trait v1alpha1.Trait
+			if err := yaml.Unmarshal([]byte(tt.traitYAML), &trait); err != nil {
+				t.Fatalf("Failed to parse trait YAML: %v", err)
 			}
 
 			// Parse expected resources
@@ -456,19 +456,19 @@ spec:
 				t.Fatalf("Failed to parse expected resources YAML: %v", err)
 			}
 
-			got, err := processor.ProcessAddons(resources, &addon, tt.context)
+			got, err := processor.ProcessTraits(resources, &trait, tt.context)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcessAddons() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcessTraits() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				if len(got) != len(wantResources) {
-					t.Errorf("ProcessAddons() got %d resources, want %d", len(got), len(wantResources))
+					t.Errorf("ProcessTraits() got %d resources, want %d", len(got), len(wantResources))
 				}
 
 				// Compare resources
 				if diff := cmp.Diff(wantResources, got); diff != "" {
-					t.Errorf("ProcessAddons() mismatch (-want +got):\n%s", diff)
+					t.Errorf("ProcessTraits() mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})

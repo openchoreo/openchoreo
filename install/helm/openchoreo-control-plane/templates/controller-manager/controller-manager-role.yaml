@@ -105,7 +105,6 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
-    - addons
     - apibindings
     - apiclasses
     - apis
@@ -133,6 +132,7 @@ rules:
     - servicebindings
     - serviceclasses
     - services
+    - traits
     - webapplicationbindings
     - webapplicationclasses
     - webapplications
@@ -150,7 +150,6 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
-    - addons/finalizers
     - apibindings/finalizers
     - apiclasses/finalizers
     - apis/finalizers
@@ -178,6 +177,7 @@ rules:
     - servicebindings/finalizers
     - serviceclasses/finalizers
     - services/finalizers
+    - traits/finalizers
     - webapplicationbindings/finalizers
     - webapplicationclasses/finalizers
     - webapplications/finalizers
@@ -189,7 +189,6 @@ rules:
 - apiGroups:
     - openchoreo.dev
   resources:
-    - addons/status
     - apibindings/status
     - apiclasses/status
     - apis/status
@@ -217,6 +216,7 @@ rules:
     - servicebindings/status
     - serviceclasses/status
     - services/status
+    - traits/status
     - webapplicationbindings/status
     - webapplicationclasses/status
     - webapplications/status

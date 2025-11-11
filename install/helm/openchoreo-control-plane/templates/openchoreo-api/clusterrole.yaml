@@ -10,7 +10,6 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - addons
   - apibindings
   - apiclasses
   - apis
@@ -19,7 +18,7 @@ rules:
   - componentdeployments
   - componentenvsnapshots
   - components
-  - componenttypedefinitions
+  - componenttypes
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -37,6 +36,7 @@ rules:
   - servicebindings
   - serviceclasses
   - services
+  - traits
   - webapplicationbindings
   - webapplicationclasses
   - webapplications
@@ -52,7 +52,6 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - addons/status
   - apibindings/status
   - apiclasses/status
   - apis/status
@@ -61,7 +60,7 @@ rules:
   - componentdeployments/status
   - componentenvsnapshots/status
   - components/status
-  - componenttypedefinitions/status
+  - componenttypes/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
@@ -79,6 +78,7 @@ rules:
   - servicebindings/status
   - serviceclasses/status
   - services/status
+  - traits/status
   - webapplicationbindings/status
   - webapplicationclasses/status
   - webapplications/status

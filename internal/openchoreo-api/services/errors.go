@@ -13,8 +13,8 @@ var (
 	ErrComponentNotFound          = errors.New("component not found")
 	ErrComponentTypeAlreadyExists = errors.New("component type already exists")
 	ErrComponentTypeNotFound      = errors.New("component type not found")
-	ErrAddonAlreadyExists         = errors.New("addon already exists")
-	ErrAddonNotFound              = errors.New("addon not found")
+	ErrTraitAlreadyExists         = errors.New("trait already exists")
+	ErrTraitNotFound              = errors.New("trait not found")
 	ErrOrganizationNotFound       = errors.New("organization not found")
 	ErrEnvironmentNotFound        = errors.New("environment not found")
 	ErrEnvironmentAlreadyExists   = errors.New("environment already exists")
@@ -34,8 +34,8 @@ const (
 	CodeComponentNotFound          = "COMPONENT_NOT_FOUND"
 	CodeComponentTypeExists        = "COMPONENT_TYPE_EXISTS"
 	CodeComponentTypeNotFound      = "COMPONENT_TYPE_NOT_FOUND"
-	CodeAddonExists                = "ADDON_EXISTS"
-	CodeAddonNotFound              = "ADDON_NOT_FOUND"
+	CodeTraitExists                = "TRAIT_EXISTS"
+	CodeTraitNotFound              = "TRAIT_NOT_FOUND"
 	CodeOrganizationNotFound       = "ORGANIZATION_NOT_FOUND"
 	CodeEnvironmentNotFound        = "ENVIRONMENT_NOT_FOUND"
 	CodeEnvironmentExists          = "ENVIRONMENT_EXISTS"

@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package addon
+package trait
 
 import (
 	"context"
@@ -14,15 +14,15 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// Reconciler reconciles an Addon object
+// Reconciler reconciles a Trait object
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=addons,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=addons/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=addons/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=traits,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=traits/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=traits/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -34,7 +34,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.Addon{}).
-		Named("addon").
+		For(&openchoreov1alpha1.Trait{}).
+		Named("trait").
 		Complete(r)
 }

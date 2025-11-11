@@ -107,7 +107,7 @@ func TestPipeline_Render(t *testing.T) {
 		dataplaneYAML    string
 	}{
 		{
-			name: "simple component without addons",
+			name: "simple component without traits",
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -295,7 +295,7 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with addon creates",
+			name: "component with trait creates",
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -307,7 +307,7 @@ spec:
     spec:
       parameters:
         replicas: 2
-      addons:
+      traits:
         - name: mysql
           instanceName: db-1
           config:
@@ -321,7 +321,7 @@ spec:
             kind: Deployment
             metadata:
               name: ${component.name}
-  addons:
+  traits:
     - metadata:
         name: mysql
       spec:
@@ -330,7 +330,7 @@ spec:
               apiVersion: v1
               kind: Secret
               metadata:
-                name: ${addon.instanceName}-secret
+                name: ${trait.instanceName}-secret
               data:
                 database: ${parameters.database}
   workload: {}
@@ -358,7 +358,7 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with addon patches",
+			name: "component with trait patches",
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -369,7 +369,7 @@ spec:
       name: test-app
     spec:
       parameters: {}
-      addons:
+      traits:
         - name: monitoring
           instanceName: mon-1
           config: {}
@@ -388,7 +388,7 @@ spec:
                   containers:
                     - name: app
                       image: myapp:latest
-  addons:
+  traits:
     - metadata:
         name: monitoring
       spec:
@@ -980,7 +980,7 @@ spec:
 			input := &RenderInput{
 				ComponentType:       &snapshot.Spec.ComponentType,
 				Component:           &snapshot.Spec.Component,
-				Addons:              snapshot.Spec.Addons,
+				Traits:              snapshot.Spec.Traits,
 				Workload:            &snapshot.Spec.Workload,
 				Environment:         environment,
 				DataPlane:           dataplane,
@@ -1249,7 +1249,7 @@ spec:
 			input := &RenderInput{
 				ComponentType: &snapshot.Spec.ComponentType,
 				Component:     &snapshot.Spec.Component,
-				Addons:        snapshot.Spec.Addons,
+				Traits:        snapshot.Spec.Traits,
 				Workload:      &snapshot.Spec.Workload,
 				Environment:   environment,
 				DataPlane:     dataplane,

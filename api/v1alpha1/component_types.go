@@ -57,10 +57,10 @@ type ComponentSpec struct {
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// Addons to compose into this component
-	// Each addon can be instantiated multiple times with different instanceNames
+	// Traits to compose into this component
+	// Each trait can be instantiated multiple times with different instanceNames
 	// +optional
-	Addons []ComponentAddon `json:"addons,omitempty"`
+	Traits []ComponentTrait `json:"traits,omitempty"`
 
 	// Workflow defines the workflow configuration for building the component
 	// This references a Workflow CR and provides developer-configured schema values
@@ -68,22 +68,22 @@ type ComponentSpec struct {
 	Workflow WorkflowConfig `json:"workflow,omitempty"`
 }
 
-// ComponentAddon represents an addon instance attached to a component
-type ComponentAddon struct {
-	// Name is the name of the Addon resource to use
+// ComponentTrait represents an trait instance attached to a component
+type ComponentTrait struct {
+	// Name is the name of the Trait resource to use
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// InstanceName uniquely identifies this addon instance within the component
-	// Allows the same addon to be used multiple times with different configurations
-	// Must be unique across all addons in the component
+	// InstanceName uniquely identifies this trait instance within the component
+	// Allows the same trait to be used multiple times with different configurations
+	// Must be unique across all traits in the component
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	InstanceName string `json:"instanceName"`
 
-	// Config contains the addon parameter values
-	// The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
+	// Config contains the trait parameter values
+	// The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless

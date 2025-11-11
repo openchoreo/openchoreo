@@ -6,7 +6,7 @@ This sample demonstrates how to deploy an HTTP service component in OpenChoreo w
 
 This sample includes the following OpenChoreo Custom Resources:
 
-### ComponentTypeDefinition (`http-service`)
+### ComponentType (`http-service`)
 
 Defines a reusable component type template for HTTP services. It:
 
@@ -49,7 +49,7 @@ Represents a deployment instance of the component to a specific environment:
 
 ## How It Works
 
-1. **ComponentTypeDefinition** acts as a template/blueprint with path-based routing rules
+1. **ComponentType** acts as a template/blueprint with path-based routing rules
 2. **Component** uses that template and provides base configuration
 3. **Workload** specifies what container(s) to run (echo server for testing)
 4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides

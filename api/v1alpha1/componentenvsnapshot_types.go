@@ -19,7 +19,7 @@ type ComponentEnvSnapshotSpec struct {
 	Environment string `json:"environment"`
 
 	// ComponentType is a full embedded copy of the ComponentType
-	// This ensures the snapshot is immutable and doesn't change if the CT is updated
+	// This ensures the snapshot is immutable and doesn't change if the ComponentType is updated
 	// +kubebuilder:validation:Required
 	ComponentType ComponentType `json:"componentType"`
 
@@ -28,10 +28,10 @@ type ComponentEnvSnapshotSpec struct {
 	// +kubebuilder:validation:Required
 	Component Component `json:"component"`
 
-	// Addons is an array of full embedded copies of all Addons used by the component
-	// This preserves the exact addon definitions at the time of snapshot
+	// Traits is an array of full embedded copies of all Traits used by the component
+	// This preserves the exact trait definitions at the time of snapshot
 	// +optional
-	Addons []Addon `json:"addons,omitempty"`
+	Traits []Trait `json:"traits,omitempty"`
 
 	// Workload is a full embedded copy of the Workload
 	// This preserves the workload spec with the built image

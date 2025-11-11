@@ -13,28 +13,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
-// BuildAddonContext builds a CEL evaluation context for rendering addon resources.
+// BuildTraitContext builds a CEL evaluation context for rendering trait resources.
 //
 // The context includes:
-//   - parameters: Addon instance parameters with environment overrides and schema defaults applied
-//   - addon: Addon metadata (name, instanceName)
+//   - parameters: Trait instance parameters with environment overrides and schema defaults applied
+//   - trait: Trait metadata (name, instanceName)
 //   - component: Component reference (name, etc.)
 //   - environment: Environment name
 //   - metadata: Additional metadata
 //
 // Parameter precedence (highest to lowest):
-//  1. ComponentDeployment.Spec.AddonOverrides[instanceName] (environment-specific)
-//  2. AddonInstance.Parameters (instance parameters)
-//  3. Schema defaults from Addon
+//  1. ComponentDeployment.Spec.TraitOverrides[instanceName] (environment-specific)
+//  2. TraitInstance.Parameters (instance parameters)
+//  3. Schema defaults from Trait
 //
-// Note: AddonOverrides is keyed by instanceName (not addonName), as instanceNames
-// must be unique across all addons in a component.
-func BuildAddonContext(input *AddonContextInput) (map[string]any, error) {
+// Note: TraitOverrides is keyed by instanceName (not traitName), as instanceNames
+// must be unique across all traits in a component.
+func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
 	if input == nil {
-		return nil, fmt.Errorf("addon context input is nil")
+		return nil, fmt.Errorf("trait context input is nil")
 	}
-	if input.Addon == nil {
-		return nil, fmt.Errorf("addon is nil")
+	if input.Trait == nil {
+		return nil, fmt.Errorf("trait is nil")
 	}
 	if input.Component == nil {
 		return nil, fmt.Errorf("component is nil")
@@ -52,11 +52,11 @@ func BuildAddonContext(input *AddonContextInput) (map[string]any, error) {
 
 	// 1. Get or build structural schema for defaulting
 	var structural *apiextschema.Structural
-	addonName := input.Addon.Name
+	traitName := input.Trait.Name
 
 	// Check cache first
 	if input.SchemaCache != nil {
-		if cached, ok := input.SchemaCache[addonName]; ok {
+		if cached, ok := input.SchemaCache[traitName]; ok {
 			structural = cached
 		}
 	}
@@ -64,37 +64,37 @@ func BuildAddonContext(input *AddonContextInput) (map[string]any, error) {
 	// Build schema if not cached
 	if structural == nil {
 		schemaInput := &SchemaInput{
-			Types:              input.Addon.Spec.Schema.Types,
-			ParametersSchema:   input.Addon.Spec.Schema.Parameters,
-			EnvOverridesSchema: input.Addon.Spec.Schema.EnvOverrides,
+			Types:              input.Trait.Spec.Schema.Types,
+			ParametersSchema:   input.Trait.Spec.Schema.Parameters,
+			EnvOverridesSchema: input.Trait.Spec.Schema.EnvOverrides,
 		}
 		var err error
 		structural, err = BuildStructuralSchema(schemaInput)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build addon schema: %w", err)
+			return nil, fmt.Errorf("failed to build trait schema: %w", err)
 		}
 
 		// Store in cache for next time
 		if input.SchemaCache != nil {
-			input.SchemaCache[addonName] = structural
+			input.SchemaCache[traitName] = structural
 		}
 	}
 
-	// 2. Start with instance parameters (using Config field from ComponentAddon)
+	// 2. Start with instance parameters (using Config field from ComponentTrait)
 	parameters, err := extractParameters(input.Instance.Config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract addon instance parameters: %w", err)
+		return nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
 	}
 
 	// 3. Merge environment overrides if present
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.AddonOverrides != nil {
-		// AddonOverrides structure: map[instanceName]overrides (flattened)
+	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.TraitOverrides != nil {
+		// TraitOverrides structure: map[instanceName]overrides (flattened)
 		instanceName := input.Instance.InstanceName
 
-		if instanceOverride, ok := input.ComponentDeployment.Spec.AddonOverrides[instanceName]; ok {
+		if instanceOverride, ok := input.ComponentDeployment.Spec.TraitOverrides[instanceName]; ok {
 			envOverrides, err := extractParametersFromRawExtension(&instanceOverride)
 			if err != nil {
-				return nil, fmt.Errorf("failed to extract addon environment overrides: %w", err)
+				return nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)
 			}
 			parameters = deepMerge(parameters, envOverrides)
 		}
@@ -104,12 +104,12 @@ func BuildAddonContext(input *AddonContextInput) (map[string]any, error) {
 	parameters = schema.ApplyDefaults(parameters, structural)
 	ctx["parameters"] = parameters
 
-	// 5. Add addon metadata
-	addonMeta := map[string]any{
-		"name":         input.Addon.Name,
+	// 5. Add trait metadata
+	traitMeta := map[string]any{
+		"name":         input.Trait.Name,
 		"instanceName": input.Instance.InstanceName,
 	}
-	ctx["addon"] = addonMeta
+	ctx["trait"] = traitMeta
 
 	// 6. Add component reference
 	componentMeta := map[string]any{

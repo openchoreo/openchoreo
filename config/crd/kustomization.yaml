@@ -11,7 +11,7 @@ resources:
   - bases/openchoreo.dev_componenttypes.yaml
   - bases/openchoreo.dev_componentdeployments.yaml
   - bases/openchoreo.dev_componentenvsnapshots.yaml
-  - bases/openchoreo.dev_addons.yaml
+  - bases/openchoreo.dev_traits.yaml
   - bases/openchoreo.dev_deploymenttracks.yaml
   - bases/openchoreo.dev_deployableartifacts.yaml
   - bases/openchoreo.dev_deployments.yaml

@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	// +kubebuilder:scaffold:imports
 )
 
 // Reconciler reconciles a ComponentType object

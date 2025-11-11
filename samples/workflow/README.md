@@ -88,7 +88,7 @@ Demonstrates a React-specific build workflow with web application deployment con
 
 **What it shows:**
 - React build workflow definition with Node.js version configuration
-- Web application component type definition with Deployment and Service resources
+- Web application component type with Deployment and Service resources
 - Component configuration for React web apps
 - WorkflowRun execution instance for React builds
 

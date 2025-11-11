@@ -18,8 +18,8 @@ import (
 const (
 	// componentTypeIndex is the field index name for componentType reference
 	componentTypeIndex = "spec.componentType"
-	// addonsIndex is the field index name for addons used
-	addonsIndex = "spec.addons"
+	// traitsIndex is the field index name for traits used
+	traitsIndex = "spec.traits"
 	// workloadOwnerIndex is the field index name for workload owner references
 	workloadOwnerIndex = "spec.owner"
 )
@@ -36,16 +36,16 @@ func (r *Reconciler) setupComponentTypeRefIndex(ctx context.Context, mgr ctrl.Ma
 		})
 }
 
-// setupAddonsRefIndex sets up the field index for addon references
-func (r *Reconciler) setupAddonsRefIndex(ctx context.Context, mgr ctrl.Manager) error {
+// setupTraitsRefIndex sets up the field index for trait references
+func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
-		addonsIndex, func(obj client.Object) []string {
+		traitsIndex, func(obj client.Object) []string {
 			comp := obj.(*openchoreov1alpha1.Component)
-			addonNames := []string{}
-			for _, addon := range comp.Spec.Addons {
-				addonNames = append(addonNames, addon.Name)
+			traitNames := []string{}
+			for _, trait := range comp.Spec.Traits {
+				traitNames = append(traitNames, trait.Name)
 			}
-			return addonNames
+			return traitNames
 		})
 }
 
@@ -64,17 +64,17 @@ func (r *Reconciler) setupWorkloadOwnerIndex(ctx context.Context, mgr ctrl.Manag
 
 // listComponentsForComponentType returns reconcile requests for all Components using this ComponentType
 func (r *Reconciler) listComponentsForComponentType(ctx context.Context, obj client.Object) []reconcile.Request {
-	ctd := obj.(*openchoreov1alpha1.ComponentType)
+	ct := obj.(*openchoreov1alpha1.ComponentType)
 
 	// Find all components using this ComponentType
-	// ComponentType format: {workloadType}/{ctdName}
-	componentType := fmt.Sprintf("%s/%s", ctd.Spec.WorkloadType, ctd.Name)
+	// ComponentType format: {workloadType}/{ctName}
+	componentType := fmt.Sprintf("%s/%s", ct.Spec.WorkloadType, ct.Name)
 
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
 		client.MatchingFields{componentTypeIndex: componentType}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list components for ComponentType", "componentType", ctd.Name)
+		logger.Error(err, "Failed to list components for ComponentType", "componentType", ct.Name)
 		return nil
 	}
 
@@ -90,15 +90,15 @@ func (r *Reconciler) listComponentsForComponentType(ctx context.Context, obj cli
 	return requests
 }
 
-// listComponentsUsingAddon returns reconcile requests for all Components using this Addon
-func (r *Reconciler) listComponentsUsingAddon(ctx context.Context, obj client.Object) []reconcile.Request {
-	addon := obj.(*openchoreov1alpha1.Addon)
+// listComponentsUsingTrait returns reconcile requests for all Components using this Trait
+func (r *Reconciler) listComponentsUsingTrait(ctx context.Context, obj client.Object) []reconcile.Request {
+	trait := obj.(*openchoreov1alpha1.Trait)
 
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
-		client.MatchingFields{addonsIndex: addon.Name}); err != nil {
+		client.MatchingFields{traitsIndex: trait.Name}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list components for Addon", "addon", addon.Name)
+		logger.Error(err, "Failed to list components for Trait", "trait", trait.Name)
 		return nil
 	}
 

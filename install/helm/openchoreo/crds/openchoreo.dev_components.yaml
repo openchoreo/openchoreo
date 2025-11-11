@@ -41,55 +41,9 @@ spec:
           spec:
             description: ComponentSpec defines the desired state of Component.
             properties:
-              addons:
-                description: |-
-                  Addons to compose into this component
-                  Each addon can be instantiated multiple times with different instanceNames
-                items:
-                  description: ComponentAddon represents an addon instance attached
-                    to a component
-                  properties:
-                    config:
-                      description: |-
-                        Config contains the addon parameter values
-                        The schema for this config is defined in the Addon's schema.parameters and schema.envOverrides
-                      x-kubernetes-preserve-unknown-fields: true
-                    instanceName:
-                      description: |-
-                        InstanceName uniquely identifies this addon instance within the component
-                        Allows the same addon to be used multiple times with different configurations
-                        Must be unique across all addons in the component
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name is the name of the Addon resource to use
-                      minLength: 1
-                      type: string
-                  required:
-                  - instanceName
-                  - name
-                  type: object
-                type: array
-              build:
-                description: Build defines the build configuration for the component
-                properties:
-                  schema:
-                    description: |-
-                      Parameters contains developer-provided build parameters that conform to the schema
-                      defined in the referenced WorkflowDefinition
-                    x-kubernetes-preserve-unknown-fields: true
-                  workflowTemplate:
-                    description: |-
-                      WorkflowTemplate specifies the WorkflowDefinition to use for building this component
-                      This references a WorkflowDefinition resource that defines the build workflow template
-                      and schema for developer-provided parameters
-                    type: string
-                required:
-                - workflowTemplate
-                type: object
               componentType:
                 description: |-
-                  ComponentType specifies the component type in the format: {workloadType}/{componentTypenName}
+                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
                   Example: "deployment/web-app", "cronjob/scheduled-task"
                   This field is used with ComponentTypes (new model)
                 pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -111,11 +65,62 @@ spec:
                   Parameters from ComponentType (oneOf schema based on componentType)
                   This is the merged schema of parameters + envOverrides from the ComponentType
                 x-kubernetes-preserve-unknown-fields: true
+              traits:
+                description: |-
+                  Traits to compose into this component
+                  Each trait can be instantiated multiple times with different instanceNames
+                items:
+                  description: ComponentTrait represents an trait instance attached
+                    to a component
+                  properties:
+                    config:
+                      description: |-
+                        Config contains the trait parameter values
+                        The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
+                      x-kubernetes-preserve-unknown-fields: true
+                    instanceName:
+                      description: |-
+                        InstanceName uniquely identifies this trait instance within the component
+                        Allows the same trait to be used multiple times with different configurations
+                        Must be unique across all traits in the component
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name is the name of the Trait resource to use
+                      minLength: 1
+                      type: string
+                  required:
+                  - instanceName
+                  - name
+                  type: object
+                type: array
               type:
                 description: |-
                   Type specifies the component type (e.g., Service, WebApplication, etc.)
                   LEGACY FIELD: Use componentType instead for new components with ComponentTypes
                 type: string
+              workflow:
+                description: |-
+                  Workflow defines the workflow configuration for building the component
+                  This references a Workflow CR and provides developer-configured schema values
+                properties:
+                  name:
+                    description: |-
+                      Name references the Workflow CR to use for this execution.
+                      The Workflow CR contains the schema definition and resource template.
+                    minLength: 1
+                    type: string
+                  schema:
+                    description: |-
+                      Schema contains the developer-provided values that conform to the schema
+                      defined in the referenced Workflow CR.
+
+                      These values are merged with context variables when rendering the final workflow resource.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - name
+                type: object
             required:
             - owner
             type: object

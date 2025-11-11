@@ -29,10 +29,10 @@ var _ = Describe("ComponentType Controller", func() {
 
 		It("should successfully reconcile the resource", func() {
 			By("Creating the ComponentType resource")
-			ctd := &openchoreov1alpha1.ComponentType{}
-			err := k8sClient.Get(ctx, ctNamespacedName, ctd)
+			ct := &openchoreov1alpha1.ComponentType{}
+			err := k8sClient.Get(ctx, ctNamespacedName, ct)
 			if err != nil && errors.IsNotFound(err) {
-				ctd = &openchoreov1alpha1.ComponentType{
+				ct = &openchoreov1alpha1.ComponentType{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      ctName,
 						Namespace: ctNamespace,
@@ -49,26 +49,26 @@ var _ = Describe("ComponentType Controller", func() {
 						},
 					},
 				}
-				Expect(k8sClient.Create(ctx, ctd)).To(Succeed())
+				Expect(k8sClient.Create(ctx, ct)).To(Succeed())
 			}
 
 			By("Reconciling the ComponentType resource")
-			ctdReconciler := &Reconciler{
+			ctReconciler := &Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
-			_, err = ctdReconciler.Reconcile(ctx, reconcile.Request{
+			_, err = ctReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: ctNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Checking the ComponentType resource exists")
 			Eventually(func() error {
-				return k8sClient.Get(ctx, ctNamespacedName, ctd)
+				return k8sClient.Get(ctx, ctNamespacedName, ct)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 
 			By("Cleaning up the ComponentType resource")
-			Expect(k8sClient.Delete(ctx, ctd)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, ct)).To(Succeed())
 		})
 	})
 })

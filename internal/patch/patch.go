@@ -27,7 +27,7 @@ var filterPattern = regexp.MustCompile(`\[\?\(.*?\)\]`)
 //   - CEL rendering (operations should be pre-rendered)
 //   - Where clause filtering
 //
-// Those concerns are handled by higher-level orchestration code (e.g., addon processor).
+// Those concerns are handled by higher-level orchestration code (e.g., trait processor).
 //
 // Supported operations:
 //   - add, replace, remove: standard RFC 6902 JSON Patch operations

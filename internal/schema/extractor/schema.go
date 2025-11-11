@@ -44,7 +44,7 @@ func DefaultOptions() Options {
 
 // ExtractSchema converts a field map using shorthand schema syntax into OpenAPI v3 JSON Schema.
 //
-// This is the primary API for converting ComponentType/Addon schemas from the
+// This is the primary API for converting ComponentType/Trait schemas from the
 // compact shorthand format into full JSON Schema that Kubernetes can validate against.
 //
 // The shorthand syntax allows concise schema definitions:

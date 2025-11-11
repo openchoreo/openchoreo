@@ -1,4 +1,4 @@
-# Component with Addons Example
+# Component with Traits Example
 
 This example demonstrates the complete end-to-end workflow of the OpenChoreo component rendering system.
 
@@ -6,14 +6,14 @@ This example demonstrates the complete end-to-end workflow of the OpenChoreo com
 
 This example shows:
 
-- Component type definitions with templated resources
-- Addon composition with creates and patches
+- Component Types with templated resources
+- Trait composition with creates and patches
 - Environment-specific overrides
 - Automatic name/namespace generation
 
 ## Components
 
-The example includes a `component-with-addons.yaml` file containing all resources for easy deployment.
+The example includes a `component-with-traits.yaml` file containing all resources for easy deployment.
 
 ### ComponentType
 
@@ -29,9 +29,9 @@ Key features:
 - Uses `${workload.containers["app"].image}` for the container image
 - Supports environment-specific resource overrides
 
-### Addon
+### Trait
 
-Defines a `persistent-volume` addon that:
+Defines a `persistent-volume` trait that:
 
 - **Creates**: A PersistentVolumeClaim
 - **Patches**: Adds a volume and volumeMount to the Deployment
@@ -40,7 +40,7 @@ Key features:
 
 - Parameterized volume name, mount path, and container name
 - Environment-specific size and storage class overrides
-- Uses `${metadata.name}-${addon.instanceName}` for PVC naming
+- Uses `${metadata.name}-${trait.instanceName}` for PVC naming
 
 ### Component
 
@@ -48,7 +48,7 @@ Defines a `demo-app` component that:
 
 - Uses the `web-service` component type
 - Sets parameters for replicas, resources, and port
-- Attaches the `persistent-volume` addon with instance name `data-storage`
+- Attaches the `persistent-volume` trait with instance name `data-storage`
 
 ### Workload
 
@@ -61,8 +61,8 @@ Represents the build output with:
 Defines deployment settings for the `development` environment:
 
 - Reduces resource requests/limits for cost savings
-- Changes PVC size from 20Gi → 5Gi (via addon overrides)
-- Changes storage class from "fast" → "standard" (via addon overrides)
+- Changes PVC size from 20Gi → 5Gi (via trait overrides)
+- Changes storage class from "fast" → "standard" (via trait overrides)
 
 ## Expected Output
 
@@ -93,7 +93,7 @@ make run
 ### Step 1: Apply resources
 
 ```bash
-kubectl apply -f samples/component-with-addons/component-with-addons.yaml
+kubectl apply -f samples/component-with-traits/component-with-traits.yaml
 ```
 
 ### Step 2: Verify the Release is created
@@ -154,10 +154,10 @@ spec:
             limits:
               cpu: 200m # Overridden by ComponentDeployment
               memory: 256Mi # Overridden by ComponentDeployment
-          volumeMounts: # Added by addon
+          volumeMounts: # Added by trait
             - name: app-data
               mountPath: /var/data
-      volumes: # Added by addon
+      volumes: # Added by trait
         - name: app-data
           persistentVolumeClaim:
             claimName: demo-app-development-<hash>-data-storage
@@ -187,7 +187,7 @@ spec:
       targetPort: 8080
 ```
 
-### 3. PersistentVolumeClaim (created by addon)
+### 3. PersistentVolumeClaim (created by trait)
 
 ```yaml
 apiVersion: v1
@@ -209,7 +209,7 @@ spec:
 
 ## Key Features Demonstrated
 
-### 1. Component Type Definitions
+### 1. Component Types
 
 - Templated resource definitions with parameters
 - Reusable component types across multiple components
@@ -217,14 +217,14 @@ spec:
 ### 2. Environment Overrides
 
 - Component-level overrides (resources)
-- Addon-level overrides (size, storageClass)
+- Trait-level overrides (size, storageClass)
 - Environment-specific configuration
 
-### 3. Addon Composition
+### 3. Trait Composition
 
 - Creates new resources (PVC)
 - Patches existing resources (Deployment volumes)
-- Instance-specific addon configuration
+- Instance-specific trait configuration
 
 ### 4. Standard Labels
 
@@ -235,7 +235,7 @@ spec:
 
 ```bash
 # Delete all resources
-kubectl delete -f samples/component-with-addons/component-with-addons.yaml
+kubectl delete -f samples/component-with-traits/component-with-traits.yaml
 ```
 
 ## Troubleshooting

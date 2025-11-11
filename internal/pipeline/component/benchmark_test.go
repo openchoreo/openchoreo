@@ -38,7 +38,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 
 	var (
 		ct          *v1alpha1.ComponentType
-		addons      []v1alpha1.Addon
+		traits      []v1alpha1.Trait
 		component   *v1alpha1.Component
 		workload    *v1alpha1.Workload
 		deployment  *v1alpha1.ComponentDeployment
@@ -67,12 +67,12 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 				tb.Fatalf("Failed to parse ComponentType: %v", err)
 			}
 
-		case "Addon":
-			var addon v1alpha1.Addon
-			if err := yaml.Unmarshal([]byte(doc), &addon); err != nil {
-				tb.Fatalf("Failed to parse Addon: %v", err)
+		case "Trait":
+			var trait v1alpha1.Trait
+			if err := yaml.Unmarshal([]byte(doc), &trait); err != nil {
+				tb.Fatalf("Failed to parse Trait: %v", err)
 			}
-			addons = append(addons, addon)
+			traits = append(traits, trait)
 
 		case "Component":
 			component = &v1alpha1.Component{}
@@ -134,7 +134,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 			Component:     *component,
 			ComponentType: *ct,
 			Workload:      *workload,
-			Addons:        addons,
+			Traits:        traits,
 		},
 	}
 
@@ -142,7 +142,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	return &RenderInput{
 		ComponentType:       &snapshot.Spec.ComponentType,
 		Component:           &snapshot.Spec.Component,
-		Addons:              snapshot.Spec.Addons,
+		Traits:              snapshot.Spec.Traits,
 		Workload:            &snapshot.Spec.Workload,
 		Environment:         environment,
 		DataPlane:           dataplane,
@@ -164,11 +164,11 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 }
 
 // BenchmarkPipeline_RenderWithRealSample benchmarks the full pipeline using the
-// realistic sample from samples/component-with-addons/component-with-addons.yaml
+// realistic sample from samples/component-with-traits/component-with-traits.yaml
 //
 // This benchmark measures:
 // - Template engine cache effectiveness (CEL environment caching)
-// - Full pipeline performance with addons, patches, and creates
+// - Full pipeline performance with traits, patches, and creates
 // - Memory allocations in the hot path
 //
 // Run with:
@@ -177,7 +177,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 //	go test -bench=BenchmarkPipeline_RenderWithRealSample -benchmem -cpuprofile=cpu.prof
 func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 	// Load sample and build render input
-	samplePath := "./testdata/component-with-addons.yaml"
+	samplePath := "./testdata/component-with-traits.yaml"
 	input := buildRenderInputFromSample(b, samplePath)
 
 	// To test with no caching:
@@ -200,7 +200,7 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 		b.Fatal("Expected resources to be rendered, got 0")
 	}
 
-	// Expected: 2 base resources (Deployment, Service) + 1 addon create (PVC) = 3 resources
+	// Expected: 2 base resources (Deployment, Service) + 1 trait create (PVC) = 3 resources
 	expectedResources := 3
 	if len(output.Resources) != expectedResources {
 		b.Logf("Resources rendered: %d (expected %d)", len(output.Resources), expectedResources)
@@ -230,7 +230,7 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 //	go test -bench="BenchmarkPipeline_RenderWithRealSample" -benchmem
 func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 	// Load sample and build render input
-	samplePath := "./testdata/component-with-addons.yaml"
+	samplePath := "./testdata/component-with-traits.yaml"
 	input := buildRenderInputFromSample(b, samplePath)
 
 	// Verify it works before benchmarking
@@ -257,7 +257,7 @@ func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 	}
 }
 
-// BenchmarkPipeline_RenderSimple benchmarks a minimal pipeline without addons
+// BenchmarkPipeline_RenderSimple benchmarks a minimal pipeline without traits
 // to establish a baseline for comparison.
 func BenchmarkPipeline_RenderSimple(b *testing.B) {
 	snapshotYAML := `
@@ -370,7 +370,7 @@ spec:
 	input := &RenderInput{
 		ComponentType: &snapshot.Spec.ComponentType,
 		Component:     &snapshot.Spec.Component,
-		Addons:        snapshot.Spec.Addons,
+		Traits:        snapshot.Spec.Traits,
 		Workload:      &snapshot.Spec.Workload,
 		Environment:   &environment,
 		DataPlane:     &dataplane,
@@ -503,7 +503,7 @@ spec:
 	input := &RenderInput{
 		ComponentType: &snapshot.Spec.ComponentType,
 		Component:     &snapshot.Spec.Component,
-		Addons:        snapshot.Spec.Addons,
+		Traits:        snapshot.Spec.Traits,
 		Workload:      &snapshot.Spec.Workload,
 		Environment:   &environment,
 		DataPlane:     &dataplane,

@@ -23,7 +23,6 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller/addon"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
@@ -51,6 +50,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/service"
 	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
+	"github.com/openchoreo/openchoreo/internal/controller/trait"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplication"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
@@ -275,12 +275,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Addon controller
-	if err = (&addon.Reconciler{
+	if err = (&trait.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Addon")
+		setupLog.Error(err, "unable to create controller", "controller", "Trait")
 		os.Exit(1)
 	}
 

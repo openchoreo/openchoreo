@@ -24,11 +24,11 @@ type Definition struct {
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
 //
-// This is the primary entry point for converting ComponentType and Addon schemas
+// This is the primary entry point for converting ComponentType and Trait schemas
 // from the shorthand format into standard JSON Schema that can be used for validation.
 //
 // Process:
-//  1. Merge all schema maps (parameters, envOverrides, addon config) into one
+//  1. Merge all schema maps (parameters, envOverrides, trait config) into one
 //  2. Convert from shorthand syntax to full JSON Schema via extractor
 //  3. Sort required fields for deterministic output
 //
@@ -128,7 +128,7 @@ func ApplyDefaults(target map[string]any, structural *apiextschema.Structural) m
 // ComponentType separate schemas into logical groups:
 //   - schema.parameters: Component-level configuration
 //   - schema.envOverrides: Environment-specific overrides
-//   - schema.addonConfig: Addon instance configuration (for Addons)
+//   - schema.traitConfig: Trait instance configuration (for Traits)
 //
 // This function merges them using deep merge semantics so that:
 //  1. Nested objects are merged recursively

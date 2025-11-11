@@ -26,8 +26,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ComponentType is the Schema for the componenttypes
-          API.
+        description: ComponentType is the Schema for the componenttypes API.
         properties:
           apiVersion:
             description: |-
@@ -47,57 +46,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentTypeSpec defines the desired state of
-              ComponentType.
+            description: ComponentTypeSpec defines the desired state of ComponentType.
             properties:
-              build:
+              allowedWorkflows:
                 description: |-
-                  Build defines the build configuration for this component type,
-                  specifying which WorkflowDefinitions developers can use and
-                  any component-type-specific parameter overrides.
-                properties:
-                  allowedTemplates:
-                    description: |-
-                      AllowedTemplates lists the WorkflowDefinitions that developers can use
-                      for building components of this type. Each template can have
-                      component-type-specific parameter overrides.
-                    items:
-                      description: |-
-                        AllowedWorkflowTemplate references a WorkflowDefinition and provides
-                        component-type-specific parameter overrides.
-                      properties:
-                        fixedParameters:
-                          description: |-
-                            FixedParameters are component-type-specific parameter overrides
-                            that override the WorkflowDefinition's default fixed parameters.
-                            This allows platform engineers to configure different policies
-                            per component type (e.g., enable SCA for services but not for scheduled tasks).
-                          items:
-                            description: WorkflowParameter represents a name-value
-                              parameter pair for PE-controlled configuration.
-                            properties:
-                              name:
-                                description: Name is the parameter name
-                                minLength: 1
-                                type: string
-                              value:
-                                description: Value is the parameter value
-                                type: string
-                            required:
-                            - name
-                            - value
-                            type: object
-                          type: array
-                        name:
-                          description: Name is the name of the WorkflowDefinition
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    minItems: 1
-                    type: array
-                type: object
+                  AllowedWorkflows restricts which Workflow CRs developers can use
+                  for building components of this type. If not specified, any workflow can be used.
+                items:
+                  description: AllowedWorkflow references a Workflow CR that developers
+                    can use for this component type.
+                  properties:
+                    name:
+                      description: Name is the name of the Workflow CR
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               resources:
                 description: |-
                   Resources are templates that generate Kubernetes resources dynamically
@@ -193,8 +159,7 @@ spec:
                 workloadType
               rule: self.resources.exists(r, r.id == self.workloadType)
           status:
-            description: ComponentTypeStatus defines the observed state
-              of ComponentType.
+            description: ComponentTypeStatus defines the observed state of ComponentType.
             type: object
         type: object
     served: true
