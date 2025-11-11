@@ -62,6 +62,7 @@ import (
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
 	webhookcorev1 "github.com/openchoreo/openchoreo/internal/webhook/v1"
 )
@@ -421,8 +422,9 @@ func main() {
 	}
 
 	if err := (&workflowrun.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: workflowpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
 		os.Exit(1)

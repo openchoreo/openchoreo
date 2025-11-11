@@ -30,6 +30,10 @@ type Reconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+
+	// Pipeline is the workflow rendering pipeline, shared across all reconciliations.
+	// This enables CEL environment caching across different workflow runs and reconciliations.
+	Pipeline *workflowpipeline.Pipeline
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -83,7 +87,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if workflowRun.Status.RunReference.Name != "" && workflowRun.Status.RunReference.Namespace != "" {
-		// Use the stored reference to retrieve the build plane pipeline execution
 		pipeline := &argoproj.Workflow{}
 		err = bpClient.Get(ctx, types.NamespacedName{
 			Name:      workflowRun.Status.RunReference.Name,
@@ -96,12 +99,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			logger.Error(err, "failed to get build plane pipeline")
 			return r.updateStatusAndRequeue(ctx, oldWorkflowRun, workflowRun)
 		}
-		// If not found, fail the workflow execution
 		setWorkflowNotFoundCondition(workflowRun)
 		return r.updateStatusAndReturn(ctx, oldWorkflowRun, workflowRun)
 	}
 
-	// Build plane pipeline doesn't exist yet, create it
 	workflow := &openchoreodevv1alpha1.Workflow{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      workflowRun.Spec.Workflow.Name,
@@ -111,8 +112,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldWorkflowRun, workflowRun)
 	}
 
-	// Render the workflow once
-	renderer := workflowpipeline.NewPipeline()
 	renderInput := &workflowpipeline.RenderInput{
 		WorkflowRun: workflowRun,
 		Workflow:    workflow,
@@ -124,13 +123,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		},
 	}
 
-	output, err := renderer.Render(renderInput)
+	output, err := r.Pipeline.Render(renderInput)
 	if err != nil {
 		logger.Error(err, "failed to render workflow")
 		return r.updateStatusAndRequeue(ctx, oldWorkflowRun, workflowRun)
 	}
 
-	// Extract namespace from the rendered output
 	pipelineNamespace, err := extractNamespace(output.Resource)
 	if err != nil {
 		logger.Error(err, "failed to extract namespace from rendered resource")
@@ -214,7 +212,6 @@ func (r *Reconciler) syncWorkflowRunStatus(
 		return r.updateStatusAndRequeueAfter(ctx, oldWorkflowRun, workflowRun, 20*time.Second)
 	case argoproj.WorkflowSucceeded:
 		setWorkflowSucceededCondition(workflowRun)
-		// Extract image from push-step
 		if pushStep := getStepByTemplateName(pipeline.Status.Nodes, engines.StepPush); pushStep != nil {
 			if image := getImageNameFromPipeline(*pushStep.Outputs); image != "" {
 				workflowRun.Status.ImageStatus.Image = string(image)
@@ -263,7 +260,6 @@ func (r *Reconciler) applyRenderedPipeline(
 	existingResource := &unstructured.Unstructured{}
 	existingResource.SetGroupVersionKind(unstructuredResource.GroupVersionKind())
 
-	// Capture the name and namespace before applying
 	namespace := unstructuredResource.GetNamespace()
 	name := unstructuredResource.GetName()
 
@@ -277,7 +273,6 @@ func (r *Reconciler) applyRenderedPipeline(
 			if err := bpClient.Create(ctx, unstructuredResource); err != nil {
 				return err
 			}
-			// Update workflowrun status with the run reference after successful creation
 			workflowRun.Status.RunReference.Name = name
 			workflowRun.Status.RunReference.Namespace = namespace
 			if err := r.Status().Update(ctx, workflowRun); err != nil {
@@ -294,7 +289,6 @@ func (r *Reconciler) applyRenderedPipeline(
 		return err
 	}
 
-	// Update workflowrun status with the run reference after successful update
 	workflowRun.Status.RunReference.Name = name
 	workflowRun.Status.RunReference.Namespace = namespace
 	return nil
