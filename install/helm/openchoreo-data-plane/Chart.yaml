@@ -20,21 +20,12 @@ keywords:
   - devops
   - platform-engineering
   - data-plane
-  - vault
   - gateway
   - observability
 maintainers:
   - name: OpenChoreo Team
     url: https://github.com/openchoreo/openchoreo
 dependencies:
-  - name: vault
-    version: 0.29.1
-    repository: "https://helm.releases.hashicorp.com"
-    condition: vault.enabled
-  - name: secrets-store-csi-driver
-    repository: "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
-    version: "1.4.0"
-    condition: secrets-store-csi-driver.enabled
   - name: external-secrets
     version: 0.19.2
     repository: "https://charts.external-secrets.io"
