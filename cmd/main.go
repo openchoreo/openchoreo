@@ -44,6 +44,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
 	"github.com/openchoreo/openchoreo/internal/controller/release"
+	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
@@ -311,6 +312,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
+		os.Exit(1)
+	}
+
+	// ReleaseBinding controller
+	if err = (&releasebinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
 		os.Exit(1)
 	}
 
