@@ -8,6 +8,11 @@ metadata:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:
   gatewayClassName: openchoreo
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: gateway-external
   listeners:
     - name: http
       protocol: HTTP
@@ -29,4 +34,21 @@ spec:
             name: openchoreo-gateway-tls
             namespace: {{ .Release.Namespace }}
 {{- end }}
+
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: gateway-external
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        name: gateway-external
+      envoyService:
+        name: gateway-external
 {{- end }}

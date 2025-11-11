@@ -100,7 +100,7 @@ external-secrets:
   nameOverride: external-secrets
 
 # Fake Secret Store configuration for development
-# Users should override this with their own SecretStore/ClusterSecretStore for production
+# Users should override this with their own ClusterSecretStore
 fakeSecretStore:
   enabled: true
   name: default
