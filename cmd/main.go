@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
 	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
+	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
@@ -301,6 +302,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
+		os.Exit(1)
+	}
+
+	// ComponentRelease controller
+	if err = (&componentrelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
 		os.Exit(1)
 	}
 
