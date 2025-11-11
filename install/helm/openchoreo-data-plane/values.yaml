@@ -4,56 +4,10 @@ global:
   commonLabels: {}
 
 kubernetesClusterDomain: cluster.local
+
+# Wait job configuration for post-install hooks
 waitJob:
-  image: bitnamilegacy/kubectl:1.33.4
-
-# customizing the vault configurations
-vault:
-  enabled: true
-  fullnameOverride: hashicorp-vault
-  nameOverride: hashicorp-vault
-  server:
-    # -- Resource limits and requests for the vault server
-    resources:
-      requests:
-        memory: 64Mi
-        cpu: 50m
-      limits:
-        memory: 128Mi
-        cpu: 100m
-    dev:
-      enabled: true
-      devRootToken: "root"
-      logLevel: "info"
-    # Add readiness probe configuration
-    readinessProbe:
-      exec:
-        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
-      initialDelaySeconds: 5
-      timeoutSeconds: 10  # Increase from default
-      periodSeconds: 10
-      failureThreshold: 3
-  injector:
-    enabled: false
-    # -- Resource limits and requests for the vault injector
-    resources:
-      requests:
-        memory: 64Mi
-        cpu: 50m
-      limits:
-        memory: 128Mi
-        cpu: 100m
-
-# customizing the secrets-store-csi-driver configurations
-secrets-store-csi-driver:
-  enabled: true
-  fullnameOverride: secrets-store-csi-driver
-  nameOverride: secrets-store-csi-driver
-  syncSecret:
-    enabled: true
-  enableSecretRotation: true
-  vaultCsiProvider:
-    enabled: true
+  image: bitnamilegacy/kubectl:1.32.4
 
 # customizing the registry configurations
 registry:
@@ -144,6 +98,19 @@ external-secrets:
   enabled: true
   fullnameOverride: external-secrets
   nameOverride: external-secrets
+
+# Fake Secret Store configuration for development
+# Users should override this with their own SecretStore/ClusterSecretStore for production
+fakeSecretStore:
+  enabled: true
+  name: default
+  secrets:
+    - key: github-pat
+      value: "fake-github-token-for-development"
+    - key: username
+      value: "dev-user"
+    - key: password
+      value: "dev-password"
 
 # Customizing networking configurations
 networking:
