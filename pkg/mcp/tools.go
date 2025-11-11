@@ -101,6 +101,12 @@ func stringProperty(description string) map[string]any {
 	}
 }
 
+func defaultStringProperty() map[string]any {
+	return map[string]any{
+		"type": "string",
+	}
+}
+
 func handleToolResult(result string, err error) (*mcp.CallToolResult, map[string]string, error) {
 	if err != nil {
 		return nil, nil, err
@@ -135,10 +141,12 @@ func createSchema(properties map[string]any, required []string) map[string]any {
 
 func (t *Toolsets) RegisterGetOrganization(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_organization",
-		Description: "Get information about organizations. If no name is provided, lists all organizations.",
+		Name: "get_organization",
+		Description: "Get information about organizations. Organizations are the top-level tenant boundary " +
+			"containing projects, environments, and infrastructure. If no name provided, lists all " +
+			"accessible organizations.",
 		InputSchema: createSchema(map[string]any{
-			"name": stringProperty("Optional: specific organization name to retrieve"),
+			"name": stringProperty("Optional organization identifier. If omitted, lists all accessible organizations"),
 		}, []string{}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		Name string `json:"name"`
@@ -150,10 +158,11 @@ func (t *Toolsets) RegisterGetOrganization(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_projects",
-		Description: "List all projects in an organization",
+		Name: "list_projects",
+		Description: "List all projects in an organization. Projects are logical groupings of related " +
+			"components that share deployment pipelines.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
+			"org_name": stringProperty("Use get_organization to discover valid names"),
 		}, []string{"org_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -165,11 +174,12 @@ func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_project",
-		Description: "Get details of a specific project",
+		Name: "get_project",
+		Description: "Get detailed information about a specific project including deployment pipeline " +
+			"configuration and component summary.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":     stringProperty("Organization name"),
-			"project_name": stringProperty("Project name"),
+			"org_name":     defaultStringProperty(),
+			"project_name": stringProperty("Use list_projects to discover valid names"),
 		}, []string{"org_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName     string `json:"org_name"`
@@ -182,12 +192,14 @@ func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
 
 func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "create_project",
-		Description: "Create a new project in an organization",
+		Name: "create_project",
+		Description: "Create a new project in an organization. Project names must be DNS-compatible " +
+			"(lowercase, alphanumeric, hyphens only, max 63 chars).",
 		InputSchema: createSchema(map[string]any{
-			"org_name":    stringProperty("Organization name"),
-			"name":        stringProperty("Project name"),
-			"description": stringProperty("Project description"),
+			"org_name": defaultStringProperty(),
+			"name": stringProperty(
+				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"description": stringProperty("Human-readable description"),
 		}, []string{"org_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName     string `json:"org_name"`
@@ -205,11 +217,12 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_components",
-		Description: "List all components in a project",
+		Name: "list_components",
+		Description: "List all components in a project. Components are deployable units (services, jobs, etc.) " +
+			"with independent build and deployment lifecycles.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":     stringProperty("Organization name"),
-			"project_name": stringProperty("Project name"),
+			"org_name":     defaultStringProperty(),
+			"project_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName     string `json:"org_name"`
@@ -222,13 +235,15 @@ func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_component",
-		Description: "Get details of a specific component",
+		Name: "get_component",
+		Description: "Get detailed information about a component including configuration, deployment status, " +
+			"and builds. Use additional_resources to include 'bindings', 'workloads', 'builds', or 'endpoints'.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":             stringProperty("Organization name"),
-			"project_name":         stringProperty("Project name"),
-			"component_name":       stringProperty("Component name"),
-			"additional_resources": arrayProperty("Optional: additional resources to include", "string"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"additional_resources": arrayProperty(
+				"Additional data to include: 'bindings', 'workloads', 'builds', 'endpoints'", "string"),
 		}, []string{"org_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName             string   `json:"org_name"`
@@ -245,13 +260,15 @@ func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
 
 func (t *Toolsets) RegisterComponentBinding(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_component_binding",
-		Description: "Get component binding for a specific environment",
+		Name: "get_component_binding",
+		Description: "Get environment-specific configuration for a component. Bindings define how a component " +
+			"behaves in a particular environment (replicas, env vars, resource limits, etc.).",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       stringProperty("Organization name"),
-			"project_name":   stringProperty("Project name"),
-			"component_name": stringProperty("Component name"),
-			"environment":    stringProperty("Environment name"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"environment": stringProperty(
+				"E.g., 'dev', 'staging', 'production'. Use list_environments to discover"),
 		}, []string{"org_name", "project_name", "component_name", "environment"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName       string `json:"org_name"`
@@ -268,13 +285,14 @@ func (t *Toolsets) RegisterComponentBinding(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetComponentObserverURL(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_component_observer_url",
-		Description: "Get observer URL for a component in a specific environment",
+		Name: "get_component_observer_url",
+		Description: "Get the observability dashboard URL for a deployed component in a specific environment. " +
+			"Provides access to real-time logs, metrics, traces, and debugging tools.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":         stringProperty("Organization name"),
-			"project_name":     stringProperty("Project name"),
-			"component_name":   stringProperty("Component name"),
-			"environment_name": stringProperty("Environment name"),
+			"org_name":         defaultStringProperty(),
+			"project_name":     defaultStringProperty(),
+			"component_name":   defaultStringProperty(),
+			"environment_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name", "component_name", "environment_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName         string `json:"org_name"`
@@ -291,12 +309,13 @@ func (t *Toolsets) RegisterGetComponentObserverURL(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetBuildObserverURL(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_build_observer_url",
-		Description: "Get observer URL for component builds",
+		Name: "get_build_observer_url",
+		Description: "Get the observability dashboard URL for component builds. Provides access to real-time " +
+			"build logs, pipeline stages, and build history.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       stringProperty("Organization name"),
-			"project_name":   stringProperty("Project name"),
-			"component_name": stringProperty("Component name"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName       string `json:"org_name"`
@@ -310,12 +329,14 @@ func (t *Toolsets) RegisterGetBuildObserverURL(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_component_workloads",
-		Description: "Get workloads for a component",
+		Name: "get_component_workloads",
+		Description: "Get real-time workload information for a component across all environments. Shows " +
+			"running pods, their status, resource usage, and container details. For Kubernetes users: Similar " +
+			"to 'kubectl get pods'.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       stringProperty("Organization name"),
-			"project_name":   stringProperty("Project name"),
-			"component_name": stringProperty("Component name"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName       string `json:"org_name"`
@@ -329,10 +350,11 @@ func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_environments",
-		Description: "List all environments in an organization",
+		Name: "list_environments",
+		Description: "List all environments in an organization. Environments are deployment targets representing " +
+			"pipeline stages (dev, staging, production) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
+			"org_name": defaultStringProperty(),
 		}, []string{"org_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -344,11 +366,12 @@ func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetEnvironments(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_environment",
-		Description: "Get details of a specific environment",
+		Name: "get_environment",
+		Description: "Get detailed information about an environment including associated data plane, deployed " +
+			"components, resource quotas, and network configuration.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
-			"env_name": stringProperty("Environment name"),
+			"org_name": defaultStringProperty(),
+			"env_name": stringProperty("Use list_environments to discover valid names"),
 		}, []string{"org_name", "env_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -361,10 +384,11 @@ func (t *Toolsets) RegisterGetEnvironments(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_dataplanes",
-		Description: "List all data planes in an organization",
+		Name: "list_dataplanes",
+		Description: "List all data planes in an organization. Data planes are Kubernetes clusters or cluster " +
+			"regions where component workloads actually execute.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
+			"org_name": defaultStringProperty(),
 		}, []string{"org_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -376,11 +400,12 @@ func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_dataplane",
-		Description: "Get details of a specific data plane",
+		Name: "get_dataplane",
+		Description: "Get detailed information about a data plane including cluster details, capacity, health " +
+			"status, associated environments, and network configuration.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
-			"dp_name":  stringProperty("Data plane name"),
+			"org_name": defaultStringProperty(),
+			"dp_name":  stringProperty("Use list_dataplanes to discover valid names"),
 		}, []string{"org_name", "dp_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -393,10 +418,11 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListBuildTemplates(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_build_templates",
-		Description: "List all build templates in an organization",
+		Name: "list_build_templates",
+		Description: "List available build templates in an organization. Build templates define how source code " +
+			"is transformed into container images (Docker, Buildpacks, Kaniko, etc.).",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
+			"org_name": defaultStringProperty(),
 		}, []string{"org_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -408,13 +434,14 @@ func (t *Toolsets) RegisterListBuildTemplates(s *mcp.Server) {
 
 func (t *Toolsets) RegisterTriggerBuild(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "trigger_build",
-		Description: "Trigger a new build for a component",
+		Name: "trigger_build",
+		Description: "Trigger a new build for a component at a specific commit. Creates a container image that " +
+			"can be deployed to environments. Builds run asynchronously; use list_builds to monitor progress.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       stringProperty("Organization name"),
-			"project_name":   stringProperty("Project name"),
-			"component_name": stringProperty("Component name"),
-			"commit":         stringProperty("Git commit hash"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"commit":         stringProperty("Git commit SHA (full or short) or tag"),
 		}, []string{"org_name", "project_name", "component_name", "commit"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName       string `json:"org_name"`
@@ -429,12 +456,13 @@ func (t *Toolsets) RegisterTriggerBuild(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListBuilds(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_builds",
-		Description: "List all builds for a component",
+		Name: "list_builds",
+		Description: "List all builds for a component showing build history, status (queued, running, " +
+			"succeeded, failed), commit information, and generated image tags.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       stringProperty("Organization name"),
-			"project_name":   stringProperty("Project name"),
-			"component_name": stringProperty("Component name"),
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName       string `json:"org_name"`
@@ -448,10 +476,11 @@ func (t *Toolsets) RegisterListBuilds(s *mcp.Server) {
 
 func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_buildplanes",
-		Description: "List all build planes in an organization",
+		Name: "list_buildplanes",
+		Description: "List all build planes in an organization. Build planes are dedicated infrastructure where " +
+			"component builds execute (isolated from runtime workloads).",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Organization name"),
+			"org_name": defaultStringProperty(),
 		}, []string{"org_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName string `json:"org_name"`
@@ -463,11 +492,12 @@ func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
 
 func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_deployment_pipeline",
-		Description: "Get deployment pipeline for a project",
+		Name: "get_deployment_pipeline",
+		Description: "Get the deployment pipeline configuration for a project. Shows the progression path for " +
+			"builds through environments (e.g., dev → staging → production) and promotion policies.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":     stringProperty("Organization name"),
-			"project_name": stringProperty("Project name"),
+			"org_name":     defaultStringProperty(),
+			"project_name": defaultStringProperty(),
 		}, []string{"org_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName     string `json:"org_name"`

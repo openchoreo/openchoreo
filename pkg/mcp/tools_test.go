@@ -20,6 +20,7 @@ const (
 	testProjectName   = "my-project"
 	testComponentName = "my-component"
 	testEnvName       = "dev"
+	testKindProject   = "Project"
 )
 
 // MockCoreToolsetHandler implements CoreToolsetHandler for testing
@@ -395,7 +396,7 @@ var allToolSpecs = []toolTestSpec{
 	{
 		name:                "get_component_observer_url",
 		toolset:             "component",
-		descriptionKeywords: []string{"observer", "component"},
+		descriptionKeywords: []string{"observability", "component"},
 		descriptionMinLen:   10,
 		requiredParams:      []string{"org_name", "project_name", "component_name", "environment_name"},
 		testArgs: map[string]any{
@@ -417,7 +418,7 @@ var allToolSpecs = []toolTestSpec{
 	{
 		name:                "get_build_observer_url",
 		toolset:             "build",
-		descriptionKeywords: []string{"observer", "build"},
+		descriptionKeywords: []string{"observability", "build"},
 		descriptionMinLen:   10,
 		requiredParams:      []string{"org_name", "project_name", "component_name"},
 		testArgs: map[string]any{
