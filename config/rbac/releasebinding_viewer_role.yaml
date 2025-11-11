@@ -1,0 +1,23 @@
+# permissions for end users to view releasebindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: releasebinding-viewer-role
+rules:
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - releasebindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - releasebindings/status
+  verbs:
+  - get
