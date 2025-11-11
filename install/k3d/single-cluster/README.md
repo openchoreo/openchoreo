@@ -55,6 +55,22 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
+### 3. Create DataPlane Resource
+
+Create a DataPlane resource to enable workload deployment:
+
+```bash
+./install/add-data-plane.sh --control-plane-context k3d-openchoreo
+```
+
+### 4. Create BuildPlane Resource (optional)
+
+Create a BuildPlane resource to enable building from source:
+
+```bash
+./install/add-build-plane.sh --control-plane-context k3d-openchoreo
+```
+
 ## Port Mappings
 
 | Plane               | Namespace                      | Kube API Port | Port Range |
@@ -107,6 +123,12 @@ kubectl --context k3d-openchoreo get pods -n openchoreo-build-plane
 
 # Observability Plane
 kubectl --context k3d-openchoreo get pods -n openchoreo-observability-plane
+
+# Verify DataPlane resource
+kubectl --context k3d-openchoreo get dataplane -n default
+
+# Verify BuildPlane resource (if created)
+kubectl --context k3d-openchoreo get buildplane -n default
 ```
 
 ## Architecture
