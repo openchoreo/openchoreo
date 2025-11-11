@@ -40,7 +40,7 @@ type ComponentSpec struct {
 	// Type specifies the component type (e.g., Service, WebApplication, etc.)
 	// LEGACY FIELD: Use componentType instead for new components with ComponentTypeDefinitions
 	// +optional
-	Type ComponentType `json:"type,omitempty"`
+	Type CompType `json:"type,omitempty"`
 
 	// ComponentType specifies the component type in the format: {workloadType}/{componentTypeDefinitionName}
 	// Example: "deployment/web-app", "cronjob/scheduled-task"
@@ -133,18 +133,18 @@ type ComponentStatus struct {
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// ComponentType defines how the component is deployed.
-type ComponentType string
+// CompType defines how the component is deployed.
+type CompType string
 
 const (
-	ComponentTypeService        ComponentType = "Service"
-	ComponentTypeManualTask     ComponentType = "ManualTask"
-	ComponentTypeScheduledTask  ComponentType = "ScheduledTask"
-	ComponentTypeWebApplication ComponentType = "WebApplication"
-	ComponentTypeWebhook        ComponentType = "Webhook"
-	ComponentTypeAPIProxy       ComponentType = "APIProxy"
-	ComponentTypeTestRunner     ComponentType = "TestRunner"
-	ComponentTypeEventHandler   ComponentType = "EventHandler"
+	ComponentTypeService        CompType = "Service"
+	ComponentTypeManualTask     CompType = "ManualTask"
+	ComponentTypeScheduledTask  CompType = "ScheduledTask"
+	ComponentTypeWebApplication CompType = "WebApplication"
+	ComponentTypeWebhook        CompType = "Webhook"
+	ComponentTypeAPIProxy       CompType = "APIProxy"
+	ComponentTypeTestRunner     CompType = "TestRunner"
+	ComponentTypeEventHandler   CompType = "EventHandler"
 )
 
 // ComponentSource defines the source information of the component where the code or image is retrieved.

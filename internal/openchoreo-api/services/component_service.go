@@ -272,7 +272,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: projectName,
 			},
-			Type: openchoreov1alpha1.ComponentType(req.Type),
+			Type: openchoreov1alpha1.CompType(req.Type),
 		},
 	}
 
@@ -417,7 +417,7 @@ func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, pro
 	// Determine binding type based on component type
 	var bindingResponse *models.BindingResponse
 	var err error
-	switch openchoreov1alpha1.ComponentType(componentType) {
+	switch openchoreov1alpha1.CompType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		bindingResponse, err = s.getServiceBinding(ctx, orgName, componentName, environment)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -783,7 +783,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 
 // createOrUpdateTargetBinding creates or updates the binding in the target environment
 func (s *ComponentService) createOrUpdateTargetBinding(ctx context.Context, req *PromoteComponentPayload, componentType string) error {
-	switch openchoreov1alpha1.ComponentType(componentType) {
+	switch openchoreov1alpha1.CompType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createOrUpdateServiceBinding(ctx, req)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -1459,7 +1459,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 }
 
 // createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
-func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.ComponentType) error {
+func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.CompType) error {
 	switch componentType {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createServiceResource(ctx, orgName, projectName, componentName, workloadName)

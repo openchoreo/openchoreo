@@ -33,7 +33,7 @@ const (
 
 type componentModel struct {
 	interactive.BaseModel // Reuses common organization/project selection logic
-	types                 []openchoreov1alpha1.ComponentType
+	types                 []openchoreov1alpha1.CompType
 	typeCursor            int
 
 	// Component fields
@@ -317,7 +317,7 @@ func createComponentInteractive(config constants.CRDConfig) error {
 	}
 
 	// Initialize all supported component types
-	componentTypes := []openchoreov1alpha1.ComponentType{
+	componentTypes := []openchoreov1alpha1.CompType{
 		openchoreov1alpha1.ComponentTypeScheduledTask,
 		openchoreov1alpha1.ComponentTypeWebApplication,
 		openchoreov1alpha1.ComponentTypeService,

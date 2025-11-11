@@ -133,7 +133,7 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				Project:          fg.GetString(flags.Project),
 				DisplayName:      fg.GetString(flags.DisplayName),
 				GitRepositoryURL: fg.GetString(flags.GitRepositoryURL),
-				Type:             openchoreov1alpha1.ComponentType(fg.GetString(flags.ComponentType)),
+				Type:             openchoreov1alpha1.CompType(fg.GetString(flags.ComponentType)),
 				Interactive:      fg.GetBool(flags.Interactive),
 				Branch:           fg.GetString(flags.Branch),
 				Path:             fg.GetString(flags.Path),

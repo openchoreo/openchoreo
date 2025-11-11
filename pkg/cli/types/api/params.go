@@ -52,7 +52,7 @@ type CreateProjectParams struct {
 type CreateComponentParams struct {
 	Name             string
 	DisplayName      string
-	Type             openchoreov1alpha1.ComponentType
+	Type             openchoreov1alpha1.CompType
 	Organization     string
 	Project          string
 	Description      string

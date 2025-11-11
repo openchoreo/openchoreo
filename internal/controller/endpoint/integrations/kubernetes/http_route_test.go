@@ -603,7 +603,7 @@ var _ = Describe("HTTPRoute Handler", func() {
 
 // Helper function to create test endpoint context
 func createTestEndpointContext(endpoint *openchoreov1alpha1.Endpoint, componentName, envDNSPrefix string,
-	componentType openchoreov1alpha1.ComponentType) *dataplane.EndpointContext {
+	componentType openchoreov1alpha1.CompType) *dataplane.EndpointContext {
 	return &dataplane.EndpointContext{
 		Endpoint: endpoint,
 		Component: &openchoreov1alpha1.Component{
