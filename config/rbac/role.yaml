@@ -109,6 +109,7 @@ rules:
   - builds
   - componentdeployments
   - componentenvsnapshots
+  - componentreleases
   - components
   - componenttypes
   - dataplanes
@@ -154,6 +155,7 @@ rules:
   - builds/finalizers
   - componentdeployments/finalizers
   - componentenvsnapshots/finalizers
+  - componentreleases/finalizers
   - components/finalizers
   - componenttypes/finalizers
   - dataplanes/finalizers
@@ -193,6 +195,7 @@ rules:
   - builds/status
   - componentdeployments/status
   - componentenvsnapshots/status
+  - componentreleases/status
   - components/status
   - componenttypes/status
   - dataplanes/status
