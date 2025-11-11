@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# OpenChoreo BuildPlane Creation Script
-# Creates a BuildPlane resource in the control plane that targets a build plane cluster
+# OpenChoreo DataPlane Creation Script
+# Creates a DataPlane resource in the control plane that targets a data plane cluster
 
 set -e
 
@@ -19,13 +19,13 @@ show_help() {
   local script_name
   script_name=$(basename "$0")
   cat << EOF
-Create an OpenChoreo BuildPlane resource that targets a Kubernetes cluster.
+Create an OpenChoreo DataPlane resource that targets a Kubernetes cluster.
 
 Usage:
   $script_name [OPTIONS]
 
 Options:
-  --control-plane-context CONTEXT   Kubernetes context where BuildPlane resource will be created
+  --control-plane-context CONTEXT   Kubernetes context where DataPlane resource will be created
                                     Default: current context
 
   --target-context CONTEXT          Kubernetes context to extract credentials from
@@ -36,10 +36,10 @@ Options:
                                     Default: https://kubernetes.default.svc.cluster.local
                                     Required when control-plane and target contexts differ
 
-  --name NAME                       Name for the BuildPlane resource
+  --name NAME                       Name for the DataPlane resource
                                     Default: default
 
-  --namespace NAMESPACE             Namespace for the BuildPlane resource
+  --namespace NAMESPACE             Namespace for the DataPlane resource
                                     Default: default
 
   --dry-run                         Preview the YAML without applying changes
@@ -59,26 +59,26 @@ Examples:
 
   # Multi-cluster
   $script_name --control-plane-context k3d-openchoreo-cp \\
-     --target-context k3d-openchoreo-bp \\
-     --server https://k3d-openchoreo-bp-server-0:6443
+     --target-context k3d-openchoreo-dp \\
+     --server https://k3d-openchoreo-dp-server-0:6443
 
   # Custom name and namespace
-  $script_name --name prod-buildplane --namespace production
+  $script_name --name prod-dataplane --namespace production
 
   # Preview without applying
   $script_name --dry-run
 
 Note:
-  Single-cluster: Both control plane and build plane in same cluster
+  Single-cluster: Both control plane and data plane in same cluster
   Multi-cluster:  Different clusters, requires explicit --server URL
 EOF
 }
 
 # Defaults
-TARGET_CONTEXT=""              # Build plane cluster (extract creds, the "target")
+TARGET_CONTEXT=""              # Data plane cluster (extract creds, the "target")
 CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
 SERVER_URL="https://kubernetes.default.svc.cluster.local"
-BUILDPLANE_NAME="default"
+DATAPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
 
@@ -118,7 +118,7 @@ while [[ $# -gt 0 ]]; do
         error "Error: --name requires a value"
         exit 1
       fi
-      BUILDPLANE_NAME="$2"
+      DATAPLANE_NAME="$2"
       shift 2
       ;;
     --namespace)
@@ -264,17 +264,22 @@ TLS_SECTION="    tls:
       ca:
         value: $CA_CERT"
 
-# Generate the BuildPlane YAML
-BUILDPLANE_YAML=$(cat <<EOF
+# Generate the DataPlane YAML
+DATAPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: BuildPlane
+kind: DataPlane
 metadata:
-  name: $BUILDPLANE_NAME
+  name: $DATAPLANE_NAME
   namespace: $NAMESPACE
   annotations:
-    openchoreo.dev/description: "BuildPlane created via $(basename $0) script"
-    openchoreo.dev/display-name: "BuildPlane $BUILDPLANE_NAME"
+    openchoreo.dev/description: "DataPlane created via $(basename $0) script"
+    openchoreo.dev/display-name: "DataPlane $DATAPLANE_NAME"
 spec:
+  secretStoreRef:
+    name: default
+  gateway:
+    organizationVirtualHost: openchoreoapis.internal
+    publicVirtualHost: openchoreoapis.localhost
   kubernetesCluster:
     server: $SERVER_URL
 $TLS_SECTION
@@ -284,13 +289,13 @@ EOF
 
 # Apply or preview the manifest
 if [ "$DRY_RUN" = true ]; then
-  echo "$BUILDPLANE_YAML"
+  echo "$DATAPLANE_YAML"
   exit 0
 else
-  if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
+  if echo "$DATAPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
     :
   else
-    error "Failed to create BuildPlane resource"
+    error "Failed to create DataPlane resource"
     exit 1
   fi
 fi
