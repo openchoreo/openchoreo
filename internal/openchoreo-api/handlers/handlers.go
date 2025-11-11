@@ -12,9 +12,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
-	"github.com/openchoreo/openchoreo/pkg/middleware"
-	"github.com/openchoreo/openchoreo/pkg/middleware/auth/jwt"
 )
 
 // Handler holds the services and provides HTTP handlers
@@ -132,12 +132,14 @@ func (h *Handler) Routes() http.Handler {
 // initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
 func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	// Get JWT configuration from environment variables
+	jwtDisabled := os.Getenv("JWT_DISABLED") == "true"
 	jwksURL := os.Getenv("JWKS_URL")
 	jwtIssuer := os.Getenv("JWT_ISSUER")
 	jwtAudience := os.Getenv("JWT_AUDIENCE") // Optional
 
 	// Configure JWT middleware
 	config := jwt.Config{
+		Disabled:         jwtDisabled,
 		JWKSURL:          jwksURL,
 		ValidateIssuer:   jwtIssuer,
 		ValidateAudience: jwtAudience, // Only validates if set

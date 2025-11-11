@@ -14,6 +14,12 @@ import (
 
 // Config holds the configuration for JWT authentication middleware
 type Config struct {
+	// Disabled disables JWT authentication when set to true
+	// When disabled, the middleware will pass through all requests without authentication
+	// This is useful for local development or testing environments
+	// Default: false
+	Disabled bool
+
 	// JWKSURL is the URL to fetch the JSON Web Key Set for token validation
 	// This is the primary method for key management in production environments
 	JWKSURL string
@@ -87,6 +93,11 @@ func (c *Config) setDefaults() {
 
 // validate checks if the configuration is valid
 func (c *Config) validate() error {
+	// Skip validation if middleware is disabled
+	if c.Disabled {
+		return nil
+	}
+
 	// Either JWKS URL or signing key must be provided
 	if c.JWKSURL == "" && c.SigningKey == nil {
 		return fmt.Errorf("configuration error: either JWKSURL or SigningKey must be provided")

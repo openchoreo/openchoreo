@@ -526,3 +526,52 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 		t.Errorf("Expected status 200 for valid audience in array, got %d", w.Code)
 	}
 }
+
+func TestMiddleware_Disabled(t *testing.T) {
+	config := Config{
+		Disabled: true,
+		// No signing key or JWKS URL needed when disabled
+	}
+
+	middleware := Middleware(config)
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("success"))
+	}))
+
+	// Request without any authentication
+	req := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 when middleware is disabled, got %d", w.Code)
+	}
+
+	if w.Body.String() != "success" {
+		t.Errorf("Expected body 'success', got %s", w.Body.String())
+	}
+}
+
+func TestMiddleware_DisabledWithInvalidToken(t *testing.T) {
+	config := Config{
+		Disabled: true,
+	}
+
+	middleware := Middleware(config)
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Request with invalid token should still pass through when disabled
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Authorization", "Bearer invalid.token.here")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 when middleware is disabled (even with invalid token), got %d", w.Code)
+	}
+}

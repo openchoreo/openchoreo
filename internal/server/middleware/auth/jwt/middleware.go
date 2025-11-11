@@ -17,6 +17,16 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 	// Set defaults
 	config.setDefaults()
 
+	// If middleware is disabled, return a passthrough middleware
+	if config.Disabled {
+		config.Logger.Warn("JWT authentication middleware is DISABLED - all requests will pass through without authentication")
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+
 	// Validate configuration
 	if err := config.validate(); err != nil {
 		config.Logger.Error("JWT middleware configuration error", "error", err)
