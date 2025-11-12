@@ -111,7 +111,7 @@ type OrganizationLogsRequest struct {
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
-// Represents the request body for POST /api/metrics/component/usage API
+// MetricsRequest represents the request body for POST /api/metrics/component/usage API
 type MetricsRequest struct {
 	ComponentID   string `json:"componentId,omitempty"`
 	EndTime       string `json:"endTime,omitempty"`
@@ -120,7 +120,7 @@ type MetricsRequest struct {
 	ProjectID     string `json:"projectId" validate:"required"`
 }
 
-// Represents an error response
+// ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Code    string `json:"code"`
@@ -401,10 +401,8 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
-// Handles POST /api/metrics/component/usage
+// GetComponentResourceMetrics handles POST /api/metrics/component/usage
 func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Request) {
-
 	var req MetricsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind metrics request", "error", err)

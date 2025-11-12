@@ -264,7 +264,6 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-
 // GetComponentResourceMetrics retrieves resource usage metrics for a component as time series
 func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.ResourceMetricsTimeSeries, error) {
 	s.logger.Debug("Getting resource metrics",
@@ -314,7 +313,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU limits
 	cpuLimitQuery := prometheus.BuildCPULimitsQuery(labelFilter)
-	
+
 	cpuLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuLimitQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query CPU limits", "error", err)

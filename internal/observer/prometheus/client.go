@@ -88,7 +88,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// Executes a PromQL range query and returns full time series data
+// QueryRangeTimeSeries executes a PromQL range query and returns full time series data
 // This method returns all data points in the time range, suitable for charting and visualization
 func (c *Client) QueryRangeTimeSeries(ctx context.Context, query string, start, end time.Time, step time.Duration) (*TimeSeriesResponse, error) {
 	c.logger.Debug("Executing Prometheus range query for time series",
@@ -120,7 +120,7 @@ func (c *Client) QueryRangeTimeSeries(ctx context.Context, query string, start, 
 	return tsResp, nil
 }
 
-// Converts Prometheus model.Value to TimeSeriesResponse format. This properly handles Matrix results with all 
+// Converts Prometheus model.Value to TimeSeriesResponse format. This properly handles Matrix results with all
 // data points
 func convertToTimeSeriesResponse(result model.Value) *TimeSeriesResponse {
 	tsResp := &TimeSeriesResponse{
@@ -189,7 +189,7 @@ func convertToTimeSeriesResponse(result model.Value) *TimeSeriesResponse {
 	return tsResp
 }
 
-// Converts a TimeSeries to an array of TimeValuePoint with ISO 8601 formatted timestamps and float64 values
+// ConvertTimeSeriesToTimeValuePoints converts a TimeSeries to an array of TimeValuePoint with ISO 8601 formatted timestamps and float64 values
 func ConvertTimeSeriesToTimeValuePoints(ts TimeSeries) []TimeValuePoint {
 	points := make([]TimeValuePoint, 0, len(ts.Values))
 
@@ -197,7 +197,7 @@ func ConvertTimeSeriesToTimeValuePoints(ts TimeSeries) []TimeValuePoint {
 		t := time.Unix(int64(dp.Timestamp), 0).UTC()
 
 		var value float64
-		fmt.Sscanf(dp.Value, "%f", &value)
+		_, _ = fmt.Sscanf(dp.Value, "%f", &value)
 
 		points = append(points, TimeValuePoint{
 			Time:  t.Format(time.RFC3339), // ISO 8601 format

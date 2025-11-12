@@ -19,7 +19,7 @@ type MetricsService struct {
 	logger *slog.Logger
 }
 
-// Represents resource usage metrics with time series data
+// ResourceMetricsTimeSeries represents resource usage metrics with time series data
 type ResourceMetricsTimeSeries struct {
 	CPUUsage       []TimeValuePoint `json:"cpuUsage"`
 	CPURequests    []TimeValuePoint `json:"cpuRequests"`
@@ -57,7 +57,6 @@ func prometheusLabelName(kubernetesLabel string) string {
 	return "label_" + strings.ReplaceAll(kubernetesLabel, "-", "_")
 }
 
-
 // BuildLabelFilter builds a Prometheus label filter string for component identification
 func BuildLabelFilter(componentID, projectID, environmentID string) string {
 	componentLabel := prometheusLabelName(labels.ComponentID)
@@ -68,14 +67,14 @@ func BuildLabelFilter(componentID, projectID, environmentID string) string {
 		componentLabel, componentID, projectLabel, projectID, environmentLabel, environmentID)
 }
 
-// PromQL query for CPU usage rate
+// BuildCPUUsageQuery builds a PromQL query for CPU usage rate
 func BuildCPUUsageQuery(labelFilter string) string {
 	query := fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name) (
     rate(container_cpu_usage_seconds_total{container="main"}[2m]) * on (pod) group_left (label_component_name, label_environment_name, label_project_name) kube_pod_labels{%s} )`, labelFilter)
 	return query
 }
 
-// PromQL query for memory usage
+// BuildMemoryUsageQuery builds a PromQL query for memory usage
 func BuildMemoryUsageQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name) (
               container_memory_working_set_bytes{container!=""}
@@ -84,7 +83,7 @@ func BuildMemoryUsageQuery(labelFilter string) string {
             )`, labelFilter)
 }
 
-// PromQL query for CPU requests
+// BuildCPURequestsQuery PromQL query for CPU requests
 func BuildCPURequestsQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name, resource) (
             (
@@ -97,7 +96,7 @@ func BuildCPURequestsQuery(labelFilter string) string {
         )`, labelFilter)
 }
 
-// PromQL query for CPU limits
+// BuildCPULimitsQuery builds a PromQL query for CPU limits
 func BuildCPULimitsQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name, resource) (
             (
@@ -110,7 +109,7 @@ func BuildCPULimitsQuery(labelFilter string) string {
         )`, labelFilter)
 }
 
-// PromQL query for memory requests
+// BuildMemoryRequestsQuery builds aPromQL query for memory requests
 func BuildMemoryRequestsQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name, resource) (
             (
@@ -123,7 +122,7 @@ func BuildMemoryRequestsQuery(labelFilter string) string {
         )`, labelFilter)
 }
 
-// PromQL query for memory limits
+// BuildMemoryLimitsQuery builds a PromQL query for memory limits
 func BuildMemoryLimitsQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name, resource) (
             (
