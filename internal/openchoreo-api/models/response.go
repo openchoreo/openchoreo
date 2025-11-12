@@ -260,7 +260,7 @@ type ComponentTypeResponse struct {
 	CreatedAt        time.Time         `json:"createdAt"`
 }
 
-// AllowedWorkflow represents an allowed workflow for a component type
+// AllowedWorkflow represents all allowed workflows for a specific component type
 type AllowedWorkflow struct {
 	Name string `json:"name"`
 }

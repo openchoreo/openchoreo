@@ -105,7 +105,7 @@ func (s *BuildService) TriggerBuild(ctx context.Context, orgName, projectName, c
 	}
 
 	// Check if component has build configuration
-	if component.Spec.Workflow == nil || component.Spec.Workflow.Name == "" {
+	if component.Spec.Workflow == nil {
 		s.logger.Error("Component does not have a workflow template configured", "component", componentName)
 		return nil, fmt.Errorf("component %s does not have a workflow template configured", componentName)
 	}

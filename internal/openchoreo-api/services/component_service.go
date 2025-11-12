@@ -306,7 +306,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 
 	// Convert workflow-based build configuration to API BuildConfig format
 	var buildConfig *models.BuildConfig
-	if component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
+	if component.Spec.Workflow != nil {
 		buildConfig = s.convertBuildSpecToBuildConfig(*component.Spec.Workflow)
 	}
 
