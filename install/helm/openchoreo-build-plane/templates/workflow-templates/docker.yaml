@@ -252,15 +252,6 @@ spec:
             mountPath: /mnt/vol
         securityContext:
           privileged: true
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: openchoreo.dev/noderole
-                operator: In
-                values:
-                  - workflow-runner
   ttlStrategy:
     secondsAfterCompletion: 3600
   volumeClaimTemplates:
@@ -273,8 +264,7 @@ spec:
           requests:
             storage: 2Gi
   volumes:
-    - hostPath:
-        path: /shared/podman/cache
-        type: DirectoryOrCreate
-      name: podman-cache
+    - name: podman-cache
+      persistentVolumeClaim:
+        claimName: podman-build-cache
 {{ end }}
