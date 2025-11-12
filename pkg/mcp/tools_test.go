@@ -180,6 +180,11 @@ func (m *MockCoreToolsetHandler) GetProjectDeploymentPipeline(
 	return `{"stages":[]}`, nil
 }
 
+func (m *MockCoreToolsetHandler) ExplainSchema(ctx context.Context, kind, path string) (string, error) {
+	m.recordCall("ExplainSchema", kind, path)
+	return `{"group":"openchoreo.dev","kind":"Component","version":"v1alpha1","type":"Object"}`, nil
+}
+
 func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler) {
 	t.Helper()
 	mockHandler := NewMockCoreToolsetHandler()
@@ -190,6 +195,7 @@ func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler)
 		BuildToolset:          mockHandler,
 		DeploymentToolset:     mockHandler,
 		InfrastructureToolset: mockHandler,
+		SchemaToolset:         mockHandler,
 	}
 	clientSession := setupTestServerWithToolset(t, toolsets)
 	return clientSession, mockHandler
@@ -605,6 +611,24 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, args []interface{}) {
 			if args[0] != testOrgName || args[1] != testProjectName {
 				t.Errorf("Expected (%s, %s), got (%v, %v)", testOrgName, testProjectName, args[0], args[1])
+			}
+		},
+	},
+	{
+		name:                "explain_schema",
+		toolset:             "schema",
+		descriptionKeywords: []string{"schema", "resource"},
+		descriptionMinLen:   10,
+		requiredParams:      []string{"kind"},
+		optionalParams:      []string{"path"},
+		testArgs: map[string]any{
+			"kind": "Component",
+			"path": "spec",
+		},
+		expectedMethod: "ExplainSchema",
+		validateCall: func(t *testing.T, args []interface{}) {
+			if args[0] != "Component" || args[1] != "spec" {
+				t.Errorf("Expected (Component, spec), got (%v, %v)", args[0], args[1])
 			}
 		},
 	},

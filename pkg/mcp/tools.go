@@ -21,6 +21,7 @@ const (
 	ToolsetBuild          ToolsetType = "build"
 	ToolsetDeployment     ToolsetType = "deployment"
 	ToolsetInfrastructure ToolsetType = "infrastructure"
+	ToolsetSchema         ToolsetType = "schema"
 )
 
 type Toolsets struct {
@@ -30,6 +31,7 @@ type Toolsets struct {
 	BuildToolset          BuildToolsetHandler
 	DeploymentToolset     DeploymentToolsetHandler
 	InfrastructureToolset InfrastructureToolsetHandler
+	SchemaToolset         SchemaToolsetHandler
 }
 
 // OrganizationToolsetHandler handles organization operations
@@ -88,6 +90,11 @@ type InfrastructureToolsetHandler interface {
 	ListDataPlanes(ctx context.Context, orgName string) (string, error)
 	GetDataPlane(ctx context.Context, orgName, dpName string) (string, error)
 	CreateDataPlane(ctx context.Context, orgName string, req *models.CreateDataPlaneRequest) (string, error)
+}
+
+// SchemaToolsetHandler handles schema and resource explanation operations
+type SchemaToolsetHandler interface {
+	ExplainSchema(ctx context.Context, kind, path string) (string, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools
@@ -478,6 +485,28 @@ func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
 	})
 }
 
+func (t *Toolsets) RegisterExplainSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "explain_schema",
+		Description: "Get the schema definition of a Kubernetes resource in structured JSON format. " +
+			"Returns detailed information about resource fields including types, descriptions, and required status. " +
+			"Use this to understand OpenChoreo resources like Component, Project, Environment, etc. " +
+			"Optionally provide a path to drill down into nested fields (e.g., 'spec', 'spec.build'). " +
+			"The response includes: group, kind, version, field (if path specified), type, description, " +
+			"properties array with field details, and required fields list.",
+		InputSchema: createSchema(map[string]any{
+			"kind": stringProperty("The Kubernetes resource kind to explain (e.g., 'Component', 'Project', 'Environment')"),
+			"path": stringProperty("Optional: field path to drill down into (e.g., 'spec', 'spec.build', 'metadata')"),
+		}, []string{"kind"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Kind string `json:"kind"`
+		Path string `json:"path"`
+	}) (*mcp.CallToolResult, map[string]string, error) {
+		result, err := t.SchemaToolset.ExplainSchema(ctx, args.Kind, args.Path)
+		return handleToolResult(result, err)
+	})
+}
+
 // organizationToolRegistrations returns the list of organization toolset registration functions
 func (t *Toolsets) organizationToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
@@ -534,6 +563,13 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 	}
 }
 
+// schemaToolRegistrations returns the list of schema toolset registration functions
+func (t *Toolsets) schemaToolRegistrations() []RegisterFunc {
+	return []RegisterFunc{
+		t.RegisterExplainSchema,
+	}
+}
+
 func (t *Toolsets) Register(s *mcp.Server) {
 	// Register organization tools if OrganizationToolset is enabled
 	if t.OrganizationToolset != nil {
@@ -573,6 +609,13 @@ func (t *Toolsets) Register(s *mcp.Server) {
 	// Register infrastructure tools if InfrastructureToolset is enabled
 	if t.InfrastructureToolset != nil {
 		for _, registerFunc := range t.infrastructureToolRegistrations() {
+			registerFunc(s)
+		}
+	}
+
+	// Register schema tools if SchemaToolset is enabled
+	if t.SchemaToolset != nil {
+		for _, registerFunc := range t.schemaToolRegistrations() {
 			registerFunc(s)
 		}
 	}
