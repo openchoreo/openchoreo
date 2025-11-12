@@ -28,6 +28,7 @@ Install all planes in the single cluster:
 ```bash
 # Control Plane
 helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
   --create-namespace \
@@ -35,6 +36,7 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
 
 # Data Plane
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-data-plane \
   --create-namespace \
@@ -42,6 +44,7 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
 
 # Build Plane (optional)
 helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-build-plane \
   --create-namespace \
@@ -49,6 +52,7 @@ helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
 
 # Observability Plane (optional)
 helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-observability-plane \
   --create-namespace \

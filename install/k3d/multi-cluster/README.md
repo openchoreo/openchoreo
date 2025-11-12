@@ -24,6 +24,7 @@ k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 
 # Install Control Plane Helm chart
 helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo-cp \
   --namespace openchoreo-control-plane \
   --create-namespace \
@@ -40,6 +41,7 @@ k3d cluster create --config install/k3d/multi-cluster/config-dp.yaml
 
 # Install Data Plane Helm chart
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo-dp \
   --namespace openchoreo-data-plane \
   --create-namespace \
@@ -56,6 +58,7 @@ k3d cluster create --config install/k3d/multi-cluster/config-bp.yaml
 
 # Install Build Plane Helm chart
 helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo-bp \
   --namespace openchoreo-build-plane \
   --create-namespace \
@@ -72,6 +75,7 @@ k3d cluster create --config install/k3d/multi-cluster/config-op.yaml
 
 # Install Observability Plane Helm chart
 helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --dependency-update \
   --kube-context k3d-openchoreo-op \
   --namespace openchoreo-observability-plane \
   --create-namespace \
