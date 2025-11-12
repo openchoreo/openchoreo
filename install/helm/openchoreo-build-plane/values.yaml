@@ -9,7 +9,7 @@ global:
       # -- Container registry configuration
     registry:
       # -- Type of registry to use. Supported values: "local", "external".
-      # "local": Deploys a built-in registry managed by data plane Helm chart.
+      # "local": Deploys a built-in registry managed by build plane Helm chart.
       # "external": Connects to a pre-existing registry you provide.
       type: local
 
@@ -17,11 +17,12 @@ global:
       # These values are ONLY used if registry.type is "local".
       local:
         # -- The internal cluster address used by build pipelines (e.g., Podman) to push images.
-        pushEndpoint: "registry.openchoreo-data-plane:5000"
+        pushEndpoint: "registry.openchoreo-build-plane:5000"
 
         # -- The public-facing address used by cluster nodes (kubelet) to pull images.
-        # This could be a NodePort, LoadBalancer, or Ingress address.
-        pullEndpoint: "localhost:30003"
+        # For single cluster: use internal service address
+        # For multi-cluster: configure NodePort/LoadBalancer and update this endpoint
+        pullEndpoint: "registry.openchoreo-build-plane:5000"
 
       # -- Settings for using your own external registry.
       # These values are ONLY used if registry.type is "external".
@@ -63,6 +64,16 @@ external-secrets:
   enabled: true
   fullnameOverride: external-secrets
   nameOverride: external-secrets
+
+# Container Registry configuration using Twuni Docker Registry Helm Chart
+# Hosts container images built by Argo Workflows in the Build Plane
+registry:
+  fullnameOverride: registry
+
+  # Enable persistence
+  persistence:
+    enabled: true
+    size: 10Gi
 
 # Fake Secret Store configuration for local development
 fakeSecretStore:
