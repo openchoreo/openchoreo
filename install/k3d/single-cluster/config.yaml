@@ -32,6 +32,10 @@ ports:
   - port: 10081:2746
     nodeFilters:
       - loadbalancer
+  # Container Registry for storing built images
+  - port: 10082:5000
+    nodeFilters:
+      - loadbalancer
   # Observability Plane uses port range 11xxx
   # Observer API
   - port: 11080:8080

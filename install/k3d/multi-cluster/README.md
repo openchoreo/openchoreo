@@ -128,6 +128,7 @@ Create a BuildPlane resource to enable building from source:
 ### Build Plane (if installed)
 
 - Argo Workflows UI: http://localhost:10081
+- Container Registry: http://localhost:10082
 
 ### Observability Plane (if installed)
 
@@ -194,13 +195,15 @@ graph TB
         end
 
         subgraph "Build Plane Network (k3d-openchoreo-bp) - Ports: 10xxx"
-            BP_ExtLB["k3d-serverlb<br/>localhost:10081/6552<br/>(host.k3d.internal for pods)"]
+            BP_ExtLB["k3d-serverlb<br/>localhost:10081/10082/6552<br/>(host.k3d.internal for pods)"]
             BP_K8sAPI["K8s API Server<br/>:6443"]
             BP_IntLB["Argo Server<br/>LoadBalancer :2746"]
+            Registry["Container Registry<br/>LoadBalancer :5000"]
             FB_BP["Fluent Bit"]
 
             BP_ExtLB -->|":6552→:6443"| BP_K8sAPI
             BP_ExtLB -->|":10081→:2746"| BP_IntLB
+            BP_ExtLB -->|":10082→:5000"| Registry
             BP_IntLB -.->|logs| FB_BP
         end
 
@@ -232,7 +235,7 @@ graph TB
     classDef apiStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
 
     class CP_ExtLB,DP_ExtLB,BP_ExtLB,OP_ExtLB extLbStyle
-    class CP_IntLB,DP_IntLB,BP_IntLB,Observer,OSD,OS intLbStyle
+    class CP_IntLB,DP_IntLB,BP_IntLB,Registry,Observer,OSD,OS intLbStyle
     class CP_K8sAPI,DP_K8sAPI,BP_K8sAPI,OP_K8sAPI apiStyle
 ```
 
