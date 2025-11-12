@@ -136,11 +136,20 @@ func (s *ComponentTypeService) toComponentTypeResponse(ct *openchoreov1alpha1.Co
 	displayName := ct.Annotations[controller.AnnotationKeyDisplayName]
 	description := ct.Annotations[controller.AnnotationKeyDescription]
 
+	// Convert allowed workflows
+	allowedWorkflows := make([]models.AllowedWorkflow, 0, len(ct.Spec.AllowedWorkflows))
+	for _, aw := range ct.Spec.AllowedWorkflows {
+		allowedWorkflows = append(allowedWorkflows, models.AllowedWorkflow{
+			Name: aw.Name,
+		})
+	}
+
 	return &models.ComponentTypeResponse{
-		Name:         ct.Name,
-		DisplayName:  displayName,
-		Description:  description,
-		WorkloadType: ct.Spec.WorkloadType,
-		CreatedAt:    ct.CreationTimestamp.Time,
+		Name:             ct.Name,
+		DisplayName:      displayName,
+		Description:      description,
+		WorkloadType:     ct.Spec.WorkloadType,
+		AllowedWorkflows: allowedWorkflows,
+		CreatedAt:        ct.CreationTimestamp.Time,
 	}
 }

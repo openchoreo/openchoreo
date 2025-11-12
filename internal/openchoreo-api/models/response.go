@@ -252,11 +252,17 @@ func ErrorResponse(message, code string) APIResponse[any] {
 
 // ComponentTypeResponse represents a ComponentType in API responses
 type ComponentTypeResponse struct {
-	Name         string    `json:"name"`
-	DisplayName  string    `json:"displayName,omitempty"`
-	Description  string    `json:"description,omitempty"`
-	WorkloadType string    `json:"workloadType"`
-	CreatedAt    time.Time `json:"createdAt"`
+	Name             string            `json:"name"`
+	DisplayName      string            `json:"displayName,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	WorkloadType     string            `json:"workloadType"`
+	AllowedWorkflows []AllowedWorkflow `json:"allowedWorkflows,omitempty"`
+	CreatedAt        time.Time         `json:"createdAt"`
+}
+
+// AllowedWorkflow represents an allowed workflow for a component type
+type AllowedWorkflow struct {
+	Name string `json:"name"`
 }
 
 // AddonResponse represents an Addon in API responses
