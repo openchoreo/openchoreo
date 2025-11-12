@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1" //nolint:revive // goimports requires explicit alias
 	"github.com/prometheus/common/model"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
