@@ -605,6 +605,11 @@ openchoreoApi:
   # -- JWT authentication configuration
   jwt:
     # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Disable JWT authentication
+    disabled: false
+    # @schema
     # type: [null, string]
     # @schema
     # -- JWT issuer

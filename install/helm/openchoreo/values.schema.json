@@ -4587,6 +4587,16 @@
                 "string"
               ]
             },
+            "disabled": {
+              "default": false,
+              "description": "Disable JWT authentication",
+              "required": [],
+              "title": "disabled",
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
             "issuer": {
               "default": "",
               "description": "JWT issuer",
