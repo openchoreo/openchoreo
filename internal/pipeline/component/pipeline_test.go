@@ -151,54 +151,6 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with environment overrides",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: prod
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 2
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-  workload: {}
-`,
-			settingsYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentDeployment
-spec:
-  overrides:
-    replicas: 5
-`,
-			environmentYAML: prodEnvironmentYAML,
-			dataplaneYAML:   prodDataplaneYAML,
-			wantResourceYAML: `
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    replicas: 5
-`,
-			wantErr: false,
-		},
-		{
 			name: "component with includeWhen",
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
@@ -428,522 +380,7 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with env configurations",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      envFrom: |
-                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
-                          [{
-                            "configMapRef": {
-                              "name": oc_generate_name(metadata.name, "env-configs")
-                            }
-                          }] : [])}
-        - id: env-config
-          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "env-configs")}
-            data: |
-              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
-  workload:
-    spec:
-      containers:
-        main:
-          image: myapp:latest
-          env:
-            - key: LOG_LEVEL
-              value: info
-            - key: DEBUG_MODE
-              value: "true"
-`,
-			environmentYAML: devEnvironmentYAML,
-			dataplaneYAML:   devDataplaneYAML,
-			wantResourceYAML: `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-env-configs-3e553e36
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
-  data:
-    LOG_LEVEL: info
-    DEBUG_MODE: "true"
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            envFrom:
-              - configMapRef:
-                  name: test-component-dev-12345678-env-configs-3e553e36
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with env configurations override",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: prod
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      envFrom: |
-                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
-                          [{
-                            "configMapRef": {
-                              "name": oc_generate_name(metadata.name, "env-configs")
-                            }
-                          }] : [])}
-        - id: env-config
-          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "env-configs")}
-            data: |
-              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
-  workload:
-    spec:
-      containers:
-        main:
-          image: myapp:latest
-          env:
-            - key: LOG_LEVEL
-              value: info
-            - key: DEBUG_MODE
-              value: "true"
-`,
-			settingsYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentDeployment
-spec:
-  configurationOverrides:
-    env:
-      - key: LOG_LEVEL
-        value: error
-      - key: NEW_KEY
-        value: newValue
-`,
-			environmentYAML: prodEnvironmentYAML,
-			dataplaneYAML:   prodDataplaneYAML,
-			wantResourceYAML: `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-env-configs-3e553e36
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  data:
-    LOG_LEVEL: error
-    DEBUG_MODE: "true"
-    NEW_KEY: newValue
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            envFrom:
-              - configMapRef:
-                  name: test-component-dev-12345678-env-configs-3e553e36
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with file configurations override",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: prod
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      volumeMounts: |
-                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                          configurations.configs.files.map(f, {
-                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                            "mountPath": f.mountPath+"/"+f.name,
-                            "subPath": f.name
-                          }) : oc_omit()}
-                  volumes: |
-                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                      configurations.configs.files.map(f, {
-                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                        "configMap": {
-                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
-                        }
-                      }) : oc_omit()}
-        - id: file-config
-          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
-          forEach: ${configurations.configs.files}
-          var: config
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
-              namespace: ${metadata.namespace}
-            data:
-              ${config.name}: |
-                ${config.value}
-  workload:
-    spec:
-      containers:
-        main:
-          image: myapp:latest
-          files:
-            - key: config.json
-              value: |
-                {
-                  "database": {
-                    "host": "localhost",
-                    "port": 5432
-                  }
-                }
-              mountPath: /etc/config
-            - key: app.properties
-              value: |
-                app.name=myapp
-                app.version=1.0.0
-                log.level=INFO
-              mountPath: /etc/config
-`,
-			settingsYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentDeployment
-spec:
-  configurationOverrides:
-    files:
-      - key: config.json
-        value: |
-          {
-            "database": {
-              "host": "prod.db.example.com",
-              "port": 5432
-            }
-          }
-        mountPath: /etc/config
-      - key: new-config.yaml
-        value: |
-          apiVersion: v1
-          kind: Config
-          setting: production
-        mountPath: /etc/config
-`,
-			environmentYAML: prodEnvironmentYAML,
-			dataplaneYAML:   prodDataplaneYAML,
-			wantResourceYAML: `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-config-app-properties-7a40d758
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  data:
-    app.properties: |
-      app.name=myapp
-      app.version=1.0.0
-      log.level=INFO
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-config-config-json-4334abe4
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  data:
-    config.json: |
-      {
-        "database": {
-          "host": "prod.db.example.com",
-          "port": 5432
-        }
-      }
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-config-new-config-yaml-0fbbcd4a
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  data:
-    new-config.yaml: |
-      apiVersion: v1
-      kind: Config
-      setting: production
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            volumeMounts:
-              - name: file-mount-d08babc2
-                mountPath: /etc/config/app.properties
-                subPath: app.properties
-              - name: file-mount-6c698306
-                mountPath: /etc/config/config.json
-                subPath: config.json
-              - name: file-mount-bc372c14
-                mountPath: /etc/config/new-config.yaml
-                subPath: new-config.yaml
-        volumes:
-          - name: file-mount-bc372c14
-            configMap:
-              name: test-component-dev-12345678-config-new-config-yaml-0fbbcd4a
-          - name: file-mount-6c698306
-            configMap:
-              name: test-component-dev-12345678-config-config-json-4334abe4
-          - name: file-mount-d08babc2
-            configMap:
-              name: test-component-dev-12345678-config-app-properties-7a40d758
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with file configurations",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      volumeMounts: |
-                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                          configurations.configs.files.map(f, {
-                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                            "mountPath": f.mountPath+"/"+f.name,
-                            "subPath": f.name
-                          }) : oc_omit()}
-                  volumes: |
-                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                      configurations.configs.files.map(f, {
-                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                        "configMap": {
-                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
-                        }
-                      }) : oc_omit()}
-        - id: file-config
-          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
-          forEach: ${configurations.configs.files}
-          var: config
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
-              namespace: ${metadata.namespace}
-            data:
-              ${config.name}: |
-                ${config.value}
-  workload:
-    spec:
-      containers:
-        main:
-          image: myapp:latest
-          files:
-            - key: config.json
-              value: |
-                {
-                  "database": {
-                    "host": "localhost",
-                    "port": 5432
-                  }
-                }
-              mountPath: /etc/config
-            - key: app.properties
-              value: |
-                app.name=myapp
-                app.version=1.0.0
-                log.level=INFO
-              mountPath: /etc/config
-`,
-			environmentYAML: devEnvironmentYAML,
-			dataplaneYAML:   devDataplaneYAML,
-			wantResourceYAML: `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-config-app-properties-7a40d758
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
-  data:
-    app.properties: |
-      app.name=myapp
-      app.version=1.0.0
-      log.level=INFO
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: test-component-dev-12345678-config-config-json-4334abe4
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
-  data:
-    config.json: |
-      {
-        "database": {
-          "host": "localhost",
-          "port": 5432
-        }
-      }
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            volumeMounts:
-              - name: file-mount-d08babc2
-                mountPath: /etc/config/app.properties
-                subPath: app.properties
-              - name: file-mount-6c698306
-                mountPath: /etc/config/config.json
-                subPath: config.json
-        volumes:
-          - name: file-mount-6c698306
-            configMap:
-              name: test-component-dev-12345678-config-config-json-4334abe4
-          - name: file-mount-d08babc2
-            configMap:
-              name: test-component-dev-12345678-config-app-properties-7a40d758
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with env and file secrets",
+			name: "component with configurations and secrets",
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -972,27 +409,72 @@ spec:
                     - name: app
                       image: myapp:latest
                       envFrom: |
-                        ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                          [{
+                            "configMapRef": {
+                              "name": oc_generate_name(metadata.name, "env-configs")
+                            }
+                          }] : []) +
+                        (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
                           [{
                             "secretRef": {
                               "name": oc_generate_name(metadata.name, "env-secrets")
                             }
-                          }] : []}
+                          }] : [])}
                       volumeMounts: |
-                        ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                          configurations.secrets.files.map(f, {
-                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                            "mountPath": f.mountPath+"/"+f.name,
-                            "subPath": f.name
-                          }) : oc_omit()}
+                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                          (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                            configurations.configs.files.map(f, {
+                              "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                              "mountPath": f.mountPath+"/"+f.name ,
+                              "subPath": f.name
+                            }) : []) +
+                          (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                            configurations.secrets.files.map(f, {
+                              "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                              "mountPath": f.mountPath+"/"+f.name,
+                              "subPath": f.name
+                            }) : [])
+                        : oc_omit()}
                   volumes: |
-                    ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                      configurations.secrets.files.map(f, {
-                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                        "secret": {
-                          "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
-                        }
-                      }) : oc_omit()}
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                        configurations.configs.files.map(f, {
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                          "configMap": {
+                            "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
+                          }
+                        }) : []) +
+                      (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                        configurations.secrets.files.map(f, {
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                          "secret": {
+                            "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
+                          }
+                        }) : [])
+                    : oc_omit()}
+        - id: env-config
+          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-configs")}
+            data: |
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+        - id: file-config
+          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+          forEach: ${configurations.configs.files}
+          var: config
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            data:
+              ${config.name}: |
+                ${config.value}
         - id: secret-env-external
           includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
           template:
@@ -1046,6 +528,10 @@ spec:
         app:
           image: myapp:latest
           env:
+            - key: LOG_LEVEL
+              value: info
+            - key: DEBUG_MODE
+              value: "true"
             - key: DB_PASSWORD
               valueFrom:
                 secretRef:
@@ -1057,6 +543,20 @@ spec:
                   name: api-secret
                   key: api_key
           files:
+            - key: config.json
+              value: |
+                {
+                  "database": {
+                    "host": "localhost",
+                    "port": 5432
+                  }
+                }
+              mountPath: /etc/config
+            - key: app.properties
+              value: |
+                app.name=myapp
+                app.version=1.0.0
+              mountPath: /etc/config
             - key: tls.crt
               mountPath: /etc/tls
               valueFrom:
@@ -1070,6 +570,40 @@ spec:
                   name: app-config-secret
                   key: application.yaml
 `,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  overrides:
+    replicas: 3
+  configurationOverrides:
+    env:
+      - key: LOG_LEVEL
+        value: error
+      - key: NEW_CONFIG
+        value: production
+      - key: DB_PASSWORD
+        valueFrom:
+          secretRef:
+            name: db-prod-secret
+            key: password
+    files:
+      - key: config.json
+        value: |
+          {
+            "database": {
+              "host": "prod.db.example.com",
+              "port": 5432
+            }
+          }
+        mountPath: /etc/config
+      - key: tls.crt
+        mountPath: /etc/tls
+        valueFrom:
+          secretRef:
+            name: tls-prod-secret
+            key: tls.crt
+`,
 			environmentYAML: prodEnvironmentYAML,
 			dataplaneYAML:   prodDataplaneYAML,
 			secretReferencesYAML: `
@@ -1077,6 +611,18 @@ spec:
   kind: SecretReference
   metadata:
     name: db-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: password
+        remoteRef:
+          key: dev/db
+          property: password
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: db-prod-secret
   spec:
     template:
       type: Opaque
@@ -1095,12 +641,24 @@ spec:
     data:
       - secretKey: api_key
         remoteRef:
-          key: prod/api
+          key: dev/api
           property: api_key
 - apiVersion: openchoreo.dev/v1alpha1
   kind: SecretReference
   metadata:
     name: tls-secret
+  spec:
+    template:
+      type: Opaque
+    data:
+      - secretKey: tls.crt
+        remoteRef:
+          key: dev/certificates
+          property: tls.crt
+- apiVersion: openchoreo.dev/v1alpha1
+  kind: SecretReference
+  metadata:
+    name: tls-prod-secret
   spec:
     template:
       type: Opaque
@@ -1119,10 +677,49 @@ spec:
     data:
       - secretKey: application.yaml
         remoteRef:
-          key: prod/config
+          key: dev/config
           property: application.yaml
 `,
 			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-env-configs-3e553e36
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    LOG_LEVEL: error
+    DEBUG_MODE: "true"
+    NEW_CONFIG: production
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-app-properties-7a40d758
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    app.properties: |
+      app.name=myapp
+      app.version=1.0.0
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-config-json-4334abe4
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    config.json: |
+      {
+        "database": {
+          "host": "prod.db.example.com",
+          "port": 5432
+        }
+      }
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -1131,22 +728,30 @@ spec:
       openchoreo.org/component: test-app
       openchoreo.org/environment: prod
   spec:
-    replicas: 2
+    replicas: 3
     template:
       spec:
         containers:
           - name: app
             image: myapp:latest
             envFrom:
+              - configMapRef:
+                  name: test-component-dev-12345678-env-configs-3e553e36
               - secretRef:
                   name: test-component-dev-12345678-env-secrets-7d163eae
             volumeMounts:
-              - name: file-mount-5953ef7b
-                mountPath: /etc/config/application.yaml
-                subPath: application.yaml
               - name: file-mount-9b2ef275
                 mountPath: /etc/tls/tls.crt
                 subPath: tls.crt
+              - name: file-mount-6c698306
+                mountPath: /etc/config/config.json
+                subPath: config.json
+              - name: file-mount-5953ef7b
+                mountPath: /etc/config/application.yaml
+                subPath: application.yaml
+              - name: file-mount-d08babc2
+                mountPath: /etc/config/app.properties
+                subPath: app.properties
         volumes:
           - name: file-mount-5953ef7b
             secret:
@@ -1154,6 +759,12 @@ spec:
           - name: file-mount-9b2ef275
             secret:
               secretName: test-component-dev-12345678-secret-tls-crt-baf3eb48
+          - name: file-mount-6c698306
+            configMap:
+              name: test-component-dev-12345678-config-config-json-4334abe4
+          - name: file-mount-d08babc2
+            configMap:
+              name: test-component-dev-12345678-config-app-properties-7a40d758
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
@@ -1177,7 +788,7 @@ spec:
           property: password
       - secretKey: API_KEY
         remoteRef:
-          key: prod/api
+          key: dev/api
           property: api_key
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
@@ -1198,7 +809,7 @@ spec:
     data:
       - secretKey: application.yaml
         remoteRef:
-          key: prod/config
+          key: dev/config
           property: application.yaml
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
@@ -1221,458 +832,6 @@ spec:
         remoteRef:
           key: prod/certificates
           property: tls.crt
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with secret overrides",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: prod
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      envFrom: |
-                        ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
-                          [{
-                            "secretRef": {
-                              "name": oc_generate_name(metadata.name, "env-secrets")
-                            }
-                          }] : []}
-                      volumeMounts: |
-                        ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                          configurations.secrets.files.map(f, {
-                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                            "mountPath": f.mountPath+"/"+f.name,
-                            "subPath": f.name
-                          }) : oc_omit()}
-                  volumes: |
-                    ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                      configurations.secrets.files.map(f, {
-                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                        "secret": {
-                          "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
-                        }
-                      }) : oc_omit()}
-        - id: secret-env-external
-          includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
-          template:
-            apiVersion: external-secrets.io/v1
-            kind: ExternalSecret
-            metadata:
-              name: ${oc_generate_name(metadata.name, "env-secrets")}
-              namespace: ${metadata.namespace}
-            spec:
-              refreshInterval: 15s
-              secretStoreRef:
-                name: ${dataplane.secretStore}
-                kind: ClusterSecretStore
-              target:
-                name: ${oc_generate_name(metadata.name, "env-secrets")}
-                creationPolicy: Owner
-              data: |
-                ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
-                  "secretKey": secret.name,
-                  "remoteRef": {
-                    "key": secret.remoteRef.key,
-                    "property": secret.remoteRef.property
-                  }
-                }) : oc_omit()}
-        - id: secret-file-external
-          includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
-          forEach: ${configurations.secrets.files}
-          var: file
-          template:
-            apiVersion: external-secrets.io/v1
-            kind: ExternalSecret
-            metadata:
-              name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
-              namespace: ${metadata.namespace}
-            spec:
-              refreshInterval: 15s
-              secretStoreRef:
-                name: ${dataplane.secretStore}
-                kind: ClusterSecretStore
-              target:
-                name: ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
-                creationPolicy: Owner
-              data:
-                - secretKey: ${file.name}
-                  remoteRef:
-                    key: ${file.remoteRef.key}
-                    property: ${file.remoteRef.property}
-  workload:
-    spec:
-      containers:
-        app:
-          image: myapp:latest
-          env:
-            - key: DATABASE_PASSWORD
-              valueFrom:
-                secretRef:
-                  name: database-dev-secret
-                  key: password
-          files:
-            - key: config.yaml
-              mountPath: /etc/config
-              valueFrom:
-                secretRef:
-                  name: config-dev-secret
-                  key: config.yaml
-`,
-			environmentYAML: prodEnvironmentYAML,
-			dataplaneYAML:   prodDataplaneYAML,
-			secretReferencesYAML: `
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: database-dev-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: password
-        remoteRef:
-          key: database/dev
-          property: password
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: database-prod-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: password
-        remoteRef:
-          key: database/prod
-          property: password
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: api-prod-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: token
-        remoteRef:
-          key: api/prod
-          property: token
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: config-dev-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: config.yaml
-        remoteRef:
-          key: config/dev
-          property: config.yaml
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: config-prod-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: config.yaml
-        remoteRef:
-          key: config/prod
-          property: config.yaml
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: redis-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: url
-        remoteRef:
-          key: redis/prod
-          property: url
-- apiVersion: openchoreo.dev/v1alpha1
-  kind: SecretReference
-  metadata:
-    name: monitoring-secret
-  spec:
-    template:
-      type: Opaque
-    data:
-      - secretKey: monitoring.yaml
-        remoteRef:
-          key: monitoring/prod
-          property: monitoring.yaml
-`,
-			settingsYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentDeployment
-spec:
-  configurationOverrides:
-    env:
-      - key: DATABASE_PASSWORD
-        valueFrom:
-          secretRef:
-            name: database-prod-secret
-            key: password
-      - key: API_TOKEN
-        valueFrom:
-          secretRef:
-            name: api-prod-secret
-            key: token
-      - key: REDIS_URL
-        valueFrom:
-          secretRef:
-            name: redis-secret
-            key: url
-    files:
-      - key: config.yaml
-        mountPath: /etc/config
-        valueFrom:
-          secretRef:
-            name: config-prod-secret
-            key: config.yaml
-      - key: monitoring.yaml
-        mountPath: /etc/monitoring
-        valueFrom:
-          secretRef:
-            name: monitoring-secret
-            key: monitoring.yaml
-`,
-			wantResourceYAML: `
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            envFrom:
-              - secretRef:
-                  name: test-component-dev-12345678-env-secrets-7d163eae
-            volumeMounts:
-              - name: file-mount-8bf9a3a3
-                mountPath: /etc/config/config.yaml
-                subPath: config.yaml
-              - name: file-mount-8dcd70ef
-                mountPath: /etc/monitoring/monitoring.yaml
-                subPath: monitoring.yaml
-        volumes:
-          - name: file-mount-8bf9a3a3
-            secret:
-              secretName: test-component-dev-12345678-secret-config-yaml-90b39a2c
-          - name: file-mount-8dcd70ef
-            secret:
-              secretName: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
-- apiVersion: external-secrets.io/v1
-  kind: ExternalSecret
-  metadata:
-    name: test-component-dev-12345678-env-secrets-7d163eae
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    refreshInterval: 15s
-    secretStoreRef:
-      name: prod-vault-store
-      kind: ClusterSecretStore
-    target:
-      name: test-component-dev-12345678-env-secrets-7d163eae
-      creationPolicy: Owner
-    data:
-      - secretKey: API_TOKEN
-        remoteRef:
-          key: api/prod
-          property: token
-      - secretKey: REDIS_URL
-        remoteRef:
-          key: redis/prod
-          property: url
-      - secretKey: DATABASE_PASSWORD
-        remoteRef:
-          key: database/prod
-          property: password
-- apiVersion: external-secrets.io/v1
-  kind: ExternalSecret
-  metadata:
-    name: test-component-dev-12345678-secret-config-yaml-90b39a2c
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    refreshInterval: 15s
-    secretStoreRef:
-      name: prod-vault-store
-      kind: ClusterSecretStore
-    target:
-      name: test-component-dev-12345678-secret-config-yaml-90b39a2c
-      creationPolicy: Owner
-    data:
-      - secretKey: config.yaml
-        remoteRef:
-          key: config/prod
-          property: config.yaml
-- apiVersion: external-secrets.io/v1
-  kind: ExternalSecret
-  metadata:
-    name: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
-    namespace: test-namespace
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    refreshInterval: 15s
-    secretStoreRef:
-      name: prod-vault-store
-      kind: ClusterSecretStore
-    target:
-      name: test-component-dev-12345678-secret-monitoring-yaml-ecfe7563
-      creationPolicy: Owner
-    data:
-      - secretKey: monitoring.yaml
-        remoteRef:
-          key: monitoring/prod
-          property: monitoring.yaml
-`,
-			wantErr: false,
-		},
-		{
-			name: "component with no workload configurations and no config overrides",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: prod
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 1
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${component.name}
-            spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      image: myapp:latest
-                      envFrom: |
-                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
-                          [{
-                            "configMapRef": {
-                              "name": oc_generate_name(metadata.name, "env-configs")
-                            }
-                          }] : [])}
-                      volumeMounts: |
-                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                          configurations.configs.files.map(f, {
-                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                            "mountPath": f.mountPath+"/"+f.name,
-                            "subPath": f.name
-                          }) : oc_omit()}
-                  volumes: |
-                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                      configurations.configs.files.map(f, {
-                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
-                        "configMap": {
-                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
-                        }
-                      }) : oc_omit()}
-        - id: env-config
-          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "env-configs")}
-            data: |
-              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
-        - id: file-config
-          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
-          forEach: ${configurations.configs.files}
-          var: config
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
-              namespace: ${metadata.namespace}
-            data:
-              ${config.name}: |
-                ${config.value}
-  workload:
-    spec:
-      containers:
-        app:
-          image: myapp:latest
-`,
-			environmentYAML: prodEnvironmentYAML,
-			dataplaneYAML:   prodDataplaneYAML,
-			settingsYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentDeployment
-spec:
-  configurationOverrides: {}
-`,
-			wantResourceYAML: `
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: test-app
-    labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: prod
-  spec:
-    replicas: 1
-    template:
-      spec:
-        containers:
-          - name: app
-            image: myapp:latest
-            envFrom: []
 `,
 			wantErr: false,
 		},
@@ -1762,7 +921,7 @@ spec:
 					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 				}
 
-				if diff := cmp.Diff(wantResources, output.Resources, sortSlicesByName(), sortAnySlicesByName()); diff != "" {
+				if diff := cmp.Diff(wantResources, output.Resources, sortAnySlicesByName()); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -2075,65 +1234,6 @@ func TestSortResources(t *testing.T) {
 	if metadata["name"] != "svc-a" {
 		t.Errorf("Expected svc-a second, got %v", metadata["name"])
 	}
-}
-
-// sortSlicesByName returns a cmp.Transformer to sort slices of maps with "name" or "secretKey" field during comparison.
-// Configuration override merging uses maps which have non-deterministic iteration order.
-func sortSlicesByName() cmp.Option {
-	return cmp.Transformer("SortSlicesByName", func(in []map[string]any) []map[string]any {
-		// Check if any map has a "name" or "secretKey" field
-		hasKey := false
-		for _, m := range in {
-			if _, exists := m["name"]; exists {
-				hasKey = true
-				break
-			}
-			if _, exists := m["secretKey"]; exists {
-				hasKey = true
-				break
-			}
-		}
-
-		// If no relevant field, return as-is
-		if !hasKey {
-			return in
-		}
-
-		// Helper to extract sort key (prefer "name" over "secretKey" if both exist)
-		getKey := func(m map[string]any) (string, bool) {
-			if v, ok := m["name"].(string); ok && v != "" {
-				return v, true
-			}
-			if v, ok := m["secretKey"].(string); ok && v != "" {
-				return v, true
-			}
-			return "", false
-		}
-
-		// Create a copy and sort by key
-		out := make([]map[string]any, len(in))
-		copy(out, in)
-		sort.SliceStable(out, func(i, j int) bool {
-			ki, iok := getKey(out[i])
-			kj, jok := getKey(out[j])
-
-			// Both missing keys -> preserve original order
-			if !iok && !jok {
-				return false
-			}
-			// i missing, j has -> j should come before i => return false
-			if !iok && jok {
-				return false
-			}
-			// i has, j missing -> i should come before j
-			if iok && !jok {
-				return true
-			}
-			// Both have keys -> compare lexicographically
-			return ki < kj
-		})
-		return out
-	})
 }
 
 // sortAnySlicesByName returns a cmp.Transformer to handle []any slices that contain maps with "name" or "secretKey" field.
