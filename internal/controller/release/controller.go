@@ -77,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Get dataplane client for the environment
-	dpClient, err := r.getDPClient(ctx, release.Spec.EnvironmentName)
+	dpClient, err := r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 	if err != nil {
 		logger.Error(err, "Failed to get dataplane client")
 		return ctrl.Result{}, err
@@ -147,20 +147,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // getDPClient gets the dataplane client for the specified environment
-func (r *Reconciler) getDPClient(ctx context.Context, environmentName string) (client.Client, error) {
-	// Fetch the environment from default namespace
+func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmentName string) (client.Client, error) {
 	env := &openchoreov1alpha1.Environment{}
-	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: "default"}, env); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: orgName}, env); err != nil {
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Get the dataplane using the direct reference from default namespace
 	dataplane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: "default"}, dataplane); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: orgName}, dataplane); err != nil {
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
 
-	// Get the dataplane client
 	dpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, dataplane.Namespace, dataplane.Name, dataplane.Spec.KubernetesCluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataplane.Name, err)

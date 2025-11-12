@@ -56,7 +56,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	}
 
 	// STEP 2: Get dataplane client and find all managed resources
-	dpClient, err := r.getDPClient(ctx, release.Spec.EnvironmentName)
+	dpClient, err := r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 	if err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
