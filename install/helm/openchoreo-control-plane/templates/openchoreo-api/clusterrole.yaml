@@ -19,7 +19,7 @@ rules:
   - componentdeployments
   - componentenvsnapshots
   - components
-  - componenttypedefinitions
+  - componenttypes
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -40,6 +40,8 @@ rules:
   - webapplicationbindings
   - webapplicationclasses
   - webapplications
+  - workflows
+  - workflowruns
   - workloads
   verbs:
   - create

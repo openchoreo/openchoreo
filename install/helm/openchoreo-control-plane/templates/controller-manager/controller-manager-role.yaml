@@ -136,8 +136,8 @@ rules:
     - webapplicationbindings
     - webapplicationclasses
     - webapplications
-    - workflowruns
     - workflows
+    - workflowruns
     - workloads
   verbs:
     - create
