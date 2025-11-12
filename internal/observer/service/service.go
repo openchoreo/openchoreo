@@ -264,28 +264,89 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// GetComponentHTTPMetrics retrieves HTTP performance metrics for a component
-func (s *LoggingService) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.HTTPMetrics, error) {
-	req := prometheus.MetricsRequest{
-		ComponentID:   componentID,
-		EnvironmentID: environmentID,
-		ProjectID:     projectID,
-		StartTime:     startTime,
-		EndTime:       endTime,
+
+// GetComponentResourceMetrics retrieves resource usage metrics for a component as time series
+func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.ResourceMetricsTimeSeries, error) {
+	s.logger.Debug("Getting resource metrics",
+		"project", projectID,
+		"component", componentID,
+		"environment", environmentID,
+		"start", startTime,
+		"end", endTime)
+
+	// Define step interval for time series queries (5 minute intervals)
+	step := 5 * time.Minute
+
+	metrics := &prometheus.ResourceMetricsTimeSeries{}
+
+	// Build component label filter using query builder
+	labelFilter := prometheus.BuildLabelFilter(componentID, projectID, environmentID)
+
+	// CPU usage
+	cpuUsageQuery := prometheus.BuildCPUUsageQuery(labelFilter)
+	if s.config.LogLevel == "info" {
+		fmt.Println("CPU Usage Query:", cpuUsageQuery)
+	}
+	cpuResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuUsageQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU usage", "error", err)
+	} else if len(cpuResp.Data.Result) > 0 {
+		metrics.CPUUsage = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuResp.Data.Result[0])
 	}
 
-	return s.metricsService.GetHTTPMetrics(ctx, req)
-}
-
-// GetComponentResourceMetrics retrieves resource usage metrics for a component
-func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.ResourceMetrics, error) {
-	req := prometheus.MetricsRequest{
-		ComponentID:   componentID,
-		EnvironmentID: environmentID,
-		ProjectID:     projectID,
-		StartTime:     startTime,
-		EndTime:       endTime,
+	// Memory usage
+	memUsageQuery := prometheus.BuildMemoryUsageQuery(labelFilter)
+	memResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memUsageQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory usage", "error", err)
+	} else if len(memResp.Data.Result) > 0 {
+		metrics.Memory = prometheus.ConvertTimeSeriesToTimeValuePoints(memResp.Data.Result[0])
 	}
 
-	return s.metricsService.GetResourceMetrics(ctx, req)
+	// CPU requests
+	cpuRequestQuery := prometheus.BuildCPURequestsQuery(labelFilter)
+	cpuRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuRequestQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU requests", "error", err)
+	} else if len(cpuRequestResp.Data.Result) > 0 {
+		metrics.CPURequests = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuRequestResp.Data.Result[0])
+	}
+
+	// CPU limits
+	cpuLimitQuery := prometheus.BuildCPULimitsQuery(labelFilter)
+	
+	cpuLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuLimitQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU limits", "error", err)
+	} else if len(cpuLimitResp.Data.Result) > 0 {
+		metrics.CPULimits = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuLimitResp.Data.Result[0])
+	}
+
+	// Memory requests
+	memRequestQuery := prometheus.BuildMemoryRequestsQuery(labelFilter)
+	memRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memRequestQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory requests", "error", err)
+	} else if len(memRequestResp.Data.Result) > 0 {
+		metrics.MemoryRequests = prometheus.ConvertTimeSeriesToTimeValuePoints(memRequestResp.Data.Result[0])
+	}
+
+	// Memory limits
+	memLimitQuery := prometheus.BuildMemoryLimitsQuery(labelFilter)
+	memLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memLimitQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory limits", "error", err)
+	} else if len(memLimitResp.Data.Result) > 0 {
+		metrics.MemoryLimits = prometheus.ConvertTimeSeriesToTimeValuePoints(memLimitResp.Data.Result[0])
+	}
+
+	s.logger.Debug("Resource metrics time series retrieved",
+		"cpu_usage_points", len(metrics.CPUUsage),
+		"cpu_requests_points", len(metrics.CPURequests),
+		"cpu_limits_points", len(metrics.CPULimits),
+		"memory_points", len(metrics.Memory),
+		"memory_requests_points", len(metrics.MemoryRequests),
+		"memory_limits_points", len(metrics.MemoryLimits))
+
+	return metrics, nil
 }

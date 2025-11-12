@@ -5,189 +5,205 @@ package prometheus
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"net/url"
-	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
-// Client provides Prometheus query functionality
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	logger     *slog.Logger
+	api     v1.API
+	baseURL string
+	logger  *slog.Logger
 }
 
-// QueryResponse represents a Prometheus query response
-type QueryResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Value  []any             `json:"value"`
-		} `json:"result"`
-	} `json:"data"`
-	Error     string `json:"error,omitempty"`
-	ErrorType string `json:"errorType,omitempty"`
+// TimeSeriesResponse represents a Prometheus range query response with time series data
+type TimeSeriesResponse struct {
+	Status    string         `json:"status"`
+	Data      TimeSeriesData `json:"data"`
+	Error     string         `json:"error,omitempty"`
+	ErrorType string         `json:"errorType,omitempty"`
 }
 
-// MetricPoint represents a single metric data point
-type MetricPoint struct {
-	Metric    map[string]string `json:"metric"`
-	Value     string            `json:"value"`
-	Timestamp float64           `json:"timestamp"`
+// TimeSeriesData contains the result type and time series results
+type TimeSeriesData struct {
+	ResultType string       `json:"resultType"`
+	Result     []TimeSeries `json:"result"`
 }
 
-// NewClient creates a new Prometheus client
-func NewClient(cfg *config.PrometheusConfig, logger *slog.Logger) *Client {
+// TimeSeries represents a single time series with metric labels and data points
+type TimeSeries struct {
+	Metric map[string]string `json:"metric"`
+	Values []DataPoint       `json:"values"`
+}
+
+// DataPoint represents a single timestamp-value pair in a time series
+type DataPoint struct {
+	Timestamp float64 `json:"timestamp"` // Unix timestamp in seconds
+	Value     string  `json:"value"`     // Metric value as string for precision
+}
+
+// TimeValuePoint represents a simplified data point with ISO 8601 time format
+type TimeValuePoint struct {
+	Time  string  `json:"time"`  // ISO 8601 formatted timestamp
+	Value float64 `json:"value"` // Numeric value
+}
+
+func NewClient(cfg *config.PrometheusConfig, logger *slog.Logger) (*Client, error) {
+	client, err := api.NewClient(api.Config{
+		Address: cfg.Address,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create prometheus client: %w", err)
+	}
+
+	v1api := v1.NewAPI(client)
+
 	return &Client{
 		baseURL: cfg.Address,
-		httpClient: &http.Client{
-			Timeout: cfg.Timeout,
-		},
-		logger: logger,
-	}
+		api:     v1api,
+		logger:  logger,
+	}, nil
 }
 
-// Query executes a PromQL query
-func (c *Client) Query(ctx context.Context, query string) (*QueryResponse, error) {
-	c.logger.Debug("Executing Prometheus query", "query", query)
+// HealthCheck performs a health check on Prometheus using the official API
+func (c *Client) HealthCheck(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-	// Build URL with query parameter
-	u, err := url.Parse(fmt.Sprintf("%s/api/v1/query", c.baseURL))
+	c.logger.Debug("Performing Prometheus health check")
+
+	_, _, err := c.api.Query(ctx, "up", time.Now())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL: %w", err)
+		c.logger.Error("Prometheus health check failed", "error", err)
+		return fmt.Errorf("prometheus health check failed: %w", err)
 	}
 
-	// Create request with proper URL encoding
-	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add form data for the query
-	form := url.Values{}
-	form.Add("query", query)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Body = io.NopCloser(strings.NewReader(form.Encode()))
-
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Parse JSON response
-	var queryResp QueryResponse
-	if err := json.Unmarshal(body, &queryResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check for Prometheus errors
-	if queryResp.Status != "success" {
-		return nil, fmt.Errorf("prometheus query failed: %s - %s", queryResp.ErrorType, queryResp.Error)
-	}
-
-	c.logger.Debug("Prometheus query executed successfully",
-		"result_count", len(queryResp.Data.Result))
-
-	return &queryResp, nil
+	c.logger.Debug("Successfully connected to Prometheus")
+	return nil
 }
 
-// QueryRange executes a PromQL range query
-func (c *Client) QueryRange(ctx context.Context, query string, start, end time.Time, step time.Duration) (*QueryResponse, error) {
-	c.logger.Debug("Executing Prometheus range query",
+// Executes a PromQL range query and returns full time series data
+// This method returns all data points in the time range, suitable for charting and visualization
+func (c *Client) QueryRangeTimeSeries(ctx context.Context, query string, start, end time.Time, step time.Duration) (*TimeSeriesResponse, error) {
+	c.logger.Debug("Executing Prometheus range query for time series",
 		"query", query,
 		"start", start,
 		"end", end,
 		"step", step)
 
-	// Build URL
-	u, err := url.Parse(fmt.Sprintf("%s/api/v1/query_range", c.baseURL))
+	r := v1.Range{
+		Start: start,
+		End:   end,
+		Step:  step,
+	}
+
+	result, warnings, err := c.api.QueryRange(ctx, query, r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL: %w", err)
+		return nil, fmt.Errorf("failed to execute range query: %w", err)
 	}
 
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	if len(warnings) > 0 {
+		c.logger.Warn("Prometheus range query returned warnings", "warnings", warnings)
 	}
 
-	// Add form data
-	form := url.Values{}
-	form.Add("query", query)
-	form.Add("start", fmt.Sprintf("%d", start.Unix()))
-	form.Add("end", fmt.Sprintf("%d", end.Unix()))
-	form.Add("step", fmt.Sprintf("%.0fs", step.Seconds()))
+	tsResp := convertToTimeSeriesResponse(result)
 
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Body = io.NopCloser(strings.NewReader(form.Encode()))
+	c.logger.Debug("Prometheus range query for time series executed successfully",
+		"series_count", len(tsResp.Data.Result))
 
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Parse JSON response
-	var queryResp QueryResponse
-	if err := json.Unmarshal(body, &queryResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check for Prometheus errors
-	if queryResp.Status != "success" {
-		return nil, fmt.Errorf("prometheus range query failed: %s - %s", queryResp.ErrorType, queryResp.Error)
-	}
-
-	c.logger.Debug("Prometheus range query executed successfully",
-		"result_count", len(queryResp.Data.Result))
-
-	return &queryResp, nil
+	return tsResp, nil
 }
 
-// HealthCheck performs a health check on Prometheus
-func (c *Client) HealthCheck(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	u := fmt.Sprintf("%s/-/healthy", c.baseURL)
-	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create health check request: %w", err)
+// Converts Prometheus model.Value to TimeSeriesResponse format. This properly handles Matrix results with all 
+// data points
+func convertToTimeSeriesResponse(result model.Value) *TimeSeriesResponse {
+	tsResp := &TimeSeriesResponse{
+		Status: "success",
+		Data: TimeSeriesData{
+			ResultType: result.Type().String(),
+			Result:     make([]TimeSeries, 0),
+		},
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("health check request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	switch v := result.(type) {
+	case model.Vector:
+		for _, sample := range v {
+			metric := make(map[string]string)
+			for k, val := range sample.Metric {
+				metric[string(k)] = string(val)
+			}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("prometheus health check failed with status: %d", resp.StatusCode)
+			ts := TimeSeries{
+				Metric: metric,
+				Values: []DataPoint{
+					{
+						Timestamp: float64(sample.Timestamp) / 1000, // Convert to seconds
+						Value:     fmt.Sprintf("%v", sample.Value),
+					},
+				},
+			}
+			tsResp.Data.Result = append(tsResp.Data.Result, ts)
+		}
+
+	case model.Matrix:
+		for _, stream := range v {
+			metric := make(map[string]string)
+			for k, val := range stream.Metric {
+				metric[string(k)] = string(val)
+			}
+
+			values := make([]DataPoint, 0, len(stream.Values))
+			for _, samplePair := range stream.Values {
+				values = append(values, DataPoint{
+					Timestamp: float64(samplePair.Timestamp) / 1000, // Convert to seconds
+					Value:     fmt.Sprintf("%v", samplePair.Value),
+				})
+			}
+
+			ts := TimeSeries{
+				Metric: metric,
+				Values: values,
+			}
+			tsResp.Data.Result = append(tsResp.Data.Result, ts)
+		}
+
+	case *model.Scalar:
+		ts := TimeSeries{
+			Metric: map[string]string{},
+			Values: []DataPoint{
+				{
+					Timestamp: float64(v.Timestamp) / 1000,
+					Value:     fmt.Sprintf("%v", v.Value),
+				},
+			},
+		}
+		tsResp.Data.Result = append(tsResp.Data.Result, ts)
 	}
 
-	return nil
+	return tsResp
+}
+
+// Converts a TimeSeries to an array of TimeValuePoint with ISO 8601 formatted timestamps and float64 values
+func ConvertTimeSeriesToTimeValuePoints(ts TimeSeries) []TimeValuePoint {
+	points := make([]TimeValuePoint, 0, len(ts.Values))
+
+	for _, dp := range ts.Values {
+		t := time.Unix(int64(dp.Timestamp), 0).UTC()
+
+		var value float64
+		fmt.Sscanf(dp.Value, "%f", &value)
+
+		points = append(points, TimeValuePoint{
+			Time:  t.Format(time.RFC3339), // ISO 8601 format
+			Value: value,
+		})
+	}
+
+	return points
 }

@@ -49,7 +49,10 @@ func main() {
 	}
 
 	// Initialize Prometheus client
-	promClient := prometheus.NewClient(&cfg.Prometheus, logger)
+	promClient, err := prometheus.NewClient(&cfg.Prometheus, logger)
+	if err != nil {
+		log.Fatalf("Failed to initialize Prometheus client: %v", err)
+	}
 
 	// Initialize metrics service
 	metricsService := prometheus.NewMetricsService(promClient, logger)
@@ -72,9 +75,11 @@ func main() {
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
 
+	// API routes - Traces
+	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
+
 	// API routes - Metrics
-	mux.HandleFunc("POST /api/metrics/component/{componentId}/http", handler.GetComponentHTTPMetrics)
-	mux.HandleFunc("POST /api/metrics/component/{componentId}/usage", handler.GetComponentResourceMetrics)
+	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(

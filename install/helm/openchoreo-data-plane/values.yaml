@@ -103,25 +103,6 @@ observability:
       fluentbit:
         enabled: true
 
-# Customizing Cilium L7 HTTP visibility configurations
-# Note: L7 HTTP visibility is controlled by observability.metrics.enabled
-cilium:
-  l7HttpVisibility:
-    componentSelector: {}  # Additional labels to select specific components
-    ingressPorts:
-      - port: "9090"  # Default service port for Choreo components
-        protocol: "TCP"
-      - port: "8080"  # Additional port for components like greeter-service
-        protocol: "TCP"
-    egressPorts:
-      - port: "80"    # HTTP outbound
-        protocol: "TCP"
-      - port: "443"   # HTTPS outbound  
-        protocol: "TCP"
-      - port: "9090"  # Service-to-service communication
-        protocol: "TCP"
-
-
 # Customizing Fluent Bit configurations
 fluentBit:
   enabled: true

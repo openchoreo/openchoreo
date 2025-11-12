@@ -111,15 +111,16 @@ type OrganizationLogsRequest struct {
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
-// MetricsRequest represents the request body for metrics queries
+// Represents the request body for POST /api/metrics/component/usage API
 type MetricsRequest struct {
-	StartTime     string `json:"startTime,omitempty"`
+	ComponentID   string `json:"componentId,omitempty"`
 	EndTime       string `json:"endTime,omitempty"`
 	EnvironmentID string `json:"environmentId" validate:"required"`
+	StartTime     string `json:"startTime,omitempty"`
 	ProjectID     string `json:"projectId" validate:"required"`
 }
 
-// ErrorResponse represents an error response
+// Represents an error response
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Code    string `json:"code"`
@@ -400,62 +401,9 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetComponentHTTPMetrics handles POST /api/metrics/component/{componentId}/http
-func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request) {
-	componentID := httputil.GetPathParam(r, "componentId")
-	if componentID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgComponentIDRequired)
-		return
-	}
 
-	var req MetricsRequest
-	if err := httputil.BindJSON(r, &req); err != nil {
-		h.logger.Error("Failed to bind metrics request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
-		return
-	}
-
-	// Parse time parameters (optional)
-	var startTime, endTime time.Time
-	var err error
-
-	if req.StartTime != "" {
-		startTime, err = time.Parse(time.RFC3339, req.StartTime)
-		if err != nil {
-			h.logger.Error("Failed to parse start time", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-			return
-		}
-	}
-
-	if req.EndTime != "" {
-		endTime, err = time.Parse(time.RFC3339, req.EndTime)
-		if err != nil {
-			h.logger.Error("Failed to parse end time", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-			return
-		}
-	}
-
-	// Execute query
-	ctx := r.Context()
-	result, err := h.service.GetComponentHTTPMetrics(ctx, componentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
-	if err != nil {
-		h.logger.Error("Failed to get component HTTP metrics", "error", err)
-		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveMetrics)
-		return
-	}
-
-	h.writeJSON(w, http.StatusOK, result)
-}
-
-// GetComponentResourceMetrics handles POST /api/metrics/component/{componentId}/usage
+// Handles POST /api/metrics/component/usage
 func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Request) {
-	componentID := httputil.GetPathParam(r, "componentId")
-	if componentID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgComponentIDRequired)
-		return
-	}
 
 	var req MetricsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
@@ -464,31 +412,34 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Parse time parameters (optional)
 	var startTime, endTime time.Time
 	var err error
 
-	if req.StartTime != "" {
-		startTime, err = time.Parse(time.RFC3339, req.StartTime)
-		if err != nil {
-			h.logger.Error("Failed to parse start time", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-			return
-		}
+	// Input validations
+	err = validateTimes(req.StartTime, req.EndTime)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
 	}
 
-	if req.EndTime != "" {
-		endTime, err = time.Parse(time.RFC3339, req.EndTime)
-		if err != nil {
-			h.logger.Error("Failed to parse end time", "error", err)
-			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
-			return
-		}
+	startTime, err = time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		h.logger.Error("Failed to parse start time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	endTime, err = time.Parse(time.RFC3339, req.EndTime)
+	if err != nil {
+		h.logger.Error("Failed to parse end time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
 	}
 
 	// Execute query
 	ctx := r.Context()
-	result, err := h.service.GetComponentResourceMetrics(ctx, componentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
+	result, err := h.service.GetComponentResourceMetrics(ctx, req.ComponentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
 	if err != nil {
 		h.logger.Error("Failed to get component resource metrics", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveMetrics)
