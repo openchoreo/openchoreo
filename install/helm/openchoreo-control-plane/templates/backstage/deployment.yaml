@@ -45,7 +45,7 @@ spec:
       {{- end }}
       containers:
       - name: backstage
-        image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag }}"
+        image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.backstage.image.pullPolicy }}
         ports:
         - containerPort: 7007
