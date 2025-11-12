@@ -283,8 +283,8 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU usage
 	cpuUsageQuery := prometheus.BuildCPUUsageQuery(labelFilter)
-	if s.config.LogLevel == "info" {
-		fmt.Println("CPU Usage Query:", cpuUsageQuery)
+	if s.config.LogLevel == "debug" {
+		fmt.Println("CPU usage query:", cpuUsageQuery)
 	}
 	cpuResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuUsageQuery, startTime, endTime, step)
 	if err != nil {
@@ -295,6 +295,9 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory usage
 	memUsageQuery := prometheus.BuildMemoryUsageQuery(labelFilter)
+	if s.config.LogLevel == "debug" {
+		fmt.Println("Memory usage query:", memUsageQuery)
+	}
 	memResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memUsageQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query memory usage", "error", err)
@@ -304,6 +307,9 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU requests
 	cpuRequestQuery := prometheus.BuildCPURequestsQuery(labelFilter)
+	if s.config.LogLevel == "debug" {
+		fmt.Println("CPU requests query:", cpuRequestQuery)
+	}
 	cpuRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuRequestQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query CPU requests", "error", err)
@@ -313,7 +319,9 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU limits
 	cpuLimitQuery := prometheus.BuildCPULimitsQuery(labelFilter)
-
+	if s.config.LogLevel == "debug" {
+		fmt.Println("CPU limit query:", cpuLimitQuery)
+	}
 	cpuLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuLimitQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query CPU limits", "error", err)
@@ -323,6 +331,9 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory requests
 	memRequestQuery := prometheus.BuildMemoryRequestsQuery(labelFilter)
+	if s.config.LogLevel == "debug" {
+		fmt.Println("Memory requests query:", memRequestQuery)
+	}
 	memRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memRequestQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query memory requests", "error", err)
@@ -332,6 +343,9 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory limits
 	memLimitQuery := prometheus.BuildMemoryLimitsQuery(labelFilter)
+	if s.config.LogLevel == "debug" {
+		fmt.Println("Memory limit query:", memLimitQuery)
+	}
 	memLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memLimitQuery, startTime, endTime, step)
 	if err != nil {
 		s.logger.Warn("Failed to query memory limits", "error", err)

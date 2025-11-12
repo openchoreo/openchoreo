@@ -77,7 +77,7 @@ func BuildCPUUsageQuery(labelFilter string) string {
 // BuildMemoryUsageQuery builds a PromQL query for memory usage
 func BuildMemoryUsageQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name) (
-              container_memory_working_set_bytes{container!=""}
+              container_memory_working_set_bytes{container="main"}
               * on (pod) group_left (label_component_name, label_environment_name, label_project_name)
                 kube_pod_labels{%s}
             )`, labelFilter)
@@ -109,7 +109,7 @@ func BuildCPULimitsQuery(labelFilter string) string {
         )`, labelFilter)
 }
 
-// BuildMemoryRequestsQuery builds aPromQL query for memory requests
+// BuildMemoryRequestsQuery builds a PromQL query for memory requests
 func BuildMemoryRequestsQuery(labelFilter string) string {
 	return fmt.Sprintf(`sum by (label_component_name, label_environment_name, label_project_name, resource) (
             (
