@@ -42,7 +42,7 @@ var _ = Describe("Component Controller", func() {
 							ProjectName: "test-project",
 						},
 						Type: openchoreov1alpha1.ComponentTypeService,
-						Workflow: openchoreov1alpha1.WorkflowConfig{
+						Workflow: &openchoreov1alpha1.WorkflowConfig{
 							Name: "test-workflow",
 						},
 					},

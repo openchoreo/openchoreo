@@ -65,7 +65,7 @@ type ComponentSpec struct {
 	// Workflow defines the workflow configuration for building the component
 	// This references a Workflow CR and provides developer-configured schema values
 	// +optional
-	Workflow WorkflowConfig `json:"workflow,omitempty"`
+	Workflow *WorkflowConfig `json:"workflow,omitempty"`
 }
 
 // ComponentAddon represents an addon instance attached to a component

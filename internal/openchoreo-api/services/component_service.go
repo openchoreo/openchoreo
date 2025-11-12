@@ -285,7 +285,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			s.logger.Error("Failed to convert build config to build spec", "error", err)
 			return fmt.Errorf("failed to convert build config: %w", err)
 		}
-		componentCR.Spec.Workflow = buildSpec
+		componentCR.Spec.Workflow = &buildSpec
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
@@ -306,8 +306,8 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 
 	// Convert workflow-based build configuration to API BuildConfig format
 	var buildConfig *models.BuildConfig
-	if component.Spec.Workflow.Name != "" {
-		buildConfig = s.convertBuildSpecToBuildConfig(component.Spec.Workflow)
+	if component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
+		buildConfig = s.convertBuildSpecToBuildConfig(*component.Spec.Workflow)
 	}
 
 	response := &models.ComponentResponse{
