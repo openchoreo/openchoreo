@@ -10,10 +10,7 @@ argo-workflows:
     authModes:
       - server
 
-# Disable Vault and External Secrets since they're already in the Data Plane (single cluster)
-vault:
-  enabled: false
-
+# Disable External Secrets since it's already in the Data Plane (single cluster)
 external-secrets:
   enabled: false
 
