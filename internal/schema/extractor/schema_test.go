@@ -75,7 +75,7 @@ func TestConverter_DefaultRequiredBehaviour(t *testing.T) {
 	const schemaYAML = `
 mustProvide: string
 hasDefault: 'integer | default=5'
-explicitOpt: 'boolean | required=false'
+optionalWithDefault: 'boolean | default=false'
 `
 	const expected = `{
   "type": "object",
@@ -83,20 +83,32 @@ explicitOpt: 'boolean | required=false'
     "mustProvide"
   ],
   "properties": {
-    "explicitOpt": {
-      "type": "boolean"
-    },
     "hasDefault": {
       "type": "integer",
       "default": 5
     },
     "mustProvide": {
       "type": "string"
+    },
+    "optionalWithDefault": {
+      "type": "boolean",
+      "default": false
     }
   }
 }`
 
-	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+	var types map[string]any
+	if strings.TrimSpace(typesYAML) != "" {
+		types = parseYAMLMap(t, typesYAML)
+	}
+	root := parseYAMLMap(t, schemaYAML)
+
+	schema, err := ExtractSchema(root, types)
+	if err != nil {
+		t.Fatalf("ExtractSchema returned error: %v", err)
+	}
+
+	assertSchemaJSON(t, schema, expected)
 }
 
 func TestConverter_CustomTypeJSONMatchesExpected(t *testing.T) {
@@ -291,11 +303,11 @@ field: "map<>"
 			expectError: "unknown type",
 		},
 		{
-			name: "invalid required value",
+			name: "required marker not allowed",
 			schemaYAML: `
-field: "string | required=notabool"
+field: "string | required=true"
 `,
-			expectError: "invalid required value",
+			expectError: "marker \"required\" is not allowed",
 		},
 		{
 			name: "invalid minLength value",
@@ -366,13 +378,6 @@ field: "number | exclusiveMinimum=notabool"
 field: "number | exclusiveMaximum=xyz"
 `,
 			expectError: "invalid exclusiveMaximum",
-		},
-		{
-			name: "invalid nullable value",
-			schemaYAML: `
-field: "string | nullable=notabool"
-`,
-			expectError: "invalid nullable",
 		},
 		{
 			name: "invalid integer default",
@@ -509,7 +514,7 @@ field: "map[string][]object"
 
 func TestConverter_CombinedConstraintsSpacing(t *testing.T) {
 	const schemaYAML = `
-field: string | required=false default=foo pattern=^[a-z]+$
+field: string | default=foo pattern=^[a-z]+$ minLength=3
 `
 	const expected = `{
   "type": "object",
@@ -517,12 +522,20 @@ field: string | required=false default=foo pattern=^[a-z]+$
     "field": {
       "type": "string",
       "default": "foo",
+      "minLength": 3,
       "pattern": "^[a-z]+$"
     }
   }
 }`
 
-	assertConvertedSchema(t, "", schemaYAML, expected)
+	root := parseYAMLMap(t, schemaYAML)
+
+	schema, err := ExtractSchema(root, nil)
+	if err != nil {
+		t.Fatalf("ExtractSchema returned error: %v", err)
+	}
+
+	assertSchemaJSON(t, schema, expected)
 }
 
 func TestConverter_EnumParsing(t *testing.T) {
@@ -549,7 +562,7 @@ level: string | enum=debug,info,warn | default=info
 
 func TestConverter_SpaceSeparatedConstraintsNoSpaceAfterPipe(t *testing.T) {
 	const schemaYAML = `
-field1: string|required=false default=foo
+field1: string|default=foo
 field2: string|enum=a,b,c default=b
 `
 	const expected = `{
@@ -592,41 +605,8 @@ pattern: 'string | pattern="a|b|c" default="x|y"'
 	assertConvertedSchema(t, "", schemaYAML, expected)
 }
 
-func TestConverter_RequiredByDefaultFalse(t *testing.T) {
-	const schemaYAML = `
-field1: string
-field2: integer
-field3: 'string | default=foo'
-`
-	const expected = `{
-  "type": "object",
-  "properties": {
-    "field1": {
-      "type": "string"
-    },
-    "field2": {
-      "type": "integer"
-    },
-    "field3": {
-      "type": "string",
-      "default": "foo"
-    }
-  }
-}`
-
-	fields := parseYAMLMap(t, schemaYAML)
-	opts := DefaultOptions()
-	opts.RequiredByDefault = false
-
-	schema, err := ExtractSchemaWithOptions(fields, nil, opts)
-	if err != nil {
-		t.Fatalf("ExtractSchemaWithOptions returned error: %v", err)
-	}
-
-	assertSchemaJSON(t, schema, expected)
-}
-
-func TestConverter_RequiredByDefaultTrue(t *testing.T) {
+func TestConverter_RequiredUnlessDefault(t *testing.T) {
+	// Fields without defaults are required; fields with defaults are optional
 	const schemaYAML = `
 field1: string
 field2: integer
@@ -653,12 +633,10 @@ field3: 'string | default=foo'
 }`
 
 	fields := parseYAMLMap(t, schemaYAML)
-	opts := DefaultOptions()
-	opts.RequiredByDefault = true
 
-	schema, err := ExtractSchemaWithOptions(fields, nil, opts)
+	schema, err := ExtractSchema(fields, nil)
 	if err != nil {
-		t.Fatalf("ExtractSchemaWithOptions returned error: %v", err)
+		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
 	assertSchemaJSON(t, schema, expected)
@@ -671,21 +649,30 @@ field: 'string | unknownMarker=foo'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	// Default behavior: unknown markers are ignored
+	// Unknown markers (without oc: prefix) should error
 	_, err := ExtractSchema(fields, nil)
-	if err != nil {
-		t.Fatalf("ExtractSchema with unknown marker should not error by default, got: %v", err)
-	}
-
-	// With ErrorOnUnknownMarkers: should error
-	opts := DefaultOptions()
-	opts.ErrorOnUnknownMarkers = true
-	_, err = ExtractSchemaWithOptions(fields, nil, opts)
 	if err == nil {
-		t.Fatal("expected error with ErrorOnUnknownMarkers=true and unknown marker")
+		t.Fatal("expected error with unknown marker")
 	}
 	if !strings.Contains(err.Error(), "unknown constraint marker") {
 		t.Fatalf("expected error about unknown marker, got: %v", err)
+	}
+}
+
+func TestConverter_OcPrefixMarkersIgnored(t *testing.T) {
+	// Markers with oc: prefix should be silently ignored
+	const schemaYAML = `
+field: 'string | oc:custom=foo oc:annotation=bar'
+`
+
+	fields := parseYAMLMap(t, schemaYAML)
+
+	schema, err := ExtractSchema(fields, nil)
+	if err != nil {
+		t.Fatalf("ExtractSchema with oc: prefixed markers should not error, got: %v", err)
+	}
+	if schema == nil {
+		t.Fatal("expected valid schema")
 	}
 }
 
@@ -728,9 +715,9 @@ description: 'string | default=''User''''s preferred timezone'''
 }
 
 func TestConverter_SingleQuotedEnumWithSpecialChars(t *testing.T) {
-	// Enum values using standard comma-separated format
+	// Enum values with quotes in configuration contexts
 	const schemaYAML = `
-logLevel: 'string | enum=info,warn,error,debug | default=info'
+logLevel: 'string | enum=''info'',''warn'',''error'',''debug'' | default=''info'''
 `
 	const expected = `{
   "type": "object",
@@ -743,40 +730,6 @@ logLevel: 'string | enum=info,warn,error,debug | default=info'
         "warn",
         "error",
         "debug"
-      ]
-    }
-  }
-}`
-
-	assertConvertedSchema(t, "", schemaYAML, expected)
-}
-
-func TestConverter_JSONArrayEnumFormat(t *testing.T) {
-	// Test enum values provided with quoted constraint values (workflow schema format)
-	const schemaYAML = `
-testMode: string | enum=unit,integration,none default=unit
-secretRef: 'string | enum="reading-list-repo-credentials-dev,payments-repo-credentials-dev"'
-`
-	const expected = `{
-  "type": "object",
-  "required": [
-    "secretRef"
-  ],
-  "properties": {
-    "secretRef": {
-      "type": "string",
-      "enum": [
-        "reading-list-repo-credentials-dev",
-        "payments-repo-credentials-dev"
-      ]
-    },
-    "testMode": {
-      "type": "string",
-      "default": "unit",
-      "enum": [
-        "unit",
-        "integration",
-        "none"
       ]
     }
   }
@@ -841,4 +794,73 @@ func parseYAMLMap(t *testing.T, doc string) map[string]any {
 		t.Fatalf("failed to parse yaml: %v", err)
 	}
 	return out
+}
+
+func TestSplitRespectingQuotes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "simple values without quotes",
+			input:    "a,b,c",
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "quoted values without commas",
+			input:    `"value1","value2","value3"`,
+			expected: []string{`"value1"`, `"value2"`, `"value3"`},
+		},
+		{
+			name:     "quoted values with commas inside",
+			input:    `"lastname, firstname","firstname lastname","last, first, middle"`,
+			expected: []string{`"lastname, firstname"`, `"firstname lastname"`, `"last, first, middle"`},
+		},
+		{
+			name:     "mixed quoted and unquoted",
+			input:    `simple,"with space","with, comma"`,
+			expected: []string{"simple", `"with space"`, `"with, comma"`},
+		},
+		{
+			name:     "values with escaped quotes",
+			input:    `"value with \"quotes\"","simple"`,
+			expected: []string{`"value with \"quotes\""`, `"simple"`},
+		},
+		{
+			name:     "complex case with commas and quotes",
+			input:    `"pending","in-progress","user said: \"hello, world\""`,
+			expected: []string{`"pending"`, `"in-progress"`, `"user said: \"hello, world\""`},
+		},
+		{
+			name:     "empty values filtered out",
+			input:    `a,,b,  ,c`,
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "values with spaces around commas",
+			input:    `"value1" , "value2" , "value3"`,
+			expected: []string{`"value1"`, `"value2"`, `"value3"`},
+		},
+		{
+			name:     "complex combination",
+			input:    `"simple","with spaces","with, comma","with \"quotes\"","combo: \"a, b\""`,
+			expected: []string{`"simple"`, `"with spaces"`, `"with, comma"`, `"with \"quotes\""`, `"combo: \"a, b\""`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := splitRespectingQuotes(tt.input, ",")
+			if len(result) != len(tt.expected) {
+				t.Fatalf("length mismatch: expected %d values, got %d\nexpected: %v\ngot: %v",
+					len(tt.expected), len(result), tt.expected, result)
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("value %d mismatch: expected %q, got %q", i, tt.expected[i], result[i])
+				}
+			}
+		})
+	}
 }

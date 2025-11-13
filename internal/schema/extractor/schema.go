@@ -23,24 +23,14 @@ const (
 	typeArray   = "array"
 )
 
-// Options configures schema extraction behavior.
-type Options struct {
-	// RequiredByDefault determines whether fields without explicit 'required' or 'default'
-	// markers are treated as required. Default: true.
-	RequiredByDefault bool
-
-	// ErrorOnUnknownMarkers causes parsing to fail when encountering unknown constraint markers.
-	// Default: false (unknown markers are silently ignored).
-	ErrorOnUnknownMarkers bool
-}
-
-// DefaultOptions returns the default options for schema extraction.
-func DefaultOptions() Options {
-	return Options{
-		RequiredByDefault:     true,
-		ErrorOnUnknownMarkers: false,
-	}
-}
+// allowedUnknownMarkerPrefixes defines marker prefixes that are silently ignored during schema extraction.
+// These markers can be used for custom annotations, documentation, or tool-specific metadata.
+//
+// Example:
+//
+//	apiKey: "string | oc:sensitive=true oc:generated=true"
+//	userId: "string | oc:indexed=true"
+var allowedUnknownMarkerPrefixes = []string{"oc:"}
 
 // ExtractSchema converts a field map using shorthand schema syntax into OpenAPI v3 JSON Schema.
 //
@@ -56,15 +46,12 @@ func DefaultOptions() Options {
 //   - Custom types: database: "DatabaseConfig" (references types parameter)
 //
 // The types parameter provides custom type definitions that can be referenced in field schemas.
-// Fields are required by default unless they have a default value or explicit required=false marker.
 //
-// Uses default options (required by default, unknown markers ignored).
+// Schema behavior:
+//   - Fields are required by default unless they have a default value
+//   - Unknown markers cause errors unless they have an allowedUnknownMarkerPrefixes prefix (reserved for custom annotations)
+//   - The "required" marker is not allowed (use defaults to make fields optional)
 func ExtractSchema(fields map[string]any, types map[string]any) (*extv1.JSONSchemaProps, error) {
-	return ExtractSchemaWithOptions(fields, types, DefaultOptions())
-}
-
-// ExtractSchemaWithOptions converts a field map with custom extraction options.
-func ExtractSchemaWithOptions(fields map[string]any, types map[string]any, opts Options) (*extv1.JSONSchemaProps, error) {
 	if len(fields) == 0 {
 		return &extv1.JSONSchemaProps{
 			Type:       typeObject,
@@ -73,11 +60,9 @@ func ExtractSchemaWithOptions(fields map[string]any, types map[string]any, opts 
 	}
 
 	c := &converter{
-		types:                 types,
-		typeCache:             map[string]*extv1.JSONSchemaProps{},
-		typeStack:             map[string]bool{},
-		requiredByDefault:     opts.RequiredByDefault,
-		errorOnUnknownMarkers: opts.ErrorOnUnknownMarkers,
+		types:     types,
+		typeCache: map[string]*extv1.JSONSchemaProps{},
+		typeStack: map[string]bool{},
 	}
 
 	return c.buildObjectSchema(fields)
@@ -85,11 +70,9 @@ func ExtractSchemaWithOptions(fields map[string]any, types map[string]any, opts 
 
 // converter builds JSON schemas from simple schema definitions.
 type converter struct {
-	types                 map[string]any
-	typeCache             map[string]*extv1.JSONSchemaProps
-	typeStack             map[string]bool
-	requiredByDefault     bool
-	errorOnUnknownMarkers bool
+	types     map[string]any
+	typeCache map[string]*extv1.JSONSchemaProps
+	typeStack map[string]bool
 }
 
 // buildObjectSchema converts a field map into an object schema with properties and required markers.
@@ -98,11 +81,10 @@ type converter struct {
 // determines whether the field should be required.
 //
 // Required field logic:
-//  1. If field has explicit "required=true" marker → mark as required
-//  2. If field has explicit "required=false" marker → not required
-//  3. If field has a default value → not required (default fills it in)
-//  4. If requiredByDefault is true → mark as required
-//  5. Otherwise → not required
+//  1. If field has a default value → not required (default fills it in)
+//  2. Otherwise → required
+//
+// The "required" marker is not allowed - use defaults to make fields optional.
 //
 // Fields are processed in sorted order to ensure deterministic JSON Schema output.
 func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaProps, error) {
@@ -118,7 +100,7 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 	for _, name := range keys {
 		field := fields[name]
 
-		schema, requiredValue, requiredExplicit, err := c.buildFieldSchema(field)
+		schema, err := c.buildFieldSchema(field)
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", name, err)
 		}
@@ -126,12 +108,9 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 			continue
 		}
 		props[name] = *schema
-		switch {
-		case requiredExplicit:
-			if requiredValue {
-				required = append(required, name)
-			}
-		case schema.Default == nil && c.requiredByDefault:
+
+		// Field is required unless it has a default value
+		if schema.Default == nil {
 			required = append(required, name)
 		}
 	}
@@ -147,15 +126,14 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 }
 
 // buildFieldSchema determines the schema for a field value that may itself be an object or shorthand string.
-func (c *converter) buildFieldSchema(raw any) (*extv1.JSONSchemaProps, bool, bool, error) {
+func (c *converter) buildFieldSchema(raw any) (*extv1.JSONSchemaProps, error) {
 	switch typed := raw.(type) {
 	case string:
 		return c.schemaFromString(typed)
 	case map[string]any:
-		schema, err := c.buildObjectSchema(typed)
-		return schema, false, false, err
+		return c.buildObjectSchema(typed)
 	default:
-		return nil, false, false, fmt.Errorf("unsupported field definition of type %T", raw)
+		return nil, fmt.Errorf("unsupported field definition of type %T", raw)
 	}
 }
 
@@ -171,20 +149,18 @@ func (c *converter) buildFieldSchema(raw any) (*extv1.JSONSchemaProps, bool, boo
 //
 // Part 2 (constraint expression, optional):
 //   - Validation: "minimum=0 maximum=100", "minLength=1", "pattern=^[a-z]+$"
-//   - Defaults: "default=dev"
+//   - Defaults: "default=dev" or "default={}" for objects
 //   - Enums: "enum=dev,staging,prod"
-//   - Required: "required=true" or "required=false"
 //   - Documentation: "description='Port number' example=8080"
+//   - Custom annotations: "oc_sensitive=true" (with oc_ prefix)
 //
-// Returns: (schema, requiredValue, requiredExplicit, error)
-//   - requiredValue: true if field should be required
-//   - requiredExplicit: true if required was explicitly set (vs. inferred)
+// Note: The "required" marker is not allowed. Fields are required unless they have a default.
 //
 // Example: "integer | minimum=1 | maximum=65535 | default=8080"
-func (c *converter) schemaFromString(expr string) (*extv1.JSONSchemaProps, bool, bool, error) {
+func (c *converter) schemaFromString(expr string) (*extv1.JSONSchemaProps, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
-		return nil, false, false, fmt.Errorf("empty schema expression")
+		return nil, fmt.Errorf("empty schema expression")
 	}
 
 	typeExpr := expr
@@ -196,14 +172,13 @@ func (c *converter) schemaFromString(expr string) (*extv1.JSONSchemaProps, bool,
 
 	schema, err := c.schemaFromType(typeExpr)
 	if err != nil {
-		return nil, false, false, err
+		return nil, err
 	}
 
-	required, explicit, err := c.applyConstraints(schema, constraintExpr, schema.Type)
-	if err != nil {
-		return nil, false, false, err
+	if err := c.applyConstraints(schema, constraintExpr, schema.Type); err != nil {
+		return nil, err
 	}
-	return schema, required, explicit, nil
+	return schema, nil
 }
 
 // schemaFromType resolves a type expression into a JSON schema, handling arrays, maps, and custom types.
@@ -305,7 +280,7 @@ func (c *converter) schemaFromCustomType(typeName string) (*extv1.JSONSchemaProp
 
 	switch typed := raw.(type) {
 	case string:
-		built, _, _, err = c.schemaFromString(typed)
+		built, err = c.schemaFromString(typed)
 	case map[string]any:
 		built, err = c.buildObjectSchema(typed)
 	default:
@@ -319,20 +294,18 @@ func (c *converter) schemaFromCustomType(typeName string) (*extv1.JSONSchemaProp
 	return built.DeepCopy(), nil
 }
 
-// applyConstraints parses constraint tokens and updates the schema in place while tracking required status flags.
-func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintExpr, schemaType string) (bool, bool, error) {
+// applyConstraints parses constraint tokens and updates the schema in place.
+// The "required" marker is not allowed - use defaults to make fields optional.
+// Unknown markers cause errors unless they have an "oc_" prefix (reserved for annotations).
+func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintExpr, schemaType string) error {
 	if strings.TrimSpace(constraintExpr) == "" {
-		return false, false, nil
+		return nil
 	}
 
 	tokens := tokenizeConstraints(constraintExpr)
-	var (
-		required    bool
-		hasRequired bool
-	)
 
 	// These handlers match the constraint set supported by our shorthand so examples can be lifted verbatim.
-	handlers := c.buildConstraintHandlers(schema, schemaType, &required, &hasRequired)
+	handlers := c.buildConstraintHandlers(schema, schemaType)
 	setters := c.buildConstraintSetters(schema)
 
 	for _, token := range tokens {
@@ -343,39 +316,35 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 
+		// Reject "required" marker - use defaults to make fields optional
+		if key == "required" {
+			return fmt.Errorf("marker %q is not allowed - use default values to make fields optional", key)
+		}
+
 		handler, ok := handlers[key]
 		if !ok {
 			if setter, okSetter := setters[key]; okSetter {
 				setter(value)
 				continue
 			}
-			// Unknown marker
-			if c.errorOnUnknownMarkers {
-				return false, false, fmt.Errorf("unknown constraint marker %q", key)
+			// Unknown marker - allow if it has an allowed prefix (reserved for annotations)
+			if hasAllowedPrefix(key, allowedUnknownMarkerPrefixes) {
+				// Silently ignore markers with allowed prefixes (they're for annotations/metadata)
+				continue
 			}
-			// Unknown markers are silently ignored unless errorOnUnknownMarkers is set.
-			continue
+			return fmt.Errorf("unknown constraint marker %q", key)
 		}
 		if err := handler(value); err != nil {
-			return false, false, err
+			return err
 		}
 	}
 
-	return required, hasRequired, nil
+	return nil
 }
 
 // buildConstraintHandlers creates the map of constraint handlers for schema validation.
-func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schemaType string, required *bool, hasRequired *bool) map[string]func(string) error {
+func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schemaType string) map[string]func(string) error {
 	return map[string]func(string) error{
-		"required": func(value string) error {
-			boolVal, err := strconv.ParseBool(value)
-			if err != nil {
-				return fmt.Errorf("invalid required value %q: %w", value, err)
-			}
-			*required = boolVal
-			*hasRequired = true
-			return nil
-		},
 		"default": func(value string) error {
 			parsed, err := parseValueForType(value, schemaType)
 			if err != nil {
@@ -389,15 +358,10 @@ func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schem
 			return nil
 		},
 		"enum": func(value string) error {
-			// Unquote the entire enum value first (e.g., "val1,val2" -> val1,val2)
-			unquotedValue := unquoteIfNeeded(value)
-			values := splitAndTrim(unquotedValue, ",")
+			values := splitRespectingQuotes(value, ",")
 			enums := make([]extv1.JSON, 0, len(values))
 			for _, v := range values {
-				// Also unquote individual enum values (e.g., 'info' -> info)
-				// This handles cases like enum='info','warn','error'
-				unquotedEnumValue := unquoteIfNeeded(v)
-				parsed, err := parseValueForType(unquotedEnumValue, schemaType)
+				parsed, err := parseValueForType(v, schemaType)
 				if err != nil {
 					return fmt.Errorf("invalid enum value %q: %w", v, err)
 				}
@@ -516,14 +480,6 @@ func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schem
 				return fmt.Errorf("failed to marshal example %#v: %w", parsed, err)
 			}
 			schema.Example = &extv1.JSON{Raw: raw}
-			return nil
-		},
-		"nullable": func(value string) error {
-			boolVal, err := strconv.ParseBool(value)
-			if err != nil {
-				return fmt.Errorf("invalid nullable value %q: %w", value, err)
-			}
-			schema.Nullable = boolVal
 			return nil
 		},
 	}
@@ -714,16 +670,49 @@ func tokenizeConstraints(expr string) []string {
 	return tokens
 }
 
-// splitAndTrim separates delimited lists like enums, dropping empty items along the way.
-func splitAndTrim(value, sep string) []string {
-	raw := strings.Split(value, sep)
-	result := make([]string, 0, len(raw))
-	for _, item := range raw {
-		trimmed := strings.TrimSpace(item)
-		if trimmed != "" {
-			result = append(result, trimmed)
+// splitRespectingQuotes splits a string by the separator, but respects quoted strings.
+// Commas inside quoted strings are not treated as separators.
+// For example: `"value1","value with, comma","value3"` splits into 3 values, not 4.
+func splitRespectingQuotes(value, sep string) []string {
+	var result []string
+	var current strings.Builder
+	inQuotes := false
+	escaped := false
+
+	for i := 0; i < len(value); i++ {
+		char := value[i]
+
+		switch {
+		case escaped:
+			// Previous character was a backslash, this character is escaped
+			current.WriteByte(char)
+			escaped = false
+		case char == '\\' && inQuotes:
+			// Backslash inside quotes - next character is escaped
+			current.WriteByte(char)
+			escaped = true
+		case char == '"':
+			// Toggle quote state
+			current.WriteByte(char)
+			inQuotes = !inQuotes
+		case char == sep[0] && !inQuotes:
+			// Separator outside quotes - split here
+			trimmed := strings.TrimSpace(current.String())
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+			current.Reset()
+		default:
+			current.WriteByte(char)
 		}
 	}
+
+	// Add the last item
+	trimmed := strings.TrimSpace(current.String())
+	if trimmed != "" {
+		result = append(result, trimmed)
+	}
+
 	return result
 }
 
@@ -743,4 +732,15 @@ func unquoteIfNeeded(value string) string {
 		}
 	}
 	return value
+}
+
+// hasAllowedPrefix checks if a marker key has one of the allowed prefixes.
+// This is used to silently ignore custom annotation markers.
+func hasAllowedPrefix(key string, allowedPrefixes []string) bool {
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
