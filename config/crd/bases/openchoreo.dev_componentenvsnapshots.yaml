@@ -98,6 +98,11 @@ spec:
                   spec:
                     description: ComponentSpec defines the desired state of Component.
                     properties:
+                      autoDeploy:
+                        description: |-
+                          AutoDeploy indicates whether the component should be deployed automatically when created
+                          When not specified, defaults to false (zero value)
+                        type: boolean
                       componentType:
                         description: |-
                           ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}

@@ -50,6 +50,11 @@ type ComponentSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
 	ComponentType string `json:"componentType,omitempty"`
 
+	// AutoDeploy indicates whether the component should be deployed automatically when created
+	// When not specified, defaults to false (zero value)
+	// +optional
+	AutoDeploy bool `json:"autoDeploy,omitempty"`
+
 	// Parameters from ComponentType (oneOf schema based on componentType)
 	// This is the merged schema of parameters + envOverrides from the ComponentType
 	// +optional
