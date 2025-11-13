@@ -60,6 +60,7 @@ backstage:
     authorizationUrl: "http://sts.openchoreo.localhost/oauth2/authorize"
   # Note: thunder.baseUrl and auth.tokenUrl use default K8s service URLs (not overridden)
 asgardeoThunder:
+  enabled: false
   env:
     - name: ENABLE_HTTPS
       value: "false"
