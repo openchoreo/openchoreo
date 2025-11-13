@@ -164,7 +164,7 @@ func TestBuildMemoryUsageQuery(t *testing.T) {
 			labelFilter: `label_component_id="comp-123"`,
 			expectedParts: []string{
 				"sum by (label_component_name, label_environment_name, label_project_name)",
-				"container_memory_working_set_bytes{container!=\"\"}",
+				"container_memory_working_set_bytes{container=\"main\"}",
 				"kube_pod_labels{",
 				`label_component_id="comp-123"`,
 			},

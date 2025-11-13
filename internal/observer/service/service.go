@@ -14,6 +14,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 )
 
+const (
+	logLevelDebug = "debug"
+)
+
 // OpenSearchClient interface for testing
 type OpenSearchClient interface {
 	Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error)
@@ -283,7 +287,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU usage
 	cpuUsageQuery := prometheus.BuildCPUUsageQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("CPU usage query:", cpuUsageQuery)
 	}
 	cpuResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuUsageQuery, startTime, endTime, step)
@@ -295,7 +299,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory usage
 	memUsageQuery := prometheus.BuildMemoryUsageQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("Memory usage query:", memUsageQuery)
 	}
 	memResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memUsageQuery, startTime, endTime, step)
@@ -307,7 +311,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU requests
 	cpuRequestQuery := prometheus.BuildCPURequestsQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("CPU requests query:", cpuRequestQuery)
 	}
 	cpuRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuRequestQuery, startTime, endTime, step)
@@ -319,7 +323,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// CPU limits
 	cpuLimitQuery := prometheus.BuildCPULimitsQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("CPU limit query:", cpuLimitQuery)
 	}
 	cpuLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuLimitQuery, startTime, endTime, step)
@@ -331,7 +335,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory requests
 	memRequestQuery := prometheus.BuildMemoryRequestsQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("Memory requests query:", memRequestQuery)
 	}
 	memRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memRequestQuery, startTime, endTime, step)
@@ -343,7 +347,7 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 
 	// Memory limits
 	memLimitQuery := prometheus.BuildMemoryLimitsQuery(labelFilter)
-	if s.config.LogLevel == "debug" {
+	if s.config.LogLevel == logLevelDebug {
 		fmt.Println("Memory limit query:", memLimitQuery)
 	}
 	memLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memLimitQuery, startTime, endTime, step)
