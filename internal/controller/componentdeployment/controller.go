@@ -161,8 +161,46 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Fetch Component object
+	component := &openchoreov1alpha1.Component{}
+	componentKey := client.ObjectKey{
+		Name:      snapshot.Spec.Owner.ComponentName,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, componentKey, component); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Component not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Component %q not found", snapshot.Spec.Owner.ComponentName)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonComponentNotFound, msg)
+			logger.Info("Component not found", "component", snapshot.Spec.Owner.ComponentName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Component", "component", snapshot.Spec.Owner.ComponentName)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch Project object
+	project := &openchoreov1alpha1.Project{}
+	projectKey := client.ObjectKey{
+		Name:      snapshot.Spec.Owner.ProjectName,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, projectKey, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Project not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Project %q not found", snapshot.Spec.Owner.ProjectName)
+			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+				ReasonProjectNotFound, msg)
+			logger.Info("Project not found", "project", snapshot.Spec.Owner.ProjectName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Project", "project", snapshot.Spec.Owner.ProjectName)
+		return ctrl.Result{}, err
+	}
+
 	// Create or update Release
-	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, environment, dataPlane); err != nil {
+	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, environment, dataPlane, component, project); err != nil {
 		logger.Error(err, "Failed to reconcile Release")
 		return ctrl.Result{}, err
 	}
@@ -236,28 +274,37 @@ func (r *Reconciler) validateSnapshot(snapshot *openchoreov1alpha1.ComponentEnvS
 	return nil
 }
 
-// buildMetadataContext creates the MetadataContext from snapshot.
+// buildMetadataContext creates the MetadataContext from snapshot, component, project, dataplane, and environment.
 // This is where the controller computes K8s resource names and namespaces.
 func (r *Reconciler) buildMetadataContext(
 	snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
+	component *openchoreov1alpha1.Component,
+	project *openchoreov1alpha1.Project,
+	dataPlane *openchoreov1alpha1.DataPlane,
+	environment *openchoreov1alpha1.Environment,
 ) pipelinecontext.MetadataContext {
 	// Extract information
 	organizationName := snapshot.Namespace
 	projectName := snapshot.Spec.Owner.ProjectName
 	componentName := snapshot.Spec.Owner.ComponentName
-	environment := snapshot.Spec.Environment
+	componentUID := string(component.UID)
+	projectUID := string(project.UID)
+	dataPlaneName := dataPlane.Name
+	dataPlaneUID := string(dataPlane.UID)
+	environmentName := snapshot.Spec.Environment
+	environmentUID := string(environment.UID)
 
 	// Generate base name using platform naming conventions
 	// Format: {component}-{env}-{hash}
 	// Example: "payment-service-dev-a1b2c3d4"
-	baseName := dpkubernetes.GenerateK8sName(componentName, environment)
+	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
 
 	// Generate namespace using platform naming conventions
 	// Format: dp-{org}-{project}-{env}-{hash}
 	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
 	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxNamespaceNameLength,
-		"dp", organizationName, projectName, environment,
+		"dp", organizationName, projectName, environmentName,
 	)
 
 	// Build standard labels
@@ -265,22 +312,30 @@ func (r *Reconciler) buildMetadataContext(
 		labels.LabelKeyOrganizationName: organizationName,
 		labels.LabelKeyProjectName:      projectName,
 		labels.LabelKeyComponentName:    componentName,
-		labels.LabelKeyEnvironmentName:  environment,
+		labels.LabelKeyEnvironmentName:  environmentName,
 	}
 
 	// Build pod selectors (used for Deployment selectors, Service selectors, etc.)
 	podSelectors := map[string]string{
 		"openchoreo.org/component":   componentName,
-		"openchoreo.org/environment": environment,
+		"openchoreo.org/environment": environmentName,
 		"openchoreo.org/project":     projectName,
 	}
 
 	return pipelinecontext.MetadataContext{
-		Name:         baseName,
-		Namespace:    namespace,
-		Labels:       standardLabels,
-		Annotations:  map[string]string{}, // Can be extended later
-		PodSelectors: podSelectors,
+		Name:            baseName,
+		Namespace:       namespace,
+		Labels:          standardLabels,
+		Annotations:     map[string]string{}, // Can be extended later
+		PodSelectors:    podSelectors,
+		ComponentName:   componentName,
+		ComponentUID:    componentUID,
+		ProjectName:     projectName,
+		ProjectUID:      projectUID,
+		DataPlaneName:   dataPlaneName,
+		DataPlaneUID:    dataPlaneUID,
+		EnvironmentName: environmentName,
+		EnvironmentUID:  environmentUID,
 	}
 }
 
@@ -368,11 +423,11 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *open
 
 // reconcileRelease creates or updates the Release resource
 func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
-	environment *openchoreov1alpha1.Environment, dataPlane *openchoreov1alpha1.DataPlane) error {
+	environment *openchoreov1alpha1.Environment, dataPlane *openchoreov1alpha1.DataPlane, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) error {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
-	metadataContext := r.buildMetadataContext(snapshot)
+	metadataContext := r.buildMetadataContext(snapshot, component, project, dataPlane, environment)
 
 	// Collect all SecretReferences needed for rendering
 	secretReferences, err := r.collectSecretReferences(ctx, snapshot, componentDeployment)

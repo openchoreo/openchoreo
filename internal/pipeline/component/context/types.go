@@ -13,6 +13,38 @@ import (
 // MetadataContext provides structured metadata for resource generation.
 // This is computed by the controller and passed to the renderer.
 type MetadataContext struct {
+	// ComponentName is the name of the component.
+	// Example: "my-service"
+	ComponentName string
+
+	// ComponentUID is the unique identifier of the component.
+	// Example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+	ComponentUID string
+
+	// ProjectName is the name of the project.
+	// Example: "my-project"
+	ProjectName string
+
+	// ProjectUID is the unique identifier of the project.
+	// Example: "b2c3d4e5-6789-01bc-def0-234567890abc"
+	ProjectUID string
+
+	// DataPlaneName is the name of the data plane.
+	// Example: "my-dataplane"
+	DataPlaneName string
+
+	// DataPlaneUID is the unique identifier of the data plane.
+	// Example: "c3d4e5f6-7890-12cd-ef01-34567890abcd"
+	DataPlaneUID string
+
+	// EnvironmentName is the name of the environment.
+	// Example: "production"
+	EnvironmentName string
+
+	// EnvironmentUID is the unique identifier of the environment.
+	// Example: "d4e5f6g7-8901-23de-f012-4567890abcde"
+	EnvironmentUID string
+
 	// Name is the base name to use for generated resources.
 	// Example: "my-service-dev-a1b2c3d4"
 	Name string
