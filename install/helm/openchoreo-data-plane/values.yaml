@@ -33,12 +33,14 @@ gateway:
   nameOverride: envoy-controller
   config:
     envoyGateway:
-      rateLimit:
-        backend:
-          type: Redis
-          redis:
-            url: redis:6379
-  # -- Resource limits and requests for the gateway
+      gateway:
+        httpPort: 80
+        httpsPort: 443
+        controllerName: gateway.envoyproxy.io/gatewayclass-controller
+      provider:
+        kubernetes:
+          envoyDeployment:
+            name: openchoreo-gateway
   deployment:
     envoyGateway:
       resources:
@@ -91,9 +93,36 @@ cert-manager:
         cpu: 50m
         memory: 64Mi
 
+# customizing the external-secrets configurations
+external-secrets:
+  enabled: true
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
+# Fake Secret Store configuration for development
+# Users should override this with their own ClusterSecretStore
+fakeSecretStore:
+  enabled: true
+  name: default
+  secrets:
+    - key: github-pat
+      value: "fake-github-token-for-development"
+    - key: username
+      value: "dev-user"
+    - key: password
+      value: "dev-password"
+
+# Customizing networking configurations
+networking:
+  enabled: true
+
+# Customizing security configurations  
+security:
+  enabled: true
 
 # Customizing overall observability configurations
 observability:
+  enabled: true
   # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
   metrics:
     enabled: false  # Enable after observability-plane is installed
