@@ -91,12 +91,6 @@ var _ = BeforeSuite(func() {
 	}
 
 	// Register field indexes manually (without the controller)
-	err = reconciler.setupComponentIndex(ctx, k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = reconciler.setupEnvironmentIndex(ctx, k8sManager)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = reconciler.setupComponentDeploymentCompositeIndex(ctx, k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
