@@ -10,8 +10,9 @@ waitJob:
   image: bitnamilegacy/kubectl:1.32.4
 
 # customizing the registry configurations
+# NOTE: Registry has been moved to Build Plane. This registry is deprecated.
 registry:
-  enabled: true
+  enabled: false
   # -- Resource limits and requests for the registry
   resources:
     limits:
