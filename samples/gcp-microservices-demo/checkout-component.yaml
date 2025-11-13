@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: checkout
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 5050
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: checkout
+  namespace: default
 spec:
   owner:
     componentName: checkout
@@ -25,106 +39,30 @@ spec:
           value: "1"
         - key: PORT
           value: "5050"
-
-  endpoints:
-    grpc-endpoint:
-      type: gRPC
-      port: 5050
-      schema:
-        type: gRPC
-        content: |
-          syntax = "proto3";
-
-          package hipstershop;
-          
-          service CheckoutService {
-              rpc PlaceOrder(PlaceOrderRequest) returns (PlaceOrderResponse) {}
-          }
-
-          message PlaceOrderRequest {
-              string user_id = 1;
-              string user_currency = 2;
-
-              Address address = 3;
-              string email = 5;
-              CreditCardInfo credit_card = 6;
-          }
-
-          message PlaceOrderResponse {
-              OrderResult order = 1;
-          }
-
-  connections:
-    productcatalog:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: productcatalog
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    shipping:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: shipping
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: SHIPPING_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    payment:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: payment
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: PAYMENT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    email:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: email
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: EMAIL_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    currency:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: currency
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: CURRENCY_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    cart:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: cart
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: CART_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog:80"
+        - key: SHIPPING_SERVICE_ADDR
+          value: "shipping:80"
+        - key: PAYMENT_SERVICE_ADDR
+          value: "payment:80"
+        - key: EMAIL_SERVICE_ADDR
+          value: "email:80"
+        - key: CURRENCY_SERVICE_ADDR
+          value: "currency:80"
+        - key: CART_SERVICE_ADDR
+          value: "cart:80"
 
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: checkout
+  name: checkout-development
+  namespace: default
 spec:
   owner:
-    componentName: checkout
     projectName: gcp-microservice-demo
-  workloadName: checkout
-  overrides: {}
+    componentName: checkout
+
+  environment: development
