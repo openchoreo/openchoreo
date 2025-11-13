@@ -355,7 +355,7 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 			return nil
 		},
 		"enum": func(value string) error {
-			values := splitAndTrim(value, ",")
+			values := splitRespectingQuotes(value, ",")
 			enums := make([]extv1.JSON, 0, len(values))
 			for _, v := range values {
 				parsed, err := parseValueForType(v, schemaType)
@@ -700,16 +700,49 @@ func tokenizeConstraints(expr string) []string {
 	return tokens
 }
 
-// splitAndTrim separates delimited lists like enums, dropping empty items along the way.
-func splitAndTrim(value, sep string) []string {
-	raw := strings.Split(value, sep)
-	result := make([]string, 0, len(raw))
-	for _, item := range raw {
-		trimmed := strings.TrimSpace(item)
-		if trimmed != "" {
-			result = append(result, trimmed)
+// splitRespectingQuotes splits a string by the separator, but respects quoted strings.
+// Commas inside quoted strings are not treated as separators.
+// For example: `"value1","value with, comma","value3"` splits into 3 values, not 4.
+func splitRespectingQuotes(value, sep string) []string {
+	var result []string
+	var current strings.Builder
+	inQuotes := false
+	escaped := false
+
+	for i := 0; i < len(value); i++ {
+		char := value[i]
+
+		switch {
+		case escaped:
+			// Previous character was a backslash, this character is escaped
+			current.WriteByte(char)
+			escaped = false
+		case char == '\\' && inQuotes:
+			// Backslash inside quotes - next character is escaped
+			current.WriteByte(char)
+			escaped = true
+		case char == '"':
+			// Toggle quote state
+			current.WriteByte(char)
+			inQuotes = !inQuotes
+		case char == sep[0] && !inQuotes:
+			// Separator outside quotes - split here
+			trimmed := strings.TrimSpace(current.String())
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+			current.Reset()
+		default:
+			current.WriteByte(char)
 		}
 	}
+
+	// Add the last item
+	trimmed := strings.TrimSpace(current.String())
+	if trimmed != "" {
+		result = append(result, trimmed)
+	}
+
 	return result
 }
 
