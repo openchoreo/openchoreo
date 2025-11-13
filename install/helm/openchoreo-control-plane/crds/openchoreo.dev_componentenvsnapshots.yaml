@@ -130,11 +130,6 @@ spec:
                           description: ComponentTrait represents an trait instance
                             attached to a component
                           properties:
-                            config:
-                              description: |-
-                                Config contains the trait parameter values
-                                The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
-                              x-kubernetes-preserve-unknown-fields: true
                             instanceName:
                               description: |-
                                 InstanceName uniquely identifies this trait instance within the component
@@ -147,6 +142,11 @@ spec:
                                 to use
                               minLength: 1
                               type: string
+                            parameters:
+                              description: |-
+                                Parameters contains the trait parameter values
+                                The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
+                              x-kubernetes-preserve-unknown-fields: true
                           required:
                           - instanceName
                           - name

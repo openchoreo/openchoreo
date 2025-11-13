@@ -310,7 +310,7 @@ spec:
       traits:
         - name: mysql
           instanceName: db-1
-          config:
+          parameters:
             database: mydb
   componentType:
     spec:

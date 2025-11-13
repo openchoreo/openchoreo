@@ -80,8 +80,8 @@ func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
 		}
 	}
 
-	// 2. Start with instance parameters (using Config field from ComponentTrait)
-	parameters, err := extractParameters(input.Instance.Config)
+	// 2. Start with instance parameters (using Parameters field from ComponentTrait)
+	parameters, err := extractParameters(input.Instance.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
 	}

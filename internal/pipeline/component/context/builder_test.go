@@ -306,13 +306,13 @@ spec:
   traits:
     - name: mysql-trait
       instanceName: db-1
-      config:
+      parameters:
         database: mydb
 `,
 			instanceYAML: `
 name: mysql-trait
 instanceName: db-1
-config:
+parameters:
   database: mydb
 `,
 			environment: "dev",
@@ -362,7 +362,7 @@ spec:
 			instanceYAML: `
 name: mysql-trait
 instanceName: db-1
-config:
+parameters:
   database: mydb
   size: small
 `,

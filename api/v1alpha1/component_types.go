@@ -82,12 +82,12 @@ type ComponentTrait struct {
 	// +kubebuilder:validation:MinLength=1
 	InstanceName string `json:"instanceName"`
 
-	// Config contains the trait parameter values
+	// Parameters contains the trait parameter values
 	// The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
-	Config *runtime.RawExtension `json:"config,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type ComponentOwner struct {
