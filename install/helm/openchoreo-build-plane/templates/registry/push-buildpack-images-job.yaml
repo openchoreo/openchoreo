@@ -11,7 +11,7 @@ metadata:
   labels:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
-  backoffLimit: 999999999
+  backoffLimit: 3
   template:
     metadata:
       name: push-buildpack-cache-images
@@ -29,18 +29,13 @@ spec:
         - |
           set -e
 
-          #####################################################################
           # 1. Registry configuration
-          #####################################################################
           REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
 
           echo "Target registry: ${REGISTRY_ENDPOINT}"
           echo ""
 
-          #####################################################################
           # 2. Wait for registry to be ready (only for local registries)
-          #####################################################################
-          # Only wait for in-cluster registries, skip for external registries
           if [ "${REGISTRY_ENDPOINT}" = "registry.openchoreo-build-plane:5000" ] || \
              [ "${REGISTRY_ENDPOINT}" = "host.k3d.internal:10082" ]; then
             echo "Waiting for local registry to be ready..."
@@ -64,9 +59,7 @@ spec:
           fi
           echo ""
 
-          #####################################################################
           # 3. Podman storage configuration
-          #####################################################################
           mkdir -p /etc/containers
           cat <<EOF > /etc/containers/storage.conf
           [storage]
@@ -77,9 +70,7 @@ spec:
           mount_program = "/usr/bin/fuse-overlayfs"
           EOF
 
-          #####################################################################
           # 4. Push buildpack images to registry
-          #####################################################################
           push_image() {
             local source_image="$1"
             local cache_name="$2"
@@ -123,7 +114,4 @@ spec:
           {{- end }}
 
           echo ""
-          echo "=========================================="
-          echo "All buildpack images successfully cached!"
-          echo "=========================================="
 {{- end }}
