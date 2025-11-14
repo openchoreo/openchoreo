@@ -29,7 +29,7 @@ spec:
 
   parameters:
     replicas: 2
-    port: 80
+    port: 8080
     resources:
       requests:
         cpu: "100m"
@@ -64,3 +64,16 @@ spec:
         appPath: "/webapp-react-nginx"
         secretRef: "react-repo-credentials-dev"
       nodeVersion: "20"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: react-web-app-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: react-web-app
+
+  environment: development

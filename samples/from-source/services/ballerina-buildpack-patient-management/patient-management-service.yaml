@@ -2,56 +2,75 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: patient-management-service
-  namespace: default
 spec:
   owner:
     projectName: default
-  type: Service
-  build:
-    repository:
-      appPath: /service-ballerina-patient-management
-      revision:
-        branch: main
-      url: https://github.com/openchoreo/sample-workloads
-    templateRef:
-      name: ballerina-buildpack
 
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: Build
-metadata:
-  name: patient-management-service-build-01
-  namespace: default
-spec:
-  owner:
-    componentName: patient-management-service
-    projectName: default
-  repository:
-    appPath: /service-ballerina-patient-management
-    revision:
-      branch: main
-    url: https://github.com/openchoreo/sample-workloads
-  templateRef:
+  # References the ComponentType
+  componentType: deployment/service
+
+  # Workflow configuration (developer-provided)
+  workflow:
+    # Reference to Workflow
     name: ballerina-buildpack
 
+    # Schema matching the Workflow's schema section
+    schema:
+      # Nested structure from schema
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-ballerina-patient-management"
+        secretRef: "patient-repo-credentials-dev"
+
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 9090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: WorkflowRun
 metadata:
-  name: patient-management-service
+  name: greeting-service-build-01
+spec:
+  # Ownership tracking for the workflow execution (optional)
+  owner:
+    projectName: "default"
+    componentName: "patient-management-service"
+
+  workflow:
+    # Reference to Workflow
+    name: ballerina-buildpack
+
+    schema:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-ballerina-patient-management"
+        secretRef: "patient-repo-credentials-dev"
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: patient-management-service-development
   namespace: default
 spec:
   owner:
-    componentName: patient-management-service
     projectName: default
-  workloadName: ballerina-patient-management-service
-  className: default
-  apis:
-    patient-management-api:
-      type: REST
-      className: default
-      rest:
-        backend:
-          port: 9090
-          basePath: /mediflow
-        exposeLevels: [ "Public" ]
+    componentName: patient-management-service
+
+  environment: development

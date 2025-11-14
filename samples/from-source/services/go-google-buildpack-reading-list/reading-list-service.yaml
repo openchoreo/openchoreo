@@ -57,7 +57,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
   # Should be unique per execution
-  name: reading-list-service-build-01
+  name: reading-list-service-build-02
 spec:
   # Ownership tracking for the workflow execution (optional)
   owner:
@@ -90,3 +90,16 @@ spec:
       limits:
         maxRetries: 5
         maxDurationMinutes: 90
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: reading-list-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: reading-list-service
+
+  environment: development

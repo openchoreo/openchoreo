@@ -68,3 +68,16 @@ spec:
       docker:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: greeting-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: greeting-service
+
+  environment: development
