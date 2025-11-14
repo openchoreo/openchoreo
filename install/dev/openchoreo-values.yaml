@@ -14,6 +14,9 @@ controllerManager:
 
 # OpenChoreo API configuration
 openchoreoApi:
+  urls:
+    serverBaseUrl: "http://api.openchoreo.localhost"
+    authServerBaseUrl: "http://sts.openchoreo.localhost"
   jwt:
     disabled: true
     issuer: thunder

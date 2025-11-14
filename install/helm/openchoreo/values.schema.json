@@ -4647,6 +4647,38 @@
             "object"
           ]
         },
+        "urls": {
+          "additionalProperties": false,
+          "description": "URL configuration for the API server",
+          "properties": {
+            "serverBaseUrl": {
+              "default": "",
+              "description": "Base URL for the API server (used for OAuth metadata)\nExample: https://api.openchoreo.example.com",
+              "required": [],
+              "title": "serverBaseUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "authServerBaseUrl": {
+              "default": "",
+              "description": "Base URL for Asgardeo Thunder (authorization server)\nExample: https://idp.openchoreo.example.com",
+              "required": [],
+              "title": "authServerBaseUrl",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "urls",
+          "type": [
+            "null",
+            "object"
+          ]
+        },
         "metrics": {
           "additionalProperties": false,
           "description": "Metrics configuration",

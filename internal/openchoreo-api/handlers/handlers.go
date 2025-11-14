@@ -9,11 +9,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
 )
 
@@ -50,17 +52,26 @@ func (h *Handler) Routes() http.Handler {
 	routes.HandleFunc("GET /health", h.Health)
 	routes.HandleFunc("GET /ready", h.Ready)
 
+	// OAuth Protected Resource Metadata endpoint
+	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
+
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
 	// JWT authentication middleware - applies to protected routes only
 	jwtAuth := h.initJWTMiddleware()
 
-	// Create protected route group with JWT auth
-	api := routes.With(jwtAuth)
-
 	// MCP endpoint
 	toolsets := getMCPServerToolsets(h)
-	api.Handle("/mcp", loggerMiddleware(mcp.NewHTTPServer(toolsets)))
+
+	// MCP middleware
+	mcpMiddleware := h.initMCPMiddleware()
+
+	// MCP endpoint with chained middleware (logger -> auth401 -> jwt -> handler)
+	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
+	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+
+	// Create protected route group with JWT auth
+	api := routes.With(jwtAuth)
 
 	// Organization operations
 	api.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
@@ -132,10 +143,10 @@ func (h *Handler) Routes() http.Handler {
 // initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
 func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	// Get JWT configuration from environment variables
-	jwtDisabled := os.Getenv("JWT_DISABLED") == "true"
-	jwksURL := os.Getenv("JWKS_URL")
-	jwtIssuer := os.Getenv("JWT_ISSUER")
-	jwtAudience := os.Getenv("JWT_AUDIENCE") // Optional
+	jwtDisabled := os.Getenv(config.EnvJWTDisabled) == "true"
+	jwksURL := os.Getenv(config.EnvJWKSURL)
+	jwtIssuer := os.Getenv(config.EnvJWTIssuer)
+	jwtAudience := os.Getenv(config.EnvJWTAudience) // Optional
 
 	// Configure JWT middleware
 	config := jwt.Config{
@@ -147,6 +158,17 @@ func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	}
 
 	return jwt.Middleware(config)
+}
+
+func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {
+	// Get MCP configuration from environment variables
+	serverBaseURL := os.Getenv(config.EnvServerBaseURL)
+	if serverBaseURL == "" {
+		serverBaseURL = config.DefaultServerBaseURL
+	}
+	resourceMetadataURL := serverBaseURL + "/.well-known/oauth-protected-resource"
+
+	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
 }
 
 // Health handles health check requests
@@ -164,7 +186,7 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 
 func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	// Read toolsets from environment variable
-	toolsetsEnv := os.Getenv("MCP_TOOLSETS")
+	toolsetsEnv := os.Getenv(config.EnvMCPToolsets)
 	if toolsetsEnv == "" {
 		// Default to all toolsets if not specified
 		toolsetsEnv = string(mcp.ToolsetOrganization) + "," +

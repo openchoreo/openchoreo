@@ -53,6 +53,10 @@ spec:
         env:
         - name: MCP_TOOLSETS
           value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
+        - name: SERVER_BASE_URL
+          value: {{ .Values.openchoreoApi.urls.serverBaseUrl | quote }}
+        - name: AUTH_SERVER_BASE_URL
+          value: {{ .Values.openchoreoApi.urls.authServerBaseUrl | quote }}
         - name: JWT_ISSUER
           value: {{ .Values.openchoreoApi.jwt.issuer | quote }}
         - name: JWKS_URL
