@@ -1,0 +1,103 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: google-cloud-buildpacks
+  annotations:
+    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${ctx.workflowRunName}         - WorkflowRun CR name
+  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
+  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
+  # ${ctx.orgName}                 - Organization name (namespace)
+  # ${schema.*}                    - Developer-provided values from schema
+  # Developer-facing schema with type validation
+  schema:
+    repository:
+      url: string
+      revision:
+        branch: string | default=main
+        commit: string | default=HEAD
+      appPath: string | default=.
+      secretRef: string | enum=["reading-list-repo-credentials-dev","payments-repo-credentials-dev"]
+    version: integer | default=1
+    testMode: string | enum=["unit", "integration", "none"] default=unit
+    command: '[]string | default=[]'
+    args: "[]string | default=[]"
+    resources:
+      cpuCores: integer | default=1 minimum=1 maximum=8
+      memoryGb: integer | default=2 minimum=1 maximum=32
+    timeout: string | default="30m"
+    cache:
+      enabled: boolean | default=true
+      paths: '[]string | default=["/root/.cache"]'
+    limits:
+      maxRetries: integer | default=3 minimum=0 maximum=10
+      maxDurationMinutes: integer | default=60 minimum=5 maximum=240
+
+  # Secret references to inject into build plane
+  secrets:
+    - ${schema.repository.secretRef}
+
+  # Rendered resource
+  resource:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${ctx.workflowRunName}
+      namespace: openchoreo-ci-${ctx.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${ctx.componentName}
+          - name: project-name
+            value: ${ctx.projectName}
+          # Parameters from schema (developer-facing)
+          - name: git-repo
+            value: ${schema.repository.url}
+          - name: branch
+            value: ${schema.repository.revision.branch}
+          - name: commit
+            value: ${schema.repository.revision.commit}
+          - name: app-path
+            value: ${schema.repository.appPath}
+          - name: version
+            value: ${schema.version}
+          - name: test-mode
+            value: ${schema.testMode}
+          - name: command
+            value: ${schema.command}
+          - name: args
+            value: ${schema.args}
+          - name: cpu-cores
+            value: ${schema.resources.cpuCores}
+          - name: memory-gb
+            value: ${schema.resources.memoryGb}
+          - name: timeout
+            value: ${schema.timeout}
+          - name: cache-enabled
+            value: ${schema.cache.enabled}
+          - name: cache-paths
+            value: ${schema.cache.paths}
+          - name: max-retries
+            value: ${schema.limits.maxRetries}
+          - name: max-duration-minutes
+            value: ${schema.limits.maxDurationMinutes}
+          # PE-controlled hardcoded parameters
+          - name: builder-image
+            value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
+          - name: registry-url
+            value: gcr.io/openchoreo-dev/images
+          - name: security-scan-enabled
+            value: "true"
+          - name: build-timeout
+            value: "30m"
+          - name: image-name
+            value: ${ctx.projectName}-${ctx.componentName}-image
+          - name: image-tag
+            value: v${schema.version}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks

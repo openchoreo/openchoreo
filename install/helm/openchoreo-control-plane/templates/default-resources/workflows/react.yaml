@@ -1,0 +1,61 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: react
+  annotations:
+    openchoreo.dev/description: "Build workflow for React web applications"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${ctx.workflowRunName}         - WorkflowRun CR name
+  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
+  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
+  # ${ctx.orgName}                 - Organization name (namespace)
+  # ${schema.*}                    - Developer-provided values from schema
+  # Developer-facing schema with type validation
+  schema:
+    repository:
+      url: string
+      revision:
+        branch: string | default=main
+        commit: string | default=""
+      appPath: string | default=.
+      secretRef: string
+    nodeVersion: string | default="18"
+
+  # Secret references to inject into build plane
+  secrets:
+    - ${schema.repository.secretRef}
+
+  # Rendered resource
+  resource:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${ctx.workflowRunName}
+      namespace: openchoreo-ci-${ctx.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${ctx.componentName}
+          - name: project-name
+            value: ${ctx.projectName}
+          # Parameters from schema (developer-facing)
+          - name: git-repo
+            value: ${schema.repository.url}
+          - name: branch
+            value: ${schema.repository.revision.branch}
+          - name: commit
+            value: ${schema.repository.revision.commit}
+          - name: app-path
+            value: ${schema.repository.appPath}
+          - name: node-version
+            value: ${schema.nodeVersion}
+          - name: image-name
+            value: ${ctx.projectName}-${ctx.componentName}
+          - name: image-tag
+            value: v1
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: react
