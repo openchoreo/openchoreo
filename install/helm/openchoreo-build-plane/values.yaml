@@ -21,10 +21,9 @@ global:
       # -- Storage class for the cache PVC (optional, uses cluster default if not set)
       storageClass: ""
 
-    # -- Buildpack image cache pre-warming configuration
     # Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
     buildpackCache:
-      # -- Enable buildpack image pre-warming hook
+      # -- Enable buildpack image caching hook
       enabled: true
       # -- List of buildpack images to pre-push to the registry
       images:
