@@ -153,6 +153,102 @@ spec:
 				"/spec/items/0",
 			},
 		},
+		{
+			name: "filter with nested field - configMap.name",
+			root: `
+spec:
+  volumes:
+    - name: config-vol
+      configMap:
+        name: app-config
+    - name: data-vol
+      persistentVolumeClaim:
+        claimName: data
+    - name: settings-vol
+      configMap:
+        name: settings
+`,
+			path: "/spec/volumes/[?(@.configMap.name=='app-config')]/name",
+			want: []string{
+				"/spec/volumes/0/name",
+			},
+		},
+		{
+			name: "filter with nested field - resources.limits.memory",
+			root: `
+spec:
+  containers:
+    - name: app
+      image: app:v1
+      resources:
+        limits:
+          memory: 2Gi
+          cpu: 1000m
+    - name: sidecar
+      image: sidecar:v1
+      resources:
+        limits:
+          memory: 512Mi
+          cpu: 100m
+    - name: worker
+      image: worker:v1
+      resources:
+        limits:
+          memory: 2Gi
+          cpu: 2000m
+`,
+			path: "/spec/containers/[?(@.resources.limits.memory=='2Gi')]/image",
+			want: []string{
+				"/spec/containers/0/image",
+				"/spec/containers/2/image",
+			},
+		},
+		{
+			name: "filter with nested field - persistentVolumeClaim.claimName",
+			root: `
+spec:
+  volumes:
+    - name: config
+      configMap:
+        name: my-config
+    - name: data
+      persistentVolumeClaim:
+        claimName: data-pvc
+    - name: cache
+      emptyDir: {}
+`,
+			path: "/spec/volumes/[?(@.persistentVolumeClaim.claimName=='data-pvc')]",
+			want: []string{
+				"/spec/volumes/1",
+			},
+		},
+		{
+			name: "filter with deep nested field - metadata.labels.app",
+			root: `
+spec:
+  pods:
+    - name: web-1
+      metadata:
+        labels:
+          app: web
+          tier: frontend
+    - name: api-1
+      metadata:
+        labels:
+          app: api
+          tier: backend
+    - name: web-2
+      metadata:
+        labels:
+          app: web
+          tier: frontend
+`,
+			path: "/spec/pods/[?(@.metadata.labels.app=='web')]/name",
+			want: []string{
+				"/spec/pods/0/name",
+				"/spec/pods/2/name",
+			},
+		},
 	}
 
 	for _, tt := range tests {

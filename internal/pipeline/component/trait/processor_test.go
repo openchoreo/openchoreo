@@ -333,6 +333,211 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name: "patch with target where clause",
+			resourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: web-app
+    labels:
+      monitoring: enabled
+  spec:
+    replicas: 3
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: worker
+    labels:
+      monitoring: disabled
+  spec:
+    replicas: 2
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api
+    labels:
+      monitoring: enabled
+  spec:
+    replicas: 5
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: monitoring-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.monitoring == "enabled"}
+      operations:
+        - op: add
+          path: /metadata/annotations
+          value:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "9090"
+`,
+			context: map[string]any{},
+			wantResourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: web-app
+    labels:
+      monitoring: enabled
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9090"
+  spec:
+    replicas: 3
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: worker
+    labels:
+      monitoring: disabled
+  spec:
+    replicas: 2
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api
+    labels:
+      monitoring: enabled
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9090"
+  spec:
+    replicas: 5
+`,
+			wantErr: false,
+		},
+		{
+			name: "patch with forEach and where combined",
+			resourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: web-app
+    labels:
+      tier: frontend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports: []
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: worker
+    labels:
+      tier: backend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports: []
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api
+    labels:
+      tier: frontend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports: []
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: port-trait
+spec:
+  patches:
+    - forEach: ${parameters.exposedPorts}
+      var: port
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.tier == "frontend"}
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/0/ports/-
+          value:
+            containerPort: ${port.number}
+            name: ${port.name}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"exposedPorts": []any{
+						map[string]any{"number": float64(8080), "name": "http"},
+						map[string]any{"number": float64(9090), "name": "metrics"},
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: web-app
+    labels:
+      tier: frontend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports:
+              - containerPort: 8080
+                name: http
+              - containerPort: 9090
+                name: metrics
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: worker
+    labels:
+      tier: backend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports: []
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api
+    labels:
+      tier: frontend
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            ports:
+              - containerPort: 8080
+                name: http
+              - containerPort: 9090
+                name: metrics
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
