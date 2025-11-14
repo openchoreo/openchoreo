@@ -18,47 +18,29 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > The build will take around 5-8 minutes depending on the network speed and Node.js dependency installation.
 
-## Step 2: Port-forward the OpenChoreo Gateway
-
-Port forward the OpenChoreo gateway service to access the web application locally after the build is completed:
-
-```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
-```
-
-## Step 3: Access the Application
+## Step 2: Access the Application
 
 Once the application is deployed and the port-forward is active, you can access the React application at:
 
 ```
-https://react-starter-development.choreoapps.localhost:8443
+http://react-starter-development-c37e66d8-development.openchoreoapis.localhost:9080
 ```
-
-> [!IMPORTANT]
-> Since this uses a self-signed certificate, your browser will show a security warning. You need to:
-> 1. Click "Advanced" when you see the security warning
-> 2. Click "Proceed to react-starter-development.choreoapps.localhost (unsafe)"
 
 ## Troubleshooting
 
 ### Build Issues
-If the build fails, check the build logs:
+If the build fails, check the build status:
 
 ```bash
-kubectl describe build react-starter-build-01
+kubectl describe workflow react-starter-build-01
 ```
 
 ### Access Issues
 If you cannot access the application:
 
-1. Ensure the port-forward is running:
+1. Verify the web application URL:
    ```bash
-   ps aux | grep port-forward
-   ```
-
-2. Verify the web application URL:
-   ```bash
-   kubectl get webapplicationbindings.openchoreo.dev  react-starter -o jsonpath='{.status.endpoints[0].public.uri}'
+   kubectl get httproute -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}'
    ```
 
 ## Clean Up
@@ -66,9 +48,6 @@ If you cannot access the application:
 Stop the port forwarding and remove all resources:
 
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
-
 # Remove all resources
 kubectl delete https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```

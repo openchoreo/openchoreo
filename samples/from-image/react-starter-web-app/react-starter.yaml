@@ -41,11 +41,6 @@ spec:
           value: production
         - key: PORT
           value: "8080"
-  endpoints:
-    webapp:
-      type: HTTP
-      port: 8080
-  connections: { } # How does this look like?
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
