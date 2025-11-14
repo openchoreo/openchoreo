@@ -29,9 +29,6 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 Check the status of the scheduled task and its job executions:
 
 ```bash
-# Check the scheduled task status
-kubectl get scheduledtaskbinding github-issue-reporter -o yaml
-
 # View the CronJob created by the scheduled task
 kubectl get cronjob -A -l component-name=github-issue-reporter
 
@@ -73,7 +70,7 @@ If the scheduled task is not working correctly:
 
 1. **Check the scheduled task status:**
    ```bash
-   kubectl describe scheduledtaskbinding github-issue-reporter
+   kubectl describe componentdeployment github-issue-reporter-development
    ```
 
 2. **Verify the CronJob is created:**
@@ -107,14 +104,16 @@ If the scheduled task is not working correctly:
 
 The task is configured to run every minute (`*/1 * * * *`) for testing purposes. To modify the schedule:
 
-1. Edit the `ScheduledTaskClass` resource
-2. Update the `cronJobTemplate.schedule` field with a valid cron expression
-3. Apply the changes
+1. Edit the `Component` resource in the YAML file
+2. Update the `parameters.schedule` field with a valid cron expression
+3. Apply the changes using `kubectl apply -f github-issue-reporter.yaml`
 
 Example schedules:
 - `0 */6 * * *` - Every 6 hours
 - `0 9 * * 1-5` - Every weekday at 9 AM
 - `0 0 */3 * *` - Every 3 days at midnight
+
+You can also override the schedule for specific environments by modifying the `ComponentDeployment` resource and adding schedule to the `overrides` section.
 
 ## Clean Up
 

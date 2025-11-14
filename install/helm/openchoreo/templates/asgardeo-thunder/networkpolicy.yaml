@@ -23,8 +23,6 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.asgardeoThunder.service.targetPort }}
-        - protocol: TCP
-          port: {{ .Values.asgardeoThunder.service.gateTargetPort }}
     {{- with .Values.asgardeoThunder.networkPolicy.ingress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

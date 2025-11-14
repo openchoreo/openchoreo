@@ -66,6 +66,23 @@ type LogEntry struct {
 	Labels        map[string]string `json:"labels"`
 }
 
+// TraceResponse represents the response structure for trace queries
+type TraceResponse struct {
+	Spans      []Span `json:"spans"`
+	TotalCount int    `json:"totalCount"`
+	Took       int    `json:"tookMs"`
+}
+
+// Span represents a parsed span entry from OpenSearch
+type Span struct {
+	DurationInNanos int64     `json:"durationInNanos"`
+	EndTime         time.Time `json:"endTime"`
+	Name            string    `json:"name"`
+	SpanID          string    `json:"spanId"`
+	StartTime       time.Time `json:"startTime"`
+	TraceID         string    `json:"traceId"`
+}
+
 // QueryParams holds common query parameters
 type QueryParams struct {
 	StartTime      string   `json:"startTime"`
@@ -209,4 +226,13 @@ func ExtractLogType(logType string) string {
 	default:
 		return labels.QueryParamLogTypeRuntime // Default to RUNTIME if no valid type specified
 	}
+}
+
+// ComponentTracesRequestParams holds request body parameters for component traces
+type ComponentTracesRequestParams struct {
+	EndTime     string `json:"endTime"`
+	Limit       int    `json:"limit,omitempty"`
+	ServiceName string `json:"serviceName"`
+	SortOrder   string `json:"sortOrder,omitempty"`
+	StartTime   string `json:"startTime"`
 }

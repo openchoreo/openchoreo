@@ -9,32 +9,29 @@ source "${SCRIPT_DIR}/install-helpers.sh"
 
 # Validation functions
 validate_cluster() {
-    log_info "Validating Kind cluster..."
+    log_info "Validating k3d cluster..."
     
     if ! cluster_exists; then
-        log_error "Kind cluster '$CLUSTER_NAME' does not exist"
+        log_error "k3d cluster '$CLUSTER_NAME' does not exist"
         return 1
     fi
     
     # Check cluster is accessible
-    if ! kubectl cluster-info --context "kind-$CLUSTER_NAME" >/dev/null 2>&1; then
-        log_error "Kind cluster '$CLUSTER_NAME' is not accessible"
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        log_error "k3d cluster '$CLUSTER_NAME' is not accessible"
         return 1
     fi
     
-    log_success "Kind cluster validation passed"
+    log_success "k3d cluster validation passed"
 }
 
 validate_helm_releases() {
     log_info "Validating Helm releases..."
     
     local expected_releases=(
-        "cilium:$CILIUM_NS"
         "openchoreo-data-plane:$DATA_PLANE_NS"
         "openchoreo-control-plane:$CONTROL_PLANE_NS"
-        "openchoreo-build-plane:$BUILD_PLANE_NS"
-        "openchoreo-identity-provider:$IDENTITY_NS"
-        "openchoreo-backstage-demo:$CONTROL_PLANE_NS"
+
     )
     
     local failed_releases=()
@@ -60,11 +57,8 @@ validate_namespaces() {
     log_info "Validating namespaces..."
     
     local expected_namespaces=(
-        "$CILIUM_NS"
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
-        "$BUILD_PLANE_NS"
-        "$IDENTITY_NS"
     )
     
     local missing_namespaces=()
@@ -87,11 +81,8 @@ validate_pods() {
     log_info "Validating pod readiness..."
     
     local namespaces=(
-        "$CILIUM_NS"
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
-        "$BUILD_PLANE_NS"
-        "$IDENTITY_NS"
     )
     
     local failed_namespaces=()
@@ -127,40 +118,27 @@ validate_services() {
         return 1
     fi
     
-    # Check backstage service
-    if ! kubectl get svc -n "$CONTROL_PLANE_NS" -l app.kubernetes.io/component=backstage >/dev/null 2>&1; then
-        log_error "Backstage service not found"
-        return 1
-    fi
     
     log_success "Key services validation passed"
 }
 
-validate_port_forwarding() {
-    log_info "Validating port forwarding..."
+validate_ingress() {
+    log_info "Validating Traefik ingress..."
     
-    # Check if socat processes are running
-    if ! pgrep socat >/dev/null 2>&1; then
-        log_warning "No socat processes found - port forwarding may not be active"
+    # Check if Traefik deployment exists
+    if ! kubectl get deployment -n kube-system traefik >/dev/null 2>&1; then
+        log_warning "Traefik deployment not found - ingress may not be active"
         return 0
     fi
     
-    # Check if expected ports are listening
-    local ports=(8443 7007)
-    local failed_ports=()
-    
-    for port in "${ports[@]}"; do
-        if ! netstat -ln 2>/dev/null | grep -q ":$port "; then
-            failed_ports+=("$port")
-        fi
-    done
-    
-    if [[ ${#failed_ports[@]} -gt 0 ]]; then
-        log_warning "Ports not listening: ${failed_ports[*]}"
+    # Check if port 7007 is accessible on the loadbalancer
+    local port=7007
+    if ! netstat -ln 2>/dev/null | grep -q ":$port " && ! ss -ln 2>/dev/null | grep -q ":$port "; then
+        log_warning "Port $port not listening - Traefik ingress may not be exposed"
         return 0
     fi
     
-    log_success "Port forwarding validation passed"
+    log_success "Traefik ingress validation passed"
 }
 
 validate_kubeconfig() {
@@ -189,7 +167,7 @@ run_validation() {
         "validate_helm_releases"
         "validate_services"
         "validate_pods"
-        "validate_port_forwarding"
+        "validate_ingress"
     )
     
     local failed_validations=()

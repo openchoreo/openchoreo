@@ -171,8 +171,8 @@ type DataPlaneResponse struct {
 	Namespace               string    `json:"namespace"`
 	DisplayName             string    `json:"displayName,omitempty"`
 	Description             string    `json:"description,omitempty"`
-	RegistryPrefix          string    `json:"registryPrefix"`
-	RegistrySecretRef       string    `json:"registrySecretRef,omitempty"`
+	ImagePullSecretRefs     []string  `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
 	KubernetesClusterName   string    `json:"kubernetesClusterName"`
 	APIServerURL            string    `json:"apiServerURL"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
@@ -248,4 +248,30 @@ func ErrorResponse(message, code string) APIResponse[any] {
 		Error:   message,
 		Code:    code,
 	}
+}
+
+// ComponentTypeResponse represents a ComponentType in API responses
+type ComponentTypeResponse struct {
+	Name             string    `json:"name"`
+	DisplayName      string    `json:"displayName,omitempty"`
+	Description      string    `json:"description,omitempty"`
+	WorkloadType     string    `json:"workloadType"`
+	AllowedWorkflows []string  `json:"allowedWorkflows,omitempty"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+
+// TraitResponse represents an Trait in API responses
+type TraitResponse struct {
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// WorkflowResponse represents a Workflow in API responses
+type WorkflowResponse struct {
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 }

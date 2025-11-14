@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: frontend
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: WebApplication
+
+  componentType: deployment/web-application
+
+  parameters:
+    replicas: 1
+    port: 8080
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: frontend
+  namespace: default
 spec:
   owner:
     componentName: frontend
@@ -33,104 +47,33 @@ spec:
           value: "Welcome to the Microservices Demo!"
         - key: ENABLE_ASSISTANT
           value: "false"
-
-  endpoints:
-    http-endpoint:
-      type: HTTP
-      port: 8080
-
-  connections:
-    ad:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: ad
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: AD_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    cart:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: cart
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: CART_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    checkout:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: checkout
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: CHECKOUT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    currency:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: currency
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: CURRENCY_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    payment:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: payment
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: PAYMENT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    recommendation:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: recommendation
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: RECOMMENDATION_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    shipping:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: shipping
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: SHIPPING_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    productcatalog:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: productcatalog
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-
-
+        - key: AD_SERVICE_ADDR
+          value: "ad:80"
+        - key: CART_SERVICE_ADDR
+          value: "cart:80"
+        - key: CHECKOUT_SERVICE_ADDR
+          value: "checkout:80"
+        - key: CURRENCY_SERVICE_ADDR
+          value: "currency:80"
+        - key: PAYMENT_SERVICE_ADDR
+          value: "payment:80"
+        - key: RECOMMENDATION_SERVICE_ADDR
+          value: "recommendation:80"
+        - key: SHIPPING_SERVICE_ADDR
+          value: "shipping:80"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog:80"
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: WebApplication
+kind: ComponentDeployment
 metadata:
-  name: frontend
+  name: frontend-development
+  namespace: default
 spec:
   owner:
-    componentName: frontend
     projectName: gcp-microservice-demo
-  workloadName: frontend
-  overrides: {}
+    componentName: frontend
+
+  environment: development

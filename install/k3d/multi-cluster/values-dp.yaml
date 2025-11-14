@@ -1,0 +1,11 @@
+# Helm values for OpenChoreo Data Plane in k3d multi-cluster setup
+# This file contains overrides specific to running the data plane in a k3d environment
+
+fluentBit:
+  config:
+    # OpenSearch connection for multi-cluster setup
+    # Points to OpenSearch in the observability plane via host.k3d.internal
+    # Routed though the host machine to reach the Observability Plane
+    opensearch:
+      host: "host.k3d.internal"
+      port: "11082"

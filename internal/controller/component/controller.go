@@ -38,8 +38,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/finalizers,verbs=update
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypedefinitions,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=addons,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=traits,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentenvsnapshots,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
@@ -64,11 +64,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Detect mode based on which fields are set
 	// Note: API-level validation ensures at least one of type or componentType is set
 	if comp.Spec.ComponentType != "" {
-		// New ComponentTypeDefinition mode
-		logger.Info("Reconciling Component with ComponentTypeDefinition mode",
+		// New ComponentType mode
+		logger.Info("Reconciling Component with ComponentType mode",
 			"component", comp.Name,
 			"componentType", comp.Spec.ComponentType)
-		return r.reconcileWithComponentTypeDefinition(ctx, comp)
+		return r.reconcileWithComponentType(ctx, comp)
 	}
 
 	// Legacy mode - no action needed for now
@@ -78,8 +78,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-// reconcileWithComponentTypeDefinition handles components using ComponentTypeDefinitions
-func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, comp *openchoreov1alpha1.Component) (result ctrl.Result, rErr error) {
+// reconcileWithComponentType handles components using ComponentTypes
+func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openchoreov1alpha1.Component) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
 
 	// Keep a copy for comparison
@@ -102,8 +102,8 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		}
 	}()
 
-	// Parse componentType: {workloadType}/{componentTypeDefinitionName}
-	workloadType, ctdName, err := parseComponentType(comp.Spec.ComponentType)
+	// Parse componentType: {workloadType}/{componentTypeName}
+	workloadType, ctName, err := parseComponentType(comp.Spec.ComponentType)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid componentType format: %v", err)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
@@ -111,61 +111,74 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch ComponentTypeDefinition (in the same namespace as the Component)
-	ctd := &openchoreov1alpha1.ComponentTypeDefinition{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ctdName, Namespace: comp.Namespace}, ctd); err != nil {
+	// Fetch ComponentType (in the same namespace as the Component)
+	ct := &openchoreov1alpha1.ComponentType{}
+	if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentTypeDefinition %q not found", ctdName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeDefinitionNotFound, msg)
+			msg := fmt.Sprintf("ComponentType %q not found", ctName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to fetch ComponentTypeDefinition", "name", ctdName)
+		logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
 		return ctrl.Result{}, err
 	}
 
 	// Verify workloadType matches
-	if ctd.Spec.WorkloadType != workloadType {
-		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentTypeDefinition has %s",
-			workloadType, ctd.Spec.WorkloadType)
+	if ct.Spec.WorkloadType != workloadType {
+		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
+			workloadType, ct.Spec.WorkloadType)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
 		logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch Workload (required for snapshot creation)
-	workload := &openchoreov1alpha1.Workload{}
-	err = r.Get(ctx, types.NamespacedName{Name: comp.Name, Namespace: comp.Namespace}, workload)
+	// Fetch Workload by owner reference (supports any naming convention)
+	ownerKey := fmt.Sprintf("%s/%s", comp.Spec.Owner.ProjectName, comp.Name)
+	var workloadList openchoreov1alpha1.WorkloadList
+	err = r.List(ctx, &workloadList,
+		client.InNamespace(comp.Namespace),
+		client.MatchingFields{workloadOwnerIndex: ownerKey})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Workload %q not found, waiting for workload to be created", comp.Name)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
-			logger.Info(msg, "component", comp.Name)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to fetch Workload")
+		logger.Error(err, "Failed to list Workloads by owner")
 		return ctrl.Result{}, err
 	}
 
-	// Fetch all referenced Addons (in the same namespace as the Component)
-	addons, err := r.fetchAddons(ctx, comp.Spec.Addons, comp.Namespace)
+	if len(workloadList.Items) == 0 {
+		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
+		logger.Info(msg, "component", comp.Name, "ownerKey", ownerKey)
+		return ctrl.Result{}, nil
+	}
+
+	if len(workloadList.Items) > 1 {
+		msg := fmt.Sprintf("Multiple Workloads found for component %q (expected exactly 1)", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Error(fmt.Errorf("multiple workloads found"), msg, "count", len(workloadList.Items))
+		return ctrl.Result{}, nil
+	}
+
+	workload := &workloadList.Items[0]
+
+	// Fetch all referenced Traits (in the same namespace as the Component)
+	traits, err := r.fetchTraits(ctx, comp.Spec.Traits, comp.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Extract addon name from custom error type
-			var addonErr *addonFetchError
-			if errors.As(err, &addonErr) {
-				msg := fmt.Sprintf("Addon %q not found", addonErr.addonName)
-				controller.MarkFalseCondition(comp, ConditionReady, ReasonAddonNotFound, msg)
+			// Extract trait name from custom error type
+			var traitErr *traitFetchError
+			if errors.As(err, &traitErr) {
+				msg := fmt.Sprintf("Trait %q not found", traitErr.traitName)
+				controller.MarkFalseCondition(comp, ConditionReady, ReasonTraitNotFound, msg)
 				logger.Info(msg, "component", comp.Name)
 				return ctrl.Result{}, nil
 			}
 			// Fallback if error type doesn't match
-			msg := "One or more Addons not found"
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonAddonNotFound, msg)
+			msg := "One or more Traits not found"
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonTraitNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to fetch Addons")
+		logger.Error(err, "Failed to fetch Traits")
 		return ctrl.Result{}, err
 	}
 
@@ -223,7 +236,7 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.createOrUpdateSnapshot(ctx, comp, ctd, workload, addons, firstEnv); err != nil {
+	if err := r.createOrUpdateSnapshot(ctx, comp, ct, workload, traits, firstEnv); err != nil {
 		msg := fmt.Sprintf("Failed to create/update ComponentEnvSnapshot: %v", err)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonSnapshotCreationFailed, msg)
 		logger.Error(err, "Failed to create/update ComponentEnvSnapshot")
@@ -233,15 +246,15 @@ func (r *Reconciler) reconcileWithComponentTypeDefinition(ctx context.Context, c
 	// Success - mark as ready
 	msg := fmt.Sprintf("ComponentEnvSnapshot successfully created/updated for environment %q", firstEnv)
 	controller.MarkTrueCondition(comp, ConditionReady, ReasonSnapshotReady, msg)
-	logger.Info("Successfully reconciled Component with ComponentTypeDefinition",
+	logger.Info("Successfully reconciled Component with ComponentType",
 		"component", comp.Name,
 		"environment", firstEnv)
 
 	return ctrl.Result{}, nil
 }
 
-// parseComponentType parses the componentType format: {workloadType}/{componentTypeDefinitionName}
-func parseComponentType(componentType string) (workloadType string, ctdName string, err error) {
+// parseComponentType parses the componentType format: {workloadType}/{componentTypeName}
+func parseComponentType(componentType string) (workloadType string, ctName string, err error) {
 	parts := strings.SplitN(componentType, "/", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid componentType format: expected {workloadType}/{name}, got %s", componentType)
@@ -249,42 +262,42 @@ func parseComponentType(componentType string) (workloadType string, ctdName stri
 	return parts[0], parts[1], nil
 }
 
-// addonFetchError wraps an error from fetching an addon with the addon name
-type addonFetchError struct {
-	addonName string
+// traitFetchError wraps an error from fetching an trait with the trait name
+type traitFetchError struct {
+	traitName string
 	err       error
 }
 
-func (e *addonFetchError) Error() string {
-	return fmt.Sprintf("failed to fetch addon %q: %v", e.addonName, e.err)
+func (e *traitFetchError) Error() string {
+	return fmt.Sprintf("failed to fetch trait %q: %v", e.traitName, e.err)
 }
 
-func (e *addonFetchError) Unwrap() error {
+func (e *traitFetchError) Unwrap() error {
 	return e.err
 }
 
-// fetchAddons fetches all Addon resources referenced by the component
-func (r *Reconciler) fetchAddons(ctx context.Context, addonRefs []openchoreov1alpha1.ComponentAddon, namespace string) ([]openchoreov1alpha1.Addon, error) {
-	addons := make([]openchoreov1alpha1.Addon, 0, len(addonRefs))
+// fetchTraits fetches all Trait resources referenced by the component
+func (r *Reconciler) fetchTraits(ctx context.Context, traitRefs []openchoreov1alpha1.ComponentTrait, namespace string) ([]openchoreov1alpha1.Trait, error) {
+	traits := make([]openchoreov1alpha1.Trait, 0, len(traitRefs))
 
-	for _, ref := range addonRefs {
-		addon := &openchoreov1alpha1.Addon{}
-		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, addon); err != nil {
-			return nil, &addonFetchError{addonName: ref.Name, err: err}
+	for _, ref := range traitRefs {
+		trait := &openchoreov1alpha1.Trait{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, trait); err != nil {
+			return nil, &traitFetchError{traitName: ref.Name, err: err}
 		}
-		addons = append(addons, *addon)
+		traits = append(traits, *trait)
 	}
 
-	return addons, nil
+	return traits, nil
 }
 
 // createOrUpdateSnapshot creates or updates a ComponentEnvSnapshot with embedded copies
 func (r *Reconciler) createOrUpdateSnapshot(
 	ctx context.Context,
 	comp *openchoreov1alpha1.Component,
-	ctd *openchoreov1alpha1.ComponentTypeDefinition,
+	ct *openchoreov1alpha1.ComponentType,
 	workload *openchoreov1alpha1.Workload,
-	addons []openchoreov1alpha1.Addon,
+	traits []openchoreov1alpha1.Trait,
 	environment string,
 ) error {
 	logger := log.FromContext(ctx)
@@ -307,21 +320,21 @@ func (r *Reconciler) createOrUpdateSnapshot(
 			ComponentName: comp.Name,
 		}
 		snapshot.Spec.Environment = environment
-		sanitizedCTD := sanitizeComponentTypeDefinition(ctd)
+		sanitizedCT := sanitizeComponentType(ct)
 		sanitizedComponent := sanitizeComponent(comp)
 		sanitizedWorkload := sanitizeWorkload(workload)
-		sanitizedAddons := sanitizeAddons(addons)
+		sanitizedTraits := sanitizeTraits(traits)
 
-		if sanitizedCTD != nil {
-			snapshot.Spec.ComponentTypeDefinition = *sanitizedCTD
+		if sanitizedCT != nil {
+			snapshot.Spec.ComponentType = *sanitizedCT
 		}
 		if sanitizedComponent != nil {
 			snapshot.Spec.Component = *sanitizedComponent
 		}
-		if len(sanitizedAddons) > 0 {
-			snapshot.Spec.Addons = sanitizedAddons
+		if len(sanitizedTraits) > 0 {
+			snapshot.Spec.Traits = sanitizedTraits
 		} else {
-			snapshot.Spec.Addons = nil
+			snapshot.Spec.Traits = nil
 		}
 		if sanitizedWorkload != nil {
 			snapshot.Spec.Workload = *sanitizedWorkload
@@ -379,13 +392,13 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 	return rootEnv, nil
 }
 
-func sanitizeComponentTypeDefinition(ctd *openchoreov1alpha1.ComponentTypeDefinition) *openchoreov1alpha1.ComponentTypeDefinition {
-	if ctd == nil {
+func sanitizeComponentType(ct *openchoreov1alpha1.ComponentType) *openchoreov1alpha1.ComponentType {
+	if ct == nil {
 		return nil
 	}
-	copy := ctd.DeepCopy()
+	copy := ct.DeepCopy()
 	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentTypeDefinitionStatus{}
+	copy.Status = openchoreov1alpha1.ComponentTypeStatus{}
 	return copy
 }
 
@@ -409,15 +422,15 @@ func sanitizeWorkload(workload *openchoreov1alpha1.Workload) *openchoreov1alpha1
 	return copy
 }
 
-func sanitizeAddons(addons []openchoreov1alpha1.Addon) []openchoreov1alpha1.Addon {
-	if len(addons) == 0 {
+func sanitizeTraits(traits []openchoreov1alpha1.Trait) []openchoreov1alpha1.Trait {
+	if len(traits) == 0 {
 		return nil
 	}
-	sanitized := make([]openchoreov1alpha1.Addon, 0, len(addons))
-	for i := range addons {
-		copy := addons[i].DeepCopy()
+	sanitized := make([]openchoreov1alpha1.Trait, 0, len(traits))
+	for i := range traits {
+		copy := traits[i].DeepCopy()
 		sanitizeObjectMeta(&copy.ObjectMeta)
-		copy.Status = openchoreov1alpha1.AddonStatus{}
+		copy.Status = openchoreov1alpha1.TraitStatus{}
 		sanitized = append(sanitized, *copy)
 	}
 	return sanitized
@@ -463,8 +476,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup component type reference index: %w", err)
 	}
 
-	if err := r.setupAddonsRefIndex(ctx, mgr); err != nil {
-		return fmt.Errorf("failed to setup addons reference index: %w", err)
+	if err := r.setupTraitsRefIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup traits reference index: %w", err)
+	}
+
+	if err := r.setupWorkloadOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup workload owner index: %w", err)
 	}
 
 	// TODO: Add watch for DeploymentPipeline.
@@ -476,10 +493,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
 		Owns(&openchoreov1alpha1.ComponentEnvSnapshot{}).
-		Watches(&openchoreov1alpha1.ComponentTypeDefinition{},
+		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
-		Watches(&openchoreov1alpha1.Addon{},
-			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingAddon)).
+		Watches(&openchoreov1alpha1.Trait{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
 		Named("component").

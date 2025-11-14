@@ -59,15 +59,6 @@ type GatewaySpec struct {
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 }
 
-// Registry defines the container registry configuration, including the image prefix and optional authentication credentials.
-type Registry struct {
-	// Prefix specifies the registry domain and namespace (e.g., docker.io/namespace) that this configuration applies to.
-	Prefix string `json:"prefix"`
-	// SecretRef is the name of the Kubernetes Secret containing credentials for accessing the registry.
-	// This field is optional and can be omitted for public or unauthenticated registries.
-	SecretRef string `json:"secretRef,omitempty"`
-}
-
 // BasicAuthCredentials defines username and password for basic authentication
 type BasicAuthCredentials struct {
 	// Username for basic authentication
@@ -90,13 +81,26 @@ type ObserverAPI struct {
 	Authentication ObserverAuthentication `json:"authentication"`
 }
 
+// SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore
+type SecretStoreRef struct {
+	// Name of the ClusterSecretStore resource in the data plane cluster
+	Name string `json:"name"`
+}
+
 // DataPlaneSpec defines the desired state of a DataPlane.
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Registry contains the configuration required to pull images from a container registry.
-	Registry Registry `json:"registry"`
+	// ImagePullSecretRefs contains references to SecretReference resources
+	// These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments
+	// +optional
+	ImagePullSecretRefs []string `json:"imagePullSecretRefs,omitempty"`
+
+	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the data plane
+	// +optional
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+
 	// KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
 	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
 	// Gateway specifies the configuration for the API gateway in this DataPlane.

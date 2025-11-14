@@ -4,9 +4,8 @@
 package logger
 
 import (
+	"log/slog"
 	"net/http"
-
-	"golang.org/x/exp/slog"
 )
 
 func LoggerMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {

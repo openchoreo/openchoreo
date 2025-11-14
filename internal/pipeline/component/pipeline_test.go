@@ -1,0 +1,1393 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package component
+
+import (
+	"sort"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+)
+
+func TestPipeline_Render(t *testing.T) {
+	devEnvironmentYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: Environment
+    metadata:
+      name: dev
+      namespace: test-namespace
+    spec:
+      dataPlaneRef: dev-dataplane
+      isProduction: false
+      gateway:
+        dnsPrefix: dev
+        security:
+          remoteJwks:
+            uri: https://auth.example.com/.well-known/jwks.json`
+	devDataplaneYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: DataPlane
+    metadata:
+      name: dev-dataplane
+      namespace: test-namespace
+    spec:
+      kubernetesCluster:
+        name: development-cluster
+        credentials:
+          apiServerURL: https://k8s-api.example.com:6443
+          caCert: LS0tLS1CRUdJTi
+          clientCert: LS0tLS1CRUdJTi
+          clientKey: LS0tLS1CRUdJTi
+      registry:
+        prefix: docker.io/myorg
+        secretRef: registry-credentials
+      gateway:
+        publicVirtualHost: api.example.com
+        organizationVirtualHost: internal.example.com
+      observer:
+        url: https://observer.example.com
+        authentication:
+          basicAuth:
+            username: admin
+            password: secretpassword`
+	prodEnvironmentYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: Environment
+    metadata:
+      name: prod
+      namespace: test-namespace
+    spec:
+      dataPlaneRef: prod-dataplane
+      isProduction: true
+      gateway:
+        dnsPrefix: prod
+        security:
+          remoteJwks:
+            uri: https://auth.example.com/.well-known/jwks.json
+  `
+	prodDataplaneYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: DataPlane
+    metadata:
+      name: production-dataplane
+      namespace: test-namespace
+    spec:
+      kubernetesCluster:
+        name: production-cluster
+        credentials:
+          apiServerURL: https://k8s-api.example.com:6443
+          caCert: LS0tLS1CRUdJTi
+          clientCert: LS0tLS1CRUdJTi
+          clientKey: LS0tLS1CRUdJTi
+      registry:
+        prefix: docker.io/myorg
+        secretRef: registry-credentials
+      gateway:
+        publicVirtualHost: api.example.com
+        organizationVirtualHost: internal.example.com
+      observer:
+        url: https://observer.example.com
+        authentication:
+          basicAuth:
+            username: admin
+            password: secretpassword
+  `
+	tests := []struct {
+		name             string
+		snapshotYAML     string
+		settingsYAML     string
+		wantErr          bool
+		wantResourceYAML string
+		environmentYAML  string
+		dataplaneYAML    string
+	}{
+		{
+			name: "simple component without traits",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 2
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    replicas: 2
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with environment overrides",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 2
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+  workload: {}
+`,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  overrides:
+    replicas: 5
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 5
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with includeWhen",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        expose: true
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+        - id: service
+          includeWhen: ${parameters.expose}
+          template:
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: ${component.name}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with forEach",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        secrets:
+          - secret1
+          - secret2
+  componentType:
+    spec:
+      resources:
+        - id: secrets
+          forEach: ${parameters.secrets}
+          var: secret
+          template:
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ${secret}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: secret1
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: secret2
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with trait creates",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 2
+      traits:
+        - name: mysql
+          instanceName: db-1
+          parameters:
+            database: mydb
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+  traits:
+    - metadata:
+        name: mysql
+      spec:
+        creates:
+          - template:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: ${trait.instanceName}-secret
+              data:
+                database: ${parameters.database}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: db-1-secret
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    database: mydb
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with trait patches",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters: {}
+      traits:
+        - name: monitoring
+          instanceName: mon-1
+          config: {}
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: app
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+  traits:
+    - metadata:
+        name: monitoring
+      spec:
+        patches:
+          - target:
+              kind: Deployment
+              group: apps
+              version: v1
+            operations:
+              - op: add
+                path: /metadata/labels
+                value:
+                  monitoring: enabled
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      monitoring: enabled
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with env configurations",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                          [{
+                            "configMapRef": {
+                              "name": oc_generate_name(metadata.name, "env-configs")
+                            }
+                          }] : [])}
+        - id: env-config
+          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-configs")}
+            data: |
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          env:
+            - key: LOG_LEVEL
+              value: info
+            - key: DEBUG_MODE
+              value: "true"
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-env-configs-3e553e36
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    LOG_LEVEL: info
+    DEBUG_MODE: "true"
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom:
+              - configMapRef:
+                  name: test-component-dev-12345678-env-configs-3e553e36
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with env configurations override",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      envFrom: |
+                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                          [{
+                            "configMapRef": {
+                              "name": oc_generate_name(metadata.name, "env-configs")
+                            }
+                          }] : [])}
+        - id: env-config
+          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "env-configs")}
+            data: |
+              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          env:
+            - key: LOG_LEVEL
+              value: info
+            - key: DEBUG_MODE
+              value: "true"
+`,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  configurationOverrides:
+    env:
+      - key: LOG_LEVEL
+        value: error
+      - key: NEW_KEY
+        value: newValue
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-env-configs-3e553e36
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    LOG_LEVEL: error
+    DEBUG_MODE: "true"
+    NEW_KEY: newValue
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            envFrom:
+              - configMapRef:
+                  name: test-component-dev-12345678-env-configs-3e553e36
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with file configurations override",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: prod
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      volumeMounts: |
+                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                          configurations.configs.files.map(f, {
+                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                            "mountPath": f.mountPath+"/"+f.name,
+                            "subPath": f.name
+                          }) : oc_omit()}
+                  volumes: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                      configurations.configs.files.map(f, {
+                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                        "configMap": {
+                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
+                        }
+                      }) : oc_omit()}
+        - id: file-config
+          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+          forEach: ${configurations.configs.files}
+          var: config
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            data:
+              ${config.name}: |
+                ${config.value}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          files:
+            - key: config.json
+              value: |
+                {
+                  "database": {
+                    "host": "localhost",
+                    "port": 5432
+                  }
+                }
+              mountPath: /etc/config
+            - key: app.properties
+              value: |
+                app.name=myapp
+                app.version=1.0.0
+                log.level=INFO
+              mountPath: /etc/config
+`,
+			settingsYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentDeployment
+spec:
+  configurationOverrides:
+    files:
+      - key: config.json
+        value: |
+          {
+            "database": {
+              "host": "prod.db.example.com",
+              "port": 5432
+            }
+          }
+        mountPath: /etc/config
+      - key: new-config.yaml
+        value: |
+          apiVersion: v1
+          kind: Config
+          setting: production
+        mountPath: /etc/config
+`,
+			environmentYAML: prodEnvironmentYAML,
+			dataplaneYAML:   prodDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-app-properties-7a40d758
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    app.properties: |
+      app.name=myapp
+      app.version=1.0.0
+      log.level=INFO
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-config-json-4334abe4
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    config.json: |
+      {
+        "database": {
+          "host": "prod.db.example.com",
+          "port": 5432
+        }
+      }
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-new-config-yaml-0fbbcd4a
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  data:
+    new-config.yaml: |
+      apiVersion: v1
+      kind: Config
+      setting: production
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: prod
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            volumeMounts:
+              - name: file-mount-d08babc2
+                mountPath: /etc/config/app.properties
+                subPath: app.properties
+              - name: file-mount-6c698306
+                mountPath: /etc/config/config.json
+                subPath: config.json
+              - name: file-mount-bc372c14
+                mountPath: /etc/config/new-config.yaml
+                subPath: new-config.yaml
+        volumes:
+          - name: file-mount-bc372c14
+            configMap:
+              name: test-component-dev-12345678-config-new-config-yaml-0fbbcd4a
+          - name: file-mount-6c698306
+            configMap:
+              name: test-component-dev-12345678-config-config-json-4334abe4
+          - name: file-mount-d08babc2
+            configMap:
+              name: test-component-dev-12345678-config-app-properties-7a40d758
+`,
+			wantErr: false,
+		},
+		{
+			name: "component with file configurations",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        replicas: 1
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${component.name}
+            spec:
+              replicas: ${parameters.replicas}
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+                      volumeMounts: |
+                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                          configurations.configs.files.map(f, {
+                            "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                            "mountPath": f.mountPath+"/"+f.name,
+                            "subPath": f.name
+                          }) : oc_omit()}
+                  volumes: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                      configurations.configs.files.map(f, {
+                        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                        "configMap": {
+                          "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
+                        }
+                      }) : oc_omit()}
+        - id: file-config
+          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+          forEach: ${configurations.configs.files}
+          var: config
+          template:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+              namespace: ${metadata.namespace}
+            data:
+              ${config.name}: |
+                ${config.value}
+  workload:
+    spec:
+      containers:
+        app:
+          image: myapp:latest
+          files:
+            - key: config.json
+              value: |
+                {
+                  "database": {
+                    "host": "localhost",
+                    "port": 5432
+                  }
+                }
+              mountPath: /etc/config
+            - key: app.properties
+              value: |
+                app.name=myapp
+                app.version=1.0.0
+                log.level=INFO
+              mountPath: /etc/config
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-app-properties-7a40d758
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    app.properties: |
+      app.name=myapp
+      app.version=1.0.0
+      log.level=INFO
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-config-config-json-4334abe4
+    namespace: test-namespace
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  data:
+    config.json: |
+      {
+        "database": {
+          "host": "localhost",
+          "port": 5432
+        }
+      }
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            volumeMounts:
+              - name: file-mount-d08babc2
+                mountPath: /etc/config/app.properties
+                subPath: app.properties
+              - name: file-mount-6c698306
+                mountPath: /etc/config/config.json
+                subPath: config.json
+        volumes:
+          - name: file-mount-6c698306
+            configMap:
+              name: test-component-dev-12345678-config-config-json-4334abe4
+          - name: file-mount-d08babc2
+            configMap:
+              name: test-component-dev-12345678-config-app-properties-7a40d758
+`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse snapshot
+			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
+				t.Fatalf("Failed to parse snapshot YAML: %v", err)
+			}
+
+			// Parse settings if provided
+			var settings *v1alpha1.ComponentDeployment
+			if tt.settingsYAML != "" {
+				settings = &v1alpha1.ComponentDeployment{}
+				if err := yaml.Unmarshal([]byte(tt.settingsYAML), settings); err != nil {
+					t.Fatalf("Failed to parse settings YAML: %v", err)
+				}
+			}
+
+			// Parse environment
+			var environment *v1alpha1.Environment
+			if tt.environmentYAML != "" {
+				environment = &v1alpha1.Environment{}
+				if err := yaml.Unmarshal([]byte(tt.environmentYAML), environment); err != nil {
+					t.Fatalf("Failed to parse environment YAML: %v", err)
+				}
+			}
+
+			// Parse dataplane
+			var dataplane *v1alpha1.DataPlane
+			if tt.dataplaneYAML != "" {
+				dataplane = &v1alpha1.DataPlane{}
+				if err := yaml.Unmarshal([]byte(tt.dataplaneYAML), dataplane); err != nil {
+					t.Fatalf("Failed to parse dataplane YAML: %v", err)
+				}
+			}
+
+			// Create input
+			input := &RenderInput{
+				ComponentType:       &snapshot.Spec.ComponentType,
+				Component:           &snapshot.Spec.Component,
+				Traits:              snapshot.Spec.Traits,
+				Workload:            &snapshot.Spec.Workload,
+				Environment:         environment,
+				DataPlane:           dataplane,
+				ComponentDeployment: settings,
+				Metadata: context.MetadataContext{
+					Name:      "test-component-dev-12345678",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						"openchoreo.org/component":   "test-component",
+						"openchoreo.org/environment": "dev",
+					},
+				},
+			}
+
+			// Create pipeline and render
+			pipeline := NewPipeline()
+			output, err := pipeline.Render(input)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Render() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.wantResourceYAML != "" {
+				// Parse expected resources
+				var wantResources []map[string]any
+				if err := yaml.Unmarshal([]byte(tt.wantResourceYAML), &wantResources); err != nil {
+					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
+				}
+
+				// Use cmp.Transformer to sort slices of maps with "name" field during comparison
+				// Configuration override merging uses maps which have non-deterministic iteration order
+				sortSlicesByName := cmp.Transformer("SortSlicesByName", func(in []map[string]any) []map[string]any {
+					// Check if any map has a "name" field
+					hasName := false
+					for _, m := range in {
+						if _, exists := m["name"]; exists {
+							hasName = true
+							break
+						}
+					}
+
+					// If no "name" field, return as-is
+					if !hasName {
+						return in
+					}
+
+					// Create a copy and sort by name
+					out := make([]map[string]any, len(in))
+					copy(out, in)
+					sort.Slice(out, func(i, j int) bool {
+						ni, oki := out[i]["name"].(string)
+						nj, okj := out[j]["name"].(string)
+						if !oki || !okj {
+							return false
+						}
+						return ni < nj
+					})
+					return out
+				})
+
+				// Also handle []any slices that contain maps with "name" field
+				sortAnySlicesByName := cmp.Transformer("SortAnySlicesByName", func(in []any) []any {
+					// Check if this is a slice of maps with "name" field
+					if len(in) == 0 {
+						return in
+					}
+
+					firstMap, ok := in[0].(map[string]any)
+					if !ok {
+						return in
+					}
+
+					if _, hasName := firstMap["name"]; !hasName {
+						return in
+					}
+
+					// Create a copy and sort by name
+					out := make([]any, len(in))
+					copy(out, in)
+					sort.Slice(out, func(i, j int) bool {
+						mi, oki := out[i].(map[string]any)
+						mj, okj := out[j].(map[string]any)
+						if !oki || !okj {
+							return false
+						}
+						ni, oki := mi["name"].(string)
+						nj, okj := mj["name"].(string)
+						if !oki || !okj {
+							return false
+						}
+						return ni < nj
+					})
+					return out
+				})
+
+				if diff := cmp.Diff(wantResources, output.Resources, sortSlicesByName, sortAnySlicesByName); diff != "" {
+					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
+func TestPipeline_Options(t *testing.T) {
+	devEnvironmentYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: Environment
+    metadata:
+      name: dev
+      namespace: test-namespace
+    spec:
+      dataPlaneRef: dev-dataplane
+      isProduction: false
+      gateway:
+        dnsPrefix: dev
+        security:
+          remoteJwks:
+            uri: https://auth.example.com/.well-known/jwks.json`
+	devDataplaneYAML := `
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: DataPlane
+    metadata:
+      name: dev-dataplane
+      namespace: test-namespace
+    spec:
+      kubernetesCluster:
+        name: development-cluster
+        credentials:
+          apiServerURL: https://k8s-api.example.com:6443
+          caCert: LS0tLS1CRUdJTi
+          clientCert: LS0tLS1CRUdJTi
+          clientKey: LS0tLS1CRUdJTi
+      registry:
+        prefix: docker.io/myorg
+        secretRef: registry-credentials
+      gateway:
+        publicVirtualHost: api.example.com
+        organizationVirtualHost: internal.example.com
+      observer:
+        url: https://observer.example.com
+        authentication:
+          basicAuth:
+            username: admin
+            password: secretpassword`
+	tests := []struct {
+		name             string
+		snapshotYAML     string
+		options          []Option
+		wantResourceYAML string
+		environmentYAML  string
+		dataplneYAML     string
+	}{
+		{
+			name: "with custom labels",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters: {}
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: app
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplneYAML:    devDataplaneYAML,
+			options: []Option{
+				WithResourceLabels(map[string]string{
+					"custom": "label",
+				}),
+			},
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      custom: label
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+`,
+		},
+		{
+			name: "with custom annotations",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters: {}
+  componentType:
+    spec:
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: app
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplneYAML:    devDataplaneYAML,
+			options: []Option{
+				WithResourceAnnotations(map[string]string{
+					"custom": "annotation",
+				}),
+			},
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      openchoreo.org/component: test-app
+      openchoreo.org/environment: dev
+    annotations:
+      custom: annotation
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse snapshot
+			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
+				t.Fatalf("Failed to parse snapshot YAML: %v", err)
+			}
+
+			// Parse environment
+			var environment *v1alpha1.Environment
+			if tt.environmentYAML != "" {
+				environment = &v1alpha1.Environment{}
+				if err := yaml.Unmarshal([]byte(tt.environmentYAML), environment); err != nil {
+					t.Fatalf("Failed to parse environment YAML: %v", err)
+				}
+			}
+
+			// Parse dataplane
+			var dataplane *v1alpha1.DataPlane
+			if tt.dataplneYAML != "" {
+				dataplane = &v1alpha1.DataPlane{}
+				if err := yaml.Unmarshal([]byte(tt.dataplneYAML), dataplane); err != nil {
+					t.Fatalf("Failed to parse dataplane YAML: %v", err)
+				}
+			}
+
+			// Create input
+			input := &RenderInput{
+				ComponentType: &snapshot.Spec.ComponentType,
+				Component:     &snapshot.Spec.Component,
+				Traits:        snapshot.Spec.Traits,
+				Workload:      &snapshot.Spec.Workload,
+				Environment:   environment,
+				DataPlane:     dataplane,
+				Metadata: context.MetadataContext{
+					Name:      "test-component-dev-12345678",
+					Namespace: "test-namespace",
+					Labels: map[string]string{
+						"openchoreo.org/component":   "test-component",
+						"openchoreo.org/environment": "dev",
+					},
+				},
+			}
+
+			// Create pipeline with options
+			pipeline := NewPipeline(tt.options...)
+			output, err := pipeline.Render(input)
+			if err != nil {
+				t.Fatalf("Render() error = %v", err)
+			}
+
+			// Parse expected resources
+			var wantResources []map[string]any
+			if err := yaml.Unmarshal([]byte(tt.wantResourceYAML), &wantResources); err != nil {
+				t.Fatalf("Failed to parse wantResourceYAML: %v", err)
+			}
+
+			// Compare actual vs expected
+			if diff := cmp.Diff(wantResources, output.Resources); diff != "" {
+				t.Errorf("Resources mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestValidateResources(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources []map[string]any
+		wantErr   bool
+	}{
+		{
+			name: "valid resources",
+			resources: []map[string]any{
+				{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]any{
+						"name": "test",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing apiVersion",
+			resources: []map[string]any{
+				{
+					"kind": "Pod",
+					"metadata": map[string]any{
+						"name": "test",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing kind",
+			resources: []map[string]any{
+				{
+					"apiVersion": "v1",
+					"metadata": map[string]any{
+						"name": "test",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing metadata.name",
+			resources: []map[string]any{
+				{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata":   map[string]any{},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewPipeline()
+			err := p.validateResources(tt.resources)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateResources() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestSortResources(t *testing.T) {
+	resources := []map[string]any{
+		{
+			"kind":       "Service",
+			"apiVersion": "v1",
+			"metadata": map[string]any{
+				"name": "svc-b",
+			},
+		},
+		{
+			"kind":       "Deployment",
+			"apiVersion": "apps/v1",
+			"metadata": map[string]any{
+				"name": "deploy-a",
+			},
+		},
+		{
+			"kind":       "Service",
+			"apiVersion": "v1",
+			"metadata": map[string]any{
+				"name": "svc-a",
+			},
+		},
+	}
+
+	sortResources(resources)
+
+	// Check sorted order: Deployment first, then Services sorted by name
+	if resources[0]["kind"] != "Deployment" {
+		t.Errorf("Expected Deployment first, got %v", resources[0]["kind"])
+	}
+	if resources[1]["kind"] != "Service" {
+		t.Errorf("Expected Service second, got %v", resources[1]["kind"])
+	}
+
+	metadata := resources[1]["metadata"].(map[string]any)
+	if metadata["name"] != "svc-a" {
+		t.Errorf("Expected svc-a second, got %v", metadata["name"])
+	}
+}

@@ -5,11 +5,13 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
-	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -272,34 +274,18 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: projectName,
 			},
-			Type: openchoreov1alpha1.ComponentType(req.Type),
+			Type: openchoreov1alpha1.DefinedComponentType(req.Type),
 		},
 	}
 
-	// Only add build configuration if it's provided in the request
-	if req.BuildConfig.RepoURL != "" {
-		// Convert template parameters from request format to Kubernetes format
-		var parameters []openchoreov1alpha1.Parameter
-		for _, param := range req.BuildConfig.TemplateParams {
-			parameters = append(parameters, openchoreov1alpha1.Parameter{
-				Name:  param.Name,
-				Value: param.Value,
-			})
+	// Convert and set build configuration if provided
+	if req.BuildConfig.RepoURL != "" || req.BuildConfig.BuildTemplateRef != "" {
+		buildSpec, err := s.convertBuildConfigToBuildSpec(req.BuildConfig)
+		if err != nil {
+			s.logger.Error("Failed to convert build config to build spec", "error", err)
+			return fmt.Errorf("failed to convert build config: %w", err)
 		}
-
-		componentCR.Spec.Build = openchoreov1alpha1.BuildSpecInComponent{
-			Repository: openchoreov1alpha1.BuildRepository{
-				URL: req.BuildConfig.RepoURL,
-				Revision: openchoreov1alpha1.BuildRevision{
-					Branch: req.BuildConfig.Branch,
-				},
-				AppPath: req.BuildConfig.ComponentPath,
-			},
-			TemplateRef: openchoreov1alpha1.TemplateRef{
-				Name:       req.BuildConfig.BuildTemplateRef,
-				Parameters: parameters,
-			},
-		}
+		componentCR.Spec.Workflow = &buildSpec
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
@@ -318,13 +304,10 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when Component adds status conditions
 	status := "Creating"
 
-	// Convert template parameters from Kubernetes format to response format
-	templateParams := make([]models.TemplateParameter, 0, len(component.Spec.Build.TemplateRef.Parameters))
-	for _, param := range component.Spec.Build.TemplateRef.Parameters {
-		templateParams = append(templateParams, models.TemplateParameter{
-			Name:  param.Name,
-			Value: param.Value,
-		})
+	// Convert workflow-based build configuration to API BuildConfig format
+	var buildConfig *models.BuildConfig
+	if component.Spec.Workflow != nil {
+		buildConfig = s.convertBuildSpecToBuildConfig(*component.Spec.Workflow)
 	}
 
 	response := &models.ComponentResponse{
@@ -336,13 +319,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		OrgName:     component.Namespace,
 		CreatedAt:   component.CreationTimestamp.Time,
 		Status:      status,
-		BuildConfig: &models.BuildConfig{
-			RepoURL:          component.Spec.Build.Repository.URL,
-			Branch:           component.Spec.Build.Repository.Revision.Branch,
-			ComponentPath:    component.Spec.Build.Repository.AppPath,
-			BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
-			TemplateParams:   templateParams,
-		},
+		BuildConfig: buildConfig,
 	}
 
 	for _, v := range typeSpecs {
@@ -417,7 +394,7 @@ func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, pro
 	// Determine binding type based on component type
 	var bindingResponse *models.BindingResponse
 	var err error
-	switch openchoreov1alpha1.ComponentType(componentType) {
+	switch openchoreov1alpha1.DefinedComponentType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		bindingResponse, err = s.getServiceBinding(ctx, orgName, componentName, environment)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -783,7 +760,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 
 // createOrUpdateTargetBinding creates or updates the binding in the target environment
 func (s *ComponentService) createOrUpdateTargetBinding(ctx context.Context, req *PromoteComponentPayload, componentType string) error {
-	switch openchoreov1alpha1.ComponentType(componentType) {
+	switch openchoreov1alpha1.DefinedComponentType(componentType) {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createOrUpdateServiceBinding(ctx, req)
 	case openchoreov1alpha1.ComponentTypeWebApplication:
@@ -1459,7 +1436,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 }
 
 // createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
-func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.ComponentType) error {
+func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.DefinedComponentType) error {
 	switch componentType {
 	case openchoreov1alpha1.ComponentTypeService:
 		return s.createServiceResource(ctx, orgName, projectName, componentName, workloadName)
@@ -1591,4 +1568,112 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 
 	s.logger.Debug("Created scheduled task for component", "scheduledTask", scheduledTask.Name, "component", componentName, "workload", workloadName)
 	return nil
+}
+
+// convertBuildSpecToBuildConfig converts BuildSpecInComponent to API BuildConfig model
+// Extracts workflow parameters from the Schema RawExtension and maps them to the BuildConfig structure
+func (s *ComponentService) convertBuildSpecToBuildConfig(buildSpec openchoreov1alpha1.WorkflowConfig) *models.BuildConfig {
+	if buildSpec.Name == "" {
+		return nil
+	}
+
+	buildConfig := &models.BuildConfig{
+		BuildTemplateRef: buildSpec.Name,
+	}
+
+	// If no schema is provided, return with just the template ref
+	if buildSpec.Schema == nil || buildSpec.Schema.Raw == nil {
+		return buildConfig
+	}
+
+	// Unmarshal the schema into a map to extract parameters
+	var schemaMap map[string]interface{}
+	if err := json.Unmarshal(buildSpec.Schema.Raw, &schemaMap); err != nil {
+		s.logger.Warn("Failed to unmarshal build schema", "error", err)
+		return buildConfig // Return partial config rather than failing
+	}
+
+	// Extract standard repository fields from schema.repository
+	if repo, ok := schemaMap["repository"].(map[string]interface{}); ok {
+		if url, ok := repo["url"].(string); ok {
+			buildConfig.RepoURL = url
+		}
+		if revision, ok := repo["revision"].(map[string]interface{}); ok {
+			if branch, ok := revision["branch"].(string); ok {
+				buildConfig.Branch = branch
+			}
+		}
+		if appPath, ok := repo["appPath"].(string); ok {
+			buildConfig.ComponentPath = appPath
+		}
+	}
+
+	// Convert remaining schema fields to template parameters
+	templateParams := make([]models.TemplateParameter, 0)
+	for key, value := range schemaMap {
+		// Skip the repository field as we've already extracted it
+		if key == "repository" {
+			continue
+		}
+
+		// Convert value to string for template parameter
+		valueStr := fmt.Sprintf("%v", value)
+		templateParams = append(templateParams, models.TemplateParameter{
+			Name:  key,
+			Value: valueStr,
+		})
+	}
+
+	buildConfig.TemplateParams = templateParams
+	return buildConfig
+}
+
+// convertBuildConfigToBuildSpec converts API BuildConfig model to BuildSpecInComponent
+// Creates a Schema RawExtension with repository and other parameters
+func (s *ComponentService) convertBuildConfigToBuildSpec(buildConfig models.BuildConfig) (openchoreov1alpha1.WorkflowConfig, error) {
+	buildSpec := openchoreov1alpha1.WorkflowConfig{
+		Name: buildConfig.BuildTemplateRef,
+	}
+
+	// Build the schema structure
+	schemaMap := make(map[string]interface{})
+
+	// Add repository configuration
+	repositoryMap := make(map[string]interface{})
+	if buildConfig.RepoURL != "" {
+		repositoryMap["url"] = buildConfig.RepoURL
+	}
+
+	revisionMap := make(map[string]interface{})
+	if buildConfig.Branch != "" {
+		revisionMap["branch"] = buildConfig.Branch
+	} else {
+		revisionMap["branch"] = "main" // Default branch
+	}
+	repositoryMap["revision"] = revisionMap
+
+	if buildConfig.ComponentPath != "" {
+		repositoryMap["appPath"] = buildConfig.ComponentPath
+	} else {
+		repositoryMap["appPath"] = "." // Default path
+	}
+
+	schemaMap["repository"] = repositoryMap
+
+	// Add template parameters to schema
+	for _, param := range buildConfig.TemplateParams {
+		schemaMap[param.Name] = param.Value
+	}
+
+	// Marshal the schema map to RawExtension
+	schemaBytes, err := json.Marshal(schemaMap)
+	if err != nil {
+		return buildSpec, fmt.Errorf("failed to marshal build schema: %w", err)
+	}
+
+	buildSpec.Schema = &runtime.RawExtension{
+		Raw: schemaBytes,
+	}
+
+	return buildSpec, nil
 }

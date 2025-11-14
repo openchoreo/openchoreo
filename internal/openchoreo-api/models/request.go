@@ -62,8 +62,6 @@ type CreateDataPlaneRequest struct {
 	Name                    string `json:"name"`
 	DisplayName             string `json:"displayName,omitempty"`
 	Description             string `json:"description,omitempty"`
-	RegistryPrefix          string `json:"registryPrefix"`
-	RegistrySecretRef       string `json:"registrySecretRef,omitempty"`
 	KubernetesClusterName   string `json:"kubernetesClusterName"`
 	APIServerURL            string `json:"apiServerURL"`
 	CACert                  string `json:"caCert"`
@@ -136,8 +134,6 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
-	req.RegistryPrefix = strings.TrimSpace(req.RegistryPrefix)
-	req.RegistrySecretRef = strings.TrimSpace(req.RegistrySecretRef)
 	req.KubernetesClusterName = strings.TrimSpace(req.KubernetesClusterName)
 	req.APIServerURL = strings.TrimSpace(req.APIServerURL)
 	req.CACert = strings.TrimSpace(req.CACert)

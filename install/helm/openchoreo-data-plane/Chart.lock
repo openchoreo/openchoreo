@@ -1,15 +1,12 @@
 dependencies:
-- name: vault
-  repository: https://helm.releases.hashicorp.com
-  version: 0.29.1
-- name: secrets-store-csi-driver
-  repository: https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts
-  version: 1.4.0
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.19.2
 - name: gateway-helm
-  repository: oci://registry-1.docker.io/envoyproxy
-  version: 1.2.3
+  repository: oci://docker.io/envoyproxy
+  version: v1.5.4
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:3972396d04ecb68d5d94cda6024bedcd756ec8b70900435cb005630aff5c59b8
-generated: "2025-09-23T15:12:32.5921223+05:30"
+digest: sha256:74aa8abd7bc730b622f993bdb5ca410d63636942a2ccf7ed0d62a6baf5db79af
+generated: "2025-11-12T00:25:06.147873+05:30"

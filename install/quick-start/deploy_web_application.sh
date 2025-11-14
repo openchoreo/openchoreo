@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Connects the container to the "kind" network
+# Connects the container to the "k3d" network
 container_id="$(cat /etc/hostname)"
-if docker network inspect kind &>/dev/null; then
-  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.kind}}' "${container_id}")" = "null" ]; then
-    docker network connect "kind" "${container_id}"
-    echo "Connected container ${container_id} to kind network."
+if docker network inspect k3d-openchoreo-quick-start &>/dev/null; then
+  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.k3d-openchoreo-quick-start}}' "${container_id}")" = "null" ]; then
+    docker network connect "k3d-openchoreo-quick-start" "${container_id}"
+    echo "Connected container ${container_id} to k3d-openchoreo-quick-start network."
   else
-    echo "Container ${container_id} is already connected to kind network."
+    echo "Container ${container_id} is already connected to k3d-openchoreo-quick-start network."
   fi
 else
-  echo "Docker network 'kind' does not exist. Skipping connection."
+  echo "Docker network 'k3d-openchoreo-quick-start' does not exist. Skipping connection."
 fi
 
 YAML_FILE="react-starter.yaml"

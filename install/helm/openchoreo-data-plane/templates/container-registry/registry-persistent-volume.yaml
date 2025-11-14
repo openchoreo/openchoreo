@@ -1,4 +1,4 @@
-{{ if .Values.registry.enabled }}
+{{- if .Values.registry.enabled }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -12,4 +12,4 @@ spec:
   storageClassName: manual
   hostPath:
     path: /mnt/shared/container-registry-storage
-{{ end }}
+{{- end }}

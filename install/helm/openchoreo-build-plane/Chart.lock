@@ -2,5 +2,11 @@ dependencies:
 - name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
   version: 0.45.2
-digest: sha256:15e94216202c4e76a313fcac0c5ed48b36978d2c8e3477f4b3201eb1fcdd4072
-generated: "2025-06-13T14:50:44.396944+05:30"
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.19.2
+- name: docker-registry
+  repository: https://twuni.github.io/docker-registry.helm
+  version: 3.0.0
+digest: sha256:adf6ebe14a0a8a68740932f2b133c3e15b7304e84c02a6c77562a82e296234e4
+generated: "2025-11-13T11:56:15.630957+05:30"

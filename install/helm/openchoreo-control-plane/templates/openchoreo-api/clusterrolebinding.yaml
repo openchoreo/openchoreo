@@ -1,0 +1,17 @@
+{{- if .Values.openchoreoApi.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "openchoreo-control-plane.openchoreoApi.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

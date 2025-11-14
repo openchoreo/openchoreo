@@ -27,10 +27,10 @@ const (
 
 	// ReasonWorkloadNotFound indicates the referenced Workload doesn't exist
 	ReasonWorkloadNotFound controller.ConditionReason = "WorkloadNotFound"
-	// ReasonComponentTypeDefinitionNotFound indicates the referenced ComponentTypeDefinition doesn't exist
-	ReasonComponentTypeDefinitionNotFound controller.ConditionReason = "ComponentTypeDefinitionNotFound"
-	// ReasonAddonNotFound indicates one or more referenced Addons don't exist
-	ReasonAddonNotFound controller.ConditionReason = "AddonNotFound"
+	// ReasonComponentTypeNotFound indicates the referenced ComponentType doesn't exist
+	ReasonComponentTypeNotFound controller.ConditionReason = "ComponentTypeNotFound"
+	// ReasonTraitNotFound indicates one or more referenced Traits don't exist
+	ReasonTraitNotFound controller.ConditionReason = "TraitNotFound"
 	// ReasonProjectNotFound indicates the referenced Project doesn't exist
 	ReasonProjectNotFound controller.ConditionReason = "ProjectNotFound"
 	// ReasonDeploymentPipelineNotFound indicates the deployment pipeline is not found

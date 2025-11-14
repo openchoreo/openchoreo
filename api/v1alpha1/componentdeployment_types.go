@@ -8,6 +8,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// EnvConfigurationOverrides defines environment-specific configuration overrides.
+type EnvConfigurationOverrides struct {
+	// Environment variable overrides
+	// +optional
+	Env []EnvVar `json:"env,omitempty"`
+
+	// File configuration overrides
+	// +optional
+	Files []FileVar `json:"files,omitempty"`
+}
+
 // ComponentDeploymentSpec defines the desired state of ComponentDeployment.
 type ComponentDeploymentSpec struct {
 	// Owner identifies the component this deployment applies to
@@ -19,17 +30,22 @@ type ComponentDeploymentSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Environment string `json:"environment"`
 
-	// Overrides for ComponentTypeDefinition envOverrides parameters
+	// Overrides for ComponentType envOverrides parameters
 	// These values override the defaults defined in the Component for this specific environment
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Overrides *runtime.RawExtension `json:"overrides,omitempty"`
 
-	// AddonOverrides provides environment-specific overrides for addon configurations
-	// Keyed by instanceName (which must be unique across all addons in the component)
+	// TraitOverrides provides environment-specific overrides for trait configurations
+	// Keyed by instanceName (which must be unique across all traits in the component)
 	// Structure: map[instanceName]overrideValues
 	// +optional
-	AddonOverrides map[string]runtime.RawExtension `json:"addonOverrides,omitempty"`
+	TraitOverrides map[string]runtime.RawExtension `json:"traitOverrides,omitempty"`
+
+	// ConfigurationOverrides provides environment-specific overrides for workload configurations
+	// These values override or add to the configurations defined in the workload.yaml
+	// +optional
+	ConfigurationOverrides *EnvConfigurationOverrides `json:"configurationOverrides,omitempty"`
 }
 
 // ComponentDeploymentOwner identifies the component this ComponentDeployment applies to

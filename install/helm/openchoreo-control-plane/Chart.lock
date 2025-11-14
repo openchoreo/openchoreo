@@ -3,4 +3,4 @@ dependencies:
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
 digest: sha256:f59589c2378ce9a2f81613b2a6254b03e0524f5086f53140950cc5629b90e5c0
-generated: "2025-09-23T15:10:27.3347854+05:30"
+generated: "2025-11-07T14:47:10.914089+05:30"

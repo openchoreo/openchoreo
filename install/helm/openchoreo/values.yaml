@@ -1,7 +1,7 @@
 # @schema
 # type: object
 # title: OpenChoreo Secure Core Values
-# description: Installs controller, openchoreo-api, backstage with optional cilium
+# description: Installs controller, openchoreo-api, backstage
 # @schema
 
 # @schema
@@ -597,8 +597,33 @@ openchoreoApi:
     # type: [null, string]
     # @schema
     # -- Comma-separated list of enabled toolsets
-    # -- Available toolsets: core
-    toolsets: "core"
+    # -- Available toolsets: organization, project, component, build, deployment, infrastructure
+    toolsets: "organization,project,component,build,deployment,infrastructure"
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- JWT authentication configuration
+  jwt:
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    # -- Disable JWT authentication
+    disabled: false
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWT issuer
+    issuer: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWKS URL for JWT validation
+    jwksUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- JWT audience
+    audience: ""
   # @schema
   # type: [null, object]
   # @schema
@@ -1022,7 +1047,7 @@ backstage:
     # type: [null, string]
     # @schema
     # -- Container image repository
-    repository: ghcr.io/openchoreo/ui
+    repository: ghcr.io/openchoreo/openchoreo-ui
     # @schema
     # type: [null, string]
     # @schema
@@ -1149,6 +1174,44 @@ backstage:
       value: info
     - name: PORT
       value: "7007"
+  # @schema
+  # type: [null, string]
+  # @schema
+  # -- Base URL for Backstage application (used for app.baseUrl and backend.baseUrl in app-config)
+  # This should be the externally accessible URL (e.g., via ingress)
+  # For local Kind: http://openchoreo.localhost
+  # For production: https://backstage.example.com
+  baseUrl: ""
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Thunder IdP configuration for Backstage
+  thunder:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Base URL of the Thunder identity provider (defaults to internal service URL if empty)
+    baseUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Authentication token for Thunder API (optional, for future use)
+    token: ""
+  # @schema
+  # type: [null, object]
+  # @schema
+  # -- Authentication provider configuration
+  auth:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth authorization endpoint URL (defaults to Thunder baseUrl + /oauth2/authorize)
+    authorizationUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- OAuth token endpoint URL (defaults to Thunder baseUrl + /oauth2/token)
+    tokenUrl: ""
   # @schema
   # type: [null, object]
   # @schema
@@ -1497,7 +1560,7 @@ asgardeoThunder:
     # type: [null, string]
     # @schema
     # -- Image tag (overrides the chart appVersion)
-    tag: "0.10.0"
+    tag: "0.11.0"
   # @schema
   # type: [null, array]
   # @schema
@@ -1609,21 +1672,6 @@ asgardeoThunder:
     # @schema
     # -- Node port for main service (when type is NodePort)
     nodePort: null
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Gate service port
-    gatePort: 9090
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Target port for gate service
-    gateTargetPort: 9090
-    # @schema
-    # type: [null, integer]
-    # @schema
-    # -- Node port for gate service (when type is NodePort)
-    gateNodePort: null
   # @schema
   # type: [null, object]
   # @schema
@@ -1733,7 +1781,7 @@ asgardeoThunder:
       # type: [null, string]
       # @schema
       # -- Login path
-      loginPath: "/login"
+      loginPath: "/signin"
       # @schema
       # type: [null, string]
       # @schema
@@ -1857,6 +1905,41 @@ asgardeoThunder:
   # @schema
   # type: [null, object]
   # @schema
+  # -- Runtime configuration for Thunder Gate UI
+  runtimeConfig:
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Client configuration
+    client:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Base path for signin
+      base: "/signin"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- Server configuration
+    server:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Server hostname
+      hostname: "localhost"
+      # @schema
+      # type: [null, integer]
+      # @schema
+      # -- Server port
+      port: 8090
+      # @schema
+      # type: [null, boolean]
+      # @schema
+      # -- HTTP only mode (disable HTTPS)
+      httpOnly: false
+  # @schema
+  # type: [null, object]
+  # @schema
   # -- Persistence configuration for SQLite database
   persistence:
     # @schema
@@ -1924,7 +2007,7 @@ asgardeoThunder:
     # @schema
     # -- OAuth redirect URLs
     redirectUrls:
-      - "https://localhost:7007/api/auth/oidc/handler/frame"
+      - "https://localhost:7007/api/auth/default-idp/handler/frame"
   # @schema
   # type: [null, object]
   # @schema

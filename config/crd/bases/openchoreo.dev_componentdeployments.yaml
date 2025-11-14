@@ -53,14 +53,109 @@ spec:
           spec:
             description: ComponentDeploymentSpec defines the desired state of ComponentDeployment.
             properties:
-              addonOverrides:
-                additionalProperties:
-                  type: object
-                  x-kubernetes-preserve-unknown-fields: true
+              configurationOverrides:
                 description: |-
-                  AddonOverrides provides environment-specific overrides for addon configurations
-                  Keyed by instanceName (which must be unique across all addons in the component)
-                  Structure: map[instanceName]overrideValues
+                  ConfigurationOverrides provides environment-specific overrides for workload configurations
+                  These values override or add to the configurations defined in the workload.yaml
+                properties:
+                  env:
+                    description: Environment variable overrides
+                    items:
+                      description: EnvVar represents an environment variable present
+                        in the container.
+                      properties:
+                        key:
+                          description: The environment variable key.
+                          type: string
+                        value:
+                          description: |-
+                            The literal value of the environment variable.
+                            Mutually exclusive with valueFrom.
+                          type: string
+                        valueFrom:
+                          description: |-
+                            Extract the environment variable value from another resource.
+                            Mutually exclusive with value.
+                          properties:
+                            configurationGroupRef:
+                              description: Reference to a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: Reference to a secret resource.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - key
+                      type: object
+                    type: array
+                  files:
+                    description: File configuration overrides
+                    items:
+                      description: FileVar represents a file configuration in a container.
+                      properties:
+                        key:
+                          description: The file key/name.
+                          type: string
+                        mountPath:
+                          description: The mount path where the file will be mounted.
+                          type: string
+                        value:
+                          description: |-
+                            The literal content of the file.
+                            Mutually exclusive with valueFrom.
+                          type: string
+                        valueFrom:
+                          description: |-
+                            Extract the environment variable value from another resource.
+                            Mutually exclusive with value.
+                          properties:
+                            configurationGroupRef:
+                              description: Reference to a configuration group.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretRef:
+                              description: Reference to a secret resource.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      required:
+                      - key
+                      - mountPath
+                      type: object
+                      x-kubernetes-validations:
+                      - message: exactly one of value or valueFrom must be set
+                        rule: has(self.value) != has(self.valueFrom)
+                    type: array
                 type: object
               environment:
                 description: Environment is the name of the environment this deployment
@@ -69,7 +164,7 @@ spec:
                 type: string
               overrides:
                 description: |-
-                  Overrides for ComponentTypeDefinition envOverrides parameters
+                  Overrides for ComponentType envOverrides parameters
                   These values override the defaults defined in the Component for this specific environment
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
@@ -90,6 +185,15 @@ spec:
                 required:
                 - componentName
                 - projectName
+                type: object
+              traitOverrides:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: |-
+                  TraitOverrides provides environment-specific overrides for trait configurations
+                  Keyed by instanceName (which must be unique across all traits in the component)
+                  Structure: map[instanceName]overrideValues
                 type: object
             required:
             - environment

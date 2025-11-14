@@ -282,3 +282,226 @@ func TestQueryBuilder_CheckQueryVersion(t *testing.T) {
 		t.Errorf("Expected v1, got %s", version)
 	}
 }
+
+func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
+	qb := NewQueryBuilder("otel-v1-apm-span-")
+
+	tests := []struct {
+		name   string
+		params ComponentTracesRequestParams
+		want   map[string]interface{}
+	}{
+		{
+			name: "Basic component traces query",
+			params: ComponentTracesRequestParams{
+				ServiceName: "test-service",
+				StartTime:   "2024-01-01T00:00:00Z",
+				EndTime:     "2024-01-01T23:59:59Z",
+				Limit:       50,
+				SortOrder:   "desc",
+			},
+			want: map[string]interface{}{
+				"size": 50,
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{
+						"filter": []map[string]interface{}{
+							{
+								"term": map[string]interface{}{
+									"serviceName": "test-service",
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"startTime": map[string]interface{}{
+										"gte": "2024-01-01T00:00:00Z",
+									},
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"endTime": map[string]interface{}{
+										"lte": "2024-01-01T23:59:59Z",
+									},
+								},
+							},
+						},
+					},
+				},
+				"sort": []map[string]interface{}{
+					{
+						"startTime": map[string]interface{}{
+							"order": "desc",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Component traces query with default limit",
+			params: ComponentTracesRequestParams{
+				ServiceName: "another-service",
+				StartTime:   "2024-02-01T10:00:00Z",
+				EndTime:     "2024-02-01T20:00:00Z",
+				Limit:       0, // Should use this value
+				SortOrder:   "asc",
+			},
+			want: map[string]interface{}{
+				"size": 0,
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{
+						"filter": []map[string]interface{}{
+							{
+								"term": map[string]interface{}{
+									"serviceName": "another-service",
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"startTime": map[string]interface{}{
+										"gte": "2024-02-01T10:00:00Z",
+									},
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"endTime": map[string]interface{}{
+										"lte": "2024-02-01T20:00:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+				"sort": []map[string]interface{}{
+					{
+						"startTime": map[string]interface{}{
+							"order": "asc",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Component traces query with special characters in service name",
+			params: ComponentTracesRequestParams{
+				ServiceName: "my-service-123_test",
+				StartTime:   "2024-03-15T08:30:00Z",
+				EndTime:     "2024-03-15T18:30:00Z",
+				Limit:       25,
+			},
+			want: map[string]interface{}{
+				"size": 25,
+				"query": map[string]interface{}{
+					"bool": map[string]interface{}{
+						"filter": []map[string]interface{}{
+							{
+								"term": map[string]interface{}{
+									"serviceName": "my-service-123_test",
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"startTime": map[string]interface{}{
+										"gte": "2024-03-15T08:30:00Z",
+									},
+								},
+							},
+							{
+								"range": map[string]interface{}{
+									"endTime": map[string]interface{}{
+										"lte": "2024-03-15T18:30:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := qb.BuildComponentTracesQuery(tt.params)
+
+			// Check size
+			if got["size"] != tt.want["size"] {
+				t.Errorf("BuildComponentTracesQuery() size = %v, want %v", got["size"], tt.want["size"])
+			}
+
+			// Check query structure exists
+			gotQuery, ok := got["query"].(map[string]interface{})
+			if !ok {
+				t.Fatal("Expected query field not found")
+			}
+
+			wantQuery := tt.want["query"].(map[string]interface{})
+			gotBool, ok := gotQuery["bool"].(map[string]interface{})
+			if !ok {
+				t.Fatal("Expected bool query not found")
+			}
+
+			wantBool := wantQuery["bool"].(map[string]interface{})
+
+			// Check filter conditions
+			gotFilters, ok := gotBool["filter"].([]map[string]interface{})
+			if !ok {
+				t.Fatal("Expected filter conditions not found")
+			}
+
+			wantFilters := wantBool["filter"].([]map[string]interface{})
+			if len(gotFilters) != len(wantFilters) {
+				t.Errorf("BuildComponentTracesQuery() filter count = %v, want %v", len(gotFilters), len(wantFilters))
+			}
+
+			// Verify serviceName filter
+			serviceNameFound := false
+			for _, filter := range gotFilters {
+				if term, ok := filter["term"].(map[string]interface{}); ok {
+					if serviceName, exists := term["serviceName"]; exists {
+						if serviceName != tt.params.ServiceName {
+							t.Errorf("BuildComponentTracesQuery() serviceName = %v, want %v", serviceName, tt.params.ServiceName)
+						}
+						serviceNameFound = true
+						break
+					}
+				}
+			}
+			if !serviceNameFound {
+				t.Error("BuildComponentTracesQuery() serviceName filter not found")
+			}
+
+			// Verify startTime range filter
+			startTimeFound := false
+			for _, filter := range gotFilters {
+				if rangeFilter, ok := filter["range"].(map[string]interface{}); ok {
+					if startTimeRange, exists := rangeFilter["startTime"].(map[string]interface{}); exists {
+						if gte, ok := startTimeRange["gte"]; ok && gte == tt.params.StartTime {
+							startTimeFound = true
+							break
+						}
+					}
+				}
+			}
+			if !startTimeFound {
+				t.Error("BuildComponentTracesQuery() startTime range filter not found")
+			}
+
+			// Verify endTime range filter
+			endTimeFound := false
+			for _, filter := range gotFilters {
+				if rangeFilter, ok := filter["range"].(map[string]interface{}); ok {
+					if endTimeRange, exists := rangeFilter["endTime"].(map[string]interface{}); exists {
+						if lte, ok := endTimeRange["lte"]; ok && lte == tt.params.EndTime {
+							endTimeFound = true
+							break
+						}
+					}
+				}
+			}
+			if !endTimeFound {
+				t.Error("BuildComponentTracesQuery() endTime range filter not found")
+			}
+		})
+	}
+}

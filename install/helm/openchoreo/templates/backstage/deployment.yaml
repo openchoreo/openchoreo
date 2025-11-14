@@ -56,11 +56,34 @@ spec:
         {{- end }}
         - name: OPENCHOREO_API_URL
           value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo.fullname" .) .Release.Namespace) }}
+        - name: BACKSTAGE_BASE_URL
+          value: {{ .Values.backstage.baseUrl | default (printf "http://localhost:7007") }}
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
               name: backstage-secrets
               key: backend-secret
+        {{- if .Values.asgardeoThunder.enabled }}
+        - name: THUNDER_BASE_URL
+          value: {{ .Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) }}
+        {{- if .Values.backstage.thunder.token }}
+        - name: THUNDER_TOKEN
+          value: {{ .Values.backstage.thunder.token | quote }}
+        {{- end }}
+        - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
+          value: {{ .Values.backstage.auth.authorizationUrl | default (printf "%s/oauth2/authorize" (.Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)))) }}
+        - name: OPENCHOREO_AUTH_TOKEN_URL
+          value: {{ .Values.backstage.auth.tokenUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d/oauth2/token" (include "openchoreo.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) }}
+        {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
+        - name: OPENCHOREO_AUTH_CLIENT_ID
+          value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}
+        - name: OPENCHOREO_AUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo.fullname" . }}-asgardeo-thunder-secrets
+              key: backstage-client-secret
+        {{- end }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthcheck

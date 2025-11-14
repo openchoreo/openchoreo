@@ -4,15 +4,16 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
-	"golang.org/x/exp/slog"
-
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
 )
 
@@ -33,73 +34,119 @@ func New(services *services.Services, logger *slog.Logger) *Handler {
 // Routes sets up all HTTP routes and returns the configured handler
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
-
-	// Health endpoints
-	mux.HandleFunc("GET /health", h.Health)
-	mux.HandleFunc("GET /ready", h.Ready)
-
-	// API versioning
 	v1 := "/api/v1"
 
-	// Apply endpoint (similar to kubectl apply)
-	mux.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
+	// ===== Initialize Middlewares =====
 
-	// Delete endpoint (similar to kubectl delete)
-	mux.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
+	// Global middlewares - applies to all routes
+	loggerMiddleware := logger.LoggerMiddleware(h.logger)
 
-	// Organization endpoints
-	mux.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
+	// Create route builder with global middleware
+	routes := middleware.NewRouteBuilder(mux).With(loggerMiddleware)
 
-	// DataPlane endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
+	// ===== Public Routes (No Authentication Required) =====
 
-	// Environment endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
+	// Health & Readiness checks
+	routes.HandleFunc("GET /health", h.Health)
+	routes.HandleFunc("GET /ready", h.Ready)
 
-	// BuildPlane endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
+	// ===== Protected API Routes (JWT Authentication Required) =====
 
-	// Project endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}", h.GetProject)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
+	// JWT authentication middleware - applies to protected routes only
+	jwtAuth := h.initJWTMiddleware()
 
-	// Component endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
-
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
-	mux.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", h.UpdateComponentBinding)
-
-	// This is the promotion endpoint...
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
-
-	// Build endpoints
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.ListBuilds)
-
-	// Observer URL endpoints
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", h.GetComponentObserverURL)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url", h.GetBuildObserverURL)
-
-	// Workload endpoints
-	mux.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
-	mux.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
+	// Create protected route group with JWT auth
+	api := routes.With(jwtAuth)
 
 	// MCP endpoint
 	toolsets := getMCPServerToolsets(h)
-	mux.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+	api.Handle("/mcp", loggerMiddleware(mcp.NewHTTPServer(toolsets)))
 
-	// Apply middleware
-	return logger.LoggerMiddleware(h.logger)(mux)
+	// Organization operations
+	api.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
+
+	// Apply/Delete operations (kubectl-like)
+	api.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
+	api.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
+
+	// DataPlane management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
+
+	// Environment management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
+
+	// BuildPlane & Build Templates
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
+
+	// ComponentType endpoints
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types", h.ListComponentTypes)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
+
+	// Workflow endpoints
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows", h.ListWorkflows)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
+
+	// Trait endpoints
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits/{traitName}/schema", h.GetTraitSchema)
+
+	// Project management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}", h.GetProject)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
+
+	// Component management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+
+	// Component bindings
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", h.UpdateComponentBinding)
+
+	// Component promotion
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
+
+	// Build operations
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.ListBuilds)
+
+	// Observer URL endpoints
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", h.GetComponentObserverURL)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url", h.GetBuildObserverURL)
+
+	// Workload management
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
+
+	return mux
+}
+
+// initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
+func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
+	// Get JWT configuration from environment variables
+	jwtDisabled := os.Getenv("JWT_DISABLED") == "true"
+	jwksURL := os.Getenv("JWKS_URL")
+	jwtIssuer := os.Getenv("JWT_ISSUER")
+	jwtAudience := os.Getenv("JWT_AUDIENCE") // Optional
+
+	// Configure JWT middleware
+	config := jwt.Config{
+		Disabled:         jwtDisabled,
+		JWKSURL:          jwksURL,
+		ValidateIssuer:   jwtIssuer,
+		ValidateAudience: jwtAudience, // Only validates if set
+		Logger:           h.logger,
+	}
+
+	return jwt.Middleware(config)
 }
 
 // Health handles health check requests
@@ -119,8 +166,14 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	// Read toolsets from environment variable
 	toolsetsEnv := os.Getenv("MCP_TOOLSETS")
 	if toolsetsEnv == "" {
-		// Default to core toolset if not specified
-		toolsetsEnv = string(mcp.ToolsetCore)
+		// Default to all toolsets if not specified
+		toolsetsEnv = string(mcp.ToolsetOrganization) + "," +
+			string(mcp.ToolsetProject) + "," +
+			string(mcp.ToolsetComponent) + "," +
+			string(mcp.ToolsetBuild) + "," +
+			string(mcp.ToolsetDeployment) + "," +
+			string(mcp.ToolsetInfrastructure) + "," +
+			string(mcp.ToolsetSchema)
 	}
 
 	// Parse toolsets
@@ -134,14 +187,34 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	h.logger.Info("Initializing MCP server",
 		slog.Any("enabled_toolsets", enabledToolsets))
 
-	// Create handlers based on toolsets
+	handler := &mcphandlers.MCPHandler{Services: h.services}
+
+	// Create toolsets struct and enable based on configuration
 	toolsets := &mcp.Toolsets{}
 
 	for toolsetType := range toolsetsMap {
 		switch toolsetType {
-		case mcp.ToolsetCore:
-			toolsets.CoreToolset = &mcphandlers.MCPHandler{Services: h.services}
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "core"))
+		case mcp.ToolsetOrganization:
+			toolsets.OrganizationToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "organization"))
+		case mcp.ToolsetProject:
+			toolsets.ProjectToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
+		case mcp.ToolsetComponent:
+			toolsets.ComponentToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
+		case mcp.ToolsetBuild:
+			toolsets.BuildToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
+		case mcp.ToolsetDeployment:
+			toolsets.DeploymentToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
+		case mcp.ToolsetInfrastructure:
+			toolsets.InfrastructureToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
+		case mcp.ToolsetSchema:
+			toolsets.SchemaToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "schema"))
 		default:
 			h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}

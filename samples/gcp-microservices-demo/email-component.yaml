@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: email
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 5000
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: email
+  namespace: default
 spec:
   owner:
     componentName: email
@@ -25,47 +39,17 @@ spec:
           value: "1"
         - key: PORT
           value: "5000"
-  endpoints:
-    grpc-endpoint:
-      type: gRPC
-      port: 5000
-      schema:
-        type: gRPC
-        content: |
-          syntax = "proto3";
-
-          package hipstershop;
-          
-          service EmailService {
-              rpc SendOrderConfirmation(SendOrderConfirmationRequest) returns (Empty) {}
-          }
-
-          message OrderItem {
-              CartItem item = 1;
-              Money cost = 2;
-          }
-
-          message OrderResult {
-              string   order_id = 1;
-              string   shipping_tracking_id = 2;
-              Money shipping_cost = 3;
-              Address  shipping_address = 4;
-              repeated OrderItem items = 5;
-          }
-
-          message SendOrderConfirmationRequest {
-              string email = 1;
-              OrderResult order = 2;
-          }
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: email
+  name: email-development
+  namespace: default
 spec:
   owner:
-    componentName: email
     projectName: gcp-microservice-demo
-  workloadName: email
-  overrides: {}
+    componentName: email
+
+  environment: development

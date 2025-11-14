@@ -1,4 +1,4 @@
-{{ if .Values.registry.enabled }}
+{{- if .Values.registry.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,4 +13,4 @@ spec:
     nodePort: {{ .Values.registry.service.nodePort }}
   selector:
     app: registry
-{{end}}
+{{- end }}

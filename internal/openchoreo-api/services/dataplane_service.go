@@ -6,8 +6,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -137,10 +137,6 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 	}
 
 	spec := openchoreov1alpha1.DataPlaneSpec{
-		Registry: openchoreov1alpha1.Registry{
-			Prefix:    req.RegistryPrefix,
-			SecretRef: req.RegistrySecretRef,
-		},
 		KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
 			Server: req.APIServerURL,
 			TLS: openchoreov1alpha1.KubernetesTLS{
@@ -217,13 +213,19 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		}
 	}
 
+	// Extract secretStoreRef name if present
+	var secretStoreRef string
+	if dp.Spec.SecretStoreRef != nil {
+		secretStoreRef = dp.Spec.SecretStoreRef.Name
+	}
+
 	response := &models.DataPlaneResponse{
 		Name:                    dp.Name,
 		Namespace:               dp.Namespace,
 		DisplayName:             displayName,
 		Description:             description,
-		RegistryPrefix:          dp.Spec.Registry.Prefix,
-		RegistrySecretRef:       dp.Spec.Registry.SecretRef,
+		ImagePullSecretRefs:     dp.Spec.ImagePullSecretRefs,
+		SecretStoreRef:          secretStoreRef,
 		KubernetesClusterName:   dp.Name,
 		APIServerURL:            dp.Spec.KubernetesCluster.Server,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,

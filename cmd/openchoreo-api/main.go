@@ -6,14 +6,13 @@ package main
 import (
 	"context"
 	"flag"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
-
-	"golang.org/x/exp/slog"
 
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"

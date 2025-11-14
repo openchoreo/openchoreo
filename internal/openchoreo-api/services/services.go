@@ -4,7 +4,8 @@
 package services
 
 import (
-	"golang.org/x/exp/slog"
+	"log/slog"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -13,12 +14,16 @@ import (
 type Services struct {
 	ProjectService            *ProjectService
 	ComponentService          *ComponentService
+	ComponentTypeService      *ComponentTypeService
+	WorkflowService           *WorkflowService
+	TraitService              *TraitService
 	OrganizationService       *OrganizationService
 	EnvironmentService        *EnvironmentService
 	DataPlaneService          *DataPlaneService
 	BuildService              *BuildService
 	BuildPlaneService         *BuildPlaneService
 	DeploymentPipelineService *DeploymentPipelineService
+	SchemaService             *SchemaService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
@@ -48,15 +53,31 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
+	// Create ComponentType service
+	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"))
+
+	// Create Trait service
+	traitService := NewTraitService(k8sClient, logger.With("service", "trait"))
+
+	// Create Workflow service
+	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
+
+	// Create Schema service
+	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
+		ComponentTypeService:      componentTypeService,
+		WorkflowService:           workflowService,
+		TraitService:              traitService,
 		OrganizationService:       organizationService,
 		EnvironmentService:        environmentService,
 		DataPlaneService:          dataplaneService,
 		BuildService:              buildService,
 		BuildPlaneService:         buildPlaneService,
 		DeploymentPipelineService: deploymentPipelineService,
+		SchemaService:             schemaService,
 		k8sClient:                 k8sClient,
 	}
 }

@@ -18,10 +18,8 @@ RUN curl -fsSL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release
 RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && \
   helm completion bash > /etc/bash_completion.d/helm
 
-# install kind https://kind.sigs.k8s.io/docs/user/quick-start/#installing-from-release-binaries
-RUN curl -fsSL https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-${TARGETARCH} > /tmp/kind && \
-  install -o root -g root -m 0755 /tmp/kind /usr/local/bin/kind && \
-  rm /tmp/kind
+# install k3d - https://k3d.io/stable/#installation
+RUN curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 ENV KUBECONFIG="/state/kube/config-internal.yaml"
 

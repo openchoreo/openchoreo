@@ -9,7 +9,6 @@ package deployment
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deployments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=configurationgroups,verbs=get;list;watch
-// +kubebuilder:rbac:groups=cilium.io,resources=ciliumnetworkpolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=secrets-store.csi.x-k8s.io,resources=secretproviderclasses,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete

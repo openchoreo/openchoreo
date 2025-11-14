@@ -76,9 +76,6 @@ spec:
             - name: http
               containerPort: {{ .Values.asgardeoThunder.service.targetPort }}
               protocol: TCP
-            - name: gate
-              containerPort: {{ .Values.asgardeoThunder.service.gateTargetPort }}
-              protocol: TCP
           livenessProbe:
             httpGet:
               path: /health/liveness
@@ -107,6 +104,10 @@ spec:
             - name: config
               mountPath: /opt/thunder/repository/conf/deployment.yaml
               subPath: deployment.yaml
+              readOnly: true
+            - name: config
+              mountPath: /opt/thunder/apps/gate/config.js
+              subPath: config.js
               readOnly: true
             {{- with .Values.asgardeoThunder.volumeMounts }}
             {{- toYaml . | nindent 12 }}

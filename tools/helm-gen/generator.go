@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Generator handles the generation of Helm chart resources from Kubernetes manifests
@@ -15,6 +17,12 @@ type Generator struct {
 	configDir        string // Path to config/ directory
 	chartDir         string // Path to helm chart directory
 	controllerSubDir string // Subdirectory for controller resources (e.g., "controller" or "generated/controller")
+	chartName        string // Chart name from Chart.yaml
+}
+
+// Chart represents the structure of Chart.yaml
+type Chart struct {
+	Name string `yaml:"name"`
 }
 
 // NewGenerator creates a new Generator instance
@@ -29,6 +37,11 @@ func NewGenerator(configDir, chartDir, controllerSubDir string) *Generator {
 // Run executes the helm chart generation process
 func (g *Generator) Run() error {
 	log.Printf("Generating Helm chart from config: %s to chart: %s", g.configDir, g.chartDir)
+
+	// Step 0: Read chart name from Chart.yaml
+	if err := g.readChartName(); err != nil {
+		return fmt.Errorf("failed to read chart name: %w", err)
+	}
 
 	// Step 1: Copy CRDs
 	if err := g.copyCRDs(); err != nil {
@@ -45,6 +58,24 @@ func (g *Generator) Run() error {
 		return fmt.Errorf("failed to generate webhooks: %w", err)
 	}
 
+	return nil
+}
+
+// readChartName reads the chart name from Chart.yaml
+func (g *Generator) readChartName() error {
+	chartFile := filepath.Join(g.chartDir, "Chart.yaml")
+	content, err := os.ReadFile(chartFile)
+	if err != nil {
+		return fmt.Errorf("failed to read Chart.yaml: %w", err)
+	}
+
+	var chart Chart
+	if err := yaml.Unmarshal(content, &chart); err != nil {
+		return fmt.Errorf("failed to parse Chart.yaml: %w", err)
+	}
+
+	g.chartName = chart.Name
+	log.Printf("Chart name: %s", g.chartName)
 	return nil
 }
 

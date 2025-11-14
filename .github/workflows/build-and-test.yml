@@ -62,7 +62,12 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Build multiarch binaries
-        run: make go.build-multiarch
+        run: |
+          # Build all binaries for Linux (amd64, arm64)
+          make go.build-multiarch GO_TARGET_PLATFORMS="linux/amd64 linux/arm64"
+
+          # Build choreoctl for Darwin and Windows
+          make go.build-multiarch.choreoctl GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
 
       - name: Upload choreoctl binaries
         uses: actions/upload-artifact@v4
@@ -89,10 +94,9 @@ jobs:
           path: bin/dist/**/observer
 
   publish:
-    name: Publish
+    name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
     runs-on: ubuntu-24.04
     needs: [ build ]
-    if: github.event_name == 'push'
     permissions:
       packages: write
     steps:
@@ -131,6 +135,8 @@ jobs:
         run: |
           chmod +x bin/dist/linux/amd64/choreoctl
           chmod +x bin/dist/linux/arm64/choreoctl
+          chmod +x bin/dist/darwin/amd64/choreoctl
+          chmod +x bin/dist/darwin/arm64/choreoctl
           chmod +x bin/dist/linux/amd64/manager
           chmod +x bin/dist/linux/arm64/manager
           chmod +x bin/dist/linux/amd64/openchoreo-api
@@ -139,6 +145,7 @@ jobs:
           chmod +x bin/dist/linux/arm64/observer
 
       - name: Login to GitHub container registry
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -151,13 +158,26 @@ jobs:
       - name: Set commit SHA
         run: echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build and push multiarch commit images
-        run: make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
+      - name: ${{ github.event_name == 'push' && 'Build and push' || 'Build' }} multiarch commit images
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
+            make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
+          else
+            echo "Building Docker images for PR verification..."
+            make docker.build-multiarch TAG=pr-${{ github.event.pull_request.number }}
+          fi
 
       - name: Build and push multiarch latest-dev images
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: make docker.push-multiarch
 
-      - name: Package and push latest-dev helm charts
-        if: github.ref == 'refs/heads/main'
-        run: make helm-push
+      - name: ${{ github.event_name == 'push' && 'Package and push' || 'Package' }} helm charts
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Packaging and pushing Helm charts..."
+            make helm-push
+          else
+            echo "Packaging Helm charts for verification..."
+            make helm-package
+          fi

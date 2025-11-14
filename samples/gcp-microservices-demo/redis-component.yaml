@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: redis
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 6379
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: redis
+  namespace: default
 spec:
   owner:
     componentName: redis
@@ -20,20 +34,17 @@ spec:
   containers:
     main:
       image: redis:7.2-alpine
-  endpoints:
-    tcp-endpoint:
-      type: gRPC
-      port: 6379
-
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: redis
+  name: redis-development
+  namespace: default
 spec:
   owner:
-    componentName: redis
     projectName: gcp-microservice-demo
-  workloadName: redis
-  overrides: {}
+    componentName: redis
+
+  environment: development

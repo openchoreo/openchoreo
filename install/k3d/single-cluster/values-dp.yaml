@@ -1,0 +1,15 @@
+# Helm values for OpenChoreo Data Plane in k3d single-cluster setup
+# This file contains overrides specific to running the data plane in a k3d environment
+
+# Disable cert-manager since it's already installed by Control Plane
+cert-manager:
+  enabled: false
+
+# Gateway configuration for single-cluster setup
+# The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS)
+gateway:
+  config:
+    envoyGateway:
+      gateway:
+        httpPort: 9080
+        httpsPort: 9443

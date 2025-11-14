@@ -11,6 +11,11 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
+)
+
+const (
+	logLevelDebug = "debug"
 )
 
 // OpenSearchClient interface for testing
@@ -20,12 +25,13 @@ type OpenSearchClient interface {
 	HealthCheck(ctx context.Context) error
 }
 
-// LoggingService provides logging functionality
+// LoggingService provides logging and metrics functionality
 type LoggingService struct {
-	osClient     OpenSearchClient
-	queryBuilder *opensearch.QueryBuilder
-	config       *config.Config
-	logger       *slog.Logger
+	osClient       OpenSearchClient
+	queryBuilder   *opensearch.QueryBuilder
+	metricsService *prometheus.MetricsService
+	config         *config.Config
+	logger         *slog.Logger
 }
 
 // LogResponse represents the response structure for log queries
@@ -36,12 +42,13 @@ type LogResponse struct {
 }
 
 // NewLoggingService creates a new logging service instance
-func NewLoggingService(osClient OpenSearchClient, cfg *config.Config, logger *slog.Logger) *LoggingService {
+func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, cfg *config.Config, logger *slog.Logger) *LoggingService {
 	return &LoggingService{
-		osClient:     osClient,
-		queryBuilder: opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
-		config:       cfg,
-		logger:       logger,
+		osClient:       osClient,
+		queryBuilder:   opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
+		metricsService: metricsService,
+		config:         cfg,
+		logger:         logger,
 	}
 }
 
@@ -215,6 +222,38 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	}, nil
 }
 
+func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (*opensearch.TraceResponse, error) {
+	s.logger.Info("Getting component traces",
+		"serviceName", params.ServiceName)
+
+	// Build component traces query
+	query := s.queryBuilder.BuildComponentTracesQuery(params)
+
+	// Execute search
+	response, err := s.osClient.Search(ctx, []string{"otel-v1-apm-span"}, query)
+	if err != nil {
+		s.logger.Error("Failed to execute component traces search", "error", err)
+		return nil, fmt.Errorf("failed to execute search: %w", err)
+	}
+
+	// Parse log entries
+	traces := make([]opensearch.Span, 0, len(response.Hits.Hits))
+	for _, hit := range response.Hits.Hits {
+		span := opensearch.ParseSpanEntry(hit)
+		traces = append(traces, span)
+	}
+
+	s.logger.Info("Component traces retrieved",
+		"count", len(traces),
+		"total", response.Hits.Total.Value)
+
+	return &opensearch.TraceResponse{
+		Spans:      traces,
+		TotalCount: response.Hits.Total.Value,
+		Took:       response.Took,
+	}, nil
+}
+
 // HealthCheck performs a health check on the service
 func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -227,4 +266,104 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 
 	s.logger.Debug("Health check passed")
 	return nil
+}
+
+// GetComponentResourceMetrics retrieves resource usage metrics for a component as time series
+func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID string, startTime, endTime time.Time) (*prometheus.ResourceMetricsTimeSeries, error) {
+	s.logger.Debug("Getting resource metrics",
+		"project", projectID,
+		"component", componentID,
+		"environment", environmentID,
+		"start", startTime,
+		"end", endTime)
+
+	// Define step interval for time series queries (5 minute intervals)
+	step := 5 * time.Minute
+
+	metrics := &prometheus.ResourceMetricsTimeSeries{}
+
+	// Build component label filter using query builder
+	labelFilter := prometheus.BuildLabelFilter(componentID, projectID, environmentID)
+
+	// CPU usage
+	cpuUsageQuery := prometheus.BuildCPUUsageQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("CPU usage query:", cpuUsageQuery)
+	}
+	cpuResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuUsageQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU usage", "error", err)
+	} else if len(cpuResp.Data.Result) > 0 {
+		metrics.CPUUsage = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuResp.Data.Result[0])
+	}
+
+	// Memory usage
+	memUsageQuery := prometheus.BuildMemoryUsageQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("Memory usage query:", memUsageQuery)
+	}
+	memResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memUsageQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory usage", "error", err)
+	} else if len(memResp.Data.Result) > 0 {
+		metrics.Memory = prometheus.ConvertTimeSeriesToTimeValuePoints(memResp.Data.Result[0])
+	}
+
+	// CPU requests
+	cpuRequestQuery := prometheus.BuildCPURequestsQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("CPU requests query:", cpuRequestQuery)
+	}
+	cpuRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuRequestQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU requests", "error", err)
+	} else if len(cpuRequestResp.Data.Result) > 0 {
+		metrics.CPURequests = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuRequestResp.Data.Result[0])
+	}
+
+	// CPU limits
+	cpuLimitQuery := prometheus.BuildCPULimitsQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("CPU limit query:", cpuLimitQuery)
+	}
+	cpuLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, cpuLimitQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query CPU limits", "error", err)
+	} else if len(cpuLimitResp.Data.Result) > 0 {
+		metrics.CPULimits = prometheus.ConvertTimeSeriesToTimeValuePoints(cpuLimitResp.Data.Result[0])
+	}
+
+	// Memory requests
+	memRequestQuery := prometheus.BuildMemoryRequestsQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("Memory requests query:", memRequestQuery)
+	}
+	memRequestResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memRequestQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory requests", "error", err)
+	} else if len(memRequestResp.Data.Result) > 0 {
+		metrics.MemoryRequests = prometheus.ConvertTimeSeriesToTimeValuePoints(memRequestResp.Data.Result[0])
+	}
+
+	// Memory limits
+	memLimitQuery := prometheus.BuildMemoryLimitsQuery(labelFilter)
+	if s.config.LogLevel == logLevelDebug {
+		fmt.Println("Memory limit query:", memLimitQuery)
+	}
+	memLimitResp, err := s.metricsService.QueryRangeTimeSeries(ctx, memLimitQuery, startTime, endTime, step)
+	if err != nil {
+		s.logger.Warn("Failed to query memory limits", "error", err)
+	} else if len(memLimitResp.Data.Result) > 0 {
+		metrics.MemoryLimits = prometheus.ConvertTimeSeriesToTimeValuePoints(memLimitResp.Data.Result[0])
+	}
+
+	s.logger.Debug("Resource metrics time series retrieved",
+		"cpu_usage_points", len(metrics.CPUUsage),
+		"cpu_requests_points", len(metrics.CPURequests),
+		"cpu_limits_points", len(metrics.CPULimits),
+		"memory_points", len(metrics.Memory),
+		"memory_requests_points", len(metrics.MemoryRequests),
+		"memory_limits_points", len(metrics.MemoryLimits))
+
+	return metrics, nil
 }

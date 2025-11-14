@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -19,10 +19,11 @@ import (
 // WorkloadDescriptor represents the structure of a workload.yaml file
 // This is the developer-maintained descriptor alongside source code
 type WorkloadDescriptor struct {
-	APIVersion  string                         `yaml:"apiVersion"`
-	Metadata    WorkloadDescriptorMetadata     `yaml:"metadata"`
-	Endpoints   []WorkloadDescriptorEndpoint   `yaml:"endpoints,omitempty"`
-	Connections []WorkloadDescriptorConnection `yaml:"connections,omitempty"`
+	APIVersion     string                          `yaml:"apiVersion"`
+	Metadata       WorkloadDescriptorMetadata      `yaml:"metadata"`
+	Endpoints      []WorkloadDescriptorEndpoint    `yaml:"endpoints,omitempty"`
+	Connections    []WorkloadDescriptorConnection  `yaml:"connections,omitempty"`
+	Configurations WorkloadDescriptorConfiguration `yaml:"configurations,omitempty"`
 }
 
 type WorkloadDescriptorMetadata struct {
@@ -51,6 +52,39 @@ type WorkloadDescriptorConnectionInject struct {
 type WorkloadDescriptorConnectionEnvVar struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
+}
+
+// WorkloadDescriptorConfiguration represents the configurations section in workload.yaml
+type WorkloadDescriptorConfiguration struct {
+	Env   []WorkloadDescriptorEnvVar  `yaml:"env,omitempty"`
+	Files []WorkloadDescriptorFileVar `yaml:"files,omitempty"`
+}
+
+// WorkloadDescriptorEnvVar represents an environment variable in the descriptor
+type WorkloadDescriptorEnvVar struct {
+	Name      string                          `yaml:"name"`
+	Value     string                          `yaml:"value,omitempty"`
+	ValueFrom *WorkloadDescriptorEnvVarSource `yaml:"valueFrom,omitempty"`
+}
+
+// WorkloadDescriptorEnvVarSource represents the source for an environment variable value
+type WorkloadDescriptorEnvVarSource struct {
+	SecretKeyRef *WorkloadDescriptorSecretKeyRef `yaml:"secretKeyRef,omitempty"`
+	Path         string                          `yaml:"path,omitempty"`
+}
+
+// WorkloadDescriptorSecretKeyRef represents a reference to a secret key
+type WorkloadDescriptorSecretKeyRef struct {
+	Name string `yaml:"name"`
+	Key  string `yaml:"key"`
+}
+
+// WorkloadDescriptorFileVar represents a file configuration in the descriptor
+type WorkloadDescriptorFileVar struct {
+	Name      string                          `yaml:"name"`
+	MountPath string                          `yaml:"mountPath"`
+	Value     string                          `yaml:"value,omitempty"`
+	ValueFrom *WorkloadDescriptorEnvVarSource `yaml:"valueFrom,omitempty"`
 }
 
 // ConversionParams holds the parameters needed for workload conversion
@@ -103,8 +137,11 @@ func readWorkloadDescriptor(path string) (*WorkloadDescriptor, error) {
 
 func readWorkloadDescriptorFromReader(reader io.Reader) (*WorkloadDescriptor, error) {
 	var descriptor WorkloadDescriptor
-	decoder := yaml.NewDecoder(reader)
-	if err := decoder.Decode(&descriptor); err != nil {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
+	}
+	if err := yaml.Unmarshal(data, &descriptor); err != nil {
 		return nil, fmt.Errorf("failed to decode YAML: %w", err)
 	}
 
@@ -172,6 +209,11 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.Crea
 
 	// Add connections from descriptor if present
 	addConnectionsFromDescriptor(workload, descriptor)
+
+	// Add configurations from descriptor if present
+	if err := addConfigurationsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
+		return nil, fmt.Errorf("failed to add configurations: %w", err)
+	}
 
 	return workload, nil
 }
@@ -241,6 +283,89 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 	}
 }
 
+// addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload
+func addConfigurationsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor, descriptorPath string) error {
+	// Get the main container
+	mainContainer, exists := workload.Spec.Containers["main"]
+	if !exists {
+		return fmt.Errorf("main container not found in workload")
+	}
+
+	// Add environment variables
+	if len(descriptor.Configurations.Env) > 0 {
+		mainContainer.Env = make([]openchoreov1alpha1.EnvVar, len(descriptor.Configurations.Env))
+		for i, envVar := range descriptor.Configurations.Env {
+			crEnvVar := openchoreov1alpha1.EnvVar{
+				Key: envVar.Name,
+			}
+
+			if envVar.ValueFrom != nil && envVar.ValueFrom.SecretKeyRef != nil {
+				crEnvVar.ValueFrom = convertEnvVarSource(envVar.ValueFrom)
+			} else if envVar.Value != "" {
+				crEnvVar.Value = envVar.Value
+			}
+
+			mainContainer.Env[i] = crEnvVar
+		}
+	}
+
+	// Add file configurations
+	if len(descriptor.Configurations.Files) > 0 {
+		mainContainer.Files = make([]openchoreov1alpha1.FileVar, 0, len(descriptor.Configurations.Files))
+		baseDir := filepath.Dir(descriptorPath)
+
+		for _, fileVar := range descriptor.Configurations.Files {
+			crFileVar := openchoreov1alpha1.FileVar{
+				Key:       fileVar.Name,
+				MountPath: fileVar.MountPath,
+			}
+
+			// Only set value OR valueFrom, never both
+			// Priority: SecretKeyRef > Path > inline Value
+			if fileVar.ValueFrom != nil && fileVar.ValueFrom.SecretKeyRef != nil {
+				// Reference to secret
+				crFileVar.ValueFrom = convertEnvVarSource(fileVar.ValueFrom)
+			} else if fileVar.ValueFrom != nil && fileVar.ValueFrom.Path != "" {
+				// Read file content from path
+				filePath := filepath.Join(baseDir, fileVar.ValueFrom.Path)
+				content, err := os.ReadFile(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to read file %s: %w", filePath, err)
+				}
+				crFileVar.Value = string(content)
+			} else if fileVar.Value != "" {
+				// Inline value
+				crFileVar.Value = fileVar.Value
+			}
+
+			mainContainer.Files = append(mainContainer.Files, crFileVar)
+		}
+	}
+
+	// Update the container in the workload
+	workload.Spec.Containers["main"] = mainContainer
+
+	return nil
+}
+
+// convertEnvVarSource converts a descriptor env var source to a CR env var source
+func convertEnvVarSource(source *WorkloadDescriptorEnvVarSource) *openchoreov1alpha1.EnvVarValueFrom {
+	if source == nil {
+		return nil
+	}
+
+	result := &openchoreov1alpha1.EnvVarValueFrom{}
+
+	if source.SecretKeyRef != nil {
+		result.SecretRef = &openchoreov1alpha1.SecretKeyRef{
+			Name: source.SecretKeyRef.Name,
+			Key:  source.SecretKeyRef.Key,
+		}
+	}
+
+	return result
+}
+
 // CreateBasicWorkload creates a basic Workload CR without reading from a descriptor file
 func CreateBasicWorkload(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	// Validate conversion parameters
@@ -260,19 +385,20 @@ func CreateBasicWorkload(params api.CreateWorkloadParams) (*openchoreov1alpha1.W
 // ConvertWorkloadCRToYAML converts a Workload CR to clean YAML bytes with proper field ordering
 func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, error) {
 	// Create a custom structure to control field ordering
+	// Note: sigs.k8s.io/yaml uses JSON tags, but we keep both for compatibility
 	type orderedWorkload struct {
-		APIVersion string `yaml:"apiVersion"`
-		Kind       string `yaml:"kind"`
+		APIVersion string `json:"apiVersion" yaml:"apiVersion"`
+		Kind       string `json:"kind" yaml:"kind"`
 		Metadata   struct {
-			Name string `yaml:"name"`
-		} `yaml:"metadata"`
+			Name string `json:"name" yaml:"name"`
+		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
-			Owner       openchoreov1alpha1.WorkloadOwner                 `yaml:"owner"`
-			Containers  map[string]openchoreov1alpha1.Container          `yaml:"containers,omitempty"`
-			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `yaml:"endpoints,omitempty"`
-			Connections map[string]openchoreov1alpha1.WorkloadConnection `yaml:"connections,omitempty"`
-		} `yaml:"spec"`
-		Status openchoreov1alpha1.WorkloadStatus `yaml:"status,omitempty"`
+			Owner       openchoreov1alpha1.WorkloadOwner                 `json:"owner" yaml:"owner"`
+			Containers  map[string]openchoreov1alpha1.Container          `json:"containers,omitempty" yaml:"containers,omitempty"`
+			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+			Connections map[string]openchoreov1alpha1.WorkloadConnection `json:"connections,omitempty" yaml:"connections,omitempty"`
+		} `json:"spec" yaml:"spec"`
+		Status openchoreov1alpha1.WorkloadStatus `json:"status,omitempty" yaml:"status,omitempty"`
 	}
 
 	// Create the ordered structure
@@ -287,6 +413,6 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 	ordered.Spec.Endpoints = workload.Spec.Endpoints
 	ordered.Spec.Connections = workload.Spec.Connections
 
-	// Marshal with gopkg.in/yaml.v3 for better control
+	// Marshal with sigs.k8s.io/yaml for JSON tag support
 	return yaml.Marshal(ordered)
 }

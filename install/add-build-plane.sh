@@ -1,138 +1,296 @@
 #!/bin/bash
 
-# Color codes
+# OpenChoreo BuildPlane Creation Script
+# Creates a BuildPlane resource in the control plane that targets a build plane cluster
+
+set -e
+
+# Color codes for errors
 RED='\033[0;31m'
-GREEN='\033[0;32m'
-DARK_YELLOW='\033[0;33m'
 RESET='\033[0m'
 
-DEFAULT_CONTEXT="kind-openchoreo-dp"
-DEFAULT_TARGET_CONTEXT="kind-openchoreo-cp"
-SERVER_URL=""
-DEFAULT_BUILDPLANE_KIND_NAME="default"
+# Helper function for error output
+error() {
+  echo -e "${RED}$*${RESET}" >&2
+}
 
-KUBECONFIG=${KUBECONFIG:-~/.kube/config}
+# Show help text
+show_help() {
+  local script_name
+  script_name=$(basename "$0")
+  cat << EOF
+Create an OpenChoreo BuildPlane resource that targets a Kubernetes cluster.
 
-echo -e "\nSetting up OpenChoreo BuildPlane\n"
-SEPARATE=false
-if [[ "$1" == "--separate" ]]; then
-  SEPARATE=true
+Usage:
+  $script_name [OPTIONS]
+
+Options:
+  --control-plane-context CONTEXT   Kubernetes context where BuildPlane resource will be created
+                                    Default: current context
+
+  --target-context CONTEXT          Kubernetes context to extract credentials from
+                                    Default: same as control-plane-context
+                                    Cannot be specified without --control-plane-context
+
+  --server URL                      Kubernetes API server URL of the target cluster
+                                    Default: https://kubernetes.default.svc.cluster.local
+                                    Required when control-plane and target contexts differ
+
+  --name NAME                       Name for the BuildPlane resource
+                                    Default: default
+
+  --namespace NAMESPACE             Namespace for the BuildPlane resource
+                                    Default: default
+
+  --dry-run                         Preview the YAML without applying changes
+
+  --help, -h                        Show this help message
+
+Examples:
+
+  # Single-cluster (default)
+  $script_name
+
+  # Single-cluster with custom context
+  $script_name --control-plane-context k3d-openchoreo
+
+  # Single-cluster with external server URL
+  $script_name --control-plane-context k3d-openchoreo --server https://localhost:6443
+
+  # Multi-cluster
+  $script_name --control-plane-context k3d-openchoreo-cp \\
+     --target-context k3d-openchoreo-bp \\
+     --server https://k3d-openchoreo-bp-server-0:6443
+
+  # Custom name and namespace
+  $script_name --name prod-buildplane --namespace production
+
+  # Preview without applying
+  $script_name --dry-run
+
+Note:
+  Single-cluster: Both control plane and build plane in same cluster
+  Multi-cluster:  Different clusters, requires explicit --server URL
+EOF
+}
+
+# Defaults
+TARGET_CONTEXT=""              # Build plane cluster (extract creds, the "target")
+CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
+SERVER_URL="https://kubernetes.default.svc.cluster.local"
+BUILDPLANE_NAME="default"
+NAMESPACE="default"
+DRY_RUN=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --target-context)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --target-context requires a value"
+        exit 1
+      fi
+      TARGET_CONTEXT="$2"
+      shift 2
+      ;;
+    --control-plane-context)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --control-plane-context requires a value"
+        exit 1
+      fi
+      CONTROL_PLANE_CONTEXT="$2"
+      shift 2
+      ;;
+    --server)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --server requires a value"
+        exit 1
+      fi
+      SERVER_URL="$2"
+      shift 2
+      ;;
+    --name)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --name requires a value"
+        exit 1
+      fi
+      BUILDPLANE_NAME="$2"
+      shift 2
+      ;;
+    --namespace)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --namespace requires a value"
+        exit 1
+      fi
+      NAMESPACE="$2"
+      shift 2
+      ;;
+    --help|-h)
+      show_help
+      exit 0
+      ;;
+    *)
+      error "Unknown option: $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
+# Use current context if not specified
+CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
+
+if [ -z "$CURRENT_CONTEXT" ]; then
+  error "Error: No current kubectl context found"
+  echo "Please configure kubectl or specify contexts explicitly"
+  exit 1
 fi
 
-if [[ "$SEPARATE" == false ]]; then
-  CONTEXT=$(kubectl config current-context)
-  TARGET_CONTEXT=$CONTEXT
-  BUILDPLANE_KIND_NAME=$DEFAULT_BUILDPLANE_KIND_NAME
-  
-  # Get server URL from kubeconfig
-  CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
-  KUBE_SERVER_URL=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.server}")
-  
-  # Check if server URL is loopback address
-  if [[ "$KUBE_SERVER_URL" =~ ^https?://(127\.0\.0\.1|localhost) ]]; then
-    SERVER_URL="https://kubernetes.default.svc.cluster.local"
-    echo "Running in single-cluster mode using context '$CONTEXT' with loopback server, using Kubernetes service DNS"
-  else
-    NODE_NAME_PREFIX=${CONTEXT#kind-}
-    SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
+# Rule 1: Reject target-only (cannot specify target without control plane)
+if [ -n "$TARGET_CONTEXT" ] && [ -z "$CONTROL_PLANE_CONTEXT" ]; then
+  error "Error: Cannot specify --target-context without --control-plane-context"
+  echo "Use --help for more information"
+  exit 1
+fi
+
+# Set defaults
+if [ -z "$CONTROL_PLANE_CONTEXT" ]; then
+  CONTROL_PLANE_CONTEXT="$CURRENT_CONTEXT"
+fi
+
+if [ -z "$TARGET_CONTEXT" ]; then
+  TARGET_CONTEXT="$CONTROL_PLANE_CONTEXT"
+fi
+
+# Rule 2: Multi-cluster requires explicit external server URL
+if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ] && [ "$SERVER_URL" == "https://kubernetes.default.svc.cluster.local" ]; then
+  error "Error: Multi-cluster mode requires --server with external URL"
+  echo "Use --help for more information"
+  exit 1
+fi
+
+# Validate contexts exist
+# Check control plane context first
+if ! kubectl config get-contexts "$CONTROL_PLANE_CONTEXT" &>/dev/null; then
+  error "Error: Control plane context '$CONTROL_PLANE_CONTEXT' not found in kubeconfig"
+  echo "Available contexts:"
+  kubectl config get-contexts -o name
+  exit 1
+fi
+
+# Only check target if different from control plane
+if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ]; then
+  if ! kubectl config get-contexts "$TARGET_CONTEXT" &>/dev/null; then
+    error "Error: Target context '$TARGET_CONTEXT' not found in kubeconfig"
+    echo "Available contexts:"
+    kubectl config get-contexts -o name
+    exit 1
   fi
-else
-  read -p "Enter BuildPlane Kubernetes context (default: $DEFAULT_CONTEXT): " INPUT_CONTEXT
-  CONTEXT=${INPUT_CONTEXT:-$DEFAULT_CONTEXT}
-  TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
-
-  echo -e "\n${DARK_YELLOW}Using Kubernetes context '$CONTEXT' as BuildPlane.${RESET}"
-  NODE_NAME_PREFIX=${CONTEXT#kind-}
-  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
-
-  read -p "Enter BuildPlane kind name (default: $DEFAULT_BUILDPLANE_KIND_NAME): " INPUT_BUILDPLANE_NAME
-  BUILDPLANE_KIND_NAME=${INPUT_BUILDPLANE_NAME:-$DEFAULT_BUILDPLANE_KIND_NAME}
 fi
 
-# Extract info from chosen context
-CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.cluster}")
-USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CONTEXT')].context.user}")
+# Extract cluster and user info from target context
+CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$TARGET_CONTEXT')].context.cluster}")
+USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$TARGET_CONTEXT')].context.user}")
 
-# Try to get base64-encoded values directly
-CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}")
-CLIENT_CERT=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate-data}")
-CLIENT_KEY=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key-data}")
-USER_TOKEN=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.token}")
+if [ -z "$CLUSTER_NAME" ] || [ -z "$USER_NAME" ]; then
+  error "Error: Could not find cluster or user for context '$TARGET_CONTEXT'"
+  exit 1
+fi
 
-# Fallback: encode file contents for CA cert
+# Extract base64-encoded credentials
+CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}" 2>/dev/null)
+CLIENT_CERT=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate-data}" 2>/dev/null)
+CLIENT_KEY=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key-data}" 2>/dev/null)
+USER_TOKEN=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.token}" 2>/dev/null)
+
+# Fallback: encode from file paths if not already base64-encoded
 if [ -z "$CA_CERT" ]; then
-  CA_PATH=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority}")
+  CA_PATH=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority}" 2>/dev/null)
   if [ -n "$CA_PATH" ] && [ -f "$CA_PATH" ]; then
-    CA_CERT=$(base64 "$CA_PATH" | tr -d '\n')
+    CA_CERT=$(base64 < "$CA_PATH" | tr -d '\n')
   fi
 fi
 
-# Fallback: encode file contents for client cert and key
 if [ -z "$CLIENT_CERT" ]; then
-  CERT_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate}")
+  CERT_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate}" 2>/dev/null)
   if [ -n "$CERT_PATH" ] && [ -f "$CERT_PATH" ]; then
-    CLIENT_CERT=$(base64 "$CERT_PATH" | tr -d '\n')
+    CLIENT_CERT=$(base64 < "$CERT_PATH" | tr -d '\n')
   fi
 fi
 
 if [ -z "$CLIENT_KEY" ]; then
-  KEY_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key}")
+  KEY_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key}" 2>/dev/null)
   if [ -n "$KEY_PATH" ] && [ -f "$KEY_PATH" ]; then
-    CLIENT_KEY=$(base64 "$KEY_PATH" | tr -d '\n')
+    CLIENT_KEY=$(base64 < "$KEY_PATH" | tr -d '\n')
   fi
 fi
 
-# Determine authentication method
-AUTH_CONFIG=""
+# Determine authentication method and build YAML sections
+AUTH_SECTION=""
+TLS_SECTION=""
 
+# Determine auth method
 if [ -n "$CLIENT_CERT" ] && [ -n "$CLIENT_KEY" ]; then
-  # Use mTLS authentication
-  AUTH_CONFIG="mtls:
+  AUTH_SECTION="    auth:
+      mtls:
         clientCert:
           value: $CLIENT_CERT
         clientKey:
           value: $CLIENT_KEY"
-  echo "Using mTLS authentication"
 elif [ -n "$USER_TOKEN" ]; then
-  # Use bearer token authentication
-  AUTH_CONFIG="bearerToken:
+  AUTH_SECTION="    auth:
+      bearerToken:
         value: $USER_TOKEN"
-  echo "Using bearer token authentication"
 else
-  echo -e "\n${RED}Error: No valid authentication method found. Need either client certificates or user token in the kube config.${RESET}"
+  error "Error: No valid authentication credentials found in context '$TARGET_CONTEXT'"
+  echo "Need either:"
+  echo "  - Client certificate and key (mTLS), or"
+  echo "  - Bearer token"
   exit 1
 fi
 
-# Validate CA certificate is available
+# CA certificate (required for TLS)
 if [ -z "$CA_CERT" ]; then
-  echo -e "\n${RED}Error: CA certificate is required but not found in kubeconfig.${RESET}"
+  error "Error: CA certificate not found in context '$TARGET_CONTEXT'"
+  echo "CA certificate is required for secure connection to the cluster"
   exit 1
 fi
 
-# Apply the BuildPlane manifest in the target context
-echo -e "\nApplying BuildPlane to context: $TARGET_CONTEXT"
+TLS_SECTION="    tls:
+      ca:
+        value: $CA_CERT"
 
-if kubectl --context="$TARGET_CONTEXT" apply -f - <<EOF
+# Generate the BuildPlane YAML
+BUILDPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
+  name: $BUILDPLANE_NAME
+  namespace: $NAMESPACE
   annotations:
-    openchoreo.dev/description: BuildPlane "$BUILDPLANE_KIND_NAME" was created through the script.
-    openchoreo.dev/display-name: BuildPlane "$BUILDPLANE_KIND_NAME"
-  name: $BUILDPLANE_KIND_NAME
-  namespace: default
+    openchoreo.dev/description: "BuildPlane created via $(basename $0) script"
+    openchoreo.dev/display-name: "BuildPlane $BUILDPLANE_NAME"
 spec:
   kubernetesCluster:
     server: $SERVER_URL
-    tls:
-      ca:
-        value: $CA_CERT
-    auth:
-      $AUTH_CONFIG
+$TLS_SECTION
+$AUTH_SECTION
 EOF
-then
-    echo -e "\n${GREEN}BuildPlane applied to 'default' successfully!${RESET}"
+)
+
+# Apply or preview the manifest
+if [ "$DRY_RUN" = true ]; then
+  echo "$BUILDPLANE_YAML"
+  exit 0
 else
-    echo -e "\n${RED}Failed to apply BuildPlane manifest to context: $TARGET_CONTEXT${RESET}"
+  if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
+    :
+  else
+    error "Failed to create BuildPlane resource"
     exit 1
+  fi
 fi

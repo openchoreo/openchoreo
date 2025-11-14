@@ -51,20 +51,12 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 
 This will create the project and deploy all the microservices using official Google Container Registry images.
 
-## Step 2: Expose the Frontend
-
-Port forward the OpenChoreo gateway service to access the frontend locally:
-
-```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
-```
-
-## Step 3: Test the Application
+## Step 2: Test the Application
 
 Access the frontend application in your browser:
 
 ```
-https://frontend-development.choreoapps.localhost:8443
+http://frontend-development-def9a783-development.openchoreoapis.localhost:9080
 ```
 
 > [!TIP]
@@ -80,9 +72,6 @@ https://frontend-development.choreoapps.localhost:8443
 Stop the port forwarding and remove all resources:
 
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
-
 # Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
 ```

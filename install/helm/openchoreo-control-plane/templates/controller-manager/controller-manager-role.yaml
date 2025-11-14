@@ -2,9 +2,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "openchoreo-control-plane.name" . }}-{{ .Values.controllerManager.name }}
+  name: {{ include "openchoreo-control-plane.fullname" . }}-controller-manager-role
   labels:
-    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
 rules:
 - apiGroups:
     - ""
@@ -52,9 +53,9 @@ rules:
     - update
     - watch
 - apiGroups:
-    - batch
+    - argoproj.io
   resources:
-    - cronjobs
+    - workflows
   verbs:
     - create
     - delete
@@ -64,9 +65,9 @@ rules:
     - update
     - watch
 - apiGroups:
-    - cilium.io
+    - batch
   resources:
-    - ciliumnetworkpolicies
+    - cronjobs
   verbs:
     - create
     - delete
@@ -109,7 +110,10 @@ rules:
     - apis
     - buildplanes
     - builds
+    - componentdeployments
+    - componentenvsnapshots
     - components
+    - componenttypes
     - dataplanes
     - deployableartifacts
     - deploymentpipelines
@@ -124,12 +128,16 @@ rules:
     - scheduledtaskbindings
     - scheduledtaskclasses
     - scheduledtasks
+    - secretreferences
     - servicebindings
     - serviceclasses
     - services
+    - traits
     - webapplicationbindings
     - webapplicationclasses
     - webapplications
+    - workflowruns
+    - workflows
     - workloads
   verbs:
     - create
@@ -147,7 +155,10 @@ rules:
     - apis/finalizers
     - buildplanes/finalizers
     - builds/finalizers
+    - componentdeployments/finalizers
+    - componentenvsnapshots/finalizers
     - components/finalizers
+    - componenttypes/finalizers
     - dataplanes/finalizers
     - deployableartifacts/finalizers
     - deploymentpipelines/finalizers
@@ -162,12 +173,16 @@ rules:
     - scheduledtaskbindings/finalizers
     - scheduledtaskclasses/finalizers
     - scheduledtasks/finalizers
+    - secretreferences/finalizers
     - servicebindings/finalizers
     - serviceclasses/finalizers
     - services/finalizers
+    - traits/finalizers
     - webapplicationbindings/finalizers
     - webapplicationclasses/finalizers
     - webapplications/finalizers
+    - workflowruns/finalizers
+    - workflows/finalizers
     - workloads/finalizers
   verbs:
     - update
@@ -179,7 +194,10 @@ rules:
     - apis/status
     - buildplanes/status
     - builds/status
+    - componentdeployments/status
+    - componentenvsnapshots/status
     - components/status
+    - componenttypes/status
     - dataplanes/status
     - deployableartifacts/status
     - deploymentpipelines/status
@@ -194,12 +212,16 @@ rules:
     - scheduledtaskbindings/status
     - scheduledtaskclasses/status
     - scheduledtasks/status
+    - secretreferences/status
     - servicebindings/status
     - serviceclasses/status
     - services/status
+    - traits/status
     - webapplicationbindings/status
     - webapplicationclasses/status
     - webapplications/status
+    - workflowruns/status
+    - workflows/status
     - workloads/status
   verbs:
     - get

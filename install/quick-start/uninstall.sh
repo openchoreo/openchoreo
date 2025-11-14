@@ -41,7 +41,7 @@ log_info "OpenChoreo Uninstall Process"
 if [[ "$FORCE_UNINSTALL" != "true" ]]; then
     echo ""
     echo "This will completely remove:"
-    echo "  - Kind cluster '$CLUSTER_NAME'"
+    echo "  - k3d cluster '$CLUSTER_NAME'"
     echo "  - All OpenChoreo components"
     echo "  - Kubeconfig at $KUBECONFIG_PATH"
     echo "  - Port forwarding processes"
@@ -59,16 +59,16 @@ log_info "Starting uninstall process..."
 log_info "Stopping port forwarding processes..."
 pkill socat 2>/dev/null || log_warning "No socat processes found"
 
-# Delete Kind cluster if it exists
+# Delete k3d cluster if it exists
 if cluster_exists; then
-    log_info "Deleting Kind cluster '$CLUSTER_NAME'..."
-    if kind delete cluster --name "$CLUSTER_NAME"; then
-        log_success "Kind cluster '$CLUSTER_NAME' deleted successfully"
+    log_info "Deleting k3d cluster '$CLUSTER_NAME'..."
+    if k3d cluster delete "$CLUSTER_NAME"; then
+        log_success "k3d cluster '$CLUSTER_NAME' deleted successfully"
     else
-        log_error "Failed to delete Kind cluster '$CLUSTER_NAME'"
+        log_error "Failed to delete k3d cluster '$CLUSTER_NAME'"
     fi
 else
-    log_warning "Kind cluster '$CLUSTER_NAME' does not exist"
+    log_warning "k3d cluster '$CLUSTER_NAME' does not exist"
 fi
 
 # Clean up kubeconfig
