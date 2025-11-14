@@ -26,48 +26,49 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > Since this uses a pre-built image, the deployment will be faster compared to building from source.
 
-## Step 2: Port-forward the OpenChoreo Gateway
+## Step 2: Test the Application
 
-Port forward the OpenChoreo gateway service to access the service locally:
+First, get the service URL from the HTTPRoute:
 
 ```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
+# Get the hostname and path prefix from the HTTPRoute
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=greeter-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=greeter-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
 ```
-
-## Step 3: Test the Application
 
 ### Basic Greet
 ```bash
-curl -k "$(kubectl get servicebinding greeter-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet"
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet"
 ```
 
 ### Greet with name
 ```bash
-curl -k "$(kubectl get servicebinding greeter-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet?name=Alice"
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
 ## Troubleshooting Service Access Issues
 
 If you cannot access the service:
 
-1. Ensure the port-forward is running:
+1. Check if the ComponentDeployment is ready:
    ```bash
-   ps aux | grep port-forward
+   kubectl get componentdeployment greeter-service-development -o yaml
    ```
 
-2. Check if the service binding is ready:
+2. Check the Release status and resources:
    ```bash
-   kubectl get servicebinding greeter-service -o yaml
+   kubectl get release greeter-service-development -o yaml
+   ```
+
+3. Verify the HTTPRoute is configured correctly:
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=greeter-service -o yaml
    ```
 
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
+Remove all resources:
 
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
-
-# Remove all resources
-kubectl delete -f greeter-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/go-greeter-service/greeter-service.yaml
 ```

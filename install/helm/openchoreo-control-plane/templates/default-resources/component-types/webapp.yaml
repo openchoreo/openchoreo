@@ -47,6 +47,10 @@ spec:
                 - name: main
                   image: ${workload.containers["main"].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
+                  command: |
+                    ${has(workload.containers["main"].command) ? workload.containers["main"].command : oc_omit()}
+                  args: |
+                    ${has(workload.containers["main"].args) ? workload.containers["main"].args : oc_omit()}
                   ports:
                     - name: http
                       containerPort: ${parameters.port}
@@ -183,7 +187,7 @@ spec:
               "secretKey": secret.name,
               "remoteRef": {
                 "key": secret.remoteRef.key,
-                "property": secret.remoteRef.property
+                "property": has(secret.remoteRef.property) ? secret.remoteRef.property: oc_omit()
               }
             }) : oc_omit()}
     - id: secret-file-external

@@ -2,11 +2,24 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: greeter-service
+  namespace: default
 spec:
   owner:
     projectName: default
-  type: Service
 
+  componentType: deployment/service
+
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 9090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
 
 ---
 
@@ -15,14 +28,15 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: greeter-service
+  name: greeter-service-workload
+  namespace: default
 spec:
   owner:
     componentName: greeter-service
     projectName: default
   containers:
     main:
-      image: ghcr.io/openchoreo/samples/greeter-service:latest
+      image: "ghcr.io/openchoreo/samples/greeter-service:latest"
       command:
         - ./go-greeter
       args:
@@ -30,80 +44,47 @@ spec:
         - "9090"
       env:
         - key: LOG_LEVEL
-          value: info
+          value: "info"
         - key: GITHUB_REPOSITORY
-          valueFrom:
-            configurationGroupRef:
-              key: repository
-              name: github
+          value: "https://github.com/openchoreo/openchoreo"
         - key: GITHUB_TOKEN
           valueFrom:
-            configurationGroupRef:
-              key: pat
-              name: github
-  endpoints:
-    greeter-api:
-      type: REST
-      port: 9090
-      schema:
-        type: REST
-        content: |
-          openapi: 3.0.0
-          info:
-            title: Sample API
-            version: 1.0.0
-          servers:
-            - url: /api/v1
-              description: Base API path
-          paths:
-            /reading-list:
-              get:
-                summary: Get all books in the reading list
-                responses:
-                  '200':
-                    description: Successful response
-              post:
-                summary: Add a book to the reading list
-                requestBody:
-                  content:
-                    application/json:
-                      schema:
-                        $ref: '#/components/schemas/Book'
-                responses:
-                  '201':
-                    description: Book added successfully
-          components:
-            schemas:
-              Book:
-                type: object
-                properties:
-                  title:
-                    type: string
-                  author:
-                    type: string
-
-  connections: { } # How does this look like?
+            secretRef:
+              key: token
+              name: github-credentials
 
 ---
 
-# Service that specify runtime configuration for the component.
-# This can be either managed by the component controller or manually created by the user.
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: greeter-service
+  name: greeter-service-development
+  namespace: default
 spec:
   owner:
-    componentName: greeter-service
     projectName: default
-  workloadName: greeter-service
-  overrides: { }
-  apis:
-    greeter-api: # Should we go with map type or array type?
-      type: REST
-      rest:
-        backend:
-          port: 9090
-          basePath: /greeter
-        exposeLevels: [ "Organization", "Public" ]
+    componentName: greeter-service
+
+  environment: development
+
 ---
+
+# SecretReference that creates an ExternalSecret pointing to your secret store
+# This will automatically create a Kubernetes Secret named 'github-credentials'
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: github-credentials
+  namespace: default
+spec:
+  template:
+    type: Opaque
+    metadata:
+      labels:
+        app: greeter-service
+  data:
+    - secretKey: token
+      remoteRef:
+        key: github-pat
+  refreshInterval: 1h
+
