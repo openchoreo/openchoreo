@@ -66,12 +66,12 @@ COPY --chown=openchoreo:openchoreo install/quick-start/uninstall.sh ${USER_HOME}
 COPY --chown=openchoreo:openchoreo install/quick-start/.helpers.sh ${USER_HOME}/.helpers.sh
 COPY --chown=openchoreo:openchoreo install/quick-start/check-status.sh ${USER_HOME}/check-status.sh
 COPY --chown=openchoreo:openchoreo install/quick-start/validate-installation.sh ${USER_HOME}/validate-installation.sh
-COPY --chown=openchoreo:openchoreo install/quick-start/deploy-web-application.sh ${USER_HOME}/deploy-web-application.sh
+COPY --chown=openchoreo:openchoreo install/quick-start/deploy-react-starter.sh ${USER_HOME}/deploy-react-starter.sh
+COPY --chown=openchoreo:openchoreo install/quick-start/deploy-gcp-demo.sh ${USER_HOME}/deploy-gcp-demo.sh
 COPY --chown=openchoreo:openchoreo install/quick-start/.values-cp.yaml ${USER_HOME}/.values-cp.yaml
 COPY --chown=openchoreo:openchoreo install/quick-start/.values-dp.yaml ${USER_HOME}/.values-dp.yaml
 COPY --chown=openchoreo:openchoreo install/add-data-plane.sh ${USER_HOME}/add-data-plane.sh
 COPY --chown=openchoreo:openchoreo install/add-build-plane.sh ${USER_HOME}/add-build-plane.sh
-COPY --chown=openchoreo:openchoreo samples/from-image/react-starter-web-app/react-starter.yaml ${USER_HOME}/react-starter.yaml
 COPY --chown=openchoreo:openchoreo samples/ ${USER_HOME}/samples
 
 WORKDIR ${USER_HOME}

@@ -5,6 +5,7 @@
 
 # Cluster configuration
 CLUSTER_NAME="openchoreo-quick-start"
+KUBECONFIG_PATH="$HOME/.kube/config"
 
 # Namespace definitions
 CONTROL_PLANE_NS="openchoreo-control-plane"

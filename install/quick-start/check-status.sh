@@ -9,7 +9,7 @@ source "${SCRIPT_DIR}/.config.sh"
 get_component_group() {
     local group="$1"
     case "$group" in
-        "Control_Plane") echo "cert_manager_cp controller_manager api_server" ;;
+        "Control_Plane") echo "cert_manager_cp controller_manager" ;; # TODO: add api_server, backstage and thunder
         "Data_Plane") echo "envoy_gateway" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
         *) echo "" ;;
@@ -146,15 +146,17 @@ print_grouped_components() {
         esac
 
         echo ""
-        # Calculate the proper line length for consistent borders
-        local line_length=65
+        # Fixed width: 70 characters total
+        local total_width=70
+        local header_text="${group_display_name} (${group_type})"
+        local header_length=${#header_text}
+        local dashes_length=$((total_width - header_length - 5))  # 5 for "+- ", " ", and "+"
         local header_padding=""
-        local remaining_length=$((line_length - ${#group_display_name} - ${#group_type} - 6))  # 6 for "+- " + " (" + ") "
-        for ((i=0; i<remaining_length; i++)); do
+        for ((i=0; i<dashes_length; i++)); do
             header_padding="${header_padding}-"
         done
 
-        printf "+- %s (%s) %s+\n" "$group_display_name" "$group_type" "$header_padding"
+        printf "+- %s %s+\n" "$header_text" "$header_padding"
 
         for component in "${components[@]}"; do
             local status
@@ -162,23 +164,24 @@ print_grouped_components() {
             local status_text
             status_text=$(get_status_text "$status")
 
-            # Calculate padding for right border alignment
-            local content_length=$((25 + ${#status_text} + 1))  # 25 for component width, 1 for space
-            local padding_needed=$((line_length - content_length - 4))  # 4 for "| " + " |"
+            # Fixed layout: "| component (25 chars) status (rest) |"
+            local content="${component} ${status_text}"
+            local content_length=${#content}
+            local padding_length=$((total_width - content_length - 4))  # 4 for "| " and " |"
             local padding=""
-            for ((i=0; i<padding_needed; i++)); do
+            for ((i=0; i<padding_length; i++)); do
                 padding="${padding} "
             done
 
-            printf "| %-25s %s%s|\n" "$component" "$status_text" "$padding"
+            printf "| %s %s%s |\n" "$component" "$status_text" "$padding"
         done
 
-        # Bottom border
-        local bottom_line=""
-        for ((i=0; i<line_length; i++)); do
-            bottom_line="${bottom_line}-"
+        # Bottom border - exact width
+        printf "+"
+        for ((i=0; i<total_width-2; i++)); do
+            printf "-"
         done
-        printf "+%s+\n" "$bottom_line"
+        printf "+\n"
     done
 
     echo ""

@@ -133,12 +133,16 @@ validate_ingress() {
     
     # Check if port 8080 is accessible on the loadbalancer
     local port=8080
-    if ! netstat -ln 2>/dev/null | grep -q ":$port " && ! ss -ln 2>/dev/null | grep -q ":$port "; then
+    local netstat_output
+    netstat_output=$(netstat -ln 2>/dev/null | grep "0.0.0.0:${port}" || true)
+
+    if [[ -n "$netstat_output" ]]; then
+        log_success "Traefik ingress validation passed"
+    else
         log_warning "Port $port not listening - Traefik ingress may not be exposed"
-        return 0
     fi
-    
-    log_success "Traefik ingress validation passed"
+
+    return 0
 }
 
 validate_kubeconfig() {

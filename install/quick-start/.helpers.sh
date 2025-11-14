@@ -79,6 +79,12 @@ cluster_exists() {
     k3d cluster list 2>/dev/null | grep -q "^${CLUSTER_NAME} "
 }
 
+# Check if namespace exists
+namespace_exists() {
+    local namespace="$1"
+    kubectl get namespace "$namespace" >/dev/null 2>&1
+}
+
 # Check if helm release exists
 helm_release_exists() {
     local release="$1"
