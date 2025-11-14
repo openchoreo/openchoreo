@@ -808,3 +808,72 @@ func parseYAMLMap(t *testing.T, doc string) map[string]any {
 	}
 	return out
 }
+
+func TestSplitRespectingQuotes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "simple values without quotes",
+			input:    "a,b,c",
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "quoted values without commas",
+			input:    `"value1","value2","value3"`,
+			expected: []string{`"value1"`, `"value2"`, `"value3"`},
+		},
+		{
+			name:     "quoted values with commas inside",
+			input:    `"lastname, firstname","firstname lastname","last, first, middle"`,
+			expected: []string{`"lastname, firstname"`, `"firstname lastname"`, `"last, first, middle"`},
+		},
+		{
+			name:     "mixed quoted and unquoted",
+			input:    `simple,"with space","with, comma"`,
+			expected: []string{"simple", `"with space"`, `"with, comma"`},
+		},
+		{
+			name:     "values with escaped quotes",
+			input:    `"value with \"quotes\"","simple"`,
+			expected: []string{`"value with \"quotes\""`, `"simple"`},
+		},
+		{
+			name:     "complex case with commas and quotes",
+			input:    `"pending","in-progress","user said: \"hello, world\""`,
+			expected: []string{`"pending"`, `"in-progress"`, `"user said: \"hello, world\""`},
+		},
+		{
+			name:     "empty values filtered out",
+			input:    `a,,b,  ,c`,
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "values with spaces around commas",
+			input:    `"value1" , "value2" , "value3"`,
+			expected: []string{`"value1"`, `"value2"`, `"value3"`},
+		},
+		{
+			name:     "complex combination",
+			input:    `"simple","with spaces","with, comma","with \"quotes\"","combo: \"a, b\""`,
+			expected: []string{`"simple"`, `"with spaces"`, `"with, comma"`, `"with \"quotes\""`, `"combo: \"a, b\""`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := splitRespectingQuotes(tt.input, ",")
+			if len(result) != len(tt.expected) {
+				t.Fatalf("length mismatch: expected %d values, got %d\nexpected: %v\ngot: %v",
+					len(tt.expected), len(result), tt.expected, result)
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("value %d mismatch: expected %q, got %q", i, tt.expected[i], result[i])
+				}
+			}
+		})
+	}
+}
