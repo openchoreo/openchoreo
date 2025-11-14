@@ -265,7 +265,7 @@ spec:
     componentName: demo-app
 
   containers:
-    app:
+    main:
       image: "nginx:1.25-alpine"
       env:
         - key: LOG_LEVEL

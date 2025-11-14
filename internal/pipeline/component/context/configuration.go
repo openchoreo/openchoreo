@@ -7,7 +7,7 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// extractConfigurationsFromWorkload extracts env and file configurations from workload containers
+// extractConfigurationsFromWorkload extracts env and file configurations from the main container only
 // and separates them into configs vs secrets based on valueFrom usage.
 func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) map[string]any {
 	configs := map[string][]any{
@@ -19,11 +19,13 @@ func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 		"files": make([]any, 0),
 	}
 
-	// Process all containers (only if workload exists and has containers)
+	// Process only the main container (only if workload exists and has a main container)
 	if workload != nil && len(workload.Spec.Containers) > 0 {
-		for _, container := range workload.Spec.Containers {
-			// Process environment variables
-			for _, env := range container.Env {
+		// TODO: Consider supporting configurations for multiple containers
+		mainContainer, exists := workload.Spec.Containers["main"]
+		if exists {
+			// Process environment variables from main container
+			for _, env := range mainContainer.Env {
 				if env.Value != "" {
 					// Direct value - goes to configs
 					configs["envs"] = append(configs["envs"], map[string]any{
@@ -41,8 +43,8 @@ func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 				}
 			}
 
-			// Process file configurations
-			for _, file := range container.Files {
+			// Process file configurations from main container
+			for _, file := range mainContainer.Files {
 				if file.Value != "" {
 					// Direct content - goes to configs
 					configs["files"] = append(configs["files"], map[string]any{
@@ -167,6 +169,9 @@ func resolveSecretRef(secretReferences map[string]*v1alpha1.SecretReference, sec
 			remoteRef := map[string]any{"key": dataSource.RemoteRef.Key}
 			if dataSource.RemoteRef.Property != "" {
 				remoteRef["property"] = dataSource.RemoteRef.Property
+			}
+			if dataSource.RemoteRef.Version != "" {
+				remoteRef["version"] = dataSource.RemoteRef.Version
 			}
 			return remoteRef
 		}

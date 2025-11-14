@@ -472,7 +472,7 @@ spec:
   workload:
     spec:
       containers:
-        app:
+        main:
           image: myapp:latest
           env:
             - key: LOG_LEVEL
@@ -561,7 +561,7 @@ spec:
   workload:
     spec:
       containers:
-        app:
+        main:
           image: myapp:latest
           env:
             - key: LOG_LEVEL
@@ -674,7 +674,7 @@ spec:
   workload:
     spec:
       containers:
-        app:
+        main:
           image: myapp:latest
           files:
             - key: config.json
@@ -857,7 +857,7 @@ spec:
   workload:
     spec:
       containers:
-        app:
+        main:
           image: myapp:latest
           files:
             - key: config.json
