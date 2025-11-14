@@ -17,14 +17,11 @@ registry:
     type: LoadBalancer
     port: 5000
 
-# Use external registry type for consistency with multi-cluster
 # All components access via host.k3d.internal:10082
 global:
   defaultResources:
     registry:
-      type: external
-      external:
-        endpoint: "host.k3d.internal:10082"
+      endpoint: "host.k3d.internal:10082"
 
 # Disable External Secrets since it's already in the Data Plane (single cluster)
 external-secrets:
