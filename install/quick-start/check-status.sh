@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -eo pipefail
 
-# Namespace definitions
-CONTROL_PLANE_NS="openchoreo-control-plane"
-DATA_PLANE_NS="openchoreo-data-plane"
-OBSERVABILITY_NS="openchoreo-observability-plane"
+# Source shared configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/.config.sh"
 
 # Component groups organized by architectural layers (bash 3.2 compatible)
 get_component_group() {

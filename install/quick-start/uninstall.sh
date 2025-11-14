@@ -5,10 +5,11 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source helper functions
-source "${SCRIPT_DIR}/install-helpers.sh"
+source "${SCRIPT_DIR}/.helpers.sh"
 
 # Parse command line arguments
 FORCE_UNINSTALL=false
+DEBUG=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -16,16 +17,24 @@ while [[ $# -gt 0 ]]; do
             FORCE_UNINSTALL=true
             shift
             ;;
+        --debug)
+            DEBUG=true
+            export DEBUG
+            shift
+            ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --force        Force uninstall without confirmation"
+            echo "  --force        Skip confirmation prompt"
+            echo "  --debug        Enable debug mode"
             echo "  --help, -h     Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0             # Uninstall with confirmation"
-            echo "  $0 --force     # Force uninstall without confirmation"
+            echo "  $0                # Uninstall with confirmation"
+            echo "  $0 --force        # Uninstall without confirmation"
+            echo "  $0 --debug        # Uninstall with debug logging"
+            echo "  $0 --force --debug   # Force uninstall with debug mode"
             exit 0
             ;;
         *)
@@ -43,8 +52,6 @@ if [[ "$FORCE_UNINSTALL" != "true" ]]; then
     echo "This will completely remove:"
     echo "  - k3d cluster '$CLUSTER_NAME'"
     echo "  - All OpenChoreo components"
-    echo "  - Kubeconfig at $KUBECONFIG_PATH"
-    echo "  - Port forwarding processes"
     echo ""
     read -p "Are you sure you want to continue? (y/N): " -r
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -53,16 +60,10 @@ if [[ "$FORCE_UNINSTALL" != "true" ]]; then
     fi
 fi
 
-log_info "Starting uninstall process..."
-
-# Stop port forwarding processes
-log_info "Stopping port forwarding processes..."
-pkill socat 2>/dev/null || log_warning "No socat processes found"
-
 # Delete k3d cluster if it exists
 if cluster_exists; then
     log_info "Deleting k3d cluster '$CLUSTER_NAME'..."
-    if k3d cluster delete "$CLUSTER_NAME"; then
+    if run_command k3d cluster delete "$CLUSTER_NAME"; then
         log_success "k3d cluster '$CLUSTER_NAME' deleted successfully"
     else
         log_error "Failed to delete k3d cluster '$CLUSTER_NAME'"
@@ -71,36 +72,4 @@ else
     log_warning "k3d cluster '$CLUSTER_NAME' does not exist"
 fi
 
-# Clean up kubeconfig
-if [[ -f "$KUBECONFIG_PATH" ]]; then
-    log_info "Removing kubeconfig at $KUBECONFIG_PATH..."
-    rm -f "$KUBECONFIG_PATH"
-    log_success "Kubeconfig removed"
-else
-    log_warning "Kubeconfig not found at $KUBECONFIG_PATH"
-fi
-
-# Clean up kubeconfig directory if empty
-if [[ -d "$(dirname "$KUBECONFIG_PATH")" ]]; then
-    if [[ -z "$(ls -A "$(dirname "$KUBECONFIG_PATH")")" ]]; then
-        log_info "Removing empty kubeconfig directory..."
-        rmdir "$(dirname "$KUBECONFIG_PATH")" || log_warning "Failed to remove kubeconfig directory"
-    fi
-fi
-
-# Clean up choreoctl completion
-if [[ -f "/usr/local/bin/choreoctl-completion" ]]; then
-    log_info "Removing choreoctl completion..."
-    rm -f "/usr/local/bin/choreoctl-completion"
-    # Remove from profile (if exists)
-    if [[ -f "/etc/profile" ]]; then
-        sed -i '/source \/usr\/local\/bin\/choreoctl-completion/d' /etc/profile 2>/dev/null || true
-    fi
-    log_success "choreoctl completion removed"
-fi
-
-# Clean up temporary files
-cleanup
-
 log_success "OpenChoreo uninstall completed successfully!"
-log_info "All resources have been removed."

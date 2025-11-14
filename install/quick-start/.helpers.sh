@@ -5,6 +5,10 @@
 
 set -eo pipefail
 
+# Source shared configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/.config.sh"
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -12,21 +16,14 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 RESET='\033[0m'
 
-# Configuration variables
-CLUSTER_NAME="openchoreo-quick-start"
-K3S_IMAGE="rancher/k3s:v1.32.9-k3s1"
-KUBECONFIG_PATH="/state/kube/config-internal.yaml"
-HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+# Version configuration
+# OPENCHOREO_VERSION is used for image tags (default: latest)
+# OPENCHOREO_CHART_VERSION is derived from OPENCHOREO_VERSION
 OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-latest}"
 
 # Dev mode configuration
 DEV_MODE="${DEV_MODE:-false}"
 DEV_HELM_CHARTS_DIR="/helm"
-
-# Namespace definitions
-CONTROL_PLANE_NS="openchoreo-control-plane"
-DATA_PLANE_NS="openchoreo-data-plane"
-OBSERVABILITY_NS="openchoreo-observability-plane"
 
 # Logging functions
 log_info() {
@@ -50,6 +47,33 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Execute command with optional debug logging
+# When DEBUG=true, logs the command before executing
+run_command() {
+    if [[ "${DEBUG:-false}" == "true" ]]; then
+        log_info "Executing: $*"
+    fi
+    "$@"
+}
+
+# Function to derive chart version from image version
+# This must be called AFTER OPENCHOREO_VERSION is set by the caller
+derive_chart_version() {
+    if [[ "$OPENCHOREO_VERSION" == "latest" ]]; then
+        # Production latest: don't specify chart version (helm pulls latest)
+        OPENCHOREO_CHART_VERSION=""
+    elif [[ "$OPENCHOREO_VERSION" == "latest-dev" ]]; then
+        # Development builds: use special dev chart version
+        OPENCHOREO_CHART_VERSION="0.0.0-latest-dev"
+    elif [[ "$OPENCHOREO_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+        # Release version with 'v' prefix: strip 'v' for chart version
+        OPENCHOREO_CHART_VERSION="${OPENCHOREO_VERSION#v}"
+    else
+        # Assume it's already a valid chart version (e.g., "1.2.3")
+        OPENCHOREO_CHART_VERSION="$OPENCHOREO_VERSION"
+    fi
+}
+
 # Check if k3d cluster exists
 cluster_exists() {
     k3d cluster list 2>/dev/null | grep -q "^${CLUSTER_NAME} "
@@ -68,16 +92,29 @@ create_k3d_cluster() {
         log_warning "k3d cluster '$CLUSTER_NAME' already exists, skipping creation"
         return 0
     fi
-    
+
     log_info "Creating k3d cluster '$CLUSTER_NAME'..."
-    
-    if k3d cluster create "$CLUSTER_NAME" \
-        --image "$K3S_IMAGE" \
-        --servers 1 \
-        --k3s-arg "--disable=metrics-server@server:0" \
-        --port "7007:80@loadbalancer" \
-        --port "8443:8443@loadbalancer" \
-        --wait; then
+
+    # Use the k3d config file from user's home directory
+    local k3d_config="$HOME/.k3d-config.yaml"
+
+    if [[ ! -f "$k3d_config" ]]; then
+        log_error "k3d config file not found at $k3d_config"
+        return 1
+    fi
+
+    # Detect if running in Colima and disable k3d's DNS fix if needed
+    # The DNS fix replaces Docker's embedded DNS (127.0.0.11) with the gateway IP,
+    # which causes DNS timeouts in Colima due to firewall/network isolation.
+    # k3d v5.9.0+ auto-detects Colima, but we handle it explicitly for older versions.
+    # See https://github.com/k3d-io/k3d/issues/1449
+    local dns_fix_env=""
+    if docker info --format '{{.Name}}' 2>/dev/null | grep -qi "colima"; then
+        log_info "Detected Colima runtime - disabling k3d DNS fix for compatibility"
+        dns_fix_env="K3D_FIX_DNS=0"
+    fi
+
+    if run_command eval $dns_fix_env k3d cluster create "$CLUSTER_NAME" --config "$k3d_config" --wait; then
         log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
         log_error "Failed to create k3d cluster '$CLUSTER_NAME'"
@@ -85,50 +122,8 @@ create_k3d_cluster() {
     fi
 }
 
-# Export kubeconfig for the cluster
-setup_kubeconfig() {
-    log_info "Setting up kubeconfig..."
-
-    # Create directory if it doesn't exist
-    mkdir -p "$(dirname "$KUBECONFIG_PATH")"
-
-    if k3d kubeconfig get "$CLUSTER_NAME" > "$KUBECONFIG_PATH"; then
-        log_success "Kubeconfig exported to $KUBECONFIG_PATH"
-        export KUBECONFIG="$KUBECONFIG_PATH"
-    else
-        log_error "Failed to export kubeconfig"
-        return 1
-    fi
-}
-
-# Connect container to k3d network
-connect_to_k3d_network() {
-    local container_id
-    container_id="$(cat /etc/hostname)"
-    
-    log_info "Connecting container to k3d network..."
-    
-    # Check if the "k3d-$CLUSTER_NAME" network exists
-    if ! docker network inspect "k3d-${CLUSTER_NAME}" &>/dev/null; then
-        log_warning "Docker network 'k3d-${CLUSTER_NAME}' does not exist yet. Will be created with cluster."
-        return 0
-    fi
-    
-    # Check if the container is already connected
-    if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.k3d-'"${CLUSTER_NAME}"'}}' "${container_id}")" = "null" ]; then
-        if docker network connect "k3d-${CLUSTER_NAME}" "${container_id}"; then
-            log_success "Connected container ${container_id} to k3d-${CLUSTER_NAME} network"
-        else
-            log_error "Failed to connect container to k3d network"
-            return 1
-        fi
-    else
-        log_warning "Container ${container_id} is already connected to k3d-${CLUSTER_NAME} network"
-    fi
-}
-
-
-# Install a helm chart with idempotency
+# Install or upgrade a helm chart with idempotency
+# Uses 'helm upgrade --install' which is the standard way to achieve idempotent installs
 install_helm_chart() {
     local release_name="$1"
     local chart_name="$2"
@@ -139,7 +134,7 @@ install_helm_chart() {
     shift 6
     local additional_args=("$@")
 
-    log_info "Installing Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
+    log_info "Installing/upgrading Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
 
     # Determine chart reference based on dev mode
     local chart_ref
@@ -150,80 +145,51 @@ install_helm_chart() {
         # For OCI repositories, construct the full chart reference
         chart_ref="${HELM_REPO}/${chart_name}"
     fi
-    
-    # Check if release already exists
-    if helm_release_exists "$release_name" "$namespace"; then
-        log_warning "Helm release '$release_name' already exists in namespace '$namespace'"
 
-        # Try to upgrade the release
-        local upgrade_args=(
-            "upgrade" "$release_name" "$chart_ref"
-            "--namespace" "$namespace"
-            "--timeout" "${timeout}s"
-        )
+    # Build helm upgrade --install command
+    local helm_args=(
+        "upgrade" "--install" "$release_name" "$chart_ref"
+        "--namespace" "$namespace"
+        "--timeout" "${timeout}s"
+    )
 
-        if [[ "$wait_flag" == "true" ]]; then
-            upgrade_args+=("--wait")
-        fi
-
-        if [[ -n "$OPENCHOREO_VERSION" && "$DEV_MODE" != "true" ]]; then
-            upgrade_args+=("--version" "$OPENCHOREO_VERSION")
-        fi
-
-        upgrade_args+=("${additional_args[@]}")
-
-        if helm "${upgrade_args[@]}"; then
-            log_success "Helm release '$release_name' upgraded successfully"
-        else
-            log_error "Failed to upgrade Helm release '$release_name'"
-            return 1
-        fi
-    else
-        # Install new release
-        local install_args=(
-            "install" "$release_name" "$chart_ref"
-            "--namespace" "$namespace"
-            "--timeout" "${timeout}s"
-        )
-
-        if [[ "$create_namespace" == "true" ]]; then
-            install_args+=("--create-namespace")
-        fi
-
-        if [[ "$wait_flag" == "true" ]]; then
-            install_args+=("--wait")
-        fi
-
-        if [[ -n "$OPENCHOREO_VERSION" && "$DEV_MODE" != "true" ]]; then
-            install_args+=("--version" "$OPENCHOREO_VERSION")
-        fi
-
-        install_args+=("${additional_args[@]}")
-
-        if helm "${install_args[@]}"; then
-            log_success "Helm release '$release_name' installed successfully"
-        else
-            log_error "Failed to install Helm release '$release_name'"
-            return 1
-        fi
+    if [[ "$create_namespace" == "true" ]]; then
+        helm_args+=("--create-namespace")
     fi
-}
 
-# Install OpenChoreo Data Plane
-install_data_plane() {
-    log_info "Installing OpenChoreo Data Plane with gateway enabled..."
-    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
-        "--values" "/app/openchoreo-dp-values.yaml"
+    if [[ "$wait_flag" == "true" ]]; then
+        helm_args+=("--wait")
+    fi
+
+    if [[ -n "$OPENCHOREO_CHART_VERSION" && "$DEV_MODE" != "true" ]]; then
+        helm_args+=("--version" "$OPENCHOREO_CHART_VERSION")
+    fi
+
+    helm_args+=("${additional_args[@]}")
+
+    if run_command helm "${helm_args[@]}"; then
+        log_success "Helm release '$release_name' installed/upgraded successfully"
+    else
+        log_error "Failed to install/upgrade Helm release '$release_name'"
+        return 1
+    fi
 }
 
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "1800" \
-        "--values" "/app/openchoreo-cp-values.yaml" \
+        "--values" "$HOME/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
         "--set" "backstage.image.tag=$OPENCHOREO_VERSION"
+}
+
+# Install OpenChoreo Data Plane
+install_data_plane() {
+    log_info "Installing OpenChoreo Data Plane with gateway enabled..."
+    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
+        "--values" "$HOME/.values-dp.yaml"
 }
 
 
@@ -234,36 +200,54 @@ install_observability_plane() {
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
 }
 
+# Print installation configuration
+print_installation_config() {
+    log_info "Configuration:"
+    log_info "  Cluster Name: $CLUSTER_NAME"
+    if [[ "$DEV_MODE" == "true" ]]; then
+        log_info "  Mode: DEV (using local images and helm charts)"
+    else
+        log_info "  Image version: $OPENCHOREO_VERSION"
+        log_info "  Chart version: ${OPENCHOREO_CHART_VERSION:-<latest from registry>}"
+    fi
+    log_info "  Enable Observability: ${ENABLE_OBSERVABILITY:-false}"
+}
+
 # Verify prerequisites
 verify_prerequisites() {
     log_info "Verifying prerequisites..."
-    
+
     local missing_tools=()
-    
+
     if ! command_exists k3d; then
         missing_tools+=("k3d")
     fi
-    
+
     if ! command_exists kubectl; then
         missing_tools+=("kubectl")
     fi
-    
+
     if ! command_exists helm; then
         missing_tools+=("helm")
     fi
-    
+
     if ! command_exists docker; then
         missing_tools+=("docker")
     fi
-    
+
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         return 1
     fi
-    
+
     log_success "All prerequisites verified"
 }
 
+
+# =================================================================
+# Docker image management functions
+# TODO: How to handle changing images and versions with helm upgrades?
+# =================================================================
 
 # Get list of docker images used by OpenChoreo
 get_openchoreo_images() {
@@ -376,7 +360,7 @@ load_images_to_cluster() {
         log_info "[$current/$total] Loading $image into cluster..."
         
         local output
-        if output=$(k3d image import "$image" -c "$CLUSTER_NAME" 2>&1); then
+        if output=$(run_command k3d image import "$image" -c "$CLUSTER_NAME" 2>&1); then
             log_success "[$current/$total] Loaded $image"
         else
             # k3d sometimes returns non-zero even on success, check output
@@ -411,12 +395,3 @@ prepare_images() {
 
     log_success "Image preparation complete"
 }
-
-# Clean up function
-cleanup() {
-    log_info "Cleaning up temporary files..."
-    rm -f /tmp/k3d-config.yaml
-}
-
-# Register cleanup function
-trap cleanup EXIT

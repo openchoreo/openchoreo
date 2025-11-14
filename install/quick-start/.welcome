@@ -1,0 +1,17 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║           Welcome to OpenChoreo Quick-Start!                  ║
+║                                                               ║
+║  Get started:                                                 ║
+║    ./install.sh                       - Install OpenChoreo    ║
+║    ./install.sh --help                - Show all options      ║
+║                                                               ║
+║  Quick commands:                                              ║
+║    k3d cluster list                   - List clusters         ║
+║    kubectl get pods -A                - View all pods         ║
+║                                                               ║
+║  Helpful aliases: k, kgp, kgs, kgn, kga, ll                   ║
+║                                                               ║
+║  Website: https://openchoreo.dev                              ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝

@@ -1,16 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -eo pipefail
+
+# Source shared configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/.config.sh"
 
 # Connects the container to the "k3d" network
 container_id="$(cat /etc/hostname)"
-if docker network inspect k3d-openchoreo-quick-start &>/dev/null; then
-  if [ "$(docker inspect -f '{{json .NetworkSettings.Networks.k3d-openchoreo-quick-start}}' "${container_id}")" = "null" ]; then
-    docker network connect "k3d-openchoreo-quick-start" "${container_id}"
-    echo "Connected container ${container_id} to k3d-openchoreo-quick-start network."
+K3D_NETWORK="k3d-${CLUSTER_NAME}"
+
+if docker network inspect "$K3D_NETWORK" &>/dev/null; then
+  if [ "$(docker inspect -f "{{json .NetworkSettings.Networks.${K3D_NETWORK}}}" "${container_id}")" = "null" ]; then
+    docker network connect "$K3D_NETWORK" "${container_id}"
+    echo "Connected container ${container_id} to ${K3D_NETWORK} network."
   else
-    echo "Container ${container_id} is already connected to k3d-openchoreo-quick-start network."
+    echo "Container ${container_id} is already connected to ${K3D_NETWORK} network."
   fi
 else
-  echo "Docker network 'k3d-openchoreo-quick-start' does not exist. Skipping connection."
+  echo "Docker network '${K3D_NETWORK}' does not exist. Skipping connection."
 fi
 
 YAML_FILE="react-starter.yaml"
