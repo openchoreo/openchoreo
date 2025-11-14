@@ -2,6 +2,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
   name: google-cloud-buildpacks
+  namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:

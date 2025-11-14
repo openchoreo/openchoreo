@@ -2,6 +2,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
   name: react
+  namespace: default
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
