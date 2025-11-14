@@ -2,55 +2,91 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: reading-list-service
-  namespace: default
 spec:
   owner:
     projectName: default
-  type: Service
-  build:
-    repository:
-      appPath: /service-go-reading-list
-      revision:
-        branch: main
-      url: https://github.com/openchoreo/sample-workloads
-    templateRef:
-      name: google-cloud-buildpacks
 
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: Build
-metadata:
-  name: reading-list-service-build-01
-  namespace: default
-spec:
-  owner:
-    componentName: reading-list-service
-    projectName: default
-  repository:
-    appPath: /service-go-reading-list
-    revision:
-      branch: main
-    url: https://github.com/openchoreo/sample-workloads
-  templateRef:
+  # References the ComponentType
+  componentType: deployment/service
+
+  # Workflow configuration (developer-provided)
+  workflow:
+    # Reference to Workflow
     name: google-cloud-buildpacks
+
+    # Schema matching the Workflow's schema section
+    schema:
+      # Nested structure from schema
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-go-reading-list"
+        secretRef: "reading-list-repo-credentials-dev"
+
+      # Simple schema fields
+      version: 1
+      testMode: "integration"  # From enum: ["unit", "integration", "none"]
+      command: ["npm", "run", "build"]
+      args: ["--production", "--verbose"]
+      resources:
+        cpuCores: 2
+        memoryGb: 4
+      timeout: "45m"
+      cache:
+        enabled: true
+        paths: ["/root/.npm", "/root/.cache"]
+      limits:
+        maxRetries: 5
+        maxDurationMinutes: 90
+
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 9090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: WorkflowRun
 metadata:
-  name: reading-list-service
-  namespace: default
+  # Should be unique per execution
+  name: reading-list-service-build-01
 spec:
+  # Ownership tracking for the workflow execution (optional)
   owner:
-    componentName: reading-list-service
-    projectName: default
-  workloadName: go-reading-list-service
-  className: default
-  apis:
-    reading-list-api: 
-      type: REST
-      className: default
-      rest:
-        backend:
-          port: 8080
-          basePath: /api/v1/reading-list
-        exposeLevels: [ "Public" ]
+    projectName: "default"
+    componentName: "reading-list-service"
+
+  workflow:
+    # Reference to Workflow
+    name: google-cloud-buildpacks
+
+    schema:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-go-reading-list"
+        secretRef: "reading-list-repo-credentials-dev"
+      version: 1
+      testMode: "integration"
+      command: ["npm", "run", "build"]
+      args: ["--production", "--verbose"]
+      resources:
+        cpuCores: 2
+        memoryGb: 4
+      timeout: "45m"
+      cache:
+        enabled: true
+        paths: ["/root/.npm", "/root/.cache"]
+      limits:
+        maxRetries: 5
+        maxDurationMinutes: 90

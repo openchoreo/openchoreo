@@ -2,65 +2,69 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: greeting-service
-  namespace: default
 spec:
   owner:
     projectName: default
-  type: Service
-  build:
-    repository:
-      appPath: /service-go-greeter
-      revision:
-        branch: main
-      url: https://github.com/openchoreo/sample-workloads
-    templateRef:
-      name: docker
-      parameters:
-        - name: docker-context
-          value: /service-go-greeter
-        - name: dockerfile-path
-          value: /service-go-greeter/Dockerfile
+
+  # References the ComponentType
+  componentType: deployment/service
+
+  # Workflow configuration (developer-provided)
+  workflow:
+    # Reference to Workflow
+    name: docker
+
+    # Schema matching the Workflow's schema section
+    schema:
+      # Nested structure from schema
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-go-greeter"
+        secretRef: "greeting-repo-credentials-dev"
+
+      # Docker-specific parameters
+      docker:
+        context: "/service-go-greeter"
+        filePath: "/service-go-greeter/Dockerfile"
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 9090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Build
+kind: WorkflowRun
 metadata:
   name: greeting-service-build-01
-  namespace: default
 spec:
+  # Ownership tracking for the workflow execution (optional)
   owner:
-    componentName: greeting-service
-    projectName: default
-  repository:
-    appPath: /service-go-greeter
-    revision:
-      branch: main
-    url: https://github.com/openchoreo/sample-workloads
-  templateRef:
-    name: docker
-    parameters:
-      - name: docker-context
-        value: /service-go-greeter
-      - name: dockerfile-path
-        value: /service-go-greeter/Dockerfile
+    projectName: "default"
+    componentName: "greeting-service"
 
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: Service
-metadata:
-  name: greeting-service
-spec:
-  owner:
-    componentName: greeting-service
-    projectName: default
-  workloadName: go-greeter-service
-  className: default
-  apis:
-    greeter-api:
-      type: REST
-      className: default
-      rest:
-        backend:
-          port: 9090
-          basePath: /greeter
-        exposeLevels: [ "Public" ]
+  workflow:
+    # Reference to Workflow
+    name: docker
+
+    schema:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+          commit: ""
+        appPath: "/service-go-greeter"
+        secretRef: "greeting-repo-credentials-dev"
+      # Docker-specific parameters
+      docker:
+        context: "/service-go-greeter"
+        filePath: "/service-go-greeter/Dockerfile"
