@@ -11,13 +11,14 @@ get_component_group() {
     case "$group" in
         "Control_Plane") echo "cert_manager_cp controller_manager" ;; # TODO: add api_server, backstage and thunder
         "Data_Plane") echo "envoy_gateway" ;;
+        "Build_Plane") echo "argo_workflow_controller registry" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
         *) echo "" ;;
     esac
 }
 
 # Group order for display (using underscores for bash compatibility)
-group_order=("Control_Plane" "Data_Plane" "Observability_Plane")
+group_order=("Control_Plane" "Data_Plane" "Build_Plane" "Observability_Plane")
 
 # Group display names
 get_group_display_name() {
@@ -25,6 +26,7 @@ get_group_display_name() {
     case "$group" in
         "Control_Plane") echo "Control Plane" ;;
         "Data_Plane") echo "Data Plane" ;;
+        "Build_Plane") echo "Build Plane" ;;
         "Observability_Plane") echo "Observability Plane" ;;
         *) echo "$group" ;;
     esac
@@ -46,6 +48,8 @@ get_component_config() {
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
         "envoy_gateway") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-helm" ;;
+        "argo_workflow_controller") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
+        "registry") echo "$BUILD_PLANE_NS:app=registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
         "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
@@ -139,6 +143,9 @@ print_grouped_components() {
                 ;;
             "Data_Plane")
                 group_type="Core"
+                ;;
+            "Build_Plane")
+                group_type="Optional"
                 ;;
             "Observability_Plane")
                 group_type="Optional"

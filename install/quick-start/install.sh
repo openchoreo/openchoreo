@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.helpers.sh"
 
 # Parse command line arguments
+ENABLE_BUILD_PLANE=false
 ENABLE_OBSERVABILITY=false
 SKIP_STATUS_CHECK=false
 SKIP_PRELOAD=false
@@ -15,6 +16,10 @@ DEBUG=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --with-build)
+            ENABLE_BUILD_PLANE=true
+            shift
+            ;;
         --with-observability)
             ENABLE_OBSERVABILITY=true
             shift
@@ -42,6 +47,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --version VER             Specify version to install (default: latest)"
+            echo "  --with-build              Install with Build Plane (Argo Workflows + Registry)"
             echo "  --with-observability      Install with Observability Plane"
             echo "  --skip-status-check       Skip status check at the end"
             echo "  --skip-preload            Skip image preloading from host Docker"
@@ -49,11 +55,13 @@ while [[ $# -gt 0 ]]; do
             echo "  --help, -h                Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                               # Install with defaults"
-            echo "  $0 --version v1.2.3              # Install specific version"
-            echo "  $0 --with-observability          # Install with observability"
-            echo "  $0 --skip-preload                # Skip image preloading"
-            echo "  $0 --debug --version latest-dev  # Debug with dev version"
+            echo "  $0                                # Install with defaults"
+            echo "  $0 --version v1.2.3               # Install specific version"
+            echo "  $0 --with-build                   # Install with build capabilities"
+            echo "  $0 --with-observability           # Install with observability"
+            echo "  $0 --with-build --with-observability # Full platform"
+            echo "  $0 --skip-preload                 # Skip image preloading"
+            echo "  $0 --debug --version latest-dev   # Debug with dev version"
             exit 0
             ;;
         *)
@@ -87,21 +95,35 @@ install_control_plane
 # Step 4: Install OpenChoreo Data Plane
 install_data_plane
 
-# Step 5: Install OpenChoreo Observability Plane (optional)
+# Step 5: Install OpenChoreo Build Plane (optional)
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    install_build_plane
+fi
+
+# Step 6: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 6: Check installation status
+# Step 7: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 7: Add default dataplane
+# Step 8: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-data-plane.sh"
 else
     log_warning "add-data-plane.sh not found, skipping dataplane configuration"
+fi
+
+# Step 9: Add default buildplane (if build plane enabled)
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
+        bash "${SCRIPT_DIR}/add-build-plane.sh"
+    else
+        log_warning "add-build-plane.sh not found, skipping buildplane configuration"
+    fi
 fi
 
 log_success "OpenChoreo installation completed successfully!"
@@ -116,5 +138,8 @@ log_success "OpenChoreo installation completed successfully!"
 #echo ""
 log_info "Next Steps:"
 log_info "  Deploy sample applications:"
-log_info "    ./deploy-react-starter.sh    # Simple React web application"
-log_info "    ./deploy-gcp-demo.sh         # GCP Microservices Demo (11 services)"
+log_info "    ./deploy-react-starter.sh      # Simple React web application"
+log_info "    ./deploy-gcp-demo.sh           # GCP Microservices Demo (11 services)"
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    log_info "    ./build-deploy-greeter.sh      # Build from source (Go greeter service)"
+fi

@@ -193,11 +193,18 @@ install_control_plane() {
 
 # Install OpenChoreo Data Plane
 install_data_plane() {
-    log_info "Installing OpenChoreo Data Plane with gateway enabled..."
+    log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
         "--values" "$HOME/.values-dp.yaml"
 }
 
+
+# Install OpenChoreo Build Plane (optional)
+install_build_plane() {
+    log_info "Installing OpenChoreo Build Plane..."
+    install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "true" "1800" \
+        "--values" "$HOME/.values-bp.yaml"
+}
 
 # Install OpenChoreo Observability Plane (optional)
 install_observability_plane() {
@@ -216,6 +223,7 @@ print_installation_config() {
         log_info "  Image version: $OPENCHOREO_VERSION"
         log_info "  Chart version: ${OPENCHOREO_CHART_VERSION:-<latest from registry>}"
     fi
+    log_info "  Enable Build Plane: ${ENABLE_BUILD_PLANE:-false}"
     log_info "  Enable Observability: ${ENABLE_OBSERVABILITY:-false}"
 }
 
@@ -278,6 +286,14 @@ preload_images() {
     # Add --version flag only if OPENCHOREO_CHART_VERSION is not empty
     if [[ -n "$OPENCHOREO_CHART_VERSION" ]]; then
         preload_args+=("--version" "$OPENCHOREO_CHART_VERSION")
+    fi
+
+    # Add build plane if enabled
+    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+        preload_args+=(
+            "--build-plane"
+            "--bp-values" "${SCRIPT_DIR}/.values-bp.yaml"
+        )
     fi
 
     # Add observability plane if enabled

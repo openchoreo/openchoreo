@@ -9,6 +9,7 @@ is pre-configured inside a Docker container.
 - **Interactive Environment**: Bash shell with helpful aliases and auto-completion
 - **Sample Applications**: Ready-to-deploy examples to explore OpenChoreo capabilities
 - **Installation Scripts**: Automated setup for local k3d cluster with OpenChoreo
+- **Optional Build Plane**: Argo Workflows + Container Registry for building from source
 
 ## Prerequisites
 
@@ -48,7 +49,10 @@ Installation typically takes 5-10 minutes depending on your network speed.
 
 **Installation Options:**
 
+- `./install.sh` - Install with Control Plane and Data Plane (minimal setup)
+- `./install.sh --with-build` - Install with Build Plane (Argo Workflows + Container Registry)
 - `./install.sh --with-observability` - Install with OpenSearch and observability components
+- `./install.sh --with-build --with-observability` - Install full platform with all optional components
 - `./install.sh --version v0.4.0` - Install a specific OpenChoreo version
 - `./install.sh --version latest-dev --debug` - Install latest development build with verbose logging
 - `./install.sh --skip-preload` - Skip image preloading from local Docker to k3d
@@ -60,11 +64,15 @@ The installer will:
 - Create a local k3d Kubernetes cluster
 - Install OpenChoreo Control Plane
 - Install OpenChoreo Data Plane
+- Optionally install Build Plane (for building from source)
+- Optionally install Observability Plane (for monitoring and logs)
 - Configure the environment for sample deployments
 
 ### 3. Try a Sample Application
 
 After installation completes, deploy a sample application to see OpenChoreo in action.
+
+#### Deploy from Pre-built Images
 
 **Simple React Web Application:**
 
@@ -81,6 +89,20 @@ A lightweight single-component application to quickly verify your setup.
 ```
 
 A complex microservices application demonstrating multi-component deployments with service-to-service communication.
+
+#### Build and Deploy from Source (Requires --with-build)
+
+**Go Greeter Service:**
+
+```bash
+./build-deploy-greeter.sh
+```
+
+Demonstrates the complete build-to-deploy workflow:
+- Clones source code from GitHub
+- Builds a Docker image using the Build Plane
+- Pushes the image to the container registry
+- Deploys the service to the Data Plane
 
 The deployment scripts will show you the application URLs when ready.
 
@@ -101,6 +123,7 @@ Explore additional sample applications and deployment configurations.
 ```bash
 ./deploy-react-starter.sh --clean
 ./deploy-gcp-demo.sh --clean
+./build-deploy-greeter.sh --clean
 ```
 
 **Uninstall OpenChoreo:**
