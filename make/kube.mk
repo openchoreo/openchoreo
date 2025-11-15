@@ -38,10 +38,11 @@ dev-deploy: ## Deploy the Choreo developer version to a Kind cluster configured 
 	@$(MAKE) helm-package
 	helm upgrade --install cilium $(HELM_CHARTS_OUTPUT_DIR)/cilium-$(HELM_CHART_VERSION).tgz \
 		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
-	helm upgrade --install choreo-control-plane $(HELM_CHARTS_OUTPUT_DIR)/choreo-control-plane-$(HELM_CHART_VERSION).tgz \
-    	--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m
-	helm upgrade --install choreo-dataplane $(HELM_CHARTS_OUTPUT_DIR)/choreo-dataplane-$(HELM_CHART_VERSION).tgz \
-		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m --set certmanager.enabled=false
+	helm upgrade --install choreo-control-plane $(HELM_CHARTS_OUTPUT_DIR)/openchoreo-control-plane-$(HELM_CHART_VERSION).tgz \
+    	--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m --set cert-manager.enabled=false
+
+	helm upgrade --install choreo-dataplane $(HELM_CHARTS_OUTPUT_DIR)/openchoreo-data-plane-$(HELM_CHART_VERSION).tgz \
+		--namespace "$(KUBE_DEV_DEPLOY_NAMESPACE)" --create-namespace --timeout 30m --set cert-manager.enabled=false
 
 .PHONY: dev-undeploy
 dev-undeploy: ## Undeploy the Choreo developer version from a Kind cluster configured in ~/.kube/config
