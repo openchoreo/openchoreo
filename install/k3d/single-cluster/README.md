@@ -14,6 +14,9 @@ lower resource requirements.
 > See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449) for more details.
 > Example: `K3D_FIX_DNS=0 k3d cluster create --config install/k3d/single-cluster/config.yaml`
 
+> [!TIP]
+> For faster setup or if you have slow network, consider using [Image Preloading](#image-preloading-optional) after creating the cluster.
+
 ### 1. Create Cluster
 
 ```bash
@@ -212,6 +215,45 @@ graph TB
     class CP_IntLB,DP_IntLB,BP_IntLB,Registry,Observer,OSD,OS intLbStyle
     class K8sAPI apiStyle
 ```
+
+## Image Preloading (Optional)
+
+If you have slow network or want to save bandwidth when re-creating clusters, you can preload images before installing components. This pulls images to your host machine first, then imports them to the k3d cluster, which is significantly faster than pulling from within the cluster.
+
+**Control Plane and Data Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --parallel 4
+```
+
+**With Build Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
+  --parallel 4
+```
+
+**With all planes including Observability:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
+  --observability-plane --op-values install/k3d/single-cluster/values-op.yaml \
+  --parallel 4
+```
+
+Run this after creating the cluster (step 1) but before installing components (step 2).
 
 ## Cleanup
 

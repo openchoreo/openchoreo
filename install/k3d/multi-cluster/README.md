@@ -14,6 +14,9 @@ architecture.
 > See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449) for more details.
 > Example: `K3D_FIX_DNS=0 k3d cluster create --config config-cp.yaml`
 
+> [!TIP]
+> For faster setup or if you have slow network, consider using [Image Preloading](#image-preloading-optional) after creating clusters.
+
 ### 1. Control Plane
 
 Create cluster and install components:
@@ -242,6 +245,48 @@ graph TB
     class CP_IntLB,DP_IntLB,BP_IntLB,Registry,Observer,OSD,OS intLbStyle
     class CP_K8sAPI,DP_K8sAPI,BP_K8sAPI,OP_K8sAPI apiStyle
 ```
+
+## Image Preloading (Optional)
+
+If you have slow network or want to save bandwidth when re-creating clusters, you can preload images before installing components. This pulls images to your host machine first, then imports them to each k3d cluster, which is significantly faster than pulling from within the clusters.
+
+**Control Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo-cp \
+  --local-charts \
+  --control-plane --cp-values install/k3d/multi-cluster/values-cp.yaml \
+  --parallel 4
+```
+
+**Data Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo-dp \
+  --local-charts \
+  --data-plane --dp-values install/k3d/multi-cluster/values-dp.yaml \
+  --parallel 4
+```
+
+**Build Plane (optional):**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo-bp \
+  --local-charts \
+  --build-plane --bp-values install/k3d/multi-cluster/values-bp.yaml \
+  --parallel 4
+```
+
+**Observability Plane (optional):**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo-op \
+  --local-charts \
+  --observability-plane --op-values install/k3d/multi-cluster/values-op.yaml \
+  --parallel 4
+```
+
+Run this after creating the clusters (step 1) but before installing components (step 2).
 
 ## Cleanup
 
