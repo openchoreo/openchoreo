@@ -57,7 +57,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
   # Should be unique per execution
-  name: reading-list-service-build-03
+  name: reading-list-service-build-01
 spec:
   # Ownership tracking for the workflow execution (optional)
   owner:
