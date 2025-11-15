@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: react-starter
-  namespace: default
 spec:
   owner:
     projectName: default
@@ -39,17 +38,15 @@ spec:
         memory: "512Mi"
 
 ---
-# WebApplication that specify runtime configuration for the component.
-# This can be either managed by the component controller or manually created by the user.
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: react-web-app-build-01
+  name: react-starter-build-01
 spec:
-  # Ownership tracking for the workflow execution (optional)
+  # Ownership tracking for the workflow execution
   owner:
     projectName: "default"
-    componentName: "react-web-app"
+    componentName: "react-starter"
 
   workflow:
     # Reference to Workflow
@@ -69,11 +66,11 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentDeployment
 metadata:
-  name: react-web-app-development
+  name: react-starter-development
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: react-web-app
+    componentName: react-starter
 
   environment: development

@@ -9,7 +9,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/webapp-react-nginx
 
 ## Step 1: Deploy the Application
 
-The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
+The following command will create the relevant resources in OpenChoreo:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
@@ -26,16 +26,8 @@ Once the application is deployed and the port-forward is active, you can access 
 http://react-starter-development-c37e66d8-development.openchoreoapis.localhost:9080
 ```
 
-## Troubleshooting
+## Troubleshooting Access Issues
 
-### Build Issues
-If the build fails, check the build status:
-
-```bash
-kubectl describe workflow react-starter-build-01
-```
-
-### Access Issues
 If you cannot access the application:
 
 1. Verify the web application URL:
@@ -49,5 +41,5 @@ Stop the port forwarding and remove all resources:
 
 ```bash
 # Remove all resources
-kubectl delete https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```
