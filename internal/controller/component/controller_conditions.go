@@ -44,4 +44,9 @@ const (
 	ReasonSnapshotCreationFailed controller.ConditionReason = "SnapshotCreationFailed"
 	// ReasonSnapshotUpdateFailed indicates failure to update the ComponentEnvSnapshot
 	ReasonSnapshotUpdateFailed controller.ConditionReason = "SnapshotUpdateFailed"
+
+	// AutoDeploy issues (Status=False)
+
+	// ReasonAutoDeployFailed indicates failure to handle autoDeploy (ComponentRelease/ReleaseBinding creation)
+	ReasonAutoDeployFailed controller.ConditionReason = "AutoDeployFailed"
 )
