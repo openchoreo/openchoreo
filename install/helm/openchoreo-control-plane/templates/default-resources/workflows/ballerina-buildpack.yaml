@@ -58,4 +58,3 @@ spec:
       workflowTemplateRef:
         clusterScope: true
         name: ballerina-buildpack
-        
