@@ -48,49 +48,50 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > The build will take around 8 minutes depending on the network speed.
 
-## Step 2: Port-forward the OpenChoreo Gateway
 
-Port forward the OpenChoreo gateway service to access the frontend locally:
+## Step 2: Test the Application
+
+First, get the service URL from the HTTPRoute:
 
 ```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
+# Get the hostname and path prefix from the HTTPRoute
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=patient-management-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=patient-management-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
 ```
 
-## Step 3: Test the Application
+### Health check
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/health"
+```
 
-   Health check
-   ```bash
-    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/health"
-   ```
+```bash
+curl http://patient-management-service-development-9d4355fb-development.openchoreoapis.localhost:9080/mediflow/health
+```
 
-   Add a new patient
-   ```bash
-   curl -k -X POST "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients" \
-   -H "Content-Type: application/json" \
-   -d '{
-   "name": "Alice",
-   "age": 30,
-   "condition": "Healthy"
-   }'
-   ```
+### Add a new patient
+```bash
+curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients" \
+-H "Content-Type: application/json" \
+-d '{
+"name": "Alice",
+"age": 30,
+"condition": "Healthy"
+}'
+```
 
-   Retrieve a patient by name
-   ```bash
-    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients/Alice"
-   ```
+### Retrieve a patient by name
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients/Alice"
+```
 
-   List all patients
-   ```bash
-    curl -k "$(kubectl get servicebinding patient-management-service -o jsonpath='{.status.endpoints[0].public.uri}')/patients"
-   ```
+### List all patients
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients"
+```
 
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
-
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
 
 # Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml

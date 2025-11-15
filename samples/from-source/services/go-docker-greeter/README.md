@@ -27,34 +27,35 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > The build will take around 8 minutes depending on the network speed.
 
-## Step 2: Port-forward the OpenChoreo Gateway
+## Step 2: Test the Application
 
-Port forward the OpenChoreo gateway service to access the frontend locally:
+First, get the service URL from the HTTPRoute:
 
 ```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
+# Get the hostname and path prefix from the HTTPRoute
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=greeting-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=greeting-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
 ```
 
-## Step 3: Test the Application
+### Basic Greet
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}//greeter/greet"
+```
 
-   Greet
-   ```bash
-    curl -k "$(kubectl get servicebinding greeting-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet"
-   ```
+### Greet with name
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
+```
 
-   Greet with name
-   ```bash
-   curl -k "$(kubectl get servicebinding greeting-service -o jsonpath='{.status.endpoints[0].public.uri}')/greet?name=Alice"
-   ```
-
+### Generated curl
+```bash
+curl http://greeting-service-development-e6b7ae06-development.openchoreoapis.localhost:9080/greeting-service-development-e6b7ae06/greeter/greet
+```
 ## Clean Up
 
 Stop the port forwarding and remove all resources:
 
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
-
 # Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```

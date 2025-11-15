@@ -41,7 +41,7 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: greeting-service-build-01
+  name: patient-management-service-build-01
 spec:
   # Ownership tracking for the workflow execution (optional)
   owner:

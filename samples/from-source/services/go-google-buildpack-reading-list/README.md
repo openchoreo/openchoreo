@@ -47,67 +47,64 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > The build will take around 8 minutes depending on the network speed.
 
-## Step 2: Port-forward the OpenChoreo Gateway
-
-Port forward the OpenChoreo gateway service to access the frontend locally:
-
-```bash
-kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
-```
-
 ## Step 3: Test the Application
 
-   Add a new book:
+First, get the service URL from the HTTPRoute:
 
-   ```bash
-   curl -k -X POST "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books" \
-   -H "Content-Type: application/json" \
-   -d '{
-   "id": "12",
-   "title": "The Catcher in the Rye",
-   "author": "J.D. Salinger",
-   "status": "reading"
-   }'
-   ```
+```bash
+# Get the hostname and path prefix from the HTTPRoute
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=reading-list-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=reading-list-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
+```
 
-   Retrieve the book by ID:
+### Add a new book
 
-   ```bash
-   curl -k "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12"
-   ```
+```bash
+curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books" \
+-H "Content-Type: application/json" \
+-d '{
+"id": "12",
+"title": "The Catcher in the Rye",
+"author": "J.D. Salinger",
+"status": "reading"
+}'
+```
 
-   Update a new book:
+### Retrieve the book by ID
 
-   ```bash
-   curl -k -X PUT "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12" \
-   -H "Content-Type: application/json" \
-   -d '{
-   "title": "The Catcher in the Rye",
-   "author": "J.D. Salinger",
-   "status": "read"
-   }'
-   ```
-   
-   Delete a book by ID:
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12"
+```
 
-   ```bash
-   curl -k -X DELETE "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books/12"
-   ```
+### Update a book
 
-   Delete all books:
+```bash
+curl -X PUT "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12" \
+-H "Content-Type: application/json" \
+-d '{
+"title": "The Catcher in the Rye",
+"author": "J.D. Salinger",
+"status": "read"
+}'
+```
 
-   ```bash
-   curl -k "$(kubectl get servicebinding reading-list-service -o jsonpath='{.status.endpoints[0].public.uri}')/books"
-   ```
+### Delete a book by ID
+
+```bash
+curl -X DELETE "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12"
+```
+
+### List all books
+
+```bash
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books"
+```
 
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
+Remove all resources:
 
 ```bash
-# Find and stop the specific port-forward process
-pkill -f "port-forward.*gateway-external.*8443:443"
-
 # Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-google-buildpack-reading-list/reading-list-service.yaml
 ```

@@ -44,7 +44,7 @@ spec:
   parameters:
     exposed: true
     replicas: 1
-    port: 9090
+    port: 8080
     resources:
       requests:
         cpu: "100m"
@@ -57,7 +57,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
   # Should be unique per execution
-  name: reading-list-service-build-02
+  name: reading-list-service-build-03
 spec:
   # Ownership tracking for the workflow execution (optional)
   owner:
