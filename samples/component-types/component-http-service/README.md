@@ -1,31 +1,33 @@
-# Web Application Component Sample
+# HTTP Service Component Sample
 
-This sample demonstrates how to deploy a web application component in OpenChoreo using the component types.
+This sample demonstrates how to deploy an HTTP service component in OpenChoreo with path-based routing.
 
 ## Overview
 
 This sample includes the following OpenChoreo Custom Resources:
 
-### ComponentType (`web-service`)
+### ComponentType (`http-service`)
 
-Defines a reusable component type template for web services. It:
+Defines a reusable component type template for HTTP services. It:
 
 - Specifies the workload type as `deployment`
 - Defines a schema with configurable parameters (replicas, port, resources)
 - Declares environment-specific overrides for resource limits
 - Templates the underlying Kubernetes resources (Deployment, Service, HTTPRoute)
+- Configures path-based routing with specific HTTP methods:
+  - `GET /{component-name}/{resource-paths}`
 - Uses CEL expressions to dynamically populate values from component metadata and parameters
 
-This allows you to create multiple web service components using the same template with different configurations.
+This allows you to create multiple HTTP service components using the same template with different configurations.
 
 ### Component (`demo-app`)
 
-Defines the actual web application component using the `web-service` type. It:
+Defines the actual HTTP service component using the `http-service` type. It:
 
-- References the `deployment/web-service` component type
+- References the `deployment/http-service` component type
 - Specifies configuration parameters:
   - 2 replicas
-  - Port 80
+  - Port 8080
   - CPU and memory resource requests/limits
 - Belongs to the `default` project
 
@@ -34,7 +36,7 @@ Defines the actual web application component using the `web-service` type. It:
 Specifies the container image and configuration for the component:
 
 - Links to the `demo-app` component
-- Defines the container image (`choreoanonymouspullable.azurecr.io/react-spa:v0.9`)
+- Defines the container image (`ghcr.io/openchoreo/samples/greeter-service:latest`)
 - Can specify multiple containers if needed
 
 ### ComponentDeployment (`demo-app-development`)
@@ -47,19 +49,19 @@ Represents a deployment instance of the component to a specific environment:
 
 ## How It Works
 
-1. **ComponentType** acts as a template/blueprint
+1. **ComponentType** acts as a template/blueprint with path-based routing rules
 2. **Component** uses that template and provides base configuration
-3. **Workload** specifies what container(s) to run
+3. **Workload** specifies what container(s) to run (echo server for testing)
 4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides
 
-The controller reads these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
+The OpenChoreo controller manager uses these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
 
-## Apply resources
+## Deploy the sample
 
 Apply the sample:
 
 ```bash
-kubectl apply -f webapp-component.yaml
+kubectl apply -f component-http-service.yaml
 ```
 
 ## Verify the Release is created
@@ -75,6 +77,9 @@ kubectl get release demo-app-development -n default -o yaml
 kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
 ```
 
-# Test the Web App by opening it via a web browser
+## Test the Service by invoking
 
-Open your web browser and go to `http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/`.
+```bash
+curl http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/demo-app-development-e040c964/greeter/greet
+Hello, Stranger!
+```
