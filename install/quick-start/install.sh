@@ -10,6 +10,7 @@ source "${SCRIPT_DIR}/.helpers.sh"
 # Parse command line arguments
 ENABLE_OBSERVABILITY=false
 SKIP_STATUS_CHECK=false
+SKIP_PRELOAD=false
 DEBUG=false
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-status-check)
             SKIP_STATUS_CHECK=true
+            shift
+            ;;
+        --skip-preload)
+            SKIP_PRELOAD=true
             shift
             ;;
         --debug)
@@ -39,6 +44,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --version VER             Specify version to install (default: latest)"
             echo "  --with-observability      Install with Observability Plane"
             echo "  --skip-status-check       Skip status check at the end"
+            echo "  --skip-preload            Skip image preloading from host Docker"
             echo "  --debug                   Enable debug mode"
             echo "  --help, -h                Show this help message"
             echo ""
@@ -46,6 +52,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0                               # Install with defaults"
             echo "  $0 --version v1.2.3              # Install specific version"
             echo "  $0 --with-observability          # Install with observability"
+            echo "  $0 --skip-preload                # Skip image preloading"
             echo "  $0 --debug --version latest-dev  # Debug with dev version"
             exit 0
             ;;
@@ -69,23 +76,28 @@ verify_prerequisites
 # Step 1: Create k3d cluster
 create_k3d_cluster
 
-# Step 2: Install OpenChoreo Control Plane
+# Step 2: Preload Docker images (unless skipped)
+if [[ "$SKIP_PRELOAD" != "true" ]]; then
+    preload_images
+fi
+
+# Step 3: Install OpenChoreo Control Plane
 install_control_plane
 
-# Step 3: Install OpenChoreo Data Plane
+# Step 4: Install OpenChoreo Data Plane
 install_data_plane
 
-# Step 4: Install OpenChoreo Observability Plane (optional)
+# Step 5: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 5: Check installation status
+# Step 6: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 6: Add default dataplane
+# Step 7: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-data-plane.sh"
 else

@@ -70,6 +70,7 @@ COPY --chown=openchoreo:openchoreo install/quick-start/deploy-react-starter.sh $
 COPY --chown=openchoreo:openchoreo install/quick-start/deploy-gcp-demo.sh ${USER_HOME}/deploy-gcp-demo.sh
 COPY --chown=openchoreo:openchoreo install/quick-start/.values-cp.yaml ${USER_HOME}/.values-cp.yaml
 COPY --chown=openchoreo:openchoreo install/quick-start/.values-dp.yaml ${USER_HOME}/.values-dp.yaml
+COPY --chown=openchoreo:openchoreo install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh
 COPY --chown=openchoreo:openchoreo install/add-data-plane.sh ${USER_HOME}/add-data-plane.sh
 COPY --chown=openchoreo:openchoreo install/add-build-plane.sh ${USER_HOME}/add-build-plane.sh
 COPY --chown=openchoreo:openchoreo samples/ ${USER_HOME}/samples

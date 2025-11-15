@@ -19,7 +19,7 @@ CP_VALUES=""
 DP_VALUES=""
 BP_VALUES=""
 OP_VALUES=""
-OPENCHOREO_VERSION="latest-dev"
+OPENCHOREO_CHART_VERSION=""
 PARALLEL_PULLS=4
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 USE_LOCAL_CHARTS=false
@@ -74,7 +74,8 @@ Optional:
   --dp-values FILE            Helm values file for Data Plane
   --bp-values FILE            Helm values file for Build Plane
   --op-values FILE            Helm values file for Observability Plane
-  --version VERSION           OpenChoreo version (default: latest-dev)
+  --version VERSION           Helm chart version for OCI registry (default: empty, pulls latest)
+                              Only used when --local-charts is NOT specified
   --parallel N                Number of parallel docker pulls (default: 4)
   --helm-repo URL             OCI Helm repository URL (default: oci://ghcr.io/openchoreo/helm-charts)
   --local-charts              Use local chart paths instead of OCI registry
@@ -89,8 +90,11 @@ Examples:
   # Local development with local charts
   $0 --cluster openchoreo-dev --local-charts --control-plane --data-plane
 
-  # Using OCI registry charts (default)
-  $0 --cluster openchoreo-prod --control-plane --data-plane --version v0.1.0
+  # Using OCI registry charts with specific version
+  $0 --cluster openchoreo-prod --control-plane --data-plane --version 0.1.0
+
+  # Using OCI registry charts (pulls latest)
+  $0 --cluster openchoreo-prod --control-plane --data-plane
 
   # Quick-start with local charts and custom values
   $0 --cluster openchoreo-quick-start --local-charts \\
@@ -148,7 +152,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --version)
-            OPENCHOREO_VERSION="$2"
+            OPENCHOREO_CHART_VERSION="$2"
             shift 2
             ;;
         --parallel)
@@ -252,8 +256,13 @@ resolve_chart_location() {
         return 0
     fi
 
-    # Default to OCI registry with version
-    echo "${HELM_REPO}/${chart_name} --version ${OPENCHOREO_VERSION}"
+    # Default to OCI registry
+    # Omit --version flag if empty to let Helm pull the latest version automatically
+    if [[ -z "$OPENCHOREO_CHART_VERSION" ]]; then
+        echo "${HELM_REPO}/${chart_name}"
+    else
+        echo "${HELM_REPO}/${chart_name} --version ${OPENCHOREO_CHART_VERSION}"
+    fi
 }
 
 # Extract images from Helm chart templates

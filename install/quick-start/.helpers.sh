@@ -251,153 +251,47 @@ verify_prerequisites() {
 
 
 # =================================================================
-# Docker image management functions
-# TODO: How to handle changing images and versions with helm upgrades?
+# Docker image preloading function
 # =================================================================
 
-# Get list of docker images used by OpenChoreo
-get_openchoreo_images() {
-    # Core images that are always needed
-    local images=(
-        # K3s base images (used by k3d cluster)
-        "docker.io/rancher/mirrored-coredns-coredns:1.12.3"
-        "docker.io/rancher/local-path-provisioner:v0.0.31"
-        "docker.io/rancher/mirrored-library-traefik:3.3.6"
-        "docker.io/rancher/klipper-helm:v0.9.8-build20250709"
-        "docker.io/rancher/mirrored-library-busybox:1.36.1"
-        "docker.io/rancher/klipper-lb:v0.4.13"
+# Preload images to k3d using the .preload-images.sh script
+preload_images() {
+    local preload_script="${SCRIPT_DIR}/.preload-images.sh"
 
-        # OpenChoreo vendor images
-        "docker.io/curlimages/curl:8.4.0"
-        "ghcr.io/asgardeo/thunder:0.11.0"
-        "quay.io/jetstack/cert-manager-cainjector:v1.16.2"
-        "quay.io/jetstack/cert-manager-controller:v1.16.2"
-        "quay.io/jetstack/cert-manager-startupapicheck:v1.16.2"
-        "quay.io/jetstack/cert-manager-webhook:v1.16.2"
-        "docker.io/envoyproxy/gateway:v1.5.4"
-        "bitnamilegacy/kubectl:1.33.4"
-        "docker.io/envoyproxy/envoy:distroless-v1.35.6"
+    if [[ ! -f "$preload_script" ]]; then
+        log_warning "Image preload script not found at $preload_script"
+        log_warning "Skipping image preloading - deployments may be slower"
+        return 0
+    fi
 
-        # OpenChoreo component images
-        "ghcr.io/openchoreo/controller:${OPENCHOREO_VERSION:-latest}"
-        "ghcr.io/openchoreo/openchoreo-api:${OPENCHOREO_VERSION:-latest}"
-        "ghcr.io/openchoreo/openchoreo-ui:${OPENCHOREO_VERSION:-latest}"
+    log_info "Preloading Docker images for faster deployments..."
+
+    # Build arguments for preload script
+    local preload_args=(
+        "--cluster" "$CLUSTER_NAME"
+        "--control-plane"
+        "--cp-values" "${SCRIPT_DIR}/.values-cp.yaml"
+        "--data-plane"
+        "--dp-values" "${SCRIPT_DIR}/.values-dp.yaml"
     )
-    
-    # Add observability images if enabled
+
+    # Add --version flag only if OPENCHOREO_CHART_VERSION is not empty
+    if [[ -n "$OPENCHOREO_CHART_VERSION" ]]; then
+        preload_args+=("--version" "$OPENCHOREO_CHART_VERSION")
+    fi
+
+    # Add observability plane if enabled
     if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
-        images+=(
-            "docker.io/opensearchproject/opensearch:2.18.0"
-            "docker.io/opensearchproject/opensearch-dashboards:2.18.0"
-            "ghcr.io/openchoreo/observer:${OPENCHOREO_VERSION}"
+        preload_args+=(
+            "--observability-plane"
         )
     fi
-    
-    echo "${images[@]}"
-}
 
-# Pull docker images in parallel
-pull_images() {
-    log_info "Pulling required docker images in parallel..."
-    
-    local images=($@)
-    local total=${#images[@]}
-    local pids=()
-    
-    # Function to pull a single image
-    pull_single_image() {
-        local image="$1"
-        local index="$2"
-        local total="$3"
-        
-        if docker pull "$image" >/dev/null 2>&1; then
-            log_success "[$index/$total] Pulled $image"
-            return 0
-        else
-            log_warning "[$index/$total] Failed to pull $image (may already exist locally)"
-            return 1
-        fi
-    }
-    
-    export -f pull_single_image
-    export -f log_success
-    export -f log_warning
-    export -f log_error
-    export -f log_info
-    export BLUE GREEN YELLOW RED RESET
-    
-    # Start pulling all images in parallel
-    for i in "${!images[@]}"; do
-        pull_single_image "${images[$i]}" "$((i + 1))" "$total" &
-        pids+=($!)
-    done
-    
-    # Wait for all pull operations to complete
-    local failed=0
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            failed=$((failed + 1))
-        fi
-    done
-    
-    if [[ $failed -gt 0 ]]; then
-        log_warning "Failed to pull $failed image(s)"
+    # Run the preload script
+    if run_command bash "$preload_script" "${preload_args[@]}"; then
+        log_success "Image preloading complete"
+    else
+        log_warning "Image preloading failed - continuing with installation"
+        log_warning "Deployments may be slower due to image pulls"
     fi
-    
-    log_success "Image pull complete"
-}
-
-# Load images into k3d cluster (sequential to avoid containerd race conditions)
-load_images_to_cluster() {
-    if ! cluster_exists; then
-        log_error "Cluster '$CLUSTER_NAME' does not exist. Cannot load images."
-        return 1
-    fi
-    
-    log_info "Loading images into k3d cluster..."
-    
-    local images=($@)
-    local total=${#images[@]}
-    local current=0
-    local failed=0
-    
-    for image in "${images[@]}"; do
-        current=$((current + 1))
-        log_info "[$current/$total] Loading $image into cluster..."
-        
-        local output
-        if output=$(run_command k3d image import "$image" -c "$CLUSTER_NAME" 2>&1); then
-            log_success "[$current/$total] Loaded $image"
-        else
-            # k3d sometimes returns non-zero even on success, check output
-            if echo "$output" | grep -q "ERROR\|error\|failed"; then
-                log_error "[$current/$total] Failed to load $image: $output"
-                failed=$((failed + 1))
-            else
-                log_success "[$current/$total] Loaded $image"
-            fi
-        fi
-    done
-    
-    if [[ $failed -gt 0 ]]; then
-        log_error "Failed to load $failed image(s) into cluster"
-        return 1
-    fi
-    
-    log_success "All images loaded into cluster"
-}
-
-# Pull and load all required images
-prepare_images() {
-    log_info "Preparing docker images for installation..."
-
-    local images=($(get_openchoreo_images))
-
-    # Pull images
-    pull_images "${images[@]}"
-
-    # Load images into cluster
-    load_images_to_cluster "${images[@]}"
-
-    log_success "Image preparation complete"
 }
