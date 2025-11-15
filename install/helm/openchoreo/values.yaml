@@ -602,6 +602,23 @@ openchoreoApi:
   # @schema
   # type: [null, object]
   # @schema
+  # -- URL configuration for the API server
+  urls:
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Base URL for the API server (used for OAuth metadata)
+    # -- Example: https://api.openchoreo.example.com
+    serverBaseUrl: ""
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- Base URL for authorization server
+    # -- Example: https://idp.openchoreo.example.com
+    authServerBaseUrl: ""
+  # @schema
+  # type: [null, object]
+  # @schema
   # -- JWT authentication configuration
   jwt:
     # @schema
