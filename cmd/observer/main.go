@@ -17,6 +17,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/mcp"
 	"github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -74,6 +75,9 @@ func main() {
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+
+	// MCP endpoint
+	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
 	// API routes - Traces
 	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
