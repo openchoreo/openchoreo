@@ -66,6 +66,10 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+  - releasebinding_editor_role.yaml
+  - releasebinding_viewer_role.yaml
+  - componentrelease_editor_role.yaml
+  - componentrelease_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
   - release_editor_role.yaml
