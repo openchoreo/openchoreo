@@ -81,6 +81,16 @@ type ReleaseBindingList struct {
 	Items           []ReleaseBinding `json:"items"`
 }
 
+// GetConditions returns the conditions from the status
+func (r *ReleaseBinding) GetConditions() []metav1.Condition {
+	return r.Status.Conditions
+}
+
+// SetConditions sets the conditions in the status
+func (r *ReleaseBinding) SetConditions(conditions []metav1.Condition) {
+	r.Status.Conditions = conditions
+}
+
 func init() {
 	SchemeBuilder.Register(&ReleaseBinding{}, &ReleaseBindingList{})
 }

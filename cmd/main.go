@@ -317,8 +317,9 @@ func main() {
 
 	// ReleaseBinding controller
 	if err = (&releasebinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
 		os.Exit(1)

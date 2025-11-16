@@ -64,8 +64,8 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.Overrides != nil {
-		envOverrides, err := extractParameters(input.ComponentDeployment.Spec.Overrides)
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+		envOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
 		}
@@ -86,8 +86,8 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	if input.Workload != nil {
 		configurations := extractConfigurationsFromWorkload(input.SecretReferences, input.Workload)
 
-		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ConfigurationOverrides != nil {
+			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ReleaseBinding.Spec.ConfigurationOverrides)
 		}
 
 		if configurations != nil {

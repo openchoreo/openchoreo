@@ -80,7 +80,12 @@ type ComponentContextInput struct {
 
 	// ComponentDeployment contains environment-specific overrides.
 	// Can be nil if no overrides are needed.
+	// Deprecated: this field will be removed in a future release. Use ReleaseBinding instead.
 	ComponentDeployment *v1alpha1.ComponentDeployment
+
+	// ReleaseBinding contains release reference and environment-specific overrides.
+	// Can be nil if no overrides are needed.
+	ReleaseBinding *v1alpha1.ReleaseBinding
 
 	// Workload contains the workload specification with the built image.
 	Workload *v1alpha1.Workload
@@ -115,7 +120,12 @@ type TraitContextInput struct {
 
 	// ComponentDeployment contains environment-specific trait overrides.
 	// Can be nil if no overrides are needed.
+	// Deprecated: this field will be removed in a future release. Use ReleaseBinding instead.
 	ComponentDeployment *v1alpha1.ComponentDeployment
+
+	// ReleaseBinding contains release reference and environment-specific overrides.
+	// Can be nil if no overrides are needed.
+	ReleaseBinding *v1alpha1.ReleaseBinding
 
 	// Environment is the name of the environment being rendered for.
 	Environment EnvironmentContext
