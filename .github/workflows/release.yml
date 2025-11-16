@@ -59,9 +59,11 @@ jobs:
         run: |
           make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=${{ env.RELEASE_TAG }}
 
-          if [ "${{ env.LATEST }}" == "true" ]; then
-              make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
-          fi
+          # TODO: Disable latest tagging for v0.4.0
+          # TODO: Move latest tagging to a separate workflow to have more manual control
+          # if [ "${{ env.LATEST }}" == "true" ]; then
+          #     make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
+          # fi
 
       - name: Download choreoctl artifact from the build workflow
         uses: dawidd6/action-download-artifact@v9
