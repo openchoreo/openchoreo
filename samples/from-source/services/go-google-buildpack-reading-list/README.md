@@ -47,7 +47,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > The build will take around 8 minutes depending on the network speed.
 
-## Step 3: Test the Application
+## Step 2: Test the Application
 
 First, get the service URL from the HTTPRoute:
 

@@ -46,6 +46,11 @@ curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet"
 curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
+### Generated URL
+```bash
+curl http://development.openchoreoapis.localhost:9080/greeter-service/greeter/greet
+```
+
 ## Troubleshooting Service Access Issues
 
 If you cannot access the service:

@@ -139,13 +139,12 @@ spec:
             - name: gateway-external
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.name}-${environment.name}.${environment.vhost}
+            - ${environment.name}.${environment.vhost}
           rules:
           - matches:
             - path:
                 type: PathPrefix
-                value: /${metadata.name}
-              method: GET
+                value: /${metadata.componentName}
             filters:
               - type: URLRewrite
                 urlRewrite:

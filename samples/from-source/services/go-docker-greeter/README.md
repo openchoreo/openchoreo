@@ -49,7 +49,7 @@ curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
 
 ### Generated curl
 ```bash
-curl http://greeting-service-development-e6b7ae06-development.openchoreoapis.localhost:9080/greeting-service-development-e6b7ae06/greeter/greet
+curl http://development.openchoreoapis.localhost:9080/greeting-service/greeter/greet
 ```
 ## Clean Up
 
