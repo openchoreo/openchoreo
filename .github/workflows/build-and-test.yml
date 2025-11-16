@@ -156,7 +156,7 @@ jobs:
         run: make docker.setup-multiarch
 
       - name: Set commit SHA
-        run: echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        run: echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
       - name: ${{ github.event_name == 'push' && 'Build and push' || 'Build' }} multiarch commit images
         run: |

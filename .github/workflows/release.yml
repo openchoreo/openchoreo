@@ -23,7 +23,7 @@ jobs:
 
       - name: Set commit SHA and release tag
         run: |
-          echo "GIT_SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
           echo "GIT_SHA_LONG=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "RELEASE_TAG=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
           echo "RELEASE_TAG_WITHOUT_V=$(echo ${GITHUB_REF##*/v})" >> $GITHUB_ENV

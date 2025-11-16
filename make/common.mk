@@ -11,7 +11,7 @@ PROJECT_BIN_DIR := $(PROJECT_DIR)/bin
 RELEASE_VERSION ?= $(shell cat VERSION)
 
 # Store the short git sha of latest commit to be used in the make targets
-GIT_REV := $(shell git rev-parse --short HEAD)
+GIT_REV := $(shell git rev-parse --short=8 HEAD)
 
 # Helper functions for logging
 define log_info
