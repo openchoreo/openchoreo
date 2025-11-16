@@ -57,18 +57,10 @@ jobs:
 
       - name: Retag and push existing images
         run: |
-          docker buildx imagetools create -t ghcr.io/openchoreo/controller:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/controller:${{ env.GIT_SHA_SHORT }}
-          docker buildx imagetools create -t ghcr.io/openchoreo/quick-start:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/quick-start:${{ env.GIT_SHA_SHORT }}
-          docker buildx imagetools create -t ghcr.io/openchoreo/openchoreo-api:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/openchoreo-api:${{ env.GIT_SHA_SHORT }}
-          docker buildx imagetools create -t ghcr.io/openchoreo/observer:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/observer:${{ env.GIT_SHA_SHORT }}
-          docker buildx imagetools create -t ghcr.io/openchoreo/openchoreo-cli:${{ env.RELEASE_TAG }} ghcr.io/openchoreo/openchoreo-cli:${{ env.GIT_SHA_SHORT }}
-          
+          make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=${{ env.RELEASE_TAG }}
+
           if [ "${{ env.LATEST }}" == "true" ]; then
-              docker buildx imagetools create -t ghcr.io/openchoreo/controller:latest ghcr.io/openchoreo/controller:${{ env.RELEASE_TAG }}
-              docker buildx imagetools create -t ghcr.io/openchoreo/quick-start:latest ghcr.io/openchoreo/quick-start:${{ env.RELEASE_TAG }}
-              docker buildx imagetools create -t ghcr.io/openchoreo/openchoreo-api:latest ghcr.io/openchoreo/openchoreo-api:${{ env.RELEASE_TAG }}
-              docker buildx imagetools create -t ghcr.io/openchoreo/observer:latest ghcr.io/openchoreo/observer:${{ env.RELEASE_TAG }}
-              docker buildx imagetools create -t ghcr.io/openchoreo/openchoreo-cli:latest ghcr.io/openchoreo/openchoreo-cli:${{ env.RELEASE_TAG }}
+              make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
           fi
 
       - name: Download choreoctl artifact from the build workflow

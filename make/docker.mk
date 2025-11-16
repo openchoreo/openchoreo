@@ -132,6 +132,28 @@ docker.push-multiarch.%: ## Push a docker image for multiple platforms. Ex: make
 .PHONY: docker.push-multiarch
 docker.push-multiarch: $(addprefix docker.push-multiarch., $(DOCKER_BUILD_IMAGE_NAMES)) ## Push all docker images for the multiple platforms.
 
+# Retag existing images in the registry from SOURCE_TAG to NEW_TAG
+# This is useful for promoting images from commit SHA tags to release tags
+# Usage: make docker.retag-registry SOURCE_TAG=abc123 NEW_TAG=v1.0.0
+.PHONY: docker.retag-registry
+docker.retag-registry: ## Retag existing registry images from SOURCE_TAG to NEW_TAG. Usage: make docker.retag-registry SOURCE_TAG=abc123 NEW_TAG=v1.0.0
+	@if [ -z "$(SOURCE_TAG)" ]; then \
+		$(call log_error, SOURCE_TAG is required. Usage: make docker.retag-registry SOURCE_TAG=abc123 NEW_TAG=v1.0.0); \
+		exit 1; \
+	fi
+	@if [ -z "$(NEW_TAG)" ]; then \
+		$(call log_error, NEW_TAG is required. Usage: make docker.retag-registry SOURCE_TAG=abc123 NEW_TAG=v1.0.0); \
+		exit 1; \
+	fi
+	@$(call log_info, Retagging images from $(SOURCE_TAG) to $(NEW_TAG))
+	@$(foreach image,$(DOCKER_BUILD_IMAGE_NAMES), \
+		echo "Retagging $(IMAGE_REPO_PREFIX)/$(image):$(SOURCE_TAG) -> $(IMAGE_REPO_PREFIX)/$(image):$(NEW_TAG)" && \
+		$(DOCKER) buildx imagetools create \
+			-t $(IMAGE_REPO_PREFIX)/$(image):$(NEW_TAG) \
+			$(IMAGE_REPO_PREFIX)/$(image):$(SOURCE_TAG) || exit 1; \
+	)
+	@$(call log_info, Successfully retagged all images)
+
 # Quick-start dev mode - builds images from HEAD and runs quick-start with local helm charts
 QUICK_START_DEV_IMAGES := controller openchoreo-api observer
 QUICK_START_CONTAINER_NAME := openchoreo-quick-start-dev
