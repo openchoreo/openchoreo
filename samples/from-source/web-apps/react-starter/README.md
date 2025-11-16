@@ -23,7 +23,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 Once the application is deployed and the port-forward is active, you can access the React application at:
 
 ```
-http://react-starter-development-c37e66d8-development.openchoreoapis.localhost:9080
+http://react-starter-development.openchoreoapis.localhost:9080
 ```
 
 ## Troubleshooting Access Issues

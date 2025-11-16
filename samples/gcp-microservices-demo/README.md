@@ -56,7 +56,7 @@ This will create the project and deploy all the microservices using official Goo
 Access the frontend application in your browser:
 
 ```
-http://frontend-development-def9a783-development.openchoreoapis.localhost:9080
+http://frontend-development.openchoreoapis.localhost:9080
 ```
 
 > [!TIP]
@@ -69,7 +69,7 @@ http://frontend-development-def9a783-development.openchoreoapis.localhost:9080
 
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
+Remove all resources:
 
 ```bash
 # Remove all resources
