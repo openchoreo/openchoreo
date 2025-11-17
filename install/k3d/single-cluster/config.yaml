@@ -4,7 +4,7 @@ metadata:
   name: openchoreo
 image: rancher/k3s:v1.32.9-k3s1
 servers: 1
-agents: 2
+agents: 0
 kubeAPI:
   hostPort: "6550"
 # Single cluster mode exposes all plane port ranges for consistency with multi-cluster setup
@@ -56,6 +56,13 @@ options:
       # This allows consistent DataPlane configuration across single and multi-cluster setups
       # where Control Plane pods can access the API server via host.k3d.internal:6550
       - arg: "--tls-san=host.k3d.internal"
+        nodeFilters:
+          - server:*
+      # Configure kubelet eviction thresholds to prevent resource exhaustion
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
         nodeFilters:
           - server:*
 # Configure insecure registries for HTTP access

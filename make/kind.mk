@@ -14,7 +14,6 @@ CILIUM_ENVOY_VERSION := v1.34.4-1754895458-68cffdfa568b6b226d70a7ef81fc65dda3b89
 # Paths
 DEV_SCRIPTS_DIR := $(PROJECT_DIR)/install/dev
 KIND_SCRIPT := $(DEV_SCRIPTS_DIR)/kind.sh
-HELM_DIR := $(PROJECT_DIR)/install/helm/openchoreo
 
 # Image names
 IMAGE_REPO_PREFIX ?= ghcr.io/openchoreo
@@ -193,17 +192,13 @@ kind.install.%: ## Install specific component. Valid components: cilium, opencho
 				$(call log_error, Cilium is not installed. Run 'make kind.install.cilium' first); \
 				exit 1; \
 			fi; \
-			$(call log_info, Installing OpenChoreo to cluster...); \
-			helm upgrade --install openchoreo $(HELM_DIR) \
-				--namespace $(OPENCHOREO_NAMESPACE) \
-				--values $(DEV_SCRIPTS_DIR)/openchoreo-values.yaml \
-				--set controllerManager.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-				--set openchoreoApi.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-				--set backstage.image.tag=$(OPENCHOREO_IMAGE_TAG) \
-				--create-namespace \
-				--wait \
-				--timeout=10m; \
-			$(call log_success, OpenChoreo installed successfully!); \
+			$(call log_info, OpenChoreo helm chart has been removed.); \
+			$(call log_info, To install OpenChoreo components, use individual plane charts:); \
+			$(call log_info,  - helm install openchoreo-control-plane install/helm/openchoreo-control-plane); \
+			$(call log_info,  - helm install openchoreo-data-plane install/helm/openchoreo-data-plane); \
+			$(call log_info,  - helm install openchoreo-build-plane install/helm/openchoreo-build-plane); \
+			$(call log_info,  - helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane); \
+			$(call log_success, OpenChoreo installation guidance provided!); \
 			;; \
 		*) \
 			$(call log_error, Invalid component '$*'. Available components: cilium, openchoreo); \
@@ -223,9 +218,13 @@ kind.install: ## Install Cilium CNI and OpenChoreo to kind cluster
 kind.uninstall.%: ## Uninstall specific component. Valid components: cilium, openchoreo. Usage: make kind.uninstall.<component>
 	@case "$*" in \
 		openchoreo) \
-			$(call log_info, Uninstalling OpenChoreo...); \
-			helm uninstall openchoreo --namespace $(OPENCHOREO_NAMESPACE) || true; \
-			$(call log_success, OpenChoreo uninstalled!); \
+			$(call log_info, OpenChoreo helm chart has been removed.); \
+			$(call log_info, To uninstall OpenChoreo components, use:); \
+			$(call log_info,  - helm uninstall openchoreo-control-plane --namespace $(OPENCHOREO_NAMESPACE)); \
+			$(call log_info,  - helm uninstall openchoreo-data-plane --namespace $(OPENCHOREO_NAMESPACE)); \
+			$(call log_info,  - helm uninstall openchoreo-build-plane --namespace $(OPENCHOREO_NAMESPACE)); \
+			$(call log_info,  - helm uninstall openchoreo-observability-plane --namespace $(OPENCHOREO_NAMESPACE)); \
+			$(call log_success, OpenChoreo uninstallation guidance provided!); \
 			;; \
 		cilium) \
 			$(call log_info, Uninstalling Cilium...); \

@@ -84,7 +84,7 @@ All resources will have:
 
 ```bash
 # Ensure OpenChoreo CRDs are installed
-kubectl apply -f install/helm/openchoreo/crds/
+kubectl apply -f install/helm/openchoreo-control-plane/crds/
 
 # Ensure OpenChoreo controller is running
 make run
