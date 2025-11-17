@@ -17,7 +17,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -238,13 +237,6 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.createOrUpdateSnapshot(ctx, comp, ct, workload, traits, firstEnv); err != nil {
-		msg := fmt.Sprintf("Failed to create/update ComponentEnvSnapshot: %v", err)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonSnapshotCreationFailed, msg)
-		logger.Error(err, "Failed to create/update ComponentEnvSnapshot")
-		return ctrl.Result{}, err
-	}
-
 	// Handle autoDeploy if enabled
 	if comp.Spec.AutoDeploy {
 		if err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, firstEnv); err != nil {
@@ -303,71 +295,6 @@ func (r *Reconciler) fetchTraits(ctx context.Context, traitRefs []openchoreov1al
 	return traits, nil
 }
 
-// createOrUpdateSnapshot creates or updates a ComponentEnvSnapshot with embedded copies
-func (r *Reconciler) createOrUpdateSnapshot(
-	ctx context.Context,
-	comp *openchoreov1alpha1.Component,
-	ct *openchoreov1alpha1.ComponentType,
-	workload *openchoreov1alpha1.Workload,
-	traits []openchoreov1alpha1.Trait,
-	environment string,
-) error {
-	logger := log.FromContext(ctx)
-
-	snapshotName := fmt.Sprintf("%s-%s", comp.Name, environment)
-	snapshot := &openchoreov1alpha1.ComponentEnvSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      snapshotName,
-			Namespace: comp.Namespace,
-		},
-	}
-
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, snapshot, func() error {
-		if r.Scheme == nil {
-			return fmt.Errorf("reconciler scheme is nil")
-		}
-
-		snapshot.Spec.Owner = openchoreov1alpha1.ComponentEnvSnapshotOwner{
-			ProjectName:   comp.Spec.Owner.ProjectName,
-			ComponentName: comp.Name,
-		}
-		snapshot.Spec.Environment = environment
-		sanitizedCT := sanitizeComponentType(ct)
-		sanitizedComponent := sanitizeComponent(comp)
-		sanitizedWorkload := sanitizeWorkload(workload)
-		sanitizedTraits := sanitizeTraits(traits)
-
-		if sanitizedCT != nil {
-			snapshot.Spec.ComponentType = *sanitizedCT
-		}
-		if sanitizedComponent != nil {
-			snapshot.Spec.Component = *sanitizedComponent
-		}
-		if len(sanitizedTraits) > 0 {
-			snapshot.Spec.Traits = sanitizedTraits
-		} else {
-			snapshot.Spec.Traits = nil
-		}
-		if sanitizedWorkload != nil {
-			snapshot.Spec.Workload = *sanitizedWorkload
-		}
-
-		return controllerutil.SetControllerReference(comp, snapshot, r.Scheme)
-	})
-	if err != nil {
-		return err
-	}
-
-	if op != controllerutil.OperationResultNone {
-		logger.Info("Reconciled ComponentEnvSnapshot",
-			"snapshot", snapshotName,
-			"component", comp.Name,
-			"environment", environment,
-			"operation", op)
-	}
-	return nil
-}
-
 // findRootEnvironment finds the root environment in a deployment pipeline.
 // The root environment is the source environment that never appears as a target,
 // representing the initial environment where components are first deployed.
@@ -402,79 +329,6 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 	}
 
 	return rootEnv, nil
-}
-
-func sanitizeComponentType(ct *openchoreov1alpha1.ComponentType) *openchoreov1alpha1.ComponentType {
-	if ct == nil {
-		return nil
-	}
-	copy := ct.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentTypeStatus{}
-	return copy
-}
-
-func sanitizeComponent(comp *openchoreov1alpha1.Component) *openchoreov1alpha1.Component {
-	if comp == nil {
-		return nil
-	}
-	copy := comp.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentStatus{}
-	return copy
-}
-
-func sanitizeWorkload(workload *openchoreov1alpha1.Workload) *openchoreov1alpha1.Workload {
-	if workload == nil {
-		return nil
-	}
-	copy := workload.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.WorkloadStatus{}
-	return copy
-}
-
-func sanitizeTraits(traits []openchoreov1alpha1.Trait) []openchoreov1alpha1.Trait {
-	if len(traits) == 0 {
-		return nil
-	}
-	sanitized := make([]openchoreov1alpha1.Trait, 0, len(traits))
-	for i := range traits {
-		copy := traits[i].DeepCopy()
-		sanitizeObjectMeta(&copy.ObjectMeta)
-		copy.Status = openchoreov1alpha1.TraitStatus{}
-		sanitized = append(sanitized, *copy)
-	}
-	return sanitized
-}
-
-func sanitizeObjectMeta(meta *metav1.ObjectMeta) {
-	if meta == nil {
-		return
-	}
-
-	// Preserve identity fields that are required for templating.
-	name := meta.Name
-	namespace := meta.Namespace
-	labels := meta.Labels
-	generateName := meta.GenerateName
-
-	// Filter out kubectl-specific annotations
-	filteredAnnotations := make(map[string]string)
-	for k, v := range meta.Annotations {
-		// Skip kubectl.kubernetes.io/* annotations
-		if !strings.HasPrefix(k, "kubectl.kubernetes.io/") {
-			filteredAnnotations[k] = v
-		}
-	}
-
-	*meta = metav1.ObjectMeta{
-		Name:         name,
-		Namespace:    namespace,
-		Labels:       labels,
-		Annotations:  filteredAnnotations,
-		GenerateName: generateName,
-	}
 }
 
 // handleAutoDeploy handles automatic deployment when autoDeploy is enabled.
@@ -753,7 +607,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// - Watches(&openchoreov1alpha1.DeploymentPipeline{}, handler.EnqueueRequestsFromMapFunc(...))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
-		Owns(&openchoreov1alpha1.ComponentEnvSnapshot{}).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},
