@@ -493,10 +493,13 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
 
-	// Evaluate resource readiness from Release status
-	if err := r.setResourcesReadyStatus(ctx, releaseBinding, release); err != nil {
+	// Evaluate resource readiness from Release status (with component for workload type)
+	if err := r.setResourcesReadyStatus(ctx, releaseBinding, release, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
+
+	// Set overall Ready condition based on ReleaseSynced and ResourcesReady
+	r.setReadyCondition(releaseBinding)
 
 	return ctrl.Result{}, nil
 }

@@ -15,8 +15,12 @@ const (
 	ConditionReleaseSynced controller.ConditionType = "ReleaseSynced"
 
 	// ConditionResourcesReady indicates that all resources in the Release are ready
-	// This mirrors the ResourcesReady condition from the Release status
+	// based on workload-type specific evaluation
 	ConditionResourcesReady controller.ConditionType = "ResourcesReady"
+
+	// ConditionReady indicates the overall readiness of the ReleaseBinding
+	// This is the top-level condition that aggregates ReleaseSynced and ResourcesReady
+	ConditionReady controller.ConditionType = "Ready"
 )
 
 // Constants for condition reasons
@@ -66,4 +70,31 @@ const (
 	ReasonResourcesNotReady controller.ConditionReason = "ResourcesNotReady"
 	// ReasonResourcesProgressing indicates resources are being created/updated
 	ReasonResourcesProgressing controller.ConditionReason = "ResourcesProgressing"
+	// ReasonResourcesDegraded indicates one or more resources are degraded
+	ReasonResourcesDegraded controller.ConditionReason = "ResourcesDegraded"
+	// ReasonResourcesUnknown indicates resource status is unknown
+	ReasonResourcesUnknown controller.ConditionReason = "ResourcesUnknown"
+
+	// Ready condition reasons
+
+	// ReasonReady indicates the ReleaseBinding is fully ready
+	ReasonReady controller.ConditionReason = "Ready"
+	// ReasonReadyWithSuspendedResources indicates ready with suspended workload (scaled to 0)
+	ReasonReadyWithSuspendedResources controller.ConditionReason = "ReadyWithSuspendedResources"
+
+	// Job-specific reasons
+
+	// ReasonJobCompleted indicates Job completed successfully
+	ReasonJobCompleted controller.ConditionReason = "JobCompleted"
+	// ReasonJobRunning indicates Job is running
+	ReasonJobRunning controller.ConditionReason = "JobRunning"
+	// ReasonJobFailed indicates Job failed
+	ReasonJobFailed controller.ConditionReason = "JobFailed"
+
+	// CronJob-specific reasons
+
+	// ReasonCronJobScheduled indicates CronJob is scheduled and ready
+	ReasonCronJobScheduled controller.ConditionReason = "CronJobScheduled"
+	// ReasonCronJobSuspended indicates CronJob is suspended
+	ReasonCronJobSuspended controller.ConditionReason = "CronJobSuspended"
 )
