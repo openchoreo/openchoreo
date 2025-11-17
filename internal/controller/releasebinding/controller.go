@@ -276,79 +276,64 @@ func (r *Reconciler) buildMetadataContext(
 	}
 }
 
-// collectSecretReferences collects all SecretReferences needed for rendering.
-func (r *Reconciler) collectSecretReferences(ctx context.Context, componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) (map[string]*openchoreov1alpha1.SecretReference, error) {
+// collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
+func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ReleaseBinding) (map[string]*openchoreov1alpha1.SecretReference, error) {
 	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
 
-	// Collect from workload containers
-	for _, container := range componentRelease.Spec.Workload.Containers {
-		// Collect from env configurations
-		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-				refName := env.ValueFrom.SecretRef.Name
-				if _, exists := secretRefs[refName]; !exists {
-					secretRef := &openchoreov1alpha1.SecretReference{}
-					if err := r.Get(ctx, client.ObjectKey{
-						Name:      refName,
-						Namespace: componentRelease.Namespace,
-					}, secretRef); err != nil {
-						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+	// Helper function to collect secret reference
+	collectSecretRef := func(refName string, namespace string) error {
+		if refName == "" {
+			return nil
+		}
+		if _, exists := secretRefs[refName]; !exists {
+			secretRef := &openchoreov1alpha1.SecretReference{}
+			if err := r.Get(ctx, client.ObjectKey{
+				Name:      refName,
+				Namespace: namespace,
+			}, secretRef); err != nil {
+				return fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+			}
+			secretRefs[refName] = secretRef
+		}
+		return nil
+	}
+
+	if workload != nil {
+		for _, container := range workload.Spec.Containers {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					if err := collectSecretRef(env.ValueFrom.SecretRef.Name, workload.Namespace); err != nil {
+						return nil, err
 					}
-					secretRefs[refName] = secretRef
 				}
 			}
-		}
 
-		// Collect from file configurations
-		for _, file := range container.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-				refName := file.ValueFrom.SecretRef.Name
-				if _, exists := secretRefs[refName]; !exists {
-					secretRef := &openchoreov1alpha1.SecretReference{}
-					if err := r.Get(ctx, client.ObjectKey{
-						Name:      refName,
-						Namespace: componentRelease.Namespace,
-					}, secretRef); err != nil {
-						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+			for _, file := range container.Files {
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					if err := collectSecretRef(file.ValueFrom.SecretRef.Name, workload.Namespace); err != nil {
+						return nil, err
 					}
-					secretRefs[refName] = secretRef
 				}
 			}
 		}
 	}
 
-	// Collect from ReleaseBinding configuration overrides
-	if releaseBinding.Spec.ConfigurationOverrides != nil {
-		// Collect from env overrides
-		for _, env := range releaseBinding.Spec.ConfigurationOverrides.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-				refName := env.ValueFrom.SecretRef.Name
-				if _, exists := secretRefs[refName]; !exists {
-					secretRef := &openchoreov1alpha1.SecretReference{}
-					if err := r.Get(ctx, client.ObjectKey{
-						Name:      refName,
-						Namespace: componentRelease.Namespace,
-					}, secretRef); err != nil {
-						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+	// Collect from releaseBinding workload overrides if present
+	if releaseBinding.Spec.WorkloadOverrides != nil {
+		for _, container := range releaseBinding.Spec.WorkloadOverrides.Containers {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					if err := collectSecretRef(env.ValueFrom.SecretRef.Name, releaseBinding.Namespace); err != nil {
+						return nil, err
 					}
-					secretRefs[refName] = secretRef
 				}
 			}
-		}
 
-		// Collect from file overrides
-		for _, file := range releaseBinding.Spec.ConfigurationOverrides.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-				refName := file.ValueFrom.SecretRef.Name
-				if _, exists := secretRefs[refName]; !exists {
-					secretRef := &openchoreov1alpha1.SecretReference{}
-					if err := r.Get(ctx, client.ObjectKey{
-						Name:      refName,
-						Namespace: componentRelease.Namespace,
-					}, secretRef); err != nil {
-						return nil, fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+			for _, file := range container.Files {
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					if err := collectSecretRef(file.ValueFrom.SecretRef.Name, releaseBinding.Namespace); err != nil {
+						return nil, err
 					}
-					secretRefs[refName] = secretRef
 				}
 			}
 		}
@@ -366,8 +351,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
 
-	// Collect all SecretReferences needed for rendering
-	secretReferences, err := r.collectSecretReferences(ctx, componentRelease, releaseBinding)
+	// Build Component from ComponentRelease for rendering
+	// The pipeline expects a Component object, so we need to reconstruct it from the ComponentRelease
+	snapshotComponent := buildComponentFromRelease(componentRelease)
+	snapshotComponentType := buildComponentTypeFromRelease(componentRelease)
+	snapshotTraits := buildTraitsFromRelease(componentRelease)
+	snapshotWorkload := buildWorkloadFromRelease(componentRelease)
+
+	// Collect all SecretReferences needed for rendering (must be done after workload merge)
+	secretReferences, err := r.collectSecretReferences(ctx, snapshotWorkload, releaseBinding)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to collect SecretReferences: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
@@ -375,13 +367,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		logger.Error(err, "Failed to collect SecretReferences")
 		return ctrl.Result{}, fmt.Errorf("failed to collect SecretReferences: %w", err)
 	}
-
-	// Build Component from ComponentRelease for rendering
-	// The pipeline expects a Component object, so we need to reconstruct it from the ComponentRelease
-	snapshotComponent := buildComponentFromRelease(componentRelease)
-	snapshotComponentType := buildComponentTypeFromRelease(componentRelease)
-	snapshotTraits := buildTraitsFromRelease(componentRelease)
-	snapshotWorkload := buildWorkloadFromRelease(componentRelease)
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{

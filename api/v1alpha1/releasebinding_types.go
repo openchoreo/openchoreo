@@ -34,10 +34,11 @@ type ReleaseBindingSpec struct {
 	// +optional
 	TraitOverrides map[string]runtime.RawExtension `json:"traitOverrides,omitempty"`
 
-	// ConfigurationOverrides provides environment-specific overrides for workload configurations
-	// These values override or add to the configurations defined in the workload.yaml
+	// WorkloadOverrides provides environment-specific overrides for the entire workload spec
+	// These values override the workload specification for this specific environment
 	// +optional
-	ConfigurationOverrides *EnvConfigurationOverrides `json:"configurationOverrides,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	WorkloadOverrides *WorkloadTemplateSpec `json:"workloadOverrides,omitempty"`
 }
 
 // ReleaseBindingOwner identifies the component this ReleaseBinding belongs to

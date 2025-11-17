@@ -4632,9 +4632,9 @@ func (in *ReleaseBindingSpec) DeepCopyInto(out *ReleaseBindingSpec) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
-	if in.ConfigurationOverrides != nil {
-		in, out := &in.ConfigurationOverrides, &out.ConfigurationOverrides
-		*out = new(EnvConfigurationOverrides)
+	if in.WorkloadOverrides != nil {
+		in, out := &in.WorkloadOverrides, &out.WorkloadOverrides
+		*out = new(WorkloadTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
 }
