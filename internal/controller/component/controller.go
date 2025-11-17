@@ -184,10 +184,6 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	// Get the Project to find the DeploymentPipeline reference
-	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
-	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
-	// the root environment might change, requiring the snapshot to be regenerated.
-	// Currently, Components won't be re-reconciled when this happens.
 	project := &openchoreov1alpha1.Project{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      comp.Spec.Owner.ProjectName,
@@ -248,11 +244,25 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	// Success - mark as ready
-	msg := fmt.Sprintf("ComponentEnvSnapshot successfully created/updated for environment %q", firstEnv)
-	controller.MarkTrueCondition(comp, ConditionReady, ReasonSnapshotReady, msg)
-	logger.Info("Successfully reconciled Component with ComponentType",
-		"component", comp.Name,
-		"environment", firstEnv)
+	if comp.Spec.AutoDeploy {
+		// AutoDeploy enabled - ComponentRelease and ReleaseBinding were handled
+		releaseName := comp.Status.LatestRelease.Name
+		bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
+		msg := fmt.Sprintf("ComponentRelease %q and ReleaseBinding %q successfully managed for environment %q",
+			releaseName, bindingName, firstEnv)
+		controller.MarkTrueCondition(comp, ConditionReady, ReasonComponentReleaseReady, msg)
+		logger.Info("Successfully reconciled Component with autoDeploy enabled",
+			"component", comp.Name,
+			"release", releaseName,
+			"binding", bindingName,
+			"environment", firstEnv)
+	} else {
+		// AutoDeploy disabled - only validation was performed
+		msg := "Component validated successfully"
+		controller.MarkTrueCondition(comp, ConditionReady, ReasonReconciled, msg)
+		logger.Info("Successfully reconciled Component with autoDeploy disabled",
+			"component", comp.Name)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -401,6 +411,10 @@ func (r *Reconciler) handleAutoDeploy(
 
 	// Handle creates ReleaseBinding for the first environment if it doesn't exist yet'
 	// ToDO: consider moving this logic to ensureComponentRelease()
+	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
+	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
+	// the root environment might change, requiring the ReleaseBinding to be updated..
+	// Currently, Components won't be re-reconciled when this happens.
 	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
 	binding := &openchoreov1alpha1.ReleaseBinding{}
 
