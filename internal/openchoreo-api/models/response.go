@@ -53,7 +53,7 @@ type ComponentResponse struct {
 	ScheduledTask  *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
 	API            *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
 	Workload       *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
-	BuildConfig    *BuildConfig                           `json:"buildConfig,omitempty"`
+	Workflow       *Workflow                              `json:"workflow,omitempty"`
 }
 
 type BindingResponse struct {

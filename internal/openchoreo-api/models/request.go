@@ -5,6 +5,7 @@ package models
 
 import (
 	"errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 )
 
@@ -23,21 +24,18 @@ type TemplateParameter struct {
 	Value string `json:"value"`
 }
 
-type BuildConfig struct {
-	RepoURL          string              `json:"repoUrl"`
-	Branch           string              `json:"repoBranch"`
-	ComponentPath    string              `json:"componentPath"`
-	BuildTemplateRef string              `json:"buildTemplateRef"`
-	TemplateParams   []TemplateParameter `json:"buildTemplateParams,omitempty"`
+type Workflow struct {
+	Name   string                `json:"name"`
+	Schema *runtime.RawExtension `json:"schema,omitempty"`
 }
 
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name        string      `json:"name"`
-	DisplayName string      `json:"displayName,omitempty"`
-	Description string      `json:"description,omitempty"`
-	Type        string      `json:"type"`
-	BuildConfig BuildConfig `json:"buildConfig,omitempty"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Type        string    `json:"type"`
+	Workflow    *Workflow `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
