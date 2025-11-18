@@ -242,10 +242,12 @@ install_cilium() {
 
 # Install OpenChoreo Data Plane
 install_data_plane() {
+    local enable_observability="${1:-false}"
     log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "false" "1800" \
         "--set" "cert-manager.enabled=false" \
-        "--set" "cert-manager.crds.enabled=false"
+        "--set" "cert-manager.crds.enabled=false" \
+        "--set" "observability.enabled=${enable_observability}"
 }
 
 # Install OpenChoreo Control Plane

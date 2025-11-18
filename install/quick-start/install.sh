@@ -93,7 +93,7 @@ fi
 install_control_plane
 
 # Step 4: Install OpenChoreo Data Plane
-install_data_plane
+install_data_plane "$ENABLE_OBSERVABILITY"
 
 # Step 5: Install OpenChoreo Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then

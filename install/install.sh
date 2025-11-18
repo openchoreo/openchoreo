@@ -80,7 +80,7 @@ install_control_plane
 log_info "Installing Data Plane, Build Plane, and Identity Provider in parallel..."
 
 # Start installations in background
-install_data_plane &
+install_data_plane "$ENABLE_OBSERVABILITY" &
 DATA_PLANE_PID=$!
 
 install_build_plane &
