@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hyperdx-ingestion
+  namespace: openchoreo-data-plane
+type: Opaque
+stringData:
+  api-key: "<replace-with-ingestion-api-key>"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-greeter
+  namespace: openchoreo-data-plane
+  labels:
+    app: go-greeter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-greeter
+  template:
+    metadata:
+      labels:
+        app: go-greeter
+    spec:
+      containers:
+        - name: greeter
+          image: ghcr.io/openchoreo/samples/greeter-service-otel:latest
+          imagePullPolicy: IfNotPresent
+          command: ["./greeter-service"]
+          ports:
+            - containerPort: 9090
+          env:
+            - name: PORT
+              value: "9090"
+            - name: LOG_LEVEL
+              value: info
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317
+            - name: OTEL_SERVICE_NAME
+              value: greeter-service
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: DEPLOYMENT_ENV
+              value: production
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=openchoreo-data-plane,deployment.environment=production
+            - name: HYPERDX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hyperdx-ingestion
+                  key: api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-greeter
+  namespace: openchoreo-data-plane
+  labels:
+    app: go-greeter
+spec:
+  selector:
+    app: go-greeter
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
