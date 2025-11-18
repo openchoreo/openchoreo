@@ -56,17 +56,17 @@ Query ClickHouse Directly:
 
 To query ClickHouse directly:
 
-  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+  $ kubectl exec -n {{ .Release.Namespace }} statefulset/{{ .Release.Name }}-hdx-oss-v2-clickhouse -- \
     clickhouse-client --query "SHOW TABLES"
 
 Example queries:
 
   # Count logs
-  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+  $ kubectl exec -n {{ .Release.Namespace }} statefulset/{{ .Release.Name }}-hdx-oss-v2-clickhouse -- \
     clickhouse-client --query "SELECT count() FROM otel_logs"
 
   # View recent logs
-  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+  $ kubectl exec -n {{ .Release.Namespace }} statefulset/{{ .Release.Name }}-hdx-oss-v2-clickhouse -- \
     clickhouse-client --query "SELECT Timestamp, Body FROM otel_logs ORDER BY Timestamp DESC LIMIT 10"
 
 ================================================================================

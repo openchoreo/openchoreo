@@ -169,17 +169,17 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 ```bash
 # Show tables
 kubectl exec -n openchoreo-observability-plane \
-  deployment/openchoreo-observability-clickstack-hyperdx-clickhouse -- \
+  statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "SHOW TABLES"
 
 # Count logs
 kubectl exec -n openchoreo-observability-plane \
-  deployment/openchoreo-observability-clickstack-hyperdx-clickhouse -- \
+  statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "SELECT count() FROM otel_logs"
 
 # View recent logs from dp-* namespaces
 kubectl exec -n openchoreo-observability-plane \
-  deployment/openchoreo-observability-clickstack-hyperdx-clickhouse -- \
+  statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "
     SELECT
       Timestamp,
@@ -251,9 +251,6 @@ kubectl logs -n openchoreo-observability-plane -l app=mongodb
 
 For more information, see:
 
-- [ClickStack Deployment Guide](../../../docs/openchoreo-observability-clickstack.md)
-- [E2E Verification Guide](../../../docs/clickstack-e2e-verification.md)
-- [Troubleshooting Guide](../../../docs/clickstack-troubleshooting-guide.md)
 - [HyperDX Documentation](https://hyperdx.io/docs)
 
 ## Support
