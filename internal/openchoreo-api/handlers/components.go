@@ -221,8 +221,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 		OrgName:                 orgName,
 	}
 
-	// Call service to promote component
-	bindings, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
+	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -244,9 +243,9 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusBadRequest, "Invalid promotion path", services.CodeInvalidPromotionPath)
 			return
 		}
-		if errors.Is(err, services.ErrBindingNotFound) {
-			logger.Warn("Source binding not found", "org", orgName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
-			writeErrorResponse(w, http.StatusNotFound, "Source binding not found", services.CodeBindingNotFound)
+		if errors.Is(err, services.ErrReleaseBindingNotFound) {
+			logger.Warn("Source release binding not found", "org", orgName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
+			writeErrorResponse(w, http.StatusNotFound, "Source release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
 		logger.Error("Failed to promote component", "error", err)
@@ -256,8 +255,8 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 
 	// Success response
 	logger.Debug("Component promoted successfully", "org", orgName, "project", projectName, "component", componentName,
-		"source", req.SourceEnvironment, "target", req.TargetEnvironment, "bindingsCount", len(bindings))
-	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
+		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
+	writeSuccessResponse(w, http.StatusOK, targetReleaseBinding)
 }
 
 func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request) {
@@ -407,4 +406,274 @@ func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
 	// Success response
 	logger.Debug("Retrieved build observer URL successfully", "org", orgName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, observerResponse)
+}
+
+func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("CreateComponentRelease handler called")
+
+	defer r.Body.Close()
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	var req models.CreateComponentReleaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+	defer r.Body.Close()
+
+	req.Sanitize()
+
+	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, orgName, projectName, componentName, req.ReleaseName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrWorkloadNotFound) {
+			logger.Warn("Workload not found - component not built", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusBadRequest, "Component has not been built yet", services.CodeWorkloadNotFound)
+			return
+		}
+		logger.Error("Failed to create component release", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Component release created successfully", "org", orgName, "project", projectName, "component", componentName, "release", componentRelease.Name)
+	writeSuccessResponse(w, http.StatusCreated, componentRelease)
+}
+
+func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("ListComponentReleases handler called")
+
+	defer r.Body.Close()
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	releases, err := h.services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		logger.Error("Failed to list component releases", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Listed component releases successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(releases))
+	writeListResponse(w, releases, len(releases), 1, len(releases))
+}
+
+func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetComponentRelease handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	releaseName := r.PathValue("releaseName")
+	if orgName == "" || projectName == "" || componentName == "" || releaseName == "" {
+		logger.Warn("Organization name, project name, component name, and release name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and release name are required", "INVALID_PARAMS")
+		return
+	}
+
+	release, err := h.services.ComponentService.GetComponentRelease(ctx, orgName, projectName, componentName, releaseName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentReleaseNotFound) {
+			logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
+			return
+		}
+		logger.Error("Failed to get component release", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved component release successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	writeSuccessResponse(w, http.StatusOK, release)
+}
+
+func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("PatchReleaseBinding handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	bindingName := r.PathValue("bindingName")
+	if orgName == "" || projectName == "" || componentName == "" || bindingName == "" {
+		logger.Warn("Organization name, project name, component name, and binding name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and binding name are required", "INVALID_PARAMS")
+		return
+	}
+
+	var req models.PatchReleaseBindingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+	defer r.Body.Close()
+
+	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, orgName, projectName, componentName, bindingName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseBindingNotFound) {
+			logger.Warn("Release binding not found", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			writeErrorResponse(w, http.StatusNotFound, "Release binding not found", services.CodeReleaseBindingNotFound)
+			return
+		}
+		logger.Error("Failed to patch release binding", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Patched release binding successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+	writeSuccessResponse(w, http.StatusOK, binding)
+}
+
+func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("ListReleaseBindings handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	environments := r.URL.Query()["environment"]
+
+	bindings, err := h.services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		logger.Error("Failed to list release bindings", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Listed release bindings successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
+}
+
+func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("DeployRelease handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	var req models.DeployReleaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+	defer r.Body.Close()
+
+	req.Sanitize()
+	if err := req.Validate(); err != nil {
+		logger.Warn("Invalid request", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "INVALID_REQUEST")
+		return
+	}
+
+	binding, err := h.services.ComponentService.DeployRelease(ctx, orgName, projectName, componentName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentReleaseNotFound) {
+			logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName)
+			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
+			return
+		}
+		logger.Error("Failed to deploy release", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Deployed release successfully", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
+	writeSuccessResponse(w, http.StatusCreated, binding)
 }
