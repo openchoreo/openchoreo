@@ -401,56 +401,167 @@ pull_images() {
     local images=("$@")
     local total=${#images[@]}
 
-    log_info "Pulling ${total} Docker images (${PARALLEL_PULLS} parallel)..."
+    log_info "Pulling ${total} Docker images ..."
 
-    # Function to pull a single image
-    pull_single_image() {
-        local image="$1"
-        local index="$2"
-        local total="$3"
+    # Check if tput is available for fancy display
+    local use_fancy_display=false
+    if command -v tput >/dev/null 2>&1; then
+        use_fancy_display=true
+        export TERM=${TERM:-xterm}
+    fi
 
-        local stderr_output
-        if stderr_output=$(docker pull "$image" 2>&1 >/dev/null); then
-            log_success "[$index/$total] Pulled $image"
-            return 0
-        else
-            log_warning "[$index/$total] Failed to pull $image"
-            if [[ -n "$stderr_output" ]]; then
-                echo "  ${stderr_output}" | head -2
+    # Temporary directory for storing process info
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf $temp_dir" RETURN
+
+    # Function to pull a single image with timeout
+    pull_image() {
+        local image=$1
+        local index=$2
+        local max_timeout=300  # 300 seconds max per image
+        local start_time
+        start_time=$(date +%s)
+
+        # Pull the image silently in background
+        docker pull "$image" &>/dev/null &
+        local pull_pid=$!
+
+        # Wait for pull to complete or timeout
+        local elapsed=0
+        while kill -0 "$pull_pid" 2>/dev/null; do
+            sleep 1
+            local current_time
+            current_time=$(date +%s)
+            elapsed=$((current_time - start_time))
+
+            if [[ $elapsed -ge $max_timeout ]]; then
+                # Timeout reached, kill the pull process
+                kill -9 "$pull_pid" 2>/dev/null
+                wait "$pull_pid" 2>/dev/null
+                echo "124|$elapsed" > "$temp_dir/$index.result"  # 124 = timeout exit code
+                return
             fi
-            return 1
-        fi
+        done
+
+        # Pull completed, get exit code
+        wait "$pull_pid" 2>/dev/null
+        local exit_code=$?
+
+        local end_time
+        end_time=$(date +%s)
+        local duration=$((end_time - start_time))
+
+        # Store result
+        echo "$exit_code|$duration" > "$temp_dir/$index.result"
     }
 
-    export -f pull_single_image
-    export -f log_success
-    export -f log_warning
-    export GREEN YELLOW RESET
+    # Arrays to track jobs
+    declare -A running_jobs
+    declare -A image_start_times
+    local next_image_index=0
+    local num_active_lines=0
 
-    # Pull images in parallel batches
-    local index=0
-    local pids=()
-
-    for image in "${images[@]}"; do
-        index=$((index + 1))
-        pull_single_image "$image" "$index" "$total" &
-        pids+=($!)
-
-        # Wait for batch to complete before starting next batch
-        if [[ ${#pids[@]} -ge $PARALLEL_PULLS ]]; then
-            for pid in "${pids[@]}"; do
-                wait "$pid" || true
+    # Function to clear all temporary pulling lines and reprint them
+    refresh_display() {
+        if [ "$use_fancy_display" = true ]; then
+            # Clear all active "Pulling" lines
+            for ((i=0; i<num_active_lines; i++)); do
+                tput cuu1  # Move up one line
+                tput el    # Clear line
             done
-            pids=()
         fi
+        
+        # Reprint current pulling status
+        local count=0
+        for job_id in "${!running_jobs[@]}"; do
+            local img_index="${running_jobs[$job_id]}"
+            local img="${images[$img_index]}"
+            local start_time="${image_start_times[$img_index]}"
+            local current_time
+            current_time=$(date +%s)
+            local elapsed=$((current_time - start_time))
+            
+            if [ "$use_fancy_display" = true ]; then
+                echo "Pulling $img (${elapsed}s)"
+            fi
+            count=$((count + 1))
+        done
+        
+        num_active_lines=$count
+    }
+
+    # Start the pulling process
+    while [ $next_image_index -lt $total ] || [ ${#running_jobs[@]} -gt 0 ]; do
+        # Check for completed jobs first
+        for job_id in "${!running_jobs[@]}"; do
+            if ! kill -0 "$job_id" 2>/dev/null; then
+                # Job completed
+                local img_index="${running_jobs[$job_id]}"
+                local img="${images[$img_index]}"
+                
+                # Read result
+                if [ -f "$temp_dir/$img_index.result" ]; then
+                    local result
+                    result=$(cat "$temp_dir/$img_index.result")
+                    local exit_code
+                    exit_code=$(echo "$result" | cut -d'|' -f1)
+                    local duration
+                    duration=$(echo "$result" | cut -d'|' -f2)
+                    
+                    if [ "$use_fancy_display" = true ]; then
+                        # Clear all temporary pulling lines
+                        for ((i=0; i<num_active_lines; i++)); do
+                            tput cuu1
+                            tput el
+                        done
+                    fi
+                    
+                    # Print the completed line
+                    if [ "$exit_code" -eq 0 ]; then
+                        echo -e "${GREEN}✓${RESET} $img (${duration}s)"
+                    elif [ "$exit_code" -eq 124 ]; then
+                        echo -e "${YELLOW}⚠${RESET} $img (timeout after ${duration}s, skipping)"
+                    else
+                        echo -e "${YELLOW}⚠${RESET} $img (failed after ${duration}s)"
+                    fi
+                    
+                    # Reset counter and reprint remaining pulling lines
+                    num_active_lines=0
+                fi
+                
+                # Remove from running jobs
+                unset running_jobs[$job_id]
+            fi
+        done
+        
+        # Start new jobs if we have capacity and images remaining
+        while [ ${#running_jobs[@]} -lt $PARALLEL_PULLS ] && [ $next_image_index -lt $total ]; do
+            local image="${images[$next_image_index]}"
+            
+            # Start pull job
+            pull_image "$image" "$next_image_index" &
+            local pid=$!
+            running_jobs[$pid]=$next_image_index
+            image_start_times[$next_image_index]=$(date +%s)
+            
+            next_image_index=$((next_image_index + 1))
+        done
+        
+        # Refresh the display with current pulling status
+        refresh_display
+        
+        # Sleep for 1 second before next update
+        sleep 1
     done
 
-    # Wait for remaining pulls
-    for pid in "${pids[@]}"; do
-        wait "$pid" || true
-    done
-
-    log_success "Docker pull complete"
+    if [ "$use_fancy_display" = true ]; then
+        # Clear any remaining pulling lines
+        for ((i=0; i<num_active_lines; i++)); do
+            tput cuu1
+            tput el
+        done
+    fi
 }
 
 # Import images to k3d cluster

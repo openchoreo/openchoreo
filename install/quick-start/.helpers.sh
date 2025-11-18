@@ -128,6 +128,78 @@ create_k3d_cluster() {
     fi
 }
 
+# Monitor pod status in a namespace while helm is running
+monitor_pod_status_with_helm() {
+    local namespace="$1"
+    local helm_pid="$2"
+    local start_time
+    start_time=$(date +%s)
+
+    # Check if tput is available for fancy display
+    local use_fancy_display=false
+    if command -v tput >/dev/null 2>&1; then
+        use_fancy_display=true
+        export TERM=${TERM:-xterm}
+    fi
+
+    local line_printed=false
+
+    while true; do
+        local current_time
+        current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        # Get pod counts
+        local pod_info
+        pod_info=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null || echo "")
+
+        if [[ -z "$pod_info" ]]; then
+            # No pods yet
+            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
+                tput cuu1
+                tput el
+            fi
+            echo "Waiting for pods to be created... (${elapsed}s)"
+            line_printed=true
+        else
+            local total
+            total=$(echo "$pod_info" | wc -l | tr -d ' ')
+
+            # Count running pods (grep -c always outputs a number, just handle exit code)
+            local running=0
+            running=$(echo "$pod_info" | grep -c "Running" || true)
+
+            # Count pending pods (includes Pending, ContainerCreating, PodInitializing, and error states)
+            local pending=0
+            pending=$(echo "$pod_info" | grep -c -E "Pending|ContainerCreating|PodInitializing|Error|CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError|InvalidImageName" || true)
+
+            # Clear previous line if using fancy display
+            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
+                tput cuu1
+                tput el
+            fi
+
+            # Print status line
+            echo "Pods: $pending Pending, $running Running (${elapsed}s)"
+            line_printed=true
+        fi
+
+        # Check if helm is still running - if not, stop monitoring
+        # Check this AFTER printing status so we always show at least one update
+        if ! kill -0 "$helm_pid" 2>/dev/null; then
+            # Helm has finished, clear the status line and exit
+            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
+                tput cuu1
+                tput el
+            fi
+            return 0
+        fi
+
+        # Wait before next check
+        sleep 2
+    done
+}
+
 # Install or upgrade a helm chart with idempotency
 # Uses 'helm upgrade --install' which is the standard way to achieve idempotent installs
 install_helm_chart() {
@@ -163,6 +235,8 @@ install_helm_chart() {
         helm_args+=("--create-namespace")
     fi
 
+    # Add --wait flag when wait_flag is true so helm waits for resources
+    # This allows us to monitor pod status while helm is waiting
     if [[ "$wait_flag" == "true" ]]; then
         helm_args+=("--wait")
     fi
@@ -173,18 +247,70 @@ install_helm_chart() {
 
     helm_args+=("${additional_args[@]}")
 
-    if run_command helm "${helm_args[@]}"; then
-        log_success "Helm release '$release_name' installed/upgraded successfully"
+    # If wait flag is requested, run helm in background and monitor pods in real-time
+    if [[ "$wait_flag" == "true" ]]; then
+        # Create a temp file for helm output
+        local temp_dir
+        temp_dir=$(mktemp -d)
+        local helm_output_file="$temp_dir/helm_output.txt"
+        local helm_pid_file="$temp_dir/helm.pid"
+
+        # Start helm in background
+        if [[ "${DEBUG:-false}" == "true" ]]; then
+            helm "${helm_args[@]}" > "$helm_output_file" 2>&1 &
+        else
+            helm "${helm_args[@]}" > "$helm_output_file" 2>&1 &
+        fi
+        local helm_pid=$!
+        echo "$helm_pid" > "$helm_pid_file"
+
+        # Monitor pods while helm is running
+        monitor_pod_status_with_helm "$namespace" "$helm_pid"
+
+        # Wait for helm to finish (should already be done since monitor stopped)
+        wait "$helm_pid" 2>/dev/null
+        local helm_exit_code=$?
+
+        # Clean up temp files
+        rm -rf "$temp_dir"
+
+        if [[ $helm_exit_code -eq 0 ]]; then
+            log_success "Helm release '$release_name' installed/upgraded successfully"
+        else
+            log_error "Failed to install/upgrade Helm release '$release_name'"
+            if [[ -f "$helm_output_file" ]]; then
+                cat "$helm_output_file"
+            fi
+            return 1
+        fi
     else
-        log_error "Failed to install/upgrade Helm release '$release_name'"
-        return 1
+        # No wait flag: run helm normally without monitoring
+        local helm_output
+        local helm_exit_code=0
+        if [[ "${DEBUG:-false}" == "true" ]]; then
+            helm "${helm_args[@]}"
+            helm_exit_code=$?
+        else
+            helm_output=$(helm "${helm_args[@]}" 2>&1)
+            helm_exit_code=$?
+            if [[ $helm_exit_code -ne 0 ]]; then
+                echo "$helm_output"
+            fi
+        fi
+
+        if [[ $helm_exit_code -eq 0 ]]; then
+            log_success "Helm release '$release_name' installed/upgraded successfully"
+        else
+            log_error "Failed to install/upgrade Helm release '$release_name'"
+            return 1
+        fi
     fi
 }
 
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
-    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "1800" \
+    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "true" "1800" \
         "--values" "$HOME/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
@@ -225,6 +351,141 @@ print_installation_config() {
     fi
     log_info "  Enable Build Plane: ${ENABLE_BUILD_PLANE:-false}"
     log_info "  Enable Observability: ${ENABLE_OBSERVABILITY:-false}"
+    if [[ "${SKIP_RESOURCE_CHECK:-false}" == "true" ]]; then
+        log_warning "  Resource Check: DISABLED (--skip-resource-check flag provided)"
+    fi
+}
+
+# Check system resources (CPU, Memory, Disk)
+# Calculates requirements based on enabled planes and validates system has sufficient resources
+check_system_resources() {
+    # Skip resource check if explicitly disabled
+    if [[ "${SKIP_RESOURCE_CHECK:-false}" == "true" ]]; then
+        log_warning "System resource validation skipped (--skip-resource-check flag provided)"
+        return 0
+    fi
+
+    log_info "Checking system resources..."
+
+    # Get system resource information
+    local cpus
+    local memory_gb
+    local disk_gb
+
+    # Detect OS and get CPU count
+    case "$(uname -s)" in
+        Darwin)
+            # macOS: use sysctl
+            cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo "0")
+            # Memory in bytes, convert to GB
+            local memory_bytes
+            memory_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+            memory_gb=$((memory_bytes / 1024 / 1024 / 1024))
+            ;;
+        Linux)
+            # Linux: use /proc/cpuinfo and /proc/meminfo
+            cpus=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "0")
+            memory_gb=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print int($2/1024/1024)}' || echo "0")
+            ;;
+        *)
+            log_warning "Unable to detect system resources on this OS"
+            return 0
+            ;;
+    esac
+
+    # Get disk space for home directory (where k3d cluster will be created)
+    local disk_available_kb
+    disk_available_kb=$(df "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' || echo "0")
+    disk_gb=$((disk_available_kb / 1024 / 1024))
+
+    # Calculate required resources
+    # Base requirements
+    local required_cpus_min=2
+    local required_cpus_rec=4
+    local required_memory_min=3
+    local required_memory_rec=6
+    local required_disk=20
+
+    # Add observability plane requirements
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        required_cpus_min=$((required_cpus_min + 1))
+        required_cpus_rec=$((required_cpus_rec + 2))
+        required_memory_min=$((required_memory_min + 1))
+        required_memory_rec=$((required_memory_rec + 3))
+        required_disk=$((required_disk + 20))
+    fi
+
+    # Add build plane requirements
+    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+        required_cpus_min=$((required_cpus_min + 2))
+        required_cpus_rec=$((required_cpus_rec + 2))
+        required_memory_min=$((required_memory_min + 4))
+        required_memory_rec=$((required_memory_rec + 4))
+        required_disk=$((required_disk + 10))
+    fi
+
+    # Display current system resources
+    echo ""
+    log_info "System Resources:"
+    echo "  CPU Cores: $cpus"
+    echo "  Memory: ${memory_gb}GB"
+    echo "  Available Disk Space (home): ${disk_gb}GB"
+    echo ""
+
+    # Display required resources
+    log_info "Required Resources:"
+    local config_desc="Base (Control + Data Planes)"
+    if [[ "$ENABLE_OBSERVABILITY" == "true" && "$ENABLE_BUILD_PLANE" == "true" ]]; then
+        config_desc="Base + Observability + Build Planes"
+    elif [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        config_desc="Base + Observability Plane"
+    elif [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+        config_desc="Base + Build Plane"
+    fi
+    echo "  Configuration: $config_desc"
+    echo "  Minimum: ${required_cpus_min} vCPUs, ${required_memory_min}GB RAM, ${required_disk}GB Disk"
+    echo "  Recommended: ${required_cpus_rec} vCPUs, ${required_memory_rec}GB RAM, ${required_disk}GB Disk"
+    echo ""
+
+    local has_errors=false
+    local has_warnings=false
+
+    # Check CPU
+    if [[ $cpus -lt $required_cpus_min ]]; then
+        log_error "Insufficient CPU: have $cpus vCPUs, minimum required is $required_cpus_min vCPUs"
+        has_errors=true
+    elif [[ $cpus -lt $required_cpus_rec ]]; then
+        log_warning "CPU below recommended: have $cpus vCPUs, recommended is $required_cpus_rec vCPUs"
+        has_warnings=true
+    fi
+
+    # Check Memory
+    if [[ $memory_gb -lt $required_memory_min ]]; then
+        log_error "Insufficient Memory: have ${memory_gb}GB, minimum required is ${required_memory_min}GB"
+        has_errors=true
+    elif [[ $memory_gb -lt $required_memory_rec ]]; then
+        log_warning "Memory below recommended: have ${memory_gb}GB, recommended is ${required_memory_rec}GB"
+        has_warnings=true
+    fi
+
+    # Check Disk Space
+    if [[ $disk_gb -lt $required_disk ]]; then
+        log_error "Insufficient Disk Space: have ${disk_gb}GB available, minimum required is ${required_disk}GB"
+        has_errors=true
+    fi
+
+    if [[ "$has_errors" == "true" ]]; then
+        log_error "System resources do not meet minimum requirements"
+        return 1
+    fi
+
+    if [[ "$has_warnings" == "true" ]]; then
+        log_warning "System resources are below recommended levels - installation may be slow or experience issues"
+    else
+        log_success "System resources meet requirements"
+    fi
+
+    return 0
 }
 
 # Verify prerequisites
@@ -255,6 +516,11 @@ verify_prerequisites() {
     fi
 
     log_success "All prerequisites verified"
+
+    # Check system resources
+    if ! check_system_resources; then
+        return 1
+    fi
 }
 
 

@@ -12,6 +12,7 @@ ENABLE_BUILD_PLANE=false
 ENABLE_OBSERVABILITY=false
 SKIP_STATUS_CHECK=false
 SKIP_PRELOAD=false
+SKIP_RESOURCE_CHECK=false
 DEBUG=false
 
 while [[ $# -gt 0 ]]; do
@@ -30,6 +31,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-preload)
             SKIP_PRELOAD=true
+            shift
+            ;;
+        --skip-resource-check)
+            SKIP_RESOURCE_CHECK=true
             shift
             ;;
         --debug)
@@ -51,17 +56,18 @@ while [[ $# -gt 0 ]]; do
             echo "  --with-observability      Install with Observability Plane"
             echo "  --skip-status-check       Skip status check at the end"
             echo "  --skip-preload            Skip image preloading from host Docker"
+            echo "  --skip-resource-check     Skip system resource validation"
             echo "  --debug                   Enable debug mode"
             echo "  --help, -h                Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                # Install with defaults"
-            echo "  $0 --version v1.2.3               # Install specific version"
-            echo "  $0 --with-build                   # Install with build capabilities"
-            echo "  $0 --with-observability           # Install with observability"
-            echo "  $0 --with-build --with-observability # Full platform"
-            echo "  $0 --skip-preload                 # Skip image preloading"
-            echo "  $0 --debug --version latest-dev   # Debug with dev version"
+            echo "  $0                                     # Install with defaults"
+            echo "  $0 --version v1.2.3                    # Install specific version"
+            echo "  $0 --with-build                        # Install with build capabilities"
+            echo "  $0 --with-observability                # Install with observability"
+            echo "  $0 --with-build --with-observability   # Full platform"
+            echo "  $0 --skip-preload                      # Skip image preloading"
+            echo "  $0 --debug --version latest-dev        # Debug with dev version"
             exit 0
             ;;
         *)
@@ -71,6 +77,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Export flags for use in helper functions
+export SKIP_RESOURCE_CHECK
+export ENABLE_BUILD_PLANE
+export ENABLE_OBSERVABILITY
 
 # Derive chart version from the (possibly user-provided) OPENCHOREO_VERSION
 derive_chart_version
