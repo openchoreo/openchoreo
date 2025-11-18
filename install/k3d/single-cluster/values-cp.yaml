@@ -31,3 +31,13 @@ asgardeoThunder:
           - path: /
             pathType: Prefix
             port: 8090
+  config:
+    gateClient:
+      port: 8080
+  runtimeConfig:
+    server:
+      port: 8080
+  backstagePortal:
+    redirectUrls:
+      - http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame
+      - http://localhost:7007/api/auth/default-idp/handler/frame
