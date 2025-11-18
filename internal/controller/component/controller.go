@@ -354,6 +354,9 @@ func (r *Reconciler) handleAutoDeploy(
 ) error {
 	logger := log.FromContext(ctx)
 
+	// ReleaseBinding name to create releaseBinding if not exits
+	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
+
 	releaseSpec, err := BuildReleaseSpec(ct, traits, comp, workload)
 	if err != nil {
 		return fmt.Errorf("failed to build ReleaseSpec: %w", err)
@@ -371,11 +374,11 @@ func (r *Reconciler) handleAutoDeploy(
 		}
 		if exists {
 			// ComponentRelease already existed, nothing more to do
-			logger.Info("ComponentRelease hash unchanged and release exists, skipping",
+			logger.Info("ComponentRelease hash unchanged and release exists",
 				"component", comp.Name,
 				"hash", currentHash,
 				"release", releaseName)
-			return nil
+			return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
 		}
 		// ComponentRelease was recreated, continue to update status and binding
 		logger.Info("ComponentRelease recreated after being missing",
@@ -409,66 +412,12 @@ func (r *Reconciler) handleAutoDeploy(
 		ReleaseHash: currentHash,
 	}
 
-	// Handle creates ReleaseBinding for the first environment if it doesn't exist yet'
-	// ToDO: consider moving this logic to ensureComponentRelease()
 	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
 	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
 	// the root environment might change, requiring the ReleaseBinding to be updated..
 	// Currently, Components won't be re-reconciled when this happens.
-	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
-	binding := &openchoreov1alpha1.ReleaseBinding{}
 
-	// ToDO: find a way to get ReleaseBinding given environment name and namespace (not binding name)
-	err = r.Get(ctx, types.NamespacedName{Name: bindingName, Namespace: comp.Namespace}, binding)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get ReleaseBinding: %w", err)
-		}
-
-		// ReleaseBinding doesn't exist, create it
-		binding = &openchoreov1alpha1.ReleaseBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      bindingName,
-				Namespace: comp.Namespace,
-			},
-			Spec: openchoreov1alpha1.ReleaseBindingSpec{
-				Owner: openchoreov1alpha1.ReleaseBindingOwner{
-					ProjectName:   comp.Spec.Owner.ProjectName,
-					ComponentName: comp.Name,
-				},
-				ReleaseName: releaseName,
-				Environment: firstEnv,
-				// No overrides for initial auto-deploy
-			},
-		}
-
-		if err := r.Create(ctx, binding); err != nil {
-			return fmt.Errorf("failed to create ReleaseBinding: %w", err)
-		}
-
-		logger.Info("Created ReleaseBinding", "binding", bindingName, "release", releaseName,
-			"environment", firstEnv)
-	} else {
-		// ReleaseBinding exists, patch the release name if different
-		if binding.Spec.ReleaseName != releaseName {
-			binding.Spec.ReleaseName = releaseName
-
-			if err := r.Update(ctx, binding); err != nil {
-				return fmt.Errorf("failed to update ReleaseBinding: %w", err)
-			}
-
-			logger.Info("Updated ReleaseBinding with new release",
-				"binding", bindingName,
-				"release", releaseName,
-				"environment", firstEnv)
-		} else {
-			logger.Info("ReleaseBinding already references current release",
-				"binding", bindingName,
-				"release", releaseName)
-		}
-	}
-
-	return nil
+	return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
 }
 
 // ensureComponentRelease ensures a ComponentRelease with the given name exists.
@@ -573,6 +522,82 @@ func (r *Reconciler) ensureComponentRelease(
 	return false, nil
 }
 
+// ensureReleaseBinding ensures a ReleaseBinding exists for the given environment and component.
+// If the ReleaseBinding doesn't exist, it creates one.
+// If it exists, it updates the release name if different.
+// Returns an error if multiple ReleaseBindings are found for the same environment.
+// bindingName is the name of the ReleaseBinding to create if it doesn't exist.
+func (r *Reconciler) ensureReleaseBinding(
+	ctx context.Context,
+	comp *openchoreov1alpha1.Component,
+	releaseName string,
+	firstEnv string,
+	bindingName string,
+) error {
+	logger := log.FromContext(ctx)
+
+	envKey := fmt.Sprintf("%s/%s/%s", comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
+	releaseBindingList := openchoreov1alpha1.ReleaseBindingList{}
+	err := r.List(ctx, &releaseBindingList, client.InNamespace(comp.Namespace),
+		client.MatchingFields{releaseBindingIndex: envKey})
+	if err != nil {
+		return fmt.Errorf("failed to list ReleaseBinding: %w", err)
+	}
+
+	if len(releaseBindingList.Items) == 0 {
+		// ReleaseBinding doesn't exist, create it
+		releaseBinding := &openchoreov1alpha1.ReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bindingName,
+				Namespace: comp.Namespace,
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ReleaseBindingOwner{
+					ProjectName:   comp.Spec.Owner.ProjectName,
+					ComponentName: comp.Name,
+				},
+				ReleaseName: releaseName,
+				Environment: firstEnv,
+				// No overrides for initial auto-deploy
+			},
+		}
+
+		if err := r.Create(ctx, releaseBinding); err != nil {
+			return fmt.Errorf("failed to create ReleaseBinding: %w", err)
+		}
+
+		logger.Info("Created ReleaseBinding", "binding", bindingName, "release", releaseName,
+			"environment", firstEnv)
+		return nil
+	}
+
+	if len(releaseBindingList.Items) > 1 {
+		return fmt.Errorf("found multiple ReleaseBinding objects for environment %q", firstEnv)
+	}
+
+	releaseBinding := releaseBindingList.Items[0]
+
+	// ReleaseBinding exists, patch the release name if different
+	if releaseBinding.Spec.ReleaseName != releaseName {
+		releaseBinding.Spec.ReleaseName = releaseName
+
+		if err := r.Update(ctx, &releaseBinding); err != nil {
+			return fmt.Errorf("failed to update ReleaseBinding: %w", err)
+		}
+
+		logger.Info("Updated ReleaseBinding with new release",
+			"binding", bindingName,
+			"release", releaseName,
+			"environment", firstEnv)
+	} else {
+		logger.Info("ReleaseBinding already references current release",
+			"binding", bindingName,
+			"release", releaseName)
+	}
+
+	return nil
+}
+
 // buildTraitsMap converts a slice of Trait resources to a map of trait name to TraitSpec
 func buildTraitsMap(traits []openchoreov1alpha1.Trait) map[string]openchoreov1alpha1.TraitSpec {
 	if len(traits) == 0 {
@@ -611,6 +636,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if err := r.setupWorkloadOwnerIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup workload owner index: %w", err)
+	}
+
+	if err := r.setupReleaseBindingIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup release binding index: %w", err)
 	}
 
 	// TODO: Add watch for DeploymentPipeline.

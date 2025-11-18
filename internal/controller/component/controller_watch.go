@@ -22,6 +22,8 @@ const (
 	traitsIndex = "spec.traits"
 	// workloadOwnerIndex is the field index name for workload owner references
 	workloadOwnerIndex = "spec.owner"
+	// releaseBindingIndex is the field index name for ReleaseBinding owner fields and environment
+	releaseBindingIndex = "spec.owner.projectName/spec.owner.componentName/spec.environment"
 )
 
 // setupComponentTypeRefIndex sets up the field index for componentType references
@@ -58,6 +60,19 @@ func (r *Reconciler) setupWorkloadOwnerIndex(ctx context.Context, mgr ctrl.Manag
 			ownerKey := fmt.Sprintf("%s/%s",
 				workload.Spec.Owner.ProjectName,
 				workload.Spec.Owner.ComponentName)
+			return []string{ownerKey}
+		})
+}
+
+// setupReleaseBindingIndex registers an index for ReleaseBinding by owner fields and environment.
+func (r *Reconciler) setupReleaseBindingIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		releaseBindingIndex, func(obj client.Object) []string {
+			releaseBinding := obj.(*openchoreov1alpha1.ReleaseBinding)
+			project := releaseBinding.Spec.Owner.ProjectName
+			component := releaseBinding.Spec.Owner.ComponentName
+			environment := releaseBinding.Spec.Environment
+			ownerKey := fmt.Sprintf("%s/%s/%s", project, component, environment)
 			return []string{ownerKey}
 		})
 }
