@@ -1,0 +1,117 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    projectName: default
+  type: Service
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  containers:
+    main:
+      image: ttl.sh/greeter-service-otel-1763455397
+      command:
+        - ./greeter-service
+      env:
+        # === 基本配置 ===
+        - key: PORT
+          value: "9090"
+        - key: LOG_LEVEL
+          value: info
+
+        # === OpenTelemetry 配置 ===
+        # OTEL Collector 端點（Cluster 內部訪問）
+        - key: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+
+        # 服務識別
+        - key: OTEL_SERVICE_NAME
+          value: "greeter-service"
+
+        - key: SERVICE_VERSION
+          value: "1.0.0"
+
+        - key: DEPLOYMENT_ENV
+          value: "production"
+
+        # OpenTelemetry Resource Attributes
+        # 這些 attributes 會附加到所有 traces
+        - key: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.namespace=default,deployment.environment=production"
+        - key: HYPERDX_API_KEY
+          valueFrom:
+            secretRef:
+              name: openchoreo-observability-clickstack-hyperdx-app-secrets
+              key: api-key
+
+
+  endpoints:
+    greeter-api:
+      type: REST
+      port: 9090
+      schema:
+        type: REST
+        content: |
+          openapi: 3.0.0
+          info:
+            title: Greeter API
+            version: 1.0.0
+          paths:
+            /greeter/greet:
+              get:
+                summary: Send a greeting
+                parameters:
+                  - name: name
+                    in: query
+                    schema:
+                      type: string
+                    description: Name to greet
+                responses:
+                  '200':
+                    description: Successful greeting
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          properties:
+                            message:
+                              type: string
+                            timestamp:
+                              type: string
+                            trace_id:
+                              type: string
+            /greeter/health:
+              get:
+                summary: Health check
+                responses:
+                  '200':
+                    description: Service is healthy
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: greeter-service
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: default
+  workloadName: greeter-service
+  overrides: {}
+  apis:
+    greeter-api:
+      type: REST
+      rest:
+        backend:
+          port: 9090
+          basePath: /greeter
+        exposeLevels: ["Organization", "Public"]

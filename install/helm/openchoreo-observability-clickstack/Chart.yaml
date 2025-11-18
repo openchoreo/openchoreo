@@ -1,0 +1,40 @@
+apiVersion: v2
+name: openchoreo-observability-clickstack
+description: A Helm chart for OpenChoreo Observability Plane - ClickStack (ClickHouse + HyperDX)
+type: application
+
+# Version strategy: latest-dev for development, replaced by CI for releases
+version: 0.0.0-latest-dev
+appVersion: "latest-dev"
+
+home: https://github.com/openchoreo/openchoreo
+icon: https://openchoreo.dev/img/openchoreo-logo.svg
+sources:
+  - https://github.com/openchoreo/openchoreo
+keywords:
+  - openchoreo
+  - internal-developer-platform
+  - idp
+  - kubernetes
+  - observability
+  - logging
+  - monitoring
+  - clickhouse
+  - hyperdx
+  - clickstack
+  - opentelemetry
+  - otel
+  - developer-experience
+  - devops
+  - platform-engineering
+maintainers:
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/openchoreo
+
+dependencies:
+  # HyperDX OSS v2 - Complete observability stack with ClickHouse, HyperDX, OTEL Collector, and MongoDB
+  - name: hdx-oss-v2
+    alias: hyperdx
+    repository: https://hyperdxio.github.io/helm-charts/
+    version: 0.8.4
+    condition: hyperdx.enabled

@@ -1,0 +1,239 @@
+# Default values for openchoreo-observability-clickstack
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global values shared across all components
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
+
+  # StorageClass for persistent volumes
+  # Use your cluster's default StorageClass or specify explicitly
+  # Examples: "standard" (K3d/Kind), "gp2" (EKS), "standard" (GKE), "default" (AKS)
+  # Set to "" to use cluster default
+  storageClassName: "standard"
+
+# HyperDX OSS v2 - ClickStack Configuration
+# This includes ClickHouse, HyperDX App, OTEL Collector, and MongoDB
+hyperdx:
+  enabled: true
+
+  # HyperDX Application configuration
+  hyperdx:
+    image:
+      repository: docker.hyperdx.io/hyperdx/hyperdx
+      tag: "2.7.1"
+      pullPolicy: IfNotPresent
+
+    # API Key for HyperDX (change in production)
+    apiKey: "hyperdx-api-key-change-me"
+
+    # Service ports
+    apiPort: 8000        # API service port
+    appPort: 3000        # Web UI port
+    opampPort: 4320      # OpAMP protocol port for OTEL Collector management
+
+    # Frontend URL (update for production ingress)
+    frontendUrl: "http://localhost:3000"
+
+    # Logging level
+    logLevel: "info"
+
+    # Usage statistics (disable for privacy)
+    usageStatsEnabled: false
+
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+    # Ingress configuration
+    ingress:
+      enabled: false
+      ingressClassName: nginx
+      annotations: {}
+      # nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+      host: "hyperdx.local"
+      path: "/(.*)"
+      pathType: "ImplementationSpecific"
+      proxyBodySize: "100m"
+      tls:
+        enabled: false
+        secretName: "hyperdx-tls"
+
+  # ClickHouse database configuration
+  clickhouse:
+    enabled: true
+
+    # Image (string format as expected by hdx-oss-v2 chart)
+    image: "clickhouse/clickhouse-server:25.7-alpine"
+
+    # HTTP and native TCP ports
+    httpPort: 8123
+    nativePort: 9000
+
+    # Persistence configuration
+    persistence:
+      enabled: true
+      data:
+        storageClassName: ""  # Uses global.storageClassName if empty
+        size: 10Gi
+      logs:
+        storageClassName: ""  # Uses global.storageClassName if empty
+        size: 5Gi
+
+    # ClickHouse configuration
+    config:
+      # User configuration
+      users:
+        appUserPassword: ""  # Empty password for local dev (use strong password in production)
+
+      # Network ACL - cluster CIDR ranges
+      clusterCidrs:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+
+      # Memory settings
+      maxMemoryUsage: "10000000000"  # 10GB
+      maxMemoryUsageForAllQueries: "20000000000"  # 20GB
+
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+
+  # OpenTelemetry Collector configuration
+  otel:
+    enabled: true
+
+    image:
+      repository: docker.hyperdx.io/hyperdx/hyperdx-otel-collector
+      tag: "2.7.1"
+      pullPolicy: IfNotPresent
+
+    # Ports for OTLP receivers
+    grpcPort: 4317        # OTLP gRPC endpoint
+    httpPort: 4318        # OTLP HTTP endpoint
+    fluentdPort: 24225    # Fluentd forward protocol
+    prometheusPort: 8888  # Prometheus metrics
+
+    # Custom OTEL collector configuration (optional)
+    # Provide as multi-line YAML string if needed
+    # customConfig: |
+    #   receivers:
+    #     hostmetrics:
+    #       collection_interval: 30s
+    #       scrapers:
+    #         cpu: {}
+    #         memory: {}
+    #   service:
+    #     pipelines:
+    #       metrics:
+    #         receivers: [hostmetrics]
+
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+  # MongoDB configuration (for HyperDX metadata)
+  mongodb:
+    enabled: true
+
+    # Image (string format as expected by hdx-oss-v2 chart)
+    image: "mongo:5.0.14-focal"
+
+    port: 27017
+
+    # Persistence configuration
+    persistence:
+      enabled: true
+      storageClassName: ""  # Uses global.storageClassName if empty
+      size: 5Gi
+
+    # Resource limits and requests
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+  # Scheduled tasks (CronJobs)
+  tasks:
+    enabled: false
+    checkAlerts:
+      schedule: "*/1 * * * *"
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+
+  # Additional ingresses (e.g., for OTEL collector)
+  additionalIngresses: []
+  # Example:
+  # - name: otel-ingress
+  #   enabled: true
+  #   className: nginx
+  #   annotations:
+  #     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  #   hosts:
+  #     - host: otel.local
+  #       paths:
+  #         - path: /v1/traces
+  #           pathType: Prefix
+  #           backend:
+  #             service:
+  #               name: otel-collector
+  #               port:
+  #                 number: 4318
+  #   tls: []
+
+# ClickStack Observer Service (REST API for querying ClickHouse)
+# This is an optional OpenChoreo component that provides a REST API
+# for querying observability data stored in ClickHouse
+clickstackObserver:
+  enabled: false  # Enable if you need REST API access to ClickHouse data
+  replicas: 1
+
+  image:
+    repository: ghcr.io/openchoreo/clickstack-observer
+    tag: ""  # If no value is set, use Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  logLevel: info
+
+  # ClickHouse connection configuration
+  clickhouseAddress: "http://clickhouse:8123"
+  clickhouseUsername: "default"
+  clickhousePassword: ""  # Should match clickhouse.config.users.appUserPassword
+  clickhouseDatabase: "default"
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
