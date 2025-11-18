@@ -185,13 +185,15 @@ spec:
 					},
 				},
 				"configurations": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs":  []any{},
+							"files": []any{},
+						},
+						"secrets": map[string]any{
+							"envs":  []any{},
+							"files": []any{},
+						},
 					},
 				},
 				"environment": map[string]any{

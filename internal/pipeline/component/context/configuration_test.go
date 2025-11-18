@@ -418,6 +418,129 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "workload with multiple containers",
+			secretReferences: map[string]*v1alpha1.SecretReference{
+				"db-credentials": {
+					Spec: v1alpha1.SecretReferenceSpec{
+						Data: []v1alpha1.SecretDataSource{
+							{
+								SecretKey: "password",
+								RemoteRef: v1alpha1.RemoteReference{
+									Key:      "secret/data/db",
+									Property: "password",
+								},
+							},
+						},
+					},
+				},
+				"cache-credentials": {
+					Spec: v1alpha1.SecretReferenceSpec{
+						Data: []v1alpha1.SecretDataSource{
+							{
+								SecretKey: "password",
+								RemoteRef: v1alpha1.RemoteReference{
+									Key:      "secret/data/cache",
+									Property: "password",
+								},
+							},
+						},
+					},
+				},
+			},
+			workload: &v1alpha1.Workload{
+				Spec: v1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+						Containers: map[string]v1alpha1.Container{
+							"app": {
+								Image: "app:latest",
+								Env: []v1alpha1.EnvVar{
+									{Key: "APP_NAME", Value: "my-app"},
+									{Key: "PORT", Value: "8080"},
+									{
+										Key: "DB_PASSWORD",
+										ValueFrom: &v1alpha1.EnvVarValueFrom{
+											SecretRef: &v1alpha1.SecretKeyRef{
+												Name: "db-credentials",
+												Key:  "password",
+											},
+										},
+									},
+								},
+								Files: []v1alpha1.FileVar{
+									{Key: "app-config", MountPath: "/etc/app/config.yaml", Value: "server:\n  port: 8080"},
+								},
+							},
+							"sidecar": {
+								Image: "sidecar:latest",
+								Env: []v1alpha1.EnvVar{
+									{Key: "CACHE_HOST", Value: "localhost"},
+									{
+										Key: "CACHE_PASSWORD",
+										ValueFrom: &v1alpha1.EnvVarValueFrom{
+											SecretRef: &v1alpha1.SecretKeyRef{
+												Name: "cache-credentials",
+												Key:  "password",
+											},
+										},
+									},
+								},
+								Files: []v1alpha1.FileVar{
+									{Key: "sidecar-config", MountPath: "/etc/sidecar/config.yaml", Value: "cache:\n  enabled: true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string]any{
+				"app": map[string]any{
+					"configs": map[string]any{
+						"envs": []any{
+							map[string]any{"name": "APP_NAME", "value": "my-app"},
+							map[string]any{"name": "PORT", "value": "8080"},
+						},
+						"files": []any{
+							map[string]any{"name": "app-config", "mountPath": "/etc/app/config.yaml", "value": "server:\n  port: 8080"},
+						},
+					},
+					"secrets": map[string]any{
+						"envs": []any{
+							map[string]any{
+								"name": "DB_PASSWORD",
+								"remoteRef": map[string]any{
+									"key":      "secret/data/db",
+									"property": "password",
+								},
+							},
+						},
+						"files": []any{},
+					},
+				},
+				"sidecar": map[string]any{
+					"configs": map[string]any{
+						"envs": []any{
+							map[string]any{"name": "CACHE_HOST", "value": "localhost"},
+						},
+						"files": []any{
+							map[string]any{"name": "sidecar-config", "mountPath": "/etc/sidecar/config.yaml", "value": "cache:\n  enabled: true"},
+						},
+					},
+					"secrets": map[string]any{
+						"envs": []any{
+							map[string]any{
+								"name": "CACHE_PASSWORD",
+								"remoteRef": map[string]any{
+									"key":      "secret/data/cache",
+									"property": "password",
+								},
+							},
+						},
+						"files": []any{},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
