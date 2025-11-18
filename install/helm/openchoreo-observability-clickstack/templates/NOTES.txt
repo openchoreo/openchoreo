@@ -1,0 +1,103 @@
+================================================================================
+OpenChoreo Observability Plane - ClickStack
+================================================================================
+
+Thank you for installing {{ .Chart.Name }}.
+Your release is named {{ .Release.Name }}.
+
+ClickStack Components Deployed:
+- ClickHouse (Columnar database for OTLP data)
+- HyperDX App (Observability UI and API)
+- OpenTelemetry Collector (Data ingestion)
+- MongoDB (Metadata storage)
+
+To learn more about this release, try:
+
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+================================================================================
+Access HyperDX UI:
+================================================================================
+
+{{- if .Values.hyperdx.hyperdx.ingress.enabled }}
+
+HyperDX is accessible via Ingress:
+  URL: {{ if .Values.hyperdx.hyperdx.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.hyperdx.hyperdx.ingress.host }}
+
+{{- else }}
+
+To access HyperDX UI, use port-forward:
+
+  $ kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-hyperdx-app {{ .Values.hyperdx.hyperdx.appPort }}:{{ .Values.hyperdx.hyperdx.appPort }}
+
+Then open in your browser:
+  http://localhost:{{ .Values.hyperdx.hyperdx.appPort }}
+
+{{- end }}
+
+================================================================================
+OTLP Endpoints (for sending telemetry data):
+================================================================================
+
+Configure your applications to send OTLP data to:
+
+  gRPC endpoint: {{ .Release.Name }}-hyperdx-otel-collector:{{ .Values.hyperdx.otel.grpcPort }}
+  HTTP endpoint: {{ .Release.Name }}-hyperdx-otel-collector:{{ .Values.hyperdx.otel.httpPort }}
+
+Example configuration for OpenTelemetry SDK:
+
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://{{ .Release.Name }}-hyperdx-otel-collector:{{ .Values.hyperdx.otel.httpPort }}
+  OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+================================================================================
+Query ClickHouse Directly:
+================================================================================
+
+To query ClickHouse directly:
+
+  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+    clickhouse-client --query "SHOW TABLES"
+
+Example queries:
+
+  # Count logs
+  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+    clickhouse-client --query "SELECT count() FROM otel_logs"
+
+  # View recent logs
+  $ kubectl exec -n {{ .Release.Namespace }} deployment/{{ .Release.Name }}-hyperdx-clickhouse -- \
+    clickhouse-client --query "SELECT Timestamp, Body FROM otel_logs ORDER BY Timestamp DESC LIMIT 10"
+
+================================================================================
+Verify Deployment:
+================================================================================
+
+Check all pods are running:
+
+  $ kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Check persistent volumes:
+
+  $ kubectl get pvc -n {{ .Release.Namespace }}
+
+Check services:
+
+  $ kubectl get svc -n {{ .Release.Namespace }}
+
+================================================================================
+Troubleshooting:
+================================================================================
+
+View pod logs:
+
+  $ kubectl logs -n {{ .Release.Namespace }} -l app=hyperdx-app
+  $ kubectl logs -n {{ .Release.Namespace }} -l app=clickhouse
+  $ kubectl logs -n {{ .Release.Namespace }} -l app=otel-collector
+  $ kubectl logs -n {{ .Release.Namespace }} -l app=mongodb
+
+For more information:
+  Documentation: https://github.com/openchoreo/openchoreo/tree/main/docs
+  HyperDX Docs: https://hyperdx.io/docs
+
+================================================================================
