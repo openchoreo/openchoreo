@@ -26,11 +26,13 @@ spec:
         - key: PORT
           value: "50051"
         - key: ENABLE_TRACING
-          value: "1"
+          value: "0"
         - key: COLLECTOR_SERVICE_ADDR
           value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
         - key: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+        - key: OTEL_EXPORTER_OTLP_HEADERS
+          value: "authorization=Bearer XXXXXXX-XXXX-XXXX-XXXXXXXXXXXX"
   endpoints:
     grpc-endpoint:
       type: gRPC

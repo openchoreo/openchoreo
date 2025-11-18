@@ -39,6 +39,8 @@ spec:
           value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
         - key: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+        - key: OTEL_EXPORTER_OTLP_HEADERS
+          value: "authorization=Bearer XXXXXXX-XXXX-XXXX-XXXXXXXXXXXX"
 
   endpoints:
     http-endpoint:
