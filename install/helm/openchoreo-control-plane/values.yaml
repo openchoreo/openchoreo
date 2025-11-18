@@ -179,6 +179,11 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
+  jwt:
+    disabled: true
+    issuer: ""
+    jwksUrl: ""
+    audience: ""
   resources:
     requests:
       cpu: "200m"
