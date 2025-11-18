@@ -1,0 +1,86 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: shipping
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: shipping
+spec:
+  owner:
+    componentName: shipping
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/shippingservice:v0.10.3
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "50055"
+        - key: ENABLE_TRACING
+          value: "1"
+        - key: COLLECTOR_SERVICE_ADDR
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+        - key: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+  endpoints:
+    grpc-endpoint:
+      type: gRPC
+      port: 50055
+      schema:
+        type: gRPC
+        content: |
+          syntax = "proto3";
+
+          package hipstershop;
+          
+          service ShippingService {
+              rpc GetQuote(GetQuoteRequest) returns (GetQuoteResponse) {}
+              rpc ShipOrder(ShipOrderRequest) returns (ShipOrderResponse) {}
+          }
+
+          message GetQuoteRequest {
+              Address address = 1;
+              repeated CartItem items = 2;
+          }
+
+          message GetQuoteResponse {
+              Money cost_usd = 1;
+          }
+
+          message ShipOrderRequest {
+              Address address = 1;
+              repeated CartItem items = 2;
+          }
+
+          message ShipOrderResponse {
+              string tracking_id = 1;
+          }
+
+          message Address {
+              string street_address = 1;
+              string city = 2;
+              string state = 3;
+              string country = 4;
+              int32 zip_code = 5;
+          }
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: shipping
+spec:
+  owner:
+    componentName: shipping
+    projectName: gcp-microservice-demo
+  workloadName: shipping
+  overrides: { }

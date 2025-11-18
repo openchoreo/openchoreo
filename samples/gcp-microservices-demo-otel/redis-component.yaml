@@ -1,0 +1,39 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: redis
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: Service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: redis
+spec:
+  owner:
+    componentName: redis
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: redis:7.2-alpine
+  endpoints:
+    tcp-endpoint:
+      type: gRPC
+      port: 6379
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: redis
+spec:
+  owner:
+    componentName: redis
+    projectName: gcp-microservice-demo
+  workloadName: redis
+  overrides: {}
