@@ -3,7 +3,9 @@
 
 package schema
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 	def := Definition{
@@ -61,15 +63,15 @@ func TestApplyDefaults_ArrayItems(t *testing.T) {
 	def := Definition{
 		Types: map[string]any{
 			"MountConfig": map[string]any{
-				"containerName": "string | required=true",
-				"mountPath":     "string | required=true",
+				"containerName": "string",
+				"mountPath":     "string",
 				"readOnly":      "boolean | default=true",
 				"subPath":       "string | default=\"\"",
 			},
 		},
 		Schemas: []map[string]any{
 			{
-				"volumeName": "string | required=true",
+				"volumeName": "string",
 				"mounts":     "[]MountConfig",
 			},
 		},

@@ -103,7 +103,6 @@ func ToStructural(def Definition) (*apiextschema.Structural, error) {
 //   - Missing fields with defaults are added
 //   - Existing fields are not overwritten (even if they differ from the default)
 //   - Nested objects are defaulted recursively
-//   - Array items are not defaulted (Kubernetes limitation)
 //
 // The target map is modified in place and also returned for convenience.
 //
