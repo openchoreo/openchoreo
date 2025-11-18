@@ -127,7 +127,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	for _, item := range componentList.Items {
 		// Only include components that belong to the specified project
 		if item.Spec.Owner.ProjectName == projectName {
-			components = append(components, s.toComponentResponse(&item, make(map[string]interface{})))
+			components = append(components, s.toComponentResponse(&item, make(map[string]interface{}), false))
 		}
 	}
 
@@ -221,7 +221,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 		return nil, ErrComponentNotFound
 	}
 
-	return s.toComponentResponse(component, typeSpecs), nil
+	return s.toComponentResponse(component, typeSpecs, true), nil
 }
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
@@ -294,7 +294,8 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 }
 
 // toComponentResponse converts a Component CR to a ComponentResponse
-func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Component, typeSpecs map[string]interface{}) *models.ComponentResponse {
+// includeWorkflow parameter controls whether to include workflow in the response
+func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Component, typeSpecs map[string]interface{}, includeWorkflow bool) *models.ComponentResponse {
 	// Extract project name from the component owner
 	projectName := component.Spec.Owner.ProjectName
 
@@ -302,9 +303,9 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when Component adds status conditions
 	status := "Created"
 
-	// Convert workflow configuration to API Workflow format
+	// Convert workflow configuration to API Workflow format only if requested
 	var workflow *models.Workflow
-	if component.Spec.Workflow != nil {
+	if includeWorkflow && component.Spec.Workflow != nil {
 		workflow = &models.Workflow{
 			Name:   component.Spec.Workflow.Name,
 			Schema: component.Spec.Workflow.Schema,
