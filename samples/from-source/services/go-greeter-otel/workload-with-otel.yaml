@@ -18,7 +18,7 @@ spec:
     projectName: default
   containers:
     main:
-      image: ghcr.io/openchoreo/samples/greeter-service-otel:latest
+      image: ttl.sh/greeter-service-otel-1763455397
       command:
         - ./greeter-service
       env:
@@ -50,32 +50,9 @@ spec:
         - key: HYPERDX_API_KEY
           valueFrom:
             secretRef:
-              name: hyperdx-ingestion
+              name: openchoreo-observability-clickstack-hyperdx-app-secrets
               key: api-key
 
-        # === Kubernetes 元數據（可選，由 OTEL Collector 自動注入）===
-        # 以下環境變數會被 Kubernetes Downward API 自動填充
-        - key: K8S_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - key: K8S_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - key: K8S_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-
-      # 資源限制
-      resources:
-        requests:
-          cpu: "100m"
-          memory: "128Mi"
-        limits:
-          cpu: "500m"
-          memory: "512Mi"
 
   endpoints:
     greeter-api:

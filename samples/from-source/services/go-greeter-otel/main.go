@@ -50,7 +50,6 @@ func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
 
 	if apiKey := os.Getenv("HYPERDX_API_KEY"); apiKey != "" {
 		headers := map[string]string{
-			"x-api-key":     apiKey,
 			"Authorization": apiKey,
 		}
 		exporterOpts = append(exporterOpts, otlptracegrpc.WithHeaders(headers))
