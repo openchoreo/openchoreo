@@ -5,8 +5,9 @@ package models
 
 import (
 	"errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // CreateProjectRequest represents the request to create a new project
