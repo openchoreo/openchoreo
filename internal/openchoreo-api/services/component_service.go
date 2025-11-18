@@ -80,7 +80,8 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	}
 
 	// Create the component and related resources
-	if err := s.createComponentResources(ctx, orgName, projectName, req); err != nil {
+	component, err := s.createComponentResources(ctx, orgName, projectName, req)
+	if err != nil {
 		s.logger.Error("Failed to create component resources", "error", err)
 		return nil, fmt.Errorf("failed to create component: %w", err)
 	}
@@ -89,13 +90,14 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 
 	// Return the created component
 	return &models.ComponentResponse{
-		Name:        req.Name,
+		UID:         string(component.UID),
+		Name:        component.Name,
 		DisplayName: req.DisplayName,
 		Description: req.Description,
 		Type:        req.Type,
 		ProjectName: projectName,
 		OrgName:     orgName,
-		CreatedAt:   metav1.Now().Time,
+		CreatedAt:   component.CreationTimestamp.Time,
 		Status:      "Creating",
 	}, nil
 }
@@ -249,7 +251,7 @@ func (s *ComponentService) componentExists(ctx context.Context, orgName, project
 }
 
 // createComponentResources creates the component and related Kubernetes resources
-func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) error {
+func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (*openchoreov1alpha1.Component, error) {
 	displayName := req.DisplayName
 	if displayName == "" {
 		displayName = req.Name
@@ -283,16 +285,16 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		buildSpec, err := s.convertBuildConfigToBuildSpec(req.BuildConfig)
 		if err != nil {
 			s.logger.Error("Failed to convert build config to build spec", "error", err)
-			return fmt.Errorf("failed to convert build config: %w", err)
+			return nil, fmt.Errorf("failed to convert build config: %w", err)
 		}
 		componentCR.Spec.Workflow = &buildSpec
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
-		return fmt.Errorf("failed to create component CR: %w", err)
+		return nil, fmt.Errorf("failed to create component CR: %w", err)
 	}
 
-	return nil
+	return componentCR, nil
 }
 
 // toComponentResponse converts a Component CR to a ComponentResponse
@@ -311,6 +313,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	}
 
 	response := &models.ComponentResponse{
+		UID:         string(component.UID),
 		Name:        component.Name,
 		DisplayName: component.Annotations[controller.AnnotationKeyDisplayName],
 		Description: component.Annotations[controller.AnnotationKeyDescription],

@@ -27,6 +27,7 @@ type ListResponse[T any] struct {
 
 // ProjectResponse represents a project in API responses
 type ProjectResponse struct {
+	UID                string    `json:"uid"`
 	Name               string    `json:"name"`
 	OrgName            string    `json:"orgName"`
 	DisplayName        string    `json:"displayName,omitempty"`
@@ -38,6 +39,7 @@ type ProjectResponse struct {
 
 // ComponentResponse represents a component in API responses
 type ComponentResponse struct {
+	UID            string                                 `json:"uid"`
 	Name           string                                 `json:"name"`
 	DisplayName    string                                 `json:"displayName,omitempty"`
 	Description    string                                 `json:"description,omitempty"`
@@ -154,6 +156,7 @@ type OrganizationResponse struct {
 
 // EnvironmentResponse represents an environment in API responses
 type EnvironmentResponse struct {
+	UID          string    `json:"uid"`
 	Name         string    `json:"name"`
 	Namespace    string    `json:"namespace"`
 	DisplayName  string    `json:"displayName,omitempty"`

@@ -188,6 +188,7 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 	}
 
 	return &models.EnvironmentResponse{
+		UID:          string(env.UID),
 		Name:         env.Name,
 		Namespace:    env.Namespace,
 		DisplayName:  displayName,
