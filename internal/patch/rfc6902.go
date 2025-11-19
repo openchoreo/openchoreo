@@ -206,7 +206,16 @@ func replaceValue(container map[string]any, arrayKey string, segment string, val
 	return nil
 }
 
-// removeValue implements the "remove" operation from RFC 6902.
+// removeValue implements the "remove" operation.
+//
+// For map keys, this implementation extends RFC 6902 to be idempotent: removing a
+// non-existent key is a no-op rather than an error. This matches common Kubernetes
+// cleanup patterns (e.g., "ensure this label/annotation doesn't exist").
+//
+// For array indices, out-of-bounds removal returns an error, as this likely indicates
+// a bug in the patch logic rather than intentional cleanup.
+//
+// This is similar to evanphx/json-patch with AllowMissingPathOnRemove: true for maps.
 func removeValue(container map[string]any, arrayKey string, segment string) error {
 	if arrayKey != "" {
 		// Operating on array element
@@ -224,6 +233,7 @@ func removeValue(container map[string]any, arrayKey string, segment string) erro
 			return fmt.Errorf("invalid array index %q", segment)
 		}
 		if index < 0 || index >= len(arr) {
+			// Error on out-of-bounds: likely a bug, not intentional cleanup
 			return fmt.Errorf("array index %d out of bounds for remove (length %d)", index, len(arr))
 		}
 
@@ -235,9 +245,11 @@ func removeValue(container map[string]any, arrayKey string, segment string) erro
 		return nil
 	}
 
-	// Operating on map key
+	// Operating on map key - idempotent removal
 	if _, exists := container[segment]; !exists {
-		return fmt.Errorf("remove operation failed: key %q does not exist", segment)
+		// Idempotent: silently succeed if key doesn't exist
+		// This matches common Kubernetes cleanup patterns
+		return nil
 	}
 	delete(container, segment)
 	return nil
