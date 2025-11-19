@@ -159,10 +159,10 @@ func BuildHTTPRequestCountQuery(labelFilter string) string {
 }
 
 // BuildSuccessfulHTTPRequestCountQuery builds a PromQL query for successful HTTP request count. Requests are
-// considered successful if they have a 200 status code.
+// considered successful if they have a HTTP 1xx, 2xx or 3xx status code.
 func BuildSuccessfulHTTPRequestCountQuery(labelFilter string) string {
 	return fmt.Sprintf(`
-	    rate(hubble_http_requests_total{reporter="client", status="200"}[2m])
+	    rate(hubble_http_requests_total{reporter="client", status=~"^[123]..?$"}[2m])
             * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
             label_replace(
     	        kube_pod_labels{%s},
@@ -176,10 +176,10 @@ func BuildSuccessfulHTTPRequestCountQuery(labelFilter string) string {
 }
 
 // BuildUnsuccessfulHTTPRequestCountQuery builds a PromQL query for unsuccessful HTTP request count. Requests are
-// considered unsuccessful if they do not have a 200 status code.
+// considered unsuccessful if they have a 4xx or 5xx status code.
 func BuildUnsuccessfulHTTPRequestCountQuery(labelFilter string) string {
 	return fmt.Sprintf(`
-	    rate(hubble_http_requests_total{reporter="client", status!="200"}[2m])
+	    rate(hubble_http_requests_total{reporter="client", status=~"^[45]..?$"}[2m])
             * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
             label_replace(
 	            kube_pod_labels{%s},

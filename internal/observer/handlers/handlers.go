@@ -440,7 +440,9 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 	result, err := h.service.GetComponentHTTPMetrics(ctx, req.ComponentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
 	if err != nil {
 		h.logger.Error("Failed to get component HTTP metrics", "error", err)
-		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveMetrics)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"reason": "Internal error occurred while fetching one or more HTTP metrics",
+		})
 		return
 	}
 

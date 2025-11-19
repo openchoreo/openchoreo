@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -295,88 +296,177 @@ func (s *LoggingService) GetComponentHTTPMetrics(ctx context.Context, componentI
 	// Build component label filter using query builder
 	labelFilter := prometheus.BuildLabelFilter(componentID, projectID, environmentID)
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var queryErrors []error
+
 	// Request count
-	requestCountQuery := prometheus.BuildHTTPRequestCountQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Request count query:", requestCountQuery)
-	}
-	requestCountResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, requestCountQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query request count", "error", err)
-	} else if len(requestCountResponse.Data.Result) > 0 {
-		metrics.RequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(requestCountResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.BuildHTTPRequestCountQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Request count query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query request count", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("request count: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.RequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Successful request count
-	successfulRequestCountQuery := prometheus.BuildSuccessfulHTTPRequestCountQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Successful request count query:", successfulRequestCountQuery)
-	}
-	successfulRequestCountResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, successfulRequestCountQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query successful request count", "error", err)
-	} else if len(successfulRequestCountResponse.Data.Result) > 0 {
-		metrics.SuccessfulRequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(successfulRequestCountResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.BuildSuccessfulHTTPRequestCountQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Successful request count query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query successful request count", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("successful request count: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.SuccessfulRequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Unsuccessful request count
-	unsuccessfulRequestCountQuery := prometheus.BuildUnsuccessfulHTTPRequestCountQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Unsuccessful request count query:", unsuccessfulRequestCountQuery)
-	}
-	unsuccessfulRequestCountResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, unsuccessfulRequestCountQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query unsuccessful request count", "error", err)
-	} else if len(unsuccessfulRequestCountResponse.Data.Result) > 0 {
-		metrics.UnsuccessfulRequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(unsuccessfulRequestCountResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.BuildUnsuccessfulHTTPRequestCountQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Unsuccessful request count query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query unsuccessful request count", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("unsuccessful request count: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.UnsuccessfulRequestCount = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Mean latency
-	meanLatencyQuery := prometheus.BuildMeanHTTPRequestLatencyQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Mean latency query:", meanLatencyQuery)
-	}
-	meanLatencyResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, meanLatencyQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query mean latency", "error", err)
-	} else if len(meanLatencyResponse.Data.Result) > 0 {
-		metrics.MeanLatency = prometheus.ConvertTimeSeriesToTimeValuePoints(meanLatencyResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.BuildMeanHTTPRequestLatencyQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Mean latency query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query mean latency", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("mean latency: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.MeanLatency = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Latency Percentile - 50th
-	latency50thPercentileQuery := prometheus.Build50thPercentileHTTPRequestLatencyQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Latency 50th percentile query:", latency50thPercentileQuery)
-	}
-	latency50thPercentileResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, latency50thPercentileQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query 50th percentile latency", "error", err)
-	} else if len(latency50thPercentileResponse.Data.Result) > 0 {
-		metrics.LatencyPercentile50th = prometheus.ConvertTimeSeriesToTimeValuePoints(latency50thPercentileResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.Build50thPercentileHTTPRequestLatencyQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Latency 50th percentile query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query 50th percentile latency", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("50th percentile latency: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.LatencyPercentile50th = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Latency Percentile - 90th
-	latency90thPercentileQuery := prometheus.Build90thPercentileHTTPRequestLatencyQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Latency 90th percentile query:", latency90thPercentileQuery)
-	}
-	latency90thPercentileResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, latency90thPercentileQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query 90th percentile latency", "error", err)
-	} else if len(latency90thPercentileResponse.Data.Result) > 0 {
-		metrics.LatencyPercentile90th = prometheus.ConvertTimeSeriesToTimeValuePoints(latency90thPercentileResponse.Data.Result[0])
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.Build90thPercentileHTTPRequestLatencyQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Latency 90th percentile query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query 90th percentile latency", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("90th percentile latency: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.LatencyPercentile90th = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
 
 	// Latency Percentile - 99th
-	latency99thPercentileQuery := prometheus.Build99thPercentileHTTPRequestLatencyQuery(labelFilter)
-	if s.config.LogLevel == logLevelDebug {
-		fmt.Println("Latency 99th percentile query:", latency99thPercentileQuery)
-	}
-	latency99thPercentileResponse, err := s.metricsService.QueryRangeTimeSeries(ctx, latency99thPercentileQuery, startTime, endTime, step)
-	if err != nil {
-		s.logger.Warn("Failed to query 99th percentile latency", "error", err)
-	} else if len(latency99thPercentileResponse.Data.Result) > 0 {
-		metrics.LatencyPercentile99th = prometheus.ConvertTimeSeriesToTimeValuePoints(latency99thPercentileResponse.Data.Result[0])
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		query := prometheus.Build99thPercentileHTTPRequestLatencyQuery(labelFilter)
+		if s.config.LogLevel == logLevelDebug {
+			fmt.Println("Latency 99th percentile query:", query)
+		}
+		response, err := s.metricsService.QueryRangeTimeSeries(ctx, query, startTime, endTime, step)
+		if err != nil {
+			s.logger.Warn("Failed to query 99th percentile latency", "error", err)
+			mu.Lock()
+			queryErrors = append(queryErrors, fmt.Errorf("99th percentile latency: %w", err))
+			mu.Unlock()
+			return
+		}
+		if len(response.Data.Result) > 0 {
+			mu.Lock()
+			metrics.LatencyPercentile99th = prometheus.ConvertTimeSeriesToTimeValuePoints(response.Data.Result[0])
+			mu.Unlock()
+		}
+	}()
+
+	wg.Wait()
+
+	// Check if any errors occurred during metric queries
+	if len(queryErrors) > 0 {
+		s.logger.Error("Failed to fetch one or more HTTP metrics", "errors", queryErrors)
+		return nil, fmt.Errorf("internal error occurred when fetching one or more HTTP metrics")
 	}
 
 	s.logger.Debug("HTTP metrics time series retrieved",

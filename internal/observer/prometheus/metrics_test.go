@@ -361,7 +361,7 @@ func TestBuildSuccessfulHTTPRequestCountQuery(t *testing.T) {
 			name:        "valid label filter",
 			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
 			expectedQuery: `
-				rate(hubble_http_requests_total{reporter="client", status="200"}[2m])
+				rate(hubble_http_requests_total{reporter="client", status=~"^[123]..?$"}[2m])
     				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
 	    			label_replace(
 		    			kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
@@ -400,7 +400,7 @@ func TestBuildUnsuccessfulHTTPRequestCountQuery(t *testing.T) {
 			name:        "valid label filter",
 			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
 			expectedQuery: `
-				rate(hubble_http_requests_total{reporter="client", status!="200"}[2m])
+				rate(hubble_http_requests_total{reporter="client", status=~"^[45]..?$"}[2m])
     				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
 	    			label_replace(
 		    			kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
