@@ -29,7 +29,7 @@ helm repo update
 
 # Install ClickStack
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
+  ./install/helm/openchoreo-observability-clickstack \
   --namespace openchoreo-observability-plane \
   --create-namespace
 ```
@@ -72,7 +72,7 @@ Install with custom values:
 
 ```bash
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
+  ./install/helm/openchoreo-observability-clickstack \
   --namespace openchoreo-observability-plane \
   --create-namespace \
   -f custom-values.yaml
@@ -96,7 +96,7 @@ hyperdx:
 
 ```bash
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
+  ./install/helm/openchoreo-observability-clickstack \
   --namespace openchoreo-observability-plane \
   --create-namespace \
   -f minimal-values.yaml
@@ -147,7 +147,67 @@ hyperdx:
         secretName: "hyperdx-tls"
 ```
 
-## Sending Telemetry Data
+## Integration with OpenChoreo Observability Plane
+
+To integrate HyperDX with the existing OpenChoreo Observability Plane (OpenSearch/Fluent Bit), you can configure Fluent Bit to "dual-ship" logs to both OpenSearch and HyperDX.
+
+### 1. Deploy ClickStack
+
+Follow the installation instructions above to deploy the `openchoreo-observability-clickstack` chart.
+
+### 2. Configure Fluent Bit in OpenChoreo Observability Plane
+
+Update your `openchoreo-observability-plane` values to include an additional output for HyperDX.
+
+Add the following to your `values.yaml` for `openchoreo-observability-plane`:
+
+```yaml
+fluentBit:
+  config:
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd admin
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
+      # Add this section for HyperDX integration
+      [OUTPUT]
+          Name http
+          Match kube.*
+          Host openchoreo-observability-clickstack-hyperdx-otel-collector
+          Port 4318
+          URI /v1/logs
+          Format json
+          Json_Date_Key time
+          Json_Date_Format iso8601
+          Header x-api-key hyperdx-api-key-change-me
+```
+
+> **Note**: Replace `hyperdx-api-key-change-me` with your actual API key if you changed it.
+
+### 3. Upgrade OpenChoreo Observability Plane
+
+Apply the changes:
+
+```bash
+helm upgrade openchoreo-observability-plane \
+  ./install/helm/openchoreo-observability-plane \
+  --namespace openchoreo-observability-plane \
+  -f your-values.yaml
+```
+
+## Sending Telemetry Data Directly
 
 Configure your applications to send OTLP data to the OTEL Collector:
 

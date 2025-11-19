@@ -161,7 +161,8 @@ observer:
   openSearchPassword: ThisIsTheOpenSearchPassword1
 
 # Fluent Bit configuration
-fluentBit:
+# Note: Fluent Bit is deployed in openchoreo-data-plane instead to avoid duplication
+fluent-bit:
   enabled: false
   config:
     customParsers: |
@@ -214,8 +215,15 @@ fluentBit:
           Port 9200
           Replace_Dots On
           Suppress_Type_Name On
-          tls On
+          tls Off
           tls.verify Off
+
+      # HyperDX Integration (via Fluentd Forward Protocol)
+      [OUTPUT]
+          Name forward
+          Match kube.*
+          Host openchoreo-observability-clickstack-hyperdx-otel-collector
+          Port 24225
 
   dnsPolicy: ClusterFirstWithHostNet
   hostNetwork: true

@@ -198,6 +198,12 @@ fluentBit:
       timeKey: time
       timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
       timeKeep: true
+    
+    # HyperDX ClickStack integration
+    hyperdx:
+      enabled: true
+      host: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local"
+      port: "24225"
   
   rbac:
     create: true
