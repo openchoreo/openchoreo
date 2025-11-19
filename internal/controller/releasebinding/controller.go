@@ -203,7 +203,8 @@ func (r *Reconciler) validateComponentRelease(componentRelease *openchoreov1alph
 	}
 
 	// Check if the owners are matching in componentRelease and releaseBinding
-	if !apiequality.Semantic.DeepEqual(releaseBinding.Spec.Owner, componentRelease.Spec.Owner) {
+	if releaseBinding.Spec.Owner.ProjectName != componentRelease.Spec.Owner.ProjectName ||
+		releaseBinding.Spec.Owner.ComponentName != componentRelease.Spec.Owner.ComponentName {
 		return fmt.Errorf("release binding owner (project: %q, component: %q) does not match "+
 			"component release owner (project: %q, component: %q)",
 			releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Owner.ComponentName,
