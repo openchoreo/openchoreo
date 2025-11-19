@@ -26,8 +26,6 @@ Submitted
 
 ## Summary
 
-The current OpenChoreo architecture requires Data Planes and Build Planes to expose their Kubernetes API servers to the Control Plane, creating security vulnerabilities. Organizations seeking secure connections must implement VPN solutions, adding significant operational complexity and cost.
-
 This proposal introduces a **Cluster Agent** architecture that eliminates the need for exposing Kubernetes APIs or deploying VPNs. The solution implements a bidirectional WebSocket-based communication system where cluster agents establish outbound connections to Control Plane servers using mutual TLS (mTLS) authentication. This reverse connection model ensures:
 
 - No inbound ports exposed on Data/Build Planes
