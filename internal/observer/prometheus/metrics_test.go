@@ -311,3 +311,295 @@ func TestBuildMemoryLimitsQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildHTTPRequestCountQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				rate(hubble_http_requests_total{reporter="client"}[2m])
+    				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    			label_replace(
+		    			kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+			    		"destination_pod",
+				    	"$1",
+					    "pod",
+					    "(.*)"
+			    	)
+					>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildHTTPRequestCountQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("BuildHTTPRequestCountQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuildSuccessfulHTTPRequestCountQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				rate(hubble_http_requests_total{reporter="client", status="200"}[2m])
+    				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    			label_replace(
+		    			kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+			    		"destination_pod",
+				    	"$1",
+					    "pod",
+				    	"(.*)"
+				    )
+					>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildSuccessfulHTTPRequestCountQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("BuildSuccessfulHTTPRequestCountQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuildUnsuccessfulHTTPRequestCountQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				rate(hubble_http_requests_total{reporter="client", status!="200"}[2m])
+    				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    			label_replace(
+		    			kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+			    		"destination_pod",
+				    	"$1",
+					    "pod",
+					    "(.*)"
+				    ) 
+					>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildUnsuccessfulHTTPRequestCountQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("BuildUnsuccessfulHTTPRequestCountQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuildMeanHTTPRequestLatencyQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				(
+					sum by(destination_pod) (rate(hubble_http_request_duration_seconds_sum{reporter="client"}[2m]))
+					/
+					sum by(destination_pod) (rate(hubble_http_requests_total{reporter="client"}[2m]))
+				)
+				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+    				label_replace(
+	    				kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+		    			"destination_pod",
+			    		"$1",
+				    	"pod",
+					    "(.*)"
+				    )
+				    >= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildMeanHTTPRequestLatencyQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("BuildMeanHTTPRequestLatencyQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuild50thPercentileHTTPRequestLatencyQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				histogram_quantile(
+					0.5,
+					sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+						rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+    						* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid)
+	    					label_replace(
+		    					kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+			    				"destination_pod",
+				    			"$1",
+					    		"pod",
+						    	"(.*)"
+						    )
+					)
+				)
+				>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Build50thPercentileHTTPRequestLatencyQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("Build50thPercentileHTTPRequestLatencyQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuild90thPercentileHTTPRequestLatencyQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				histogram_quantile(
+					0.9,
+					sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+						rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+    						* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    					label_replace(
+		    					kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+			    				"destination_pod",
+				    			"$1",
+					    		"pod",
+						    	"(.*)"
+						    )
+					)
+				)
+				>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Build90thPercentileHTTPRequestLatencyQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("Build90thPercentileHTTPRequestLatencyQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}
+
+func TestBuild99thPercentileHTTPRequestLatencyQuery(t *testing.T) {
+	tests := []struct {
+		name          string
+		labelFilter   string
+		expectedQuery string
+	}{
+		{
+			name:        "valid label filter",
+			labelFilter: `label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"`,
+			expectedQuery: `
+				histogram_quantile(
+					0.99,
+					sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+						rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+    						* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+    						label_replace(
+	    						kube_pod_labels{label_openchoreo_dev_component_uid="comp-123",label_openchoreo_dev_project_uid="proj-456"},
+							    "destination_pod",
+    							"$1",
+	    						"pod",
+		    					"(.*)"
+						    )
+					)
+				)
+				>= 0
+			`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Build99thPercentileHTTPRequestLatencyQuery(tt.labelFilter)
+
+			// Normalize whitespace for comparison
+			normalizedResult := strings.Join(strings.Fields(result), " ")
+			normalizedExpected := strings.Join(strings.Fields(tt.expectedQuery), " ")
+
+			if normalizedResult != normalizedExpected {
+				t.Errorf("Build99thPercentileHTTPRequestLatencyQuery() returned incorrect query\nGot:\n%s\n\nExpected:\n%s", result, tt.expectedQuery)
+			}
+		})
+	}
+}

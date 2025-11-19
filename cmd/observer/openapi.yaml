@@ -244,6 +244,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/metrics/component/http:
+    post:
+      tags:
+        - Metrics
+      summary: Get component HTTP metrics
+      description: Retrieve HTTP request metrics (request counts, latency percentiles) for a component as time series data
+      operationId: getComponentHTTPMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved HTTP metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPMetricsTimeSeries'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/metrics/component/usage:
     post:
       tags:
@@ -476,6 +509,7 @@ components:
     MetricsRequest:
       type: object
       required:
+        - componentId
         - environmentId
         - projectId
       properties:
@@ -622,6 +656,81 @@ components:
             value: 2147483648
           - time: "2025-01-10T12:05:00Z"
             value: 2147483648
+
+    HTTPMetricsTimeSeries:
+      type: object
+      properties:
+        requestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Total HTTP request count time series (requests per second)
+        successfulRequestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Successful HTTP request count time series (status 200, requests per second)
+        unsuccessfulRequestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Unsuccessful HTTP request count time series (status != 200, requests per second)
+        meanLatency:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Mean HTTP request latency time series (in seconds)
+        latencyPercentile50th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 50th percentile (median) HTTP request latency time series (in seconds)
+        latencyPercentile90th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 90th percentile HTTP request latency time series (in seconds)
+        latencyPercentile99th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 99th percentile HTTP request latency time series (in seconds)
+      example:
+        requestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 125.5
+          - time: "2025-01-10T12:05:00Z"
+            value: 143.2
+        successfulRequestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 120.0
+          - time: "2025-01-10T12:05:00Z"
+            value: 138.5
+        unsuccessfulRequestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 5.5
+          - time: "2025-01-10T12:05:00Z"
+            value: 4.7
+        meanLatency:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.125
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.132
+        latencyPercentile50th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.095
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.102
+        latencyPercentile90th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.250
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.265
+        latencyPercentile99th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.500
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.520
 
     ErrorResponse:
       type: object

@@ -306,6 +306,10 @@ prometheus:
   ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
   prometheus:
     enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    prometheusSpec:
+      serviceMonitorNamespaceSelector: {}
+      serviceMonitorSelector: {}
+      serviceMonitorSelectorNilUsesHelmValues: false
 
   ## Configuration for alertmanager
   ## ref: https://prometheus.io/docs/alerting/alertmanager/

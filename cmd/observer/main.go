@@ -79,6 +79,7 @@ func main() {
 	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
 
 	// API routes - Metrics
+	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
 	// Apply middleware

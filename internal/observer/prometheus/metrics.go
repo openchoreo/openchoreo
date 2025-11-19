@@ -137,3 +137,140 @@ func BuildMemoryLimitsQuery(labelFilter string) string {
             kube_pod_labels{%s}
         )`, labelFilter)
 }
+
+// ----------------------------
+// HTTP REQUEST METRICS QUERIES
+// ----------------------------
+
+// BuildHTTPRequestCountQuery builds a PromQL query for HTTP request count
+func BuildHTTPRequestCountQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+	    rate(hubble_http_requests_total{reporter="client"}[2m])
+            * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+            label_replace(
+	            kube_pod_labels{%s},
+    			"destination_pod",
+	    		"$1",
+		    	"pod",
+			    "(.*)"
+		    ) 
+			>= 0
+	`, labelFilter)
+}
+
+// BuildSuccessfulHTTPRequestCountQuery builds a PromQL query for successful HTTP request count. Requests are
+// considered successful if they have a 200 status code.
+func BuildSuccessfulHTTPRequestCountQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+	    rate(hubble_http_requests_total{reporter="client", status="200"}[2m])
+            * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+            label_replace(
+    	        kube_pod_labels{%s},
+	    		"destination_pod",
+		    	"$1",
+			    "pod",
+			    "(.*)"
+		    )
+		    >= 0
+	`, labelFilter)
+}
+
+// BuildUnsuccessfulHTTPRequestCountQuery builds a PromQL query for unsuccessful HTTP request count. Requests are
+// considered unsuccessful if they do not have a 200 status code.
+func BuildUnsuccessfulHTTPRequestCountQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+	    rate(hubble_http_requests_total{reporter="client", status!="200"}[2m])
+            * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+            label_replace(
+	            kube_pod_labels{%s},
+    			"destination_pod",
+	    		"$1",
+		    	"pod",
+			    "(.*)"
+		    )
+			>= 0
+	`, labelFilter)
+}
+
+// BuildMeanHTTPRequestLatencyQuery builds a PromQL query for mean HTTP request latency
+func BuildMeanHTTPRequestLatencyQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+		(
+		    sum by(destination_pod) (rate(hubble_http_request_duration_seconds_sum{reporter="client"}[2m]))
+		    /
+		    sum by(destination_pod) (rate(hubble_http_requests_total{reporter="client"}[2m]))
+		)
+		* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    	label_replace(
+		    	kube_pod_labels{%s},
+			    "destination_pod",
+	    		"$1",
+		    	"pod",
+			    "(.*)"
+		    )
+			>= 0
+	`, labelFilter)
+}
+
+// Build50thPercentileHTTPRequestLatencyQuery builds a PromQL query for 50th percentile HTTP request latency
+func Build50thPercentileHTTPRequestLatencyQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+		histogram_quantile(
+			0.5,
+			sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+				rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+				    * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid)
+				    label_replace(
+					    kube_pod_labels{%s},
+					    "destination_pod",
+						"$1",
+						"pod",
+						"(.*)"
+				    )
+			)
+		)
+		>= 0
+	`, labelFilter)
+}
+
+// Build90thPercentileHTTPRequestLatencyQuery builds a PromQL query for 90th percentile HTTP request latency
+func Build90thPercentileHTTPRequestLatencyQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+	    histogram_quantile(
+            0.9,
+			sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+			    rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+    				* on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+	    			label_replace(
+		    			kube_pod_labels{%s},
+			    		"destination_pod",
+				    	"$1",
+					    "pod",
+					    "(.*)"
+				    )
+            )
+        )
+		>= 0
+	`, labelFilter)
+}
+
+// Build99thPercentileHTTPRequestLatencyQuery builds a PromQL query for 99th percentile HTTP request latency
+func Build99thPercentileHTTPRequestLatencyQuery(labelFilter string) string {
+	return fmt.Sprintf(`
+	    histogram_quantile(
+            0.99,
+			sum by(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, le) (
+			    rate(hubble_http_request_duration_seconds_bucket{reporter="client"}[2m])
+				    * on(destination_pod) group_left(label_openchoreo_dev_component_uid, label_openchoreo_dev_project_uid, label_openchoreo_dev_environment_uid) 
+    				label_replace(
+	    				kube_pod_labels{%s},
+		    			"destination_pod",
+			    		"$1",
+				    	"pod",
+					    "(.*)"
+				    )
+            )
+        )
+		>= 0
+	`, labelFilter)
+}
