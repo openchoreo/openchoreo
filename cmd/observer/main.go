@@ -17,6 +17,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/mcp"
 	"github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -80,6 +81,9 @@ func main() {
 
 	// API routes - Metrics
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
+
+	// MCP endpoint
+	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(
