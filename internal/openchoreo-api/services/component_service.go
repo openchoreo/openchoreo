@@ -26,6 +26,7 @@ const (
 	statusReady    = "Ready"
 	statusNotReady = "NotReady"
 	statusUnknown  = "Unknown"
+	statusFailed   = "Failed"
 )
 
 // ComponentService handles component-related business logic
@@ -168,6 +169,10 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 		componentProfile.Parameters = component.Spec.Parameters
 	}
 
+	if component.Spec.Traits != nil {
+		componentProfile.Traits = component.Spec.Traits
+	}
+
 	// Build workload template spec from workload spec
 	workloadTemplateSpec := openchoreov1alpha1.WorkloadTemplateSpec{
 		Containers: workload.Spec.Containers,
@@ -257,14 +262,6 @@ func (s *ComponentService) generateReleaseName(ctx context.Context, orgName, pro
 func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentReleaseResponse, error) {
 	s.logger.Debug("Listing component releases", "org", orgName, "project", projectName, "component", componentName)
 
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
-	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			return nil, ErrProjectNotFound
-		}
-		return nil, fmt.Errorf("failed to verify project: %w", err)
-	}
-
 	componentKey := client.ObjectKey{
 		Namespace: orgName,
 		Name:      componentName,
@@ -287,10 +284,6 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 	var releaseList openchoreov1alpha1.ComponentReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
-		client.MatchingLabels{
-			labels.LabelKeyProjectName:   projectName,
-			labels.LabelKeyComponentName: componentName,
-		},
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
@@ -300,13 +293,16 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 
 	releases := make([]*models.ComponentReleaseResponse, 0, len(releaseList.Items))
 	for _, item := range releaseList.Items {
+		if item.Spec.Owner.ComponentName != componentName || item.Spec.Owner.ProjectName != projectName {
+			continue
+		}
 		releases = append(releases, &models.ComponentReleaseResponse{
 			Name:          item.Name,
 			ComponentName: componentName,
 			ProjectName:   projectName,
 			OrgName:       orgName,
 			CreatedAt:     item.CreationTimestamp.Time,
-			Status:        statusReady, // ComponentRelease is immutable, so it's always ready once created
+			Status:        statusReady,
 		})
 	}
 
@@ -533,6 +529,9 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 		Status:        statusNotReady,
 	}
 
+	// Determine status from conditions
+	response.Status = s.determineReleaseBindingStatus(binding)
+
 	if binding.Spec.ComponentTypeEnvOverrides != nil {
 		var overrides map[string]interface{}
 		if err := json.Unmarshal(binding.Spec.ComponentTypeEnvOverrides.Raw, &overrides); err == nil {
@@ -577,6 +576,41 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 	return response
 }
 
+func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1alpha1.ReleaseBinding) string {
+	if len(binding.Status.Conditions) == 0 {
+		return statusNotReady
+	}
+
+	generation := binding.ObjectMeta.Generation
+
+	// Collect all conditions for the current generation
+	var conditionsForGeneration []metav1.Condition
+	for i := range binding.Status.Conditions {
+		if binding.Status.Conditions[i].ObservedGeneration == generation {
+			conditionsForGeneration = append(conditionsForGeneration, binding.Status.Conditions[i])
+		}
+	}
+
+	isFailed := false
+	for i := range conditionsForGeneration {
+		if conditionsForGeneration[i].Status == metav1.ConditionFalse {
+			isFailed = true
+			break
+		}
+	}
+	if isFailed {
+		return statusFailed
+	}
+
+	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
+	// If there are less than 3 conditions for the current generation, it's still in progress
+	if len(conditionsForGeneration) < 3 {
+		return statusNotReady
+	}
+
+	return statusReady
+}
+
 // ListReleaseBindings lists all release bindings for a specific component
 // If environments is provided, only returns bindings for those environments
 func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.ReleaseBindingResponse, error) {
@@ -612,10 +646,6 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 	var bindingList openchoreov1alpha1.ReleaseBindingList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
-		client.MatchingLabels{
-			labels.LabelKeyProjectName:   projectName,
-			labels.LabelKeyComponentName: componentName,
-		},
 	}
 
 	if err := s.k8sClient.List(ctx, &bindingList, listOpts...); err != nil {
@@ -625,6 +655,9 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 
 	bindings := make([]*models.ReleaseBindingResponse, 0, len(bindingList.Items))
 	for i := range bindingList.Items {
+		if bindingList.Items[i].Spec.Owner.ComponentName != componentName || bindingList.Items[i].Spec.Owner.ProjectName != projectName {
+			continue
+		}
 		binding := &bindingList.Items[i]
 
 		if len(environments) > 0 {
@@ -1418,7 +1451,6 @@ func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteCom
 	if err != nil {
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
-	s.logger.Info("Release binding", "binding", targetReleaseBinding)
 
 	return s.toReleaseBindingResponse(targetReleaseBinding, req.OrgName, req.ProjectName, req.ComponentName), nil
 }
@@ -1520,18 +1552,19 @@ func (s *ComponentService) getReleaseBinding(ctx context.Context, orgName, proje
 	bindingList := &openchoreov1alpha1.ReleaseBindingList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
-		client.MatchingLabels{
-			labels.LabelKeyProjectName:   projectName,
-			labels.LabelKeyComponentName: componentName,
-		},
 	}
 
 	if err := s.k8sClient.List(ctx, bindingList, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list release bindings: %w", err)
 	}
 
+	s.logger.Info("Release bindings", "releaseBindings", bindingList.Items)
+
 	// Find the binding that matches the environment
 	for i := range bindingList.Items {
+		if bindingList.Items[i].Spec.Owner.ComponentName != componentName || bindingList.Items[i].Spec.Owner.ProjectName != projectName {
+			continue
+		}
 		binding := &bindingList.Items[i]
 		if binding.Spec.Environment == environment {
 			return binding, nil
@@ -1577,14 +1610,13 @@ func (s *ComponentService) createOrUpdateReleaseBinding(ctx context.Context, req
 					ComponentName: req.ComponentName,
 				},
 				Environment: req.TargetEnvironment,
+				ReleaseName: sourceBinding.Spec.ReleaseName,
 			},
 		}
 	} else {
 		targetBinding = existingTargetBinding
 		targetBinding.Spec.ReleaseName = sourceBinding.Spec.ReleaseName
 	}
-
-	s.logger.Info("Target binding", "targetBinding", targetBinding)
 
 	if existingTargetBinding == nil {
 		// Create new binding

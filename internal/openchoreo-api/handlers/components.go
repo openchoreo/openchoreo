@@ -429,7 +429,6 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
-	defer r.Body.Close()
 
 	req.Sanitize()
 
@@ -464,7 +463,6 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListComponentReleases handler called")
 
-	defer r.Body.Close()
 	orgName := r.PathValue("orgName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
@@ -552,13 +550,13 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer r.Body.Close()
 	var req models.PatchReleaseBindingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn("Invalid JSON body", "error", err)
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
-	defer r.Body.Close()
 
 	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, orgName, projectName, componentName, bindingName, &req)
 	if err != nil {
