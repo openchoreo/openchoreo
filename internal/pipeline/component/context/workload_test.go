@@ -17,7 +17,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 	tests := []struct {
 		name         string
 		baseWorkload *v1alpha1.Workload
-		overrides    *v1alpha1.WorkloadTemplateSpec
+		overrides    *v1alpha1.WorkloadOverrideTemplateSpec
 		want         *v1alpha1.Workload
 	}{
 		{
@@ -80,8 +80,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{},
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{},
 			},
 			want: &v1alpha1.Workload{
 				ObjectMeta: metav1.ObjectMeta{
@@ -123,8 +123,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "ENV1", Value: "overridden_value1"},
@@ -172,8 +172,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "ENV3", Value: "value3"},
@@ -221,8 +221,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Files: []v1alpha1.FileVar{
 							{Key: "config.yaml", MountPath: "/etc/config/config.yaml", Value: "overridden content"},
@@ -269,8 +269,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Files: []v1alpha1.FileVar{
 							{Key: "secrets.yaml", MountPath: "/etc/secrets/secrets.yaml", Value: "secret content"},
@@ -318,10 +318,9 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"sidecar": {
-						Image: "sidecar:v1",
 						Env: []v1alpha1.EnvVar{
 							{Key: "SIDECAR_ENV", Value: "sidecar_value"},
 						},
@@ -343,7 +342,6 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 								},
 							},
 							"sidecar": {
-								Image: "sidecar:v1",
 								Env: []v1alpha1.EnvVar{
 									{Key: "SIDECAR_ENV", Value: "sidecar_value"},
 								},
@@ -387,8 +385,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "DATABASE_URL", Value: "prod.db.example.com:5432"},
@@ -466,8 +464,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "API_KEY", ValueFrom: &v1alpha1.EnvVarValueFrom{
@@ -531,8 +529,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Files: []v1alpha1.FileVar{
 							{Key: "credentials.json", MountPath: "/etc/credentials.json", ValueFrom: &v1alpha1.EnvVarValueFrom{
@@ -605,8 +603,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "ENV1", Value: "overridden_value1"},
@@ -689,8 +687,8 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					},
 				},
 			},
-			overrides: &v1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]v1alpha1.Container{
+			overrides: &v1alpha1.WorkloadOverrideTemplateSpec{
+				Containers: map[string]v1alpha1.ContainerOverride{
 					"main": {
 						Env: []v1alpha1.EnvVar{
 							{Key: "ENV1", Value: "overridden_value1"},

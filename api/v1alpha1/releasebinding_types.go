@@ -8,6 +8,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// ContainerOverride represents a single container in the workload.
+type ContainerOverride struct {
+	// Explicit environment variables.
+	// +optional
+	Env []EnvVar `json:"env,omitempty"`
+
+	// File configurations.
+	// +optional
+	Files []FileVar `json:"files,omitempty"`
+}
+
+// WorkloadOverrideTemplateSpec defines the desired state of Workload.
+type WorkloadOverrideTemplateSpec struct {
+	// Containers define the container specifications for this workload.
+	// The key is the container name, and the value is the container specification.
+	// +optional
+	Containers map[string]ContainerOverride `json:"containers,omitempty"`
+}
+
 // ReleaseBindingSpec defines the desired state of ReleaseBinding.
 type ReleaseBindingSpec struct {
 	// Owner identifies the component and project this ReleaseBinding belongs to
@@ -38,7 +57,7 @@ type ReleaseBindingSpec struct {
 	// These values override the workload specification for this specific environment
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	WorkloadOverrides *WorkloadTemplateSpec `json:"workloadOverrides,omitempty"`
+	WorkloadOverrides *WorkloadOverrideTemplateSpec `json:"workloadOverrides,omitempty"`
 }
 
 // ReleaseBindingOwner identifies the component this ReleaseBinding belongs to
