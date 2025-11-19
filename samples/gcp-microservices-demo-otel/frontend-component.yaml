@@ -1,0 +1,144 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: frontend
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type: WebApplication
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: frontend
+spec:
+  owner:
+    componentName: frontend
+    projectName: gcp-microservice-demo
+  containers:
+    main:
+      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
+      env:
+        - key: DISABLE_PROFILER
+          value: "1"
+        - key: PORT
+          value: "8080"
+        - key: SHOPPING_ASSISTANT_SERVICE_ADDR
+          value: "-" # We don't deploy this service. See https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/helm-chart/values.yaml#L218
+        - key: CYMBAL_BRANDING
+          value: "false"
+        - key: FRONTEND_MESSAGE
+          value: "Welcome to the Microservices Demo!"
+        - key: ENABLE_ASSISTANT
+          value: "false"
+        - key: ENABLE_TRACING
+          value: "1"
+        - key: COLLECTOR_SERVICE_ADDR
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+        - key: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+        - key: OTEL_EXPORTER_OTLP_HEADERS
+          value: "authorization=Bearer 9b7f70e3-f444-40bf-b7b6-263a5007dd8e"
+
+  endpoints:
+    http-endpoint:
+      type: HTTP
+      port: 8080
+
+  connections:
+    ad:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: ad
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: AD_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    cart:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: cart
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: CART_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    checkout:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: checkout
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: CHECKOUT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    currency:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: currency
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: CURRENCY_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    payment:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: payment
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: PAYMENT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    recommendation:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: recommendation
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: RECOMMENDATION_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    shipping:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: shipping
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: SHIPPING_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc-endpoint
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+
+
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WebApplication
+metadata:
+  name: frontend
+spec:
+  owner:
+    componentName: frontend
+    projectName: gcp-microservice-demo
+  workloadName: frontend
+  overrides: {}
