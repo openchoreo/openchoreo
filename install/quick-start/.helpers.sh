@@ -281,6 +281,7 @@ install_helm_chart() {
             if [[ -f "$helm_output_file" ]]; then
                 cat "$helm_output_file"
             fi
+            log_warning "Please use 'kubectl get pods -n $namespace' to list pods, then use 'kubectl describe pod <pod-name> -n $namespace' on failing pods to investigate issues."
             return 1
         fi
     else
@@ -372,23 +373,15 @@ check_system_resources() {
     local memory_gb
     local disk_gb
 
-    # Detect OS and get CPU count
+    # Detect OS and get CPU count (only needed for Linux containers)
     case "$(uname -s)" in
-        Darwin)
-            # macOS: use sysctl
-            cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo "0")
-            # Memory in bytes, convert to GB
-            local memory_bytes
-            memory_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
-            memory_gb=$((memory_bytes / 1024 / 1024 / 1024))
-            ;;
         Linux)
             # Linux: use /proc/cpuinfo and /proc/meminfo
             cpus=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo "0")
             memory_gb=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print int($2/1024/1024)}' || echo "0")
             ;;
         *)
-            log_warning "Unable to detect system resources on this OS"
+            log_warning "System resource check is only supported on Linux containers"
             return 0
             ;;
     esac
@@ -461,10 +454,10 @@ check_system_resources() {
 
     # Check Memory
     if [[ $memory_gb -lt $required_memory_min ]]; then
-        log_error "Insufficient Memory: have ${memory_gb}GB, minimum required is ${required_memory_min}GB"
+        log_error "Insufficient Memory: you have ${memory_gb}GB allocated to the container runtime; the minimum required is ${required_memory_min}GB"
         has_errors=true
     elif [[ $memory_gb -lt $required_memory_rec ]]; then
-        log_warning "Memory below recommended: have ${memory_gb}GB, recommended is ${required_memory_rec}GB"
+        log_warning "Memory below recommended: you have ${memory_gb}GB allocated to the container runtime; the recommended is ${required_memory_rec}GB"
         has_warnings=true
     fi
 
@@ -476,6 +469,7 @@ check_system_resources() {
 
     if [[ "$has_errors" == "true" ]]; then
         log_error "System resources do not meet minimum requirements"
+        log_error "Please increase the resource allocations in your container runtime (Docker Desktop, Colima, Rancher Desktop, etc.) and re-run this command."
         return 1
     fi
 
