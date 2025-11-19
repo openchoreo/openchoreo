@@ -128,6 +128,7 @@ openSearchDashboards:
   - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
     value: "true"
 
+  nameOverride: "opensearch-dashboards"
   fullnameOverride: "opensearch-dashboards"
   image:
     tag: "3.3.0"
@@ -148,12 +149,12 @@ observer:
     port: 8080
 
   logLevel: info
-  
+
   prometheus:
     # Prometheus server address (will be constructed from helm release name)
     address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
     timeout: 30s
-  
+
   resources:
     limits:
       cpu: 500m
@@ -398,4 +399,3 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
-  

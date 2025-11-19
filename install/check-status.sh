@@ -86,7 +86,7 @@ get_component_config() {
         "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
         "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
-        "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openSearchDashboards" ;;
+        "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=opensearch-dashboards" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
     esac
