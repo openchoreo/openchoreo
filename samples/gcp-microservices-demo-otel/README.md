@@ -79,14 +79,14 @@ https://frontend-development.choreoapps.localhost:8443
 ```
 
 > [!TIP]
-> #### Verification
+> ### Verification
 >
 > You should see the Google Cloud Platform microservices demo store frontend with:
 > - Product catalog
 > - Shopping cart functionality
 > - Checkout process
 >
-> #### Observability Verification
+> ### Observability Verification
 >
 > To verify OpenTelemetry traces are being collected:
 > 1. Use the application to browse products and complete a checkout

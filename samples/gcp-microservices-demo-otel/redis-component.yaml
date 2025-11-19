@@ -22,7 +22,7 @@ spec:
       image: redis:7.2-alpine
   endpoints:
     tcp-endpoint:
-      type: gRPC
+      type: TCP
       port: 6379
 
 

@@ -32,7 +32,8 @@ spec:
         - key: OTEL_EXPORTER_OTLP_ENDPOINT
           value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
         - key: OTEL_EXPORTER_OTLP_HEADERS
-          value: "authorization=Bearer XXXXXXX-XXXX-XXXX-XXXXXXXXXXXX"
+          value: "authorization=Bearer 9b7f70e3-f444-40bf-b7b6-263a5007dd8e"
+
   endpoints:
     grpc-endpoint:
       type: gRPC
