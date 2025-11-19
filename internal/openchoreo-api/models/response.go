@@ -291,15 +291,15 @@ type ComponentReleaseResponse struct {
 
 // ReleaseBindingResponse represents a ReleaseBinding in API responses
 type ReleaseBindingResponse struct {
-	Name                      string                  `json:"name"`
-	ComponentName             string                  `json:"componentName"`
-	ProjectName               string                  `json:"projectName"`
-	OrgName                   string                  `json:"orgName"`
-	Environment               string                  `json:"environment"`
-	ReleaseName               string                  `json:"releaseName"`
-	ComponentTypeEnvOverrides map[string]interface{}  `json:"componentTypeEnvOverrides,omitempty"`
-	TraitOverrides            map[string]interface{}  `json:"traitOverrides,omitempty"`
-	ConfigurationOverrides    *ConfigurationOverrides `json:"configurationOverrides,omitempty"`
-	CreatedAt                 time.Time               `json:"createdAt"`
-	Status                    string                  `json:"status,omitempty"`
+	Name                      string                 `json:"name"`
+	ComponentName             string                 `json:"componentName"`
+	ProjectName               string                 `json:"projectName"`
+	OrgName                   string                 `json:"orgName"`
+	Environment               string                 `json:"environment"`
+	ReleaseName               string                 `json:"releaseName"`
+	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+	TraitOverrides            map[string]interface{} `json:"traitOverrides,omitempty"`
+	WorkloadOverrides         *WorkloadOverrides     `json:"workloadOverrides,omitempty"`
+	CreatedAt                 time.Time              `json:"createdAt"`
+	Status                    string                 `json:"status,omitempty"`
 }

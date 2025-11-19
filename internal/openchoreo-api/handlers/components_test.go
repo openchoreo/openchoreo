@@ -159,12 +159,12 @@ func TestPatchReleaseBinding_RequestParsing(t *testing.T) {
 			},
 		},
 		{
-			name:        "Valid request with configuration overrides",
-			requestBody: `{"configurationOverrides": {"env": [{"key": "ENV", "value": "prod"}]}}`,
+			name:        "Valid request with workload overrides",
+			requestBody: `{"workloadOverrides": {"containers": {"main": {"env": [{"key": "ENV", "value": "prod"}]}}}}`,
 			wantErr:     false,
 			checkFunc: func(t *testing.T, req *models.PatchReleaseBindingRequest) {
-				if req.ConfigurationOverrides == nil {
-					t.Error("Expected configurationOverrides to be set")
+				if req.WorkloadOverrides == nil {
+					t.Error("Expected workloadOverrides to be set")
 				}
 			},
 		},

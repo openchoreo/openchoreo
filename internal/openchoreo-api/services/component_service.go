@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -556,27 +557,72 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 		}
 	}
 
-	if req.ConfigurationOverrides != nil {
-		envVars := make([]openchoreov1alpha1.EnvVar, len(req.ConfigurationOverrides.Env))
-		for i, env := range req.ConfigurationOverrides.Env {
-			envVars[i] = openchoreov1alpha1.EnvVar{
-				Key:   env.Key,
-				Value: env.Value,
+	if req.WorkloadOverrides != nil {
+		containers := make(map[string]openchoreov1alpha1.ContainerOverride)
+
+		for containerName, containerOverride := range req.WorkloadOverrides.Containers {
+			envVars := make([]openchoreov1alpha1.EnvVar, len(containerOverride.Env))
+			for i, env := range containerOverride.Env {
+				envVar := openchoreov1alpha1.EnvVar{
+					Key:   env.Key,
+					Value: env.Value,
+				}
+
+				// Handle ValueFrom for secret references
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					envVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
+						SecretRef: &openchoreov1alpha1.SecretKeyRef{
+							Name: env.ValueFrom.SecretRef.Name,
+							Key:  env.ValueFrom.SecretRef.Key,
+						},
+					}
+				}
+
+				envVars[i] = envVar
+			}
+
+			fileVars := make([]openchoreov1alpha1.FileVar, len(containerOverride.Files))
+			for i, file := range containerOverride.Files {
+				decodedValue := file.Value
+				if file.Value != "" {
+					decoded, err := base64.StdEncoding.DecodeString(file.Value)
+					if err == nil {
+						decodedValue = string(decoded)
+					} else {
+						s.logger.Warn("Failed to decode base64 file value, using original value",
+							"key", file.Key,
+							"containerName", containerName,
+							"error", err)
+					}
+				}
+
+				fileVar := openchoreov1alpha1.FileVar{
+					Key:       file.Key,
+					MountPath: file.MountPath,
+					Value:     decodedValue,
+				}
+
+				// Handle ValueFrom for secret references
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					fileVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
+						SecretRef: &openchoreov1alpha1.SecretKeyRef{
+							Name: file.ValueFrom.SecretRef.Name,
+							Key:  file.ValueFrom.SecretRef.Key,
+						},
+					}
+				}
+
+				fileVars[i] = fileVar
+			}
+
+			containers[containerName] = openchoreov1alpha1.ContainerOverride{
+				Env:   envVars,
+				Files: fileVars,
 			}
 		}
 
-		fileVars := make([]openchoreov1alpha1.FileVar, len(req.ConfigurationOverrides.Files))
-		for i, file := range req.ConfigurationOverrides.Files {
-			fileVars[i] = openchoreov1alpha1.FileVar{
-				Key:       file.Key,
-				MountPath: file.MountPath,
-				Value:     file.Value,
-			}
-		}
-
-		binding.Spec.ConfigurationOverrides = &openchoreov1alpha1.EnvConfigurationOverrides{
-			Env:   envVars,
-			Files: fileVars,
+		binding.Spec.WorkloadOverrides = &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+			Containers: containers,
 		}
 	}
 
@@ -631,27 +677,59 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 		}
 	}
 
-	if binding.Spec.ConfigurationOverrides != nil {
-		envVars := make([]models.EnvVar, len(binding.Spec.ConfigurationOverrides.Env))
-		for i, env := range binding.Spec.ConfigurationOverrides.Env {
-			envVars[i] = models.EnvVar{
-				Key:   env.Key,
-				Value: env.Value,
+	if binding.Spec.WorkloadOverrides != nil {
+		containers := make(map[string]models.ContainerOverride)
+
+		for containerName, containerOverride := range binding.Spec.WorkloadOverrides.Containers {
+			envVars := make([]models.EnvVar, len(containerOverride.Env))
+			for i, env := range containerOverride.Env {
+				envVar := models.EnvVar{
+					Key:   env.Key,
+					Value: env.Value,
+				}
+
+				// Handle ValueFrom for secret references
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+					envVar.ValueFrom = &models.EnvVarValueFrom{
+						SecretRef: &models.SecretKeyRef{
+							Name: env.ValueFrom.SecretRef.Name,
+							Key:  env.ValueFrom.SecretRef.Key,
+						},
+					}
+				}
+
+				envVars[i] = envVar
+			}
+
+			fileVars := make([]models.FileVar, len(containerOverride.Files))
+			for i, file := range containerOverride.Files {
+				fileVar := models.FileVar{
+					Key:       file.Key,
+					MountPath: file.MountPath,
+					Value:     file.Value,
+				}
+
+				// Handle ValueFrom for secret references
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+					fileVar.ValueFrom = &models.EnvVarValueFrom{
+						SecretRef: &models.SecretKeyRef{
+							Name: file.ValueFrom.SecretRef.Name,
+							Key:  file.ValueFrom.SecretRef.Key,
+						},
+					}
+				}
+
+				fileVars[i] = fileVar
+			}
+
+			containers[containerName] = models.ContainerOverride{
+				Env:   envVars,
+				Files: fileVars,
 			}
 		}
 
-		fileVars := make([]models.FileVar, len(binding.Spec.ConfigurationOverrides.Files))
-		for i, file := range binding.Spec.ConfigurationOverrides.Files {
-			fileVars[i] = models.FileVar{
-				Key:       file.Key,
-				MountPath: file.MountPath,
-				Value:     file.Value,
-			}
-		}
-
-		response.ConfigurationOverrides = &models.ConfigurationOverrides{
-			Env:   envVars,
-			Files: fileVars,
+		response.WorkloadOverrides = &models.WorkloadOverrides{
+			Containers: containers,
 		}
 	}
 

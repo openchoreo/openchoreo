@@ -231,13 +231,22 @@ type PatchReleaseBindingRequest struct {
 	// +optional
 	TraitOverrides map[string]map[string]interface{} `json:"traitOverrides,omitempty"`
 
-	// ConfigurationOverrides provides environment-specific overrides for workload configurations
+	// WorkloadOverrides provides environment-specific overrides for the entire workload spec
+	// These values override the workload specification for this specific environment
 	// +optional
-	ConfigurationOverrides *ConfigurationOverrides `json:"configurationOverrides,omitempty"`
+	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
 }
 
-// ConfigurationOverrides represents environment-specific configuration overrides
-type ConfigurationOverrides struct {
+// WorkloadOverrides represents environment-specific workload overrides
+type WorkloadOverrides struct {
+	// Containers define the container-specific overrides
+	// The key is the container name, and the value contains env and file overrides for that container
+	// +optional
+	Containers map[string]ContainerOverride `json:"containers,omitempty"`
+}
+
+// ContainerOverride represents overrides for a specific container
+type ContainerOverride struct {
 	// Environment variable overrides
 	// +optional
 	Env []EnvVar `json:"env,omitempty"`
@@ -251,6 +260,10 @@ type ConfigurationOverrides struct {
 type EnvVar struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
+	// Extract the environment variable value from another resource.
+	// Mutually exclusive with value.
+	// +optional
+	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
 }
 
 // FileVar represents a file configuration
@@ -258,4 +271,21 @@ type FileVar struct {
 	Key       string `json:"key"`
 	MountPath string `json:"mountPath"`
 	Value     string `json:"value,omitempty"`
+	// Extract the file value from another resource.
+	// Mutually exclusive with value.
+	// +optional
+	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
+}
+
+// EnvVarValueFrom holds references to external sources for environment variables and files
+type EnvVarValueFrom struct {
+	// Reference to a secret resource.
+	// +optional
+	SecretRef *SecretKeyRef `json:"secretRef,omitempty"`
+}
+
+// SecretKeyRef references a specific key in a secret
+type SecretKeyRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
 }
