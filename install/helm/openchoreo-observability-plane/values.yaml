@@ -148,12 +148,12 @@ observer:
     port: 8080
 
   logLevel: info
-  
+
   prometheus:
     # Prometheus server address (will be constructed from helm release name)
     address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
     timeout: 30s
-  
+
   resources:
     limits:
       cpu: 500m
@@ -365,7 +365,7 @@ prometheus:
       - kube_pod_status_phase
       # Jobs and Services to be added later
     metricLabelsAllowlist:
-      - pods=[organization-name, project-name, component-name, environment-name]
+      - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
       # Jobs and Services to be added later
 
   ## Configuration for thanosRuler
@@ -398,4 +398,3 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
-  
