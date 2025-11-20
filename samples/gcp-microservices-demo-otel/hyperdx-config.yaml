@@ -1,0 +1,14 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ConfigurationGroup
+metadata:
+  name: hyperdx-config
+  namespace: default
+  labels:
+    openchoreo.dev/organization: default
+    openchoreo.dev/name: hyperdx-config
+spec:
+  configurations:
+    - key: otel-headers
+      values:
+        - environment: development
+          value: "authorization=2c04a8a1-c7a4-445c-9919-ebd01289c6bd"

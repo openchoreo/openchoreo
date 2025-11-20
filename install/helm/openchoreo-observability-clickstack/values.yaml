@@ -26,7 +26,7 @@ hyperdx:
       pullPolicy: IfNotPresent
 
     # API Key for HyperDX (change in production)
-    apiKey: "hyperdx-api-key-change-me"
+    apiKey: "2c04a8a1-c7a4-445c-9919-ebd01289c6bd"
 
     # Service ports
     apiPort: 8000        # API service port
@@ -127,18 +127,17 @@ hyperdx:
     prometheusPort: 8888  # Prometheus metrics
 
     # Custom OTEL collector configuration (optional)
-    # Provide as multi-line YAML string if needed
-    # customConfig: |
-    #   receivers:
-    #     hostmetrics:
-    #       collection_interval: 30s
-    #       scrapers:
-    #         cpu: {}
-    #         memory: {}
-    #   service:
-    #     pipelines:
-    #       metrics:
-    #         receivers: [hostmetrics]
+    # NOTE: HyperDX uses OpAMP to dynamically manage the collector configuration.
+    # The OpAMP server pushes the complete configuration including receivers, processors, and exporters.
+    # Custom config should be minimal to avoid conflicts with OpAMP-managed configuration.
+    # Only add configuration here if you need to override specific settings that OpAMP doesn't manage.
+    customConfig: |
+      # Empty config - let HyperDX OpAMP manage the full configuration
+      # The OpAMP server will configure:
+      # - OTLP receivers (gRPC on :4317, HTTP on :4318)
+      # - Fluentd forward receiver on :24225
+      # - ClickHouse exporters
+      # - Processors and pipelines
 
     # Resource limits and requests
     resources:

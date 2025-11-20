@@ -38,6 +38,7 @@ All traces are sent to: `openchoreo-observability-clickstack-hyperdx-otel-collec
 ```
 google-microservices-sample/
 ├── gcp-microservice-demo-project.yaml    # Project definition
+├── hyperdx-config.yaml                   # ConfigurationGroup template for API Key
 ├── ad-component.yaml                     # Ad service component
 ├── cart-component.yaml                   # Cart service component
 ├── checkout-component.yaml               # Checkout service component
@@ -51,6 +52,19 @@ google-microservices-sample/
 ├── shipping-component.yaml               # Shipping service component
 └── README.md                             # This guide
 ```
+
+## Step 0: Configure API Key
+
+Before deploying the application, you must create a `ConfigurationGroup` containing your HyperDX API Key. This configuration is injected into the application by OpenChoreo.
+
+1. The `hyperdx-config.yaml` is pre-configured with a default API Key (`2c04a8a1-c7a4-445c-9919-ebd01289c6bd`) that matches the default HyperDX installation.
+2. Apply the configuration to your cluster:
+
+```bash
+kubectl apply -f hyperdx-config.yaml
+```
+
+> **Note**: The configuration is set for the `development` environment by default. If you are deploying to a different environment, update the `environment` field in `hyperdx-config.yaml` accordingly.
 
 ## Step 1: Deploy the Application
 

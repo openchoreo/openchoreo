@@ -202,7 +202,7 @@ fluentBit:
     # HyperDX ClickStack integration
     hyperdx:
       enabled: true
-      host: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local"
+      host: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local"
       port: "24225"
   
   rbac:
