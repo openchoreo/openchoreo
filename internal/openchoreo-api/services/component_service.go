@@ -40,6 +40,17 @@ type ComponentService struct {
 	logger              *slog.Logger
 }
 
+// parseComponentTypeName extracts the ComponentType name from the ComponentType string
+// ComponentType format: {workloadType}/{componentTypeName}, e.g., "deployment/web-app"
+// Returns the componentTypeName (second part after the slash)
+func (s *ComponentService) parseComponentTypeName(componentType string) (string, error) {
+	parts := strings.Split(componentType, "/")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid component type format: %s", componentType)
+	}
+	return parts[1], nil
+}
+
 type PromoteComponentPayload struct {
 	models.PromoteComponentRequest
 	ComponentName string `json:"componentName"`
@@ -123,15 +134,13 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 	// Get ComponentType if using new model
 	var componentTypeSpec *openchoreov1alpha1.ComponentTypeSpec
 	if component.Spec.ComponentType != "" {
-		// Fetch ComponentType CR
-		// ComponentType format: {workloadType}/{componentTypeName}
-		// Extract the part after '/' for the ComponentType resource name
-		parts := strings.Split(component.Spec.ComponentType, "/")
-		if len(parts) != 2 {
-			s.logger.Error("Invalid ComponentType format", "componentType", component.Spec.ComponentType)
-			return nil, fmt.Errorf("invalid componentType format: %s", component.Spec.ComponentType)
+		// Parse ComponentType name from format: {workloadType}/{componentTypeName}
+		componentTypeName, err := s.parseComponentTypeName(component.Spec.ComponentType)
+		if err != nil {
+			s.logger.Error("Invalid ComponentType format", "componentType", component.Spec.ComponentType, "error", err)
+			return nil, err
 		}
-		componentTypeName := parts[1]
+
 		componentTypeKey := client.ObjectKey{
 			Name:      componentTypeName,
 			Namespace: orgName,
@@ -451,6 +460,90 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 	}
 
 	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	return wrappedSchema, nil
+}
+
+// GetComponentSchema retrieves the JSON schema for a Component using the latest ComponentType
+func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, projectName, componentName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting component schema", "org", orgName, "project", projectName, "component", componentName)
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Parse ComponentType name from format: {workloadType}/{componentTypeName}
+	ctName, err := s.parseComponentTypeName(component.Spec.ComponentType)
+	if err != nil {
+		s.logger.Error("Invalid component type format", "componentType", component.Spec.ComponentType, "error", err)
+		return nil, err
+	}
+
+	// Get the latest ComponentType
+	ctKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      ctName,
+	}
+	var ct openchoreov1alpha1.ComponentType
+	if err := s.k8sClient.Get(ctx, ctKey, &ct); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
+			return nil, ErrComponentTypeNotFound
+		}
+		s.logger.Error("Failed to get ComponentType", "error", err)
+		return nil, fmt.Errorf("failed to get ComponentType: %w", err)
+	}
+
+	var types map[string]any
+	if ct.Spec.Schema.Types != nil && ct.Spec.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(ct.Spec.Schema.Types.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
+	def := schema.Definition{
+		Types: types,
+	}
+
+	var envOverrides map[string]any
+	if ct.Spec.Schema.EnvOverrides != nil && ct.Spec.Schema.EnvOverrides.Raw != nil {
+		if err := json.Unmarshal(ct.Spec.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
+			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
+		}
+	}
+
+	if envOverrides != nil {
+		def.Schemas = []map[string]any{envOverrides}
+	}
+
+	jsonSchema, err := schema.ToJSONSchema(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+	}
+
+	wrappedSchema := &extv1.JSONSchemaProps{
+		Type: "object",
+		Properties: map[string]extv1.JSONSchemaProps{
+			"componentTypeEnvOverrides": *jsonSchema,
+		},
+	}
+
+	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName)
 	return wrappedSchema, nil
 }
 

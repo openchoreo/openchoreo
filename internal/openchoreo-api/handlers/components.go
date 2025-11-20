@@ -141,6 +141,46 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
+func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetComponentSchema handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidInput)
+		return
+	}
+
+	schema, err := h.services.ComponentService.GetComponentSchema(ctx, orgName, projectName, componentName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentTypeNotFound) {
+			logger.Warn("ComponentType not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
+			return
+		}
+		logger.Error("Failed to get component schema", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName)
+	writeSuccessResponse(w, http.StatusOK, schema)
+}
+
 func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
