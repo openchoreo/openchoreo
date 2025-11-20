@@ -9,5 +9,5 @@ metadata:
   labels:
     openchoreo.dev/name: default
   name: default
-spec:
+spec: {}
 {{ end }}
