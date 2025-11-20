@@ -118,7 +118,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
-	api.HandleFunc("PUT "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-schema", h.UpdateComponentWorkflowSchema)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-schema", h.UpdateComponentWorkflowSchema)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
 
 	// Component bindings
