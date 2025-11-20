@@ -13,6 +13,46 @@ webhooks:
     service:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
+      path: /mutate-openchoreo-dev-v1alpha1-component
+  failurePolicy: Ignore
+  name: mcomponent-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - components
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-openchoreo-dev-v1alpha1-componentrelease
+  failurePolicy: Ignore
+  name: mcomponentrelease-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componentreleases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
       path: /mutate-openchoreo-dev-v1alpha1-project
   failurePolicy: Ignore
   name: mproject-v1alpha1.kb.io
@@ -26,4 +66,24 @@ webhooks:
     - UPDATE
     resources:
     - projects
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-openchoreo-dev-v1alpha1-releasebinding
+  failurePolicy: Ignore
+  name: mreleasebinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releasebindings
   sideEffects: None
