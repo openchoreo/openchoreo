@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"log/slog"
 	"strings"
 
@@ -22,7 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/schema"
+	openschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 const (
@@ -2558,5 +2559,149 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 	}
 
 	s.logger.Debug("Created scheduled task for component", "scheduledTask", scheduledTask.Name, "component", componentName, "workload", workloadName)
+	return nil
+}
+
+// UpdateComponentWorkflowSchema updates the workflow schema for a component
+func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateWorkflowSchemaRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+
+	// Verify project exists
+	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Check if component has workflow configuration
+	if component.Spec.Workflow == nil {
+		s.logger.Warn("Component does not have workflow configuration", "org", orgName, "project", projectName, "component", componentName)
+		return nil, fmt.Errorf("component does not have workflow configuration")
+	}
+
+	// Validate the schema against the Workflow CRD
+	if err := s.validateWorkflowSchema(ctx, orgName, component.Spec.Workflow.Name, req.Schema); err != nil {
+		s.logger.Warn("Invalid workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, ErrWorkflowSchemaInvalid
+	}
+
+	// Update the workflow schema
+	component.Spec.Workflow.Schema = req.Schema
+
+	// Update the component in Kubernetes
+	if err := s.k8sClient.Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component", "error", err)
+		return nil, fmt.Errorf("failed to update component: %w", err)
+	}
+
+	s.logger.Debug("Updated component workflow schema successfully", "org", orgName, "project", projectName, "component", componentName)
+
+	// Return the updated component
+	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+}
+
+// validateWorkflowSchema validates the provided schema against the Workflow CRD's schema definition
+func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, workflowName string, providedSchema *runtime.RawExtension) error {
+	// Fetch the Workflow CR
+	workflowKey := client.ObjectKey{
+		Name:      workflowName,
+		Namespace: orgName,
+	}
+	workflow := &openchoreov1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Workflow not found", "org", orgName, "workflow", workflowName)
+			return ErrWorkflowNotFound
+		}
+		s.logger.Error("Failed to get workflow", "error", err)
+		return fmt.Errorf("failed to get workflow: %w", err)
+	}
+
+	// If workflow has no schema defined, any schema is valid
+	if workflow.Spec.Schema == nil {
+		return nil
+	}
+
+	// If provided schema is nil or empty, it's valid (defaults will be applied)
+	if providedSchema == nil || len(providedSchema.Raw) == 0 {
+		return nil
+	}
+
+	// Unmarshal the workflow's schema definition
+	var workflowSchemaMap map[string]any
+	if err := json.Unmarshal(workflow.Spec.Schema.Raw, &workflowSchemaMap); err != nil {
+		s.logger.Error("Failed to unmarshal workflow schema", "error", err)
+		return fmt.Errorf("failed to parse workflow schema definition: %w", err)
+	}
+
+	// Unmarshal the provided schema values
+	var providedValues map[string]any
+	if err := json.Unmarshal(providedSchema.Raw, &providedValues); err != nil {
+		s.logger.Error("Failed to unmarshal provided schema", "error", err)
+		return fmt.Errorf("failed to parse provided schema: %w", err)
+	}
+
+	// Build structural schema from workflow schema definition
+	structural, err := s.buildWorkflowStructuralSchema(workflowSchemaMap)
+	if err != nil {
+		s.logger.Error("Failed to build structural schema", "error", err)
+		return fmt.Errorf("failed to build workflow schema structure: %w", err)
+	}
+
+	// Validate the provided values against the structural schema
+	if err := s.validateSchemaStructure(providedValues, structural); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// buildWorkflowStructuralSchema converts a workflow schema map to a structural schema
+func (s *ComponentService) buildWorkflowStructuralSchema(workflowSchemaMap map[string]any) (*schema.Structural, error) {
+	// Import the schema package if not already imported
+	// The workflow schema uses the same format as ComponentType schemas
+	def := openschema.Definition{
+		Schemas: []map[string]any{workflowSchemaMap},
+	}
+
+	structural, err := openschema.ToStructural(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert workflow schema: %w", err)
+	}
+
+	return structural, nil
+}
+
+// validateSchemaStructure validates that provided values match the structural schema
+func (s *ComponentService) validateSchemaStructure(values map[string]any, structural *schema.Structural) error {
+	// Use the schema package's validation function
+	if err := openschema.ValidateAgainstSchema(values, structural); err != nil {
+		return err
+	}
+
 	return nil
 }

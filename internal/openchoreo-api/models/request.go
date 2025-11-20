@@ -289,3 +289,8 @@ type SecretKeyRef struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
 }
+
+// UpdateWorkflowSchemaRequest represents the request to update a component's workflow schema
+type UpdateWorkflowSchemaRequest struct {
+	Schema *runtime.RawExtension `json:"schema"`
+}
