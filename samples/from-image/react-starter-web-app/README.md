@@ -20,26 +20,57 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 
 ## Step 2: Access the Application
 
-Once the application is deployed and the port-forward is active, you can access the React application at:
+Once the application is deployed, you can access the React application at:
 
 ```
 http://react-starter-development.openchoreoapis.localhost:9080
+```
+
+You can also dynamically get the URL using:
+
+```bash
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}')
+echo "Access the application at: http://${HOSTNAME}:9080"
 ```
 
 ## Troubleshooting Access Issues
 
 If you cannot access the application:
 
-1. Verify the web application URL:
+1. **Check if the ReleaseBinding is ready:**
+   ```bash
+   kubectl get releasebinding react-starter-development -n default -o yaml
+   ```
+
+2. **Check the ReleaseBinding status conditions:**
+   ```bash
+   kubectl get releasebinding react-starter-development -n default -o jsonpath='{.status.conditions}' | jq .
+   ```
+
+3. **Verify the HTTPRoute is configured correctly:**
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=react-starter -o yaml
+   ```
+
+4. **Check the deployment status:**
+   ```bash
+   kubectl get deployment -A -l openchoreo.org/component=react-starter
+   ```
+
+5. **Check pod logs for errors:**
+   ```bash
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=react-starter --tail=50
+   ```
+
+6. **Verify the web application URL:**
    ```bash
    kubectl get httproute -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}'
    ```
 
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
+Remove all resources:
 
 ```bash
-# Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/react-starter-web-app/react-starter.yaml
 ```

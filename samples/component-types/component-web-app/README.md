@@ -18,7 +18,7 @@ Defines a reusable component type template for web services. It:
 
 This allows you to create multiple web service components using the same template with different configurations.
 
-### Component (`demo-app`)
+### Component (`demo-app-web-service`)
 
 Defines the actual web application component using the `web-service` type. It:
 
@@ -29,19 +29,19 @@ Defines the actual web application component using the `web-service` type. It:
   - CPU and memory resource requests/limits
 - Belongs to the `default` project
 
-### Workload (`demo-app-workload`)
+### Workload (`demo-app-web-service-workload`)
 
 Specifies the container image and configuration for the component:
 
-- Links to the `demo-app` component
+- Links to the `demo-app-web-service` component
 - Defines the container image (`choreoanonymouspullable.azurecr.io/react-spa:v0.9`)
 - Can specify multiple containers if needed
 
-### ComponentDeployment (`demo-app-development`)
+### ReleaseBinding (`demo-app-web-service-development`)
 
 Represents a deployment instance of the component to a specific environment:
 
-- Links to the `demo-app` component
+- Links to the `demo-app-web-service` component
 - Targets the `development` environment
 - Provides environment-specific overrides (reduced resource limits for dev)
 
@@ -50,7 +50,7 @@ Represents a deployment instance of the component to a specific environment:
 1. **ComponentType** acts as a template/blueprint
 2. **Component** uses that template and provides base configuration
 3. **Workload** specifies what container(s) to run
-4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides
+4. **ReleaseBinding** specifies the actual deployment of the component in a specific environment
 
 The controller reads these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
 
@@ -59,22 +59,57 @@ The controller reads these resources and generates the Kubernetes resources (Dep
 Apply the sample:
 
 ```bash
-kubectl apply -f component-web-app.yaml
+kubectl apply -f webapp-component.yaml
 ```
 
-## Verify the Release is created
+## Check the ReleaseBinding status
 
 ```bash
-# Check Release was created
-kubectl get release -n default
-
-# View Release details
-kubectl get release demo-app-development -n default -o yaml
-
-# Check the rendered resources
-kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
+kubectl get releasebinding demo-app-web-service-development -o yaml | grep -A 50 "^status:"
 ```
 
 # Test the Web App by opening it via a web browser
 
-Open your web browser and go to `http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/`.
+Open your web browser and go to http://demo-app-web-service-development-3135937b.openchoreoapis.localhost:9080/.
+
+## Cleanup
+
+Remove all resources:
+
+```bash
+kubectl delete -f webapp-component.yaml
+```
+
+## Troubleshooting
+
+If the application is not accessible:
+
+1. **Check ReleaseBinding status:**
+   ```bash
+   kubectl get releasebinding demo-app-web-service-development -o yaml
+   ```
+
+2. **Check ReleaseBinding conditions:**
+   ```bash
+   kubectl get releasebinding demo-app-web-service-development -o jsonpath='{.status.conditions}' | jq .
+   ```
+
+3. **Verify HTTPRoute is configured:**
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=demo-app-web-service -o yaml
+   ```
+
+4. **Check deployment status:**
+   ```bash
+   kubectl get deployment -A -l openchoreo.org/component=demo-app-web-service
+   ```
+
+5. **Check pod logs:**
+   ```bash
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=demo-app-web-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=demo-app-web-service --tail=50
+   ```
+
+6. **Verify service endpoints:**
+   ```bash
+   kubectl get service -A -l openchoreo.org/component=demo-app-web-service
+   ```

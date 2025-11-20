@@ -5,7 +5,8 @@ metadata:
 spec:
   owner:
     projectName: default
-    
+
+  autoDeploy: true
   componentType: deployment/web-application
 
   parameters:
@@ -41,16 +42,3 @@ spec:
           value: production
         - key: PORT
           value: "8080"
-
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: react-starter-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: react-starter
-
-  environment: development

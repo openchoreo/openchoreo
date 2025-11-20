@@ -85,7 +85,7 @@ spec:
             - name: gateway-external
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.name}-${environment.name}.${environment.vhost}
+            - ${metadata.name}.${environment.vhost}
           rules:
           - backendRefs:
             - name: ${metadata.name}
@@ -94,12 +94,13 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: demo-app
+  name: demo-app-web-service
   namespace: default
 spec:
   owner:
     projectName: default
 
+  autoDeploy: true
   componentType: deployment/web-service
 
   parameters:
@@ -116,12 +117,12 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: demo-app-workload
+  name: demo-app-web-service-workload
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: demo-app
+    componentName: demo-app-web-service
 
   containers:
     app:
@@ -134,18 +135,19 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
-  name: demo-app-development
+  name: demo-app-web-service-development
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: demo-app
+    componentName: demo-app-web-service
 
+  releaseName: demo-web-app-dev
   environment: development
 
-  overrides:
+  componentTypeEnvOverrides:
     resources:
       requests:
         cpu: "50m"

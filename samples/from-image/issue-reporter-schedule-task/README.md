@@ -30,13 +30,15 @@ Check the status of the scheduled task and its job executions:
 
 ```bash
 # View the CronJob created by the scheduled task
-kubectl get cronjob -A -l component-name=github-issue-reporter
+kubectl get cronjob -A -l openchoreo.org/component=github-issue-reporter
 
 # Monitor job executions
-kubectl get jobs -A -l component-name=github-issue-reporter
+kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter
 
-# View logs from the latest job
-kubectl logs -n $(kubectl get pods -A -l app.kubernetes.io/component=issue-reporter-schedule-task -o jsonpath='{.items[0].metadata.namespace}') -l app.kubernetes.io/component=issue-reporter-schedule-task --tail=50
+# View logs from the latest job pod
+POD_NAMESPACE=$(kubectl get pods -A -l openchoreo.org/component=github-issue-reporter -o jsonpath='{.items[0].metadata.namespace}')
+POD_NAME=$(kubectl get pods -A -l openchoreo.org/component=github-issue-reporter -o jsonpath='{.items[0].metadata.name}')
+kubectl logs -n $POD_NAMESPACE $POD_NAME --tail=50
 ```
 
 ## Configuration
@@ -68,36 +70,41 @@ The scheduled task requires several environment variables to be configured:
 
 If the scheduled task is not working correctly:
 
-1. **Check the scheduled task status:**
+1. **Check the ReleaseBinding status:**
    ```bash
-   kubectl describe componentdeployment github-issue-reporter-development
+   kubectl get releasebinding github-issue-reporter-development -n default -o yaml
    ```
 
-2. **Verify the CronJob is created:**
+2. **Check the ReleaseBinding conditions:**
    ```bash
-   kubectl get cronjob -A -l component-name=github-issue-reporter -o yaml
+   kubectl get releasebinding github-issue-reporter-development -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
-3. **Check recent job executions:**
+3. **Verify the CronJob is created:**
    ```bash
-   kubectl get jobs -A -l component-name=github-issue-reporter --sort-by=.metadata.creationTimestamp
+   kubectl get cronjob -A -l openchoreo.org/component=github-issue-reporter -o yaml
    ```
 
-4. **View job logs for debugging:**
+4. **Check recent job executions:**
+   ```bash
+   kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp
+   ```
+
+5. **View job logs for debugging:**
    ```bash
    # Get the latest job name
-   JOB_NAME=$(kubectl get jobs -A -l component-name=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
-   
+   JOB_NAME=$(kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+
    # Get the namespace of the job
-   JOB_NAMESPACE=$(kubectl get jobs -A -l component-name=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.namespace}')
-   
+   JOB_NAMESPACE=$(kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.namespace}')
+
    # View logs
    kubectl logs -n $JOB_NAMESPACE job/$JOB_NAME
    ```
 
-5. **Check for failed jobs:**
+6. **Check for failed jobs:**
    ```bash
-   kubectl get jobs -A -l component-name=github-issue-reporter --field-selector status.successful!=1
+   kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --field-selector status.successful!=1
    ```
 
 ## Schedule Configuration
@@ -113,7 +120,7 @@ Example schedules:
 - `0 9 * * 1-5` - Every weekday at 9 AM
 - `0 0 */3 * *` - Every 3 days at midnight
 
-You can also override the schedule for specific environments by modifying the `ComponentDeployment` resource and adding schedule to the `overrides` section.
+You can also override the schedule for specific environments by modifying the `ReleaseBinding` resource and adding schedule to the `componentTypeEnvOverrides` section (as shown in the sample YAML where the development environment overrides the schedule to run every 5 minutes).
 
 ## Clean Up
 

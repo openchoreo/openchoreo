@@ -1,7 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
-  name: web-service
+  name: web-app
   namespace: default
 spec:
   workloadType: deployment
@@ -192,13 +192,14 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: demo-app
+  name: demo-app-with-traits
   namespace: default
 spec:
   owner:
     projectName: default
 
-  componentType: deployment/web-service
+  componentType: deployment/web-app
+  autoDeploy: true
 
   parameters:
     replicas: 2
@@ -243,12 +244,12 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
-  name: demo-app-workload
+  name: demo-app-with-traits-workload
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: demo-app
+    componentName: demo-app-with-traits
 
   containers:
     app:
@@ -256,18 +257,19 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
-  name: demo-app-development
+  name: demo-app-with-traits-development
   namespace: default
 spec:
   owner:
     projectName: default
-    componentName: demo-app
+    componentName: demo-app-with-traits
 
   environment: development
+  releaseName: demo-app-with-traits-dev
 
-  overrides:
+  componentTypeEnvOverrides:
     resources:
       requests:
         cpu: "50m"

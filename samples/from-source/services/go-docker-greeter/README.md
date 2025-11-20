@@ -25,9 +25,41 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 ```
 
 > [!NOTE]
-> The build will take around 8 minutes depending on the network speed.
+> The Docker build will take around 3-5 minutes depending on the network speed and system resources.
 
-## Step 2: Test the Application
+## Step 2: Monitor the Build
+
+After deploying, monitor the build progress:
+
+```bash
+# Check WorkflowRun status
+kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+
+# Watch build pods (in openchoreo-ci-default namespace)
+kubectl get pods -n openchoreo-ci-default | grep greeting-service
+
+# View build logs (replace <pod-name> with actual pod name)
+kubectl logs -n openchoreo-ci-default <pod-name> -f
+```
+
+Wait for the WorkflowRun to complete successfully. You should see:
+- `WorkflowCompleted: True`
+- `WorkflowSucceeded: True`
+- `WorkloadUpdated: True`
+
+## Step 3: Verify Deployment
+
+After the build completes, verify the deployment is ready:
+
+```bash
+# Check ReleaseBinding status
+kubectl get releasebinding greeting-service-development -n default -o jsonpath='{.status.conditions}' | jq .
+
+# Verify deployment is ready
+kubectl get deployment -A -l openchoreo.org/component=greeting-service
+```
+
+## Step 4: Test the Application
 
 First, get the service URL from the HTTPRoute:
 
@@ -39,7 +71,7 @@ PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=greeting-serv
 
 ### Basic Greet
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}//greeter/greet"
+curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet"
 ```
 
 ### Greet with name
@@ -47,15 +79,74 @@ curl "http://${HOSTNAME}:9080${PATH_PREFIX}//greeter/greet"
 curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
-### Generated curl
+### Example with direct URL
 ```bash
 curl http://development.openchoreoapis.localhost:9080/greeting-service/greeter/greet
 ```
+
+## Troubleshooting
+
+### Build Issues
+
+If the build fails or takes too long:
+
+1. **Check WorkflowRun status and conditions:**
+   ```bash
+   kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+   ```
+
+2. **Check build pod status:**
+   ```bash
+   kubectl get pods -n openchoreo-ci-default | grep greeting-service
+   ```
+
+3. **View build pod logs for errors:**
+   ```bash
+   # Get the pod name
+   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l workflows.argoproj.io/workflow=greeting-service-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+
+   # View logs
+   kubectl logs -n openchoreo-ci-default $POD_NAME
+   ```
+
+4. **Check if Workload was created after build:**
+   ```bash
+   kubectl get workload -n default | grep greeting-service
+   ```
+
+### Deployment Issues
+
+If the application is not accessible:
+
+1. **Check ReleaseBinding status:**
+   ```bash
+   kubectl get releasebinding greeting-service-development -n default -o yaml
+   ```
+
+2. **Check ReleaseBinding conditions:**
+   ```bash
+   kubectl get releasebinding greeting-service-development -n default -o jsonpath='{.status.conditions}' | jq .
+   ```
+
+3. **Verify HTTPRoute is configured:**
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=greeting-service -o yaml
+   ```
+
+4. **Check deployment status:**
+   ```bash
+   kubectl get deployment -A -l openchoreo.org/component=greeting-service
+   ```
+
+5. **Check pod logs:**
+   ```bash
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=greeting-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=greeting-service --tail=50
+   ```
+
 ## Clean Up
 
-Stop the port forwarding and remove all resources:
+Remove all resources:
 
 ```bash
-# Remove all resources
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```

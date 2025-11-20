@@ -17,7 +17,7 @@ The example includes a `component-with-traits.yaml` file containing all resource
 
 ### ComponentType
 
-Defines a `web-service` component type that creates:
+Defines a `web-app` component type that creates:
 
 - **Deployment**: With configurable replicas, resources, and container image
 - **Service**: ClusterIP service exposing the deployment
@@ -56,7 +56,7 @@ Represents the build output with:
 
 - Container image: `nginx:1.25-alpine`
 
-### ComponentDeployment
+### ReleaseBinding
 
 Defines deployment settings for the `development` environment:
 
@@ -68,9 +68,9 @@ Defines deployment settings for the `development` environment:
 
 The rendered resources will include:
 
-- **Deployment**: `demo-app-development-<hash>` with nginx container and mounted volumes
-- **Service**: `demo-app-development-<hash>` exposing the deployment
-- **PersistentVolumeClaim**: `demo-app-development-<hash>-data-storage` for persistent storage
+- **Deployment**: `demo-app-with-traits-development-<hash>` with nginx container and mounted volumes
+- **Service**: `demo-app-with-traits-development-<hash>` exposing the deployment
+- **PersistentVolumeClaim**: `demo-app-with-traits-development-<hash>-data-storage` for persistent storage
 
 All resources will have:
 
@@ -80,48 +80,22 @@ All resources will have:
 
 ## Testing on Cluster
 
-### Prerequisites
-
-```bash
-# Ensure OpenChoreo CRDs are installed
-kubectl apply -f install/helm/openchoreo-control-plane/crds/
-
-# Ensure OpenChoreo controller is running
-make run
-```
-
 ### Step 1: Apply resources
 
 ```bash
-kubectl apply -f samples/component-with-traits/component-with-traits.yaml
+kubectl apply -f component-with-traits.yaml
 ```
 
-### Step 2: Verify the Release is created
+### Step 3: Verify ReleaseBinding status
 
 ```bash
-# Check Release was created
-kubectl get release -n default
-
-# View Release details
-kubectl get release demo-app-development -n default -o yaml
-
-# Check the rendered resources
-kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
+kubectl get releasebinding demo-app-with-traits-development -o yaml | grep -A 50 "^status:"
 ```
 
-### Step 3: Verify ComponentDeployment status
-
-```bash
-# Check ComponentDeployment status
-kubectl get componentdeployment -n default
-
-# View detailed status
-kubectl describe componentdeployment demo-app-development -n default
-```
 
 ## Expected Rendering
 
-The Release should contain 3 rendered resources:
+The rendered resources will include:
 
 ### 1. Deployment
 
@@ -129,19 +103,18 @@ The Release should contain 3 rendered resources:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-app-development-<hash>
-  namespace: dp-default-demo-project-development-<hash>
+  name: demo-app-with-traits-development-<hash>
+  namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app
-    openchoreo.org/project: demo-project
+    openchoreo.org/component: demo-app-with-traits
     openchoreo.org/environment: development
 spec:
   replicas: 2
   selector:
     matchLabels:
-      openchoreo.org/component: demo-app
+      openchoreo.org/component: demo-app-with-traits
       openchoreo.org/environment: development
-      openchoreo.org/project: demo-project
+      openchoreo.org/project: default
   template:
     spec:
       containers:
@@ -149,18 +122,27 @@ spec:
           image: nginx:1.25-alpine
           resources:
             requests:
-              cpu: 50m # Overridden by ComponentDeployment
-              memory: 128Mi # Overridden by ComponentDeployment
+              cpu: 50m # Overridden by ReleaseBinding
+              memory: 128Mi # Overridden by ReleaseBinding
             limits:
-              cpu: 200m # Overridden by ComponentDeployment
-              memory: 256Mi # Overridden by ComponentDeployment
-          volumeMounts: # Added by trait
+              cpu: 200m # Overridden by ReleaseBinding
+              memory: 256Mi # Overridden by ReleaseBinding
+          volumeMounts: # Added by traits
             - name: app-data
               mountPath: /var/data
-      volumes: # Added by trait
+            - name: cache-vol
+              mountPath: /tmp/cache
+            - name: workspace-vol
+              mountPath: /tmp/work
+      volumes: # Added by traits
         - name: app-data
           persistentVolumeClaim:
-            claimName: demo-app-development-<hash>-data-storage
+            claimName: demo-app-with-traits-development-<hash>-data-storage
+        - name: cache-vol
+          emptyDir: {}
+        - name: workspace-vol
+          emptyDir:
+            sizeLimit: 1Gi
 ```
 
 ### 2. Service
@@ -169,42 +151,41 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: demo-app-development-<hash>
-  namespace: dp-default-demo-project-development-<hash>
+  name: demo-app-with-traits-development-<hash>
+  namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app
-    openchoreo.org/project: demo-project
+    openchoreo.org/component: demo-app-with-traits
     openchoreo.org/environment: development
 spec:
   type: ClusterIP
   selector:
-    openchoreo.org/component: demo-app
+    openchoreo.org/component: demo-app-with-traits
     openchoreo.org/environment: development
-    openchoreo.org/project: demo-project
+    openchoreo.org/project: default
   ports:
     - name: http
       port: 80
       targetPort: 8080
 ```
 
-### 3. PersistentVolumeClaim (created by trait)
+### 3. PersistentVolumeClaim (created by persistent-volume trait)
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: demo-app-development-<hash>-data-storage
-  namespace: dp-default-demo-project-development-<hash>
+  name: demo-app-with-traits-development-<hash>-data-storage
+  namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app
+    openchoreo.org/component: demo-app-with-traits
     openchoreo.org/environment: development
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi # Overridden by ComponentDeployment (was 20Gi)
-  storageClassName: standard # Overridden by ComponentDeployment (was "fast")
+      storage: 5Gi # Overridden by ReleaseBinding (was 20Gi)
+  storageClassName: standard # Overridden by ReleaseBinding (was "fast")
 ```
 
 ## Key Features Demonstrated
@@ -233,27 +214,47 @@ spec:
 
 ## Cleanup
 
+Remove all resources:
+
 ```bash
-# Delete all resources
-kubectl delete -f samples/component-with-traits/component-with-traits.yaml
+kubectl delete -f component-with-traits.yaml
 ```
 
 ## Troubleshooting
 
-### Release not created
+If the application is not accessible or resources are not created:
 
-```bash
-# Check ComponentDeployment status
-kubectl describe componentdeployment demo-app-development -n default
+1. **Check ReleaseBinding status:**
+   ```bash
+   kubectl get releasebinding demo-app-with-traits-development -o yaml
+   ```
 
-# Check controller logs
-kubectl logs -n openchoreo-system deployment/openchoreo-controller
-```
+2. **Check ReleaseBinding conditions:**
+   ```bash
+   kubectl get releasebinding demo-app-with-traits-development -o jsonpath='{.status.conditions}' | jq .
+   ```
 
-### Rendering errors
+3. **Verify HTTPRoute is configured:**
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=demo-app-with-traits -o yaml
+   ```
 
-Look for errors in the ComponentDeployment conditions:
+4. **Check deployment status:**
+   ```bash
+   kubectl get deployment -A -l openchoreo.org/component=demo-app-with-traits
+   ```
 
-```bash
-kubectl get componentdeployment demo-app-development -n default -o jsonpath='{.status.conditions}'
-```
+5. **Check pod logs:**
+   ```bash
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=demo-app-with-traits -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=demo-app-with-traits --tail=50
+   ```
+
+6. **Verify service endpoints:**
+   ```bash
+   kubectl get service -A -l openchoreo.org/component=demo-app-with-traits
+   ```
+
+7. **Verify PersistentVolumeClaim (trait-specific):**
+   ```bash
+   kubectl get pvc -A -l openchoreo.org/component=demo-app-with-traits
+   ```

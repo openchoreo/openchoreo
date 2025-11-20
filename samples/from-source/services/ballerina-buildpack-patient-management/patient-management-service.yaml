@@ -9,6 +9,9 @@ spec:
   # References the ComponentType
   componentType: deployment/service
 
+  # Set auto-deploy to true
+  autoDeploy: true
+
   # Workflow configuration (developer-provided)
   workflow:
     # Reference to Workflow
@@ -60,17 +63,3 @@ spec:
           commit: ""
         appPath: "/service-ballerina-patient-management"
         secretRef: "patient-repo-credentials-dev"
-
-
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: patient-management-service-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: patient-management-service
-
-  environment: development

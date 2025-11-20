@@ -7,6 +7,7 @@ spec:
   owner:
     projectName: default
 
+  autoDeploy: true
   componentType: cronjob/scheduled-task
 
   parameters:
@@ -73,7 +74,7 @@ spec:
 ---
 
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: github-issue-reporter-development
   namespace: default
@@ -83,8 +84,9 @@ spec:
     componentName: github-issue-reporter
 
   environment: development
+  releaseName: github-issue-reporter-release
 
-  overrides:
+  componentTypeEnvOverrides:
     schedule: "*/5 * * * *"  # Override to run every 5 minutes in development
     resources:
       requests:

@@ -9,6 +9,8 @@ spec:
   # References the ComponentType
   componentType: deployment/service
 
+  autoDeploy: true
+
   # Workflow configuration (developer-provided)
   workflow:
     # Reference to Workflow
@@ -90,16 +92,3 @@ spec:
       limits:
         maxRetries: 5
         maxDurationMinutes: 90
-
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: reading-list-service-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: reading-list-service
-
-  environment: development

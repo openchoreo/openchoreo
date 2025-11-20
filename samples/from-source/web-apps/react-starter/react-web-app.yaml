@@ -1,13 +1,15 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: react-starter
+  name: react-starter-from-source
 spec:
   owner:
     projectName: default
 
   # References the ComponentType
   componentType: deployment/web-application
+
+  autoDeploy: true
 
   # Workflow configuration (developer-provided)
   workflow:
@@ -28,7 +30,7 @@ spec:
 
   parameters:
     replicas: 2
-    port: 8080
+    port: 80
     resources:
       requests:
         cpu: "100m"
@@ -45,8 +47,8 @@ metadata:
 spec:
   # Ownership tracking for the workflow execution
   owner:
-    projectName: "default"
-    componentName: "react-starter"
+    projectName: default
+    componentName: react-starter-from-source
 
   workflow:
     # Reference to Workflow
@@ -61,16 +63,3 @@ spec:
         appPath: "/webapp-react-nginx"
         secretRef: "react-repo-credentials-dev"
       nodeVersion: "20"
-
----
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: react-starter-development
-  namespace: default
-spec:
-  owner:
-    projectName: default
-    componentName: react-starter
-
-  environment: development

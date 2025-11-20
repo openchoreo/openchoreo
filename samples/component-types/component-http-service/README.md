@@ -20,7 +20,7 @@ Defines a reusable component type template for HTTP services. It:
 
 This allows you to create multiple HTTP service components using the same template with different configurations.
 
-### Component (`demo-app`)
+### Component (`demo-app-http-service`)
 
 Defines the actual HTTP service component using the `http-service` type. It:
 
@@ -31,20 +31,21 @@ Defines the actual HTTP service component using the `http-service` type. It:
   - CPU and memory resource requests/limits
 - Belongs to the `default` project
 
-### Workload (`demo-app-workload`)
+### Workload (`demo-app-http-service-workload`)
 
 Specifies the container image and configuration for the component:
 
-- Links to the `demo-app` component
+- Links to the `demo-app-http-service` component
 - Defines the container image (`ghcr.io/openchoreo/samples/greeter-service:latest`)
 - Can specify multiple containers if needed
 
-### ComponentDeployment (`demo-app-development`)
+### ReleaseBinding (`demo-app-development`)
 
-Represents a deployment instance of the component to a specific environment:
+Represents a deployment of the component in a specific environment. It:
 
-- Links to the `demo-app` component
+- Links to the `demo-app-http-service` component
 - Targets the `development` environment
+- Refers a ComponentRelease by `releaseName` (This will be overwritten with a generated ComponentRelease as the auto-deploy is enabled) 
 - Provides environment-specific overrides (reduced resource limits for dev)
 
 ## How It Works
@@ -52,7 +53,7 @@ Represents a deployment instance of the component to a specific environment:
 1. **ComponentType** acts as a template/blueprint with path-based routing rules
 2. **Component** uses that template and provides base configuration
 3. **Workload** specifies what container(s) to run (echo server for testing)
-4. **ComponentDeployment** creates an actual deployment to an environment with optional overrides
+4. **ReleaseBinding** specifies the actual deployment of the component in a specific environment
 
 The OpenChoreo controller manager uses these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
 
@@ -61,25 +62,74 @@ The OpenChoreo controller manager uses these resources and generates the Kuberne
 Apply the sample:
 
 ```bash
-kubectl apply -f component-http-service.yaml
+kubectl apply -f http-service-component.yaml
 ```
 
-## Verify the Release is created
+## Check the ReleaseBinding status
 
 ```bash
-# Check Release was created
-kubectl get release -n default
-
-# View Release details
-kubectl get release demo-app-development -n default -o yaml
-
-# Check the rendered resources
-kubectl get release demo-app-development -n default -o jsonpath='{.spec.resources[*].id}'
+kubectl get releasebinding demo-app-http-service-development -o yaml | grep -A 50 "^status:"
 ```
 
 ## Test the Service by invoking
 
 ```bash
-curl http://demo-app-development-e040c964-development.openchoreoapis.localhost:9080/demo-app-development-e040c964/greeter/greet
+curl http://development.openchoreoapis.localhost:9080/demo-app-http-service-development-51adbdb3/greeter/greet
+```
+
+Output:
+```text
 Hello, Stranger!
 ```
+
+```bash
+curl "http://development.openchoreoapis.localhost:9080/demo-app-http-service-development-51adbdb3/greeter/greet?name=Alice"
+```
+
+Output:
+
+```text
+Hello, Alice!
+```
+
+## Cleanup
+
+Remove all resources:
+
+```bash
+kubectl delete -f http-service-component.yaml
+```
+
+## Troubleshooting
+
+If the application is not accessible:
+
+1. **Check ReleaseBinding status:**
+   ```bash
+   kubectl get releasebinding demo-app-http-service-development -o yaml
+   ```
+
+2. **Check ReleaseBinding conditions:**
+   ```bash
+   kubectl get releasebinding demo-app-http-service-development -o jsonpath='{.status.conditions}' | jq .
+   ```
+
+3. **Verify HTTPRoute is configured:**
+   ```bash
+   kubectl get httproute -A -l openchoreo.org/component=demo-app-http-service -o yaml
+   ```
+
+4. **Check deployment status:**
+   ```bash
+   kubectl get deployment -A -l openchoreo.org/component=demo-app-http-service
+   ```
+
+5. **Check pod logs:**
+   ```bash
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=demo-app-http-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=demo-app-http-service --tail=50
+   ```
+
+6. **Verify service endpoints:**
+   ```bash
+   kubectl get service -A -l openchoreo.org/component=demo-app-http-service
+   ```
