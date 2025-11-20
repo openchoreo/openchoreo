@@ -36,9 +36,9 @@ spec:
         - key: ENABLE_TRACING
           value: "1"
         - key: COLLECTOR_SERVICE_ADDR
-          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local:4317"
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
         - key: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local:4317"
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
         - key: OTEL_EXPORTER_OTLP_HEADERS
           value: "authorization=2c04a8a1-c7a4-445c-9919-ebd01289c6bd"
 

@@ -14,7 +14,7 @@ The Google Microservices Demo v0.10.3 includes native OpenTelemetry instrumentat
 - **COLLECTOR_SERVICE_ADDR**: Points to the HyperDX OTEL Collector endpoint
 - **OTEL_EXPORTER_OTLP_ENDPOINT**: Configures the OTLP exporter endpoint
 
-All traces are sent to: `openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local:4317` (gRPC)
+All traces are sent to: `openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317` (gRPC)
 
 ## Pre-requisites
 
