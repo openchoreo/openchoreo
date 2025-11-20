@@ -18,6 +18,10 @@ const (
 	LabelKeyDataPlaneName          = "openchoreo.dev/dataplane"
 	LabelKeyBuildPlane             = "openchoreo.dev/build-plane"
 
+	LabelKeyProjectUID     = "openchoreo.dev/project-uid"
+	LabelKeyComponentUID   = "openchoreo.dev/component-uid"
+	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
+
 	// LabelKeyCreatedBy identifies which controller initially created a resource (audit trail).
 	// Example: A namespace created by release-controller would have created-by=release-controller.
 	// Note: For shared resources like namespaces, the creator and lifecycle manager may differ.
