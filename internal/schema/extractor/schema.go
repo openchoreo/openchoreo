@@ -355,7 +355,22 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 			return nil
 		},
 		"enum": func(value string) error {
-			values := splitAndTrim(value, ",")
+			var values []string
+
+			// Check if the value is a JSON array
+			trimmedValue := strings.TrimSpace(value)
+			if strings.HasPrefix(trimmedValue, "[") && strings.HasSuffix(trimmedValue, "]") {
+				// Parse as JSON array
+				var jsonArray []string
+				if err := json.Unmarshal([]byte(trimmedValue), &jsonArray); err != nil {
+					return fmt.Errorf("invalid JSON array for enum %q: %w", value, err)
+				}
+				values = jsonArray
+			} else {
+				// Split by comma for backward compatibility
+				values = splitAndTrim(value, ",")
+			}
+
 			enums := make([]extv1.JSON, 0, len(values))
 			for _, v := range values {
 				parsed, err := parseValueForType(v, schemaType)
