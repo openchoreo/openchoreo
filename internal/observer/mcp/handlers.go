@@ -5,7 +5,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,82 +17,60 @@ type MCPHandler struct {
 }
 
 // GetComponentLogs retrieves logs for a specific component
-func (h *MCPHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (string, error) {
-	result, err := h.Service.GetComponentLogs(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+func (h *MCPHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error) {
+	return h.Service.GetComponentLogs(ctx, params)
 }
 
 // GetProjectLogs retrieves logs for a specific project
-func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (string, error) {
-	result, err := h.Service.GetProjectLogs(ctx, params, componentIDs)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
+	return h.Service.GetProjectLogs(ctx, params, componentIDs)
 }
 
 // GetGatewayLogs retrieves gateway logs
-func (h *MCPHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (string, error) {
-	result, err := h.Service.GetGatewayLogs(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+func (h *MCPHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error) {
+	return h.Service.GetGatewayLogs(ctx, params)
 }
 
 // GetOrganizationLogs retrieves logs for an entire organization
-func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (string, error) {
-	result, err := h.Service.GetOrganizationLogs(ctx, params, podLabels)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
+	return h.Service.GetOrganizationLogs(ctx, params, podLabels)
 }
 
 // GetComponentTraces retrieves distributed tracing spans for a specific component
-func (h *MCPHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (string, error) {
-	result, err := h.Service.GetComponentTraces(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+func (h *MCPHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error) {
+	return h.Service.GetComponentTraces(ctx, params)
 }
 
 // GetComponentResourceMetrics retrieves resource usage metrics for a component
-func (h *MCPHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (string, error) {
+func (h *MCPHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
 	// Parse time strings to time.Time
 	startTimeObj, err := parseRFC3339Time(startTime)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	endTimeObj, err := parseRFC3339Time(endTime)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	result, err := h.Service.GetComponentResourceMetrics(ctx, componentID, environmentID, projectID, startTimeObj, endTimeObj)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(result)
+	return h.Service.GetComponentResourceMetrics(ctx, componentID, environmentID, projectID, startTimeObj, endTimeObj)
 }
 
-func marshalResponse(data any) (string, error) {
-	jsonData, err := json.Marshal(data)
+// GetComponentHTTPMetrics retrieves HTTP metrics for a component
+func (h *MCPHandler) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
+	// Parse time strings to time.Time
+	startTimeObj, err := parseRFC3339Time(startTime)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(jsonData), nil
+
+	endTimeObj, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Service.GetComponentHTTPMetrics(ctx, componentID, environmentID, projectID, startTimeObj, endTimeObj)
 }
 
 func parseRFC3339Time(timeStr string) (time.Time, error) {

@@ -7,29 +7,34 @@ import (
 	"context"
 )
 
-func (h *MCPHandler) ListBuildTemplates(ctx context.Context, orgName string) (string, error) {
+type ListBuildTemplatesResponse struct {
+	Templates any `json:"templates"`
+}
+
+type ListBuildsResponse struct {
+	Builds any `json:"builds"`
+}
+
+func (h *MCPHandler) ListBuildTemplates(ctx context.Context, orgName string) (any, error) {
 	templates, err := h.Services.BuildService.ListBuildTemplates(ctx, orgName)
 	if err != nil {
-		return "", err
+		return ListBuildTemplatesResponse{}, err
 	}
-
-	return marshalResponse(templates)
+	return ListBuildTemplatesResponse{
+		Templates: templates,
+	}, nil
 }
 
-func (h *MCPHandler) TriggerBuild(ctx context.Context, orgName, projectName, componentName, commit string) (string, error) {
-	build, err := h.Services.BuildService.TriggerBuild(ctx, orgName, projectName, componentName, commit)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(build)
+func (h *MCPHandler) TriggerBuild(ctx context.Context, orgName, projectName, componentName, commit string) (any, error) {
+	return h.Services.BuildService.TriggerBuild(ctx, orgName, projectName, componentName, commit)
 }
 
-func (h *MCPHandler) ListBuilds(ctx context.Context, orgName, projectName, componentName string) (string, error) {
+func (h *MCPHandler) ListBuilds(ctx context.Context, orgName, projectName, componentName string) (any, error) {
 	builds, err := h.Services.BuildService.ListBuilds(ctx, orgName, projectName, componentName)
 	if err != nil {
-		return "", err
+		return ListBuildsResponse{}, err
 	}
-
-	return marshalResponse(builds)
+	return ListBuildsResponse{
+		Builds: builds,
+	}, nil
 }

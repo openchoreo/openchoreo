@@ -9,29 +9,24 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
-func (h *MCPHandler) ListDataPlanes(ctx context.Context, orgName string) (string, error) {
+type ListDataPlanesResponse struct {
+	DataPlanes []*models.DataPlaneResponse `json:"data_planes"`
+}
+
+func (h *MCPHandler) ListDataPlanes(ctx context.Context, orgName string) (any, error) {
 	dataplanes, err := h.Services.DataPlaneService.ListDataPlanes(ctx, orgName)
 	if err != nil {
-		return "", err
+		return ListDataPlanesResponse{}, err
 	}
-
-	return marshalResponse(dataplanes)
+	return ListDataPlanesResponse{
+		DataPlanes: dataplanes,
+	}, nil
 }
 
-func (h *MCPHandler) GetDataPlane(ctx context.Context, orgName, dpName string) (string, error) {
-	dataplane, err := h.Services.DataPlaneService.GetDataPlane(ctx, orgName, dpName)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(dataplane)
+func (h *MCPHandler) GetDataPlane(ctx context.Context, orgName, dpName string) (any, error) {
+	return h.Services.DataPlaneService.GetDataPlane(ctx, orgName, dpName)
 }
 
-func (h *MCPHandler) CreateDataPlane(ctx context.Context, orgName string, req *models.CreateDataPlaneRequest) (string, error) {
-	dataplane, err := h.Services.DataPlaneService.CreateDataPlane(ctx, orgName, req)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(dataplane)
+func (h *MCPHandler) CreateDataPlane(ctx context.Context, orgName string, req *models.CreateDataPlaneRequest) (any, error) {
+	return h.Services.DataPlaneService.CreateDataPlane(ctx, orgName, req)
 }

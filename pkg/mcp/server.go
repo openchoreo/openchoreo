@@ -7,9 +7,11 @@ import (
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
-func NewHTTPServer(tools *Toolsets) http.Handler {
+func NewHTTPServer(tools *tools.Toolsets) http.Handler {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-api",
 		Version: "1.0.0",
@@ -20,7 +22,7 @@ func NewHTTPServer(tools *Toolsets) http.Handler {
 	}, nil)
 }
 
-func NewSTDIO(tools *Toolsets) *mcp.Server {
+func NewSTDIO(tools *tools.Toolsets) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-cli",
 		Version: "1.0.0",

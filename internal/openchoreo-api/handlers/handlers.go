@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
+	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
 // Handler holds the services and provides HTTP handlers
@@ -196,18 +197,19 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("Ready")) // Ignore write errors for health checks
 }
 
-func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
+func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 	// Read toolsets from environment variable
 	toolsetsEnv := os.Getenv(config.EnvMCPToolsets)
 	if toolsetsEnv == "" {
 		// Default to all toolsets if not specified
-		toolsetsEnv = string(mcp.ToolsetOrganization) + "," +
-			string(mcp.ToolsetProject) + "," +
-			string(mcp.ToolsetComponent) + "," +
-			string(mcp.ToolsetBuild) + "," +
-			string(mcp.ToolsetDeployment) + "," +
-			string(mcp.ToolsetInfrastructure) + "," +
-			string(mcp.ToolsetSchema)
+		toolsetsEnv = string(tools.ToolsetOrganization) + "," +
+			string(tools.ToolsetProject) + "," +
+			string(tools.ToolsetComponent) + "," +
+			string(tools.ToolsetBuild) + "," +
+			string(tools.ToolsetDeployment) + "," +
+			string(tools.ToolsetInfrastructure) + "," +
+			string(tools.ToolsetSchema) + "," +
+			string(tools.ToolsetResource)
 	}
 
 	// Parse toolsets
@@ -224,31 +226,34 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	handler := &mcphandlers.MCPHandler{Services: h.services}
 
 	// Create toolsets struct and enable based on configuration
-	toolsets := &mcp.Toolsets{}
+	toolsets := &tools.Toolsets{}
 
 	for toolsetType := range toolsetsMap {
 		switch toolsetType {
-		case mcp.ToolsetOrganization:
+		case tools.ToolsetOrganization:
 			toolsets.OrganizationToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "organization"))
-		case mcp.ToolsetProject:
+		case tools.ToolsetProject:
 			toolsets.ProjectToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
-		case mcp.ToolsetComponent:
+		case tools.ToolsetComponent:
 			toolsets.ComponentToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
-		case mcp.ToolsetBuild:
+		case tools.ToolsetBuild:
 			toolsets.BuildToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
-		case mcp.ToolsetDeployment:
+		case tools.ToolsetDeployment:
 			toolsets.DeploymentToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
-		case mcp.ToolsetInfrastructure:
+		case tools.ToolsetInfrastructure:
 			toolsets.InfrastructureToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
-		case mcp.ToolsetSchema:
+		case tools.ToolsetSchema:
 			toolsets.SchemaToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "schema"))
+		case tools.ToolsetResource:
+			toolsets.ResourceToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "resource"))
 		default:
 			h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}
@@ -256,8 +261,8 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 	return toolsets
 }
 
-func parseToolsets(toolsetsStr string) map[mcp.ToolsetType]bool {
-	toolsetsMap := make(map[mcp.ToolsetType]bool)
+func parseToolsets(toolsetsStr string) map[tools.ToolsetType]bool {
+	toolsetsMap := make(map[tools.ToolsetType]bool)
 	if toolsetsStr == "" {
 		return toolsetsMap
 	}
@@ -266,7 +271,7 @@ func parseToolsets(toolsetsStr string) map[mcp.ToolsetType]bool {
 	for _, ts := range toolsets {
 		ts = strings.TrimSpace(ts)
 		if ts != "" {
-			toolsetsMap[mcp.ToolsetType(ts)] = true
+			toolsetsMap[tools.ToolsetType(ts)] = true
 		}
 	}
 	return toolsetsMap

@@ -9,29 +9,25 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
-func (h *MCPHandler) ListProjects(ctx context.Context, orgName string) (string, error) {
+type ListProjectsResponse struct {
+	Projects []*models.ProjectResponse `json:"projects"`
+}
+
+func (h *MCPHandler) ListProjects(ctx context.Context, orgName string) (any, error) {
 	projects, err := h.Services.ProjectService.ListProjects(ctx, orgName)
 	if err != nil {
-		return "", err
+		return ListProjectsResponse{}, err
 	}
 
-	return marshalResponse(projects)
+	return ListProjectsResponse{
+		Projects: projects,
+	}, nil
 }
 
-func (h *MCPHandler) GetProject(ctx context.Context, orgName, projectName string) (string, error) {
-	project, err := h.Services.ProjectService.GetProject(ctx, orgName, projectName)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(project)
+func (h *MCPHandler) GetProject(ctx context.Context, orgName, projectName string) (any, error) {
+	return h.Services.ProjectService.GetProject(ctx, orgName, projectName)
 }
 
-func (h *MCPHandler) CreateProject(ctx context.Context, orgName string, req *models.CreateProjectRequest) (string, error) {
-	project, err := h.Services.ProjectService.CreateProject(ctx, orgName, req)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(project)
+func (h *MCPHandler) CreateProject(ctx context.Context, orgName string, req *models.CreateProjectRequest) (any, error) {
+	return h.Services.ProjectService.CreateProject(ctx, orgName, req)
 }
