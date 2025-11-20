@@ -1,0 +1,17 @@
+# Observability Plane values for k3d dev environment
+# Uses locally-built observer image with pullPolicy: Never
+
+observer:
+  image:
+    repository: ghcr.io/openchoreo/observer
+    tag: latest-dev
+    pullPolicy: Never
+
+# Use minimal installation mode for dev
+global:
+  installationMode: minimal
+
+# OpenSearch configuration for dev
+openSearch:
+  enabled: true
+  singleNode: true

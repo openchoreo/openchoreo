@@ -1,0 +1,30 @@
+# Control Plane values for k3d dev environment
+# Uses locally-built images with pullPolicy: Never
+
+controllerManager:
+  image:
+    repository: ghcr.io/openchoreo/controller
+    tag: latest-dev
+    pullPolicy: Never
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined
+
+openchoreoApi:
+  enabled: true
+  image:
+    repository: ghcr.io/openchoreo/openchoreo-api
+    tag: latest-dev
+    pullPolicy: Never
+  containerSecurityContext:
+    appArmorProfile:
+      type: Unconfined
+  jwt:
+    disabled: true
+
+# Disable UI and auth for dev
+backstage:
+  enabled: false
+
+asgardeoThunder:
+  enabled: false

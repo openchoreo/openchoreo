@@ -1,0 +1,14 @@
+# Data Plane values for k3d dev environment
+
+# Disable cert-manager (already installed by control plane)
+cert-manager:
+  enabled: false
+
+# Use NodePort for gateway access in dev
+gateway:
+  enabled: true
+  config:
+    envoyGateway:
+      gateway:
+        httpPort: 9080
+        httpsPort: 9443

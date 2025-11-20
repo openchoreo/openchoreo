@@ -8,24 +8,27 @@ OpenChoreo provides observability for both developers and platform engineers. Th
 
 1. In a single cluster setup
 ```
-helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-   --kube-context kind-choreo \
-   --namespace "choreo-system" \
+helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
+   --dependency-update \
+   --kube-context k3d-openchoreo \
+   --namespace openchoreo-data-plane \
    --create-namespace \
-   --set certmanager.enabled=false \
+   --values install/k3d/single-cluster/values-dp.yaml \
    --set observability.logging.enabled=true \
-   --set observer.image.tag=latest-dev \
    --timeout 30m
 ```
 
 2. In a multicluster setup
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > This multi-cluster setup (Control plane + Dataplane with FluentBit/OpenSearch) requires minimum 4 CPU and 8GB memory for stable cluster operation.
 ```
-helm upgrade --install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
-   --kube-context kind-choreo-dp \
-   --namespace "choreo-system" --create-namespace \
+helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
+   --dependency-update \
+   --kube-context k3d-openchoreo-dp \
+   --namespace openchoreo-data-plane \
+   --create-namespace \
+   --values install/k3d/multi-cluster/values-dp.yaml \
    --set observability.logging.enabled=true \
    --timeout 30m
 ```

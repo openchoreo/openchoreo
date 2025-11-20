@@ -204,7 +204,7 @@ Follow this checklist to add a new engine implementation:
 
 8. **Testing**
    - Unit test your engine logic.
-   - Use integration tests against a real API server (envtest or a local kind cluster).
+   - Use integration tests against a real API server (envtest or a local Kubernetes cluster like k3d).
    - Validate artifact extraction and workload creation end-to-end.
 
 ## Conventions and Shared Utilities

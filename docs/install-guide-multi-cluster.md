@@ -11,18 +11,18 @@ By the end of this guide, you'll have a fully functional OpenChoreo deployment r
 
 You need two Kubernetes clusters: one for the Control Plane and one for the Data Plane. The Data Plane cluster should have Cilium installed to be compatible with OpenChoreo.
 
-If you don’t have compatible Kubernetes clusters yet, you can create them using the following guide on your local machine.
+If you don't have compatible Kubernetes clusters yet, you can create them using k3d on your local machine.
 
-### Kind
+### k3d Setup
 
-In this section, you'll learn how to set up two [kind](https://kind.sigs.k8s.io/) clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
+In this section, you'll learn how to set up two k3d clusters and install Cilium in the Data Plane cluster to make it compatible with OpenChoreo.
 
 #### Prerequisites
 
-1. Make sure you have installed [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), version v0.27.0+.
+1. Make sure you have installed [k3d](https://k3d.io/), version v5.8+.
    To verify the installation:
     ```shell
-    kind version
+    k3d version
     ```
 
 2. Make sure you have installed [Helm](https://helm.sh/docs/intro/install/), version v3.15+.
@@ -31,6 +31,7 @@ In this section, you'll learn how to set up two [kind](https://kind.sigs.k8s.io/
     ```shell
     helm version
     ```
+
 3. Make sure you have installed [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl), version v1.32.0.
    To verify the installation:
 
@@ -38,107 +39,121 @@ In this section, you'll learn how to set up two [kind](https://kind.sigs.k8s.io/
     kubectl version --client
     ```
 
-#### Create Kind Clusters
+4. Make sure you have [Docker](https://docs.docker.com/engine/install/) installed and running.
 
-Create your Kind cluster for the **Control Plane** using ([kind config](../install/kind/multi-cluster-setup/kind-config-cp.yaml)):
+#### Create k3d Clusters
 
-```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-cp.yaml | kind create cluster --config=-
-```
-
-Next, create your Kind cluster for the **Data Plane** using ([kind config](../install/kind/multi-cluster-setup/kind-config-dp.yaml)):
+Create the **Control Plane** cluster:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/kind/multi-cluster-setup/kind-config-dp.yaml | kind create cluster --config=-
+k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 ```
 
-> [!NOTE]
-> This setup assigns a specific label to one node in the Data Plane cluster to schedule Argo Workflows.
-> If you're creating Data Plane clusters manually, ensure that only one node is labeled with:
-> `openchoreo.dev/noderole: workflow-runner`.
-> Additionally, create a DataPlane kind named `default-dataplane` pointing to this labeled cluster, which will serve 
-> as the default target cluster for Argo Workflows until support is added for running them on any Data Plane.
+Create the **Data Plane** cluster:
+
+```shell
+k3d cluster create --config install/k3d/multi-cluster/config-dp.yaml
+```
+
+> [!TIP]
+> If you're using Colima, set the `K3D_FIX_DNS=0` environment variable before creating clusters:
+> ```shell
+> K3D_FIX_DNS=0 k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
+> ```
+> See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449) for more details.
 
 #### Install Cilium
 
 Cilium must be installed on the Data Plane cluster to work with OpenChoreo. To do so, use the Helm chart provided with the minimal Cilium configuration.
 
-Run the following command to install Cilium in the **DataPlane cluster**:
+Run the following command to install Cilium in the **Data Plane cluster**:
 ```shell
-helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium --kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m
+helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium \
+  --kube-context k3d-openchoreo-dp \
+  --namespace "openchoreo-system" \
+  --create-namespace \
+  --timeout 30m
 ```
-
-[//]: # (Todo: Test this properly on k3d and include the steps in the following section.)
-
-[//]: # (### k3d)
-
-[//]: # ()
-[//]: # (#### steps for creating the kind cluster)
-
-[//]: # ()
-[//]: # (#### Exposing the OpenChoreo Gateway)
 
 
 ## Install OpenChoreo
 
 Now you can proceed to install OpenChoreo on both the Control Plane and Data Plane clusters using Helm.
 
-1. Install OpenChoreo Control Plane
+### 1. Install OpenChoreo Control Plane
 
 Install the Control Plane using Helm:
 
 ```shell
-helm install choreo-control-plane oci://ghcr.io/openchoreo/helm-charts/choreo-control-plane \
---kube-context kind-choreo-cp --namespace "choreo-system" --create-namespace --timeout 30m --version 0.0.0-latest-dev
+helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
+  --dependency-update \
+  --kube-context k3d-openchoreo-cp \
+  --namespace openchoreo-control-plane \
+  --create-namespace \
+  --values install/k3d/multi-cluster/values-cp.yaml
 ```
 
- 2. Install OpenChoreo DataPlane
+### 2. Install OpenChoreo Data Plane
 
 Install the Data Plane using Helm:
 
 ```shell
-helm install choreo-dataplane oci://ghcr.io/openchoreo/helm-charts/choreo-dataplane \
---kube-context kind-choreo-dp --namespace "choreo-system" --create-namespace --timeout 30m --version 0.0.0-latest-dev
+helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
+  --dependency-update \
+  --kube-context k3d-openchoreo-dp \
+  --namespace openchoreo-data-plane \
+  --create-namespace \
+  --values install/k3d/multi-cluster/values-dp.yaml
+```
+
+### 3. Install OpenChoreo Build Plane (Optional)
+
+Install the Build Plane using Helm:
+
+```shell
+helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
+  --dependency-update \
+  --kube-context k3d-openchoreo-bp \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --values install/k3d/multi-cluster/values-bp.yaml
 ```
 
 > [!TIP]
-> To install the DataPlane without Argo Workflows, append the following flag: `--set argo-workflows.enabled=false`.
+> To install the Build Plane without Argo Workflows, append the following flag: `--set argo-workflows.enabled=false`.
 
-3. Verify the Installation
+### 4. Verify the Installation
 
-Once OpenChoreo is installed, you can verify the installation status using the provided script ([script](../install/check-status.sh)).
+Once OpenChoreo is installed, verify that all components are running:
 
-- I. Run the verification script:
+```bash
+# Control Plane
+kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane
 
-```shell
-bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/check-status.sh) --multi-cluster 
+# Data Plane
+kubectl --context k3d-openchoreo-dp get pods -n openchoreo-data-plane
+
+# Build Plane (if installed)
+kubectl --context k3d-openchoreo-bp get pods -n openchoreo-build-plane
 ```
-
-- II. Follow the prompts:
-  - 'Enter DataPlane kubernetes context (default: kind-choreo-dp):' - Press `Enter` if you are using the cluster created earlier, or provide your context.
-  - 'Enter Control Plane kubernetes context (default: kind-choreo-cp):' - Press `Enter` if you are using the cluster created earlier, or provide your context.
-
-The script will display the current status of OpenChoreo components across both clusters.
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.
 
-## Add Default DataPlane
+## Add Data Plane Resource
 
-OpenChoreo requires a DataPlane to deploy and manage its resources. You can add the default DataPlane by running the script provided in the repository ([script](../install/add-default-dataplane.sh)).
+OpenChoreo requires a DataPlane resource to deploy and manage workloads. You can add the Data Plane resource by running the script provided in the repository.
 
 Run the following command:
 
 ```shell
-bash <(curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/add-default-dataplane.sh) --multi-cluster 
+./install/add-data-plane.sh \
+  --control-plane-context k3d-openchoreo-cp \
+  --target-context k3d-openchoreo-dp \
+  --server https://host.k3d.internal:6551
 ```
 
-- Follow the prompts:
-  -  'Enter DataPlane kubernetes context (default: kind-choreo-dp):' - Press `Enter` to use the default Kubernetes context for the DataPlane cluster created earlier.
-  -  'Enter DataPlane kind name (default: default-dataplane):' - Press `Enter` to proceed.
-
 > [!NOTE]
-> If you're using a cluster that was not created with Kind, you'll need to manually gather the API server 
-> credentials and create the DataPlane kind yourself.
+> If you're using clusters created with k3d, the above command should work automatically. If you're using different cluster names or contexts, adjust the `--control-plane-context` and `--target-context` flags accordingly.
 
 ## Install the choreoctl
 
@@ -213,80 +228,22 @@ Run the following command to uninstall `choreoctl`:
 curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
 ```
 
-## Expose the OpenChoreo Gateway
+## Access Your Deployed Services
 
-To enable end-to-end access to the OpenChoreo components you deploy, you need to expose the external gateway service of the Data Plane cluster to your host machine. This allows you to interact with your deployed services seamlessly from outside the cluster.
+With k3d, services from the Data Plane are automatically accessible via localhost port mappings. The port mappings are configured in the k3d cluster configuration:
+
+- **Port 9080**: HTTP access to workloads (Envoy Gateway)
+- **Port 9443**: HTTPS access to workloads
+
+You can access your deployed services using:
+
+```shell
+# Access a service deployed on the Data Plane
+curl http://localhost:9080/<service-path>
+```
 
 > [!NOTE]
-> To expose deployments within this cluster, we route traffic through the external gateway service which is in the DatPlane.
-
-### Kind
-
-In this section, we will guide you on how to expose the OpenChoreo external gateway service to your host machine in a [kind](https://kind.sigs.k8s.io/) cluster.
-
-Once you successfully [installed OpenChoreo](#install-openchoreo) into your cluster, you will see a LoadBalancer service created for our external gateway.
-
-You can see the service using the following command.
-
-```shell
-kubectl --context=kind-choreo-dp get svc choreo-external-gateway -n choreo-system
-```
-
-You will see an output similar to the following:
-
-```text
-NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)         AGE
-choreo-external-gateway   LoadBalancer   10.96.75.106   <pending>     443:30807/TCP   55m
-```
-
-You have two options to expose the DataPlane choreo-external-gateway service to your host machine.
-
-1. Option 1: Use [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) to expose the service.
-2. Option 2: port-forward from your host machine to choreo-external-gateway service.
-
-##### Option 1: Use cloud-provider-kind to expose the service.
-
-The following steps will guide you through using the [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main) tool for exposing the external-gateway service.
-
-First, [install](https://github.com/kubernetes-sigs/cloud-provider-kind/tree/main?tab=readme-ov-file#install) the cloud-provider-kind tool to your host machine.
-
-Then, run this tool in sudo mode, and it will automatically assign LoadBalancer IP to your choreo-external-gateway service.
-
-```shell
-# run this command in a separate terminal and keep it running.
-sudo $(which cloud-provider-kind)
-```
-
-Then you could find the load balancer IP for your external-gateway service as follows.
-
-```shell
-kubectl --context=kind-choreo-dp get svc -n choreo-system | grep choreo-external-gateway
-```
-
-```shell
-# to find the LoadBalancer-IP
-# <name> should be replaced with the service name found in the previous step.
-$ kubectl --context=kind-choreo-dp get svc/<name> -n choreo-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
-```
-
-Then you can use this IP address to access the components you create in OpenChoreo via the external gateway.
-
-##### Option 2: Port-forward the external-gateway service
-
-Run the following command to do port-forwarding from your host machine to the `choreo-external-gateway` service.
-
-```shell
-kubectl --context=kind-choreo-dp port-forward svc/choreo-external-gateway -n choreo-system 443:443
-```
-
-> [!TIP]
-> If you have an existing service listening on port 443, or any permission issues, you may encounter issues when attempting port forwarding. To avoid conflicts, consider changing the port as needed.
-> Ex: `kubectl port-forward svc/choreo-external-gateway -n choreo-system 8443:443`
-
-> [!NOTE]
-> You may need to add entries to `/etc/hosts` to access components through the external gateway, as it relies on the hostname for request routing.
-> For example, if your endpoint URL is `https://default-org-default-project-hello-world-ea384b50-development.choreo.localhost`, and your load balancer IP is `172.19.0.4` you need to add the following entry to your /etc/hosts file.
-> `172.19.0.4 default-org-default-project-hello-world-ea384b50-development.choreoapps.localhost`
+> The exact port mapping depends on your k3d cluster configuration in `install/k3d/multi-cluster/config-dp.yaml`. Check the configuration file to verify the mapped ports.
 
 ## Optional: Observe logs in the OpenChoreo setup
 

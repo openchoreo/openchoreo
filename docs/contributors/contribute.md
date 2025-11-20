@@ -24,93 +24,118 @@ After cloning the repository following the [github_workflow.md](github_workflow.
 make help
 ```
 
-### Setting Up the KinD Kubernetes Cluster
+### Setting Up the k3d Kubernetes Cluster
 
-For testing and development, we recommend using a KinD (Kubernetes in Docker) cluster.
+For testing and development, we recommend using k3d (Kubernetes in Docker). The k3d development environment provides a multi-node cluster (1 server + 2 agents) that closely mimics production workload distribution.
 
-1. Run the following command to create a KinD cluster:
+#### Prerequisites for k3d Setup
+
+Before starting, ensure you have:
+- Docker 20.10+
+- k3d 5.8+
+- kubectl 1.32+
+- Helm 3.12+
+
+#### Quick Start Development Workflow
+
+For a complete setup in one command:
+
+```sh
+make k3d
+```
+
+This will create the cluster, build all components, load images, and install OpenChoreo. This typically takes 5-15 minutes depending on your internet bandwidth.
+
+#### Step-by-Step Setup
+
+1. Create k3d cluster:
 
    ```sh
-   make kind.up
+   make k3d.up
    ```
 
 2. Build all OpenChoreo components:
 
    ```sh
-   make kind.build
+   make k3d.build
    ```
 
 3. Load component images into the cluster:
 
    ```sh
-   make kind.load
+   make k3d.load
    ```
 
-4. Install Cilium CNI and OpenChoreo:
+4. Install OpenChoreo (Control Plane, Data Plane, Build Plane, Observability Plane):
 
    ```sh
-   make kind.install
+   make k3d.install
    ```
-
-   This may take around 5-15 minutes to complete depending on the internet bandwidth.
 
 > [!NOTE]
-> This command installs both the control plane and data plane components in the same cluster.
+> This command installs all planes in the single k3d cluster. You can install specific planes with `make k3d.install.<plane-name>` where plane-name is control-plane, data-plane, build-plane, or observability-plane.
 
-5. Once completed, you can verify the deployment by running:
+5. Configure the DataPlane resource:
+
+   OpenChoreo requires a DataPlane resource to deploy and manage workloads.
 
    ```sh
-   ./install/check-status.sh
+   make k3d.configure
    ```
 
-6. Add default DataPlane to the cluster:
-
-    OpenChoreo requires a DataPlane to deploy and manage its resources.
+6. Verify the deployment:
 
    ```sh
-   bash ./install/add-default-dataplane.sh
+   make k3d.status
+   ```
+
+   Or check individual plane pods:
+   ```sh
+   kubectl --context k3d-openchoreo get pods -n openchoreo-control-plane
+   kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane
    ```
 
 7. Run controller manager locally (for development):
-   
+
    To run the controller manager locally during development:
 
    - First, scale down the existing controller deployment:
    ```sh
-   kubectl -n openchoreo scale deployment openchoreo-controller-manager --replicas=0
+   kubectl --context k3d-openchoreo -n openchoreo-control-plane scale deployment openchoreo-controller-manager --replicas=0
    ```
-   
-   - Then, run the following command to configure DataPlane resource:
+
+   - Then, run the manager with webhooks disabled:
    ```sh
-   kubectl get dataplane default-dataplane -n default-org -o json | jq --arg url "$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='kind-openchoreo')].cluster.server}")" '.spec.kubernetesCluster.credentials.apiServerURL = $url' | kubectl apply -f -
+   make go.run.manager ENABLE_WEBHOOKS=false
    ```
 
-Note: The main controller runs as a deployment in the cluster. For local development, you typically work with the API server and CLI tools.
-
-### Quick Start Development Workflow
-
-For a complete setup in one command:
-
-```sh
-make kind
-```
-
-This will create the cluster, build all components, load images, and install OpenChoreo.
+> [!TIP]
+> The main controller runs as a deployment in the cluster. For rapid development iteration, you can run it locally while keeping other components in the cluster.
 
 ### Component-Specific Operations
 
-- Build specific component: `make kind.build.<component>` (controller, api, ui)
-- Load specific component: `make kind.load.<component>` (controller, api, ui, cilium)
-- Install specific component: `make kind.install.<component>` (cilium, openchoreo)
-- Update specific component: `make kind.update.<component>` (controller, api, ui)
+- Build specific component: `make k3d.build.<component>` (controller, openchoreo-api, observer)
+- Load specific component: `make k3d.load.<component>` (controller, openchoreo-api, observer)
+- Update specific component: `make k3d.update.<component>` (rebuild, load, and restart)
+- Upgrade specific plane: `make k3d.upgrade.<plane>` (control-plane, data-plane, build-plane, observability-plane)
+- View logs: `make k3d.logs.<component>` (controller, openchoreo-api, observer)
 
 ### Cleanup
 
-To delete the KinD cluster:
+To delete the k3d cluster:
 
 ```sh
-make kind.down
+make k3d.down
 ```
+
+### Port Access
+
+Once the cluster is running, you can access services via localhost:
+
+- **Control Plane UI/API**: http://openchoreo.localhost:8080
+- **Data Plane Workloads**: http://localhost:9080 (Envoy Gateway)
+- **Build Plane**: Argo Workflows at http://localhost:10081, Registry at http://localhost:10082
+- **Observability**: Observer API at http://localhost:11080, OpenSearch at http://localhost:11082
 
 ### Building and Running the Binaries
 

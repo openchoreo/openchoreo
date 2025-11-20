@@ -52,7 +52,6 @@ done
 log_info "Starting OpenChoreo local installation..."
 log_info "Configuration:"
 log_info "  Cluster Name: $CLUSTER_NAME"
-log_info "  Node Image: $NODE_IMAGE"
 log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
 if [[ -n "$OPENCHOREO_VERSION" ]]; then
     log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
@@ -64,8 +63,8 @@ log_info "  Enable Observability: $ENABLE_OBSERVABILITY"
 # Verify prerequisites
 verify_prerequisites
 
-# Step 1: Create Kind cluster
-create_kind_cluster
+# Step 1: Create k3d cluster
+create_k3d_cluster
 
 # Step 2: Setup kubeconfig
 setup_kubeconfig

@@ -338,11 +338,11 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
 else
     echo "OpenChoreo Installation Status: Multi-Cluster Mode"
 
-    read -r -p "Enter DataPlane Kubernetes context (default: kind-choreo-dp): " dataplane_context
-    dataplane_context=${dataplane_context:-"kind-choreo-dp"}
+    read -r -p "Enter DataPlane Kubernetes context (default: k3d-openchoreo-dp): " dataplane_context
+    dataplane_context=${dataplane_context:-"k3d-openchoreo-dp"}
 
-    read -r -p "Enter Control Plane Kubernetes context (default: kind-choreo-cp): " control_plane_context
-    control_plane_context=${control_plane_context:-"kind-choreo-cp"}
+    read -r -p "Enter Control Plane Kubernetes context (default: k3d-openchoreo-cp): " control_plane_context
+    control_plane_context=${control_plane_context:-"k3d-openchoreo-cp"}
 
     print_component_status components_cp "Control Plane Components" "$control_plane_context"
     print_component_status components_dp "Data Plane Components" "$dataplane_context"

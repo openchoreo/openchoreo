@@ -11,10 +11,10 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 RESET='\033[0m'
 
-# Configuration variables - adapted for local use
-CLUSTER_NAME="openchoreo-local"
-NODE_IMAGE="kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027"
-KUBECONFIG_PATH="${HOME}/.kube/config-openchoreo-local"
+# Configuration variables - adapted for local use with k3d
+CLUSTER_NAME="openchoreo"
+K3D_CONFIG="${SCRIPT_DIR}/k3d/dev/config.yaml"
+KUBECONFIG_PATH="${HOME}/.kube/config"
 HELM_REPO_BASE="${SCRIPT_DIR}/helm"
 OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
 
@@ -48,9 +48,9 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check if kind cluster exists
+# Check if k3d cluster exists
 cluster_exists() {
-    kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"
+    k3d cluster list 2>/dev/null | grep -q "^${CLUSTER_NAME}$"
 }
 
 # Check if namespace exists
@@ -101,40 +101,24 @@ wait_for_pods() {
     log_success "All pods in namespace '$namespace' are ready"
 }
 
-# Create Kind cluster with specific configuration
-create_kind_cluster() {
+# Create k3d cluster with specific configuration
+create_k3d_cluster() {
     if cluster_exists; then
-        log_warning "Kind cluster '$CLUSTER_NAME' already exists, skipping creation"
+        log_warning "k3d cluster '$CLUSTER_NAME' already exists, skipping creation"
         return 0
     fi
-    
-    log_info "Creating Kind cluster '$CLUSTER_NAME'..."
-    
-    # Create the /tmp/kind-shared directory if it doesn't exist
-    mkdir -p /tmp/kind-shared
-    
-    # Create kind cluster config
-    cat > /tmp/kind-config-local.yaml << EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-- role: worker
-  labels:
-    openchoreo.dev/noderole: workflow-runner
-  extraMounts:
-  - hostPath: /tmp/kind-shared
-    containerPath: /mnt/shared
-networking:
-  disableDefaultCNI: true
-EOF
-    
-    if kind create cluster --name "$CLUSTER_NAME" --image "$NODE_IMAGE" --config /tmp/kind-config-local.yaml; then
-        log_success "Kind cluster '$CLUSTER_NAME' created successfully"
-        rm -f /tmp/kind-config-local.yaml
+
+    log_info "Creating k3d cluster '$CLUSTER_NAME'..."
+
+    if [[ ! -f "$K3D_CONFIG" ]]; then
+        log_error "k3d config file not found at $K3D_CONFIG"
+        return 1
+    fi
+
+    if k3d cluster create --config "$K3D_CONFIG"; then
+        log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
-        log_error "Failed to create Kind cluster '$CLUSTER_NAME'"
-        rm -f /tmp/kind-config-local.yaml
+        log_error "Failed to create k3d cluster '$CLUSTER_NAME'"
         return 1
     fi
 }
@@ -142,15 +126,12 @@ EOF
 # Export kubeconfig for the cluster
 setup_kubeconfig() {
     log_info "Setting up kubeconfig..."
-    
-    # Create directory if it doesn't exist
-    mkdir -p "$(dirname "$KUBECONFIG_PATH")"
-    
-    if kind export kubeconfig --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG_PATH"; then
-        log_success "Kubeconfig exported to $KUBECONFIG_PATH"
-        export KUBECONFIG="$KUBECONFIG_PATH"
+
+    # k3d automatically updates the kubeconfig, just verify it exists
+    if kubectl cluster-info --context "k3d-${CLUSTER_NAME}" >/dev/null 2>&1; then
+        log_success "k3d cluster kubeconfig is ready"
     else
-        log_error "Failed to export kubeconfig"
+        log_error "Failed to verify kubeconfig for k3d cluster"
         return 1
     fi
 }
@@ -293,37 +274,37 @@ setup_choreoctl_completion() {
 # Verify prerequisites
 verify_prerequisites() {
     log_info "Verifying prerequisites..."
-    
+
     local missing_tools=()
-    
-    if ! command_exists kind; then
-        missing_tools+=("kind")
+
+    if ! command_exists k3d; then
+        missing_tools+=("k3d")
     fi
-    
+
     if ! command_exists kubectl; then
         missing_tools+=("kubectl")
     fi
-    
+
     if ! command_exists helm; then
         missing_tools+=("helm")
     fi
-    
+
     if ! command_exists docker; then
         missing_tools+=("docker")
     fi
-    
+
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         return 1
     fi
-    
+
     log_success "All prerequisites verified"
 }
 
 # Clean up function
 cleanup() {
     log_info "Cleaning up temporary files..."
-    rm -f /tmp/kind-config-local.yaml
+    # Clean up any temporary files if needed
 }
 
 # Register cleanup function

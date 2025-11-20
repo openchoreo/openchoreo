@@ -13,4 +13,4 @@ include make/lint.mk
 include make/docker.mk
 include make/kube.mk
 include make/helm.mk
-include make/kind.mk
+include make/k3d.mk

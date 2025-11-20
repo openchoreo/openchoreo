@@ -6,8 +6,8 @@ GREEN='\033[0;32m'
 DARK_YELLOW='\033[0;33m'
 RESET='\033[0m'
 
-DEFAULT_CONTEXT="kind-openchoreo-dp"
-DEFAULT_TARGET_CONTEXT="kind-openchoreo-cp"
+DEFAULT_CONTEXT="k3d-openchoreo"
+DEFAULT_TARGET_CONTEXT="k3d-openchoreo"
 SERVER_URL=""
 DEFAULT_DATAPLANE_KIND_NAME="default"
 
@@ -36,8 +36,9 @@ if [[ "$SINGLE_CLUSTER" == "true" ]]; then
     SERVER_URL="https://kubernetes.default.svc.cluster.local"
     echo "Running in single-cluster mode using context '$CONTEXT' with loopback server, using Kubernetes service DNS"
   else
-    NODE_NAME_PREFIX=${CONTEXT#kind-}
-    SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
+    NODE_NAME_PREFIX=${CONTEXT#k3d-}
+    NODE_NAME_PREFIX=${NODE_NAME_PREFIX#kind-}
+    SERVER_URL="https://host.k3d.internal:6551"
     echo "Running in single-cluster mode using context '$CONTEXT'"
   fi
 else
@@ -46,8 +47,9 @@ else
   TARGET_CONTEXT=$DEFAULT_TARGET_CONTEXT
 
   echo -e "\nUsing Kubernetes context '$CONTEXT' as DataPlane."
-  NODE_NAME_PREFIX=${CONTEXT#kind-}
-  SERVER_URL="https://$NODE_NAME_PREFIX-control-plane:6443"
+  NODE_NAME_PREFIX=${CONTEXT#k3d-}
+  NODE_NAME_PREFIX=${NODE_NAME_PREFIX#kind-}
+  SERVER_URL="https://host.k3d.internal:6551"
 
   read -p "Enter DataPlane kind name (default: $DEFAULT_DATAPLANE_KIND_NAME): " INPUT_DATAPLANE_NAME
   DATAPLANE_KIND_NAME=${INPUT_DATAPLANE_NAME:-$DEFAULT_DATAPLANE_KIND_NAME}
