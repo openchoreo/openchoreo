@@ -17,7 +17,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -42,6 +41,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=traits,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentenvsnapshots,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
@@ -183,10 +184,6 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	// Get the Project to find the DeploymentPipeline reference
-	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
-	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
-	// the root environment might change, requiring the snapshot to be regenerated.
-	// Currently, Components won't be re-reconciled when this happens.
 	project := &openchoreov1alpha1.Project{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      comp.Spec.Owner.ProjectName,
@@ -236,19 +233,36 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.createOrUpdateSnapshot(ctx, comp, ct, workload, traits, firstEnv); err != nil {
-		msg := fmt.Sprintf("Failed to create/update ComponentEnvSnapshot: %v", err)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonSnapshotCreationFailed, msg)
-		logger.Error(err, "Failed to create/update ComponentEnvSnapshot")
-		return ctrl.Result{}, err
+	// Handle autoDeploy if enabled
+	if comp.Spec.AutoDeploy {
+		if err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, firstEnv); err != nil {
+			msg := fmt.Sprintf("Failed to handle autoDeploy: %v", err)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
+			logger.Error(err, "Failed to handle autoDeploy")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Success - mark as ready
-	msg := fmt.Sprintf("ComponentEnvSnapshot successfully created/updated for environment %q", firstEnv)
-	controller.MarkTrueCondition(comp, ConditionReady, ReasonSnapshotReady, msg)
-	logger.Info("Successfully reconciled Component with ComponentType",
-		"component", comp.Name,
-		"environment", firstEnv)
+	if comp.Spec.AutoDeploy {
+		// AutoDeploy enabled - ComponentRelease and ReleaseBinding were handled
+		releaseName := comp.Status.LatestRelease.Name
+		bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
+		msg := fmt.Sprintf("ComponentRelease %q and ReleaseBinding %q successfully managed for environment %q",
+			releaseName, bindingName, firstEnv)
+		controller.MarkTrueCondition(comp, ConditionReady, ReasonComponentReleaseReady, msg)
+		logger.Info("Successfully reconciled Component with autoDeploy enabled",
+			"component", comp.Name,
+			"release", releaseName,
+			"binding", bindingName,
+			"environment", firstEnv)
+	} else {
+		// AutoDeploy disabled - only validation was performed
+		msg := "Component validated successfully"
+		controller.MarkTrueCondition(comp, ConditionReady, ReasonReconciled, msg)
+		logger.Info("Successfully reconciled Component with autoDeploy disabled",
+			"component", comp.Name)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -291,71 +305,6 @@ func (r *Reconciler) fetchTraits(ctx context.Context, traitRefs []openchoreov1al
 	return traits, nil
 }
 
-// createOrUpdateSnapshot creates or updates a ComponentEnvSnapshot with embedded copies
-func (r *Reconciler) createOrUpdateSnapshot(
-	ctx context.Context,
-	comp *openchoreov1alpha1.Component,
-	ct *openchoreov1alpha1.ComponentType,
-	workload *openchoreov1alpha1.Workload,
-	traits []openchoreov1alpha1.Trait,
-	environment string,
-) error {
-	logger := log.FromContext(ctx)
-
-	snapshotName := fmt.Sprintf("%s-%s", comp.Name, environment)
-	snapshot := &openchoreov1alpha1.ComponentEnvSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      snapshotName,
-			Namespace: comp.Namespace,
-		},
-	}
-
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, snapshot, func() error {
-		if r.Scheme == nil {
-			return fmt.Errorf("reconciler scheme is nil")
-		}
-
-		snapshot.Spec.Owner = openchoreov1alpha1.ComponentEnvSnapshotOwner{
-			ProjectName:   comp.Spec.Owner.ProjectName,
-			ComponentName: comp.Name,
-		}
-		snapshot.Spec.Environment = environment
-		sanitizedCT := sanitizeComponentType(ct)
-		sanitizedComponent := sanitizeComponent(comp)
-		sanitizedWorkload := sanitizeWorkload(workload)
-		sanitizedTraits := sanitizeTraits(traits)
-
-		if sanitizedCT != nil {
-			snapshot.Spec.ComponentType = *sanitizedCT
-		}
-		if sanitizedComponent != nil {
-			snapshot.Spec.Component = *sanitizedComponent
-		}
-		if len(sanitizedTraits) > 0 {
-			snapshot.Spec.Traits = sanitizedTraits
-		} else {
-			snapshot.Spec.Traits = nil
-		}
-		if sanitizedWorkload != nil {
-			snapshot.Spec.Workload = *sanitizedWorkload
-		}
-
-		return controllerutil.SetControllerReference(comp, snapshot, r.Scheme)
-	})
-	if err != nil {
-		return err
-	}
-
-	if op != controllerutil.OperationResultNone {
-		logger.Info("Reconciled ComponentEnvSnapshot",
-			"snapshot", snapshotName,
-			"component", comp.Name,
-			"environment", environment,
-			"operation", op)
-	}
-	return nil
-}
-
 // findRootEnvironment finds the root environment in a deployment pipeline.
 // The root environment is the source environment that never appears as a target,
 // representing the initial environment where components are first deployed.
@@ -392,76 +341,281 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 	return rootEnv, nil
 }
 
-func sanitizeComponentType(ct *openchoreov1alpha1.ComponentType) *openchoreov1alpha1.ComponentType {
-	if ct == nil {
-		return nil
-	}
-	copy := ct.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentTypeStatus{}
-	return copy
-}
+// handleAutoDeploy handles automatic deployment when autoDeploy is enabled.
+// It computes the hash of the current release spec and creates/updates ComponentRelease
+// and ReleaseBinding if the hash has changed.
+func (r *Reconciler) handleAutoDeploy(
+	ctx context.Context,
+	comp *openchoreov1alpha1.Component,
+	ct *openchoreov1alpha1.ComponentType,
+	workload *openchoreov1alpha1.Workload,
+	traits []openchoreov1alpha1.Trait,
+	firstEnv string,
+) error {
+	logger := log.FromContext(ctx)
 
-func sanitizeComponent(comp *openchoreov1alpha1.Component) *openchoreov1alpha1.Component {
-	if comp == nil {
-		return nil
-	}
-	copy := comp.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.ComponentStatus{}
-	return copy
-}
+	// ReleaseBinding name to create releaseBinding if not exits
+	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
 
-func sanitizeWorkload(workload *openchoreov1alpha1.Workload) *openchoreov1alpha1.Workload {
-	if workload == nil {
-		return nil
-	}
-	copy := workload.DeepCopy()
-	sanitizeObjectMeta(&copy.ObjectMeta)
-	copy.Status = openchoreov1alpha1.WorkloadStatus{}
-	return copy
-}
-
-func sanitizeTraits(traits []openchoreov1alpha1.Trait) []openchoreov1alpha1.Trait {
-	if len(traits) == 0 {
-		return nil
-	}
-	sanitized := make([]openchoreov1alpha1.Trait, 0, len(traits))
-	for i := range traits {
-		copy := traits[i].DeepCopy()
-		sanitizeObjectMeta(&copy.ObjectMeta)
-		copy.Status = openchoreov1alpha1.TraitStatus{}
-		sanitized = append(sanitized, *copy)
-	}
-	return sanitized
-}
-
-func sanitizeObjectMeta(meta *metav1.ObjectMeta) {
-	if meta == nil {
-		return
+	releaseSpec, err := BuildReleaseSpec(ct, traits, comp, workload)
+	if err != nil {
+		return fmt.Errorf("failed to build ReleaseSpec: %w", err)
 	}
 
-	// Preserve identity fields that are required for templating.
-	name := meta.Name
-	namespace := meta.Namespace
-	labels := meta.Labels
-	generateName := meta.GenerateName
+	currentHash := ComputeReleaseHash(releaseSpec, nil)
 
-	// Filter out kubectl-specific annotations
-	filteredAnnotations := make(map[string]string)
-	for k, v := range meta.Annotations {
-		// Skip kubectl.kubernetes.io/* annotations
-		if !strings.HasPrefix(k, "kubectl.kubernetes.io/") {
-			filteredAnnotations[k] = v
+	// Check if hash exists in status.LatestRelease and it hasn't changed
+	if comp.Status.LatestRelease != nil && comp.Status.LatestRelease.ReleaseHash == currentHash {
+		// Hash matches, verify the ComponentRelease exists and recreate if needed
+		releaseName := comp.Status.LatestRelease.Name
+		exists, err := r.ensureComponentRelease(ctx, comp, ct, workload, traits, releaseName, currentHash)
+		if err != nil {
+			return err
+		}
+		if exists {
+			// ComponentRelease already existed, nothing more to do
+			logger.Info("ComponentRelease hash unchanged and release exists",
+				"component", comp.Name,
+				"hash", currentHash,
+				"release", releaseName)
+			return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
+		}
+		// ComponentRelease was recreated, continue to update status and binding
+		logger.Info("ComponentRelease recreated after being missing",
+			"component", comp.Name,
+			"hash", currentHash,
+			"release", releaseName)
+	} else {
+		// Hash is different, create new ComponentRelease
+		logger.Info("ComponentRelease hash diff detected, creating new release",
+			"component", comp.Name,
+			"oldHash", func() string {
+				if comp.Status.LatestRelease != nil {
+					return comp.Status.LatestRelease.ReleaseHash
+				}
+				return "none"
+			}(),
+			"newHash", currentHash)
+
+		releaseName := fmt.Sprintf("%s-%s", comp.Name, currentHash)
+		if _, err := r.ensureComponentRelease(ctx, comp, ct, workload, traits, releaseName, currentHash); err != nil {
+			return err
 		}
 	}
 
-	*meta = metav1.ObjectMeta{
-		Name:         name,
-		Namespace:    namespace,
-		Labels:       labels,
-		Annotations:  filteredAnnotations,
-		GenerateName: generateName,
+	// Generate release name for status update
+	releaseName := fmt.Sprintf("%s-%s", comp.Name, currentHash)
+
+	// Update status.LatestRelease
+	comp.Status.LatestRelease = &openchoreov1alpha1.LatestRelease{
+		Name:        releaseName,
+		ReleaseHash: currentHash,
+	}
+
+	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
+	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
+	// the root environment might change, requiring the ReleaseBinding to be updated..
+	// Currently, Components won't be re-reconciled when this happens.
+
+	return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
+}
+
+// ensureComponentRelease ensures a ComponentRelease with the given name exists.
+// Returns (true, nil) if the release already existed.
+// Returns (false, nil) if the release was created.
+// Returns (false, error) if there was an error checking or creating the release.
+func (r *Reconciler) ensureComponentRelease(
+	ctx context.Context,
+	comp *openchoreov1alpha1.Component,
+	ct *openchoreov1alpha1.ComponentType,
+	workload *openchoreov1alpha1.Workload,
+	traits []openchoreov1alpha1.Trait,
+	releaseName string,
+	currentHash string,
+) (bool, error) {
+	logger := log.FromContext(ctx)
+
+	// Check if ComponentRelease already exists
+	existingRelease := &openchoreov1alpha1.ComponentRelease{}
+	err := r.Get(ctx, types.NamespacedName{Name: releaseName, Namespace: comp.Namespace}, existingRelease)
+	if err == nil {
+		// ComponentRelease exists - validate its hash matches expectations
+		// Build ReleaseSpec from the existing ComponentRelease to verify integrity
+		existingSpec := &ReleaseSpec{
+			ComponentType:    existingRelease.Spec.ComponentType,
+			Traits:           existingRelease.Spec.Traits,
+			ComponentProfile: existingRelease.Spec.ComponentProfile,
+			Workload:         existingRelease.Spec.Workload,
+		}
+		existingHash := ComputeReleaseHash(existingSpec, nil)
+
+		if existingHash != currentHash {
+			// Hash mismatch - ComponentRelease was modified or corrupted, restore correct content
+			logger.Info("ComponentRelease hash mismatch detected, updating to restore correct content",
+				"name", releaseName,
+				"expectedHash", currentHash,
+				"actualHash", existingHash,
+				"reason", "possible manual modification or data corruption")
+
+			// Update the ComponentRelease with the correct content
+			existingRelease.Spec = openchoreov1alpha1.ComponentReleaseSpec{
+				Owner: openchoreov1alpha1.ComponentReleaseOwner{
+					ProjectName:   comp.Spec.Owner.ProjectName,
+					ComponentName: comp.Name,
+				},
+				ComponentType:    ct.Spec,
+				Traits:           buildTraitsMap(traits),
+				ComponentProfile: buildComponentProfile(comp),
+				Workload:         workload.Spec.WorkloadTemplateSpec,
+			}
+
+			if err := r.Update(ctx, existingRelease); err != nil {
+				return false, fmt.Errorf("failed to update corrupted ComponentRelease %q: %w", releaseName, err)
+			}
+
+			logger.Info("ComponentRelease updated to restore correct content",
+				"name", releaseName,
+				"hash", currentHash)
+			// Return false to indicate we did work (updated the release)
+			return false, nil
+		}
+
+		// Hash matches - ComponentRelease is valid
+		logger.Info("ComponentRelease exists and hash is valid",
+			"name", releaseName,
+			"hash", currentHash)
+		return true, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		// Unexpected error
+		return false, fmt.Errorf("failed to get ComponentRelease %q: %w", releaseName, err)
+	}
+
+	// ComponentRelease doesn't exist, create it
+	componentRelease := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      releaseName,
+			Namespace: comp.Namespace,
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   comp.Spec.Owner.ProjectName,
+				ComponentName: comp.Name,
+			},
+			ComponentType:    ct.Spec,
+			Traits:           buildTraitsMap(traits),
+			ComponentProfile: buildComponentProfile(comp),
+			Workload:         workload.Spec.WorkloadTemplateSpec,
+		},
+	}
+
+	if err := r.Create(ctx, componentRelease); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return false, fmt.Errorf("failed to create ComponentRelease: %w", err)
+		}
+		// Already exists - this is fine, likely a race condition
+		logger.Info("ComponentRelease already exists (race condition)", "name", releaseName)
+		return true, nil
+	}
+
+	logger.Info("Created ComponentRelease", "name", releaseName, "hash", currentHash)
+	return false, nil
+}
+
+// ensureReleaseBinding ensures a ReleaseBinding exists for the given environment and component.
+// If the ReleaseBinding doesn't exist, it creates one.
+// If it exists, it updates the release name if different.
+// Returns an error if multiple ReleaseBindings are found for the same environment.
+// bindingName is the name of the ReleaseBinding to create if it doesn't exist.
+func (r *Reconciler) ensureReleaseBinding(
+	ctx context.Context,
+	comp *openchoreov1alpha1.Component,
+	releaseName string,
+	firstEnv string,
+	bindingName string,
+) error {
+	logger := log.FromContext(ctx)
+
+	envKey := fmt.Sprintf("%s/%s/%s", comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
+	releaseBindingList := openchoreov1alpha1.ReleaseBindingList{}
+	err := r.List(ctx, &releaseBindingList, client.InNamespace(comp.Namespace),
+		client.MatchingFields{releaseBindingIndex: envKey})
+	if err != nil {
+		return fmt.Errorf("failed to list ReleaseBinding: %w", err)
+	}
+
+	if len(releaseBindingList.Items) == 0 {
+		// ReleaseBinding doesn't exist, create it
+		releaseBinding := &openchoreov1alpha1.ReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bindingName,
+				Namespace: comp.Namespace,
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ReleaseBindingOwner{
+					ProjectName:   comp.Spec.Owner.ProjectName,
+					ComponentName: comp.Name,
+				},
+				ReleaseName: releaseName,
+				Environment: firstEnv,
+				// No overrides for initial auto-deploy
+			},
+		}
+
+		if err := r.Create(ctx, releaseBinding); err != nil {
+			return fmt.Errorf("failed to create ReleaseBinding: %w", err)
+		}
+
+		logger.Info("Created ReleaseBinding", "binding", bindingName, "release", releaseName,
+			"environment", firstEnv)
+		return nil
+	}
+
+	if len(releaseBindingList.Items) > 1 {
+		return fmt.Errorf("found multiple ReleaseBinding objects for environment %q", firstEnv)
+	}
+
+	releaseBinding := releaseBindingList.Items[0]
+
+	// ReleaseBinding exists, patch the release name if different
+	if releaseBinding.Spec.ReleaseName != releaseName {
+		releaseBinding.Spec.ReleaseName = releaseName
+
+		if err := r.Update(ctx, &releaseBinding); err != nil {
+			return fmt.Errorf("failed to update ReleaseBinding: %w", err)
+		}
+
+		logger.Info("Updated ReleaseBinding with new release",
+			"binding", bindingName,
+			"release", releaseName,
+			"environment", firstEnv)
+	} else {
+		logger.Info("ReleaseBinding already references current release",
+			"binding", bindingName,
+			"release", releaseName)
+	}
+
+	return nil
+}
+
+// buildTraitsMap converts a slice of Trait resources to a map of trait name to TraitSpec
+func buildTraitsMap(traits []openchoreov1alpha1.Trait) map[string]openchoreov1alpha1.TraitSpec {
+	if len(traits) == 0 {
+		return nil
+	}
+
+	traitsMap := make(map[string]openchoreov1alpha1.TraitSpec, len(traits))
+	for _, trait := range traits {
+		traitsMap[trait.Name] = trait.Spec
+	}
+	return traitsMap
+}
+
+// buildComponentProfile extracts the ComponentProfile from the Component
+func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha1.ComponentProfile {
+	return openchoreov1alpha1.ComponentProfile{
+		Parameters: comp.Spec.Parameters,
+		Traits:     comp.Spec.Traits,
 	}
 }
 
@@ -484,6 +638,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup workload owner index: %w", err)
 	}
 
+	if err := r.setupReleaseBindingIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup release binding index: %w", err)
+	}
+
 	// TODO: Add watch for DeploymentPipeline.
 	// Components depend on the DeploymentPipeline's promotion paths to determine the root environment.
 	// If the promotion path order changes after Component creation, Components won't be re-reconciled
@@ -492,7 +650,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// - Watches(&openchoreov1alpha1.DeploymentPipeline{}, handler.EnqueueRequestsFromMapFunc(...))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
-		Owns(&openchoreov1alpha1.ComponentEnvSnapshot{}).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},

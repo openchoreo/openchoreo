@@ -5,15 +5,23 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source helper functions
-source "${SCRIPT_DIR}/install-helpers.sh"
+source "${SCRIPT_DIR}/.helpers.sh"
 
 # Parse command line arguments
+ENABLE_BUILD_PLANE=false
 ENABLE_OBSERVABILITY=false
 SKIP_STATUS_CHECK=false
+SKIP_PRELOAD=false
+SKIP_RESOURCE_CHECK=false
+DEBUG=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --enable-observability)
+        --with-build)
+            ENABLE_BUILD_PLANE=true
+            shift
+            ;;
+        --with-observability)
             ENABLE_OBSERVABILITY=true
             shift
             ;;
@@ -21,7 +29,20 @@ while [[ $# -gt 0 ]]; do
             SKIP_STATUS_CHECK=true
             shift
             ;;
-        --openchoreo-version)
+        --skip-preload)
+            SKIP_PRELOAD=true
+            shift
+            ;;
+        --skip-resource-check)
+            SKIP_RESOURCE_CHECK=true
+            shift
+            ;;
+        --debug)
+            DEBUG=true
+            export DEBUG
+            shift
+            ;;
+        --version)
             OPENCHOREO_VERSION="$2"
             export OPENCHOREO_VERSION
             shift 2
@@ -30,15 +51,23 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --enable-observability    Enable OpenChoreo Observability Plane"
-            echo "  --skip-status-check       Skip the status check at the end"
-            echo "  --openchoreo-version VER  Specify OpenChoreo version to install"
+            echo "  --version VER             Specify version to install (default: latest)"
+            echo "  --with-build              Install with Build Plane (Argo Workflows + Registry)"
+            echo "  --with-observability      Install with Observability Plane"
+            echo "  --skip-status-check       Skip status check at the end"
+            echo "  --skip-preload            Skip image preloading from host Docker"
+            echo "  --skip-resource-check     Skip system resource validation"
+            echo "  --debug                   Enable debug mode"
             echo "  --help, -h                Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                    # Install with defaults (latest version)"
-            echo "  $0 --enable-observability             # Install with observability plane"
-            echo "  $0 --openchoreo-version v1.2.3        # Install specific version"
+            echo "  $0                                     # Install with defaults"
+            echo "  $0 --version v1.2.3                    # Install specific version"
+            echo "  $0 --with-build                        # Install with build capabilities"
+            echo "  $0 --with-observability                # Install with observability"
+            echo "  $0 --with-build --with-observability   # Full platform"
+            echo "  $0 --skip-preload                      # Skip image preloading"
+            echo "  $0 --debug --version latest-dev        # Debug with dev version"
             exit 0
             ;;
         *)
@@ -49,19 +78,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Export flags for use in helper functions
+export SKIP_RESOURCE_CHECK
+export ENABLE_BUILD_PLANE
+export ENABLE_OBSERVABILITY
+
+# Derive chart version from the (possibly user-provided) OPENCHOREO_VERSION
+derive_chart_version
+
 log_info "Starting OpenChoreo installation..."
-log_info "Configuration:"
-log_info "  Cluster Name: $CLUSTER_NAME"
-log_info "  K3s Image: $K3S_IMAGE"
-log_info "  Kubeconfig Path: $KUBECONFIG_PATH"
-if [[ "$DEV_MODE" == "true" ]]; then
-    log_info "  Mode: DEV (using local images and helm charts)"
-elif [[ -n "$OPENCHOREO_VERSION" ]]; then
-    log_info "  OpenChoreo Version: $OPENCHOREO_VERSION"
-else
-    log_info "  OpenChoreo Version: latest"
-fi
-log_info "  Enable Observability: $ENABLE_OBSERVABILITY"
+print_installation_config
 
 # Verify prerequisites
 verify_prerequisites
@@ -69,49 +95,62 @@ verify_prerequisites
 # Step 1: Create k3d cluster
 create_k3d_cluster
 
-# Step 2: Setup kubeconfig
-setup_kubeconfig
+# Step 2: Preload Docker images (unless skipped)
+if [[ "$SKIP_PRELOAD" != "true" ]]; then
+    preload_images
+fi
 
-# Step 3: Connect container to k3d network
-connect_to_k3d_network
-
-# Step 4: Pull and load docker images
-prepare_images
-
-# Step 5: Install OpenChoreo Control Plane
+# Step 3: Install OpenChoreo Control Plane
 install_control_plane
 
-# Step 6: Install OpenChoreo Data Plane
+# Step 4: Install OpenChoreo Data Plane
 install_data_plane
 
-# Step 7: Install OpenChoreo Observability Plane (optional)
+# Step 5: Install OpenChoreo Build Plane (optional)
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    install_build_plane
+fi
+
+# Step 6: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 8: Check installation status
+# Step 7: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 9: Add default dataplane
-if [[ -f "${SCRIPT_DIR}/add-default-dataplane.sh" ]]; then
-    bash "${SCRIPT_DIR}/add-default-dataplane.sh" --single-cluster
+# Step 8: Add default dataplane
+if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
+    bash "${SCRIPT_DIR}/add-data-plane.sh"
 else
-    log_warning "add-default-dataplane.sh not found, skipping dataplane configuration"
+    log_warning "add-data-plane.sh not found, skipping dataplane configuration"
+fi
+
+# Step 9: Add default buildplane (if build plane enabled)
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
+        bash "${SCRIPT_DIR}/add-build-plane.sh"
+    else
+        log_warning "add-build-plane.sh not found, skipping buildplane configuration"
+    fi
 fi
 
 log_success "OpenChoreo installation completed successfully!"
-log_info "Access URLs:"
-log_info "  Backstage UI: http://openchoreo.localhost:7007/"
-log_info "    Logins:"
-log_info "      Username: admin@openchoreo.dev"
-log_info "      Password: Admin@123"
-log_info "  OpenChoreo API: http://api.openchoreo.localhost:7007/"
-log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:7007/"
-echo ""
+# TODO: Uncomment and update access URLs when backstage is available
+#log_info "Access URLs:"
+#log_info "  Backstage UI: http://openchoreo.localhost:8080/"
+#log_info "    Logins:"
+#log_info "      Username: admin@openchoreo.dev"
+#log_info "      Password: Admin@123"
+#log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
+#log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
+#echo ""
 log_info "Next Steps:"
-log_info "  Deploy your first application by running:"
-log_info "    ./deploy_web_application.sh"
-
-exec /bin/bash -l
+log_info "  Deploy sample applications:"
+log_info "    ./deploy-react-starter.sh      # Simple React web application"
+log_info "    ./deploy-gcp-demo.sh           # GCP Microservices Demo (11 services)"
+if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    log_info "    ./build-deploy-greeter.sh      # Build from source (Go greeter service)"
+fi

@@ -84,7 +84,6 @@ spec:
             set -e
 
             WORKDIR="/mnt/vol/source"
-            CACHE_DIR="/shared/podman/cache"
 
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
@@ -147,8 +146,6 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
-          - mountPath: /shared/podman/cache
-            name: podman-cache
     - name: push-step
       inputs:
         parameters:
@@ -172,19 +169,9 @@ spec:
             SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             #####################################################################
-            # 2. Registry endpoints from Helm values
-            #    - type: "local" or "external"
-            #    - choose the right push/pull endpoints
+            # 2. Registry
             #####################################################################
-            REGISTRY_TYPE="{{ .Values.global.defaultResources.registry.type | default "local" }}"
-
-            if [ "${REGISTRY_TYPE}" = "local" ]; then
-              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.local.pullEndpoint }}"
-              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.local.pushEndpoint }}"
-            else
-              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.external.endpoint }}"
-              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.external.endpoint }}"
-            fi
+            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
 
             #####################################################################
             # 3. Podman storage configuration
@@ -200,17 +187,17 @@ spec:
             EOF
 
             #####################################################################
-            # 4. Load the tarred image and push to the selected registry
+            # 4. Load the tarred image and push to registry
             #####################################################################
             podman load -i /mnt/vol/app-image.tar
 
-            podman tag $SRC_IMAGE $REGISTRY_PUSH/$SRC_IMAGE
-            podman push --tls-verify=false $REGISTRY_PUSH/$SRC_IMAGE
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)
             #####################################################################
-            echo -n "$REGISTRY_PULL/$SRC_IMAGE" > /tmp/image.txt
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
 
         command:
           - sh
@@ -285,15 +272,6 @@ spec:
             mountPath: /mnt/vol
         securityContext:
           privileged: true
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: openchoreo.dev/noderole
-                operator: In
-                values:
-                  - workflow-runner
   ttlStrategy:
     secondsAfterCompletion: 3600
   volumeClaimTemplates:
@@ -306,9 +284,4 @@ spec:
         resources:
           requests:
             storage: 2Gi
-  volumes:
-    - hostPath:
-        path: /shared/podman/cache
-        type: DirectoryOrCreate
-      name: podman-cache
 {{ end }}

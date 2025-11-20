@@ -40,7 +40,6 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("component type  is nil")
 	}
 
-	// Validate metadata is provided
 	if input.Metadata.Name == "" {
 		return nil, fmt.Errorf("metadata.name is required")
 	}
@@ -50,7 +49,6 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	ctx := make(map[string]any)
 
-	// 1. Build and apply schema for defaulting
 	schemaInput := &SchemaInput{
 		Types:              input.ComponentType.Spec.Schema.Types,
 		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
@@ -61,26 +59,22 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("failed to build component schema: %w", err)
 	}
 
-	// 2. Start with component parameters
 	parameters, err := extractParameters(input.Component.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
-	// 3. Merge environment overrides if present
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.Overrides != nil {
-		envOverrides, err := extractParameters(input.ComponentDeployment.Spec.Overrides)
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+		envOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
 		}
 		parameters = deepMerge(parameters, envOverrides)
 	}
 
-	// 4. Apply schema defaults
 	parameters = schema.ApplyDefaults(parameters, structural)
 	ctx["parameters"] = parameters
 
-	// 6. Extract configurations (env and file from all containers)
 	if input.Workload != nil {
 		workloadData, err := extractWorkloadData(input.Workload)
 		if err != nil {
@@ -89,13 +83,11 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		ctx["workload"] = workloadData
 	}
 
-	// 7. Extract configurations from workload
 	if input.Workload != nil {
 		configurations := extractConfigurationsFromWorkload(input.SecretReferences, input.Workload)
 
-		// 8. Apply configuration overrides from ComponentDeployment if present
-		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
+		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ConfigurationOverrides != nil {
+			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ReleaseBinding.Spec.ConfigurationOverrides)
 		}
 
 		if configurations != nil {
@@ -103,7 +95,6 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		}
 	}
 
-	// 9. Add component metadata
 	componentMeta := map[string]any{
 		"name": input.Component.Name,
 	}
@@ -112,18 +103,24 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	}
 	ctx["component"] = componentMeta
 
-	// 10. Add environment
 	environment := map[string]any{
 		"name":  input.Environment.Name,
 		"vhost": input.Environment.VirtualHost,
 	}
 	ctx["environment"] = environment
 
-	// 11. Add structured metadata for resource generation
 	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.
 	metadataMap := map[string]any{
-		"name":      input.Metadata.Name,
-		"namespace": input.Metadata.Namespace,
+		"name":            input.Metadata.Name,
+		"namespace":       input.Metadata.Namespace,
+		"componentName":   input.Metadata.ComponentName,
+		"componentUID":    input.Metadata.ComponentUID,
+		"projectName":     input.Metadata.ProjectName,
+		"projectUID":      input.Metadata.ProjectUID,
+		"dataPlaneName":   input.Metadata.DataPlaneName,
+		"dataPlaneUID":    input.Metadata.DataPlaneUID,
+		"environmentName": input.Metadata.EnvironmentName,
+		"environmentUID":  input.Metadata.EnvironmentUID,
 	}
 	if len(input.Metadata.Labels) > 0 {
 		metadataMap["labels"] = input.Metadata.Labels

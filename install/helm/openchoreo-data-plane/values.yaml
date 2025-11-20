@@ -10,8 +10,9 @@ waitJob:
   image: bitnamilegacy/kubectl:1.32.4
 
 # customizing the registry configurations
+# NOTE: Registry has been moved to Build Plane. This registry is deprecated.
 registry:
-  enabled: true
+  enabled: false
   # -- Resource limits and requests for the registry
   resources:
     limits:
@@ -123,12 +124,14 @@ security:
 # Customizing overall observability configurations
 observability:
   enabled: true
+  # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
+  metrics:
+    enabled: false  # Enable after observability-plane is installed
   logging:
-    enabled: false
+    enabled: false  # Enable after observability-plane is installed
     publishers:
       fluentbit:
         enabled: true
-
 
 # Customizing Fluent Bit configurations
 fluentBit:

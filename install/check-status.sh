@@ -85,8 +85,8 @@ get_component_config() {
         "fluent_bit_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/component=fluent-bit" ;;
         "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
         "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;
-        "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch" ;;
-        "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-dashboard" ;;
+        "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
+        "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=opensearch-dashboards" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
     esac

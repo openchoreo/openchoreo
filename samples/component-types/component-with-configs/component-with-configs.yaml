@@ -1,0 +1,328 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-service-with-configs
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
+
+    envOverrides:
+      resources:
+        requests:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          cpu: "string | default=500m"
+          memory: "string | default=512Mi"
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  envFrom: |
+                    ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                      [{
+                        "configMapRef": {
+                          "name": oc_generate_name(metadata.name, "env-configs")
+                        }
+                      }] : []) +
+                     (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                      [{
+                        "secretRef": {
+                          "name": oc_generate_name(metadata.name, "env-secrets")
+                        }
+                      }] : [])}
+                  volumeMounts: |
+                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                        configurations.configs.files.map(f, {
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                          "mountPath": f.mountPath+"/"+f.name ,
+                          "subPath": f.name
+                        }) : []) +
+                       (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                        configurations.secrets.files.map(f, {
+                          "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                          "mountPath": f.mountPath+"/"+f.name,
+                          "subPath": f.name
+                        }) : [])
+                    : oc_omit()}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${parameters.resources.requests.cpu}
+                      memory: ${parameters.resources.requests.memory}
+                    limits:
+                      cpu: ${parameters.resources.limits.cpu}
+                      memory: ${parameters.resources.limits.memory}
+              volumes: |
+                ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                  (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+                    configurations.configs.files.map(f, {
+                      "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                      "configMap": {
+                        "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
+                      }
+                    }) : []) +
+                   (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+                    configurations.secrets.files.map(f, {
+                      "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+                      "secret": {
+                        "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
+                      }
+                    }) : [])
+                : oc_omit()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+    - id: env-config
+      includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${oc_generate_name(metadata.name, "env-configs")}
+          namespace: ${metadata.namespace}
+        data: |
+          ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+    - id: file-config
+      includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
+      forEach: ${configurations.configs.files}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+    - id: secret-env-external
+      includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${oc_generate_name(metadata.name, "env-secrets")}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${oc_generate_name(metadata.name, "env-secrets")}
+            creationPolicy: Owner
+          data: |
+            ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": secret.remoteRef.property
+              }
+            }) : oc_omit()}
+    - id: secret-file-external
+      includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
+      forEach: ${configurations.secrets.files}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name:  ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name:  ${oc_generate_name(metadata.name, "secret", file.name).replace(".", "-")}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: ${file.remoteRef.property}
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: database-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: password
+      remoteRef:
+        key: database/dev
+        property: password
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: application-config-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: application.yaml
+      remoteRef:
+        key: file
+        property: application.yaml
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: SecretReference
+metadata:
+  name: database-dev-secret
+  namespace: default
+spec:
+  refreshInterval: 1h
+  template:
+    type: Opaque
+  data:
+    - secretKey: password
+      remoteRef:
+        key: db/dev
+        property: password
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  componentType: deployment/web-service-with-configs
+
+  parameters:
+    replicas: 2
+    port: 8080
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app
+
+  containers:
+    main:
+      image: "nginx:1.25-alpine"
+      env:
+        - key: LOG_LEVEL
+          value: info
+        - key: DATABASE_PASSWORD
+          valueFrom:
+            secretRef:
+              name: database-secret
+              key: password
+      files:
+        - key: application.toml
+          mountPath: /conf
+          value: |
+            schema_generation:
+              enable: true
+        - key: application.yaml
+          mountPath: /conf
+          valueFrom:
+            secretRef:
+              name: application-config-secret
+              key: application.yaml
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentDeployment
+metadata:
+  name: demo-app-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app
+
+  environment: development
+
+  overrides:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  traitOverrides:
+    data-storage:
+      size: "5Gi"
+      storageClass: "standard"
+
+  configurationOverrides:
+    env:
+      - key: LOG_LEVEL
+        value: debug
+      - key: NEW_ENV_VAR
+        value: some_value
+      - key: DATABASE_PASSWORD
+        valueFrom:
+          secretRef:
+            name: database-dev-secret
+            key: password

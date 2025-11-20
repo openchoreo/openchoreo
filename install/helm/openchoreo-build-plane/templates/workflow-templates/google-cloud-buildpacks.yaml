@@ -81,13 +81,9 @@ spec:
             set -e
 
             WORKDIR=/mnt/vol/source
-            CACHE_DIR=/shared/podman/cache
 
             IMAGE="{{ "{{" }}workflow.parameters.image-name{{ "}}" }}:{{ "{{" }}workflow.parameters.image-tag{{ "}}" }}-{{ "{{" }}inputs.parameters.git-revision{{ "}}" }}"
             APP_PATH="{{ "{{" }}workflow.parameters.app-path{{ "}}" }}"
-
-            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
-            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
 
             #####################################################################
             # 1. Podman daemon + storage.conf
@@ -106,29 +102,33 @@ spec:
             until podman info --format '{{ "{{" }}.Host.RemoteSocket.Exists{{ "}}" }}' 2>/dev/null | grep -q true; do sleep 1; done
 
             #####################################################################
-            # 2. Cache builder/run images
+            # 2. Registry configuration and pull pre-cached images
             #####################################################################
-            ensure_cached () {
-              local image=$1 tar=$2
-              if [[ ! -f "$tar" ]]; then
-                podman pull "$image"
-                podman save -o "$tar" "$image"
-              else
-                podman load -i "$tar" 2>/dev/null || {
-                  podman pull "$image"
-                  podman save -o "$tar" "$image"
-                }
-              fi
-            }
+            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+
+            # Pull pre-cached buildpack images from registry
+            BUILDER="${REGISTRY_ENDPOINT}/buildpacks-cache/google-builder:latest"
+            RUN_IMG="${REGISTRY_ENDPOINT}/buildpacks-cache/google-run:latest"
+            LIFECYCLE_IMG="${REGISTRY_ENDPOINT}/buildpacks-cache/lifecycle:0.20.5"
+
+            echo "Pulling cached builder: $BUILDER"
+            podman pull --tls-verify=false "$BUILDER"
+
+            echo "Pulling cached run image: $RUN_IMG"
+            podman pull --tls-verify=false "$RUN_IMG"
+
+            echo "Pulling cached lifecycle: $LIFECYCLE_IMG"
+            podman pull --tls-verify=false "$LIFECYCLE_IMG"
+
+            # Tag lifecycle image to expected name (referenced by builder image metadata)
+            podman tag "$LIFECYCLE_IMG" "docker.io/buildpacksio/lifecycle:0.20.5"
 
             #####################################################################
             # 3. Build with Google Buildpacks
             #####################################################################
-            ensure_cached "$BUILDER" "$CACHE_DIR/google-builder.tar"
-            ensure_cached "$RUN_IMG" "$CACHE_DIR/google-run.tar"
-
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
+              --run-image "$RUN_IMG" \
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
               --pull-policy if-not-present
@@ -143,8 +143,6 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
-          - mountPath: /shared/podman/cache
-            name: podman-cache
     - name: push-step
       inputs:
         parameters:
@@ -168,19 +166,9 @@ spec:
             SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             #####################################################################
-            # 2. Registry endpoints from Helm values
-            #    - type: "local" or "external"
-            #    - choose the right push/pull endpoints
+            # 2. Registry
             #####################################################################
-            REGISTRY_TYPE="{{ .Values.global.defaultResources.registry.type | default "local" }}"
-
-            if [ "${REGISTRY_TYPE}" = "local" ]; then
-              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.local.pullEndpoint }}"
-              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.local.pushEndpoint }}"
-            else
-              REGISTRY_PULL="{{ .Values.global.defaultResources.registry.external.endpoint }}"
-              REGISTRY_PUSH="{{ .Values.global.defaultResources.registry.external.endpoint }}"
-            fi
+            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
 
             #####################################################################
             # 3. Podman storage configuration
@@ -196,17 +184,17 @@ spec:
             EOF
 
             #####################################################################
-            # 4. Load the tarred image and push to the selected registry
+            # 4. Load the tarred image and push to registry
             #####################################################################
             podman load -i /mnt/vol/app-image.tar
 
-            podman tag $SRC_IMAGE $REGISTRY_PUSH/$SRC_IMAGE
-            podman push --tls-verify=false $REGISTRY_PUSH/$SRC_IMAGE
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)
             #####################################################################
-            echo -n "$REGISTRY_PULL/$SRC_IMAGE" > /tmp/image.txt
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
         command:
           - sh
           - -c
@@ -280,15 +268,6 @@ spec:
             mountPath: /mnt/vol
         securityContext:
           privileged: true
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: openchoreo.dev/noderole
-                operator: In
-                values:
-                  - workflow-runner
   ttlStrategy:
     secondsAfterCompletion: 3600
   volumeClaimTemplates:
@@ -301,9 +280,4 @@ spec:
         resources:
           requests:
             storage: 2Gi
-  volumes:
-    - hostPath:
-        path: /shared/podman/cache
-        type: DirectoryOrCreate
-      name: podman-cache
 {{ end }}

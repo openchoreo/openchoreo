@@ -5,5 +5,8 @@ dependencies:
 - name: external-secrets
   repository: https://charts.external-secrets.io
   version: 0.19.2
-digest: sha256:831de2895b599af7f27d375b4eb08b2122ee97b8f9a5ad7bbe6cc703b54b4bd1
-generated: "2025-11-12T20:13:45.287685+05:30"
+- name: docker-registry
+  repository: https://twuni.github.io/docker-registry.helm
+  version: 3.0.0
+digest: sha256:adf6ebe14a0a8a68740932f2b133c3e15b7304e84c02a6c77562a82e296234e4
+generated: "2025-11-13T11:56:15.630957+05:30"

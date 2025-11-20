@@ -29,8 +29,8 @@ func addTimeRangeFilter(mustConditions []map[string]interface{}, startTime, endT
 		timeFilter := map[string]interface{}{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gte": startTime,
-					"lte": endTime,
+					"gt": startTime,
+					"lt": endTime,
 				},
 			},
 		}

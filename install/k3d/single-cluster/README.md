@@ -14,6 +14,9 @@ lower resource requirements.
 > See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449) for more details.
 > Example: `K3D_FIX_DNS=0 k3d cluster create --config install/k3d/single-cluster/config.yaml`
 
+> [!TIP]
+> For faster setup or if you have slow network, consider using [Image Preloading](#image-preloading-optional) after creating the cluster.
+
 ### 1. Create Cluster
 
 ```bash
@@ -104,6 +107,7 @@ Create a BuildPlane resource to enable building from source:
 ### Build Plane (if installed)
 
 - Argo Workflows UI: http://localhost:10081
+- Container Registry: http://localhost:10082
 
 ### Observability Plane (if installed)
 
@@ -141,7 +145,7 @@ kubectl --context k3d-openchoreo get buildplane -n default
 graph TB
     subgraph "Host Machine (Docker)"
         subgraph "Single k3d Cluster (k3d-openchoreo)"
-            ExtLB["k3d-serverlb<br/>localhost:6550/8080/8443/9080/9443/10081/11080/11081/11082"]
+            ExtLB["k3d-serverlb<br/>localhost:6550/8080/8443/9080/9443/10081/10082/11080/11081/11082"]
             K8sAPI["K8s API Server<br/>:6443"]
 
             subgraph "Control Plane Namespace"
@@ -160,6 +164,7 @@ graph TB
 
             subgraph "Build Plane Namespace"
                 BP_IntLB["Argo Server<br/>LoadBalancer :10081"]
+                Registry["Container Registry<br/>LoadBalancer :5000"]
                 ArgoWF["Argo Workflows"]
             end
 
@@ -174,6 +179,7 @@ graph TB
             ExtLB -->|":8080→:80"| CP_IntLB
             ExtLB -->|":9080→:9080"| DP_IntLB
             ExtLB -->|":10081→:10081"| BP_IntLB
+            ExtLB -->|":10082→:5000"| Registry
             ExtLB -->|":11080→:11080"| Observer
             ExtLB -->|":11081→:11081"| OSD
             ExtLB -->|":11082→:11082"| OS
@@ -206,9 +212,48 @@ graph TB
     classDef apiStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
 
     class ExtLB extLbStyle
-    class CP_IntLB,DP_IntLB,BP_IntLB,Observer,OSD,OS intLbStyle
+    class CP_IntLB,DP_IntLB,BP_IntLB,Registry,Observer,OSD,OS intLbStyle
     class K8sAPI apiStyle
 ```
+
+## Image Preloading (Optional)
+
+If you have slow network or want to save bandwidth when re-creating clusters, you can preload images before installing components. This pulls images to your host machine first, then imports them to the k3d cluster, which is significantly faster than pulling from within the cluster.
+
+**Control Plane and Data Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --parallel 4
+```
+
+**With Build Plane:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
+  --parallel 4
+```
+
+**With all planes including Observability:**
+```bash
+install/k3d/preload-images.sh \
+  --cluster openchoreo \
+  --local-charts \
+  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
+  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
+  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
+  --observability-plane --op-values install/k3d/single-cluster/values-op.yaml \
+  --parallel 4
+```
+
+Run this after creating the cluster (step 1) but before installing components (step 2).
 
 ## Cleanup
 

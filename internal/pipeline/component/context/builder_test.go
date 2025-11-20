@@ -65,8 +65,16 @@ spec:
 					"vhost": "api.example.com",
 				},
 				"metadata": map[string]any{
-					"name":      "test-component-dev-12345678",
-					"namespace": "test-namespace",
+					"name":            "test-component-dev-12345678",
+					"namespace":       "test-namespace",
+					"componentName":   "test-component",
+					"componentUID":    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					"projectName":     "test-project",
+					"projectUID":      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					"dataPlaneName":   "test-dataplane",
+					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					"environmentName": "dev",
+					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
 				},
 			},
 			wantErr: false,
@@ -97,11 +105,11 @@ spec:
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
-  overrides:
+  componentTypeEnvOverrides:
     replicas: 5
 `,
 			environment: "prod",
@@ -118,8 +126,16 @@ spec:
 					"vhost": "api.example.com",
 				},
 				"metadata": map[string]any{
-					"name":      "test-component-dev-12345678",
-					"namespace": "test-namespace",
+					"name":            "test-component-dev-12345678",
+					"namespace":       "test-namespace",
+					"componentName":   "test-component",
+					"componentUID":    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					"projectName":     "test-project",
+					"projectUID":      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					"dataPlaneName":   "test-dataplane",
+					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					"environmentName": "prod",
+					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
 				},
 			},
 			wantErr: false,
@@ -183,8 +199,16 @@ spec:
 					"vhost": "api.example.com",
 				},
 				"metadata": map[string]any{
-					"name":      "test-component-dev-12345678",
-					"namespace": "test-namespace",
+					"name":            "test-component-dev-12345678",
+					"namespace":       "test-namespace",
+					"componentName":   "test-component",
+					"componentUID":    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					"projectName":     "test-project",
+					"projectUID":      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					"dataPlaneName":   "test-dataplane",
+					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					"environmentName": "dev",
+					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
 				},
 			},
 			wantErr: false,
@@ -213,9 +237,17 @@ spec:
 					VirtualHost: "api.example.com",
 				},
 				Metadata: MetadataContext{
-					Name:      "test-component-dev-12345678",
-					Namespace: "test-namespace",
-					Labels:    tt.additionalMetadata,
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-component",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "test-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: tt.environment,
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					Labels:          tt.additionalMetadata,
 				},
 			}
 
@@ -239,11 +271,11 @@ spec:
 
 			// Parse env settings
 			if tt.envSettingsYAML != "" {
-				settings := &v1alpha1.ComponentDeployment{}
+				settings := &v1alpha1.ReleaseBinding{}
 				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), settings); err != nil {
-					t.Fatalf("Failed to parse ComponentDeployment YAML: %v", err)
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
 				}
-				input.ComponentDeployment = settings
+				input.ReleaseBinding = settings
 			}
 
 			// Parse workload
@@ -306,13 +338,13 @@ spec:
   traits:
     - name: mysql-trait
       instanceName: db-1
-      config:
+      parameters:
         database: mydb
 `,
 			instanceYAML: `
 name: mysql-trait
 instanceName: db-1
-config:
+parameters:
   database: mydb
 `,
 			environment: "dev",
@@ -362,13 +394,13 @@ spec:
 			instanceYAML: `
 name: mysql-trait
 instanceName: db-1
-config:
+parameters:
   database: mydb
   size: small
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
@@ -459,11 +491,11 @@ spec:
 
 			// Parse env settings
 			if tt.envSettingsYAML != "" {
-				settings := &v1alpha1.ComponentDeployment{}
+				settings := &v1alpha1.ReleaseBinding{}
 				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), settings); err != nil {
-					t.Fatalf("Failed to parse ComponentDeployment YAML: %v", err)
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
 				}
-				input.ComponentDeployment = settings
+				input.ReleaseBinding = settings
 			}
 
 			got, err := BuildTraitContext(input)

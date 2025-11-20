@@ -17,6 +17,7 @@ import (
 type Config struct {
 	Server     ServerConfig     `koanf:"server"`
 	OpenSearch OpenSearchConfig `koanf:"opensearch"`
+	Prometheus PrometheusConfig `koanf:"prometheus"`
 	Auth       AuthConfig       `koanf:"auth"`
 	Logging    LoggingConfig    `koanf:"logging"`
 	LogLevel   string           `koanf:"loglevel"`
@@ -40,6 +41,12 @@ type OpenSearchConfig struct {
 	IndexPrefix   string        `koanf:"index.prefix"`
 	IndexPattern  string        `koanf:"index.pattern"`
 	LegacyPattern string        `koanf:"legacy.pattern"`
+}
+
+// PrometheusConfig holds Prometheus connection configuration
+type PrometheusConfig struct {
+	Address string        `koanf:"address"`
+	Timeout time.Duration `koanf:"timeout"`
 }
 
 // AuthConfig holds authentication configuration
@@ -83,6 +90,8 @@ func Load() (*Config, error) {
 		"OPENSEARCH_INDEX_PREFIX":         "opensearch.index.prefix",
 		"OPENSEARCH_INDEX_PATTERN":        "opensearch.index.pattern",
 		"OPENSEARCH_LEGACY_PATTERN":       "opensearch.legacy.pattern",
+		"PROMETHEUS_ADDRESS":              "prometheus.address",
+		"PROMETHEUS_TIMEOUT":              "prometheus.timeout",
 		"AUTH_JWT_SECRET":                 "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":              "auth.required.role",
@@ -164,6 +173,10 @@ func getDefaults() map[string]interface{} {
 			"index.pattern":  "kubernetes-*",
 			"legacy.pattern": "choreo*",
 		},
+		"prometheus": map[string]interface{}{
+			"address": "http://localhost:9090",
+			"timeout": "30s",
+		},
 		"auth": map[string]interface{}{
 			"enable.auth":   false,
 			"jwt.secret":    "default-secret",
@@ -190,6 +203,14 @@ func (c *Config) validate() error {
 
 	if c.OpenSearch.Timeout <= 0 {
 		return fmt.Errorf("opensearch timeout must be positive")
+	}
+
+	if c.Prometheus.Address == "" {
+		return fmt.Errorf("prometheus address is required")
+	}
+
+	if c.Prometheus.Timeout <= 0 {
+		return fmt.Errorf("prometheus timeout must be positive")
 	}
 
 	if c.Logging.MaxLogLimit <= 0 {

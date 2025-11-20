@@ -41,6 +41,11 @@ spec:
           spec:
             description: ComponentSpec defines the desired state of Component.
             properties:
+              autoDeploy:
+                description: |-
+                  AutoDeploy indicates whether the component should be deployed automatically when created
+                  When not specified, defaults to false (zero value)
+                type: boolean
               componentType:
                 description: |-
                   ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
@@ -73,11 +78,6 @@ spec:
                   description: ComponentTrait represents an trait instance attached
                     to a component
                   properties:
-                    config:
-                      description: |-
-                        Config contains the trait parameter values
-                        The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
-                      x-kubernetes-preserve-unknown-fields: true
                     instanceName:
                       description: |-
                         InstanceName uniquely identifies this trait instance within the component
@@ -89,6 +89,11 @@ spec:
                       description: Name is the name of the Trait resource to use
                       minLength: 1
                       type: string
+                    parameters:
+                      description: |-
+                        Parameters contains the trait parameter values
+                        The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
+                      x-kubernetes-preserve-unknown-fields: true
                   required:
                   - instanceName
                   - name
@@ -187,6 +192,25 @@ spec:
                   - type
                   type: object
                 type: array
+              latestRelease:
+                description: |-
+                  LatestRelease keeps the information of the latest ComponentRelease created for this component
+                  This is used to make sure the component's latest ComponentRelease is always
+                  deployed to the first environment, if the autoDeploy flag is set to true
+                properties:
+                  name:
+                    description: Name of the ComponentRelease resource
+                    minLength: 1
+                    type: string
+                  releaseHash:
+                    description: ReleaseHash record the hash value of the spec of
+                      ComponentRelease.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - releaseHash
+                type: object
               observedGeneration:
                 format: int64
                 type: integer

@@ -1,0 +1,757 @@
+openapi: 3.1.0
+info:
+  title: OpenChoreo Observer API
+  description: |
+    The OpenChoreo Observer API provides endpoints for querying logs, traces, and metrics 
+    from components, projects, gateways, and organizations. It integrates with OpenSearch 
+    for logs/traces and Prometheus for metrics.
+  version: 1.0.0
+  contact:
+    name: OpenChoreo Team
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+tags:
+  - name: Logs
+    description: Log retrieval endpoints
+  - name: Traces
+    description: Trace retrieval endpoints
+  - name: Metrics
+    description: Resource metrics endpoints
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check the health status of the observer service including OpenSearch and Prometheus connectivity
+      operationId: health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  error:
+                    type: string
+                    example: "opensearch: connection failed"
+
+  /api/logs/component/{componentId}:
+    post:
+      tags:
+        - Logs
+      summary: Get component logs
+      description: Retrieve logs for a specific component
+      operationId: getComponentLogs
+      parameters:
+        - name: componentId
+          in: path
+          required: true
+          description: The unique identifier of the component
+          schema:
+            type: string
+            example: "comp-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved component logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/logs/project/{projectId}:
+    post:
+      tags:
+        - Logs
+      summary: Get project logs
+      description: Retrieve logs for all components in a specific project
+      operationId: getProjectLogs
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: The unique identifier of the project
+          schema:
+            type: string
+            example: "proj-456"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved project logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/logs/gateway:
+    post:
+      tags:
+        - Logs
+      summary: Get gateway logs
+      description: Retrieve logs from API gateway
+      operationId: getGatewayLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GatewayLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved gateway logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/logs/org/{orgId}:
+    post:
+      tags:
+        - Logs
+      summary: Get organization logs
+      description: Retrieve logs for an entire organization
+      operationId: getOrganizationLogs
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          description: The unique identifier of the organization
+          schema:
+            type: string
+            example: "org-789"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved organization logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/traces/component:
+    post:
+      tags:
+        - Traces
+      summary: Get component traces
+      description: Retrieve distributed traces for a component
+      operationId: getComponentTraces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentTracesRequest'
+      responses:
+        '200':
+          description: Successfully retrieved component traces
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/metrics/component/http:
+    post:
+      tags:
+        - Metrics
+      summary: Get component HTTP metrics
+      description: Retrieve HTTP request metrics (request counts, latency percentiles) for a component as time series data
+      operationId: getComponentHTTPMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved HTTP metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPMetricsTimeSeries'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/metrics/component/usage:
+    post:
+      tags:
+        - Metrics
+      summary: Get component resource metrics
+      description: Retrieve resource usage metrics (CPU, memory) for a component as time series data
+      operationId: getComponentResourceMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved resource metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceMetricsTimeSeries'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ComponentLogsRequest:
+      type: object
+      required:
+        - startTime
+        - endTime
+        - environmentId
+        - namespace
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for log query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for log query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+        environmentId:
+          type: string
+          description: Environment identifier
+          example: "env-dev"
+        namespace:
+          type: string
+          description: Kubernetes namespace
+          example: "default"
+        searchPhrase:
+          type: string
+          description: Search phrase to filter logs
+          example: "error"
+        logLevels:
+          type: array
+          items:
+            type: string
+          description: Filter by log levels
+          example: ["ERROR", "WARN"]
+        versions:
+          type: array
+          items:
+            type: string
+          description: Component versions to filter
+          example: ["v1.0.0", "v1.0.1"]
+        versionIds:
+          type: array
+          items:
+            type: string
+          description: Version IDs to filter
+          example: ["ver-123", "ver-456"]
+        limit:
+          type: integer
+          description: Maximum number of log entries to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+        sortOrder:
+          type: string
+          description: Sort order for logs
+          enum: [asc, desc]
+          default: desc
+          example: "desc"
+        logType:
+          type: string
+          description: Type of logs to retrieve
+          enum: [runtime, build]
+          example: "runtime"
+        buildId:
+          type: string
+          description: Build ID for build logs
+          example: "build-123"
+        buildUuid:
+          type: string
+          description: Build UUID for build logs
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    ProjectLogsRequest:
+      allOf:
+        - $ref: '#/components/schemas/ComponentLogsRequest'
+        - type: object
+          properties:
+            componentIds:
+              type: array
+              items:
+                type: string
+              description: Filter logs by specific component IDs
+              example: ["comp-123", "comp-456"]
+
+    GatewayLogsRequest:
+      type: object
+      required:
+        - startTime
+        - endTime
+        - organizationId
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for log query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for log query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+        organizationId:
+          type: string
+          description: Organization identifier
+          example: "org-789"
+        searchPhrase:
+          type: string
+          description: Search phrase to filter logs
+          example: "error"
+        apiIdToVersionMap:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of API IDs to their versions
+          example:
+            api-123: "v1"
+            api-456: "v2"
+        gatewayVHosts:
+          type: array
+          items:
+            type: string
+          description: Gateway virtual hosts to filter
+          example: ["api.example.com", "gateway.example.com"]
+        limit:
+          type: integer
+          description: Maximum number of log entries to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+        sortOrder:
+          type: string
+          description: Sort order for logs
+          enum: [asc, desc]
+          default: desc
+          example: "desc"
+        logType:
+          type: string
+          description: Type of logs to retrieve
+          enum: [runtime, build]
+          example: "runtime"
+
+    OrganizationLogsRequest:
+      allOf:
+        - $ref: '#/components/schemas/ComponentLogsRequest'
+        - type: object
+          properties:
+            podLabels:
+              type: object
+              additionalProperties:
+                type: string
+              description: Kubernetes pod labels to filter logs
+              example:
+                app: "myapp"
+                tier: "backend"
+
+    ComponentTracesRequest:
+      type: object
+      required:
+        - startTime
+        - endTime
+        - serviceName
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for trace query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for trace query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+        serviceName:
+          type: string
+          description: Service name for trace filtering
+          example: "user-service"
+        limit:
+          type: integer
+          description: Maximum number of traces to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+        sortOrder:
+          type: string
+          description: Sort order for traces
+          enum: [asc, desc]
+          default: desc
+          example: "desc"
+
+    MetricsRequest:
+      type: object
+      required:
+        - componentId
+        - environmentId
+        - projectId
+      properties:
+        componentId:
+          type: string
+          description: Component identifier
+          example: "comp-123"
+        environmentId:
+          type: string
+          description: Environment identifier
+          example: "env-dev"
+        projectId:
+          type: string
+          description: Project identifier
+          example: "proj-456"
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for metrics query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for metrics query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the log entry
+          example: "2025-01-10T12:34:56.789Z"
+        log:
+          type: string
+          description: The actual log message
+          example: "Request processed successfully"
+        level:
+          type: string
+          description: Log level
+          example: "INFO"
+        stream:
+          type: string
+          description: Log stream (stdout/stderr)
+          example: "stdout"
+        kubernetes:
+          type: object
+          description: Kubernetes metadata
+          additionalProperties: true
+
+    LogResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+          description: Array of log entries
+        totalCount:
+          type: integer
+          description: Total number of matching logs
+          example: 1234
+        tookMs:
+          type: integer
+          description: Query execution time in milliseconds
+          example: 42
+
+    TimeValuePoint:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: Timestamp in ISO 8601 format
+          example: "2025-01-10T12:00:00Z"
+        value:
+          type: number
+          format: double
+          description: Metric value at this timestamp
+          example: 0.75
+
+    ResourceMetricsTimeSeries:
+      type: object
+      properties:
+        cpuUsage:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: CPU usage time series (in cores)
+        cpuRequests:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: CPU requests time series (in cores)
+        cpuLimits:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: CPU limits time series (in cores)
+        memory:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Memory usage time series (in bytes)
+        memoryRequests:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Memory requests time series (in bytes)
+        memoryLimits:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Memory limits time series (in bytes)
+      example:
+        cpuUsage:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.25
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.30
+        cpuRequests:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.5
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.5
+        cpuLimits:
+          - time: "2025-01-10T12:00:00Z"
+            value: 1.0
+          - time: "2025-01-10T12:05:00Z"
+            value: 1.0
+        memory:
+          - time: "2025-01-10T12:00:00Z"
+            value: 536870912
+          - time: "2025-01-10T12:05:00Z"
+            value: 549453824
+        memoryRequests:
+          - time: "2025-01-10T12:00:00Z"
+            value: 1073741824
+          - time: "2025-01-10T12:05:00Z"
+            value: 1073741824
+        memoryLimits:
+          - time: "2025-01-10T12:00:00Z"
+            value: 2147483648
+          - time: "2025-01-10T12:05:00Z"
+            value: 2147483648
+
+    HTTPMetricsTimeSeries:
+      type: object
+      properties:
+        requestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Total HTTP request count time series (requests per second)
+        successfulRequestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Successful HTTP request count time series (status 200, requests per second)
+        unsuccessfulRequestCount:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Unsuccessful HTTP request count time series (status != 200, requests per second)
+        meanLatency:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: Mean HTTP request latency time series (in seconds)
+        latencyPercentile50th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 50th percentile (median) HTTP request latency time series (in seconds)
+        latencyPercentile90th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 90th percentile HTTP request latency time series (in seconds)
+        latencyPercentile99th:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeValuePoint'
+          description: 99th percentile HTTP request latency time series (in seconds)
+      example:
+        requestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 125.5
+          - time: "2025-01-10T12:05:00Z"
+            value: 143.2
+        successfulRequestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 120.0
+          - time: "2025-01-10T12:05:00Z"
+            value: 138.5
+        unsuccessfulRequestCount:
+          - time: "2025-01-10T12:00:00Z"
+            value: 5.5
+          - time: "2025-01-10T12:05:00Z"
+            value: 4.7
+        meanLatency:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.125
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.132
+        latencyPercentile50th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.095
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.102
+        latencyPercentile90th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.250
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.265
+        latencyPercentile99th:
+          - time: "2025-01-10T12:00:00Z"
+            value: 0.500
+          - time: "2025-01-10T12:05:00Z"
+            value: 0.520
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type
+          enum:
+            - missingParameter
+            - invalidRequest
+            - internalError
+          example: "invalidRequest"
+        code:
+          type: string
+          description: Error code
+          example: "OBS-L-12"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request format"

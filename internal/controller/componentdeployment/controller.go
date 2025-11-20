@@ -5,13 +5,13 @@ package componentdeployment
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,11 +59,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info("Reconciling ComponentDeployment",
-		"name", componentDeployment.Name,
-		"component", componentDeployment.Spec.Owner.ComponentName,
-		"environment", componentDeployment.Spec.Environment)
-
 	// Keep a copy for comparison
 	old := componentDeployment.DeepCopy()
 
@@ -92,7 +87,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			msg := fmt.Sprintf("ComponentEnvSnapshot for component %q in environment %q not found",
 				componentDeployment.Spec.Owner.ComponentName,
 				componentDeployment.Spec.Environment)
-			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 				ReasonComponentEnvSnapshotNotFound, msg)
 			logger.Info(msg,
 				"component", componentDeployment.Spec.Owner.ComponentName,
@@ -107,7 +102,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// Validate snapshot configuration
 	if err := r.validateSnapshot(snapshot); err != nil {
 		msg := fmt.Sprintf("Invalid snapshot configuration: %v", err)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 			ReasonInvalidSnapshotConfiguration, msg)
 		logger.Error(err, "Snapshot validation failed")
 		return ctrl.Result{}, nil
@@ -123,7 +118,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if apierrors.IsNotFound(err) {
 			// Environment not found - don't requeue, wait for it to be created
 			msg := fmt.Sprintf("Environment %q not found", snapshot.Spec.Environment)
-			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 				ReasonEnvironmentNotFound, msg)
 			logger.Info("Environment not found", "environment", snapshot.Spec.Environment)
 			return ctrl.Result{}, nil
@@ -136,7 +131,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	if environment.Spec.DataPlaneRef == "" {
 		// Environment has no DataPlaneRef - mark as not ready
 		msg := fmt.Sprintf("Environment %q has no DataPlaneRef configured", environment.Name)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 			ReasonDataPlaneNotConfigured, msg)
 		logger.Info("Environment has no DataPlaneRef", "environment", environment.Name)
 		return ctrl.Result{}, nil
@@ -152,7 +147,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if apierrors.IsNotFound(err) {
 			// DataPlane not found - don't requeue, wait for it to be created
 			msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
-			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 				ReasonDataPlaneNotFound, msg)
 			logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
 			return ctrl.Result{}, nil
@@ -161,13 +156,45 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	// Create or update Release
-	if err := r.reconcileRelease(ctx, componentDeployment, snapshot, environment, dataPlane); err != nil {
-		logger.Error(err, "Failed to reconcile Release")
+	// Fetch Component object
+	component := &openchoreov1alpha1.Component{}
+	componentKey := client.ObjectKey{
+		Name:      snapshot.Spec.Owner.ComponentName,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, componentKey, component); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Component not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Component %q not found", snapshot.Spec.Owner.ComponentName)
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
+				ReasonComponentNotFound, msg)
+			logger.Info("Component not found", "component", snapshot.Spec.Owner.ComponentName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Component", "component", snapshot.Spec.Owner.ComponentName)
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	// Fetch Project object
+	project := &openchoreov1alpha1.Project{}
+	projectKey := client.ObjectKey{
+		Name:      snapshot.Spec.Owner.ProjectName,
+		Namespace: snapshot.Namespace,
+	}
+	if err := r.Get(ctx, projectKey, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Project not found - don't requeue, wait for it to be created
+			msg := fmt.Sprintf("Project %q not found", snapshot.Spec.Owner.ProjectName)
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
+				ReasonProjectNotFound, msg)
+			logger.Info("Project not found", "project", snapshot.Spec.Owner.ProjectName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Project", "project", snapshot.Spec.Owner.ProjectName)
+		return ctrl.Result{}, err
+	}
+
+	return r.reconcileRelease(ctx, componentDeployment, snapshot, environment, dataPlane, component, project)
 }
 
 // findSnapshot finds the ComponentEnvSnapshot for the given ComponentDeployment by owner fields
@@ -175,7 +202,7 @@ func (r *Reconciler) findSnapshot(ctx context.Context, componentDeployment *open
 	logger := log.FromContext(ctx)
 
 	// Build the owner key: projectName/componentName/environment
-	ownerKey := fmt.Sprintf("%s/%s/%s",
+	ownerKey := buildProjectComponentEnvironmentKey(
 		componentDeployment.Spec.Owner.ProjectName,
 		componentDeployment.Spec.Owner.ComponentName,
 		componentDeployment.Spec.Environment)
@@ -236,28 +263,37 @@ func (r *Reconciler) validateSnapshot(snapshot *openchoreov1alpha1.ComponentEnvS
 	return nil
 }
 
-// buildMetadataContext creates the MetadataContext from snapshot.
+// buildMetadataContext creates the MetadataContext from snapshot, component, project, dataplane, and environment.
 // This is where the controller computes K8s resource names and namespaces.
 func (r *Reconciler) buildMetadataContext(
 	snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
+	component *openchoreov1alpha1.Component,
+	project *openchoreov1alpha1.Project,
+	dataPlane *openchoreov1alpha1.DataPlane,
+	environment *openchoreov1alpha1.Environment,
 ) pipelinecontext.MetadataContext {
 	// Extract information
 	organizationName := snapshot.Namespace
 	projectName := snapshot.Spec.Owner.ProjectName
 	componentName := snapshot.Spec.Owner.ComponentName
-	environment := snapshot.Spec.Environment
+	componentUID := string(component.UID)
+	projectUID := string(project.UID)
+	dataPlaneName := dataPlane.Name
+	dataPlaneUID := string(dataPlane.UID)
+	environmentName := snapshot.Spec.Environment
+	environmentUID := string(environment.UID)
 
 	// Generate base name using platform naming conventions
 	// Format: {component}-{env}-{hash}
 	// Example: "payment-service-dev-a1b2c3d4"
-	baseName := dpkubernetes.GenerateK8sName(componentName, environment)
+	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
 
 	// Generate namespace using platform naming conventions
 	// Format: dp-{org}-{project}-{env}-{hash}
 	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
 	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxNamespaceNameLength,
-		"dp", organizationName, projectName, environment,
+		"dp", organizationName, projectName, environmentName,
 	)
 
 	// Build standard labels
@@ -265,22 +301,30 @@ func (r *Reconciler) buildMetadataContext(
 		labels.LabelKeyOrganizationName: organizationName,
 		labels.LabelKeyProjectName:      projectName,
 		labels.LabelKeyComponentName:    componentName,
-		labels.LabelKeyEnvironmentName:  environment,
+		labels.LabelKeyEnvironmentName:  environmentName,
 	}
 
 	// Build pod selectors (used for Deployment selectors, Service selectors, etc.)
 	podSelectors := map[string]string{
-		"openchoreo.org/component":   componentName,
-		"openchoreo.org/environment": environment,
-		"openchoreo.org/project":     projectName,
+		"openchoreo.dev/component-uid":   componentUID,
+		"openchoreo.dev/environment-uid": environmentUID,
+		"openchoreo.dev/project-uid":     projectUID,
 	}
 
 	return pipelinecontext.MetadataContext{
-		Name:         baseName,
-		Namespace:    namespace,
-		Labels:       standardLabels,
-		Annotations:  map[string]string{}, // Can be extended later
-		PodSelectors: podSelectors,
+		Name:            baseName,
+		Namespace:       namespace,
+		Labels:          standardLabels,
+		Annotations:     map[string]string{}, // Can be extended later
+		PodSelectors:    podSelectors,
+		ComponentName:   componentName,
+		ComponentUID:    componentUID,
+		ProjectName:     projectName,
+		ProjectUID:      projectUID,
+		DataPlaneName:   dataPlaneName,
+		DataPlaneUID:    dataPlaneUID,
+		EnvironmentName: environmentName,
+		EnvironmentUID:  environmentUID,
 	}
 }
 
@@ -366,22 +410,24 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, snapshot *open
 	return secretRefs, nil
 }
 
-// reconcileRelease creates or updates the Release resource
+// reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+// If Release is created or updated, returns Requeue=true to allow Release controller time to apply resources.
+// If Release is unchanged, evaluates ResourcesReady condition from Release status.
 func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *openchoreov1alpha1.ComponentDeployment, snapshot *openchoreov1alpha1.ComponentEnvSnapshot,
-	environment *openchoreov1alpha1.Environment, dataPlane *openchoreov1alpha1.DataPlane) error {
+	environment *openchoreov1alpha1.Environment, dataPlane *openchoreov1alpha1.DataPlane, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Build MetadataContext with computed names
-	metadataContext := r.buildMetadataContext(snapshot)
+	metadataContext := r.buildMetadataContext(snapshot, component, project, dataPlane, environment)
 
 	// Collect all SecretReferences needed for rendering
 	secretReferences, err := r.collectSecretReferences(ctx, snapshot, componentDeployment)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to collect SecretReferences: %v", err)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 			ReasonRenderingFailed, msg)
 		logger.Error(err, "Failed to collect SecretReferences")
-		return fmt.Errorf("failed to collect SecretReferences: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to collect SecretReferences: %w", err)
 	}
 
 	// Prepare RenderInput
@@ -402,10 +448,10 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	renderOutput, err := r.Pipeline.Render(renderInput)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to render resources: %v", err)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady,
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 			ReasonRenderingFailed, msg)
 		logger.Error(err, "Failed to render resources")
-		return fmt.Errorf("failed to render resources: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to render resources: %w", err)
 	}
 
 	// Log warnings if any
@@ -415,7 +461,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 	}
 
 	// Convert rendered resources to Release format
-	releaseResources := r.convertToReleaseResources(renderOutput.Resources)
+	releaseResources, err := r.convertToReleaseResources(renderOutput.Resources)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to convert resources: %v", err)
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to convert resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert resources: %w", err)
+	}
 
 	// Create or update Release
 	release := &openchoreov1alpha1.Release{
@@ -438,7 +491,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 			}
 		}
 
-		// Set labels (replace entire map to ensure old labels don't persist)
 		release.Labels = map[string]string{
 			labels.LabelKeyOrganizationName: componentDeployment.Namespace,
 			labels.LabelKeyProjectName:      componentDeployment.Spec.Owner.ProjectName,
@@ -446,7 +498,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 			labels.LabelKeyEnvironmentName:  componentDeployment.Spec.Environment,
 		}
 
-		// Set spec
 		release.Spec = openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   componentDeployment.Spec.Owner.ProjectName,
@@ -463,60 +514,68 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, componentDeployment *
 		// Check for ownership conflict (permanent error - don't retry)
 		if strings.Contains(err.Error(), "not owned by") {
 			msg := fmt.Sprintf("Release %q exists but is owned by another resource", release.Name)
-			controller.MarkFalseCondition(componentDeployment, ConditionReady,
+			controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
 				ReasonReleaseOwnershipConflict, msg)
 			logger.Error(err, msg)
-			return nil
+			return ctrl.Result{}, nil
 		}
 
 		// Transient errors - return error to trigger automatic retry
-		var reason controller.ConditionReason
-		if op == controllerutil.OperationResultCreated {
-			reason = ReasonReleaseCreationFailed
-		} else {
-			reason = ReasonReleaseUpdateFailed
-		}
 		msg := fmt.Sprintf("Failed to reconcile Release: %v", err)
-		controller.MarkFalseCondition(componentDeployment, ConditionReady, reason, msg)
+		controller.MarkFalseCondition(componentDeployment, ConditionReleaseSynced,
+			ReasonReleaseUpdateFailed, msg)
 		logger.Error(err, "Failed to reconcile Release", "release", release.Name)
-		return err
+		return ctrl.Result{}, err
 	}
 
-	// Success - mark as ready
-	if op == controllerutil.OperationResultCreated ||
-		op == controllerutil.OperationResultUpdated {
-		msg := fmt.Sprintf("Release %q successfully %s with %d resources",
-			release.Name, op, len(releaseResources))
-		controller.MarkTrueCondition(componentDeployment, ConditionReady, ReasonReleaseReady, msg)
-		logger.Info("Successfully reconciled Release",
-			"release", release.Name,
-			"operation", op,
-			"resourceCount", len(releaseResources))
+	// Set ReleaseSynced condition based on operation result
+	switch op {
+	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
+		msg := fmt.Sprintf("Release %q %s with %d resources", release.Name, op, len(releaseResources))
+		controller.MarkTrueCondition(componentDeployment, ConditionReleaseSynced, ReasonReleaseCreated, msg)
+		logger.Info(fmt.Sprintf("Release %s", op), "release", release.Name, "resourceCount", len(releaseResources))
+		return ctrl.Result{Requeue: true}, nil
+
+	case controllerutil.OperationResultNone:
+		msg := fmt.Sprintf("Release %q is up to date", release.Name)
+		controller.MarkTrueCondition(componentDeployment, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
 
-	return nil
+	// Evaluate resource readiness from Release status in all cases
+	// The release object contains the latest server state including status
+	if err := r.setResourcesReadyStatus(ctx, componentDeployment, release); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // convertToReleaseResources converts unstructured resources to Release.Resource format
 func (r *Reconciler) convertToReleaseResources(
 	resources []map[string]any,
-) []openchoreov1alpha1.Resource {
+) ([]openchoreov1alpha1.Resource, error) {
 	releaseResources := make([]openchoreov1alpha1.Resource, 0, len(resources))
 
 	for i, resource := range resources {
 		// Generate resource ID
 		id := r.generateResourceID(resource, i)
 
+		// Marshal to JSON bytes (Raw form) to match how the API server stores it.
+		// This keeps DeepEqual comparisons consistent so unchanged resources don't
+		// look like updates.
+		rawJSON, err := json.Marshal(resource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal resource to JSON (resourceID: %s): %w", id, err)
+		}
+
 		releaseResources = append(releaseResources, openchoreov1alpha1.Resource{
 			ID: id,
 			Object: &runtime.RawExtension{
-				Object: &unstructured.Unstructured{
-					Object: resource,
-				},
+				Raw: rawJSON,
 			},
 		})
 	}
-	return releaseResources
+	return releaseResources, nil
 }
 
 // generateResourceID creates a unique ID for a resource
@@ -543,14 +602,6 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
-
-	if err := r.setupComponentIndex(ctx, mgr); err != nil {
-		return err
-	}
-
-	if err := r.setupEnvironmentIndex(ctx, mgr); err != nil {
-		return err
-	}
 
 	if err := r.setupComponentDeploymentCompositeIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup component deployment composite index: %w", err)

@@ -30,11 +30,13 @@ const (
 	ErrorCodeInternalError    = "OBS-L-25"
 
 	// Error messages
-	ErrorMsgComponentIDRequired    = "Component ID is required"
-	ErrorMsgProjectIDRequired      = "Project ID is required"
-	ErrorMsgOrganizationIDRequired = "Organization ID is required"
-	ErrorMsgInvalidRequestFormat   = "Invalid request format"
-	ErrorMsgFailedToRetrieveLogs   = "Failed to retrieve logs"
+	ErrorMsgComponentIDRequired     = "Component ID is required"
+	ErrorMsgProjectIDRequired       = "Project ID is required"
+	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
+	ErrorMsgInvalidRequestFormat    = "Invalid request format"
+	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
+	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
+	ErrorMsgInvalidTimeFormat       = "Invalid time format"
 )
 
 // Handler contains the HTTP handlers for the logging API
@@ -52,7 +54,7 @@ func NewHandler(service *service.LoggingService, logger *slog.Logger) *Handler {
 }
 
 // writeJSON writes JSON response and logs any error
-func (h *Handler) writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func (h *Handler) writeJSON(w http.ResponseWriter, status int, v any) {
 	if err := httputil.WriteJSON(w, status, v); err != nil {
 		h.logger.Error("Failed to write JSON response", "error", err)
 	}
@@ -107,6 +109,15 @@ type GatewayLogsRequest struct {
 type OrganizationLogsRequest struct {
 	ComponentLogsRequest
 	PodLabels map[string]string `json:"podLabels,omitempty"`
+}
+
+// MetricsRequest represents the request body for POST /api/metrics/component/usage API
+type MetricsRequest struct {
+	ComponentID   string `json:"componentId,omitempty"`
+	EndTime       string `json:"endTime,omitempty"`
+	EnvironmentID string `json:"environmentId" validate:"required"`
+	StartTime     string `json:"startTime,omitempty"`
+	ProjectID     string `json:"projectId" validate:"required"`
 }
 
 // ErrorResponse represents an error response
@@ -377,7 +388,7 @@ func (h *Handler) GetComponentTraces(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if err := h.service.HealthCheck(ctx); err != nil {
-		h.writeJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+		h.writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"status": "unhealthy",
 			"error":  err.Error(),
 		})
@@ -388,4 +399,98 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),
 	})
+}
+
+// GetComponentHTTPMetrics handles POST /api/metrics/component/http
+func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request) {
+	var req MetricsRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind metrics request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	var startTime, endTime time.Time
+	var err error
+
+	// Input validations
+	err = validateTimes(req.StartTime, req.EndTime)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	startTime, err = time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		h.logger.Error("Failed to parse start time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	endTime, err = time.Parse(time.RFC3339, req.EndTime)
+	if err != nil {
+		h.logger.Error("Failed to parse end time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetComponentHTTPMetrics(ctx, req.ComponentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
+	if err != nil {
+		h.logger.Error("Failed to get component HTTP metrics", "error", err)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"reason": "Internal error occurred while fetching one or more HTTP metrics",
+		})
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}
+
+// GetComponentResourceMetrics handles POST /api/metrics/component/usage
+func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Request) {
+	var req MetricsRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind metrics request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	var startTime, endTime time.Time
+	var err error
+
+	// Input validations
+	err = validateTimes(req.StartTime, req.EndTime)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	startTime, err = time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		h.logger.Error("Failed to parse start time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	endTime, err = time.Parse(time.RFC3339, req.EndTime)
+	if err != nil {
+		h.logger.Error("Failed to parse end time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetComponentResourceMetrics(ctx, req.ComponentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
+	if err != nil {
+		h.logger.Error("Failed to get component resource metrics", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveMetrics)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
 }

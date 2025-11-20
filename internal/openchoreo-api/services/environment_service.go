@@ -6,8 +6,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -188,6 +188,7 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 	}
 
 	return &models.EnvironmentResponse{
+		UID:          string(env.UID),
 		Name:         env.Name,
 		Namespace:    env.Namespace,
 		DisplayName:  displayName,

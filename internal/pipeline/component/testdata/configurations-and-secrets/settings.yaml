@@ -1,0 +1,32 @@
+apiVersion: core.choreo.dev/v1alpha1
+kind: ReleaseBinding
+spec:
+  componentTypeEnvOverrides:
+    replicas: 3
+  configurationOverrides:
+    env:
+      - key: LOG_LEVEL
+        value: error
+      - key: NEW_CONFIG
+        value: production
+      - key: DB_PASSWORD
+        valueFrom:
+          secretRef:
+            name: db-prod-secret
+            key: password
+    files:
+      - key: config.json
+        value: |
+          {
+            "database": {
+              "host": "prod.db.example.com",
+              "port": 5432
+            }
+          }
+        mountPath: /etc/config
+      - key: tls.crt
+        mountPath: /etc/tls
+        valueFrom:
+          secretRef:
+            name: tls-prod-secret
+            key: tls.crt

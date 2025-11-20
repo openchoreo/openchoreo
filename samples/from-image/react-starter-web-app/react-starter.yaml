@@ -5,7 +5,19 @@ metadata:
 spec:
   owner:
     projectName: default
-  type: WebApplication
+    
+  componentType: deployment/web-application
+
+  parameters:
+    replicas: 2
+    port: 8080
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -29,23 +41,16 @@ spec:
           value: production
         - key: PORT
           value: "8080"
-  endpoints:
-    webapp:
-      type: HTTP
-      port: 8080
-  connections: { } # How does this look like?
 
 ---
-
-# WebApplication that specify runtime configuration for the component.
-# This can be either managed by the component controller or manually created by the user.
 apiVersion: openchoreo.dev/v1alpha1
-kind: WebApplication
+kind: ComponentDeployment
 metadata:
-  name: react-starter
+  name: react-starter-development
+  namespace: default
 spec:
   owner:
-    componentName: react-starter
     projectName: default
-  workloadName: react-starter
-  overrides: { }
+    componentName: react-starter
+
+  environment: development

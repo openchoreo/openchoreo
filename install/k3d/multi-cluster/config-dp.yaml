@@ -30,3 +30,11 @@ options:
       - arg: "--disable=traefik"
         nodeFilters:
           - server:*
+# Configure insecure registries for HTTP access
+# Allows kubelet to pull images from Build Plane registry via HTTP
+registries:
+  config: |
+    mirrors:
+      "host.k3d.internal:10082":
+        endpoint:
+          - http://host.k3d.internal:10082

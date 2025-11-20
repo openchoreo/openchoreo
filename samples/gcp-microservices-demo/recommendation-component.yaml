@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: recommendation
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 8080
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: recommendation
+  namespace: default
 spec:
   owner:
     componentName: recommendation
@@ -25,52 +39,20 @@ spec:
           value: "1"
         - key: PORT
           value: "8080"
-
-  endpoints:
-    grpc-endpoint:
-      type: gRPC
-      port: 8080
-      schema:
-        type: gRPC
-        content: |
-          syntax = "proto3";
-
-          package hipstershop;
-          
-          service RecommendationService {
-            rpc ListRecommendations(ListRecommendationsRequest) returns (ListRecommendationsResponse){}
-          }
-
-          message ListRecommendationsRequest {
-              string user_id = 1;
-              repeated string product_ids = 2;
-          }
-
-          message ListRecommendationsResponse {
-              repeated string product_ids = 1;
-          }
-
-  connections:
-    productcatalog:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: productcatalog
-        endpoint: grpc-endpoint
-      inject:
-        env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "productcatalog:80"
 
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: recommendation
+  name: recommendation-development
+  namespace: default
 spec:
   owner:
-    componentName: recommendation
     projectName: gcp-microservice-demo
-  workloadName: recommendation
-  overrides: {}
+    componentName: recommendation
+
+  environment: development

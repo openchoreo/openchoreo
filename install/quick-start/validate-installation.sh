@@ -5,7 +5,7 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source helper functions
-source "${SCRIPT_DIR}/install-helpers.sh"
+source "${SCRIPT_DIR}/.helpers.sh"
 
 # Validation functions
 validate_cluster() {
@@ -131,14 +131,18 @@ validate_ingress() {
         return 0
     fi
     
-    # Check if port 7007 is accessible on the loadbalancer
-    local port=7007
-    if ! netstat -ln 2>/dev/null | grep -q ":$port " && ! ss -ln 2>/dev/null | grep -q ":$port "; then
+    # Check if port 8080 is accessible on the loadbalancer
+    local port=8080
+    local netstat_output
+    netstat_output=$(netstat -ln 2>/dev/null | grep "0.0.0.0:${port}" || true)
+
+    if [[ -n "$netstat_output" ]]; then
+        log_success "Traefik ingress validation passed"
+    else
         log_warning "Port $port not listening - Traefik ingress may not be exposed"
-        return 0
     fi
-    
-    log_success "Traefik ingress validation passed"
+
+    return 0
 }
 
 validate_kubeconfig() {

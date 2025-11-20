@@ -17,8 +17,10 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/mcp"
 	"github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
@@ -47,8 +49,17 @@ func main() {
 		log.Fatalf("Failed to initialize OpenSearch client: %v", err)
 	}
 
+	// Initialize Prometheus client
+	promClient, err := prometheus.NewClient(&cfg.Prometheus, logger)
+	if err != nil {
+		log.Fatalf("Failed to initialize Prometheus client: %v", err)
+	}
+
+	// Initialize metrics service
+	metricsService := prometheus.NewMetricsService(promClient, logger)
+
 	// Initialize logging service
-	loggingService := service.NewLoggingService(osClient, cfg, logger)
+	loggingService := service.NewLoggingService(osClient, metricsService, cfg, logger)
 
 	// Initialize HTTP server
 	mux := http.NewServeMux()
@@ -59,12 +70,21 @@ func main() {
 	// Health check endpoint
 	mux.HandleFunc("GET /health", handler.Health)
 
-	// API routes
+	// API routes - Logs
 	mux.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+
+	// API routes - Traces
 	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
+
+	// API routes - Metrics
+	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
+	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
+
+	// MCP endpoint
+	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(

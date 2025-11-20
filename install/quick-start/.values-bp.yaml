@@ -1,0 +1,33 @@
+# Helm values for OpenChoreo Build Plane in quick-start environment
+# Based on single-cluster setup, optimized for containerized quick-start experience
+
+# Argo Workflows configuration
+argo-workflows:
+  server:
+    enabled: false
+
+# Container Registry configuration
+# Exposes registry as LoadBalancer for developer access
+registry:
+  service:
+    type: LoadBalancer
+    port: 5000
+
+# Global configuration for workflow templates
+global:
+  defaultResources:
+    registry:
+      # Registry endpoint accessible from within the cluster
+      # host.k3d.internal allows pods to access the LoadBalancer service
+      endpoint: "host.k3d.internal:10082"
+
+# External Secrets Operator
+# Disabled in quick-start since Data Plane already has ESO in single-cluster mode
+external-secrets:
+  enabled: false
+
+# Fluent Bit logging
+# Disabled because Data Plane's FluentBit DaemonSet already collects logs
+# from ALL namespaces including openchoreo-build-plane and openchoreo-ci-*
+fluentBit:
+  enabled: false

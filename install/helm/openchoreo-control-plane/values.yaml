@@ -165,13 +165,13 @@ webhookService:
       targetPort: 9443
   type: ClusterIP
 waitJob:
-  image: bitnamilegacy/kubectl:1.33.4
+  image: bitnamilegacy/kubectl:1.32.4
 metricsServer:
   enabled: false
   kubeletInsecureTlsEnabled: true
 openchoreoApi:
   name: openchoreo-api # Static name for all openchoreo-api resources (Service, Deployment, ClusterRole, etc.)
-  enabled: true
+  enabled: false # TODO: Enable on v0.5.0 release
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/openchoreo-api
@@ -179,6 +179,11 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
+  jwt:
+    disabled: true
+    issuer: ""
+    jwksUrl: ""
+    audience: ""
   resources:
     requests:
       cpu: "200m"
@@ -312,7 +317,7 @@ cert-manager:
         memory: 64Mi
 # Backstage UI configuration
 backstage:
-  enabled: true
+  enabled: false # TODO: Enable on v0.5.0 release
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/openchoreo-ui
@@ -436,7 +441,7 @@ backstage:
       type: Unconfined
 # Asgardeo Thunder (Platform Identity Provider) configuration
 asgardeoThunder:
-  enabled: true
+  enabled: false # TODO: Enable on v0.5.0 release
   replicaCount: 1
   image:
     repository: ghcr.io/asgardeo/thunder
@@ -509,7 +514,7 @@ asgardeoThunder:
       httpOnly: true
     gateClient:
       hostname: "thunder.openchoreo.localhost"
-      port: 7007
+      port: 8080
       scheme: "http"
       loginPath: "/signin"
       errorPath: "/error"
@@ -541,7 +546,7 @@ asgardeoThunder:
       base: "/signin"
     server:
       hostname: "thunder.openchoreo.localhost"
-      port: 7007
+      port: 8080
       httpOnly: true
   persistence:
     database:

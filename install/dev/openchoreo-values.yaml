@@ -14,6 +14,13 @@ controllerManager:
 
 # OpenChoreo API configuration
 openchoreoApi:
+  urls:
+    serverBaseUrl: "http://api.openchoreo.localhost"
+    authServerBaseUrl: "http://sts.openchoreo.localhost"
+  jwt:
+    disabled: true
+    issuer: thunder
+    jwksUrl: http://openchoreo-asgardeo-thunder:8090/oauth2/jwks
   image:
     repository: ghcr.io/openchoreo/openchoreo-api
     tag: dev
@@ -56,6 +63,7 @@ backstage:
     authorizationUrl: "http://sts.openchoreo.localhost/oauth2/authorize"
   # Note: thunder.baseUrl and auth.tokenUrl use default K8s service URLs (not overridden)
 asgardeoThunder:
+  enabled: false
   env:
     - name: ENABLE_HTTPS
       value: "false"

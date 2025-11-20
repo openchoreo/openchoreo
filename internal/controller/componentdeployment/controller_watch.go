@@ -16,49 +16,27 @@ import (
 )
 
 const (
-	// componentDeploymentComponentIndex indexes ComponentDeployment by component name
-	componentDeploymentComponentIndex = "spec.owner.componentName"
-	// componentDeploymentEnvironmentIndex indexes ComponentDeployment by environment
-	componentDeploymentEnvironmentIndex = "spec.environment"
-	// componentDeploymentCompositeIndex indexes ComponentDeployment by component name and environment (composite key)
-	componentDeploymentCompositeIndex = "componentEnvironmentComposite"
+	// componentDeploymentCompositeIndex indexes ComponentDeployment by project, component name, and environment (composite key)
+	componentDeploymentCompositeIndex = "projectComponentEnvironmentComposite"
 	// snapshotOwnerIndex indexes ComponentEnvSnapshot by owner fields and environment
 	snapshotOwnerIndex = "snapshotOwnerComposite"
 )
 
-// setupComponentIndex registers an index for ComponentDeployment by component name.
-func (r *Reconciler) setupComponentIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentDeployment{},
-		componentDeploymentComponentIndex, func(obj client.Object) []string {
-			componentDeployment := obj.(*openchoreov1alpha1.ComponentDeployment)
-			if componentDeployment.Spec.Owner.ComponentName == "" {
-				return nil
-			}
-			return []string{componentDeployment.Spec.Owner.ComponentName}
-		})
+// buildProjectComponentEnvironmentKey creates the shared composite key format project/component/environment.
+func buildProjectComponentEnvironmentKey(project, component, environment string) string {
+	return fmt.Sprintf("%s/%s/%s", project, component, environment)
 }
 
-// setupEnvironmentIndex registers an index for ComponentDeployment by environment.
-func (r *Reconciler) setupEnvironmentIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentDeployment{},
-		componentDeploymentEnvironmentIndex, func(obj client.Object) []string {
-			componentDeployment := obj.(*openchoreov1alpha1.ComponentDeployment)
-			if componentDeployment.Spec.Environment == "" {
-				return nil
-			}
-			return []string{componentDeployment.Spec.Environment}
-		})
-}
-
-// setupComponentDeploymentCompositeIndex registers a composite index for ComponentDeployment by component name and environment.
+// setupComponentDeploymentCompositeIndex registers a composite index for ComponentDeployment by project, component name, and environment.
 func (r *Reconciler) setupComponentDeploymentCompositeIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentDeployment{},
 		componentDeploymentCompositeIndex, func(obj client.Object) []string {
 			componentDeployment := obj.(*openchoreov1alpha1.ComponentDeployment)
-			// Create a composite key: componentName/environment
-			compositeKey := fmt.Sprintf("%s/%s",
+			compositeKey := buildProjectComponentEnvironmentKey(
+				componentDeployment.Spec.Owner.ProjectName,
 				componentDeployment.Spec.Owner.ComponentName,
-				componentDeployment.Spec.Environment)
+				componentDeployment.Spec.Environment,
+			)
 			return []string{compositeKey}
 		})
 }
@@ -68,11 +46,10 @@ func (r *Reconciler) setupSnapshotOwnerIndex(ctx context.Context, mgr ctrl.Manag
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentEnvSnapshot{},
 		snapshotOwnerIndex, func(obj client.Object) []string {
 			snapshot := obj.(*openchoreov1alpha1.ComponentEnvSnapshot)
-			// Create a composite key: projectName/componentName/environment
-			ownerKey := fmt.Sprintf("%s/%s/%s",
-				snapshot.Spec.Owner.ProjectName,
-				snapshot.Spec.Owner.ComponentName,
-				snapshot.Spec.Environment)
+			project := snapshot.Spec.Owner.ProjectName
+			component := snapshot.Spec.Owner.ComponentName
+			environment := snapshot.Spec.Environment
+			ownerKey := buildProjectComponentEnvironmentKey(project, component, environment)
 			return []string{ownerKey}
 		})
 }
@@ -80,11 +57,10 @@ func (r *Reconciler) setupSnapshotOwnerIndex(ctx context.Context, mgr ctrl.Manag
 // listComponentDeploymentForSnapshot enqueues ComponentDeployment that correspond to the given ComponentEnvSnapshot.
 func (r *Reconciler) listComponentDeploymentForSnapshot(ctx context.Context, obj client.Object) []reconcile.Request {
 	snapshot := obj.(*openchoreov1alpha1.ComponentEnvSnapshot)
-
-	// Build composite key: componentName/environment
-	compositeKey := fmt.Sprintf("%s/%s",
-		snapshot.Spec.Owner.ComponentName,
-		snapshot.Spec.Environment)
+	project := snapshot.Spec.Owner.ProjectName
+	component := snapshot.Spec.Owner.ComponentName
+	environment := snapshot.Spec.Environment
+	compositeKey := buildProjectComponentEnvironmentKey(project, component, environment)
 
 	var componentDeploymentList openchoreov1alpha1.ComponentDeploymentList
 	if err := r.List(ctx, &componentDeploymentList,

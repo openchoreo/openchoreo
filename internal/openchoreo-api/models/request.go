@@ -6,6 +6,8 @@ package models
 import (
 	"errors"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // CreateProjectRequest represents the request to create a new project
@@ -23,21 +25,18 @@ type TemplateParameter struct {
 	Value string `json:"value"`
 }
 
-type BuildConfig struct {
-	RepoURL          string              `json:"repoUrl"`
-	Branch           string              `json:"repoBranch"`
-	ComponentPath    string              `json:"componentPath"`
-	BuildTemplateRef string              `json:"buildTemplateRef"`
-	TemplateParams   []TemplateParameter `json:"buildTemplateParams,omitempty"`
+type Workflow struct {
+	Name   string                `json:"name"`
+	Schema *runtime.RawExtension `json:"schema,omitempty"`
 }
 
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name        string      `json:"name"`
-	DisplayName string      `json:"displayName,omitempty"`
-	Description string      `json:"description,omitempty"`
-	Type        string      `json:"type"`
-	BuildConfig BuildConfig `json:"buildConfig,omitempty"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Type        string    `json:"type"`
+	Workflow    *Workflow `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
@@ -45,6 +44,33 @@ type PromoteComponentRequest struct {
 	SourceEnvironment string `json:"sourceEnv"`
 	TargetEnvironment string `json:"targetEnv"`
 	// TODO Support overrides for the target environment
+}
+
+type CreateComponentReleaseRequest struct {
+	ReleaseName string `json:"releaseName,omitempty"`
+}
+
+// Sanitize sanitizes the CreateComponentReleaseRequest by trimming whitespace
+func (req *CreateComponentReleaseRequest) Sanitize() {
+	req.ReleaseName = strings.TrimSpace(req.ReleaseName)
+}
+
+// DeployReleaseRequest represents the request to deploy a release to the lowest environment
+type DeployReleaseRequest struct {
+	ReleaseName string `json:"releaseName"`
+}
+
+// Sanitize sanitizes the DeployReleaseRequest by trimming whitespace
+func (req *DeployReleaseRequest) Sanitize() {
+	req.ReleaseName = strings.TrimSpace(req.ReleaseName)
+}
+
+// Validate validates the DeployReleaseRequest
+func (req *DeployReleaseRequest) Validate() error {
+	if req.ReleaseName == "" {
+		return errors.New("releaseName is required")
+	}
+	return nil
 }
 
 // CreateEnvironmentRequest represents the request to create a new environment
@@ -182,4 +208,54 @@ func (req *UpdateBindingRequest) Validate() error {
 		return errors.New("releaseState must be one of: Active, Suspend, Undeploy")
 	}
 	return nil
+}
+
+// PatchReleaseBindingRequest represents the request to patch a ReleaseBinding
+type PatchReleaseBindingRequest struct {
+	// ReleaseName is the name of the release to bind (required when creating a new binding)
+	// +optional
+	ReleaseName string `json:"releaseName,omitempty"`
+
+	// Environment is the target environment (required when creating a new binding)
+	// +optional
+	Environment string `json:"environment,omitempty"`
+
+	// ComponentTypeEnvOverrides for ComponentType envOverrides parameters
+	// These values override the defaults defined in the Component for this specific environment
+	// +optional
+	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+
+	// TraitOverrides provides environment-specific overrides for trait configurations
+	// Keyed by instanceName (which must be unique across all traits in the component)
+	// Structure: map[instanceName]overrideValues
+	// +optional
+	TraitOverrides map[string]map[string]interface{} `json:"traitOverrides,omitempty"`
+
+	// ConfigurationOverrides provides environment-specific overrides for workload configurations
+	// +optional
+	ConfigurationOverrides *ConfigurationOverrides `json:"configurationOverrides,omitempty"`
+}
+
+// ConfigurationOverrides represents environment-specific configuration overrides
+type ConfigurationOverrides struct {
+	// Environment variable overrides
+	// +optional
+	Env []EnvVar `json:"env,omitempty"`
+
+	// File configuration overrides
+	// +optional
+	Files []FileVar `json:"files,omitempty"`
+}
+
+// EnvVar represents an environment variable
+type EnvVar struct {
+	Key   string `json:"key"`
+	Value string `json:"value,omitempty"`
+}
+
+// FileVar represents a file configuration
+type FileVar struct {
+	Key       string `json:"key"`
+	MountPath string `json:"mountPath"`
+	Value     string `json:"value,omitempty"`
 }

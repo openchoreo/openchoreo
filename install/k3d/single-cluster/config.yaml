@@ -4,7 +4,7 @@ metadata:
   name: openchoreo
 image: rancher/k3s:v1.32.9-k3s1
 servers: 1
-agents: 2
+agents: 0
 kubeAPI:
   hostPort: "6550"
 # Single cluster mode exposes all plane port ranges for consistency with multi-cluster setup
@@ -32,6 +32,10 @@ ports:
   - port: 10081:2746
     nodeFilters:
       - loadbalancer
+  # Container Registry for storing built images
+  - port: 10082:5000
+    nodeFilters:
+      - loadbalancer
   # Observability Plane uses port range 11xxx
   # Observer API
   - port: 11080:8080
@@ -54,3 +58,18 @@ options:
       - arg: "--tls-san=host.k3d.internal"
         nodeFilters:
           - server:*
+      # Configure kubelet eviction thresholds to prevent resource exhaustion
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+# Configure insecure registries for HTTP access
+# Allows kubelet to pull images from Build Plane registry via HTTP
+registries:
+  config: |
+    mirrors:
+      "host.k3d.internal:10082":
+        endpoint:
+          - http://host.k3d.internal:10082

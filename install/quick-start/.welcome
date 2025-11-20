@@ -1,0 +1,26 @@
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║             Welcome to OpenChoreo Quick-Start!                ║
+║                                                               ║
+║  Get started:                                                 ║
+║    ./install.sh                       - Install OpenChoreo    ║
+║    ./install.sh --help                - Show all options      ║
+║                                                               ║
+║  Deploy samples:                                              ║
+║    ./deploy-react-starter.sh          - React web app         ║
+║    ./deploy-gcp-demo.sh               - 11 microservices      ║
+║    ls samples/                        - Explore all samples   ║
+║                                                               ║
+║  Clean up:                                                    ║
+║    ./uninstall.sh                     - Uninstall OpenChoreo  ║
+║                                                               ║
+║  Quick commands:                                              ║
+║    k3d cluster list                   - List clusters         ║
+║    kubectl get pods -A                - View all pods         ║
+║                                                               ║
+║  Helpful aliases: k, kgp, kgs, kgn, kga, ll                   ║
+║                                                               ║
+║  Website: https://openchoreo.dev                              ║
+║  Star us: https://github.com/openchoreo/openchoreo            ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝

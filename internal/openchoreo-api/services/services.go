@@ -4,7 +4,8 @@
 package services
 
 import (
-	"golang.org/x/exp/slog"
+	"log/slog"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"

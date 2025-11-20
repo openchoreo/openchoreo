@@ -8,27 +8,37 @@ global:
     enabled: true
       # -- Container registry configuration
     registry:
-      # -- Type of registry to use. Supported values: "local", "external".
-      # "local": Deploys a built-in registry managed by data plane Helm chart.
-      # "external": Connects to a pre-existing registry you provide.
-      type: local
+      # -- Registry endpoint for pushing and pulling images
+      # For local registry: "registry.openchoreo-build-plane:5000"
+      # For external registry: "gcr.io/my-project", "docker.io/my-org", "my-harbor.corp:5000"
+      endpoint: "registry.openchoreo-build-plane:5000"
 
-      # -- Settings for the built-in registry.
-      # These values are ONLY used if registry.type is "local".
-      local:
-        # -- The internal cluster address used by build pipelines (e.g., Podman) to push images.
-        pushEndpoint: "registry.openchoreo-data-plane:5000"
+    # -- Podman build cache configuration for workflow templates
+    # Shared PersistentVolumeClaim across all workflow executions for faster builds
+    podmanCache:
+      # -- Size of the persistent volume for podman image layer cache
+      size: 10Gi
+      # -- Storage class for the cache PVC (optional, uses cluster default if not set)
+      storageClass: ""
 
-        # -- The public-facing address used by cluster nodes (kubelet) to pull images.
-        # This could be a NodePort, LoadBalancer, or Ingress address.
-        pullEndpoint: "localhost:30003"
-
-      # -- Settings for using your own external registry.
-      # These values are ONLY used if registry.type is "external".
-      external:
-        # -- The full address of your external registry.
-        # (e.g., "gcr.io/my-project", "docker.io/my-org", "my-harbor.corp:5000")
-        endpoint: ""
+    # Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
+    buildpackCache:
+      # -- Enable buildpack image caching hook
+      enabled: true
+      # -- List of buildpack images to pre-push to the registry
+      images:
+        # Google Cloud Buildpacks
+        - source: "docker.io/buildpacksio/lifecycle:0.20.5"
+          cacheName: "buildpacks-cache/lifecycle:0.20.5"
+        - source: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+          cacheName: "buildpacks-cache/google-builder:latest"
+        - source: "gcr.io/buildpacks/google-22/run:latest"
+          cacheName: "buildpacks-cache/google-run:latest"
+        # Ballerina Buildpacks
+        - source: "ghcr.io/openchoreo/buildpack/ballerina:18"
+          cacheName: "buildpacks-cache/ballerina-builder:18"
+        - source: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
+          cacheName: "buildpacks-cache/ballerina-run:18"
 
 # customizing the argo workflows configurations
 argo-workflows:
@@ -63,6 +73,16 @@ external-secrets:
   enabled: true
   fullnameOverride: external-secrets
   nameOverride: external-secrets
+
+# Container Registry configuration using Twuni Docker Registry Helm Chart
+# Hosts container images built by Argo Workflows in the Build Plane
+registry:
+  fullnameOverride: registry
+
+  # Enable persistence
+  persistence:
+    enabled: true
+    size: 10Gi
 
 # Fake Secret Store configuration for local development
 fakeSecretStore:

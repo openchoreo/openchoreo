@@ -213,7 +213,7 @@ spec:
   traits:
     - name: persistent-volume
       instanceName: data-storage
-      config:
+      parameters:
         volumeName: app-data
         mountPath: /var/data
         containerName: app
@@ -221,7 +221,7 @@ spec:
         storageClass: "fast"
     - name: emptydir-volume
       instanceName: cache
-      config:
+      parameters:
         volumeName: cache-vol
         mounts:
           - containerName: app
@@ -229,7 +229,7 @@ spec:
             readOnly: false
     - name: emptydir-volume
       instanceName: workspace
-      config:
+      parameters:
         volumeName: workspace-vol
         mounts:
           - containerName: app

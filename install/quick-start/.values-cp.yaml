@@ -1,0 +1,42 @@
+# Helm values for OpenChoreo Control Plane in quick-start container
+# This file contains overrides for running the control plane in the quick-start k3d environment
+
+openchoreoApi:
+  ingress:
+    enabled: true
+    hosts:
+      - host: api.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+
+backstage:
+  ingress:
+    enabled: true
+    hosts:
+      - host: openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+  baseUrl: http://openchoreo.localhost:8080
+  auth:
+    authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize
+
+asgardeoThunder:
+  ingress:
+    enabled: true
+    hosts:
+      - host: thunder.openchoreo.localhost
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 8090
+  config:
+    gateClient:
+      port: 8080  # k3d exposes via Traefik on 8080
+  runtimeConfig:
+    server:
+      port: 8080  # k3d exposes via Traefik on 8080
+  backstagePortal:
+    redirectUrls:
+      - "http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame"

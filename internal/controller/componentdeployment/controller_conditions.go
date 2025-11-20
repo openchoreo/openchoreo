@@ -10,23 +10,44 @@ import (
 // Constants for condition types
 
 const (
-	// ConditionReady indicates that the ComponentDeployment has successfully created/updated
-	// the Release and the deployment is ready.
-	ConditionReady controller.ConditionType = "Ready"
+	// ConditionReleaseSynced indicates that the Release resource has been successfully created/updated
+	// with the rendered resources. This does not indicate that the resources are ready yet.
+	ConditionReleaseSynced controller.ConditionType = "ReleaseSynced"
+
+	// ConditionResourcesReady indicates that all resources in the Release are applied and ready.
+	// This is evaluated from the Release.Status.Resources health information.
+	ConditionResourcesReady controller.ConditionType = "ResourcesReady"
 )
 
 // Constants for condition reasons
 
 const (
-	// Success states (Status=True)
+	// Reasons for ReleaseSynced condition
 
-	// ReasonReleaseReady indicates the Release is successfully deployed and ready
-	ReasonReleaseReady controller.ConditionReason = "ReleaseReady"
+	// ReasonReleaseCreated indicates the Release was successfully created
+	ReasonReleaseCreated controller.ConditionReason = "ReleaseCreated"
+	// ReasonReleaseUpdated indicates the Release was successfully updated
+	ReasonReleaseUpdated controller.ConditionReason = "ReleaseUpdated"
+	// ReasonReleaseSynced indicates the Release is up to date (no changes needed)
+	ReasonReleaseSynced controller.ConditionReason = "ReleaseSynced"
+
+	// Reasons for ResourcesReady condition
+
+	// ReasonResourcesReady indicates all resources are deployed and ready
+	ReasonResourcesReady controller.ConditionReason = "ResourcesReady"
+	// ReasonResourcesProgressing indicates resources are being deployed or updated
+	ReasonResourcesProgressing controller.ConditionReason = "ResourcesProgressing"
+	// ReasonResourcesDegraded indicates one or more resources are in error state
+	ReasonResourcesDegraded controller.ConditionReason = "ResourcesDegraded"
 
 	// Configuration issues (Status=False)
 
 	// ReasonComponentEnvSnapshotNotFound indicates the referenced ComponentEnvSnapshot doesn't exist
 	ReasonComponentEnvSnapshotNotFound controller.ConditionReason = "ComponentEnvSnapshotNotFound"
+	// ReasonComponentNotFound indicates the referenced Component doesn't exist
+	ReasonComponentNotFound controller.ConditionReason = "ComponentNotFound"
+	// ReasonProjectNotFound indicates the referenced Project doesn't exist
+	ReasonProjectNotFound controller.ConditionReason = "ProjectNotFound"
 	// ReasonEnvironmentNotFound indicates the referenced Environment doesn't exist
 	ReasonEnvironmentNotFound controller.ConditionReason = "EnvironmentNotFound"
 	// ReasonDataPlaneNotFound indicates the referenced DataPlane doesn't exist
@@ -47,17 +68,8 @@ const (
 
 	// Release management issues (Status=False)
 
-	// ReasonReleaseCreationFailed indicates failure to create the Release
-	ReasonReleaseCreationFailed controller.ConditionReason = "ReleaseCreationFailed"
-	// ReasonReleaseUpdateFailed indicates failure to update the Release
+	// ReasonReleaseUpdateFailed indicates failure to create or update the Release
 	ReasonReleaseUpdateFailed controller.ConditionReason = "ReleaseUpdateFailed"
 	// ReasonReleaseOwnershipConflict indicates Release exists but not owned by this ComponentDeployment
 	ReasonReleaseOwnershipConflict controller.ConditionReason = "ReleaseOwnershipConflict"
-
-	// Resource health issues (Status=False/Unknown)
-
-	// ReasonResourcesProgressing indicates resources are being deployed or updated
-	ReasonResourcesProgressing controller.ConditionReason = "ResourcesProgressing"
-	// ReasonResourcesDegraded indicates one or more resources are in error state
-	ReasonResourcesDegraded controller.ConditionReason = "ResourcesDegraded"
 )

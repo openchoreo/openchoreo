@@ -13,6 +13,10 @@ ports:
   - port: 10081:2746
     nodeFilters:
       - loadbalancer
+  # Container Registry for storing built images
+  - port: 10082:5000
+    nodeFilters:
+      - loadbalancer
 options:
   k3s:
     extraArgs:

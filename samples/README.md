@@ -7,14 +7,45 @@ This directory contains sample implementations to help you understand, configure
 ### [Deploy from Pre-built Images](./from-image)
 Deploy applications using pre-built Docker images. This approach is ideal when you have existing CI systems that build and push container images to registries. These samples show how to deploy your containerized applications directly to OpenChoreo.
 
+**Available Samples:**
+- **[Go Greeter Service](./from-image/go-greeter-service/)** - Simple HTTP service demonstrating service deployment
+- **[React Starter Web App](./from-image/react-starter-web-app/)** - Web application deployment example
+- **[GitHub Issue Reporter](./from-image/issue-reporter-schedule-task/)** - Scheduled task deployment example
+
 ### [Build from Source](./from-source)
 Build and deploy applications directly from source code using OpenChoreo's built-in CI system. OpenChoreo supports both BuildPacks (for automatic detection and containerization) and Docker (using your Dockerfile) to build applications from source code.
 
-### [API Management Features](./apim-samples)
-Demonstrate API management capabilities that can enhance your services. Learn how to add authentication, rate limiting, circuit breakers, and CORS policies to your APIs using OpenChoreo's API management features.
+**Services:**
+- **[Go Greeter Service (Docker)](./from-source/services/go-docker-greeter/)** - Build from source using Dockerfile
+- **[Reading List Service (Buildpack)](./from-source/services/go-google-buildpack-reading-list/)** - Build from source using Google Cloud Buildpacks
+- **[Patient Management Service (Buildpack)](./from-source/services/ballerina-buildpack-patient-management/)** - Ballerina service built with Buildpacks
+
+**Web Applications:**
+- **[React Starter](./from-source/web-apps/react-starter/)** - React web application built from source
+
+### [Component Types](./component-types)
+Low-level examples demonstrating how to define and use custom component types with OpenChoreo's ComponentType CRD. These samples show the underlying mechanics of how components work.
+
+**Available Samples:**
+- **[HTTP Service Component](./component-types/component-http-service/)** - Define a reusable HTTP service component type
+- **[Web App Component](./component-types/component-web-app/)** - Define a reusable web application component type
+- **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
+- **[Component with Traits](./component-types/component-with-traits/)** - Demonstrate trait composition
+
+### [Workflows](./workflows)
+Reusable workflow definitions for building applications from source code. These Workflow CRDs are used by the build system to define how different types of applications should be built.
+
+**Available Workflows:**
+- **[Docker Workflow](./workflows/docker.yaml)** - Build workflow for applications with Dockerfiles
+- **[Google Cloud Buildpacks](./workflows/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
+- **[React Workflow](./workflows/react.yaml)** - Specialized build workflow for React applications
 
 ### [GCP Microservices Demo](./gcp-microservices-demo)
 A complete microservices application based on Google's popular [microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo). This sample showcases how to deploy a full e-commerce application with multiple interconnected services using OpenChoreo.
 
 ### [Platform Configuration](./platform-config)
 Configuration samples targeted at Platform Engineers. Learn how to set up deployment pipelines, configure environments, and establish platform governance using OpenChoreo's abstractions.
+
+**Available Configurations:**
+- **[Deployment Pipeline](./platform-config/new-deployment-pipeline/)** - Define promotion pipelines across environments
+- **[Environments](./platform-config/new-environments/)** - Configure development, QA, pre-production, and production environments

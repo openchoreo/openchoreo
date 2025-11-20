@@ -1,0 +1,28 @@
+# Helm values for OpenChoreo Data Plane in quick-start container
+# This file contains overrides for running the data plane in the quick-start k3d environment
+# Port mapping: k3d maps host ports 9080:9080 (HTTP) and 9443:9443 (HTTPS) for Envoy Gateway
+
+# Disable cert-manager since it's already installed by Control Plane
+cert-manager:
+  enabled: false
+  crds:
+    enabled: false
+
+# Gateway configuration for quick-start setup
+# The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS)
+gateway:
+  enabled: true
+  config:
+    envoyGateway:
+      gateway:
+        httpPort: 9080
+        httpsPort: 9443
+
+networking:
+  enabled: false
+
+security:
+  enabled: false
+
+observability:
+  enabled: false

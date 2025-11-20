@@ -71,17 +71,17 @@ wait_for_pods() {
     local namespace="$1"
     local timeout="${2:-300}" # 5 minutes default
     local label_selector="${3:-}"
-    
+
     log_info "Waiting for pods in namespace '$namespace' to be ready..."
-    
+
     local selector_flag=""
     if [[ -n "$label_selector" ]]; then
         selector_flag="-l $label_selector"
     fi
-    
+
     local elapsed=0
     local interval=5
-    
+
     while [ $elapsed -lt $timeout ]; do
         if kubectl get pods -n "$namespace" $selector_flag --no-headers 2>/dev/null | grep -v 'Running\|Completed' | grep -q .; then
             echo 'Waiting for pods to be ready...'
@@ -92,12 +92,12 @@ wait_for_pods() {
             break
         fi
     done
-    
+
     if [ $elapsed -ge $timeout ]; then
         log_error "Timeout waiting for pods in namespace '$namespace'"
         return 1
     fi
-    
+
     log_success "All pods in namespace '$namespace' are ready"
 }
 
@@ -107,12 +107,12 @@ create_kind_cluster() {
         log_warning "Kind cluster '$CLUSTER_NAME' already exists, skipping creation"
         return 0
     fi
-    
+
     log_info "Creating Kind cluster '$CLUSTER_NAME'..."
-    
+
     # Create the /tmp/kind-shared directory if it doesn't exist
     mkdir -p /tmp/kind-shared
-    
+
     # Create kind cluster config
     cat > /tmp/kind-config-local.yaml << EOF
 kind: Cluster
@@ -128,7 +128,7 @@ nodes:
 networking:
   disableDefaultCNI: true
 EOF
-    
+
     if kind create cluster --name "$CLUSTER_NAME" --image "$NODE_IMAGE" --config /tmp/kind-config-local.yaml; then
         log_success "Kind cluster '$CLUSTER_NAME' created successfully"
         rm -f /tmp/kind-config-local.yaml
@@ -142,10 +142,10 @@ EOF
 # Export kubeconfig for the cluster
 setup_kubeconfig() {
     log_info "Setting up kubeconfig..."
-    
+
     # Create directory if it doesn't exist
     mkdir -p "$(dirname "$KUBECONFIG_PATH")"
-    
+
     if kind export kubeconfig --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG_PATH"; then
         log_success "Kubeconfig exported to $KUBECONFIG_PATH"
         export KUBECONFIG="$KUBECONFIG_PATH"
@@ -165,41 +165,41 @@ install_helm_chart() {
     local timeout="${6:-1800}"
     shift 6
     local additional_args=("$@")
-    
+
     log_info "Installing Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
-    
+
     # Use local chart directory
     local chart_ref="${HELM_REPO_BASE}/${chart_name}"
-    
+
     # Check if chart directory exists
     if [[ ! -d "$chart_ref" ]]; then
         log_error "Chart directory '$chart_ref' does not exist"
         return 1
     fi
-    
+
     # Update dependencies first
     log_info "Updating Helm dependencies for '$chart_name'..."
     if ! helm dependency update "$chart_ref"; then
         log_warning "Failed to update dependencies for '$chart_name', continuing anyway"
     fi
-    
+
     # Check if release already exists
     if helm_release_exists "$release_name" "$namespace"; then
         log_warning "Helm release '$release_name' already exists in namespace '$namespace'"
-        
+
         # Try to upgrade the release
         local upgrade_args=(
             "upgrade" "$release_name" "$chart_ref"
             "--namespace" "$namespace"
             "--timeout" "${timeout}s"
         )
-        
+
         if [[ "$wait_flag" == "true" ]]; then
             upgrade_args+=(--wait)
         fi
-        
+
         upgrade_args+=("${additional_args[@]}")
-        
+
         if helm "${upgrade_args[@]}"; then
             log_success "Helm release '$release_name' upgraded successfully"
         else
@@ -213,17 +213,17 @@ install_helm_chart() {
             "--namespace" "$namespace"
             "--timeout" "${timeout}s"
         )
-        
+
         if [[ "$create_namespace" == "true" ]]; then
             install_args+=(--create-namespace)
         fi
-        
+
         if [[ "$wait_flag" == "true" ]]; then
             install_args+=(--wait)
         fi
-        
+
         install_args+=("${additional_args[@]}")
-        
+
         if helm "${install_args[@]}"; then
             log_success "Helm release '$release_name' installed successfully"
         else
@@ -245,7 +245,8 @@ install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "false" "1800" \
         "--set" "cert-manager.enabled=false" \
-        "--set" "cert-manager.crds.enabled=false"
+        "--set" "cert-manager.crds.enabled=false" \
+        "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
 # Install OpenChoreo Control Plane
@@ -293,30 +294,30 @@ setup_choreoctl_completion() {
 # Verify prerequisites
 verify_prerequisites() {
     log_info "Verifying prerequisites..."
-    
+
     local missing_tools=()
-    
+
     if ! command_exists kind; then
         missing_tools+=("kind")
     fi
-    
+
     if ! command_exists kubectl; then
         missing_tools+=("kubectl")
     fi
-    
+
     if ! command_exists helm; then
         missing_tools+=("helm")
     fi
-    
+
     if ! command_exists docker; then
         missing_tools+=("docker")
     fi
-    
+
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
         return 1
     fi
-    
+
     log_success "All prerequisites verified"
 }
 

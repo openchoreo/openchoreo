@@ -31,3 +31,8 @@ dependencies:
     version: 0.19.2
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
+  - name: docker-registry
+    version: 3.0.0
+    repository: "https://twuni.github.io/docker-registry.helm"
+    condition: registry.enabled
+    alias: registry

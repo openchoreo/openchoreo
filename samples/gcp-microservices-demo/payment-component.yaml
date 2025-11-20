@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: payment
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 50051
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: payment
+  namespace: default
 spec:
   owner:
     componentName: payment
@@ -25,45 +39,17 @@ spec:
           value: "1"
         - key: PORT
           value: "50051"
-  endpoints:
-    grpc-endpoint:
-      type: gRPC
-      port: 50051
-      schema:
-        type: gRPC
-        content: |
-          syntax = "proto3";
-
-          package hipstershop;
-          
-          service PaymentService {
-              rpc Charge(ChargeRequest) returns (ChargeResponse) {}
-          }
-
-          message CreditCardInfo {
-              string credit_card_number = 1;
-              int32 credit_card_cvv = 2;
-              int32 credit_card_expiration_year = 3;
-              int32 credit_card_expiration_month = 4;
-          }
-
-          message ChargeRequest {
-              Money amount = 1;
-              CreditCardInfo credit_card = 2;
-          }
-
-          message ChargeResponse {
-              string transaction_id = 1;
-          }
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: payment
+  name: payment-development
+  namespace: default
 spec:
   owner:
-    componentName: payment
     projectName: gcp-microservice-demo
-  workloadName: payment
-  overrides: {}
+    componentName: payment
+
+  environment: development

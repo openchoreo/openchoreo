@@ -80,18 +80,18 @@ func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
 		}
 	}
 
-	// 2. Start with instance parameters (using Config field from ComponentTrait)
-	parameters, err := extractParameters(input.Instance.Config)
+	// 2. Start with instance parameters (using Parameters field from ComponentTrait)
+	parameters, err := extractParameters(input.Instance.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
 	}
 
 	// 3. Merge environment overrides if present
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.TraitOverrides != nil {
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
 		// TraitOverrides structure: map[instanceName]overrides (flattened)
 		instanceName := input.Instance.InstanceName
 
-		if instanceOverride, ok := input.ComponentDeployment.Spec.TraitOverrides[instanceName]; ok {
+		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
 			envOverrides, err := extractParametersFromRawExtension(&instanceOverride)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)

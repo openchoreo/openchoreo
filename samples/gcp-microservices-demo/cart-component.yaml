@@ -2,10 +2,23 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: cart
+  namespace: default
 spec:
   owner:
     projectName: gcp-microservice-demo
-  type: Service
+
+  componentType: deployment/service
+
+  parameters:
+    replicas: 1
+    port: 7070
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
 
 ---
 
@@ -13,6 +26,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: cart
+  namespace: default
 spec:
   owner:
     componentName: cart
@@ -23,70 +37,20 @@ spec:
       env:
         - key: PORT
           value: "7070"
-
-  endpoints:
-    grpc-endpoint:
-      type: gRPC
-      port: 7070
-      schema:
-        type: gRPC
-        content: |
-          syntax = "proto3";
-
-          package hipstershop;
-          
-          service CartService {
-              rpc AddItem(AddItemRequest) returns (Empty) {}
-              rpc GetCart(GetCartRequest) returns (Cart) {}
-              rpc EmptyCart(EmptyCartRequest) returns (Empty) {}
-          }
-
-          message CartItem {
-              string product_id = 1;
-              int32  quantity = 2;
-          }
-
-          message AddItemRequest {
-              string user_id = 1;
-              CartItem item = 2;
-          }
-
-          message EmptyCartRequest {
-              string user_id = 1;
-          }
-
-          message GetCartRequest {
-              string user_id = 1;
-          }
-
-          message Cart {
-              string user_id = 1;
-              repeated CartItem items = 2;
-          }
-
-          message Empty {}
-
-  connections:
-    redis-cache:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: redis
-        endpoint: tcp-endpoint
-      inject:
-        env:
-          - name: REDIS_ADDR
-            value: "{{ .host }}:{{ .port }}"
+        - key: REDIS_ADDR
+          value: "redis:80"
 
 
 ---
+
 apiVersion: openchoreo.dev/v1alpha1
-kind: Service
+kind: ComponentDeployment
 metadata:
-  name: cart
+  name: cart-development
+  namespace: default
 spec:
   owner:
-    componentName: cart
     projectName: gcp-microservice-demo
-  workloadName: cart
-  overrides: {}
+    componentName: cart
+
+  environment: development

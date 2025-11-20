@@ -10,8 +10,9 @@ import (
 // Constants for condition types
 
 const (
-	// ConditionReady indicates that the Component has successfully created/updated
-	// the ComponentEnvSnapshot and is ready for deployment.
+	// ConditionReady indicates that the Component has been successfully reconciled.
+	// When autoDeploy is enabled, this means ComponentRelease and ReleaseBinding are created/updated.
+	// When autoDeploy is disabled, this means the Component has been validated.
 	ConditionReady controller.ConditionType = "Ready"
 )
 
@@ -20,8 +21,13 @@ const (
 const (
 	// Success states (Status=True)
 
-	// ReasonSnapshotReady indicates the ComponentEnvSnapshot is successfully created/updated
-	ReasonSnapshotReady controller.ConditionReason = "SnapshotReady"
+	// ReasonReconciled indicates the Component has been successfully validated
+	// Used when autoDeploy is disabled - only validation is performed
+	ReasonReconciled controller.ConditionReason = "Reconciled"
+
+	// ReasonComponentReleaseReady indicates ComponentRelease and ReleaseBinding are successfully created/updated
+	// Used when autoDeploy is enabled
+	ReasonComponentReleaseReady controller.ConditionReason = "ComponentReleaseReady"
 
 	// Configuration issues (Status=False)
 
@@ -38,10 +44,8 @@ const (
 	// ReasonInvalidConfiguration indicates the Component configuration is invalid
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
 
-	// Snapshot management issues (Status=False)
+	// AutoDeploy issues (Status=False)
 
-	// ReasonSnapshotCreationFailed indicates failure to create the ComponentEnvSnapshot
-	ReasonSnapshotCreationFailed controller.ConditionReason = "SnapshotCreationFailed"
-	// ReasonSnapshotUpdateFailed indicates failure to update the ComponentEnvSnapshot
-	ReasonSnapshotUpdateFailed controller.ConditionReason = "SnapshotUpdateFailed"
+	// ReasonAutoDeployFailed indicates failure to handle autoDeploy (ComponentRelease/ReleaseBinding creation)
+	ReasonAutoDeployFailed controller.ConditionReason = "AutoDeployFailed"
 )

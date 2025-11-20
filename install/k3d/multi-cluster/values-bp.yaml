@@ -11,6 +11,19 @@ argo-workflows:
     authModes:
       - server
 
+# Container Registry configuration for multi-cluster
+# Expose registry as LoadBalancer for cross-cluster access
+registry:
+  service:
+    type: LoadBalancer
+    port: 5000
+
+# All planes access via host.k3d.internal:10082
+global:
+  defaultResources:
+    registry:
+      endpoint: "host.k3d.internal:10082"
+
 fluentBit:
   # Enable Fluent Bit to collect Argo Workflows logs
   enabled: true

@@ -6,8 +6,8 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"golang.org/x/exp/slog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -173,6 +173,7 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 	}
 
 	return &models.ProjectResponse{
+		UID:                string(project.UID),
 		Name:               project.Name,
 		OrgName:            project.Namespace,
 		DisplayName:        displayName,
