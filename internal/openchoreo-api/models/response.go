@@ -303,3 +303,9 @@ type ReleaseBindingResponse struct {
 	CreatedAt                 time.Time              `json:"createdAt"`
 	Status                    string                 `json:"status,omitempty"`
 }
+
+// ReleaseResponse represents a Release in API responses
+type ReleaseResponse struct {
+	Spec   openchoreov1alpha1.ReleaseSpec   `json:"spec"`
+	Status openchoreov1alpha1.ReleaseStatus `json:"status"`
+}

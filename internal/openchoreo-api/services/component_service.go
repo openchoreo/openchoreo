@@ -548,6 +548,61 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 	return wrappedSchema, nil
 }
 
+// GetEnvironmentRelease retrieves the Release spec and status for a given component and environment
+// Returns the full Release spec and status including resources, owner, environment information, and conditions
+func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (*models.ReleaseResponse, error) {
+	s.logger.Debug("Getting release", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	var releaseList openchoreov1alpha1.ReleaseList
+	listOpts := []client.ListOption{
+		client.InNamespace(orgName),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: orgName,
+			labels.LabelKeyProjectName:      projectName,
+			labels.LabelKeyComponentName:    componentName,
+			labels.LabelKeyEnvironmentName:  environmentName,
+		},
+	}
+
+	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
+		s.logger.Error("Failed to list releases", "error", err)
+		return nil, fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	if len(releaseList.Items) == 0 {
+		s.logger.Warn("No release found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+		return nil, ErrReleaseNotFound
+	}
+
+	// Get the first matching Release (there should only be one per component/environment)
+	release := &releaseList.Items[0]
+
+	s.logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	return &models.ReleaseResponse{
+		Spec:   release.Spec,
+		Status: release.Status,
+	}, nil
+}
+
 // PatchReleaseBinding patches a ReleaseBinding with environment-specific overrides
 func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)

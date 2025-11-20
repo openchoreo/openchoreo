@@ -615,6 +615,47 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
+func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetReleaseResources handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+	if orgName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Organization name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and environment name are required", services.CodeInvalidInput)
+		return
+	}
+
+	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			logger.Warn("Release not found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			return
+		}
+		logger.Error("Failed to get release", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	writeSuccessResponse(w, http.StatusOK, release)
+}
+
 func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
