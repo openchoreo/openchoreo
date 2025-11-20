@@ -332,14 +332,48 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 	)
 
 	// These handlers match the constraint set supported by our shorthand so examples can be lifted verbatim.
-	handlers := map[string]func(string) error{
+	handlers := c.buildConstraintHandlers(schema, schemaType, &required, &hasRequired)
+	setters := c.buildConstraintSetters(schema)
+
+	for _, token := range tokens {
+		if !strings.Contains(token, "=") {
+			continue
+		}
+		parts := strings.SplitN(token, "=", 2)
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		handler, ok := handlers[key]
+		if !ok {
+			if setter, okSetter := setters[key]; okSetter {
+				setter(value)
+				continue
+			}
+			// Unknown marker
+			if c.errorOnUnknownMarkers {
+				return false, false, fmt.Errorf("unknown constraint marker %q", key)
+			}
+			// Unknown markers are silently ignored unless errorOnUnknownMarkers is set.
+			continue
+		}
+		if err := handler(value); err != nil {
+			return false, false, err
+		}
+	}
+
+	return required, hasRequired, nil
+}
+
+// buildConstraintHandlers creates the map of constraint handlers for schema validation.
+func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schemaType string, required *bool, hasRequired *bool) map[string]func(string) error {
+	return map[string]func(string) error{
 		"required": func(value string) error {
 			boolVal, err := strconv.ParseBool(value)
 			if err != nil {
 				return fmt.Errorf("invalid required value %q: %w", value, err)
 			}
-			required = boolVal
-			hasRequired = true
+			*required = boolVal
+			*hasRequired = true
 			return nil
 		},
 		"default": func(value string) error {
@@ -503,41 +537,16 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 			return nil
 		},
 	}
+}
 
-	setters := map[string]func(string){
+// buildConstraintSetters creates the map of simple constraint setters.
+func (c *converter) buildConstraintSetters(schema *extv1.JSONSchemaProps) map[string]func(string) {
+	return map[string]func(string){
 		"pattern":     func(value string) { schema.Pattern = unquoteIfNeeded(value) },
 		"title":       func(value string) { schema.Title = unquoteIfNeeded(value) },
 		"description": func(value string) { schema.Description = unquoteIfNeeded(value) },
 		"format":      func(value string) { schema.Format = unquoteIfNeeded(value) },
 	}
-
-	for _, token := range tokens {
-		if !strings.Contains(token, "=") {
-			continue
-		}
-		parts := strings.SplitN(token, "=", 2)
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		handler, ok := handlers[key]
-		if !ok {
-			if setter, okSetter := setters[key]; okSetter {
-				setter(value)
-				continue
-			}
-			// Unknown marker
-			if c.errorOnUnknownMarkers {
-				return false, false, fmt.Errorf("unknown constraint marker %q", key)
-			}
-			// Unknown markers are silently ignored unless errorOnUnknownMarkers is set.
-			continue
-		}
-		if err := handler(value); err != nil {
-			return false, false, err
-		}
-	}
-
-	return required, hasRequired, nil
 }
 
 // parseValueForType converts a raw token into a Go value appropriate for the given schema type.

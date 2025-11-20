@@ -247,7 +247,7 @@ func ValidateAgainstSchema(values map[string]any, structural *apiextschema.Struc
 		return fmt.Errorf("schema is nil")
 	}
 
-	if values == nil || len(values) == 0 {
+	if len(values) == 0 {
 		// Empty values are valid - defaults will be applied
 		return nil
 	}
