@@ -401,6 +401,54 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetComponentHTTPMetrics handles POST /api/metrics/component/http
+func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request) {
+	var req MetricsRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind metrics request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	var startTime, endTime time.Time
+	var err error
+
+	// Input validations
+	err = validateTimes(req.StartTime, req.EndTime)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	startTime, err = time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		h.logger.Error("Failed to parse start time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	endTime, err = time.Parse(time.RFC3339, req.EndTime)
+	if err != nil {
+		h.logger.Error("Failed to parse end time", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidTimeFormat)
+		return
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetComponentHTTPMetrics(ctx, req.ComponentID, req.EnvironmentID, req.ProjectID, startTime, endTime)
+	if err != nil {
+		h.logger.Error("Failed to get component HTTP metrics", "error", err)
+		h.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"reason": "Internal error occurred while fetching one or more HTTP metrics",
+		})
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}
+
 // GetComponentResourceMetrics handles POST /api/metrics/component/usage
 func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Request) {
 	var req MetricsRequest

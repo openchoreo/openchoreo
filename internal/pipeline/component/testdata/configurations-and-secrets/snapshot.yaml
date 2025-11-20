@@ -25,44 +25,44 @@ spec:
                     - name: main
                       image: myapp:latest
                       envFrom: |
-                        ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+                        ${(has(configurations["main"].configs.envs) && configurations["main"].configs.envs.size() > 0 ?
                           [{
                             "configMapRef": {
                               "name": oc_generate_name(metadata.name, "env-configs")
                             }
                           }] : []) +
-                        (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+                        (has(configurations["main"].secrets.envs) && configurations["main"].secrets.envs.size() > 0 ?
                           [{
                             "secretRef": {
                               "name": oc_generate_name(metadata.name, "env-secrets")
                             }
                           }] : [])}
                       volumeMounts: |
-                        ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                          (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                            configurations.configs.files.map(f, {
+                        ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 || has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
+                          (has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 ?
+                            configurations["main"].configs.files.map(f, {
                               "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                               "mountPath": f.mountPath+"/"+f.name ,
                               "subPath": f.name
                             }) : []) +
-                          (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                            configurations.secrets.files.map(f, {
+                          (has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
+                            configurations["main"].secrets.files.map(f, {
                               "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                               "mountPath": f.mountPath+"/"+f.name,
                               "subPath": f.name
                             }) : [])
                         : oc_omit()}
                   volumes: |
-                    ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                      (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
-                        configurations.configs.files.map(f, {
+                    ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 || has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
+                      (has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 ?
+                        configurations["main"].configs.files.map(f, {
                           "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                           "configMap": {
                             "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
                           }
                         }) : []) +
-                      (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
-                        configurations.secrets.files.map(f, {
+                      (has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
+                        configurations["main"].secrets.files.map(f, {
                           "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
                           "secret": {
                             "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
@@ -70,17 +70,17 @@ spec:
                         }) : [])
                     : oc_omit()}
         - id: env-config
-          includeWhen: ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0}
+          includeWhen: ${has(configurations["main"].configs.envs) && configurations["main"].configs.envs.size() > 0}
           template:
             apiVersion: v1
             kind: ConfigMap
             metadata:
               name: ${oc_generate_name(metadata.name, "env-configs")}
             data: |
-              ${has(configurations.configs.envs) ? configurations.configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
+              ${has(configurations["main"].configs.envs) ? configurations["main"].configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
         - id: file-config
-          includeWhen: ${has(configurations.configs.files) && configurations.configs.files.size() > 0}
-          forEach: ${configurations.configs.files}
+          includeWhen: ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0}
+          forEach: ${configurations["main"].configs.files}
           var: config
           template:
             apiVersion: v1
@@ -92,7 +92,7 @@ spec:
               ${config.name}: |
                 ${config.value}
         - id: secret-env-external
-          includeWhen: ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0}
+          includeWhen: ${has(configurations["main"].secrets.envs) && configurations["main"].secrets.envs.size() > 0}
           template:
             apiVersion: external-secrets.io/v1
             kind: ExternalSecret
@@ -108,7 +108,7 @@ spec:
                 name: ${oc_generate_name(metadata.name, "env-secrets")}
                 creationPolicy: Owner
               data: |
-                ${has(configurations.secrets.envs) ? configurations.secrets.envs.map(secret, {
+                ${has(configurations["main"].secrets.envs) ? configurations["main"].secrets.envs.map(secret, {
                   "secretKey": secret.name,
                   "remoteRef": {
                     "key": secret.remoteRef.key,
@@ -116,8 +116,8 @@ spec:
                   }
                 }) : oc_omit()}
         - id: secret-file-external
-          includeWhen: ${has(configurations.secrets.files) && configurations.secrets.files.size() > 0}
-          forEach: ${configurations.secrets.files}
+          includeWhen: ${has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0}
+          forEach: ${configurations["main"].secrets.files}
           var: file
           template:
             apiVersion: external-secrets.io/v1

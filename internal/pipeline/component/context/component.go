@@ -64,8 +64,8 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.Overrides != nil {
-		envOverrides, err := extractParameters(input.ComponentDeployment.Spec.Overrides)
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+		envOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
 		}
@@ -75,22 +75,22 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 	parameters = schema.ApplyDefaults(parameters, structural)
 	ctx["parameters"] = parameters
 
-	if input.Workload != nil {
-		workloadData, err := extractWorkloadData(input.Workload)
+	workload := input.Workload
+	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
+		workload = mergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+	}
+
+	if workload != nil {
+		workloadData, err := extractWorkloadData(workload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract workload data: %w", err)
 		}
 		ctx["workload"] = workloadData
 	}
 
-	if input.Workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.SecretReferences, input.Workload)
-
-		if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.ConfigurationOverrides != nil {
-			configurations = applyConfigurationOverrides(input.SecretReferences, configurations, input.ComponentDeployment.Spec.ConfigurationOverrides)
-		}
-
-		if configurations != nil {
+	if workload != nil {
+		configurations := extractConfigurationsFromWorkload(input.SecretReferences, workload)
+		if len(configurations) > 0 {
 			ctx["configurations"] = configurations
 		}
 	}

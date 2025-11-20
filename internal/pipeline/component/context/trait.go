@@ -87,11 +87,11 @@ func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
 	}
 
 	// 3. Merge environment overrides if present
-	if input.ComponentDeployment != nil && input.ComponentDeployment.Spec.TraitOverrides != nil {
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
 		// TraitOverrides structure: map[instanceName]overrides (flattened)
 		instanceName := input.Instance.InstanceName
 
-		if instanceOverride, ok := input.ComponentDeployment.Spec.TraitOverrides[instanceName]; ok {
+		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
 			envOverrides, err := extractParametersFromRawExtension(&instanceOverride)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)

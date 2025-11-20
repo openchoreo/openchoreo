@@ -128,6 +128,7 @@ openSearchDashboards:
   - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
     value: "true"
 
+  nameOverride: "opensearch-dashboards"
   fullnameOverride: "opensearch-dashboards"
   image:
     tag: "3.3.0"
@@ -148,12 +149,12 @@ observer:
     port: 8080
 
   logLevel: info
-  
+
   prometheus:
     # Prometheus server address (will be constructed from helm release name)
     address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
     timeout: 30s
-  
+
   resources:
     limits:
       cpu: 500m
@@ -306,6 +307,10 @@ prometheus:
   ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
   prometheus:
     enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    prometheusSpec:
+      serviceMonitorNamespaceSelector: {}
+      serviceMonitorSelector: {}
+      serviceMonitorSelectorNilUsesHelmValues: false
 
   ## Configuration for alertmanager
   ## ref: https://prometheus.io/docs/alerting/alertmanager/
@@ -365,7 +370,7 @@ prometheus:
       - kube_pod_status_phase
       # Jobs and Services to be added later
     metricLabelsAllowlist:
-      - pods=[organization-name, project-name, component-name, environment-name]
+      - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
       # Jobs and Services to be added later
 
   ## Configuration for thanosRuler
@@ -398,4 +403,3 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
-  

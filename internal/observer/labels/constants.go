@@ -13,13 +13,13 @@ package labels
 // - Log enrichment processes
 const (
 	// ComponentID identifies the specific microservice/component
-	ComponentID = "component-name"
+	ComponentID = "openchoreo.dev/component-uid"
 
 	// EnvironmentID identifies the deployment environment (dev, test, staging, prod, etc.)
-	EnvironmentID = "environment-name"
+	EnvironmentID = "openchoreo.dev/environment-uid"
 
 	// ProjectID identifies the project that groups multiple components
-	ProjectID = "project-name"
+	ProjectID = "openchoreo.dev/project-uid"
 
 	// Version is the human-readable version string (e.g., "v1.2.3")
 	Version = "version"

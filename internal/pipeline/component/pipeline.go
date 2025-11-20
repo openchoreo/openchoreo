@@ -74,6 +74,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Workload:            input.Workload,
 		Environment:         environment,
 		ComponentDeployment: input.ComponentDeployment,
+		ReleaseBinding:      input.ReleaseBinding,
 		DataPlane:           input.DataPlane,
 		SecretReferences:    input.SecretReferences,
 		Metadata:            input.Metadata,
@@ -120,6 +121,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Component:           input.Component,
 			Environment:         environment,
 			ComponentDeployment: input.ComponentDeployment,
+			ReleaseBinding:      input.ReleaseBinding,
 			Metadata:            input.Metadata,
 			SchemaCache:         schemaCache,
 		})

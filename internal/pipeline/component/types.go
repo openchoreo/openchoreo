@@ -41,7 +41,12 @@ type RenderInput struct {
 
 	// ComponentDeployment contains environment-specific overrides for the component.
 	// Optional - if nil, no environment overrides are applied.
+	// Deprecated: this field will be removed in a future release. Use
 	ComponentDeployment *v1alpha1.ComponentDeployment
+
+	// ReleaseBinding contains release reference and environment-specific overrides for the component.
+	// Optional - if nil, no environment overrides are applied.
+	ReleaseBinding *v1alpha1.ReleaseBinding
 
 	// DataPlane contains the data plane configuration.
 	// Optional - can be nil if no data plane is configured.

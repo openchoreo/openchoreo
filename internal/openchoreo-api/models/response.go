@@ -53,7 +53,7 @@ type ComponentResponse struct {
 	ScheduledTask  *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
 	API            *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
 	Workload       *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
-	BuildConfig    *BuildConfig                           `json:"buildConfig,omitempty"`
+	Workflow       *Workflow                              `json:"workflow,omitempty"`
 }
 
 type BindingResponse struct {
@@ -277,4 +277,29 @@ type WorkflowResponse struct {
 	DisplayName string    `json:"displayName,omitempty"`
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// ComponentReleaseResponse represents a ComponentRelease in API responses
+type ComponentReleaseResponse struct {
+	Name          string    `json:"name"`
+	ComponentName string    `json:"componentName"`
+	ProjectName   string    `json:"projectName"`
+	OrgName       string    `json:"orgName"`
+	CreatedAt     time.Time `json:"createdAt"`
+	Status        string    `json:"status,omitempty"`
+}
+
+// ReleaseBindingResponse represents a ReleaseBinding in API responses
+type ReleaseBindingResponse struct {
+	Name                      string                 `json:"name"`
+	ComponentName             string                 `json:"componentName"`
+	ProjectName               string                 `json:"projectName"`
+	OrgName                   string                 `json:"orgName"`
+	Environment               string                 `json:"environment"`
+	ReleaseName               string                 `json:"releaseName"`
+	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+	TraitOverrides            map[string]interface{} `json:"traitOverrides,omitempty"`
+	WorkloadOverrides         *WorkloadOverrides     `json:"workloadOverrides,omitempty"`
+	CreatedAt                 time.Time              `json:"createdAt"`
+	Status                    string                 `json:"status,omitempty"`
 }

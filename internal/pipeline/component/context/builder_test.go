@@ -105,11 +105,11 @@ spec:
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
-  overrides:
+  componentTypeEnvOverrides:
     replicas: 5
 `,
 			environment: "prod",
@@ -185,13 +185,15 @@ spec:
 					},
 				},
 				"configurations": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs":  []any{},
+							"files": []any{},
+						},
+						"secrets": map[string]any{
+							"envs":  []any{},
+							"files": []any{},
+						},
 					},
 				},
 				"environment": map[string]any{
@@ -271,11 +273,11 @@ spec:
 
 			// Parse env settings
 			if tt.envSettingsYAML != "" {
-				settings := &v1alpha1.ComponentDeployment{}
+				settings := &v1alpha1.ReleaseBinding{}
 				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), settings); err != nil {
-					t.Fatalf("Failed to parse ComponentDeployment YAML: %v", err)
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
 				}
-				input.ComponentDeployment = settings
+				input.ReleaseBinding = settings
 			}
 
 			// Parse workload
@@ -400,7 +402,7 @@ parameters:
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
@@ -491,11 +493,11 @@ spec:
 
 			// Parse env settings
 			if tt.envSettingsYAML != "" {
-				settings := &v1alpha1.ComponentDeployment{}
+				settings := &v1alpha1.ReleaseBinding{}
 				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), settings); err != nil {
-					t.Fatalf("Failed to parse ComponentDeployment YAML: %v", err)
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
 				}
-				input.ComponentDeployment = settings
+				input.ReleaseBinding = settings
 			}
 
 			got, err := BuildTraitContext(input)

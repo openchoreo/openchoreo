@@ -112,6 +112,7 @@ rules:
     - builds
     - componentdeployments
     - componentenvsnapshots
+    - componentreleases
     - components
     - componenttypes
     - dataplanes
@@ -124,6 +125,7 @@ rules:
     - gitcommitrequests
     - organizations
     - projects
+    - releasebindings
     - releases
     - scheduledtaskbindings
     - scheduledtaskclasses
@@ -157,6 +159,7 @@ rules:
     - builds/finalizers
     - componentdeployments/finalizers
     - componentenvsnapshots/finalizers
+    - componentreleases/finalizers
     - components/finalizers
     - componenttypes/finalizers
     - dataplanes/finalizers
@@ -169,6 +172,7 @@ rules:
     - gitcommitrequests/finalizers
     - organizations/finalizers
     - projects/finalizers
+    - releasebindings/finalizers
     - releases/finalizers
     - scheduledtaskbindings/finalizers
     - scheduledtaskclasses/finalizers
@@ -196,6 +200,7 @@ rules:
     - builds/status
     - componentdeployments/status
     - componentenvsnapshots/status
+    - componentreleases/status
     - components/status
     - componenttypes/status
     - dataplanes/status
@@ -208,6 +213,7 @@ rules:
     - gitcommitrequests/status
     - organizations/status
     - projects/status
+    - releasebindings/status
     - releases/status
     - scheduledtaskbindings/status
     - scheduledtaskclasses/status

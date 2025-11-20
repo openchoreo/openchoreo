@@ -92,7 +92,6 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 // This method returns all data points in the time range, suitable for charting and visualization
 func (c *Client) QueryRangeTimeSeries(ctx context.Context, query string, start, end time.Time, step time.Duration) (*TimeSeriesResponse, error) {
 	c.logger.Debug("Executing Prometheus range query for time series",
-		"query", query,
 		"start", start,
 		"end", end,
 		"step", step)

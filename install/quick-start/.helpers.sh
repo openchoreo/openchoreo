@@ -322,7 +322,8 @@ install_control_plane() {
 install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
-        "--values" "$HOME/.values-dp.yaml"
+        "--values" "$HOME/.values-dp.yaml" \
+        "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
 

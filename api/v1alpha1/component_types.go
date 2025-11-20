@@ -50,6 +50,11 @@ type ComponentSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
 	ComponentType string `json:"componentType,omitempty"`
 
+	// AutoDeploy indicates whether the component should be deployed automatically when created
+	// When not specified, defaults to false (zero value)
+	// +optional
+	AutoDeploy bool `json:"autoDeploy,omitempty"`
+
 	// Parameters from ComponentType (oneOf schema based on componentType)
 	// This is the merged schema of parameters + envOverrides from the ComponentType
 	// +optional
@@ -99,6 +104,24 @@ type ComponentOwner struct {
 type ComponentStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	// LatestRelease keeps the information of the latest ComponentRelease created for this component
+	// This is used to make sure the component's latest ComponentRelease is always
+	// deployed to the first environment, if the autoDeploy flag is set to true
+	// +optional
+	LatestRelease *LatestRelease `json:"latestRelease,omitempty"`
+}
+
+// LatestRelease has name and generated hash of the latest ComponentRelease spec
+type LatestRelease struct {
+	// Name of the ComponentRelease resource
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// ReleaseHash record the hash value of the spec of ComponentRelease.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	ReleaseHash string `json:"releaseHash,omitempty"`
 }
 
 // DefinedComponentType defines how the component is deployed.

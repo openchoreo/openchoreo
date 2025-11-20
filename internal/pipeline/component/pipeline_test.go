@@ -370,9 +370,9 @@ spec:
 			}
 
 			// Parse settings if provided
-			var settings *v1alpha1.ComponentDeployment
+			var settings *v1alpha1.ReleaseBinding
 			if tt.settingsYAML != "" {
-				settings = &v1alpha1.ComponentDeployment{}
+				settings = &v1alpha1.ReleaseBinding{}
 				if err := yaml.Unmarshal([]byte(tt.settingsYAML), settings); err != nil {
 					t.Fatalf("Failed to parse settings YAML: %v", err)
 				}
@@ -411,14 +411,14 @@ spec:
 
 			// Create input
 			input := &RenderInput{
-				ComponentType:       &snapshot.Spec.ComponentType,
-				Component:           &snapshot.Spec.Component,
-				Traits:              snapshot.Spec.Traits,
-				Workload:            &snapshot.Spec.Workload,
-				Environment:         environment,
-				DataPlane:           dataplane,
-				ComponentDeployment: settings,
-				SecretReferences:    secretReferences,
+				ComponentType:    &snapshot.Spec.ComponentType,
+				Component:        &snapshot.Spec.Component,
+				Traits:           snapshot.Spec.Traits,
+				Workload:         &snapshot.Spec.Workload,
+				Environment:      environment,
+				DataPlane:        dataplane,
+				ReleaseBinding:   settings,
+				SecretReferences: secretReferences,
 				Metadata: context.MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",
