@@ -53,6 +53,40 @@ func (s *ComponentService) parseComponentTypeName(componentType string) (string,
 	return parts[1], nil
 }
 
+// buildTraitEnvOverridesSchema extracts and converts a TraitSpec's envOverrides to JSON schema
+// Returns nil if the trait has no envOverrides
+func (s *ComponentService) buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
+	var traitEnvOverrides map[string]any
+	if traitSpec.Schema.EnvOverrides != nil && traitSpec.Schema.EnvOverrides.Raw != nil {
+		if err := json.Unmarshal(traitSpec.Schema.EnvOverrides.Raw, &traitEnvOverrides); err != nil {
+			return nil, fmt.Errorf("failed to extract envOverrides for trait %s: %w", traitName, err)
+		}
+	}
+
+	if traitEnvOverrides == nil {
+		return nil, nil
+	}
+
+	var traitTypes map[string]any
+	if traitSpec.Schema.Types != nil && traitSpec.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(traitSpec.Schema.Types.Raw, &traitTypes); err != nil {
+			return nil, fmt.Errorf("failed to extract types for trait %s: %w", traitName, err)
+		}
+	}
+
+	traitDef := openchoreoschema.Definition{
+		Types:   traitTypes,
+		Schemas: []map[string]any{traitEnvOverrides},
+	}
+
+	traitJSONSchema, err := openchoreoschema.ToJSONSchema(traitDef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert trait %s to JSON schema: %w", traitName, err)
+	}
+
+	return traitJSONSchema, nil
+}
+
 type PromoteComponentPayload struct {
 	models.PromoteComponentRequest
 	ComponentName string `json:"componentName"`
@@ -174,7 +208,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 			}
 			continue
 		}
-		traits[componentTrait.InstanceName] = trait.Spec
+		traits[componentTrait.Name] = trait.Spec
 	}
 
 	// Build ComponentProfile from Component parameters
@@ -438,30 +472,50 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		Types: types,
 	}
 
-	var baseParams map[string]any
+	var componentTypeEnvOverrides map[string]any
 	if release.Spec.ComponentType.Schema.EnvOverrides != nil && release.Spec.ComponentType.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &baseParams); err != nil {
+		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &componentTypeEnvOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 	}
 
-	if baseParams != nil {
-		def.Schemas = []map[string]any{baseParams}
-	}
-
-	jsonSchema, err := openchoreoschema.ToJSONSchema(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
-	}
-
+	// Build the wrapped schema properties
 	wrappedSchema := &extv1.JSONSchemaProps{
-		Type: "object",
-		Properties: map[string]extv1.JSONSchemaProps{
-			"componentTypeEnvOverrides": *jsonSchema,
-		},
+		Type:       "object",
+		Properties: make(map[string]extv1.JSONSchemaProps),
 	}
 
-	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	// Only add componentTypeEnvOverrides if there are actual envOverrides
+	if componentTypeEnvOverrides != nil {
+		def.Schemas = []map[string]any{componentTypeEnvOverrides}
+		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+		}
+		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
+	}
+
+	// Process trait overrides
+	traitSchemas := make(map[string]extv1.JSONSchemaProps)
+	for traitName, traitSpec := range release.Spec.Traits {
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, traitName)
+		if err != nil {
+			return nil, err
+		}
+
+		if traitJSONSchema != nil {
+			traitSchemas[traitName] = *traitJSONSchema
+		}
+	}
+
+	if len(traitSchemas) > 0 {
+		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: traitSchemas,
+		}
+	}
+
+	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvOverrides", componentTypeEnvOverrides != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -529,23 +583,57 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		}
 	}
 
+	// Build the wrapped schema properties
+	wrappedSchema := &extv1.JSONSchemaProps{
+		Type:       "object",
+		Properties: make(map[string]extv1.JSONSchemaProps),
+	}
+
+	// Only add componentTypeEnvOverrides if there are actual envOverrides
 	if envOverrides != nil {
 		def.Schemas = []map[string]any{envOverrides}
+		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+		}
+		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
 	}
 
-	jsonSchema, err := openchoreoschema.ToJSONSchema(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+	// Process trait overrides from the component's traits
+	traitSchemas := make(map[string]extv1.JSONSchemaProps)
+	for _, componentTrait := range component.Spec.Traits {
+		traitKey := client.ObjectKey{
+			Namespace: orgName,
+			Name:      componentTrait.Name,
+		}
+		var trait openchoreov1alpha1.Trait
+		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Trait not found", "org", orgName, "trait", componentTrait.Name)
+				continue // Skip missing traits instead of failing
+			}
+			s.logger.Error("Failed to get trait", "trait", componentTrait.Name, "error", err)
+			return nil, fmt.Errorf("failed to get trait %s: %w", componentTrait.Name, err)
+		}
+
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(trait.Spec, componentTrait.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if traitJSONSchema != nil {
+			traitSchemas[componentTrait.Name] = *traitJSONSchema
+		}
 	}
 
-	wrappedSchema := &extv1.JSONSchemaProps{
-		Type: "object",
-		Properties: map[string]extv1.JSONSchemaProps{
-			"componentTypeEnvOverrides": *jsonSchema,
-		},
+	if len(traitSchemas) > 0 {
+		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: traitSchemas,
+		}
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName)
+	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName, "hasComponentTypeEnvOverrides", envOverrides != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -900,6 +988,12 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 		}
 	}
 
+	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
+	// If there are less than 3 conditions for the current generation, it's still in progress
+	if len(conditionsForGeneration) < 3 {
+		return statusNotReady
+	}
+
 	isFailed := false
 	for i := range conditionsForGeneration {
 		if conditionsForGeneration[i].Status == metav1.ConditionFalse {
@@ -909,12 +1003,6 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 	}
 	if isFailed {
 		return statusFailed
-	}
-
-	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
-	// If there are less than 3 conditions for the current generation, it's still in progress
-	if len(conditionsForGeneration) < 3 {
-		return statusNotReady
 	}
 
 	return statusReady
