@@ -8,6 +8,7 @@ spec:
     projectName: gcp-microservice-demo
 
   componentType: deployment/web-application
+  autoDeploy: true
 
   parameters:
     replicas: 1
@@ -63,17 +64,3 @@ spec:
           value: "shipping:80"
         - key: PRODUCT_CATALOG_SERVICE_ADDR
           value: "productcatalog:80"
-
----
-
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: frontend-development
-  namespace: default
-spec:
-  owner:
-    projectName: gcp-microservice-demo
-    componentName: frontend
-
-  environment: development

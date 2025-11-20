@@ -8,6 +8,7 @@ spec:
     projectName: gcp-microservice-demo
 
   componentType: deployment/service
+  autoDeploy: true
 
   parameters:
     replicas: 1
@@ -51,18 +52,3 @@ spec:
           value: "currency:80"
         - key: CART_SERVICE_ADDR
           value: "cart:80"
-
-
----
-
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: checkout-development
-  namespace: default
-spec:
-  owner:
-    projectName: gcp-microservice-demo
-    componentName: checkout
-
-  environment: development

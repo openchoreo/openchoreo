@@ -7,6 +7,7 @@ spec:
   owner:
     projectName: gcp-microservice-demo
 
+  autoDeploy: true
   componentType: deployment/service
 
   parameters:
@@ -37,17 +38,3 @@ spec:
       env:
         - key: PORT
           value: "9555"
-
----
-
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: ad-development
-  namespace: default
-spec:
-  owner:
-    projectName: gcp-microservice-demo
-    componentName: ad
-
-  environment: development

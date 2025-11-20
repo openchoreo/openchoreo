@@ -8,6 +8,7 @@ spec:
     projectName: gcp-microservice-demo
 
   componentType: deployment/service
+  autoDeploy: true
 
   parameters:
     replicas: 1
@@ -39,17 +40,3 @@ spec:
           value: "1"
         - key: PORT
           value: "50055"
-
----
-
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: shipping-development
-  namespace: default
-spec:
-  owner:
-    projectName: gcp-microservice-demo
-    componentName: shipping
-
-  environment: development

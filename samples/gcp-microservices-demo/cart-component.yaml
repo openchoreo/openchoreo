@@ -8,6 +8,7 @@ spec:
     projectName: gcp-microservice-demo
 
   componentType: deployment/service
+  autoDeploy: true
 
   parameters:
     replicas: 1
@@ -39,18 +40,3 @@ spec:
           value: "7070"
         - key: REDIS_ADDR
           value: "redis:80"
-
-
----
-
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
-metadata:
-  name: cart-development
-  namespace: default
-spec:
-  owner:
-    projectName: gcp-microservice-demo
-    componentName: cart
-
-  environment: development
