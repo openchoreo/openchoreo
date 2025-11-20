@@ -128,18 +128,18 @@ func (v *ProjectCustomValidator) validateProjectCommon(ctx context.Context, proj
 		return err
 	}
 
-	// Validate whether the project's namespace matches with the namespace created for the organization.
-	// First get the organization object from the labelKeyOrganizationName label.
-	orgName := project.Labels[labels.LabelKeyOrganizationName]
-	org, err := v.findOrganizationByNameLabel(ctx, orgName)
-	if err != nil {
-		return err
+	// Validate that the name label matches the project's name
+	projectName := project.Labels[labels.LabelKeyName]
+	if projectName != project.Name {
+		return fmt.Errorf("project name '%s' does not match with the name label '%s'",
+			project.Name, projectName)
 	}
 
-	// Then check whether the organization's namespace matches with the project's namespace.
-	if org.Status.Namespace != project.Namespace {
-		return fmt.Errorf("project namespace '%s' does not match with the namespace '%s' of the organization '%s'",
-			project.Namespace, org.Status.Namespace, orgName)
+	// Validate that the organization label matches the project's namespace
+	orgName := project.Labels[labels.LabelKeyOrganizationName]
+	if orgName != project.Namespace {
+		return fmt.Errorf("project namespace '%s' does not match with the organization label '%s'",
+			project.Namespace, orgName)
 	}
 
 	// Check whether the deploymentPipelineRef: <name> exists in the namespace
@@ -220,34 +220,4 @@ func (v *ProjectCustomValidator) ensureNoDuplicateProjectInOrganization(ctx cont
 	}
 
 	return nil
-}
-
-func (v *ProjectCustomValidator) findOrganizationByNameLabel(ctx context.Context, orgName string) (*openchoreov1alpha1.Organization, error) {
-	// Create a list to hold the organizations
-	orgList := &openchoreov1alpha1.OrganizationList{}
-
-	// Define label selector
-	listOpts := []client.ListOption{
-		client.MatchingLabels{
-			labels.LabelKeyName: orgName,
-		},
-	}
-
-	// List all organizations with the specified label
-	if err := v.client.List(ctx, orgList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to get organization '%s' specified in label '%s': %w", orgName, labels.LabelKeyOrganizationName, err)
-	}
-
-	// Check whether the organization exists
-	if len(orgList.Items) == 0 {
-		return nil, fmt.Errorf("organization '%s' specified in label '%s' not found", orgName, labels.LabelKeyOrganizationName)
-	}
-
-	// Check whether multiple organizations found
-	if len(orgList.Items) > 1 {
-		// This should not happen as the organization name is unique and we validate it during the creation
-		return nil, fmt.Errorf("multiple organizations found with name '%s', specified in label '%s'", orgName, labels.LabelKeyOrganizationName)
-	}
-
-	return &orgList.Items[0], nil
 }

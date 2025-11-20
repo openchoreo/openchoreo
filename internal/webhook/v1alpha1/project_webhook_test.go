@@ -61,21 +61,6 @@ var _ = Describe("Project Webhook", func() {
 		return fake.NewClientBuilder().WithScheme(scheme)
 	}
 
-	createValidOrganization := func(orgName string, orgNamespace string) *openchoreov1alpha1.Organization {
-		org := &openchoreov1alpha1.Organization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "org-" + orgName,
-				Labels: map[string]string{
-					labels.LabelKeyName: orgName,
-				},
-			},
-			Status: openchoreov1alpha1.OrganizationStatus{
-				Namespace: orgNamespace,
-			},
-		}
-		return org
-	}
-
 	createValidDeploymentPipeline := func(name string, namespace string) *openchoreov1alpha1.DeploymentPipeline {
 		pipeline := &openchoreov1alpha1.DeploymentPipeline{
 			ObjectMeta: metav1.ObjectMeta{
@@ -92,7 +77,7 @@ var _ = Describe("Project Webhook", func() {
 	createValidProject := func(name string, orgName string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
 		project := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "proj-" + name,
+				Name:      name,
 				Namespace: namespace,
 				Labels: map[string]string{
 					labels.LabelKeyName:             name,
@@ -144,58 +129,29 @@ var _ = Describe("Project Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("required labels missing"))
 		})
 
-		It("Should deny creation if organization does not exist", func() {
-			By("Setting up client with no organizations")
-
-			By("Creating a project with non-existent organization")
-			obj = createValidProject("test-project", "non-existent-org", "test-namespace", "test-pipeline")
+		It("Should deny creation if project namespace doesn't match organization label", func() {
+			By("Creating a project with mismatched namespace and organization label")
+			obj = createValidProject("test-project", "wrong-org", "test-namespace", testPipeline)
 
 			By("Validating the project creation")
 			_, err := validator.ValidateCreate(ctx, obj)
 
 			By("Verifying validation fails with appropriate error")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("organization 'non-existent-org' specified in label"))
-		})
-
-		It("Should deny creation if project namespace doesn't match organization namespace", func() {
-			By("Creating an organization with a specific namespace")
-			orgName := testOrg
-			orgNamespace := testNamespace
-			org := createValidOrganization(orgName, orgNamespace)
-
-			By("Setting up client with the organization")
-			validatorWithOrgClient := ProjectCustomValidator{
-				client: createFakeClientBuilder().WithObjects(org).Build(),
-			}
-
-			By("Creating a project with mismatched namespace")
-			obj = createValidProject("test-project", orgName, "different-namespace", testPipeline)
-
-			By("Validating the project creation")
-			_, err := validatorWithOrgClient.ValidateCreate(ctx, obj)
-
-			By("Verifying validation fails with appropriate error")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("project namespace 'different-namespace' does not match with the namespace 'test-namespace' of the organization 'test-org'"))
+			Expect(err.Error()).To(ContainSubstring("project namespace 'test-namespace' does not match with the organization label 'wrong-org'"))
 		})
 
 		It("Should deny creation if referenced deployment pipeline does not exist", func() {
-			By("Creating an organization")
-			orgName := testOrg
-			orgNamespace := testNamespace
-			org := createValidOrganization(orgName, orgNamespace)
-
-			By("Setting up client with the organization but no deployment pipelines")
-			validatorWithOrgClient := ProjectCustomValidator{
-				client: createFakeClientBuilder().WithObjects(org).Build(),
+			By("Setting up client with no deployment pipelines")
+			validatorWithClient := ProjectCustomValidator{
+				client: createFakeClientBuilder().Build(),
 			}
 
 			By("Creating a project with non-existent deployment pipeline")
-			obj = createValidProject("test-project", orgName, orgNamespace, "non-existent-pipeline")
+			obj = createValidProject("test-project", testNamespace, testNamespace, "non-existent-pipeline")
 
 			By("Validating the project creation")
-			_, err := validatorWithOrgClient.ValidateCreate(ctx, obj)
+			_, err := validatorWithClient.ValidateCreate(ctx, obj)
 
 			By("Verifying validation fails with appropriate error")
 			Expect(err).To(HaveOccurred())
@@ -203,25 +159,20 @@ var _ = Describe("Project Webhook", func() {
 		})
 
 		It("Should deny creation if a duplicate project exists in the organization", func() {
-			By("Creating an organization")
-			orgName := testOrg
-			orgNamespace := testNamespace
-			org := createValidOrganization(orgName, orgNamespace)
-
 			By("Creating a deployment pipeline")
 			pipelineName := "test-pipeline"
-			pipeline := createValidDeploymentPipeline(pipelineName, orgNamespace)
+			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
 
 			By("Creating an existing project with the same name")
-			existingProject := createValidProject("test-project", orgName, orgNamespace, pipelineName)
+			existingProject := createValidProject("test-project", testNamespace, testNamespace, pipelineName)
 
 			By("Setting up client with existing resources")
 			validatorWithExistingProject := ProjectCustomValidator{
-				client: createFakeClientBuilder().WithObjects(org, pipeline, existingProject).Build(),
+				client: createFakeClientBuilder().WithObjects(pipeline, existingProject).Build(),
 			}
 
 			By("Creating a new project with the same name")
-			obj = createValidProject("test-project", orgName, orgNamespace, pipelineName)
+			obj = createValidProject("test-project", testNamespace, testNamespace, pipelineName)
 
 			By("Validating the project creation")
 			_, err := validatorWithExistingProject.ValidateCreate(ctx, obj)
@@ -229,27 +180,22 @@ var _ = Describe("Project Webhook", func() {
 			By("Verifying validation fails with appropriate error")
 			Expect(err).To(HaveOccurred())
 
-			expectedErrMsg := fmt.Sprintf("project 'test-project' specified in label '%s' already exists in organization 'test-org'", labels.LabelKeyName)
+			expectedErrMsg := fmt.Sprintf("project 'test-project' specified in label '%s' already exists in organization 'test-namespace'", labels.LabelKeyName)
 			Expect(err.Error()).To(ContainSubstring(expectedErrMsg))
 		})
 
 		It("Should allow creation of a valid project", func() {
-			By("Creating an organization")
-			orgName := testOrg
-			orgNamespace := testNamespace
-			org := createValidOrganization(orgName, orgNamespace)
-
 			By("Creating a deployment pipeline")
 			pipelineName := testPipeline
-			pipeline := createValidDeploymentPipeline(pipelineName, orgNamespace)
+			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
 
-			By("Setting up client with organization and pipeline")
+			By("Setting up client with pipeline")
 			validatorWithResources := ProjectCustomValidator{
-				client: createFakeClientBuilder().WithObjects(org, pipeline).Build(),
+				client: createFakeClientBuilder().WithObjects(pipeline).Build(),
 			}
 
 			By("Creating a valid project")
-			obj = createValidProject("test-project", orgName, orgNamespace, pipelineName)
+			obj = createValidProject("test-project", testNamespace, testNamespace, pipelineName)
 
 			By("Validating the project creation")
 			_, err := validatorWithResources.ValidateCreate(ctx, obj)
@@ -261,23 +207,18 @@ var _ = Describe("Project Webhook", func() {
 
 	Context("When validating Project updates", func() {
 		It("Should validate project updates correctly", func() {
-			By("Creating an organization")
-			orgName := testOrg
-			orgNamespace := testNamespace
-			org := createValidOrganization(orgName, orgNamespace)
-
 			By("Creating a deployment pipeline")
 			pipelineName := testPipeline
-			pipeline := createValidDeploymentPipeline(pipelineName, orgNamespace)
+			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
 
-			By("Setting up client with organization and pipeline")
+			By("Setting up client with pipeline")
 			validatorWithResources := ProjectCustomValidator{
-				client: createFakeClientBuilder().WithObjects(org, pipeline).Build(),
+				client: createFakeClientBuilder().WithObjects(pipeline).Build(),
 			}
 
 			By("Creating old and new versions of the project")
-			oldObj = createValidProject("test-project", orgName, orgNamespace, pipelineName)
-			obj = createValidProject("test-project", orgName, orgNamespace, pipelineName)
+			oldObj = createValidProject("test-project", testNamespace, testNamespace, pipelineName)
+			obj = createValidProject("test-project", testNamespace, testNamespace, pipelineName)
 
 			// There is no updates to the project object, so the validation should pass
 			By("Validating the project update")
