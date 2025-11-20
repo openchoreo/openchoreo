@@ -10,8 +10,48 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-openchoreo-dev-v1alpha1-component
+  failurePolicy: Fail
+  name: mcomponent-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - components
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-openchoreo-dev-v1alpha1-componentrelease
+  failurePolicy: Fail
+  name: mcomponentrelease-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componentreleases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Ignore # TODO: Change to Fail after implementing the webhook logic
+  failurePolicy: Fail
   name: mproject-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -23,6 +63,26 @@ webhooks:
     - UPDATE
     resources:
     - projects
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-openchoreo-dev-v1alpha1-releasebinding
+  failurePolicy: Fail
+  name: mreleasebinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releasebindings
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -36,8 +96,68 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-component
+  failurePolicy: Fail
+  name: vcomponent-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - components
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-componentrelease
+  failurePolicy: Fail
+  name: vcomponentrelease-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componentreleases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-componenttype
+  failurePolicy: Fail
+  name: vcomponenttype-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componenttypes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Ignore # TODO: Change to Fail after implementing the webhook logic
+  failurePolicy: Fail
   name: vproject-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -49,4 +169,44 @@ webhooks:
     - UPDATE
     resources:
     - projects
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-releasebinding
+  failurePolicy: Fail
+  name: vreleasebinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releasebindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-trait
+  failurePolicy: Fail
+  name: vtrait-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - traits
   sideEffects: None
