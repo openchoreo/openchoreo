@@ -203,7 +203,6 @@ func (h *Handler) UpdateComponentWorkflowSchema(w http.ResponseWriter, r *http.R
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
-	defer r.Body.Close()
 
 	// Call service to update workflow schema
 	component, err := h.services.ComponentService.UpdateComponentWorkflowSchema(ctx, orgName, projectName, componentName, &req)

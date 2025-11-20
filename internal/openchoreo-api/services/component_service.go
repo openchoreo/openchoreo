@@ -23,7 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	openschema "github.com/openchoreo/openchoreo/internal/schema"
+	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 const (
@@ -434,7 +434,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		}
 	}
 
-	def := schema.Definition{
+	def := openchoreoschema.Definition{
 		Types: types,
 	}
 
@@ -449,7 +449,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		def.Schemas = []map[string]any{baseParams}
 	}
 
-	jsonSchema, err := schema.ToJSONSchema(def)
+	jsonSchema, err := openchoreoschema.ToJSONSchema(def)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
@@ -518,7 +518,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		}
 	}
 
-	def := schema.Definition{
+	def := openchoreoschema.Definition{
 		Types: types,
 	}
 
@@ -533,7 +533,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		def.Schemas = []map[string]any{envOverrides}
 	}
 
-	jsonSchema, err := schema.ToJSONSchema(def)
+	jsonSchema, err := openchoreoschema.ToJSONSchema(def)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
@@ -2673,7 +2673,7 @@ func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, 
 	}
 
 	// Validate the provided values against the structural schema
-	if err := s.validateSchemaStructure(providedValues, structural); err != nil {
+	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
 		return err
 	}
 
@@ -2684,24 +2684,14 @@ func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, 
 func (s *ComponentService) buildWorkflowStructuralSchema(workflowSchemaMap map[string]any) (*schema.Structural, error) {
 	// Import the schema package if not already imported
 	// The workflow schema uses the same format as ComponentType schemas
-	def := openschema.Definition{
+	def := openchoreoschema.Definition{
 		Schemas: []map[string]any{workflowSchemaMap},
 	}
 
-	structural, err := openschema.ToStructural(def)
+	structural, err := openchoreoschema.ToStructural(def)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert workflow schema: %w", err)
 	}
 
 	return structural, nil
-}
-
-// validateSchemaStructure validates that provided values match the structural schema
-func (s *ComponentService) validateSchemaStructure(values map[string]any, structural *schema.Structural) error {
-	// Use the schema package's validation function
-	if err := openschema.ValidateAgainstSchema(values, structural); err != nil {
-		return err
-	}
-
-	return nil
 }
