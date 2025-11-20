@@ -403,3 +403,206 @@ func TestComponentReleaseNameGeneration(t *testing.T) {
 		})
 	}
 }
+
+// TestDetermineReleaseBindingStatus tests the ReleaseBinding status determination logic
+func TestDetermineReleaseBindingStatus(t *testing.T) {
+	service := &ComponentService{logger: nil}
+
+	tests := []struct {
+		name       string
+		binding    *v1alpha1.ReleaseBinding
+		wantStatus string
+	}{
+		{
+			name: "No conditions - should be NotReady",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{},
+				},
+			},
+			wantStatus: "NotReady",
+		},
+		{
+			name: "Less than 3 conditions for current generation - should be NotReady (in progress)",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 2,
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 2,
+						},
+					},
+				},
+			},
+			wantStatus: "NotReady",
+		},
+		{
+			name: "All 3 conditions present but one is False - should be Failed",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 3,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 3,
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 3,
+							Reason:             "ResourcesNotReady",
+							Message:            "Some resources are not ready",
+						},
+						{
+							Type:               "Ready",
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 3,
+						},
+					},
+				},
+			},
+			wantStatus: "Failed",
+		},
+		{
+			name: "All 3 conditions present and all True - should be Ready",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 4,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4,
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4,
+						},
+						{
+							Type:               "Ready",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4,
+						},
+					},
+				},
+			},
+			wantStatus: "Ready",
+		},
+		{
+			name: "Conditions from old generation - should be NotReady",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 5,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4, // Old generation
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4, // Old generation
+						},
+						{
+							Type:               "Ready",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 4, // Old generation
+						},
+					},
+				},
+			},
+			wantStatus: "NotReady",
+		},
+		{
+			name: "Mixed generations - only 2 conditions match current generation",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 6,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 6,
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 5, // Old generation
+						},
+						{
+							Type:               "Ready",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 6,
+						},
+					},
+				},
+			},
+			wantStatus: "NotReady",
+		},
+		{
+			name: "Extra conditions beyond the 3 required - all True",
+			binding: &v1alpha1.ReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 7,
+				},
+				Status: v1alpha1.ReleaseBindingStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               "ReleaseSynced",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 7,
+						},
+						{
+							Type:               "ResourcesReady",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 7,
+						},
+						{
+							Type:               "Ready",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 7,
+						},
+						{
+							Type:               "CustomCondition",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 7,
+						},
+					},
+				},
+			},
+			wantStatus: "Ready",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStatus := service.determineReleaseBindingStatus(tt.binding)
+			if gotStatus != tt.wantStatus {
+				t.Errorf("determineReleaseBindingStatus() = %v, want %v", gotStatus, tt.wantStatus)
+			}
+		})
+	}
+}

@@ -11,14 +11,17 @@ import (
 	"log/slog"
 	"strings"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
 const (
@@ -371,6 +374,86 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 	}, nil
 }
 
+// GetComponentReleaseSchema retrieves the JSON schema for a ComponentRelease
+func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting component release schema", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	releaseKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      releaseName,
+	}
+	var release openchoreov1alpha1.ComponentRelease
+	if err := s.k8sClient.Get(ctx, releaseKey, &release); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			return nil, ErrComponentReleaseNotFound
+		}
+		s.logger.Error("Failed to get component release", "error", err)
+		return nil, fmt.Errorf("failed to get component release: %w", err)
+	}
+
+	if release.Spec.Owner.ComponentName != componentName {
+		s.logger.Warn("Component release does not belong to component", "org", orgName, "component", componentName, "release", releaseName)
+		return nil, ErrComponentReleaseNotFound
+	}
+
+	var types map[string]any
+	if release.Spec.ComponentType.Schema.Types != nil && release.Spec.ComponentType.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(release.Spec.ComponentType.Schema.Types.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
+	def := schema.Definition{
+		Types: types,
+	}
+
+	var baseParams map[string]any
+	if release.Spec.ComponentType.Schema.EnvOverrides != nil && release.Spec.ComponentType.Schema.EnvOverrides.Raw != nil {
+		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &baseParams); err != nil {
+			return nil, fmt.Errorf("failed to extract parameters: %w", err)
+		}
+	}
+
+	if baseParams != nil {
+		def.Schemas = []map[string]any{baseParams}
+	}
+
+	jsonSchema, err := schema.ToJSONSchema(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+	}
+
+	wrappedSchema := &extv1.JSONSchemaProps{
+		Type: "object",
+		Properties: map[string]extv1.JSONSchemaProps{
+			"componentTypeEnvOverrides": *jsonSchema,
+		},
+	}
+
+	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	return wrappedSchema, nil
+}
+
 // PatchReleaseBinding patches a ReleaseBinding with environment-specific overrides
 func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
@@ -419,7 +502,6 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 				return nil, fmt.Errorf("environment is required when creating a new release binding")
 			}
 
-			// Initialize the new binding
 			binding = openchoreov1alpha1.ReleaseBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      bindingName,

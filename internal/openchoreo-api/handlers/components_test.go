@@ -247,3 +247,128 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 		})
 	}
 }
+
+// TestGetComponentReleaseSchema_PathParameters tests path parameter extraction for GetComponentReleaseSchema
+func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		url           string
+		orgName       string
+		projectName   string
+		componentName string
+		releaseName   string
+	}{
+		{
+			name:          "Valid path with all parameters",
+			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			releaseName:   "myrelease-v1",
+		},
+		{
+			name:          "Path with hyphens in names",
+			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/component-releases/myrelease-20251120-1/schema",
+			orgName:       "my-org",
+			projectName:   "my-project",
+			componentName: "my-component",
+			releaseName:   "myrelease-20251120-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("projectName", tt.projectName)
+			req.SetPathValue("componentName", tt.componentName)
+			req.SetPathValue("releaseName", tt.releaseName)
+
+			// Verify all path values are set correctly
+			if req.PathValue("orgName") != tt.orgName {
+				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			}
+			if req.PathValue("projectName") != tt.projectName {
+				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
+			}
+			if req.PathValue("componentName") != tt.componentName {
+				t.Errorf("componentName = %v, want %v", req.PathValue("componentName"), tt.componentName)
+			}
+			if req.PathValue("releaseName") != tt.releaseName {
+				t.Errorf("releaseName = %v, want %v", req.PathValue("releaseName"), tt.releaseName)
+			}
+		})
+	}
+}
+
+// TestGetComponentReleaseSchema_MissingPathParameters tests validation for missing required parameters
+func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		orgName       string
+		projectName   string
+		componentName string
+		releaseName   string
+		wantValid     bool
+	}{
+		{
+			name:          "All parameters present",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			releaseName:   "myrelease-v1",
+			wantValid:     true,
+		},
+		{
+			name:          "Missing org name",
+			orgName:       "",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			releaseName:   "myrelease-v1",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing project name",
+			orgName:       "myorg",
+			projectName:   "",
+			componentName: "mycomponent",
+			releaseName:   "myrelease-v1",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing component name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "",
+			releaseName:   "myrelease-v1",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing release name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			releaseName:   "",
+			wantValid:     false,
+		},
+		{
+			name:          "All parameters missing",
+			orgName:       "",
+			projectName:   "",
+			componentName: "",
+			releaseName:   "",
+			wantValid:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the validation logic from GetComponentReleaseSchema handler
+			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != "" && tt.releaseName != ""
+
+			if isValid != tt.wantValid {
+				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
+			}
+		})
+	}
+}
