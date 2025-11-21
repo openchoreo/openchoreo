@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/.helpers.sh"
 YAML_FILE="samples/from-image/react-starter-web-app/react-starter.yaml"
 NAMESPACE="default"
 COMPONENT_NAME="react-starter"
-DEPLOYMENT_NAME="react-starter-development"
+RELEASE_BINDING_NAME="react-starter-development"
 MAX_WAIT=300  # Maximum wait time in seconds (5 minutes)
 SLEEP_INTERVAL=5
 CLEAN_MODE=false
@@ -86,28 +86,28 @@ echo "$apply_output" | while IFS= read -r line; do
         elif [[ "$line" == *"configured"* ]] || [[ "$line" == *"unchanged"* ]]; then
             log_info "Workload '${COMPONENT_NAME}' already exists"
         fi
-    elif [[ "$line" == *"componentdeployment.openchoreo.dev/${DEPLOYMENT_NAME}"* ]]; then
+    elif [[ "$line" == *"releasebinding.openchoreo.dev/${RELEASE_BINDING_NAME}"* ]]; then
         if [[ "$line" == *"created"* ]]; then
-            log_success "ComponentDeployment '${DEPLOYMENT_NAME}' created"
+            log_success "ReleaseBinding '${RELEASE_BINDING_NAME}' created"
         elif [[ "$line" == *"configured"* ]] || [[ "$line" == *"unchanged"* ]]; then
-            log_info "ComponentDeployment '${DEPLOYMENT_NAME}' already exists"
+            log_info "ReleaseBinding '${RELEASE_BINDING_NAME}' already exists"
         fi
     fi
 done
 
-# Wait for ComponentDeployment to be synced
-log_info "Waiting for ComponentDeployment to be synced..."
+# Wait for ReleaseBinding to be synced
+log_info "Waiting for ReleaseBinding to be synced..."
 elapsed=0
 while true; do
-    SYNC_STATUS=$(kubectl get componentdeployment "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="ReleaseSynced") | .status' || echo "")
+    SYNC_STATUS=$(kubectl get releasebinding "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="ReleaseSynced") | .status' || echo "")
 
     if [[ "$SYNC_STATUS" == "True" ]]; then
-        log_success "ComponentDeployment synced with Release"
+        log_success "ReleaseBinding synced with Release"
         break
     fi
 
     if [[ $elapsed -ge $MAX_WAIT ]]; then
-        log_error "Timeout waiting for ComponentDeployment to sync (${MAX_WAIT}s)"
+        log_error "Timeout waiting for ReleaseBinding to sync (${MAX_WAIT}s)"
         exit 1
     fi
 
@@ -119,7 +119,7 @@ done
 log_info "Waiting for Deployment to be available..."
 elapsed=0
 while true; do
-    DEPLOYMENT_AVAILABLE=$(kubectl get release "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
+    DEPLOYMENT_AVAILABLE=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
 
     if [[ "$DEPLOYMENT_AVAILABLE" == "True" ]]; then
         log_success "Deployment is available"
@@ -139,7 +139,7 @@ done
 log_info "Waiting for HTTPRoute to be ready..."
 elapsed=0
 while true; do
-    ROUTE_ACCEPTED=$(kubectl get release "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="HTTPRoute") | .status.parents[]?.conditions[]? | select(.type=="Accepted") | .status' || echo "")
+    ROUTE_ACCEPTED=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="HTTPRoute") | .status.parents[]?.conditions[]? | select(.type=="Accepted") | .status' || echo "")
 
     if [[ "$ROUTE_ACCEPTED" == "True" ]]; then
         log_success "HTTPRoute is ready"
@@ -156,7 +156,7 @@ while true; do
 done
 
 # Get the public URL from HTTPRoute
-HOSTNAME=$(kubectl get release "$DEPLOYMENT_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
+HOSTNAME=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
 
 if [[ -z "$HOSTNAME" ]] || [[ "$HOSTNAME" == "null" ]]; then
     log_error "Failed to retrieve hostname from HTTPRoute"
