@@ -465,8 +465,8 @@ func TestDetermineReleaseBindingStatus(t *testing.T) {
 							Type:               "ResourcesReady",
 							Status:             metav1.ConditionFalse,
 							ObservedGeneration: 3,
-							Reason:             "ResourcesNotReady",
-							Message:            "Some resources are not ready",
+							Reason:             "ResourcesDegraded",
+							Message:            "Some resources are degraded",
 						},
 						{
 							Type:               "Ready",

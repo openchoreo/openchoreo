@@ -21,6 +21,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
@@ -994,17 +995,21 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 		return statusNotReady
 	}
 
-	isFailed := false
+	// Check if any condition has Status == False with ResourcesDegraded reason
 	for i := range conditionsForGeneration {
-		if conditionsForGeneration[i].Status == metav1.ConditionFalse {
-			isFailed = true
-			break
+		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == string(releasebinding.ReasonResourcesDegraded) {
+			return statusFailed
 		}
 	}
-	if isFailed {
-		return statusFailed
+
+	// Check if any condition has Status == False with ResourcesProgressing reason
+	for i := range conditionsForGeneration {
+		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == string(releasebinding.ReasonResourcesProgressing) {
+			return statusNotReady
+		}
 	}
 
+	// If all three conditions are present and none are degraded, it's ready
 	return statusReady
 }
 
