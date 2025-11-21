@@ -27,12 +27,12 @@ endef
 ##@ K3d Development
 
 .PHONY: k3d
-k3d: ## Complete setup: create cluster, build, load, preload dependencies, and install all planes
+k3d: ## Complete setup: create cluster, preload dependencies, build, load, and install all planes
 	@$(call log_info, Starting complete OpenChoreo k3d setup...)
 	@$(MAKE) k3d.up
+	@$(MAKE) k3d.preload
 	@$(MAKE) k3d.build
 	@$(MAKE) k3d.load
-	@$(MAKE) k3d.preload
 	@$(MAKE) k3d.install
 	@$(call log_success, OpenChoreo k3d setup completed!)
 

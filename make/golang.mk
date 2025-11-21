@@ -45,7 +45,7 @@ define go_build
 	$(eval GO_LDFLAGS += $(GO_LDFLAGS_BUILD_DATA))
 	$(eval GO_LDFLAGS += -X $(GO_VERSION_PACKAGE).componentName=$$(COMMAND))
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) \
-		$(GO) build -o $(OUTPUT_PATH)/$(COMMAND) -ldflags "$(GO_LDFLAGS)" \
+		$(GO) build -buildmode=exe -o $(OUTPUT_PATH)/$(COMMAND) -ldflags "$(GO_LDFLAGS)" \
 		$(MAIN_PACKAGE_PATH)
 endef
 
