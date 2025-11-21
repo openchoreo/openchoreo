@@ -496,21 +496,28 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
 	}
 
-	// Process trait overrides
+	// Process trait overrides from ComponentRelease (trait instances with instance names)
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
-	for traitName, traitSpec := range release.Spec.Traits {
-		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, traitName)
+	for _, componentTrait := range release.Spec.ComponentProfile.Traits {
+		traitSpec, found := release.Spec.Traits[componentTrait.Name]
+		if !found {
+			s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "instanceName", componentTrait.InstanceName)
+			continue
+		}
+
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, componentTrait.Name)
 		if err != nil {
 			return nil, err
 		}
 
+		// Use instance name as the key (not trait name)
 		if traitJSONSchema != nil {
-			traitSchemas[traitName] = *traitJSONSchema
+			traitSchemas[componentTrait.InstanceName] = *traitJSONSchema
 		}
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}
@@ -622,13 +629,14 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 			return nil, err
 		}
 
+		// Use instance name as the key (not trait name)
 		if traitJSONSchema != nil {
-			traitSchemas[componentTrait.Name] = *traitJSONSchema
+			traitSchemas[componentTrait.InstanceName] = *traitJSONSchema
 		}
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}
