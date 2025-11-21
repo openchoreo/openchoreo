@@ -299,5 +299,5 @@ spec:
           mountPath: /conf
           value: |
             schema_generation:
-              enable: true
+              enable: false
 
