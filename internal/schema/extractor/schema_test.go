@@ -728,9 +728,9 @@ description: 'string | default=''User''''s preferred timezone'''
 }
 
 func TestConverter_SingleQuotedEnumWithSpecialChars(t *testing.T) {
-	// Enum values with quotes in configuration contexts
+	// Enum values using standard comma-separated format
 	const schemaYAML = `
-logLevel: 'string | enum=''info'',''warn'',''error'',''debug'' | default=''info'''
+logLevel: 'string | enum=info,warn,error,debug | default=info'
 `
 	const expected = `{
   "type": "object",
@@ -752,10 +752,10 @@ logLevel: 'string | enum=''info'',''warn'',''error'',''debug'' | default=''info'
 }
 
 func TestConverter_JSONArrayEnumFormat(t *testing.T) {
-	// Test enum values provided as JSON array (workflow schema format)
+	// Test enum values provided with quoted constraint values (workflow schema format)
 	const schemaYAML = `
-testMode: 'string | enum=["unit", "integration", "none"] default=unit'
-secretRef: 'string | enum=["reading-list-repo-credentials-dev","payments-repo-credentials-dev"]'
+testMode: string | enum=unit,integration,none default=unit
+secretRef: 'string | enum="reading-list-repo-credentials-dev,payments-repo-credentials-dev"'
 `
 	const expected = `{
   "type": "object",

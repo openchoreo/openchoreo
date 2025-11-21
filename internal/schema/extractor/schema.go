@@ -389,25 +389,15 @@ func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schem
 			return nil
 		},
 		"enum": func(value string) error {
-			var values []string
-
-			// Check if the value is a JSON array
-			trimmedValue := strings.TrimSpace(value)
-			if strings.HasPrefix(trimmedValue, "[") && strings.HasSuffix(trimmedValue, "]") {
-				// Parse as JSON array
-				var jsonArray []string
-				if err := json.Unmarshal([]byte(trimmedValue), &jsonArray); err != nil {
-					return fmt.Errorf("invalid JSON array for enum %q: %w", value, err)
-				}
-				values = jsonArray
-			} else {
-				// Split by comma for backward compatibility
-				values = splitAndTrim(value, ",")
-			}
-
+			// Unquote the entire enum value first (e.g., "val1,val2" -> val1,val2)
+			unquotedValue := unquoteIfNeeded(value)
+			values := splitAndTrim(unquotedValue, ",")
 			enums := make([]extv1.JSON, 0, len(values))
 			for _, v := range values {
-				parsed, err := parseValueForType(v, schemaType)
+				// Also unquote individual enum values (e.g., 'info' -> info)
+				// This handles cases like enum='info','warn','error'
+				unquotedEnumValue := unquoteIfNeeded(v)
+				parsed, err := parseValueForType(unquotedEnumValue, schemaType)
 				if err != nil {
 					return fmt.Errorf("invalid enum value %q: %w", v, err)
 				}
@@ -662,7 +652,7 @@ func parseArbitraryValue(value string) (any, error) {
 // This parser handles complex constraint values by tracking quote and bracket context:
 //   - Quoted strings: "description='A long description with spaces'"
 //   - JSON values: "default={\"key\": \"value\"}"
-//   - Array values: "enum=['a', 'b', 'c']"
+//   - Quoted enum values: "enum="a,b,c"
 //
 // Tokenization rules:
 //  1. Tokens are separated by whitespace outside of quotes/brackets

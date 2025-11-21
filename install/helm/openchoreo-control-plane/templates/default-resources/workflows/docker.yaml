@@ -15,15 +15,15 @@ spec:
   # Developer-facing schema with type validation
   schema:
     repository:
-      url: string
+      url: string | description="Git repository URL"
       revision:
-        branch: string | default=main
-        commit: string | default=""
-      appPath: string | default=.
-      secretRef: string
+        branch: string | default=main description="Git branch to checkout"
+        commit: string | default="" description="Git commit SHA or reference (empty for latest on branch)"
+      appPath: string | default=. description="Path to the application directory within the repository"
+      secretRef: string | description="Reference to the secret containing repository credentials"
     docker:
-      context: string | default=.
-      filePath: string | default=./Dockerfile
+      context: string | default=. description="Docker build context path relative to the repository root"
+      filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
 
   # Secret references to inject into build plane
   secrets:

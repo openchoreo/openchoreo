@@ -15,12 +15,12 @@ spec:
   # Developer-facing schema with type validation
   schema:
     repository:
-      url: string
+      url: string | description="Git repository URL"
       revision:
-        branch: string | default=main
-        commit: string | default=""
-      appPath: string | default=.
-      secretRef: string
+        branch: string | default=main description="Git branch to checkout"
+        commit: string | default="" description="Git commit SHA or reference (empty for latest on branch)"
+      appPath: string | default=. description="Path to the Ballerina application directory within the repository"
+      secretRef: string | description="Reference to the secret containing repository credentials"
 
   # Secret references to inject into build plane
   secrets:
