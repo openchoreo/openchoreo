@@ -79,6 +79,9 @@ spec:
                       type: object
                     type: array
                 type: object
+                x-kubernetes-validations:
+                - message: spec.componentProfile is immutable
+                  rule: self == oldSelf
               componentType:
                 description: |-
                   ComponentType is a full embedded copy of the ComponentType
@@ -191,6 +194,8 @@ spec:
                 - workloadType
                 type: object
                 x-kubernetes-validations:
+                - message: spec.componentType is immutable
+                  rule: self == oldSelf
                 - message: resources must contain a primary resource with id matching
                     workloadType
                   rule: self.resources.exists(r, r.id == self.workloadType)
@@ -353,6 +358,9 @@ spec:
                   Traits maps trait names to their frozen specifications
                   at the time of ComponentRelease, ensuring immutability
                 type: object
+                x-kubernetes-validations:
+                - message: spec.traits is immutable
+                  rule: self == oldSelf
               workload:
                 description: |-
                   Workload is a full embedded copy of the Workload
@@ -573,6 +581,9 @@ spec:
                       The key is the endpoint name, and the value is the endpoint specification.
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: spec.workload is immutable
+                  rule: self == oldSelf
             required:
             - componentProfile
             - componentType

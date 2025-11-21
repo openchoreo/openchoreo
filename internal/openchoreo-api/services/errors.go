@@ -27,6 +27,8 @@ var (
 	ErrWorkloadNotFound           = errors.New("workload not found")
 	ErrComponentReleaseNotFound   = errors.New("component release not found")
 	ErrReleaseBindingNotFound     = errors.New("release binding not found")
+	ErrWorkflowSchemaInvalid      = errors.New("workflow schema is invalid")
+	ErrReleaseNotFound            = errors.New("release not found")
 )
 
 // Error codes for API responses
@@ -51,6 +53,8 @@ const (
 	CodeWorkloadNotFound           = "WORKLOAD_NOT_FOUND"
 	CodeComponentReleaseNotFound   = "COMPONENT_RELEASE_NOT_FOUND"
 	CodeReleaseBindingNotFound     = "RELEASE_BINDING_NOT_FOUND"
+	CodeReleaseNotFound            = "RELEASE_NOT_FOUND"
 	CodeInvalidInput               = "INVALID_INPUT"
 	CodeInternalError              = "INTERNAL_ERROR"
+	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
 )

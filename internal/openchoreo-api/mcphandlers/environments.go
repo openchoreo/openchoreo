@@ -9,29 +9,24 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
-func (h *MCPHandler) ListEnvironments(ctx context.Context, orgName string) (string, error) {
+type ListEnvironmentsResponse struct {
+	Environments []*models.EnvironmentResponse `json:"environments"`
+}
+
+func (h *MCPHandler) ListEnvironments(ctx context.Context, orgName string) (any, error) {
 	environments, err := h.Services.EnvironmentService.ListEnvironments(ctx, orgName)
 	if err != nil {
-		return "", err
+		return ListEnvironmentsResponse{}, err
 	}
-
-	return marshalResponse(environments)
+	return ListEnvironmentsResponse{
+		Environments: environments,
+	}, nil
 }
 
-func (h *MCPHandler) GetEnvironment(ctx context.Context, orgName, envName string) (string, error) {
-	environment, err := h.Services.EnvironmentService.GetEnvironment(ctx, orgName, envName)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(environment)
+func (h *MCPHandler) GetEnvironment(ctx context.Context, orgName, envName string) (any, error) {
+	return h.Services.EnvironmentService.GetEnvironment(ctx, orgName, envName)
 }
 
-func (h *MCPHandler) CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (string, error) {
-	environment, err := h.Services.EnvironmentService.CreateEnvironment(ctx, orgName, req)
-	if err != nil {
-		return "", err
-	}
-
-	return marshalResponse(environment)
+func (h *MCPHandler) CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (any, error) {
+	return h.Services.EnvironmentService.CreateEnvironment(ctx, orgName, req)
 }

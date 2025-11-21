@@ -8,6 +8,26 @@ global:
   # minimal: Single replica OpenSearch instance will be deployed
   installationMode: minimal
 
+# Wait job configuration for post-install hooks
+waitJob:
+  image: bitnamilegacy/kubectl:1.32.4
+
+# External Secrets Operator configuration for secret management
+# Single cluster: Set to false to use data plane's ESO
+# Multi-cluster: Set to true to install dedicated ESO in observability plane
+external-secrets:
+  enabled: false
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
+# Fake Secret Store configuration for local development
+fakeSecretStore:
+  enabled: false
+  name: default
+  secrets:
+    - key: RCA_LLM_API_KEY
+      value: "fake-llm-api-key-for-development"
+
 data-prepper:
   enabled: false
   fullnameOverride: "data-prepper"

@@ -219,3 +219,69 @@ func sortRequiredFields(schema *extv1.JSONSchemaProps) {
 		sortRequiredFields(schema.AdditionalProperties.Schema)
 	}
 }
+
+// ValidateAgainstSchema validates that provided values conform to the expected schema structure.
+//
+// This function checks that all fields in the provided values exist in the schema definition
+// and reports any unknown fields that are not defined in the schema.
+//
+// Parameters:
+//   - values: The developer-provided values to validate (typically from Component.Spec.Workflow.Schema)
+//   - structural: The structural schema to validate against (typically from Workflow.Spec.Schema)
+//
+// Returns:
+//   - error: nil if validation passes, or an error describing which fields are invalid
+//
+// Validation rules:
+//  1. All top-level fields in values must exist in the schema properties
+//  2. Nested object validation is performed recursively
+//  3. Unknown fields (not defined in schema) are reported as errors
+//
+// Example:
+//
+//	Schema defines: {repository: {url: string}, version: integer}
+//	Valid input:    {repository: {url: "..."}, version: 1}
+//	Invalid input:  {repository: {url: "..."}, unknownField: "x"}  // unknownField not in schema
+func ValidateAgainstSchema(values map[string]any, structural *apiextschema.Structural) error {
+	if structural == nil {
+		return fmt.Errorf("schema is nil")
+	}
+
+	if len(values) == 0 {
+		// Empty values are valid - defaults will be applied
+		return nil
+	}
+
+	// Collect unknown fields (fields in values but not in schema)
+	var unknownFields []string
+
+	for key := range values {
+		// Check if the field exists in the schema properties
+		if structural.Properties == nil {
+			unknownFields = append(unknownFields, key)
+			continue
+		}
+
+		propSchema, exists := structural.Properties[key]
+		if !exists {
+			unknownFields = append(unknownFields, key)
+			continue
+		}
+
+		// Recursively validate nested objects
+		if valueMap, ok := values[key].(map[string]any); ok {
+			if propSchema.Type == "object" {
+				if err := ValidateAgainstSchema(valueMap, &propSchema); err != nil {
+					return fmt.Errorf("%s.%w", key, err)
+				}
+			}
+		}
+	}
+
+	if len(unknownFields) > 0 {
+		sort.Strings(unknownFields)
+		return fmt.Errorf("unknown fields: %v", unknownFields)
+	}
+
+	return nil
+}

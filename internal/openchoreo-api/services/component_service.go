@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/schema"
+	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 const (
@@ -50,6 +51,40 @@ func (s *ComponentService) parseComponentTypeName(componentType string) (string,
 		return "", fmt.Errorf("invalid component type format: %s", componentType)
 	}
 	return parts[1], nil
+}
+
+// buildTraitEnvOverridesSchema extracts and converts a TraitSpec's envOverrides to JSON schema
+// Returns nil if the trait has no envOverrides
+func (s *ComponentService) buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
+	var traitEnvOverrides map[string]any
+	if traitSpec.Schema.EnvOverrides != nil && traitSpec.Schema.EnvOverrides.Raw != nil {
+		if err := json.Unmarshal(traitSpec.Schema.EnvOverrides.Raw, &traitEnvOverrides); err != nil {
+			return nil, fmt.Errorf("failed to extract envOverrides for trait %s: %w", traitName, err)
+		}
+	}
+
+	if traitEnvOverrides == nil {
+		return nil, nil
+	}
+
+	var traitTypes map[string]any
+	if traitSpec.Schema.Types != nil && traitSpec.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(traitSpec.Schema.Types.Raw, &traitTypes); err != nil {
+			return nil, fmt.Errorf("failed to extract types for trait %s: %w", traitName, err)
+		}
+	}
+
+	traitDef := openchoreoschema.Definition{
+		Types:   traitTypes,
+		Schemas: []map[string]any{traitEnvOverrides},
+	}
+
+	traitJSONSchema, err := openchoreoschema.ToJSONSchema(traitDef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert trait %s to JSON schema: %w", traitName, err)
+	}
+
+	return traitJSONSchema, nil
 }
 
 type PromoteComponentPayload struct {
@@ -173,7 +208,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 			}
 			continue
 		}
-		traits[componentTrait.InstanceName] = trait.Spec
+		traits[componentTrait.Name] = trait.Spec
 	}
 
 	// Build ComponentProfile from Component parameters
@@ -433,34 +468,54 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		}
 	}
 
-	def := schema.Definition{
+	def := openchoreoschema.Definition{
 		Types: types,
 	}
 
-	var baseParams map[string]any
+	var componentTypeEnvOverrides map[string]any
 	if release.Spec.ComponentType.Schema.EnvOverrides != nil && release.Spec.ComponentType.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &baseParams); err != nil {
+		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &componentTypeEnvOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 	}
 
-	if baseParams != nil {
-		def.Schemas = []map[string]any{baseParams}
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
-	}
-
+	// Build the wrapped schema properties
 	wrappedSchema := &extv1.JSONSchemaProps{
-		Type: "object",
-		Properties: map[string]extv1.JSONSchemaProps{
-			"componentTypeEnvOverrides": *jsonSchema,
-		},
+		Type:       "object",
+		Properties: make(map[string]extv1.JSONSchemaProps),
 	}
 
-	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	// Only add componentTypeEnvOverrides if there are actual envOverrides
+	if componentTypeEnvOverrides != nil {
+		def.Schemas = []map[string]any{componentTypeEnvOverrides}
+		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+		}
+		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
+	}
+
+	// Process trait overrides
+	traitSchemas := make(map[string]extv1.JSONSchemaProps)
+	for traitName, traitSpec := range release.Spec.Traits {
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, traitName)
+		if err != nil {
+			return nil, err
+		}
+
+		if traitJSONSchema != nil {
+			traitSchemas[traitName] = *traitJSONSchema
+		}
+	}
+
+	if len(traitSchemas) > 0 {
+		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: traitSchemas,
+		}
+	}
+
+	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvOverrides", componentTypeEnvOverrides != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -517,7 +572,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		}
 	}
 
-	def := schema.Definition{
+	def := openchoreoschema.Definition{
 		Types: types,
 	}
 
@@ -528,24 +583,113 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		}
 	}
 
+	// Build the wrapped schema properties
+	wrappedSchema := &extv1.JSONSchemaProps{
+		Type:       "object",
+		Properties: make(map[string]extv1.JSONSchemaProps),
+	}
+
+	// Only add componentTypeEnvOverrides if there are actual envOverrides
 	if envOverrides != nil {
 		def.Schemas = []map[string]any{envOverrides}
+		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+		}
+		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
 	}
 
-	jsonSchema, err := schema.ToJSONSchema(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+	// Process trait overrides from the component's traits
+	traitSchemas := make(map[string]extv1.JSONSchemaProps)
+	for _, componentTrait := range component.Spec.Traits {
+		traitKey := client.ObjectKey{
+			Namespace: orgName,
+			Name:      componentTrait.Name,
+		}
+		var trait openchoreov1alpha1.Trait
+		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Trait not found", "org", orgName, "trait", componentTrait.Name)
+				continue // Skip missing traits instead of failing
+			}
+			s.logger.Error("Failed to get trait", "trait", componentTrait.Name, "error", err)
+			return nil, fmt.Errorf("failed to get trait %s: %w", componentTrait.Name, err)
+		}
+
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(trait.Spec, componentTrait.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if traitJSONSchema != nil {
+			traitSchemas[componentTrait.Name] = *traitJSONSchema
+		}
 	}
 
-	wrappedSchema := &extv1.JSONSchemaProps{
-		Type: "object",
-		Properties: map[string]extv1.JSONSchemaProps{
-			"componentTypeEnvOverrides": *jsonSchema,
+	if len(traitSchemas) > 0 {
+		wrappedSchema.Properties["traitEnvOverrides"] = extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: traitSchemas,
+		}
+	}
+
+	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName, "hasComponentTypeEnvOverrides", envOverrides != nil, "traitCount", len(traitSchemas))
+	return wrappedSchema, nil
+}
+
+// GetEnvironmentRelease retrieves the Release spec and status for a given component and environment
+// Returns the full Release spec and status including resources, owner, environment information, and conditions
+func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (*models.ReleaseResponse, error) {
+	s.logger.Debug("Getting release", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	var releaseList openchoreov1alpha1.ReleaseList
+	listOpts := []client.ListOption{
+		client.InNamespace(orgName),
+		client.MatchingLabels{
+			labels.LabelKeyOrganizationName: orgName,
+			labels.LabelKeyProjectName:      projectName,
+			labels.LabelKeyComponentName:    componentName,
+			labels.LabelKeyEnvironmentName:  environmentName,
 		},
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName)
-	return wrappedSchema, nil
+	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
+		s.logger.Error("Failed to list releases", "error", err)
+		return nil, fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	if len(releaseList.Items) == 0 {
+		s.logger.Warn("No release found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+		return nil, ErrReleaseNotFound
+	}
+
+	// Get the first matching Release (there should only be one per component/environment)
+	release := &releaseList.Items[0]
+
+	s.logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	return &models.ReleaseResponse{
+		Spec:   release.Spec,
+		Status: release.Status,
+	}, nil
 }
 
 // PatchReleaseBinding patches a ReleaseBinding with environment-specific overrides
@@ -844,6 +988,12 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 		}
 	}
 
+	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
+	// If there are less than 3 conditions for the current generation, it's still in progress
+	if len(conditionsForGeneration) < 3 {
+		return statusNotReady
+	}
+
 	isFailed := false
 	for i := range conditionsForGeneration {
 		if conditionsForGeneration[i].Status == metav1.ConditionFalse {
@@ -853,12 +1003,6 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 	}
 	if isFailed {
 		return statusFailed
-	}
-
-	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
-	// If there are less than 3 conditions for the current generation, it's still in progress
-	if len(conditionsForGeneration) < 3 {
-		return statusNotReady
 	}
 
 	return statusReady
@@ -2504,4 +2648,138 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 
 	s.logger.Debug("Created scheduled task for component", "scheduledTask", scheduledTask.Name, "component", componentName, "workload", workloadName)
 	return nil
+}
+
+// UpdateComponentWorkflowSchema updates the workflow schema for a component
+func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateWorkflowSchemaRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+
+	// Verify project exists
+	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Check if component has workflow configuration
+	if component.Spec.Workflow == nil {
+		s.logger.Warn("Component does not have workflow configuration", "org", orgName, "project", projectName, "component", componentName)
+		return nil, fmt.Errorf("component does not have workflow configuration")
+	}
+
+	// Validate the schema against the Workflow CRD
+	if err := s.validateWorkflowSchema(ctx, orgName, component.Spec.Workflow.Name, req.Schema); err != nil {
+		s.logger.Warn("Invalid workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, ErrWorkflowSchemaInvalid
+	}
+
+	// Update the workflow schema
+	component.Spec.Workflow.Schema = req.Schema
+
+	// Update the component in Kubernetes
+	if err := s.k8sClient.Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component", "error", err)
+		return nil, fmt.Errorf("failed to update component: %w", err)
+	}
+
+	s.logger.Debug("Updated component workflow schema successfully", "org", orgName, "project", projectName, "component", componentName)
+
+	// Return the updated component
+	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+}
+
+// validateWorkflowSchema validates the provided schema against the Workflow CRD's schema definition
+func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, workflowName string, providedSchema *runtime.RawExtension) error {
+	// Fetch the Workflow CR
+	workflowKey := client.ObjectKey{
+		Name:      workflowName,
+		Namespace: orgName,
+	}
+	workflow := &openchoreov1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Workflow not found", "org", orgName, "workflow", workflowName)
+			return ErrWorkflowNotFound
+		}
+		s.logger.Error("Failed to get workflow", "error", err)
+		return fmt.Errorf("failed to get workflow: %w", err)
+	}
+
+	// If workflow has no schema defined, any schema is valid
+	if workflow.Spec.Schema == nil {
+		return nil
+	}
+
+	// If provided schema is nil or empty, it's valid (defaults will be applied)
+	if providedSchema == nil || len(providedSchema.Raw) == 0 {
+		return nil
+	}
+
+	// Unmarshal the workflow's schema definition
+	var workflowSchemaMap map[string]any
+	if err := json.Unmarshal(workflow.Spec.Schema.Raw, &workflowSchemaMap); err != nil {
+		s.logger.Error("Failed to unmarshal workflow schema", "error", err)
+		return fmt.Errorf("failed to parse workflow schema definition: %w", err)
+	}
+
+	// Unmarshal the provided schema values
+	var providedValues map[string]any
+	if err := json.Unmarshal(providedSchema.Raw, &providedValues); err != nil {
+		s.logger.Error("Failed to unmarshal provided schema", "error", err)
+		return fmt.Errorf("failed to parse provided schema: %w", err)
+	}
+
+	// Build structural schema from workflow schema definition
+	structural, err := s.buildWorkflowStructuralSchema(workflowSchemaMap)
+	if err != nil {
+		s.logger.Error("Failed to build structural schema", "error", err)
+		return fmt.Errorf("failed to build workflow schema structure: %w", err)
+	}
+
+	// Validate the provided values against the structural schema
+	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// buildWorkflowStructuralSchema converts a workflow schema map to a structural schema
+func (s *ComponentService) buildWorkflowStructuralSchema(workflowSchemaMap map[string]any) (*schema.Structural, error) {
+	// Import the schema package if not already imported
+	// The workflow schema uses the same format as ComponentType schemas
+	def := openchoreoschema.Definition{
+		Schemas: []map[string]any{workflowSchemaMap},
+	}
+
+	structural, err := openchoreoschema.ToStructural(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert workflow schema: %w", err)
+	}
+
+	return structural, nil
 }

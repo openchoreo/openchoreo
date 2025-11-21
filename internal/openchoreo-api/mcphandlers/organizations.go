@@ -5,28 +5,32 @@ package mcphandlers
 
 import (
 	"context"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
-func (h *MCPHandler) GetOrganization(ctx context.Context, name string) (string, error) {
-	if name == "" {
-		return h.listOrganizations(ctx)
-	} else {
-		return h.getOrganizationByName(ctx, name)
-	}
+type ListOrganizationsResponse struct {
+	Organizations []*models.OrganizationResponse `json:"organizations"`
 }
 
-func (h *MCPHandler) listOrganizations(ctx context.Context) (string, error) {
-	res, err := h.Services.OrganizationService.ListOrganizations(ctx)
-	if err != nil {
-		return "", err
-	}
-	return marshalResponse(res)
+func (h *MCPHandler) GetOrganization(ctx context.Context, name string) (any, error) {
+	return h.getOrganizationByName(ctx, name)
 }
 
-func (h *MCPHandler) getOrganizationByName(ctx context.Context, name string) (string, error) {
-	res, err := h.Services.OrganizationService.GetOrganization(ctx, name)
+func (h *MCPHandler) ListOrganizations(ctx context.Context) (any, error) {
+	return h.listOrganizations(ctx)
+}
+
+func (h *MCPHandler) listOrganizations(ctx context.Context) (ListOrganizationsResponse, error) {
+	organizations, err := h.Services.OrganizationService.ListOrganizations(ctx)
 	if err != nil {
-		return "", err
+		return ListOrganizationsResponse{}, err
 	}
-	return marshalResponse(res)
+	return ListOrganizationsResponse{
+		Organizations: organizations,
+	}, nil
+}
+
+func (h *MCPHandler) getOrganizationByName(ctx context.Context, name string) (*models.OrganizationResponse, error) {
+	return h.Services.OrganizationService.GetOrganization(ctx, name)
 }

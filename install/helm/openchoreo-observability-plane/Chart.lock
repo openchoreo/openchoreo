@@ -2,6 +2,9 @@ dependencies:
 - name: data-prepper
   repository: https://opensearch-project.github.io/helm-charts/
   version: 0.3.1
+- name: external-secrets
+  repository: https://charts.external-secrets.io
+  version: 0.19.2
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
@@ -14,5 +17,5 @@ dependencies:
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
-digest: sha256:e4487128267904798eee54dd5066d62dd045e8745ad64ce96ed8f29f28e41449
-generated: "2025-10-29T15:17:58.372801+05:30"
+digest: sha256:5719357ff4581d3c4b5aa7f92ee6e130c3490f3625152196fb6f9c76cbcf55bb
+generated: "2025-11-21T08:32:18.094755+05:30"

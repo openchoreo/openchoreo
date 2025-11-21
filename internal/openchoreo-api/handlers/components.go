@@ -181,6 +181,55 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
+func (h *Handler) UpdateComponentWorkflowSchema(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("UpdateComponentWorkflowSchema handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Parse request body
+	var req models.UpdateWorkflowSchemaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
+		return
+	}
+
+	// Call service to update workflow schema
+	component, err := h.services.ComponentService.UpdateComponentWorkflowSchema(ctx, orgName, projectName, componentName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrWorkflowSchemaInvalid) {
+			logger.Warn("Invalid workflow schema", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid workflow schema", services.CodeWorkflowSchemaInvalid)
+			return
+		}
+		logger.Error("Failed to update component workflow schema", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, err.Error(), services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, component)
+}
+
 func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
@@ -613,6 +662,47 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 
 	logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
 	writeSuccessResponse(w, http.StatusOK, schema)
+}
+
+func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetReleaseResources handler called")
+
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+	if orgName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Organization name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and environment name are required", services.CodeInvalidInput)
+		return
+	}
+
+	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			logger.Warn("Release not found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			return
+		}
+		logger.Error("Failed to get release", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	writeSuccessResponse(w, http.StatusOK, release)
 }
 
 func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {

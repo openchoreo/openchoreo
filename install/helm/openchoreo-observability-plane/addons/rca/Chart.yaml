@@ -1,0 +1,23 @@
+apiVersion: v2
+name: openchoreo-observer-rca
+description: Root Cause Analysis addon for OpenChoreo Observability Plane
+type: application
+
+version: 0.0.0-latest-dev
+appVersion: "latest-dev"
+
+home: https://github.com/openchoreo/openchoreo
+icon: https://openchoreo.dev/img/openchoreo-logo.svg
+sources:
+  - https://github.com/openchoreo/openchoreo
+keywords:
+  - openchoreo
+  - observability
+  - rca
+  - root-cause-analysis
+  - ai
+maintainers:
+  - name: OpenChoreo Team
+    url: https://github.com/openchoreo/openchoreo
+
+

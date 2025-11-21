@@ -1,0 +1,46 @@
+# Default values for openchoreo-observer-rca
+
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
+
+# Observability plane connection configuration
+observability:
+  # Observer MCP endpoint (leave empty for auto-discovery)
+  observerMcpUrl: ""
+  observerPort: 8080
+
+# Control plane connection configuration
+controlPlane:
+  # Namespace where control plane is installed
+  namespace: openchoreo-control-plane
+
+  # OpenChoreo API MCP endpoint (leave empty for auto-discovery)
+  openchoreoMcpUrl: ""
+  apiPort: 8080
+
+# RCA service configuration
+rcaService:
+  name: observer-ai-rca
+  replicas: 1
+
+  image:
+    repository: ghcr.io/openchoreo/observer-ai-rca
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Pre-install hook will create its own temporary RBAC for validation
+rbac:
+  create: false

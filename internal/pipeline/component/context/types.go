@@ -63,9 +63,9 @@ type MetadataContext struct {
 	// PodSelectors are platform-injected selectors for pod identity.
 	// Used in Deployment selectors, Service selectors, etc.
 	// Example: {
-	//   "openchoreo.org/component-id": "abc123",
-	//   "openchoreo.org/environment": "dev",
-	//   "openchoreo.org/project-id": "xyz789",
+	//   "openchoreo.dev/component-uid": "abc123",
+	//   "openchoreo.dev/environment-uid": "dev",
+	//   "openchoreo.dev/project-uid": "xyz789",
 	// }
 	PodSelectors map[string]string
 }

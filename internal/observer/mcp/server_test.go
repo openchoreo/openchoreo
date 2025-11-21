@@ -60,52 +60,86 @@ func (m *MockHandler) recordCall(method string, args ...interface{}) {
 	m.calls[method] = append(m.calls[method], args)
 }
 
-func (m *MockHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (string, error) {
+func (m *MockHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error) {
 	m.recordCall("GetComponentLogs", params)
 	if m.componentLogsError != nil {
-		return "", m.componentLogsError
+		return nil, m.componentLogsError
 	}
-	return testLogsResponse, nil
+	// Parse the test response JSON to match the expected structure
+	var logsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
+		return nil, err
+	}
+	return logsData, nil
 }
 
-func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (string, error) {
+func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
 	m.recordCall("GetProjectLogs", params, componentIDs)
 	if m.projectLogsError != nil {
-		return "", m.projectLogsError
+		return nil, m.projectLogsError
 	}
-	return testLogsResponse, nil
+	var logsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
+		return nil, err
+	}
+	return logsData, nil
 }
 
-func (m *MockHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (string, error) {
+func (m *MockHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error) {
 	m.recordCall("GetGatewayLogs", params)
 	if m.gatewayLogsError != nil {
-		return "", m.gatewayLogsError
+		return nil, m.gatewayLogsError
 	}
-	return testGatewayResponse, nil
+	var logsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testGatewayResponse), &logsData); err != nil {
+		return nil, err
+	}
+	return logsData, nil
 }
 
-func (m *MockHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (string, error) {
+func (m *MockHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
 	m.recordCall("GetOrganizationLogs", params, podLabels)
 	if m.organizationLogsError != nil {
-		return "", m.organizationLogsError
+		return nil, m.organizationLogsError
 	}
-	return testLogsResponse, nil
+	var logsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
+		return nil, err
+	}
+	return logsData, nil
 }
 
-func (m *MockHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (string, error) {
+func (m *MockHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error) {
 	m.recordCall("GetComponentTraces", params)
 	if m.componentTracesError != nil {
-		return "", m.componentTracesError
+		return nil, m.componentTracesError
 	}
-	return testTracesResponse, nil
+	var tracesData map[string]interface{}
+	if err := json.Unmarshal([]byte(testTracesResponse), &tracesData); err != nil {
+		return nil, err
+	}
+	return tracesData, nil
 }
 
-func (m *MockHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (string, error) {
+func (m *MockHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
 	m.recordCall("GetComponentResourceMetrics", componentID, environmentID, projectID, startTime, endTime)
 	if m.componentResourceMetricsError != nil {
-		return "", m.componentResourceMetricsError
+		return nil, m.componentResourceMetricsError
 	}
-	return testMetricsResponse, nil
+	var metricsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testMetricsResponse), &metricsData); err != nil {
+		return nil, err
+	}
+	return metricsData, nil
+}
+
+func (m *MockHandler) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
+	m.recordCall("GetComponentHTTPMetrics", componentID, environmentID, projectID, startTime, endTime)
+	var metricsData map[string]interface{}
+	if err := json.Unmarshal([]byte(testMetricsResponse), &metricsData); err != nil {
+		return nil, err
+	}
+	return metricsData, nil
 }
 
 // setupTestServer creates a test MCP server with mock handler
@@ -486,6 +520,61 @@ var allToolSpecs = []toolTestSpec{
 			"end_time":       testEndTime,
 		},
 		expectedMethod: "GetComponentResourceMetrics",
+		validateCall: func(t *testing.T, args []interface{}) {
+			if len(args) < 5 {
+				t.Fatalf("Expected at least 5 arguments, got %d", len(args))
+			}
+			componentID, ok := args[0].(string)
+			if !ok {
+				t.Fatalf("Expected string for component_id, got %T", args[0])
+			}
+			environmentID, ok := args[1].(string)
+			if !ok {
+				t.Fatalf("Expected string for environment_id, got %T", args[1])
+			}
+			projectID, ok := args[2].(string)
+			if !ok {
+				t.Fatalf("Expected string for project_id, got %T", args[2])
+			}
+			startTime, ok := args[3].(string)
+			if !ok {
+				t.Fatalf("Expected string for start_time, got %T", args[3])
+			}
+			endTime, ok := args[4].(string)
+			if !ok {
+				t.Fatalf("Expected string for end_time, got %T", args[4])
+			}
+			if componentID != testComponentID {
+				t.Errorf("Expected component_id %q, got %q", testComponentID, componentID)
+			}
+			if environmentID != testEnvironmentID {
+				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, environmentID)
+			}
+			if projectID != testProjectID {
+				t.Errorf("Expected project_id %q, got %q", testProjectID, projectID)
+			}
+			if startTime != testStartTime {
+				t.Errorf("Expected start_time %q, got %q", testStartTime, startTime)
+			}
+			if endTime != testEndTime {
+				t.Errorf("Expected end_time %q, got %q", testEndTime, endTime)
+			}
+		},
+	},
+	{
+		name:                "get_component_http_metrics",
+		descriptionKeywords: []string{"metrics", "HTTP"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"project_id", "environment_id", "start_time", "end_time"},
+		optionalParams:      []string{"component_id"},
+		testArgs: map[string]any{
+			"component_id":   testComponentID,
+			"project_id":     testProjectID,
+			"environment_id": testEnvironmentID,
+			"start_time":     testStartTime,
+			"end_time":       testEndTime,
+		},
+		expectedMethod: "GetComponentHTTPMetrics",
 		validateCall: func(t *testing.T, args []interface{}) {
 			if len(args) < 5 {
 				t.Fatalf("Expected at least 5 arguments, got %d", len(args))

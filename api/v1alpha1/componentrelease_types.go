@@ -17,21 +17,25 @@ type ComponentReleaseSpec struct {
 	// ComponentType is a full embedded copy of the ComponentType
 	// This ensures the ComponentRelease has an immutable snapshot of the ComponentType at the time of component release
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType is immutable"
 	ComponentType ComponentTypeSpec `json:"componentType"`
 
 	// Traits maps trait names to their frozen specifications
 	// at the time of ComponentRelease, ensuring immutability
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.traits is immutable"
 	Traits map[string]TraitSpec `json:"traits,omitempty"`
 
 	// ComponentProfile contains the immutable snapshot of parameter values and trait configs
 	// specified for this component at release time
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentProfile is immutable"
 	ComponentProfile ComponentProfile `json:"componentProfile"`
 
 	// Workload is a full embedded copy of the Workload
 	// This preserves the workload spec with the built image
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workload is immutable"
 	Workload WorkloadTemplateSpec `json:"workload"`
 }
 

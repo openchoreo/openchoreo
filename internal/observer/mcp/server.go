@@ -5,6 +5,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -13,12 +14,13 @@ import (
 )
 
 type Handler interface {
-	GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (string, error)
-	GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (string, error)
-	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (string, error)
-	GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (string, error)
-	GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (string, error)
-	GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (string, error)
+	GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error)
+	GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error)
+	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error)
+	GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error)
+	GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error)
+	GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
+	GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
 }
 
 // NewHTTPServer creates a new MCP HTTP server for the observer API
@@ -33,6 +35,22 @@ func NewHTTPServer(handler Handler) http.Handler {
 	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
 		return server
 	}, nil)
+}
+
+// handleToolResult marshals the result to JSON and wraps it in MCP CallToolResult format
+func handleToolResult(result any, err error) (*mcpsdk.CallToolResult, any, error) {
+	if err != nil {
+		return nil, nil, err
+	}
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &mcpsdk.CallToolResult{
+		Content: []mcpsdk.Content{
+			&mcpsdk.TextContent{Text: string(jsonData)},
+		},
+	}, result, nil
 }
 
 // setDefaults applies default values for common query parameters
@@ -85,7 +103,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		LogType       string   `json:"log_type"`
 		BuildID       string   `json:"build_id"`
 		BuildUUID     string   `json:"build_uuid"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
 
 		params := opensearch.ComponentQueryParams{
@@ -108,15 +126,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetComponentLogs(ctx, params)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+		return handleToolResult(result, err)
 	})
 
 	// Get Project Logs
@@ -156,7 +166,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		LogType       string   `json:"log_type"`
 		BuildID       string   `json:"build_id"`
 		BuildUUID     string   `json:"build_uuid"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
 
 		params := opensearch.QueryParams{
@@ -175,15 +185,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetProjectLogs(ctx, params, args.ComponentIDs)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+		return handleToolResult(result, err)
 	})
 
 	// Get Gateway Logs
@@ -211,7 +213,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		Limit             int               `json:"limit"`
 		SortOrder         string            `json:"sort_order"`
 		LogType           string            `json:"log_type"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, _ := setDefaults(args.Limit, args.SortOrder, nil)
 
 		params := opensearch.GatewayQueryParams{
@@ -229,15 +231,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetGatewayLogs(ctx, params)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+		return handleToolResult(result, err)
 	})
 
 	// Get Organization Logs
@@ -277,7 +271,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		LogType        string            `json:"log_type"`
 		BuildID        string            `json:"build_id"`
 		BuildUUID      string            `json:"build_uuid"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
 
 		params := opensearch.QueryParams{
@@ -296,15 +290,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetOrganizationLogs(ctx, params, args.PodLabels)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+		return handleToolResult(result, err)
 	})
 
 	// Get Component Traces
@@ -324,7 +310,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		EndTime     string `json:"end_time"`
 		Limit       int    `json:"limit"`
 		SortOrder   string `json:"sort_order"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, _ := setDefaults(args.Limit, args.SortOrder, nil)
 
 		params := opensearch.ComponentTracesRequestParams{
@@ -336,15 +322,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetComponentTraces(ctx, params)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+		return handleToolResult(result, err)
 	})
 
 	// Get Component Resource Metrics
@@ -364,17 +342,31 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		EnvironmentID string `json:"environment_id"`
 		StartTime     string `json:"start_time"`
 		EndTime       string `json:"end_time"`
-	}) (*mcpsdk.CallToolResult, map[string]string, error) {
+	}) (*mcpsdk.CallToolResult, any, error) {
 		result, err := handler.GetComponentResourceMetrics(ctx, args.ComponentID, args.EnvironmentID, args.ProjectID, args.StartTime, args.EndTime)
-		if err != nil {
-			return nil, nil, err
-		}
+		return handleToolResult(result, err)
+	})
 
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: result},
-			},
-		}, map[string]string{"message": result}, nil
+	// Get Component HTTP Metrics
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "get_component_http_metrics",
+		Description: "Retrieve time-series HTTP metrics for a component in OpenChoreo. Returns historical data points showing request counts (total, successful, unsuccessful), latency metrics (mean, p50, p95, p99), and throughput over time. Useful for monitoring API performance, identifying bottlenecks, debugging HTTP errors, and understanding traffic patterns. Metrics are sampled at 5-minute intervals.",
+		InputSchema: createSchema(map[string]any{
+			"component_id":   stringProperty("Optional: Specific component ID to filter. If omitted, returns metrics for all components in the project"),
+			"project_id":     defaultStringProperty(),
+			"environment_id": defaultStringProperty(),
+			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+		}, []string{"project_id", "environment_id", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		ComponentID   string `json:"component_id"`
+		ProjectID     string `json:"project_id"`
+		EnvironmentID string `json:"environment_id"`
+		StartTime     string `json:"start_time"`
+		EndTime       string `json:"end_time"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.GetComponentHTTPMetrics(ctx, args.ComponentID, args.EnvironmentID, args.ProjectID, args.StartTime, args.EndTime)
+		return handleToolResult(result, err)
 	})
 }
 

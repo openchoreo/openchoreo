@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.rcaService.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observer-rca.componentLabels" (dict "context" . "component" .Values.rcaService.name) | nindent 4 }}
+spec:
+  replicas: {{ .Values.rcaService.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-observer-rca.componentSelectorLabels" (dict "context" . "component" .Values.rcaService.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-observer-rca.componentSelectorLabels" (dict "context" . "component" .Values.rcaService.name) | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+      - name: {{ .Values.rcaService.name }}
+        image: "{{ .Values.rcaService.image.repository }}:{{ .Values.rcaService.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.rcaService.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.rcaService.service.port }}
+          protocol: TCP
+        env:
+        - name: OBSERVER_MCP_URL
+          value: {{ .Values.observability.observerMcpUrl | default (printf "http://observer.%s.svc.cluster.local:%d/mcp" .Release.Namespace (.Values.observability.observerPort | int)) | quote }}
+
+        - name: OPENCHOREO_MCP_URL
+          value: {{ .Values.controlPlane.openchoreoMcpUrl | default (printf "http://openchoreo-api.%s.svc.cluster.local:%d/mcp" .Values.controlPlane.namespace (.Values.controlPlane.apiPort | int)) | quote }}
+
+        resources:
+          {{- toYaml .Values.rcaService.resources | nindent 10 }}
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532

@@ -751,6 +751,40 @@ logLevel: 'string | enum=''info'',''warn'',''error'',''debug'' | default=''info'
 	assertConvertedSchema(t, "", schemaYAML, expected)
 }
 
+func TestConverter_JSONArrayEnumFormat(t *testing.T) {
+	// Test enum values provided as JSON array (workflow schema format)
+	const schemaYAML = `
+testMode: 'string | enum=["unit", "integration", "none"] default=unit'
+secretRef: 'string | enum=["reading-list-repo-credentials-dev","payments-repo-credentials-dev"]'
+`
+	const expected = `{
+  "type": "object",
+  "required": [
+    "secretRef"
+  ],
+  "properties": {
+    "secretRef": {
+      "type": "string",
+      "enum": [
+        "reading-list-repo-credentials-dev",
+        "payments-repo-credentials-dev"
+      ]
+    },
+    "testMode": {
+      "type": "string",
+      "default": "unit",
+      "enum": [
+        "unit",
+        "integration",
+        "none"
+      ]
+    }
+  }
+}`
+
+	assertConvertedSchema(t, "", schemaYAML, expected)
+}
+
 func TestConverter_DoubleQuotedStringsWithEscaping(t *testing.T) {
 	// Double-quoted strings use backslash escaping
 	// Common for regex patterns and escape sequences

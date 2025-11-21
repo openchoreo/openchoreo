@@ -254,9 +254,9 @@ func (r *Reconciler) buildMetadataContext(
 
 	// Build pod selectors
 	podSelectors := map[string]string{
-		"openchoreo.org/component":   componentName,
-		"openchoreo.org/environment": environmentName,
-		"openchoreo.org/project":     projectName,
+		labels.LabelKeyComponentUID:   componentUID,
+		labels.LabelKeyEnvironmentUID: environmentUID,
+		labels.LabelKeyProjectUID:     projectUID,
 	}
 
 	return pipelinecontext.MetadataContext{

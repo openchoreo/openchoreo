@@ -7,11 +7,16 @@ import (
 	"context"
 )
 
-func (h *MCPHandler) ListBuildPlanes(ctx context.Context, orgName string) (string, error) {
+type ListBuildPlanesResponse struct {
+	BuildPlanes any `json:"build_planes"`
+}
+
+func (h *MCPHandler) ListBuildPlanes(ctx context.Context, orgName string) (any, error) {
 	buildplanes, err := h.Services.BuildPlaneService.ListBuildPlanes(ctx, orgName)
 	if err != nil {
-		return "", err
+		return ListBuildPlanesResponse{}, err
 	}
-
-	return marshalResponse(buildplanes)
+	return ListBuildPlanesResponse{
+		BuildPlanes: buildplanes,
+	}, nil
 }
