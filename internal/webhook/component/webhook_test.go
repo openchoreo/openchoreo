@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package v1alpha1
+package component
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -10,18 +10,21 @@ import (
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-var _ = Describe("Trait Webhook", func() {
+var _ = Describe("Component Webhook", func() {
 	var (
-		obj       *openchoreodevv1alpha1.Trait
-		oldObj    *openchoreodevv1alpha1.Trait
-		validator TraitCustomValidator
+		obj       *openchoreodevv1alpha1.Component
+		oldObj    *openchoreodevv1alpha1.Component
+		validator Validator
+		defaulter Defaulter
 	)
 
 	BeforeEach(func() {
-		obj = &openchoreodevv1alpha1.Trait{}
-		oldObj = &openchoreodevv1alpha1.Trait{}
-		validator = TraitCustomValidator{}
+		obj = &openchoreodevv1alpha1.Component{}
+		oldObj = &openchoreodevv1alpha1.Component{}
+		validator = Validator{}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
+		defaulter = Defaulter{}
+		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
 		// TODO (user): Add any setup logic common to all tests
@@ -31,7 +34,20 @@ var _ = Describe("Trait Webhook", func() {
 		// TODO (user): Add any teardown logic common to all tests
 	})
 
-	Context("When creating or updating Trait under Validating Webhook", func() {
+	Context("When creating Component under Defaulting Webhook", func() {
+		// TODO (user): Add logic for defaulting webhooks
+		// Example:
+		// It("Should apply defaults when a required field is empty", func() {
+		//     By("simulating a scenario where defaults should be applied")
+		//     obj.SomeFieldWithDefault = ""
+		//     By("calling the Default method to apply defaults")
+		//     defaulter.Default(ctx, obj)
+		//     By("checking that the default values are set")
+		//     Expect(obj.SomeFieldWithDefault).To(Equal("default_value"))
+		// })
+	})
+
+	Context("When creating or updating Component under Validating Webhook", func() {
 		// TODO (user): Add logic for validating webhooks
 		// Example:
 		// It("Should deny creation if a required field is missing", func() {

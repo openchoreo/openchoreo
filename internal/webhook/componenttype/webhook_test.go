@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package v1alpha1
+package componenttype
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -14,13 +14,13 @@ var _ = Describe("ComponentType Webhook", func() {
 	var (
 		obj       *openchoreodevv1alpha1.ComponentType
 		oldObj    *openchoreodevv1alpha1.ComponentType
-		validator ComponentTypeCustomValidator
+		validator Validator
 	)
 
 	BeforeEach(func() {
 		obj = &openchoreodevv1alpha1.ComponentType{}
 		oldObj = &openchoreodevv1alpha1.ComponentType{}
-		validator = ComponentTypeCustomValidator{}
+		validator = Validator{}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")

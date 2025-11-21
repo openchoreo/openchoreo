@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package v1alpha1
+package project
 
 import (
 	"fmt"
@@ -27,18 +27,18 @@ var _ = Describe("Project Webhook", func() {
 	var (
 		obj       *openchoreov1alpha1.Project
 		oldObj    *openchoreov1alpha1.Project
-		validator ProjectCustomValidator
-		defaulter ProjectCustomDefaulter
+		validator Validator
+		defaulter Defaulter
 	)
 
 	BeforeEach(func() {
 		obj = &openchoreov1alpha1.Project{}
 		oldObj = &openchoreov1alpha1.Project{}
-		validator = ProjectCustomValidator{
+		validator = Validator{
 			client: k8sClient,
 		}
 		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		defaulter = ProjectCustomDefaulter{}
+		defaulter = Defaulter{}
 		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
 		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
 		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
@@ -143,7 +143,7 @@ var _ = Describe("Project Webhook", func() {
 
 		It("Should deny creation if referenced deployment pipeline does not exist", func() {
 			By("Setting up client with no deployment pipelines")
-			validatorWithClient := ProjectCustomValidator{
+			validatorWithClient := Validator{
 				client: createFakeClientBuilder().Build(),
 			}
 
@@ -167,7 +167,7 @@ var _ = Describe("Project Webhook", func() {
 			existingProject := createValidProject("test-project", testNamespace, testNamespace, pipelineName)
 
 			By("Setting up client with existing resources")
-			validatorWithExistingProject := ProjectCustomValidator{
+			validatorWithExistingProject := Validator{
 				client: createFakeClientBuilder().WithObjects(pipeline, existingProject).Build(),
 			}
 
@@ -190,7 +190,7 @@ var _ = Describe("Project Webhook", func() {
 			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
 
 			By("Setting up client with pipeline")
-			validatorWithResources := ProjectCustomValidator{
+			validatorWithResources := Validator{
 				client: createFakeClientBuilder().WithObjects(pipeline).Build(),
 			}
 
@@ -212,7 +212,7 @@ var _ = Describe("Project Webhook", func() {
 			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
 
 			By("Setting up client with pipeline")
-			validatorWithResources := ProjectCustomValidator{
+			validatorWithResources := Validator{
 				client: createFakeClientBuilder().WithObjects(pipeline).Build(),
 			}
 

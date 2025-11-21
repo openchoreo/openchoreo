@@ -66,7 +66,12 @@ import (
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
-	webhookv1alpha1 "github.com/openchoreo/openchoreo/internal/webhook/v1alpha1"
+	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
+	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
+	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
+	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
+	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
+	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
 )
 
 var (
@@ -479,7 +484,7 @@ func main() {
 
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = webhookv1alpha1.SetupProjectWebhookWithManager(mgr); err != nil {
+		if err = projectwebhook.SetupProjectWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
 			os.Exit(1)
 		}
@@ -487,35 +492,35 @@ func main() {
 
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupComponentTypeWebhookWithManager(mgr); err != nil {
+		if err := componenttypewebhook.SetupComponentTypeWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentType")
 			os.Exit(1)
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupComponentWebhookWithManager(mgr); err != nil {
+		if err := componentwebhook.SetupComponentWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Component")
 			os.Exit(1)
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupTraitWebhookWithManager(mgr); err != nil {
+		if err := traitwebhook.SetupTraitWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Trait")
 			os.Exit(1)
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupComponentReleaseWebhookWithManager(mgr); err != nil {
+		if err := componentreleasewebhook.SetupComponentReleaseWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentRelease")
 			os.Exit(1)
 		}
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookv1alpha1.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
+		if err := releasebindingwebhook.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseBinding")
 			os.Exit(1)
 		}

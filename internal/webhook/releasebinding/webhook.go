@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package v1alpha1
+package releasebinding
 
 import (
 	"context"
@@ -23,8 +23,8 @@ var releasebindinglog = logf.Log.WithName("releasebinding-resource")
 // SetupReleaseBindingWebhookWithManager registers the webhook for ReleaseBinding in the manager.
 func SetupReleaseBindingWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ReleaseBinding{}).
-		WithValidator(&ReleaseBindingCustomValidator{}).
-		WithDefaulter(&ReleaseBindingCustomDefaulter{}).
+		WithValidator(&Validator{}).
+		WithDefaulter(&Defaulter{}).
 		Complete()
 }
 
@@ -32,19 +32,19 @@ func SetupReleaseBindingWebhookWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:webhook:path=/mutate-openchoreo-dev-v1alpha1-releasebinding,mutating=true,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=releasebindings,verbs=create;update,versions=v1alpha1,name=mreleasebinding-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ReleaseBindingCustomDefaulter struct is responsible for setting default values on the custom resource of the
+// Defaulter struct is responsible for setting default values on the custom resource of the
 // Kind ReleaseBinding when those are created or updated.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
-type ReleaseBindingCustomDefaulter struct {
+type Defaulter struct {
 	// TODO(user): Add more fields as needed for defaulting
 }
 
-var _ webhook.CustomDefaulter = &ReleaseBindingCustomDefaulter{}
+var _ webhook.CustomDefaulter = &Defaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind ReleaseBinding.
-func (d *ReleaseBindingCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
+func (d *Defaulter) Default(_ context.Context, obj runtime.Object) error {
 	releasebinding, ok := obj.(*openchoreodevv1alpha1.ReleaseBinding)
 
 	if !ok {
@@ -62,19 +62,19 @@ func (d *ReleaseBindingCustomDefaulter) Default(_ context.Context, obj runtime.O
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-openchoreo-dev-v1alpha1-releasebinding,mutating=false,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=releasebindings,verbs=create;update,versions=v1alpha1,name=vreleasebinding-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ReleaseBindingCustomValidator struct is responsible for validating the ReleaseBinding resource
+// Validator struct is responsible for validating the ReleaseBinding resource
 // when it is created, updated, or deleted.
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type ReleaseBindingCustomValidator struct {
+type Validator struct {
 	// TODO(user): Add more fields as needed for validation
 }
 
-var _ webhook.CustomValidator = &ReleaseBindingCustomValidator{}
+var _ webhook.CustomValidator = &Validator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type ReleaseBinding.
-func (v *ReleaseBindingCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	releasebinding, ok := obj.(*openchoreodevv1alpha1.ReleaseBinding)
 	if !ok {
 		return nil, fmt.Errorf("expected a ReleaseBinding object but got %T", obj)
@@ -87,7 +87,7 @@ func (v *ReleaseBindingCustomValidator) ValidateCreate(_ context.Context, obj ru
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type ReleaseBinding.
-func (v *ReleaseBindingCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	releasebinding, ok := newObj.(*openchoreodevv1alpha1.ReleaseBinding)
 	if !ok {
 		return nil, fmt.Errorf("expected a ReleaseBinding object for the newObj but got %T", newObj)
@@ -100,7 +100,7 @@ func (v *ReleaseBindingCustomValidator) ValidateUpdate(_ context.Context, oldObj
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type ReleaseBinding.
-func (v *ReleaseBindingCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	releasebinding, ok := obj.(*openchoreodevv1alpha1.ReleaseBinding)
 	if !ok {
 		return nil, fmt.Errorf("expected a ReleaseBinding object but got %T", obj)
