@@ -108,7 +108,7 @@ spec:
                           ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
                           Example: "deployment/web-app", "cronjob/scheduled-task"
                           This field is used with ComponentTypes (new model)
-                        pattern: ^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        pattern: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
                         x-kubernetes-validations:
                         - message: spec.componentType cannot be changed after creation
@@ -409,13 +409,14 @@ spec:
                         type: object
                       workloadType:
                         description: |-
-                          WorkloadType must be one of: deployment, statefulset, cronjob, job
+                          WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
                           This determines the primary workload resource type for this component type
                         enum:
                         - deployment
                         - statefulset
                         - cronjob
                         - job
+                        - proxy
                         type: string
                         x-kubernetes-validations:
                         - message: spec.workloadType cannot be changed after creation

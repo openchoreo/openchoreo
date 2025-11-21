@@ -97,6 +97,10 @@ func (r *Reconciler) setResourcesReadyStatus(
 	case WorkloadTypeJob:
 		ready, reason, message = evaluateJobStatus(release.Status.Resources, workloadType)
 
+	case WorkloadTypeProxy:
+		// Proxy components are generic resources without traditional workload semantics
+		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
+
 	case WorkloadTypeUnknown:
 		// Fallback for unknown workload types or legacy components
 		ready, reason, message = evaluateGenericStatus(release.Status.Resources)

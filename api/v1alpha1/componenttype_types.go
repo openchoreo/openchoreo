@@ -11,10 +11,10 @@ import (
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
 type ComponentTypeSpec struct {
-	// WorkloadType must be one of: deployment, statefulset, cronjob, job
+	// WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
 	// This determines the primary workload resource type for this component type
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;job
+	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;job;proxy
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
 

@@ -46,7 +46,7 @@ type ComponentSpec struct {
 	// Example: "deployment/web-app", "cronjob/scheduled-task"
 	// This field is used with ComponentTypes (new model)
 	// +optional
-	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
 	ComponentType string `json:"componentType,omitempty"`
 

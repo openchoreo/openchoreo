@@ -177,13 +177,14 @@ spec:
                     type: object
                   workloadType:
                     description: |-
-                      WorkloadType must be one of: deployment, statefulset, cronjob, job
+                      WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
                       This determines the primary workload resource type for this component type
                     enum:
                     - deployment
                     - statefulset
                     - cronjob
                     - job
+                    - proxy
                     type: string
                     x-kubernetes-validations:
                     - message: spec.workloadType cannot be changed after creation
