@@ -562,8 +562,8 @@ asgardeoThunder:
     clientId: "openchoreo-backstage-client"
     clientSecret: "backstage-portal-secret"
     redirectUrls:
-      - "http://localhost:7007/api/auth/default-idp/handler/frame"
-      - "http://openchoreo.localhost:7007/api/auth/default-idp/handler/frame"
+      - http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame
+      - http://localhost:7007/api/auth/default-idp/handler/frame
   userDetails:
     userSchemaName: "engineer"
     users:
