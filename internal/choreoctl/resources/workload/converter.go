@@ -194,7 +194,7 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 
 func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.CreateWorkloadParams, descriptorPath string) (*openchoreov1alpha1.Workload, error) {
 	// Determine workload name
-	workloadName := descriptor.Metadata.Name
+	workloadName := params.ComponentName + "-workload"
 	if workloadName == "" {
 		return nil, fmt.Errorf("workload name must be provided either in params or descriptor metadata")
 	}
