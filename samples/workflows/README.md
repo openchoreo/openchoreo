@@ -75,26 +75,26 @@ Build applications automatically using Google Cloud Buildpacks (no Dockerfile re
 ```yaml
 schema:
   repository:
-    url: string
+    url: string | description="Git repository URL"
     revision:
-      branch: string | default=main
-      commit: string | default=HEAD
-    appPath: string | default=.
-    secretRef: string | enum=["reading-list-repo-credentials-dev","payments-repo-credentials-dev"]
-  version: integer | default=1
-  testMode: string | enum=["unit", "integration", "none"] default=unit
-  command: '[]string | default=[]'
-  args: "[]string | default=[]"
+      branch: string | default=main description="Git branch to checkout"
+      commit: string | default=HEAD description="Git commit SHA or reference"
+    appPath: string | default=. description="Path to the application directory"
+    secretRef: string | enum=reading-list-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
+  version: integer | default=1 description="Build version number"
+  testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
+  command: '[]string | default=[] description="Custom command to override the default entrypoint"'
+  args: '[]string | default=[] description="Custom arguments to pass to the command"'
   resources:
-    cpuCores: integer | default=1 minimum=1 maximum=8
-    memoryGb: integer | default=2 minimum=1 maximum=32
-  timeout: string | default="30m"
+    cpuCores: integer | default=1 minimum=1 maximum=8 description="Number of CPU cores allocated for the build"
+    memoryGb: integer | default=2 minimum=1 maximum=32 description="Amount of memory in GB allocated for the build"
+  timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
   cache:
-    enabled: boolean | default=true
-    paths: '[]string | default=["/root/.cache"]'
+    enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
+    paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
   limits:
-    maxRetries: integer | default=3 minimum=0 maximum=10
-    maxDurationMinutes: integer | default=60 minimum=5 maximum=240
+    maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
+    maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
 ```
 
 **Platform Engineer Controls** (hardcoded):

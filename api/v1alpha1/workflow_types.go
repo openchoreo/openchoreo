@@ -22,18 +22,18 @@ type WorkflowSpec struct {
 	//
 	// Schema format: nested maps where keys are field names and values are either
 	// nested maps or type definition strings.
-	// Type definition format: "type | default=value minimum=2 enum=[val1,val2]"
+	// Type definition format: "type | default=value minimum=2 enum=val1,val2"
 	//
 	// Example:
 	//   repository:
-	//     url: "string"
+	//     url: string | description="Git repository URL"
 	//     revision:
-	//       branch: "string | default=main"
-	//       commit: "string | default=HEAD"
-	//     appPath: "string | default=."
-	//     credentialsRef: "string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev"
-	//   version: "integer | default=1"
-	//   testMode: "string | enum=unit,integration,none default=unit"
+	//       branch: string | default=main description="Git branch to checkout"
+	//       commit: string | default=HEAD description="Git commit SHA or reference"
+	//     appPath: string | default=. description="Path to the application directory"
+	//     credentialsRef: string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
+	//   version: integer | default=1 description="Build version number"
+	//   testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
 	//
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
