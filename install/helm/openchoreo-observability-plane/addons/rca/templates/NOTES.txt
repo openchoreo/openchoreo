@@ -1,0 +1,4 @@
+The RCA agent resources have been deployed to {{ .Release.Namespace }}.
+
+Note: This installation only sets up the infrastructure required for the RCA agent.
+Root Cause Analysis functionality is not yet enabled and requires additional configuration.
