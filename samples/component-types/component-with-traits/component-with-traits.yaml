@@ -87,7 +87,7 @@ spec:
 
     envOverrides:
       size: "string | default=10Gi"
-      storageClass: "string | default=standard"
+      storageClass: "string | default=local-path"
 
   creates:
     - template:
@@ -281,4 +281,4 @@ spec:
   traitOverrides:
     data-storage:
       size: "5Gi"
-      storageClass: "standard"
+      storageClass: "local-path"
