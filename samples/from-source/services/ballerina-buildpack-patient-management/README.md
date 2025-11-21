@@ -77,7 +77,7 @@ After the build completes, verify the deployment is ready:
 kubectl get releasebinding patient-management-service-development -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Verify deployment is ready
-kubectl get deployment -A -l openchoreo.org/component=patient-management-service
+kubectl get deployment -A -l openchoreo.dev/component=patient-management-service
 ```
 
 ## Step 4: Test the Application
@@ -86,8 +86,8 @@ First, get the service URL from the HTTPRoute:
 
 ```bash
 # Get the hostname and path prefix from the HTTPRoute
-HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=patient-management-service -o jsonpath='{.items[0].spec.hostnames[0]}')
-PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=patient-management-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=patient-management-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=patient-management-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
 ```
 
 ### Health check
@@ -166,17 +166,17 @@ If the application is not accessible:
 
 3. **Verify HTTPRoute is configured:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=patient-management-service -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=patient-management-service -o yaml
    ```
 
 4. **Check deployment status:**
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=patient-management-service
+   kubectl get deployment -A -l openchoreo.dev/component=patient-management-service
    ```
 
 5. **Check pod logs:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=patient-management-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=patient-management-service --tail=50
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=patient-management-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=patient-management-service --tail=50
    ```
 
 ## Clean Up

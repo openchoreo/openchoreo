@@ -47,7 +47,7 @@ After the build completes, verify the deployment is ready:
 kubectl get releasebinding react-starter-from-source-development -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Verify deployment is ready
-kubectl get deployment -A -l openchoreo.org/component=react-starter-from-source
+kubectl get deployment -A -l openchoreo.dev/component=react-starter-from-source
 ```
 
 ## Step 4: Access the Application
@@ -61,7 +61,7 @@ http://react-starter-from-source-development.openchoreoapis.localhost:9080
 You can also dynamically get the URL using:
 
 ```bash
-HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=react-starter-from-source -o jsonpath='{.items[0].spec.hostnames[0]}')
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=react-starter-from-source -o jsonpath='{.items[0].spec.hostnames[0]}')
 echo "Access the application at: http://${HOSTNAME}:9080"
 ```
 
@@ -111,22 +111,22 @@ If the application is not accessible:
 
 3. **Verify HTTPRoute is configured:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=react-starter-from-source -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=react-starter-from-source -o yaml
    ```
 
 4. **Check deployment status:**
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=react-starter-from-source
+   kubectl get deployment -A -l openchoreo.dev/component=react-starter-from-source
    ```
 
 5. **Check pod logs:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=react-starter-from-source -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=react-starter-from-source --tail=50
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=react-starter-from-source -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=react-starter-from-source --tail=50
    ```
 
 6. **Verify the web application URL:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=react-starter-from-source -o jsonpath='{.items[0].spec.hostnames[0]}'
+   kubectl get httproute -A -l openchoreo.dev/component=react-starter-from-source -o jsonpath='{.items[0].spec.hostnames[0]}'
    ```
 
 ## Clean Up

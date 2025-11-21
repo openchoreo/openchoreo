@@ -106,15 +106,15 @@ metadata:
   name: demo-app-with-traits-development-<hash>
   namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app-with-traits
-    openchoreo.org/environment: development
+    openchoreo.dev/component: demo-app-with-traits
+    openchoreo.dev/environment: development
 spec:
   replicas: 2
   selector:
     matchLabels:
-      openchoreo.org/component: demo-app-with-traits
-      openchoreo.org/environment: development
-      openchoreo.org/project: default
+      openchoreo.dev/component: demo-app-with-traits
+      openchoreo.dev/environment: development
+      openchoreo.dev/project: default
   template:
     spec:
       containers:
@@ -154,14 +154,14 @@ metadata:
   name: demo-app-with-traits-development-<hash>
   namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app-with-traits
-    openchoreo.org/environment: development
+    openchoreo.dev/component: demo-app-with-traits
+    openchoreo.dev/environment: development
 spec:
   type: ClusterIP
   selector:
-    openchoreo.org/component: demo-app-with-traits
-    openchoreo.org/environment: development
-    openchoreo.org/project: default
+    openchoreo.dev/component: demo-app-with-traits
+    openchoreo.dev/environment: development
+    openchoreo.dev/project: default
   ports:
     - name: http
       port: 80
@@ -177,8 +177,8 @@ metadata:
   name: demo-app-with-traits-development-<hash>-data-storage
   namespace: dp-default-default-development-<hash>
   labels:
-    openchoreo.org/component: demo-app-with-traits
-    openchoreo.org/environment: development
+    openchoreo.dev/component: demo-app-with-traits
+    openchoreo.dev/environment: development
 spec:
   accessModes:
     - ReadWriteOnce
@@ -236,25 +236,25 @@ If the application is not accessible or resources are not created:
 
 3. **Verify HTTPRoute is configured:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=demo-app-with-traits -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=demo-app-with-traits -o yaml
    ```
 
 4. **Check deployment status:**
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=demo-app-with-traits
+   kubectl get deployment -A -l openchoreo.dev/component=demo-app-with-traits
    ```
 
 5. **Check pod logs:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=demo-app-with-traits -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=demo-app-with-traits --tail=50
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=demo-app-with-traits -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=demo-app-with-traits --tail=50
    ```
 
 6. **Verify service endpoints:**
    ```bash
-   kubectl get service -A -l openchoreo.org/component=demo-app-with-traits
+   kubectl get service -A -l openchoreo.dev/component=demo-app-with-traits
    ```
 
 7. **Verify PersistentVolumeClaim (trait-specific):**
    ```bash
-   kubectl get pvc -A -l openchoreo.org/component=demo-app-with-traits
+   kubectl get pvc -A -l openchoreo.dev/component=demo-app-with-traits
    ```

@@ -32,8 +32,8 @@ First, get the service URL from the HTTPRoute:
 
 ```bash
 # Get the hostname and path prefix from the HTTPRoute
-HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=greeter-service -o jsonpath='{.items[0].spec.hostnames[0]}')
-PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.org/component=greeter-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=greeter-service -o jsonpath='{.items[0].spec.hostnames[0]}')
+PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=greeter-service -o jsonpath='{.items[0].spec.rules[0].matches[0].path.value}')
 ```
 
 ### Basic Greet
@@ -67,12 +67,12 @@ If you cannot access the service:
 
 3. Verify the HTTPRoute is configured correctly:
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=greeter-service -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=greeter-service -o yaml
    ```
 
 4. Check the deployment status:
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=greeter-service
+   kubectl get deployment -A -l openchoreo.dev/component=greeter-service
    ```
 
 ## Clean Up

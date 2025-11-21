@@ -96,20 +96,20 @@ If the application is not accessible:
 
 3. **Verify HTTPRoute is configured:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=demo-app-web-service -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=demo-app-web-service -o yaml
    ```
 
 4. **Check deployment status:**
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=demo-app-web-service
+   kubectl get deployment -A -l openchoreo.dev/component=demo-app-web-service
    ```
 
 5. **Check pod logs:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=demo-app-web-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=demo-app-web-service --tail=50
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=demo-app-web-service -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=demo-app-web-service --tail=50
    ```
 
 6. **Verify service endpoints:**
    ```bash
-   kubectl get service -A -l openchoreo.org/component=demo-app-web-service
+   kubectl get service -A -l openchoreo.dev/component=demo-app-web-service
    ```

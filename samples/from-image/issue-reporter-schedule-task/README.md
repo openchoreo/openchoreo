@@ -30,14 +30,14 @@ Check the status of the scheduled task and its job executions:
 
 ```bash
 # View the CronJob created by the scheduled task
-kubectl get cronjob -A -l openchoreo.org/component=github-issue-reporter
+kubectl get cronjob -A -l openchoreo.dev/component=github-issue-reporter
 
 # Monitor job executions
-kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter
+kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter
 
 # View logs from the latest job pod
-POD_NAMESPACE=$(kubectl get pods -A -l openchoreo.org/component=github-issue-reporter -o jsonpath='{.items[0].metadata.namespace}')
-POD_NAME=$(kubectl get pods -A -l openchoreo.org/component=github-issue-reporter -o jsonpath='{.items[0].metadata.name}')
+POD_NAMESPACE=$(kubectl get pods -A -l openchoreo.dev/component=github-issue-reporter -o jsonpath='{.items[0].metadata.namespace}')
+POD_NAME=$(kubectl get pods -A -l openchoreo.dev/component=github-issue-reporter -o jsonpath='{.items[0].metadata.name}')
 kubectl logs -n $POD_NAMESPACE $POD_NAME --tail=50
 ```
 
@@ -82,21 +82,21 @@ If the scheduled task is not working correctly:
 
 3. **Verify the CronJob is created:**
    ```bash
-   kubectl get cronjob -A -l openchoreo.org/component=github-issue-reporter -o yaml
+   kubectl get cronjob -A -l openchoreo.dev/component=github-issue-reporter -o yaml
    ```
 
 4. **Check recent job executions:**
    ```bash
-   kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp
+   kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter --sort-by=.metadata.creationTimestamp
    ```
 
 5. **View job logs for debugging:**
    ```bash
    # Get the latest job name
-   JOB_NAME=$(kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+   JOB_NAME=$(kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
    # Get the namespace of the job
-   JOB_NAMESPACE=$(kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.namespace}')
+   JOB_NAMESPACE=$(kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.namespace}')
 
    # View logs
    kubectl logs -n $JOB_NAMESPACE job/$JOB_NAME
@@ -104,7 +104,7 @@ If the scheduled task is not working correctly:
 
 6. **Check for failed jobs:**
    ```bash
-   kubectl get jobs -A -l openchoreo.org/component=github-issue-reporter --field-selector status.successful!=1
+   kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter --field-selector status.successful!=1
    ```
 
 ## Schedule Configuration

@@ -29,7 +29,7 @@ http://react-starter-development.openchoreoapis.localhost:9080
 You can also dynamically get the URL using:
 
 ```bash
-HOSTNAME=$(kubectl get httproute -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}')
+HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}')
 echo "Access the application at: http://${HOSTNAME}:9080"
 ```
 
@@ -49,22 +49,22 @@ If you cannot access the application:
 
 3. **Verify the HTTPRoute is configured correctly:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=react-starter -o yaml
+   kubectl get httproute -A -l openchoreo.dev/component=react-starter -o yaml
    ```
 
 4. **Check the deployment status:**
    ```bash
-   kubectl get deployment -A -l openchoreo.org/component=react-starter
+   kubectl get deployment -A -l openchoreo.dev/component=react-starter
    ```
 
 5. **Check pod logs for errors:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.org/component=react-starter --tail=50
+   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=react-starter --tail=50
    ```
 
 6. **Verify the web application URL:**
    ```bash
-   kubectl get httproute -A -l openchoreo.org/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}'
+   kubectl get httproute -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}'
    ```
 
 ## Clean Up
