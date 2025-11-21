@@ -139,6 +139,55 @@ func TestRenderResources(t *testing.T) {
 			wantCount: 4, // 1 deployment + 1 service + 2 secrets
 			wantErr:   false,
 		},
+		{
+			name: "includeWhen + forEach - includeWhen controls entire forEach block",
+			templatesYAML: `
+- id: configmap
+  includeWhen: ${parameters.createConfigs}
+  forEach: ${parameters.configs}
+  var: config
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${config.name}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"createConfigs": false,
+					"configs": []any{
+						map[string]any{"name": "cfg1"},
+						map[string]any{"name": "cfg2"},
+					},
+				},
+			},
+			wantCount: 0, // includeWhen=false skips entire forEach
+			wantErr:   false,
+		},
+		{
+			name: "forEach with filter() instead of includeWhen for item filtering",
+			templatesYAML: `
+- id: filtered
+  forEach: ${parameters.items.filter(i, i.enabled)}
+  var: item
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${item.name}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"items": []any{
+						map[string]any{"name": "item1", "enabled": true},
+						map[string]any{"name": "item2", "enabled": false},
+						map[string]any{"name": "item3", "enabled": true},
+					},
+				},
+			},
+			wantCount: 2, // Only enabled items
+			wantErr:   false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -255,6 +304,7 @@ func TestRenderWithForEach(t *testing.T) {
 		templateYAML string
 		context      map[string]any
 		wantCount    int
+		wantYAML     string // Expected output YAML
 		wantErr      bool
 	}{
 		{
@@ -314,6 +364,83 @@ template:
 			wantCount: 0,
 			wantErr:   false,
 		},
+		{
+			name: "forEach with filter() - filters items before iteration",
+			templateYAML: `
+id: test
+forEach: ${items.filter(i, i.enabled)}
+var: item
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${item.name}
+  data:
+    value: ${item.value}
+`,
+			context: map[string]any{
+				"items": []any{
+					map[string]any{"name": "item1", "value": "val1", "enabled": true},
+					map[string]any{"name": "item2", "value": "val2", "enabled": false},
+					map[string]any{"name": "item3", "value": "val3", "enabled": true},
+				},
+			},
+			wantCount: 2, // Only item1 and item3 (enabled=true)
+			wantYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: item1
+  data:
+    value: val1
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: item3
+  data:
+    value: val3
+`,
+			wantErr: false,
+		},
+		{
+			name: "forEach with filter() and map() - transform filtered list",
+			templateYAML: `
+id: test
+forEach: |
+  ${items.filter(i, i.enabled).map(i, {"name": i.name, "data": i.value})}
+var: item
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${item.name}
+  data:
+    config: ${item.data}
+`,
+			context: map[string]any{
+				"items": []any{
+					map[string]any{"name": "cfg1", "value": "val1", "enabled": true},
+					map[string]any{"name": "cfg2", "value": "val2", "enabled": false},
+					map[string]any{"name": "cfg3", "value": "val3", "enabled": true},
+				},
+			},
+			wantCount: 2, // Only cfg1 and cfg3
+			wantYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: cfg1
+  data:
+    config: val1
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: cfg3
+  data:
+    config: val3
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -331,6 +458,31 @@ template:
 			}
 			if !tt.wantErr && len(got) != tt.wantCount {
 				t.Errorf("renderWithForEach() got %d resources, want %d", len(got), tt.wantCount)
+			}
+
+			// Compare YAML output if wantYAML is specified
+			if !tt.wantErr && tt.wantYAML != "" {
+				gotYAML, err := yaml.Marshal(got)
+				if err != nil {
+					t.Fatalf("Failed to marshal got resources: %v", err)
+				}
+
+				// Normalize both by unmarshaling and remarshaling
+				var wantNormalized, gotNormalized []map[string]any
+				if err := yaml.Unmarshal([]byte(tt.wantYAML), &wantNormalized); err != nil {
+					t.Fatalf("Failed to parse wantYAML: %v", err)
+				}
+				if err := yaml.Unmarshal(gotYAML, &gotNormalized); err != nil {
+					t.Fatalf("Failed to parse gotYAML: %v", err)
+				}
+
+				// Compare as YAML strings
+				wantYAMLStr, _ := yaml.Marshal(wantNormalized)
+				gotYAMLStr, _ := yaml.Marshal(gotNormalized)
+
+				if string(wantYAMLStr) != string(gotYAMLStr) {
+					t.Errorf("renderWithForEach() output mismatch:\n=== WANT ===\n%s\n=== GOT ===\n%s", wantYAMLStr, gotYAMLStr)
+				}
 			}
 		})
 	}
