@@ -497,6 +497,11 @@ func (c *converter) buildConstraintSetters(schema *extv1.JSONSchemaProps) map[st
 
 // parseValueForType converts a raw token into a Go value appropriate for the given schema type.
 func parseValueForType(value, schemaType string) (any, error) {
+	// Unquote the value upfront for all types (handles both single and double quotes)
+	// This allows users to write default="1" for integers, default="true" for booleans, etc.
+	// String types have additional unquoting logic below for backward compatibility
+	unquotedValue := unquoteIfNeeded(value)
+
 	switch schemaType {
 	case typeString:
 		// Allow callers to write defaults like default="" (or default='v1') in the shorthand.
@@ -518,25 +523,25 @@ func parseValueForType(value, schemaType string) (any, error) {
 		}
 		return value, nil
 	case typeInteger:
-		if value == "" {
+		if unquotedValue == "" {
 			return 0, fmt.Errorf("empty integer value")
 		}
-		intVal, err := strconv.ParseInt(value, 10, 64)
+		intVal, err := strconv.ParseInt(unquotedValue, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		return intVal, nil
 	case typeNumber:
-		if value == "" {
+		if unquotedValue == "" {
 			return 0.0, fmt.Errorf("empty number value")
 		}
-		floatVal, err := strconv.ParseFloat(value, 64)
+		floatVal, err := strconv.ParseFloat(unquotedValue, 64)
 		if err != nil {
 			return nil, err
 		}
 		return floatVal, nil
 	case typeBoolean:
-		boolVal, err := strconv.ParseBool(value)
+		boolVal, err := strconv.ParseBool(unquotedValue)
 		if err != nil {
 			return nil, err
 		}
@@ -555,24 +560,24 @@ func parseValueForType(value, schemaType string) (any, error) {
 		return parsed, nil
 	default:
 		// For custom object-like types, attempt JSON parsing; fall back to string.
-		if strings.TrimSpace(value) == "" {
-			return value, nil
+		if strings.TrimSpace(unquotedValue) == "" {
+			return unquotedValue, nil
 		}
 		var parsed any
-		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+		if err := json.Unmarshal([]byte(unquotedValue), &parsed); err == nil {
 			return parsed, nil
 		}
 		// Attempt numeric/bool parsing as a best effort.
-		if boolVal, err := strconv.ParseBool(value); err == nil {
+		if boolVal, err := strconv.ParseBool(unquotedValue); err == nil {
 			return boolVal, nil
 		}
-		if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+		if intVal, err := strconv.ParseInt(unquotedValue, 10, 64); err == nil {
 			return intVal, nil
 		}
-		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+		if floatVal, err := strconv.ParseFloat(unquotedValue, 64); err == nil {
 			return floatVal, nil
 		}
-		return value, nil
+		return unquotedValue, nil
 	}
 }
 

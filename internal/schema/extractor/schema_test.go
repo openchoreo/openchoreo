@@ -541,10 +541,22 @@ field: string | default=foo pattern=^[a-z]+$ minLength=3
 func TestConverter_EnumParsing(t *testing.T) {
 	const schemaYAML = `
 level: string | enum=debug,info,warn | default=info
+status: 'string | enum="active","inactive","pending" | default="active"'
+priority: 'integer | enum=1,2,3 | default=1'
+code: 'integer | enum="1","2","3" | default="1"'
 `
 	const expected = `{
   "type": "object",
   "properties": {
+    "code": {
+      "type": "integer",
+      "default": 1,
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
     "level": {
       "type": "string",
       "default": "info",
@@ -552,6 +564,24 @@ level: string | enum=debug,info,warn | default=info
         "debug",
         "info",
         "warn"
+      ]
+    },
+    "priority": {
+      "type": "integer",
+      "default": 1,
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "status": {
+      "type": "string",
+      "default": "active",
+      "enum": [
+        "active",
+        "inactive",
+        "pending"
       ]
     }
   }
