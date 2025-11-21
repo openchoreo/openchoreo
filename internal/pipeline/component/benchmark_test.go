@@ -148,16 +148,19 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 		DataPlane:           dataplane,
 		ComponentDeployment: deployment,
 		Metadata: context.MetadataContext{
-			Name:      "demo-app-dev-12345678",
-			Namespace: "dp-demo-project-development-x1y2z3w4",
+			Name:            "demo-app-dev-12345678",
+			Namespace:       "dp-demo-project-development-x1y2z3w4",
+			ComponentName:   "demo-app",
+			EnvironmentName: "development",
+			ProjectName:     "demo-project",
 			Labels: map[string]string{
-				"openchoreo.org/component":   "demo-app",
-				"openchoreo.org/environment": "development",
-				"openchoreo.org/project":     "demo-project",
+				"openchoreo.dev/component":   "demo-app",
+				"openchoreo.dev/environment": "development",
+				"openchoreo.dev/project":     "demo-project",
 			},
 			PodSelectors: map[string]string{
-				"openchoreo.org/component-id": "demo-app-12345678",
-				"openchoreo.org/environment":  "development",
+				"openchoreo.dev/component-id": "demo-app-12345678",
+				"openchoreo.dev/environment":  "development",
 			},
 		},
 	}
@@ -378,7 +381,7 @@ spec:
 			Name:      "test-app-dev-12345678",
 			Namespace: "test-namespace",
 			Labels: map[string]string{
-				"openchoreo.org/component": "test-app",
+				"openchoreo.dev/component": "test-app",
 			},
 		},
 	}

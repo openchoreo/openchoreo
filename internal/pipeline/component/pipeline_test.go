@@ -113,8 +113,9 @@ spec:
   metadata:
     name: test-app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     replicas: 2
 `,
@@ -159,15 +160,17 @@ spec:
   metadata:
     name: test-app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 - apiVersion: v1
   kind: Service
   metadata:
     name: test-app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 `,
 			wantErr: false,
 		},
@@ -207,15 +210,17 @@ spec:
   metadata:
     name: secret1
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 - apiVersion: v1
   kind: Secret
   metadata:
     name: secret2
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 `,
 			wantErr: false,
 		},
@@ -268,15 +273,17 @@ spec:
   metadata:
     name: test-app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 - apiVersion: v1
   kind: Secret
   metadata:
     name: db-1-secret
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   data:
     database: mydb
 `,
@@ -338,8 +345,9 @@ spec:
     name: app
     labels:
       monitoring: enabled
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     template:
       spec:
@@ -420,11 +428,14 @@ spec:
 				ReleaseBinding:   settings,
 				SecretReferences: secretReferences,
 				Metadata: context.MetadataContext{
-					Name:      "test-component-dev-12345678",
-					Namespace: "test-namespace",
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-app",
+					EnvironmentName: "dev",
+					ProjectName:     "test-project",
 					Labels: map[string]string{
-						"openchoreo.org/component":   "test-component",
-						"openchoreo.org/environment": "dev",
+						"openchoreo.dev/component":   "test-component",
+						"openchoreo.dev/environment": "dev",
 					},
 				},
 			}
@@ -539,8 +550,9 @@ spec:
     name: app
     labels:
       custom: label
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
 `,
 		},
 		{
@@ -579,8 +591,9 @@ spec:
   metadata:
     name: app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
     annotations:
       custom: annotation
 `,
@@ -622,11 +635,14 @@ spec:
 				Environment:   environment,
 				DataPlane:     dataplane,
 				Metadata: context.MetadataContext{
-					Name:      "test-component-dev-12345678",
-					Namespace: "test-namespace",
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-app",
+					EnvironmentName: "dev",
+					ProjectName:     "test-project",
 					Labels: map[string]string{
-						"openchoreo.org/component":   "test-component",
-						"openchoreo.org/environment": "dev",
+						"openchoreo.dev/component":   "test-component",
+						"openchoreo.dev/environment": "dev",
 					},
 				},
 			}

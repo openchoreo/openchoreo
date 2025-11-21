@@ -3,8 +3,9 @@
   metadata:
     name: test-component-dev-12345678-env-configs-3e553e36
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   data:
     LOG_LEVEL: error
     DEBUG_MODE: "true"
@@ -15,8 +16,9 @@
     name: test-component-dev-12345678-config-app-properties-7a40d758
     namespace: test-namespace
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   data:
     app.properties: |
       app.name=myapp
@@ -27,8 +29,9 @@
     name: test-component-dev-12345678-config-config-json-4334abe4
     namespace: test-namespace
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   data:
     config.json: |
       {
@@ -42,8 +45,9 @@
   metadata:
     name: test-app
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     replicas: 3
     template:
@@ -88,8 +92,9 @@
     name: test-component-dev-12345678-env-secrets-7d163eae
     namespace: test-namespace
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     refreshInterval: 15s
     secretStoreRef:
@@ -113,8 +118,9 @@
     name: test-component-dev-12345678-secret-application-yaml-f2042975
     namespace: test-namespace
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     refreshInterval: 15s
     secretStoreRef:
@@ -134,8 +140,9 @@
     name: test-component-dev-12345678-secret-tls-crt-baf3eb48
     namespace: test-namespace
     labels:
-      openchoreo.org/component: test-app
-      openchoreo.org/environment: dev
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
   spec:
     refreshInterval: 15s
     secretStoreRef:

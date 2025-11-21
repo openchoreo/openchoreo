@@ -54,7 +54,7 @@ type MetadataContext struct {
 	Namespace string
 
 	// Labels are common labels to add to all resources.
-	// Example: {"openchoreo.org/component": "my-service", ...}
+	// Example: {"openchoreo.dev/component": "my-service", ...}
 	Labels map[string]string
 
 	// Annotations are common annotations to add to all resources.

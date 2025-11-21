@@ -19,6 +19,7 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/trait"
@@ -204,10 +205,9 @@ func (p *Pipeline) postProcessResources(resources []map[string]any, input *Rende
 	commonAnnotations := make(map[string]string)
 
 	// Add component metadata
-	if input.Component != nil {
-		commonLabels["openchoreo.org/component"] = input.Component.Name
-		commonLabels["openchoreo.org/environment"] = input.Environment.Name
-	}
+	commonLabels[labels.LabelKeyComponentName] = input.Metadata.ComponentName
+	commonLabels[labels.LabelKeyEnvironmentName] = input.Metadata.EnvironmentName
+	commonLabels[labels.LabelKeyProjectName] = input.Metadata.ProjectName
 
 	// Add configured labels/annotations
 	maps.Copy(commonLabels, p.options.ResourceLabels)
