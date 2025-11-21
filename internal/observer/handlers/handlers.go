@@ -30,6 +30,7 @@ const (
 	ErrorCodeInternalError    = "OBS-L-25"
 
 	// Error messages
+	ErrorMsgBuildIDRequired         = "Build ID is required"
 	ErrorMsgComponentIDRequired     = "Component ID is required"
 	ErrorMsgProjectIDRequired       = "Project ID is required"
 	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
@@ -67,6 +68,14 @@ func (h *Handler) writeErrorResponse(w http.ResponseWriter, status int, errorTyp
 		Code:    code,
 		Message: message,
 	})
+}
+
+// BuildLogsRequest represents the request body for build logs
+type BuildLogsRequest struct {
+	StartTime string `json:"startTime" validate:"required"`
+	EndTime   string `json:"endTime" validate:"required"`
+	Limit     int    `json:"limit,omitempty"`
+	SortOrder string `json:"sortOrder,omitempty"`
 }
 
 // ComponentLogsRequest represents the request body for component logs
@@ -125,6 +134,52 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// GetBuildLogs handles POST /api/logs/build/{buildId}
+func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
+	buildID := httputil.GetPathParam(r, "buildId")
+	if buildID == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgBuildIDRequired)
+		return
+	}
+
+	var req BuildLogsRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Set defaults
+	if req.Limit == 0 {
+		req.Limit = 100
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = "asc" // Build logs are sorted in ascending order by default
+	}
+
+	// Build query parameters
+	params := opensearch.BuildQueryParams{
+		QueryParams: opensearch.QueryParams{
+			StartTime: req.StartTime,
+			EndTime:   req.EndTime,
+			Limit:     req.Limit,
+			SortOrder: req.SortOrder,
+		},
+		BuildID: buildID,
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetBuildLogs(ctx, params)
+	if err != nil {
+		h.logger.Error("Failed to get build logs", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
 }
 
 // GetComponentLogs handles POST /api/logs/component/{componentId}

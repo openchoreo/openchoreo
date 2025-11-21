@@ -141,6 +141,7 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 
 	if result == nil {
 		t.Fatal("Expected result, got nil")
+		return
 	}
 
 	if result.TotalCount != 2 {
@@ -705,4 +706,103 @@ func mustParseTime(timeStr string) time.Time {
 		panic(fmt.Sprintf("Failed to parse time %s: %v", timeStr, err))
 	}
 	return parsed
+}
+
+func TestLoggingService_GetBuildLogs(t *testing.T) {
+	service := newMockLoggingService()
+
+	mockResponse := &opensearch.SearchResponse{
+		Hits: struct {
+			Total struct {
+				Value    int    `json:"value"`
+				Relation string `json:"relation"`
+			} `json:"total"`
+			Hits []opensearch.Hit `json:"hits"`
+		}{
+			Total: struct {
+				Value    int    `json:"value"`
+				Relation string `json:"relation"`
+			}{
+				Value:    1,
+				Relation: "eq",
+			},
+			Hits: []opensearch.Hit{
+				{
+					Source: map[string]interface{}{
+						"@timestamp": "2024-01-01T10:00:00Z",
+						"log":        "Build finished successfully",
+						"kubernetes": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"openchoreo.dev/component-uid":   "comp-123",
+								"openchoreo.dev/environment-uid": "env-456",
+							},
+							"namespace_name": "build-system",
+							"pod_name":       "build-123-job",
+						},
+					},
+				},
+			},
+		},
+		Took: 75,
+	}
+
+	mockClient := &MockOpenSearchClient{
+		searchResponse: mockResponse,
+	}
+	service.osClient = mockClient
+
+	params := opensearch.BuildQueryParams{
+		QueryParams: opensearch.QueryParams{
+			StartTime: "2024-01-01T00:00:00Z",
+			EndTime:   "2024-01-01T23:59:59Z",
+			Limit:     250,
+			SortOrder: "asc",
+		},
+		BuildID: "build-123",
+	}
+
+	result, err := service.GetBuildLogs(context.Background(), params)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result.TotalCount != 1 {
+		t.Errorf("Expected total count 1, got %d", result.TotalCount)
+	}
+
+	if len(result.Logs) != 1 {
+		t.Fatalf("Expected 1 log entry, got %d", len(result.Logs))
+	}
+
+	if result.Took != 75 {
+		t.Errorf("Expected took 75, got %d", result.Took)
+	}
+
+	firstLog := result.Logs[0]
+	if firstLog.Log != "Build finished successfully" {
+		t.Errorf("Unexpected log content: %s", firstLog.Log)
+	}
+}
+
+func TestLoggingService_GetBuildLogs_SearchError(t *testing.T) {
+	service := newMockLoggingService()
+	mockClient := &MockOpenSearchClient{
+		searchError: fmt.Errorf("search failure"),
+	}
+	service.osClient = mockClient
+
+	params := opensearch.BuildQueryParams{
+		QueryParams: opensearch.QueryParams{
+			StartTime: "2024-01-01T00:00:00Z",
+			EndTime:   "2024-01-01T23:59:59Z",
+			Limit:     100,
+			SortOrder: "asc",
+		},
+		BuildID: "build-123",
+	}
+
+	_, err := service.GetBuildLogs(context.Background(), params)
+	if err == nil {
+		t.Fatal("Expected error but got nil")
+	}
 }

@@ -101,6 +101,14 @@ type QueryParams struct {
 	LogType        string   `json:"logType,omitempty"`
 }
 
+// BuildQueryParams holds build-specific query parameters
+type BuildQueryParams struct {
+	QueryParams
+	BuildID   string `json:"buildId"`
+	Limit     int    `json:"limit"`
+	SortOrder string `json:"sortOrder"`
+}
+
 // ComponentQueryParams holds component-specific query parameters
 type ComponentQueryParams struct {
 	QueryParams

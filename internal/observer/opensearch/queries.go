@@ -79,6 +79,35 @@ func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []stri
 	return mustConditions
 }
 
+// BuildBuildLogsQuery builds a query for build logs with wildcard search
+func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"wildcard": map[string]interface{}{
+				labels.KubernetesPodName + ".keyword": params.BuildID + "*",
+			},
+		},
+	}
+	mustConditions = addTimeRangeFilter(mustConditions, params.QueryParams.StartTime, params.QueryParams.EndTime)
+
+	query := map[string]interface{}{
+		"size": params.QueryParams.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": params.QueryParams.SortOrder,
+				},
+			},
+		},
+	}
+	return query
+}
+
 // BuildComponentLogsQuery builds a query for component logs with wildcard search
 func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{

@@ -73,6 +73,68 @@ func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {
 	}
 }
 
+func TestQueryBuilder_BuildBuildLogsQuery(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+
+	params := BuildQueryParams{
+		QueryParams: QueryParams{
+			StartTime: "2024-01-01T00:00:00Z",
+			EndTime:   "2024-01-01T23:59:59Z",
+			Limit:     200,
+			SortOrder: "asc",
+		},
+		BuildID: "build-123",
+	}
+
+	query := qb.BuildBuildLogsQuery(params)
+
+	if query["size"] != 200 {
+		t.Errorf("Expected size 200, got %v", query["size"])
+	}
+
+	boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected bool query structure")
+	}
+
+	mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("Expected must conditions")
+	}
+
+	if len(mustConditions) != 2 {
+		t.Fatalf("Expected 2 must conditions (pod match + time range), got %d", len(mustConditions))
+	}
+
+	foundWildcard := false
+	for _, condition := range mustConditions {
+		if wildcard, ok := condition["wildcard"].(map[string]interface{}); ok {
+			field := labels.KubernetesPodName + ".keyword"
+			if value, exists := wildcard[field]; exists && value == "build-123*" {
+				foundWildcard = true
+			}
+		}
+	}
+
+	if !foundWildcard {
+		t.Fatal("Expected build pod wildcard condition not found")
+	}
+
+	sortFields, ok := query["sort"].([]map[string]interface{})
+	if !ok || len(sortFields) == 0 {
+		t.Fatal("Expected sort configuration")
+	}
+
+	timestampSort, ok := sortFields[0]["@timestamp"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected timestamp sort configuration")
+	}
+
+	if timestampSort["order"] != "asc" {
+		t.Errorf("Expected ascending sort order, got %v", timestampSort["order"])
+	}
+}
+
 func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 

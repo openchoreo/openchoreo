@@ -2,9 +2,10 @@ openapi: 3.1.0
 info:
   title: OpenChoreo Observer API
   description: |
-    The OpenChoreo Observer API provides endpoints for querying logs, traces, and metrics 
-    from components, projects, gateways, and organizations. It integrates with OpenSearch 
-    for logs/traces and Prometheus for metrics.
+    The OpenChoreo Observer API provides endpoints for querying build logs, component logs,
+    traces, and metrics from components, projects, gateways, and organizations.
+    It integrates with OpenSearch for logs, build logs, and traces,
+    and with Prometheus for metrics.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -54,6 +55,47 @@ paths:
                   error:
                     type: string
                     example: "opensearch: connection failed"
+
+  /api/logs/build/{buildId}:
+    post:
+      tags:
+        - Logs
+      summary: Get build logs
+      description: Retrieve logs for a specific build
+      operationId: getBuildLogs
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          description: The unique identifier of the build
+          schema:
+            type: string
+            example: "build-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved build logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/logs/component/{componentId}:
     post:
@@ -312,6 +354,36 @@ paths:
 
 components:
   schemas:
+    BuildLogsRequest:
+      type: object
+      required:
+        - startTime
+        - endTime
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for log query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for log query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+        limit:
+          type: integer
+          description: Maximum number of log entries to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+        sortOrder:
+          type: string
+          description: Sort order for logs (build logs are sorted in ascending order by default)
+          enum: [asc, desc]
+          default: asc
+          example: "asc"
+
     ComponentLogsRequest:
       type: object
       required:

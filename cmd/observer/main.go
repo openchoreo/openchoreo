@@ -70,6 +70,9 @@ func main() {
 	// Health check endpoint
 	mux.HandleFunc("GET /health", handler.Health)
 
+	// API routes - Build Logs
+	mux.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
+
 	// API routes - Logs
 	mux.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
 	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)

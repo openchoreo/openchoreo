@@ -65,6 +65,45 @@ func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.Met
 	}
 }
 
+// GetBuildLogs retrieves logs for a specific build using V2 wildcard search
+func (s *LoggingService) GetBuildLogs(ctx context.Context, params opensearch.BuildQueryParams) (*LogResponse, error) {
+	s.logger.Info("Getting build logs for build_id: " + params.BuildID)
+
+	// Generate indices based on time range
+	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
+	if err != nil {
+		s.logger.Error("Failed to generate indices", "error", err)
+		return nil, fmt.Errorf("failed to generate indices: %w", err)
+	}
+
+	// Build query with wildcard search
+	query := s.queryBuilder.BuildBuildLogsQuery(params)
+
+	// Execute search
+	response, err := s.osClient.Search(ctx, indices, query)
+	if err != nil {
+		s.logger.Error("Failed to execute build logs search", "error", err)
+		return nil, fmt.Errorf("failed to execute search: %w", err)
+	}
+
+	// Parse log entries
+	logs := make([]opensearch.LogEntry, 0, len(response.Hits.Hits))
+	for _, hit := range response.Hits.Hits {
+		entry := opensearch.ParseLogEntry(hit)
+		logs = append(logs, entry)
+	}
+
+	s.logger.Info("Build logs retrieved",
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
+
+	return &LogResponse{
+		Logs:       logs,
+		TotalCount: response.Hits.Total.Value,
+		Took:       response.Took,
+	}, nil
+}
+
 // GetComponentLogs retrieves logs for a specific component using V2 wildcard search
 func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting component logs",
