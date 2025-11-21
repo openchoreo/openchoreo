@@ -117,7 +117,17 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, orgName, traitName st
 		if err := json.Unmarshal(trait.Spec.Schema.Parameters.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
-		def.Schemas = []map[string]any{params}
+		def.Schemas = append(def.Schemas, params)
+	}
+
+	// Extract envOverrides schema from RawExtension
+	// TODO: Remove as envOverrides will only be available at ReleaseBinding level.
+	if trait.Spec.Schema.EnvOverrides != nil && trait.Spec.Schema.EnvOverrides.Raw != nil {
+		var envOverrides map[string]any
+		if err := json.Unmarshal(trait.Spec.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
+			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
+		}
+		def.Schemas = append(def.Schemas, envOverrides)
 	}
 
 	// Convert to JSON Schema
