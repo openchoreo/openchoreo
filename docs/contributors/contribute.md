@@ -91,8 +91,8 @@ This will create the cluster, build all components, load images, and install Ope
 
    Or check individual plane pods:
    ```sh
-   kubectl --context k3d-openchoreo get pods -n openchoreo-control-plane
-   kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane
+   kubectl --context k3d-openchoreo-dev get pods -n openchoreo-control-plane
+   kubectl --context k3d-openchoreo-dev get pods -n openchoreo-data-plane
    ```
 
 7. Run controller manager locally (for development):
@@ -101,7 +101,7 @@ This will create the cluster, build all components, load images, and install Ope
 
    - First, scale down the existing controller deployment:
    ```sh
-   kubectl --context k3d-openchoreo -n openchoreo-control-plane scale deployment openchoreo-controller-manager --replicas=0
+   kubectl --context k3d-openchoreo-dev -n openchoreo-control-plane scale deployment openchoreo-controller-manager --replicas=0
    ```
 
    - Then, run the manager with webhooks disabled:

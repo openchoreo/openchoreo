@@ -10,7 +10,7 @@ OpenChoreo provides observability for both developers and platform engineers. Th
 ```
 helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
    --dependency-update \
-   --kube-context k3d-openchoreo \
+   --kube-context k3d-openchoreo-dev \
    --namespace openchoreo-data-plane \
    --create-namespace \
    --values install/k3d/single-cluster/values-dp.yaml \
