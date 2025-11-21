@@ -151,6 +151,13 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate times
+	if err := validateTimes(req.StartTime, req.EndTime); err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
 	// Set defaults
 	if req.Limit == 0 {
 		req.Limit = 100
