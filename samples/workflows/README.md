@@ -38,7 +38,6 @@ schema:
       branch: string | default=main
       commit: string | default=""
     appPath: string | default=.    # Path to application in repo
-    secretRef: string              # Git credentials secret
   docker:
     context: string | default=.    # Docker build context
     filePath: string | default=./Dockerfile
@@ -59,7 +58,6 @@ spec:
         revision:
           branch: "main"
         appPath: "/service"
-        secretRef: "git-credentials"
       docker:
         context: "/service"
         filePath: "/service/Dockerfile"
@@ -80,7 +78,6 @@ schema:
       branch: string | default=main description="Git branch to checkout"
       commit: string | default=HEAD description="Git commit SHA or reference"
     appPath: string | default=. description="Path to the application directory"
-    secretRef: string | enum=reading-list-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
   version: integer | default=1 description="Build version number"
   testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
   command: '[]string | default=[] description="Custom command to override the default entrypoint"'
@@ -118,7 +115,6 @@ schema:
       branch: string | default=main
       commit: string | default=""
     appPath: string | default=.
-    secretRef: string
   nodeVersion: string | default="18"
 ```
 
@@ -147,7 +143,6 @@ spec:
         revision:
           branch: "main"
         appPath: "/"
-        secretRef: "git-credentials"
       docker:
         context: "/"
         filePath: "/Dockerfile"
@@ -175,7 +170,6 @@ spec:
         revision:
           branch: "main"
         appPath: "/"
-        secretRef: "git-credentials"
       docker:
         context: "/"
         filePath: "/Dockerfile"

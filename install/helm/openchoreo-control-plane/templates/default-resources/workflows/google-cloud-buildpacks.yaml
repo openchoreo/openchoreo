@@ -6,13 +6,6 @@ metadata:
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:
-  # Template Variable Reference (processed by controller):
-  # ${ctx.workflowRunName}         - WorkflowRun CR name
-  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
-  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
-  # ${ctx.orgName}                 - Organization name (namespace)
-  # ${schema.*}                    - Developer-provided values from schema
-  # Developer-facing schema with type validation
   schema:
     repository:
       url: string | description="Git repository URL"
@@ -20,25 +13,6 @@ spec:
         branch: string | default=main description="Git branch to checkout"
         commit: string | default=HEAD description="Git commit SHA or reference (e.g., HEAD, tag name)"
       appPath: string | default=. description="Path to the application directory within the repository"
-      secretRef: 'string | enum="reading-list-repo-credentials-dev,payments-repo-credentials-dev" description="Reference to the secret containing repository credentials"'
-    version: integer | default=1 description="Build version number for image tagging"
-    testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
-    command: '[]string | default=[] description="Custom command to override the default entrypoint"'
-    args: '[]string | default=[] description="Custom arguments to pass to the command"'
-    resources:
-      cpuCores: integer | default=1 minimum=1 maximum=8 description="Number of CPU cores allocated for the build"
-      memoryGb: integer | default=2 minimum=1 maximum=32 description="Amount of memory in GB allocated for the build"
-    timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
-    cache:
-      enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
-      paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
-    limits:
-      maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
-      maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
-
-  # Secret references to inject into build plane
-  secrets:
-    - ${schema.repository.secretRef}
 
   # Rendered resource
   resource:
@@ -63,37 +37,7 @@ spec:
             value: ${schema.repository.revision.commit}
           - name: app-path
             value: ${schema.repository.appPath}
-          - name: version
-            value: ${schema.version}
-          - name: test-mode
-            value: ${schema.testMode}
-          - name: command
-            value: ${schema.command}
-          - name: args
-            value: ${schema.args}
-          - name: cpu-cores
-            value: ${schema.resources.cpuCores}
-          - name: memory-gb
-            value: ${schema.resources.memoryGb}
-          - name: timeout
-            value: ${schema.timeout}
-          - name: cache-enabled
-            value: ${schema.cache.enabled}
-          - name: cache-paths
-            value: ${schema.cache.paths}
-          - name: max-retries
-            value: ${schema.limits.maxRetries}
-          - name: max-duration-minutes
-            value: ${schema.limits.maxDurationMinutes}
           # PE-controlled hardcoded parameters
-          - name: builder-image
-            value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
-          - name: registry-url
-            value: gcr.io/openchoreo-dev/images
-          - name: security-scan-enabled
-            value: "true"
-          - name: build-timeout
-            value: "30m"
           - name: image-name
             value: ${ctx.projectName}-${ctx.componentName}-image
           - name: image-tag

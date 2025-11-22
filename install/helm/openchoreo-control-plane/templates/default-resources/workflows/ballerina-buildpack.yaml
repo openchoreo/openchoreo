@@ -6,13 +6,6 @@ metadata:
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
 spec:
-  # Template Variable Reference (processed by controller):
-  # ${ctx.workflowRunName}         - WorkflowRun CR name
-  # ${ctx.componentName}           - Component name (Only accessible for component level workflows)
-  # ${ctx.projectName}             - Project name (Only accessible for component level workflows)
-  # ${ctx.orgName}                 - Organization name (namespace)
-  # ${schema.*}                    - Developer-provided values from schema
-  # Developer-facing schema with type validation
   schema:
     repository:
       url: string | description="Git repository URL"
@@ -20,11 +13,6 @@ spec:
         branch: string | default=main description="Git branch to checkout"
         commit: string | default="" description="Git commit SHA or reference (empty for latest on branch)"
       appPath: string | default=. description="Path to the Ballerina application directory within the repository"
-      secretRef: string | description="Reference to the secret containing repository credentials"
-
-  # Secret references to inject into build plane
-  secrets:
-    - ${schema.repository.secretRef}
 
   # Rendered resource
   resource:
