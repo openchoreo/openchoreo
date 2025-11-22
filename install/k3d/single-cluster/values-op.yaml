@@ -11,6 +11,13 @@ openSearchDashboards:
   service:
     type: LoadBalancer
 
+# Disable External Secrets since it's already in the Data Plane (single cluster)
+external-secrets:
+  enabled: false
+
+fakeSecretStore:
+  enabled: false
+
 # OpenSearch - The data store for logs
 # In single-cluster mode, FluentBit from Data/Build planes connects via in-cluster service
 # So we don't need LoadBalancer, but exposing it for debugging/testing purposes
