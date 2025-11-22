@@ -138,15 +138,14 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
 fi
 
 log_success "OpenChoreo installation completed successfully!"
-# TODO: Uncomment and update access URLs when backstage is available
-#log_info "Access URLs:"
-#log_info "  Backstage UI: http://openchoreo.localhost:8080/"
-#log_info "    Logins:"
-#log_info "      Username: admin@openchoreo.dev"
-#log_info "      Password: Admin@123"
-#log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
-#log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
-#echo ""
+log_info "Access URLs:"
+log_info "  Backstage UI: http://openchoreo.localhost:8080/"
+log_info "    Logins:"
+log_info "      Username: admin@openchoreo.dev"
+log_info "      Password: Admin@123"
+log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
+log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
+echo ""
 log_info "Next Steps:"
 log_info "  Deploy sample applications:"
 log_info "    ./deploy-react-starter.sh      # Simple React web application"

@@ -419,12 +419,10 @@ check_system_resources() {
     fi
 
     # Display current system resources
-    echo ""
     log_info "System Resources:"
     echo "  CPU Cores: $cpus"
     echo "  Memory: ${memory_gb}GB"
     echo "  Available Disk Space (home): ${disk_gb}GB"
-    echo ""
 
     # Display required resources
     log_info "Required Resources:"
@@ -439,7 +437,6 @@ check_system_resources() {
     echo "  Configuration: $config_desc"
     echo "  Minimum: ${required_cpus_min} vCPUs, ${required_memory_min}GB RAM, ${required_disk}GB Disk"
     echo "  Recommended: ${required_cpus_rec} vCPUs, ${required_memory_rec}GB RAM, ${required_disk}GB Disk"
-    echo ""
 
     local has_errors=false
     local has_warnings=false
@@ -544,8 +541,15 @@ preload_images() {
         "--dp-values" "${SCRIPT_DIR}/.values-dp.yaml"
     )
 
+    # Use local charts when in dev mode
+    if [[ "$DEV_MODE" == "true" ]]; then
+        preload_args+=("--local-charts")
+        log_info "Using local Helm charts (DEV_MODE enabled)"
+    fi
+
     # Add --version flag only if OPENCHOREO_CHART_VERSION is not empty
-    if [[ -n "$OPENCHOREO_CHART_VERSION" ]]; then
+    # Skip version in dev mode since we're using local charts
+    if [[ -n "$OPENCHOREO_CHART_VERSION" && "$DEV_MODE" != "true" ]]; then
         preload_args+=("--version" "$OPENCHOREO_CHART_VERSION")
     fi
 
