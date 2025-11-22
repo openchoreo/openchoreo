@@ -309,7 +309,7 @@ fluentBit:
 
 # Prometheus configuration
 prometheus:
-  enabled: false
+  enabled: true
   fullnameOverride: openchoreo-observability
 
   ## Manages Prometheus and Alertmanager components
