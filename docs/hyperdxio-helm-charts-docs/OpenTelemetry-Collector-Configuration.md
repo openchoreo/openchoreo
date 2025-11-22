@@ -155,16 +155,16 @@ E8["HYPERDX_LOG_LEVEL"]
 E9["HYPERDX_API_KEY"]
 E10["Custom Variables"]
 
-V1 --> E1
-T1 --> E1
-V1 --> E2
-T1 --> E2
-V2 --> E3
-T2 --> E3
-V3 --> E4
-T3 --> E4
-V4 --> E5
-T4 --> E5
+V1 -->|"if set"| E1
+T1 -->|"if not set"| E1
+V1 -->|"if set"| E2
+T1 -->|"if not set"| E2
+V2 -->|"if set"| E3
+T2 -->|"if not set"| E3
+V3 -->|"if set"| E4
+T3 -->|"if not set"| E4
+V4 -->|"if set"| E5
+T4 -->|"if not set"| E5
 V5 --> E6
 V6 --> E7
 V7 --> E10
@@ -343,11 +343,11 @@ ConfigMap["ConfigMap<br>{{ fullname }}-otel-custom-config"]
 Pod["OTEL Collector Pod"]
 Container["Container<br>otel-collector"]
 
-ValuesYAML --> ConfigMapTemplate
+ValuesYAML -->|"if customConfig set"| ConfigMapTemplate
 ConfigMapTemplate --> ConfigMap
 ConfigMap --> VolumeTemplate
 VolumeMountTemplate --> Container
-ValuesYAML --> EnvVarTemplate
+ValuesYAML -->|"if customConfig set"| EnvVarTemplate
 EnvVarTemplate --> Container
 Template --> Pod
 

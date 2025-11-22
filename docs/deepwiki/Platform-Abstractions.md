@@ -48,13 +48,13 @@ WestIngress["Westbound Ingress<br>(Organization)"]
 SouthEgress["Southbound Egress<br>(Internet)"]
 EastEgress["Eastbound Egress<br>(Internal)"]
 
-Proj --> Env
-Proj --> Cell
-Comp --> Cell
-EP --> NorthIngress
-EP --> WestIngress
-Conn --> SouthEgress
-Conn --> EastEgress
+Proj -->|"deployed to"| Env
+Proj -->|"instantiated as"| Cell
+Comp -->|"runs in"| Cell
+EP -->|"exposed via"| NorthIngress
+EP -->|"exposed via"| WestIngress
+Conn -->|"routed via"| SouthEgress
+Conn -->|"routed via"| EastEgress
 
 subgraph subGraph2 ["Runtime Layer - Execution Model"]
     Cell
@@ -77,10 +77,10 @@ subgraph subGraph0 ["Platform Layer - Infrastructure Topology"]
     BP
     Env
     DPipe
-    Org --> DP
-    Org --> BP
-    Org --> Env
-    Org --> DPipe
+    Org -->|"contains"| DP
+    Org -->|"contains"| BP
+    Org -->|"contains"| Env
+    Org -->|"defines"| DPipe
 end
 ```
 
@@ -116,12 +116,12 @@ EnvProd["Environment: prod<br>(Namespace: org-name)"]
 DP["DataPlane<br>(Namespace: org-name)"]
 BP["BuildPlane<br>(Namespace: org-name)"]
 
-Org --> Proj1
-Org --> Proj2
-Org --> EnvDev
-Org --> EnvProd
-Org --> DP
-Org --> BP
+Org -->|"owns"| Proj1
+Org -->|"owns"| Proj2
+Org -->|"owns"| EnvDev
+Org -->|"owns"| EnvProd
+Org -->|"owns"| DP
+Org -->|"owns"| BP
 ```
 
 **Sources:** [cmd/main.go L179-L185](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L179-L185)
@@ -163,12 +163,12 @@ K8sCluster2["Kubernetes Cluster<br>(us-east)"]
 Apps1["Application Workloads<br>Deployments, Services"]
 Apps2["Application Workloads<br>Deployments, Services"]
 
-ControlPlane --> DataPlane1
-ControlPlane --> DataPlane2
-DataPlane1 --> K8sCluster1
-DataPlane2 --> K8sCluster2
-K8sCluster1 --> Apps1
-K8sCluster2 --> Apps2
+ControlPlane -->|"manages"| DataPlane1
+ControlPlane -->|"manages"| DataPlane2
+DataPlane1 -->|"connects to"| K8sCluster1
+DataPlane2 -->|"connects to"| K8sCluster2
+K8sCluster1 -->|"hosts"| Apps1
+K8sCluster2 -->|"hosts"| Apps2
 ```
 
 **Sources:** [cmd/main.go L200-L206](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L200-L206)
@@ -201,9 +201,9 @@ ArgoCluster["Kubernetes Cluster<br>(Argo Workflows)"]
 WFTemplates["ClusterWorkflowTemplates<br>ballerina-buildpack<br>react<br>docker"]
 Workflows["Workflow Instances<br>(Build Jobs)"]
 
-BP --> ArgoCluster
-ArgoCluster --> WFTemplates
-ArgoCluster --> Workflows
+BP -->|"connects to"| ArgoCluster
+ArgoCluster -->|"contains"| WFTemplates
+ArgoCluster -->|"executes"| Workflows
 ```
 
 **Sources:** [cmd/main.go L374-L380](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L374-L380)
@@ -242,12 +242,12 @@ NS2["Namespace: project-a-prod"]
 Workloads1["Deployments<br>Services<br>ConfigMaps"]
 Workloads2["Deployments<br>Services<br>ConfigMaps"]
 
-Env1 --> DP
-Env2 --> DP
-DP --> NS1
-DP --> NS2
-NS1 --> Workloads1
-NS2 --> Workloads2
+Env1 -->|"targets"| DP
+Env2 -->|"targets"| DP
+DP -->|"creates"| NS1
+DP -->|"creates"| NS2
+NS1 -->|"contains"| Workloads1
+NS2 -->|"contains"| Workloads2
 ```
 
 **Sources:** [cmd/main.go L193-L199](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L193-L199)
@@ -286,11 +286,11 @@ Track1["DeploymentTrack: Stage 1<br>environmentRef: dev"]
 Track2["DeploymentTrack: Stage 2<br>environmentRef: staging"]
 Track3["DeploymentTrack: Stage 3<br>environmentRef: prod"]
 
-DPipe --> Track1
-DPipe --> Track2
-DPipe --> Track3
-Track1 --> Track2
-Track2 --> Track3
+DPipe -->|"contains"| Track1
+DPipe -->|"contains"| Track2
+DPipe -->|"contains"| Track3
+Track1 -->|"promotes to"| Track2
+Track2 -->|"promotes to"| Track3
 ```
 
 **Sources:** [cmd/main.go L207-L213](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L207-L213)
@@ -343,12 +343,12 @@ Comp4["Component: cron-job<br>type: ScheduledTask"]
 EnvDev["Environment: dev<br>→ Namespace: online-store-dev"]
 EnvProd["Environment: prod<br>→ Namespace: online-store-prod"]
 
-Proj --> Comp1
-Proj --> Comp2
-Proj --> Comp3
-Proj --> Comp4
-Proj --> EnvDev
-Proj --> EnvProd
+Proj -->|"contains"| Comp1
+Proj -->|"contains"| Comp2
+Proj -->|"contains"| Comp3
+Proj -->|"contains"| Comp4
+Proj -->|"deployed to"| EnvDev
+Proj -->|"deployed to"| EnvProd
 ```
 
 **Sources:** [cmd/main.go L186-L192](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L186-L192)
@@ -387,8 +387,8 @@ Class["APIClass / ServiceClass /<br>WebApplicationClass /<br>ScheduledTaskClass"
 Instance["API / Service /<br>WebApplication /<br>ScheduledTask"]
 Binding["APIBinding / ServiceBinding /<br>WebApplicationBinding /<br>ScheduledTaskBinding"]
 
-Class --> Instance
-Instance --> Binding
+Class -->|"templates(defines defaults)"| Instance
+Instance -->|"bound via(active/suspend/undeploy)"| Binding
 ```
 
 **Example - API Component:**
@@ -456,11 +456,11 @@ NetworkPolicy["CiliumNetworkPolicy<br>allow: external → orders-api"]
 Gateway["Gateway: gateway-external<br>(Northbound Ingress)"]
 Service["Service: orders-api"]
 
-EP --> HTTPRoute
-EP --> SecurityPolicy
-EP --> NetworkPolicy
-Gateway --> HTTPRoute
-HTTPRoute --> Service
+EP -->|"creates"| HTTPRoute
+EP -->|"creates"| SecurityPolicy
+EP -->|"creates"| NetworkPolicy
+Gateway -->|"routes via"| HTTPRoute
+HTTPRoute -->|"forwards to"| Service
 ```
 
 **Sources:** [cmd/main.go L235-L241](https://github.com/openchoreo/openchoreo/blob/a577e969/cmd/main.go#L235-L241)
@@ -503,12 +503,12 @@ EastGW["Eastbound Egress Gateway<br>(Internal)"]
 External["External Payment API<br>(stripe.com)"]
 OtherProject["inventory-api<br>(another Cell)"]
 
-Comp --> Conn1
-Comp --> Conn2
-Conn1 --> SouthGW
-Conn2 --> EastGW
-SouthGW --> External
-EastGW --> OtherProject
+Comp -->|"declares"| Conn1
+Comp -->|"declares"| Conn2
+Conn1 -->|"routes via"| SouthGW
+Conn2 -->|"routes via"| EastGW
+SouthGW -->|"connects to"| External
+EastGW -->|"connects to"| OtherProject
 ```
 
 **Sources:** [README.md L60-L62](https://github.com/openchoreo/openchoreo/blob/a577e969/README.md#L60-L62)
@@ -557,36 +557,36 @@ Envoy["Envoy Gateways<br>API Management"]
 mTLS["mTLS Encryption"]
 Obs["Observability<br>(Fluentbit, OpenSearch)"]
 
-Internet --> North
-North --> Frontend
-OrgNetwork --> West
-West --> API
-Worker --> South
-South --> External
-API --> East
-East --> OtherCell
-Cilium --> North
-Cilium --> West
-Cilium --> South
-Cilium --> East
-Envoy --> North
-Envoy --> West
-Envoy --> South
-Envoy --> East
-mTLS --> Frontend
-mTLS --> API
-mTLS --> Worker
-Obs --> North
-Obs --> West
-Obs --> South
-Obs --> East
+Internet -->|"via gateway-external"| North
+North -->|"routes to"| Frontend
+OrgNetwork -->|"via gateway-internal"| West
+West -->|"routes to"| API
+Worker -->|"egress gateway"| South
+South -->|"routes to"| External
+API -->|"egress gateway"| East
+East -->|"routes to"| OtherCell
+Cilium -->|"enforces"| North
+Cilium -->|"enforces"| West
+Cilium -->|"enforces"| South
+Cilium -->|"enforces"| East
+Envoy -->|"manages"| North
+Envoy -->|"manages"| West
+Envoy -->|"manages"| South
+Envoy -->|"manages"| East
+mTLS -->|"encrypts"| Frontend
+mTLS -->|"encrypts"| API
+mTLS -->|"encrypts"| Worker
+Obs -->|"monitors"| North
+Obs -->|"monitors"| West
+Obs -->|"monitors"| South
+Obs -->|"monitors"| East
 
 subgraph Cell ["Cell (Project: online-store, Environment: prod)"]
     Frontend
     API
     Worker
-    Frontend --> API
-    API --> Worker
+    Frontend -->|"intra-cell"| API
+    API -->|"intra-cell"| Worker
 end
 ```
 
@@ -618,15 +618,15 @@ Svc1["Service<br>apiVersion: v1"]
 HTTPRoute1["HTTPRoute<br>apiVersion: gateway.networking.k8s.io/v1"]
 NetworkPolicy1["CiliumNetworkPolicy<br>apiVersion: cilium.io/v2"]
 
-Proj --> DPipe
-Proj --> Env1
-Proj --> Env2
-Binding1 --> Env1
-Proj --> Cell
-Env1 --> Cell
-DP --> Cell
-EP1 --> HTTPRoute1
-Conn1 --> NetworkPolicy1
+Proj -->|"references"| DPipe
+Proj -->|"deployed to"| Env1
+Proj -->|"deployed to"| Env2
+Binding1 -->|"references"| Env1
+Proj -->|"instantiated as"| Cell
+Env1 -->|"hosts"| Cell
+DP -->|"runs"| Cell
+EP1 -->|"creates"| HTTPRoute1
+Conn1 -->|"creates"| NetworkPolicy1
 
 subgraph Runtime ["Runtime Execution (DataPlane Cluster)"]
     Cell
@@ -634,8 +634,8 @@ subgraph Runtime ["Runtime Execution (DataPlane Cluster)"]
     Svc1
     HTTPRoute1
     NetworkPolicy1
-    Cell --> Deploy1
-    Cell --> Svc1
+    Cell -->|"contains"| Deploy1
+    Cell -->|"contains"| Svc1
 end
 
 subgraph Development ["Development Abstractions (Org/Project Scoped)"]
@@ -646,12 +646,12 @@ subgraph Development ["Development Abstractions (Org/Project Scoped)"]
     EP1
     Conn1
     Binding1
-    Proj --> Comp1
-    Proj --> Comp2
-    Proj --> Comp3
-    Comp1 --> EP1
-    Comp1 --> Conn1
-    Comp1 --> Binding1
+    Proj -->|"contains"| Comp1
+    Proj -->|"contains"| Comp2
+    Proj -->|"contains"| Comp3
+    Comp1 -->|"exposes"| EP1
+    Comp1 -->|"declares"| Conn1
+    Comp1 -->|"bound via"| Binding1
 end
 
 subgraph Platform ["Platform Abstractions (Cluster/Org Scoped)"]
@@ -661,11 +661,11 @@ subgraph Platform ["Platform Abstractions (Cluster/Org Scoped)"]
     Env1
     Env2
     DPipe
-    Org --> DP
-    Org --> BP
-    Org --> Env1
-    Org --> Env2
-    Org --> DPipe
+    Org -->|"contains"| DP
+    Org -->|"contains"| BP
+    Org -->|"contains"| Env1
+    Org -->|"contains"| Env2
+    Org -->|"defines"| DPipe
 end
 ```
 

@@ -115,13 +115,13 @@ subgraph subGraph0 ["Component Controller"]
     Wait
     Event --> Reconcile
     Reconcile --> Check
-    Check --> Finalizer
-    Check --> Finalize
+    Check -->|"Not Deleted"| Finalizer
+    Check -->|"Being Deleted"| Finalize
     Finalizer --> UpdateStatus
     UpdateStatus --> Complete
     Finalize --> DeleteTracks
-    DeleteTracks --> RemoveFinalizer
-    DeleteTracks --> Wait
+    DeleteTracks -->|"Tracks Deleted"| RemoveFinalizer
+    DeleteTracks -->|"Tracks Deleting"| Wait
     RemoveFinalizer --> Complete
 end
 ```
@@ -190,15 +190,15 @@ subgraph subGraph0 ["DeploymentTrack Controller"]
     Wait
     Event --> Reconcile
     Reconcile --> Check
-    Check --> Finalizer
-    Check --> Finalize
+    Check -->|"Not Deleted"| Finalizer
+    Check -->|"Being Deleted"| Finalize
     Finalizer --> UpdateStatus
     UpdateStatus --> Complete
     Finalize --> DeleteBuilds
     DeleteBuilds --> DeleteArtifacts
     DeleteArtifacts --> DeleteDeployments
-    DeleteDeployments --> RemoveFinalizer
-    DeleteDeployments --> Wait
+    DeleteDeployments -->|"All Deleted"| RemoveFinalizer
+    DeleteDeployments -->|"Still Deleting"| Wait
     RemoveFinalizer --> Complete
 end
 ```

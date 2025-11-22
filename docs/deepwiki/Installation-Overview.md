@@ -278,29 +278,6 @@ OpenSearch["opensearch StatefulSet"]
 OSDashboard["opensearch-dashboard Pods"]
 Observer["observer Pods"]
 
-HC_Cilium --> NS_Cilium
-HC_CP --> NS_CP
-HC_DP --> NS_DP
-HC_BP --> NS_BP
-HC_IP --> NS_IP
-HC_OP --> NS_OP
-NS_Cilium --> Cilium
-NS_CP --> ControllerMgr
-NS_CP --> APIServer
-NS_CP --> CertMgr
-NS_DP --> Vault
-NS_DP --> Registry
-NS_DP --> Redis
-NS_DP --> EnvoyGW
-NS_DP --> GW_Ext
-NS_DP --> GW_Int
-NS_DP --> FluentBit
-NS_BP --> ArgoWF
-NS_IP --> IdentityProv
-NS_OP --> OpenSearch
-NS_OP --> OSDashboard
-NS_OP --> Observer
-
 subgraph Components ["Running Components"]
     Cilium
     ControllerMgr
@@ -572,8 +549,8 @@ CheckStatus --> AddDP
 CheckStatus --> AddBP
 DataPlaneCR --> DeployCtrl
 BuildPlaneCR --> BuildCtrl
-DeployCtrl --> DataPlane
-BuildCtrl --> BuildPlane
+DeployCtrl -->|"Cross-cluster API calls"| DataPlane
+BuildCtrl -->|"Trigger Argo Workflows"| BuildPlane
 
 subgraph ControllerReconcile ["Controllers Reconcile"]
     DeployCtrl

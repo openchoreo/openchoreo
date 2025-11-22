@@ -38,10 +38,10 @@ Command["command:<br>Version-specific path"]
 ConfigMap["ConfigMap<br>app-config"]
 EnvVars["Environment Variables:<br>NODE_ENV, OTEL_SERVICE_NAME"]
 
-Enabled --> CronJob
+Enabled -->|"if true"| CronJob
 CheckAlerts --> CronJob
-ConfigMap --> Container
-EnvVars --> Container
+ConfigMap -->|"envFrom"| Container
+EnvVars -->|"env"| Container
 
 subgraph subGraph2 ["Runtime Environment"]
     ConfigMap
@@ -159,8 +159,8 @@ PostESBuild["Post-2.7.0 Path:<br>/app/packages/api/build/tasks/index.js"]
 NodeCommand["node command<br>with 'check-alerts' argument"]
 TaskContainer["Task Container<br>Executes alert checking"]
 
-VersionCheck --> PreESBuild
-VersionCheck --> PostESBuild
+VersionCheck -->|"< 2.7.0"| PreESBuild
+VersionCheck -->|"Unsupported markdown: blockquote"| PostESBuild
 PreESBuild --> NodeCommand
 PostESBuild --> NodeCommand
 
@@ -339,10 +339,10 @@ MongoDB["MongoDB Service<br>Alert definitions"]
 ClickHouse["ClickHouse Service<br>Telemetry data"]
 OTELCollector["OTEL Collector<br>Task telemetry"]
 
-ConfigMap --> CronJobPod
-TaskProcess --> MongoDB
-TaskProcess --> ClickHouse
-TaskProcess --> OTELCollector
+ConfigMap -->|"envFrom"| CronJobPod
+TaskProcess -->|"Read alert configs"| MongoDB
+TaskProcess -->|"Query metrics/logs"| ClickHouse
+TaskProcess -->|"Send execution telemetry"| OTELCollector
 
 subgraph Observability ["Observability"]
     OTELCollector

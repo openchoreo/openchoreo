@@ -54,17 +54,12 @@ subgraph subGraph3 ["Multi-Cluster Uninstall Process"]
     Multi_NS
     Multi_Clusters
     Multi_Context
-    Multi_Helm --> Multi_NS
-    Multi_NS --> Multi_Clusters
-    Multi_Clusters --> Multi_Context
 end
 
 subgraph subGraph2 ["Local Uninstall Process"]
     Local_Delete
     Local_Kube
     Local_Complete
-    Local_Delete --> Local_Kube
-    Local_Kube --> Local_Complete
 end
 
 subgraph subGraph1 ["Quick-Start Uninstall Process"]
@@ -72,9 +67,6 @@ subgraph subGraph1 ["Quick-Start Uninstall Process"]
     QS_Stop
     QS_Delete
     QS_Clean
-    QS_Script --> QS_Stop
-    QS_Stop --> QS_Delete
-    QS_Delete --> QS_Clean
 end
 
 subgraph subGraph0 ["Uninstallation Scenarios"]
@@ -225,9 +217,6 @@ DP_Cluster["kind delete cluster<br>kind-openchoreo-dp"]
 Kube["Remove kubeconfig contexts"]
 Verify["Verify uninstallation"]
 
-CP_Cluster --> Kube
-DP_Cluster --> Kube
-
 subgraph Cleanup ["Cleanup"]
     Kube
     Verify
@@ -238,16 +227,12 @@ subgraph subGraph1 ["Data Plane Cluster"]
     DP_Helm
     DP_NS
     DP_Cluster
-    DP_Helm --> DP_NS
-    DP_NS --> DP_Cluster
 end
 
 subgraph subGraph0 ["Control Plane Cluster"]
     CP_Helm
     CP_NS
     CP_Cluster
-    CP_Helm --> CP_NS
-    CP_NS --> CP_Cluster
 end
 ```
 
@@ -347,10 +332,10 @@ subgraph subGraph0 ["Cleanup Functions"]
     Main --> Check2
     Main --> Check3
     Main --> Check4
-    Check1 --> Delete1
-    Check2 --> Delete2
-    Check3 --> Delete3
-    Check4 --> Delete4
+    Check1 -->|"exists"| Delete1
+    Check2 -->|"exists"| Delete2
+    Check3 -->|"exists"| Delete3
+    Check4 -->|"exists"| Delete4
 end
 ```
 

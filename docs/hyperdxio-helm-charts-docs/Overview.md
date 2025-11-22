@@ -154,21 +154,21 @@ AppIngress["app-ingress<br>Routes to hyperdx-app:3000"]
 AdditionalIngress["additionalIngresses<br>Routes to otel-collector:4318"]
 
 subgraph subGraph7 ["Kubernetes Cluster"]
-    AppConfig --> AppDeployment
-    AppSecrets --> AppDeployment
-    CHConfig --> CHDeployment
-    CHUsers --> CHDeployment
-    OTELConfig --> OTELDeployment
-    CHPVC --> CHDeployment
-    CHLogsPVC --> CHDeployment
-    MongoPVC --> MongoDeployment
+    AppConfig -->|"envFrom"| AppDeployment
+    AppSecrets -->|"env"| AppDeployment
+    CHConfig -->|"volume mount"| CHDeployment
+    CHUsers -->|"volume mount"| CHDeployment
+    OTELConfig -->|"volume mount"| OTELDeployment
+    CHPVC -->|"volume mount"| CHDeployment
+    CHLogsPVC -->|"volume mount"| CHDeployment
+    MongoPVC -->|"volume mount"| MongoDeployment
     AppDeployment --> AppService
     CHDeployment --> CHService
     OTELDeployment --> OTELService
     MongoDeployment --> MongoService
     AppIngress --> AppService
     AdditionalIngress --> OTELService
-    AlertCron --> AppService
+    AlertCron -->|"runs against"| AppService
 
 subgraph CronJobs ["CronJobs"]
     AlertCron
@@ -229,14 +229,14 @@ OTELSvc["otel-collector.svc.cluster.local<br>Port 4317: OTLP gRPC<br>Port 4318: 
 CHSvc["clickhouse.svc.cluster.local<br>Port 8123: HTTP API<br>Port 9000: Native TCP"]
 MongoSvc["mongodb.svc.cluster.local<br>Port 27017: MongoDB wire protocol"]
 
-Users --> NginxIngress
-TelemetryApps --> NginxIngress
-NginxIngress --> AppSvc
-NginxIngress --> OTELSvc
-AppSvc --> CHSvc
-AppSvc --> MongoSvc
-OTELSvc --> CHSvc
-OTELSvc --> AppSvc
+Users -->|"HTTPS/HTTP"| NginxIngress
+TelemetryApps -->|"OTLP"| NginxIngress
+NginxIngress -->|"Path: /.*"| AppSvc
+NginxIngress -->|"Path: /v1/traces, /v1/logs, /v1/metrics"| OTELSvc
+AppSvc -->|"HTTP queriesdefaultConnections"| CHSvc
+AppSvc -->|"MongoDB driverMetadata"| MongoSvc
+OTELSvc -->|"Native TCP :9000Batch insert"| CHSvc
+OTELSvc -->|"OpAMP protocol :4320Configuration"| AppSvc
 
 subgraph subGraph4 ["Storage Services"]
     CHSvc
@@ -313,10 +313,10 @@ ExtCH["External ClickHouse<br>clickhouse.enabled: false<br>hyperdx.defaultConnec
 ExtOTEL["External OTEL<br>otel.enabled: false<br>hyperdx.otelExporterEndpoint"]
 Minimal["Minimal<br>Only HyperDX App + MongoDB<br>Both ClickHouse & OTEL external"]
 
-FullStack --> ExtCH
-FullStack --> ExtOTEL
-ExtCH --> Minimal
-ExtOTEL --> Minimal
+FullStack -->|"Disable ClickHouse"| ExtCH
+FullStack -->|"Disable OTEL"| ExtOTEL
+ExtCH -->|"Disable OTEL"| Minimal
+ExtOTEL -->|"Disable ClickHouse"| Minimal
 ```
 
 Each component can be disabled and replaced with external services by setting `<component>.enabled: false` and providing connection details.

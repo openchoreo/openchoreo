@@ -26,21 +26,21 @@ HyperDXApp["HyperDX Application<br>Deployment"]
 OTELCollector["OTEL Collector<br>Deployment"]
 ClickHouse["ClickHouse Database<br>StatefulSet"]
 
-ImagePullSecrets --> HyperDXApp
-ImagePullSecrets --> OTELCollector
-AppSecrets --> HyperDXApp
-ExternalConfigSecret --> HyperDXApp
-ClickHouseUsers --> HyperDXApp
-ClickHouseUsers --> OTELCollector
-ClusterCIDRs --> ClickHouse
-ClusterIPServices --> ClickHouse
+ImagePullSecrets -->|"imagePullSecrets"| HyperDXApp
+ImagePullSecrets -->|"imagePullSecrets"| OTELCollector
+AppSecrets -->|"secretKeyRef:HYPERDX_API_KEY"| HyperDXApp
+ExternalConfigSecret -->|"Optional:DEFAULT_CONNECTIONSDEFAULT_SOURCES"| HyperDXApp
+ClickHouseUsers -->|"app user credentials"| HyperDXApp
+ClickHouseUsers -->|"otelcollector user credentials"| OTELCollector
+ClusterCIDRs -->|"Network filtering"| ClickHouse
+ClusterIPServices -->|"No external exposure"| ClickHouse
 
 subgraph subGraph2 ["Application Components"]
     HyperDXApp
     OTELCollector
     ClickHouse
-    HyperDXApp --> ClickHouse
-    OTELCollector --> ClickHouse
+    HyperDXApp -->|"HTTP :8123Authenticated"| ClickHouse
+    OTELCollector -->|"Native :9000Authenticated"| ClickHouse
 end
 
 subgraph subGraph1 ["Network Security Layer"]
@@ -91,8 +91,8 @@ SecretResource["Secret:<br>{release}-app-secrets<br>data.api-key"]
 EnvVar["Environment Variable:<br>HYPERDX_API_KEY"]
 AppContainer["hyperdx-app container<br>Uses for authentication"]
 
-ValuesYAML --> SecretResource
-SecretResource --> EnvVar
+ValuesYAML -->|"Helm template"| SecretResource
+SecretResource -->|"secretKeyRef"| EnvVar
 EnvVar --> AppContainer
 ```
 
@@ -129,10 +129,10 @@ SecretKeyRef["valueFrom.secretKeyRef:<br>name: existingConfigSecret<br>key: conn
 InlineValue2["value: tpl .Values.hyperdx.defaultSources"]
 SecretKeyRef2["valueFrom.secretKeyRef:<br>key: sources.json"]
 
-InlineValues --> Condition
-ExternalSecret --> Condition
-Condition --> InlineValue
-Condition --> SecretKeyRef
+InlineValues -->|"No"| Condition
+ExternalSecret -->|"Yes"| Condition
+Condition -->|"false"| InlineValue
+Condition -->|"true"| SecretKeyRef
 InlineValue --> DefaultConnectionsEnv
 SecretKeyRef --> DefaultConnectionsEnv
 InlineValue2 --> DefaultSourcesEnv
@@ -251,10 +251,10 @@ HTTPPort["HTTP Interface :8123<br>users.xml configuration"]
 NativePort["Native Interface :9000<br>users.xml configuration"]
 Database["default database<br>otel_logs<br>otel_traces<br>otel_metrics_*"]
 
-AppUser --> HyperDXHTTP
-OTELUser --> OTELNative
-HyperDXHTTP --> HTTPPort
-OTELNative --> NativePort
+AppUser -->|"username: apppassword: appUserPassword"| HyperDXHTTP
+OTELUser -->|"username: otelcollectorpassword: otelUserPassword"| OTELNative
+HyperDXHTTP -->|"Authenticated queries"| HTTPPort
+OTELNative -->|"Authenticated writes"| NativePort
 
 subgraph subGraph2 ["ClickHouse Server"]
     HTTPPort
@@ -440,23 +440,23 @@ OTELService["otel-collector<br>ClusterIP<br>:4317 :4318"]
 ClickHouseService["clickhouse<br>ClusterIP<br>:8123 :9000<br>+ clusterCidrs filtering"]
 MongoDBService["mongodb<br>ClusterIP<br>:27017"]
 
-Ingress --> AppService
-Ingress --> OTELService
+Ingress -->|"HTTP internal"| AppService
+Ingress -->|"HTTP internal"| OTELService
 
 subgraph subGraph1 ["ClusterIP Services - Internal Only"]
     AppService
     OTELService
     ClickHouseService
     MongoDBService
-    AppService --> ClickHouseService
-    AppService --> MongoDBService
-    OTELService --> ClickHouseService
+    AppService -->|"HTTP :8123Authenticated"| ClickHouseService
+    AppService -->|"Mongo wire protocol"| MongoDBService
+    OTELService -->|"Native :9000Authenticated"| ClickHouseService
 end
 
 subgraph subGraph0 ["External Access - Requires Ingress"]
     Internet
     Ingress
-    Internet --> Ingress
+    Internet -->|"HTTPS"| Ingress
 end
 ```
 

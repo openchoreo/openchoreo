@@ -55,8 +55,8 @@ Start --> MakeDesired
 Apply --> FindGVKs
 ListLive --> FindStale
 Delete --> UpdateStatus
-CheckTransition --> RequeueShort
-CheckTransition --> RequeueLong
+CheckTransition -->|"Transitioning"| RequeueShort
+CheckTransition -->|"Stable"| RequeueLong
 
 subgraph subGraph3 ["Phase 4: Update Status"]
     UpdateStatus
@@ -309,9 +309,9 @@ subgraph subGraph0 ["For each namespace"]
     Check
     Create
     Skip
-    Check --> Create
-    Check --> Skip
-    Check --> Skip
+    Check -->|"NotFound"| Create
+    Check -->|"Exists"| Skip
+    Check -->|"AlreadyExists error"| Skip
 end
 ```
 
@@ -402,8 +402,8 @@ Requeue1["RequeueAfter: ~10s"]
 Requeue2["RequeueAfter: ~5m"]
 
 Complete --> CheckState
-CheckState --> GetProg
-CheckState --> GetStable
+CheckState -->|"Has transitioning"| GetProg
+CheckState -->|"All stable"| GetStable
 GetProg --> AddJitter1
 GetStable --> AddJitter2
 AddJitter1 --> Requeue1

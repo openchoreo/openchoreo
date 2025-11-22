@@ -27,8 +27,8 @@ DefaultConfig["Default Connections/Sources<br>DEFAULT_CONNECTIONS<br>DEFAULT_SOU
 Liveness["Liveness Probe<br>/health on port 8000"]
 Readiness["Readiness Probe<br>/health on port 8000"]
 
-Liveness --> API
-Readiness --> API
+Liveness -->|"checks"| API
+Readiness -->|"checks"| API
 
 subgraph Probes ["Health Monitoring"]
     Liveness
@@ -45,7 +45,7 @@ subgraph Container ["hyperdx-app ContainerImage: docker.hyperdx.io/hyperdx/hyper
     UI
     API
     OpAMP
-    UI --> API
+    UI -->|"internal routing"| API
 end
 ```
 
@@ -74,13 +74,13 @@ Ingress["Ingress (optional)<br>app-ingress<br>Routes to UI and API"]
 InitContainer["Init Container<br>wait-for-mongodb<br>Image: busybox<br>Command: nc -z mongodb"]
 AppContainer["App Container<br>hyperdx:tag<br>Ports: 3000, 8000, 4320"]
 
-ConfigMap --> AppContainer
-Secret --> AppContainer
+ConfigMap -->|"mounted as envFrom"| AppContainer
+Secret -->|"mounted as env"| AppContainer
 
 subgraph Pod ["Pod Template"]
     InitContainer
     AppContainer
-    InitContainer --> AppContainer
+    InitContainer -->|"runs before"| AppContainer
 end
 
 subgraph Resources ["Kubernetes Resources"]
@@ -89,7 +89,7 @@ subgraph Resources ["Kubernetes Resources"]
     ConfigMap
     Secret
     Ingress
-    Ingress --> Service
+    Ingress -->|"external access"| Service
 end
 
 subgraph Scheduling ["Pod Scheduling"]
@@ -141,9 +141,9 @@ ExternalSecret["External Secret (optional)<br>User-provided<br>connections.json<
 EnvFrom["envFrom:<br>configMapRef"]
 EnvVars["env:<br>- HYPERDX_API_KEY<br>- DEFAULT_CONNECTIONS<br>- DEFAULT_SOURCES"]
 
-AppConfigMap --> EnvFrom
-AppSecrets --> EnvVars
-ExternalSecret --> EnvVars
+AppConfigMap -->|"bulk inject"| EnvFrom
+AppSecrets -->|"secretKeyRef"| EnvVars
+ExternalSecret -->|"secretKeyRef"| EnvVars
 
 subgraph Container ["Application Container"]
     EnvFrom
@@ -292,8 +292,8 @@ LivenessProbe["Liveness Probe<br>initialDelaySeconds: 10<br>periodSeconds: 30<br
 ReadinessProbe["Readiness Probe<br>initialDelaySeconds: 1<br>periodSeconds: 10<br>failureThreshold: 3"]
 HealthEndpoint["/health endpoint<br>Port: 8000"]
 
-LivenessProbe --> HealthEndpoint
-ReadinessProbe --> HealthEndpoint
+LivenessProbe -->|"HTTP GET"| HealthEndpoint
+ReadinessProbe -->|"HTTP GET"| HealthEndpoint
 ```
 
 Sources: [charts/hdx-oss-v2/templates/hyperdx-deployment.yaml L72-L91](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/hyperdx-deployment.yaml#L72-L91)
@@ -332,10 +332,10 @@ ClickHouse["ClickHouse Service<br>:8123 HTTP<br>Query execution"]
 OTELCollector["OTEL Collector<br>:4318 HTTP<br>:4317 gRPC<br>Reports to OpAMP"]
 OTELEndpoint["OTEL Collector Endpoint<br>OTEL_EXPORTER_OTLP_ENDPOINT<br>HyperDX's own telemetry"]
 
-InitContainer --> MongoDB
-API --> ClickHouse
-API --> MongoDB
-OpAMP --> OTELCollector
+InitContainer -->|"wait for"| MongoDB
+API -->|"queries via HTTP"| ClickHouse
+API -->|"metadata ops"| MongoDB
+OpAMP -->|"gRPC"| OTELCollector
 
 subgraph SelfTelemetry ["Self-Observability"]
     OTELEndpoint
@@ -358,7 +358,7 @@ subgraph HyperDXApp ["HyperDX Application Pod"]
     UI
     API
     OpAMP
-    UI --> API
+    UI -->|"proxies to"| API
 end
 ```
 

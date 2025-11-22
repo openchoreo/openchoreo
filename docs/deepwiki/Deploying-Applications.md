@@ -52,28 +52,28 @@ Service["Service"]
 HTTPRoute["HTTPRoute"]
 Release["Release CR"]
 
-Dev --> Component
-Component --> Repo
-Build --> ArgoWF
-ArgoWF --> Repo
-ArgoWF --> Workload
-Binding --> Release
-Dev --> HTTPRoute
+Dev -->|"1.Create"| Component
+Component -->|"spec.build"| Repo
+Build -->|"triggers"| ArgoWF
+ArgoWF -->|"clones"| Repo
+ArgoWF -->|"3.Creates"| Workload
+Binding -->|"5.Provisions"| Release
+Dev -->|"accesses"| HTTPRoute
 
 subgraph subGraph3 ["Data Plane"]
     Deployment
     Service
     HTTPRoute
     Release
-    Release --> Deployment
-    Release --> Service
-    Release --> HTTPRoute
+    Release -->|"manages"| Deployment
+    Release -->|"manages"| Service
+    Release -->|"manages"| HTTPRoute
 end
 
 subgraph subGraph2 ["Build Plane"]
     ArgoWF
     Registry
-    ArgoWF --> Registry
+    ArgoWF -->|"pushes"| Registry
 end
 
 subgraph subGraph1 ["Control Plane"]
@@ -81,8 +81,8 @@ subgraph subGraph1 ["Control Plane"]
     Build
     Workload
     Binding
-    Component --> Build
-    Workload --> Binding
+    Component -->|"2.Trigger"| Build
+    Workload -->|"4.Referenced by"| Binding
 end
 
 subgraph Development ["Development"]
@@ -135,10 +135,10 @@ K8s["Kubernetes API"]
 Meta["metadata:<br>- name<br>- namespace (org)<br>- annotations (displayName, description)"]
 Spec["spec:<br>- owner.projectName<br>- type (Service/WebApplication/ScheduledTask)<br>- build.repository<br>- build.templateRef"]
 
-Request --> Service
+Request -->|"HTTP POST"| Service
 Service --> Validate
-Validate --> ComponentCR
-ComponentCR --> K8s
+Validate -->|"buildProjectCR"| ComponentCR
+ComponentCR -->|"k8sClient.Create"| K8s
 ComponentCR --> Meta
 ComponentCR --> Spec
 
@@ -430,8 +430,8 @@ Environment["environment: staging"]
 Error["Error: Invalid promotion path"]
 
 PromoteReq --> GetComponent
-ValidatePath --> GetSourceBinding
-ValidatePath --> Error
+ValidatePath -->|"Valid path"| GetSourceBinding
+ValidatePath -->|"Invalid path"| Error
 CreateOrUpdate --> ClassName
 CreateOrUpdate --> WorkloadSpec
 CreateOrUpdate --> APIs

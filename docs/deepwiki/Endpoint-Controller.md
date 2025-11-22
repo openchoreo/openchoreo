@@ -64,15 +64,15 @@ Reconciler --> Client
 Reconciler --> K8sClientMgr
 Reconciler --> Scheme
 Reconciler --> Recorder
-K8sClientMgr --> DPClient
-Reconciler --> EPContext
+K8sClientMgr -->|"getDPClient()"| DPClient
+Reconciler -->|"makeEndpointContext()"| EPContext
 EPContext --> Endpoint
 EPContext --> Component
 EPContext --> Environment
 EPContext --> Project
 EPContext --> Deployment
 EPContext --> DataPlane
-Reconciler --> Handlers
+Reconciler -->|"makeExternalResourceHandlers()"| Handlers
 Handlers --> HTTPRouteHandler
 Handlers --> SecurityPolicyHandler
 Handlers --> HTTPRouteFiltersHandler
@@ -143,11 +143,11 @@ EmitEvent["Emit EndpointReady event"]
 
 Start --> GetEP
 GetEP --> CheckLabels
-CheckLabels --> End
-CheckLabels --> MakeContext
+CheckLabels -->|"No"| End
+CheckLabels -->|"Yes"| MakeContext
 MakeContext --> CheckDeletion
-CheckDeletion --> Finalize
-CheckDeletion --> EnsureFinalizer
+CheckDeletion -->|"Yes"| Finalize
+CheckDeletion -->|"No"| EnsureFinalizer
 EnsureFinalizer --> GetDPClient
 GetDPClient --> MakeHandlers
 MakeHandlers --> ReconcileExternal
@@ -222,17 +222,17 @@ End["More handlers?"]
 Done["Done"]
 
 Start --> CheckRequired
-CheckRequired --> Delete
-CheckRequired --> GetState
+CheckRequired -->|"false"| Delete
+CheckRequired -->|"true"| GetState
 Delete --> Next
 GetState --> CheckExists
-CheckExists --> Create
-CheckExists --> Update
+CheckExists -->|"No"| Create
+CheckExists -->|"Yes"| Update
 Create --> Next
 Update --> Next
 Next --> End
-End --> Start
-End --> Done
+End -->|"Yes"| Start
+End -->|"No"| Done
 ```
 
 The reconciliation logic:
@@ -519,14 +519,14 @@ RewritePath["URLRewrite filter<br>Strip project/component prefix"]
 
 Request --> Gateway
 Gateway --> RouteMatch
-RouteMatch --> OpRoute
-RouteMatch --> WildcardRoute
+RouteMatch -->|"Regex match"| OpRoute
+RouteMatch -->|"Prefix match"| WildcardRoute
 OpRoute --> SecPolicy
 SecPolicy --> ValidateJWT
-ValidateJWT --> Deny401
-ValidateJWT --> CheckScopes
-CheckScopes --> Deny403
-CheckScopes --> ApplyFilter
+ValidateJWT -->|"Invalid"| Deny401
+ValidateJWT -->|"Valid"| CheckScopes
+CheckScopes -->|"No 'read:books'"| Deny403
+CheckScopes -->|"Has 'read:books'"| ApplyFilter
 ApplyFilter --> Backend
 WildcardRoute --> RewritePath
 RewritePath --> Backend
@@ -591,21 +591,21 @@ RemoveFinalizer["Remove finalizer<br>openchoreo.dev/endpoint-deletion"]
 
 Delete --> Reconcile
 Reconcile --> CheckDeletion
-CheckDeletion --> CheckFinalizer
-CheckDeletion --> NormalReconcile
-CheckFinalizer --> Done
-CheckFinalizer --> SetCondition
+CheckDeletion -->|"Yes"| CheckFinalizer
+CheckDeletion -->|"No"| NormalReconcile
+CheckFinalizer -->|"No"| Done
+CheckFinalizer -->|"Yes"| SetCondition
 SetCondition --> MakeContext
 MakeContext --> GetHandlers
 GetHandlers --> DeleteLoop
 DeleteLoop --> GetState
 GetState --> CheckExists
-CheckExists --> DeleteResource
-CheckExists --> NextHandler
+CheckExists -->|"Yes"| DeleteResource
+CheckExists -->|"No"| NextHandler
 DeleteResource --> NextHandler
 NextHandler --> CheckPending
-CheckPending --> Requeue
-CheckPending --> RemoveFinalizer
+CheckPending -->|"Yes"| Requeue
+CheckPending -->|"No"| RemoveFinalizer
 RemoveFinalizer --> Done
 ```
 

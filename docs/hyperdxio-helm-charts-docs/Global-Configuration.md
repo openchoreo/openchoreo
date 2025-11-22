@@ -57,9 +57,9 @@ HelmEngine --> PVCs
 ImagePullSecrets --> ImagePullSecretsApplied
 StorageClassName --> StorageClassApplied
 KeepPVC --> KeepAnnotation
-ImagePullSecretsApplied --> Deployments
-StorageClassApplied --> PVCs
-KeepAnnotation --> PVCs
+ImagePullSecretsApplied -->|"injected into"| Deployments
+StorageClassApplied -->|"injected into"| PVCs
+KeepAnnotation -->|"applied to"| PVCs
 
 subgraph subGraph3 ["Applied Configurations"]
     ImagePullSecretsApplied
@@ -158,16 +158,16 @@ Pod2["HyperDX App Pod<br>spec.imagePullSecrets"]
 Pod3["MongoDB Pod<br>spec.imagePullSecrets"]
 Pod4["OTEL Collector Pod<br>spec.imagePullSecrets"]
 
-Secret1 --> GlobalConfig
-Secret2 --> GlobalConfig
+Secret1 -->|"referenced by"| GlobalConfig
+Secret2 -->|"referenced by"| GlobalConfig
 GlobalConfig --> Template1
 GlobalConfig --> Template2
 GlobalConfig --> Template3
 GlobalConfig --> Template4
-Template1 --> Pod1
-Template2 --> Pod2
-Template3 --> Pod3
-Template4 --> Pod4
+Template1 -->|"toYaml"| Pod1
+Template2 -->|"toYaml"| Pod2
+Template3 -->|"toYaml"| Pod3
+Template4 -->|"toYaml"| Pod4
 ```
 
 **Implementation in Templates:**
@@ -256,14 +256,14 @@ ClickHousePod2["ClickHouse Pod<br>/var/log/clickhouse-server"]
 MongoDBPod["MongoDB Pod<br>/data/db"]
 
 GlobalStorageClass --> ConditionalCheck
-ConditionalCheck --> StorageClassField
-ConditionalCheck --> EmptyDirFallback
+ConditionalCheck -->|"Yes"| StorageClassField
+ConditionalCheck -->|"No"| EmptyDirFallback
 StorageClassField --> PVC1
 StorageClassField --> PVC2
 StorageClassField --> PVC3
-PVC1 --> ClickHousePod
-PVC2 --> ClickHousePod2
-PVC3 --> MongoDBPod
+PVC1 -->|"mounts to"| ClickHousePod
+PVC2 -->|"mounts to"| ClickHousePod2
+PVC3 -->|"mounts to"| MongoDBPod
 ```
 
 **Template Pattern in PVC Definitions:**
@@ -321,11 +321,11 @@ PVCPreserved["PVC preserved<br>after uninstall<br>Data retained"]
 PVCDeleted["PVC deleted<br>with release<br>Data lost"]
 
 KeepPVCValue --> ConditionalAnnotation
-ConditionalAnnotation --> AddAnnotation
-ConditionalAnnotation --> NoAnnotation
+ConditionalAnnotation -->|"true"| AddAnnotation
+ConditionalAnnotation -->|"false"| NoAnnotation
 AddAnnotation --> PVCPreserved
 NoAnnotation --> PVCDeleted
-HelmUninstall --> ConditionalAnnotation
+HelmUninstall -->|"triggers"| ConditionalAnnotation
 ```
 
 **Template Implementation Pattern:**
@@ -390,12 +390,12 @@ P1["PVC/clickhouse-data<br>spec.storageClassName<br>metadata.annotations"]
 P2["PVC/clickhouse-logs<br>spec.storageClassName<br>metadata.annotations"]
 P3["PVC/mongodb-data<br>spec.storageClassName<br>metadata.annotations"]
 
-G1 --> T1
-G1 --> T2
-G1 --> T3
-G1 --> T4
-G1 --> T1
-G1 --> T1
+G1 -->|".Values.global.imagePullSecrets"| T1
+G1 -->|".Values.global.imagePullSecrets"| T2
+G1 -->|".Values.global.imagePullSecrets"| T3
+G1 -->|".Values.global.imagePullSecrets"| T4
+G1 -->|".Values.global.storageClassName"| T1
+G1 -->|".Values.global.keepPVC"| T1
 T1 --> D1
 T2 --> D2
 T3 --> D3

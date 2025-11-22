@@ -32,8 +32,8 @@ Resolution["Apply Fix & Verify"]
 
 Start --> CheckPods
 CheckPods --> PodsRunning
-PodsRunning --> CheckLogs
-PodsRunning --> CheckServices
+PodsRunning -->|"No"| CheckLogs
+PodsRunning -->|"Yes"| CheckServices
 CheckLogs --> CheckEvents
 CheckEvents --> ComponentIssue
 CheckServices --> CheckIngress
@@ -193,9 +193,9 @@ CheckDNS["Verify DNS:<br>nslookup clickhouse"]
 CheckPort["Verify Port:<br>nc -zv clickhouse 8123"]
 CheckLogs["Check ClickHouse Logs"]
 
-App --> CHSvc
-CHSvc --> CHPod
-App --> CheckDNS
+App -->|"HTTP :8123"| CHSvc
+CHSvc -->|"Route"| CHPod
+App -->|"Fail"| CheckDNS
 CheckDNS --> CheckPort
 CheckPort --> CheckLogs
 ```
@@ -364,10 +364,10 @@ CheckIngress["Check Ingress<br>kubectl get ingress"]
 CheckSvc["Check Service<br>kubectl get svc"]
 PortForward["Port Forward Test<br>kubectl port-forward"]
 
-ExtApp --> Ingress
+ExtApp -->|"POST /v1/traces"| Ingress
 Ingress --> OTELSvc
 OTELSvc --> OTELPod
-ExtApp --> CheckIngress
+ExtApp -->|"Fail"| CheckIngress
 CheckIngress --> CheckSvc
 CheckSvc --> PortForward
 ```
@@ -541,13 +541,13 @@ CHPod["clickhouse Pod"]
 TestDNS["Test: nslookup<br>kubectl exec -- nslookup"]
 TestPort["Test: nc -zv<br>kubectl exec -- nc"]
 
-AppPod --> DNS
-DNS --> ShortName
-DNS --> FQDN
+AppPod -->|"Resolve"| DNS
+DNS -->|"Returns"| ShortName
+DNS -->|"Returns"| FQDN
 ShortName --> CHSvc
 FQDN --> CHSvc
 CHSvc --> CHPod
-AppPod --> TestDNS
+AppPod -->|"Debug"| TestDNS
 TestDNS --> TestPort
 ```
 
@@ -584,13 +584,13 @@ CheckOTEL["Check OTEL Logs"]
 CheckCH["Query ClickHouse"]
 CheckAPI["Check API Logs"]
 
-Source --> OTEL
-OTEL --> CH
-API --> CH
-UI --> API
-OTEL --> CheckOTEL
-CH --> CheckCH
-API --> CheckAPI
+Source -->|"1.Send Data"| OTEL
+OTEL -->|"3.Store"| CH
+API -->|"4.Query"| CH
+UI -->|"5.Display"| API
+OTEL -->|"Debug"| CheckOTEL
+CH -->|"Debug"| CheckCH
+API -->|"Debug"| CheckAPI
 ```
 
 **Diagnosis at each stage:**
@@ -679,11 +679,11 @@ Command["Command Path"]
 V2["Version < 2.0.2<br>yarn task:checkAlerts"]
 V2New["Version >= 2.0.2<br>node build/tasks/src/tasks/index.js<br>--name checkAlerts"]
 
-CronJob --> Job
-Job --> AppImage
-Job --> Command
-Command --> V2
-Command --> V2New
+CronJob -->|"Creates"| Job
+Job -->|"Uses"| AppImage
+Job -->|"Executes"| Command
+Command -->|"Old"| V2
+Command -->|"New"| V2New
 ```
 
 **Diagnosis:**

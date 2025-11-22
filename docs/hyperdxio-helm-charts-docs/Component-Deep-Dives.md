@@ -172,7 +172,7 @@ ValuesYAML --> CHUsersMap
 ValuesYAML --> OTELConfigMap
 ValuesYAML --> AppSecrets
 HelmDefaults --> AppConfigMap
-ExternalSecret --> AppConfigMap
+ExternalSecret -->|"Optional"| AppConfigMap
 AppConfigMap --> EnvFromCM
 AppSecrets --> EnvFromSecret
 ValuesYAML --> EnvVars
@@ -290,13 +290,13 @@ ValuesEnabled --> CHCheck
 ValuesEnabled --> OTELCheck
 ValuesEnabled --> MongoCheck
 ValuesEnabled --> TasksCheck
-HyperdxCheck --> HyperdxRes
-CHCheck --> CHRes
-CHCheck --> ExternalCH
-OTELCheck --> OTELRes
-OTELCheck --> ExternalOTEL
-MongoCheck --> MongoRes
-TasksCheck --> TaskRes
+HyperdxCheck -->|"enabled: true"| HyperdxRes
+CHCheck -->|"enabled: true"| CHRes
+CHCheck -->|"enabled: false"| ExternalCH
+OTELCheck -->|"enabled: true"| OTELRes
+OTELCheck -->|"enabled: false"| ExternalOTEL
+MongoCheck -->|"enabled: true"| MongoRes
+TasksCheck -->|"enabled: true"| TaskRes
 
 subgraph subGraph2 ["Configuration Adjustments"]
     ExternalCH
@@ -580,9 +580,9 @@ ExternalKeys["existingConfigConnectionsKey: 'connections.json'<br>existingConfig
 ExternalSecret["Existing Secret<br>connections.json key<br>sources.json key"]
 ExternalVolume["Volume mount from secret<br>Mounted to container"]
 
-UseExisting --> InlineConnections
-UseExisting --> InlineSources
-UseExisting --> ExternalFlag
+UseExisting -->|"false"| InlineConnections
+UseExisting -->|"false"| InlineSources
+UseExisting -->|"true"| ExternalFlag
 
 subgraph subGraph2 ["External Secret Pattern"]
     ExternalFlag

@@ -33,13 +33,13 @@ UIService["UI Service<br>Port 3000<br>APP_PORT"]
 APIService["API Service<br>Port 8000<br>API_PORT"]
 OpAMPService["OpAMP Server<br>Port 4320<br>OPAMP_PORT"]
 
-ValuesYAML --> AppConfigMap
-ValuesYAML --> AppSecrets
-ValuesYAML --> ExternalSecret
+ValuesYAML -->|"generates"| AppConfigMap
+ValuesYAML -->|"generates"| AppSecrets
+ValuesYAML -->|"references"| ExternalSecret
 AppConfigMap --> EnvFromCM
 AppSecrets --> EnvFromSecret
-ExternalSecret --> EnvConnections
-ValuesYAML --> EnvConnections
+ExternalSecret -->|"if enabled"| EnvConnections
+ValuesYAML -->|"inline config"| EnvConnections
 
 subgraph subGraph3 ["Deployment Pod"]
     EnvFromCM --> UIService
@@ -117,11 +117,11 @@ APIPort["API<br>containerPort: 8000<br>API_PORT/HYPERDX_API_PORT"]
 OpAMPPort["OpAMP Server<br>containerPort: 4320<br>OPAMP_PORT"]
 ClusterIPSvc["ClusterIP Service<br>hyperdx-app"]
 
-Users --> AppIngress
+Users -->|"HTTPS"| AppIngress
 AppIngress --> ClusterIPSvc
 ClusterIPSvc --> UIPort
 ClusterIPSvc --> APIPort
-TelemetrySources --> ClusterIPSvc
+TelemetrySources -->|"OpAMP protocol"| ClusterIPSvc
 ClusterIPSvc --> OpAMPPort
 
 subgraph Service ["Service"]
@@ -204,8 +204,8 @@ Secret["Secret<br>app-secrets<br>key: api-key"]
 PodEnv["Pod Environment<br>HYPERDX_API_KEY<br>valueFrom: secretKeyRef"]
 APIProcess["API Service<br>Port 8000<br>Authenticates requests"]
 
-ValuesYAML --> Secret
-Secret --> PodEnv
+ValuesYAML -->|"generates"| Secret
+Secret -->|"injects via"| PodEnv
 PodEnv --> APIProcess
 ```
 
@@ -293,11 +293,11 @@ EnvSources["DEFAULT_SOURCES"]
 
 InlineMode --> ValuesConnections
 InlineMode --> ValuesSources
-ValuesConnections --> EnvConnections
-ValuesSources --> EnvSources
+ValuesConnections -->|"tpl rendering"| EnvConnections
+ValuesSources -->|"tpl rendering"| EnvSources
 ExternalMode --> ExtSecret
-ConnectionsKey --> EnvConnections
-SourcesKey --> EnvSources
+ConnectionsKey -->|"secretKeyRef"| EnvConnections
+SourcesKey -->|"secretKeyRef"| EnvSources
 
 subgraph subGraph3 ["Pod Environment"]
     EnvConnections
@@ -400,9 +400,9 @@ subgraph subGraph1 ["HyperDX Sources"]
     TraceSource
     MetricSource
     SessionSource
-    LogSource --> TraceSource
-    LogSource --> SessionSource
-    TraceSource --> LogSource
+    LogSource -->|"cross-reference"| TraceSource
+    LogSource -->|"cross-reference"| SessionSource
+    TraceSource -->|"cross-reference"| LogSource
 end
 
 subgraph subGraph0 ["ClickHouse Tables"]
@@ -570,10 +570,10 @@ LivenessCheck["Liveness Check<br>httpGet: /health:8000"]
 ReadyEndpoints["Service Endpoints<br>Pod receives traffic"]
 RestartPolicy["Restart Policy<br>Pod restart on failure"]
 
-AppContainer --> ReadinessCheck
-AppContainer --> LivenessCheck
-ReadinessCheck --> ReadyEndpoints
-LivenessCheck --> RestartPolicy
+AppContainer -->|"after 1s"| ReadinessCheck
+AppContainer -->|"after 10s"| LivenessCheck
+ReadinessCheck -->|"pass"| ReadyEndpoints
+LivenessCheck -->|"fail 3x"| RestartPolicy
 
 subgraph subGraph3 ["Service Discovery"]
     ReadyEndpoints
@@ -588,7 +588,7 @@ end
 subgraph subGraph1 ["Pod Lifecycle"]
     InitContainer
     AppContainer
-    InitContainer --> AppContainer
+    InitContainer -->|"MongoDB ready"| AppContainer
 end
 
 subgraph subGraph0 ["Probe Configuration"]

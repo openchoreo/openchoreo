@@ -34,12 +34,12 @@ ClickHouse["ClickHouse Database<br>otel_logs<br>otel_traces<br>otel_metrics_*<br
 Note1["Connection: Host + Credentials"]
 Note2["Source: Table + Column Mappings"]
 
-ValuesYAML --> Template
-ExternalSecret --> Template
-Template --> EnvVars
-AppPod --> ClickHouse
-ValuesYAML --> Note1
-ValuesYAML --> Note2
+ValuesYAML -->|"useExistingConfigSecret: false"| Template
+ExternalSecret -->|"useExistingConfigSecret: true"| Template
+Template -->|"injects"| EnvVars
+AppPod -->|"queries using sources"| ClickHouse
+ValuesYAML -->|"defines"| Note1
+ValuesYAML -->|"defines"| Note2
 
 subgraph subGraph3 ["Data Layer"]
     ClickHouse
@@ -48,7 +48,7 @@ end
 subgraph subGraph2 ["Runtime Environment"]
     EnvVars
     AppPod
-    EnvVars --> AppPod
+    EnvVars -->|"provides config"| AppPod
 end
 
 subgraph subGraph1 ["Helm Processing"]
@@ -149,10 +149,10 @@ TraceTable["otel_traces table<br>Timestamp, ServiceName,<br>SpanName, Duration,<
 MetricTables["Metric tables<br>otel_metrics_gauge<br>otel_metrics_sum<br>otel_metrics_histogram"]
 SessionTable["hyperdx_sessions table<br>Timestamp, ServiceName,<br>Body, LogAttributes, etc."]
 
-LogModel --> LogTable
-TraceModel --> TraceTable
-MetricModel --> MetricTables
-SessionModel --> SessionTable
+LogModel -->|"maps to"| LogTable
+TraceModel -->|"maps to"| TraceTable
+MetricModel -->|"maps to"| MetricTables
+SessionModel -->|"maps to"| SessionTable
 
 subgraph subGraph1 ["ClickHouse Tables"]
     LogTable
@@ -342,9 +342,9 @@ GaugeTable["otel_metrics_gauge<br>Point-in-time values<br>e.g., CPU usage, memor
 SumTable["otel_metrics_sum<br>Cumulative/delta values<br>e.g., request count, bytes sent"]
 HistogramTable["otel_metrics_histogram<br>Distribution data<br>e.g., latency buckets"]
 
-MetricSource --> GaugeTable
-MetricSource --> SumTable
-MetricSource --> HistogramTable
+MetricSource -->|"metricTables.gauge"| GaugeTable
+MetricSource -->|"metricTables.sum"| SumTable
+MetricSource -->|"metricTables.histogram"| HistogramTable
 
 subgraph subGraph1 ["ClickHouse Tables"]
     GaugeTable
@@ -487,9 +487,9 @@ ExternalSecret["Kubernetes Secret<br>connections.json<br>sources.json"]
 EnvExternal["env:<br>- name: DEFAULT_CONNECTIONS<br>  valueFrom: secretKeyRef<br>- name: DEFAULT_SOURCES<br>  valueFrom: secretKeyRef"]
 PodEnv["Container Environment<br>DEFAULT_CONNECTIONS<br>DEFAULT_SOURCES"]
 
-UseExisting --> InlineConnections
-UseExisting --> InlineSources
-UseExisting --> ExternalSecret
+UseExisting -->|"false"| InlineConnections
+UseExisting -->|"false"| InlineSources
+UseExisting -->|"true"| ExternalSecret
 EnvInline --> PodEnv
 EnvExternal --> PodEnv
 

@@ -65,10 +65,10 @@ subgraph subGraph2 ["Kubernetes Resources"]
     Services
     IngressRes
     PVCs
-    ConfigMaps --> Deployments
-    Secrets --> Deployments
-    ConfigMaps --> Deployments
-    Services --> Deployments
+    ConfigMaps -->|"envFrom"| Deployments
+    Secrets -->|"env.valueFrom"| Deployments
+    ConfigMaps -->|"volumeMount"| Deployments
+    Services -->|"ClusterIP"| Deployments
 end
 
 subgraph subGraph1 ["Component Configurations"]
@@ -113,11 +113,11 @@ HelmTemplate --> EnvFrom
 HelmTemplate --> EnvSecret
 HelmTemplate --> VolumeConfigMap
 HelmTemplate --> VolumePVC
-EnvFrom --> AppContainer
-EnvSecret --> AppContainer
-VolumeConfigMap --> ClickHouseContainer
-VolumeConfigMap --> OTELContainer
-VolumePVC --> ClickHouseContainer
+EnvFrom -->|"env vars"| AppContainer
+EnvSecret -->|"env vars"| AppContainer
+VolumeConfigMap -->|"file mount"| ClickHouseContainer
+VolumeConfigMap -->|"file mount"| OTELContainer
+VolumePVC -->|"data mount"| ClickHouseContainer
 
 subgraph subGraph3 ["Pod Containers"]
     AppContainer
@@ -448,8 +448,8 @@ CHServer["ClickHouse Server Process<br>Reads config on startup"]
 ClusterCidrs --> CHConfig
 Prometheus --> CHConfig
 Users --> CHUsers
-CHConfig --> ConfigDir
-CHUsers --> UsersDir
+CHConfig -->|"volumeMount"| ConfigDir
+CHUsers -->|"volumeMount"| UsersDir
 
 subgraph subGraph2 ["ClickHouse Container"]
     ConfigDir
@@ -614,16 +614,16 @@ Health["Health/Metrics<br>:8888"]
 ClickHouse["ClickHouse<br>Native Port :9000"]
 OpAMP["OpAMP Server<br>:4320"]
 
-AppsGRPC --> ServicePorts
-AppsHTTP --> ServicePorts
-Fluentd --> ServicePorts
-Monitor --> ServicePorts
+AppsGRPC -->|"gRPC"| ServicePorts
+AppsHTTP -->|"HTTP"| ServicePorts
+Fluentd -->|"TCP"| ServicePorts
+Monitor -->|"HTTP GET"| ServicePorts
 Port4317 --> GRPC
 Port4318 --> HTTP
 Port24225 --> FluentdRecv
 Port8888 --> Health
-Container --> ClickHouse
-Container --> OpAMP
+Container -->|"TCP :9000"| ClickHouse
+Container -->|"Managed by"| OpAMP
 
 subgraph Backend ["Backend"]
     ClickHouse
@@ -789,8 +789,8 @@ MainIngress --> AppIngressRes
 AdditionalIngresses --> OTELIngressRes
 AppIngressRes --> NginxController
 OTELIngressRes --> NginxController
-NginxController --> AppSvc
-NginxController --> OTELSvc
+NginxController -->|"route"| AppSvc
+NginxController -->|"route"| OTELSvc
 
 subgraph subGraph3 ["Ingress Controller"]
     NginxController

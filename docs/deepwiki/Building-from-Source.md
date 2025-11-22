@@ -56,11 +56,11 @@ Root --> Docker
 Root --> Lint
 Root --> Kube
 Root --> Helm
-Golang --> Common
-Docker --> Common
-Docker --> Golang
-Lint --> Tools
-Kube --> Tools
+Golang -->|"uses"| Common
+Docker -->|"uses"| Common
+Docker -->|"depends on"| Golang
+Lint -->|"uses"| Tools
+Kube -->|"uses"| Tools
 ```
 
 **Sources:** [Makefile L1-L16](https://github.com/openchoreo/openchoreo/blob/a577e969/Makefile#L1-L16)

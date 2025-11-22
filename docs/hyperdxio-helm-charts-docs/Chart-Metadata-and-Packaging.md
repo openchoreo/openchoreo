@@ -66,20 +66,20 @@ ChartPackage["hdx-oss-v2-0.8.4.tgz"]
 IndexYAML["index.yaml<br>Helm repository index"]
 GitHubRelease["GitHub Release<br>v0.8.4"]
 
-Changeset --> ChangesetCLI
-ChangesetCLI --> PackageJSON
-PackageJSON --> UpdateScript
-Manual --> ChartYAML
-UpdateScript --> ChartYAML
-ChartYAML --> ChartPackage
-UpdateScript --> ChartYAML
+Changeset -->|"Creates PR"| ChangesetCLI
+ChangesetCLI -->|"Updates"| PackageJSON
+PackageJSON -->|"Reads from"| UpdateScript
+Manual -->|"Direct edit"| ChartYAML
+UpdateScript -->|"Writes to"| ChartYAML
+ChartYAML -->|"helm package"| ChartPackage
+UpdateScript -->|"Synchronizes"| ChartYAML
 
 subgraph Artifacts ["Artifacts"]
     ChartPackage
     IndexYAML
     GitHubRelease
-    ChartPackage --> IndexYAML
-    ChartPackage --> GitHubRelease
+    ChartPackage -->|"chart-releaser"| IndexYAML
+    ChartPackage -->|"Attached to"| GitHubRelease
 end
 
 subgraph subGraph2 ["Chart Metadata"]
@@ -148,8 +148,8 @@ Templates --> HelmPackage
 Helpers --> HelmPackage
 Tests --> HelmPackage
 README --> HelmPackage
-HelmLint --> ChartYAML
-UnitTests --> Templates
+HelmLint -->|"Validates"| ChartYAML
+UnitTests -->|"Tests"| Templates
 
 subgraph Validation ["Validation"]
     HelmLint
@@ -159,7 +159,7 @@ end
 subgraph subGraph1 ["Packaging Stage"]
     HelmPackage
     Archive
-    HelmPackage --> Archive
+    HelmPackage -->|"Creates"| Archive
 end
 
 subgraph subGraph0 ["Source Files"]
@@ -234,15 +234,15 @@ IndexFile["index.yaml<br>Repository index"]
 ChartArchives["Chart packages<br>*.tgz files"]
 HelmCLI["helm CLI<br>helm repo add<br>helm install"]
 
-ChartReleaser --> ChartArchives
-ChartReleaser --> Releases
-ChartReleaser --> IndexFile
-ChartReleaser --> GHPages
-MainBranch --> ReleaseWorkflow
-GHPages --> IndexFile
-Releases --> ChartArchives
-HelmCLI --> IndexFile
-HelmCLI --> ChartArchives
+ChartReleaser -->|"Packages charts"| ChartArchives
+ChartReleaser -->|"Creates release"| Releases
+ChartReleaser -->|"Generates"| IndexFile
+ChartReleaser -->|"Pushes to"| GHPages
+MainBranch -->|"Source"| ReleaseWorkflow
+GHPages -->|"Hosts"| IndexFile
+Releases -->|"Hosts"| ChartArchives
+HelmCLI -->|"Fetches index"| IndexFile
+HelmCLI -->|"Downloads"| ChartArchives
 
 subgraph subGraph3 ["End Users"]
     HelmCLI
@@ -262,7 +262,7 @@ end
 subgraph subGraph0 ["GitHub Actions"]
     ReleaseWorkflow
     ChartReleaser
-    ReleaseWorkflow --> ChartReleaser
+    ReleaseWorkflow -->|"Triggers"| ChartReleaser
 end
 ```
 

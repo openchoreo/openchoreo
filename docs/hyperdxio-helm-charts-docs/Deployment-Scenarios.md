@@ -23,15 +23,15 @@ MongoFlag["mongodb.enabled"]
 Inline["Inline Configuration<br>hyperdx.defaultConnections<br>hyperdx.defaultSources"]
 ExternalSecret["External Secret<br>hyperdx.useExistingConfigSecret<br>hyperdx.existingConfigSecret"]
 
-FullStack --> CHFlag
-FullStack --> OTELFlag
-FullStack --> MongoFlag
-ExtCH --> CHFlag
+FullStack -->|"Default: true"| CHFlag
+FullStack -->|"Default: true"| OTELFlag
+FullStack -->|"Default: true"| MongoFlag
+ExtCH -->|"Set: false"| CHFlag
 ExtCH --> Inline
 ExtCH --> ExternalSecret
-ExtOTEL --> OTELFlag
-Minimal --> CHFlag
-Minimal --> OTELFlag
+ExtOTEL -->|"Set: false"| OTELFlag
+Minimal -->|"Set: false"| CHFlag
+Minimal -->|"Set: false"| OTELFlag
 Minimal --> ExternalSecret
 
 subgraph ConfigMethods ["Configuration Methods"]
@@ -101,9 +101,9 @@ App --> AppSvc
 Mongo --> MongoSvc
 CH --> CHSvc
 OTEL --> OTELSvc
-App --> MongoURI
-App --> DefaultConn
-App --> OTELEndpoint
+App -->|"Uses"| MongoURI
+App -->|"Uses"| DefaultConn
+App -->|"Uses"| OTELEndpoint
 
 subgraph Config ["Default Configuration"]
     MongoURI
@@ -175,10 +175,10 @@ ExtCH["External ClickHouse<br>TCP: 9000<br>HTTP: 8123"]
 Inline["Inline: hyperdx.defaultConnections"]
 Secret["Secret: hyperdx.useExistingConfigSecret<br>hyperdx.existingConfigSecret<br>existingConfigConnectionsKey"]
 
-App --> ExtCH
-OTEL --> ExtCH
-App --> Inline
-App --> Secret
+App -->|"HTTP Queries"| ExtCH
+OTEL -->|"Native TCP Protocol"| ExtCH
+App -->|"Option 1"| Inline
+App -->|"Option 2"| Secret
 
 subgraph ConfigOptions ["Configuration Options"]
     Inline
@@ -342,19 +342,19 @@ Mongo["MongoDB<br>mongodb.image"]
 ExtCH["External ClickHouse<br>Configured via Secret"]
 ExtOTEL["External OTEL Collector<br>hyperdx.otelExporterEndpoint"]
 
-App --> ExtCH
-App --> ExtOTEL
+App -->|"HTTP Queries"| ExtCH
+App -->|"Telemetry Export"| ExtOTEL
 
 subgraph ExternalInfra ["External Infrastructure"]
     ExtCH
     ExtOTEL
-    ExtOTEL --> ExtCH
+    ExtOTEL -->|"Native TCP"| ExtCH
 end
 
 subgraph ChartManaged ["Chart-Managedmongodb.enabled: trueclickhouse.enabled: falseotel.enabled: false"]
     App
     Mongo
-    App --> Mongo
+    App -->|"Metadata"| Mongo
 end
 
 subgraph SecretConfig ["Kubernetes Secrethyperdx.existingConfigSecret"]
@@ -418,21 +418,21 @@ OpAMP["OpAMP Server<br>Port 4320"]
 FQDN["otel.opampServerUrl<br>my-release-hdx-oss-v2-app<br>.namespace.svc.cluster.local:4320"]
 K8sDNS["Kubernetes DNS<br>Internal ClusterIP"]
 
-OTEL --> FQDN
-K8sDNS --> OpAMP
+OTEL -->|"Uses FQDN"| FQDN
+K8sDNS -->|"Direct pod-to-pod"| OpAMP
 
 subgraph Solution ["FQDN-Based Resolution"]
     FQDN
     K8sDNS
-    FQDN --> K8sDNS
+    FQDN -->|"Resolves to ClusterIP"| K8sDNS
 end
 
 subgraph Problem ["GKE DNS Resolution Issue"]
     OTEL
     LB
     OpAMP
-    OTEL --> LB
-    LB --> OpAMP
+    OTEL -->|"Resolves to External IPConnection Refused"| LB
+    LB -->|"Cannot route back"| OpAMP
 end
 ```
 
@@ -564,16 +564,16 @@ subgraph SecretMethod ["External Secret Methodhyperdx.useExistingConfigSecret"]
     K8sSecret
     SecretVolume
     SecretPod
-    K8sSecret --> SecretVolume
-    SecretVolume --> SecretPod
+    K8sSecret -->|"volumeMount"| SecretVolume
+    SecretVolume -->|"File System"| SecretPod
 end
 
 subgraph InlineMethod ["Inline Configurationhyperdx.defaultConnectionshyperdx.defaultSources"]
     InlineValues
     InlineConfigMap
     InlinePod
-    InlineValues --> InlineConfigMap
-    InlineConfigMap --> InlinePod
+    InlineValues -->|"helm template"| InlineConfigMap
+    InlineConfigMap -->|"Environment Variables"| InlinePod
 end
 ```
 

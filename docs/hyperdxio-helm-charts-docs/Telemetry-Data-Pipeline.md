@@ -199,7 +199,7 @@ MetricsHistogram["Table: otel_metrics_histogram"]
 MetricsSum["Table: otel_metrics_sum"]
 SessionsTable["Table: hyperdx_sessions"]
 
-Exporters --> NativePort
+Exporters -->|"Native Protocol"| NativePort
 NativePort --> DefaultDB
 
 subgraph subGraph2 ["ClickHouse Database"]
@@ -393,7 +393,7 @@ subgraph subGraph1 ["Read Path (HyperDX API)"]
     APIRead
     HTTPProto
     DefaultConn --> APIRead
-    APIRead --> HTTPProto
+    APIRead -->|"Query"| HTTPProto
 end
 
 subgraph subGraph0 ["Write Path (OTEL Collector)"]
@@ -401,7 +401,7 @@ subgraph subGraph0 ["Write Path (OTEL Collector)"]
     OTELWrite
     NativeProto
     OTELEnv --> OTELWrite
-    OTELWrite --> NativeProto
+    OTELWrite -->|"Write"| NativeProto
 end
 ```
 
@@ -500,7 +500,7 @@ Collector["OTEL Collector Process"]
 OpAMPClient["OpAMP Client"]
 OpAMPURL["OPAMP_SERVER_URL<br>Unsupported markdown: link"]
 
-OpAMPServer --> OpAMPClient
+OpAMPServer -->|"Push Config"| OpAMPClient
 OpAMPClient --> OpAMPServer
 
 subgraph subGraph1 ["OTEL Collector Pod"]
@@ -508,7 +508,7 @@ subgraph subGraph1 ["OTEL Collector Pod"]
     OpAMPClient
     OpAMPURL
     OpAMPClient --> Collector
-    Collector --> OpAMPClient
+    Collector -->|"Report Status"| OpAMPClient
     OpAMPURL --> OpAMPClient
 end
 

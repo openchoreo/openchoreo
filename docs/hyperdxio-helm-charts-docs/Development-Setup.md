@@ -71,8 +71,8 @@ GitHub --> ReleaseYML
 GitHub --> UpdateAppYML
 Config --> PackageJSON
 Config --> ChangesetDir
-UpdateVersions --> ChartYAML
-ChartTestYML --> SmokeTest
+UpdateVersions -->|"updates"| ChartYAML
+ChartTestYML -->|"runs"| SmokeTest
 
 subgraph subGraph4 ["Root Config"]
     PackageJSON
@@ -476,7 +476,7 @@ NetcatUtil["nc<br>Port testing"]
 OpensslUtil["openssl<br>Random ID generation"]
 MongoshUtil["mongosh<br>MongoDB CLI"]
 
-UpdateScript --> HelmCLI
+UpdateScript -->|"modifies"| HelmCLI
 KindCLI --> Docker
 SmokeTestScript --> NetcatUtil
 SmokeTestScript --> OpensslUtil
@@ -633,7 +633,7 @@ Schedule --> CheckoutCode
 Manual --> CheckoutCode
 InstallStorage --> UnitTests
 SmokeTests --> Success
-SmokeTests --> CollectLogs
+SmokeTests -->|"failure"| CollectLogs
 
 subgraph Results ["Results"]
     Success

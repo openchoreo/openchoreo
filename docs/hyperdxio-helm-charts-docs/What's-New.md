@@ -25,8 +25,8 @@ AppChanges["HyperDX app features<br>Docker image tags"]
 
 ChartYAML --> ChartVersion
 ChartYAML --> AppVersion
-ChartVersion --> ChartChanges
-AppVersion --> AppChanges
+ChartVersion -->|"governs"| ChartChanges
+AppVersion -->|"governs"| AppChanges
 
 subgraph subGraph1 ["What They Track"]
     ChartChanges
@@ -278,12 +278,12 @@ IngressTemplate["templates/app-ingress.yaml<br>templates/_additionalIngresses.tp
 ConfigTemplate["templates/app-configmap.yaml"]
 DeployTemplate["templates/hyperdx-deployment.yaml"]
 
-CronJob --> CronTemplate
-ClickHouse --> CHTemplate
-OTEL --> OTELTemplate
-Ingress --> IngressTemplate
-Config --> ConfigTemplate
-App --> DeployTemplate
+CronJob -->|"modifies"| CronTemplate
+ClickHouse -->|"modifies"| CHTemplate
+OTEL -->|"modifies"| OTELTemplate
+Ingress -->|"modifies"| IngressTemplate
+Config -->|"modifies"| ConfigTemplate
+App -->|"modifies"| DeployTemplate
 
 subgraph subGraph1 ["Template Files Affected"]
     CronTemplate

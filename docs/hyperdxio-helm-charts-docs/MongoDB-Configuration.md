@@ -37,7 +37,7 @@ Deployment --> MongoDBPod
 Service --> MongoDBPod
 PVC --> MongoDBPod
 InitContainer --> AppPod
-AppPod --> Service
+AppPod -->|"mongoUri connection"| Service
 
 subgraph subGraph2 ["Runtime Components"]
     MongoDBPod
@@ -167,10 +167,10 @@ PV["PersistentVolume<br>Provisioned by StorageClass"]
 Container["MongoDB Container"]
 DataMount["Volume Mount<br>/data/db"]
 
-PersistenceEnabled --> PVC
+PersistenceEnabled -->|"if true"| PVC
 DataSize --> PVC
 StorageClass --> PVC
-KeepPVC --> PVC
+KeepPVC -->|"controls deletion"| PVC
 PV --> DataMount
 
 subgraph subGraph2 ["MongoDB Pod"]
@@ -412,7 +412,7 @@ MainStart["Main Container Start<br>HyperDX Application"]
 MongoService["Service: -mongodb<br>Port: 27017"]
 MongoPod["MongoDB Pod<br>Status: Running<br>Readiness: True"]
 
-WaitCheck --> MongoService
+WaitCheck -->|"tests connection"| MongoService
 
 subgraph subGraph1 ["MongoDB Service"]
     MongoService
@@ -428,9 +428,9 @@ subgraph subGraph0 ["HyperDX Pod Startup Sequence"]
     MainStart
     InitStart --> WaitCheck
     WaitCheck --> WaitSuccess
-    WaitSuccess --> WaitRetry
+    WaitSuccess -->|"No"| WaitRetry
     WaitRetry --> WaitCheck
-    WaitSuccess --> MainStart
+    WaitSuccess -->|"Yes"| MainStart
 end
 ```
 

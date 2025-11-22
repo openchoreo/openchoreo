@@ -37,14 +37,14 @@ Metrics --> ClickHouse
 Logs --> HyperDXApp
 Logs --> ClickHouse
 Logs --> OTEL
-HyperDXApp --> CHData
-HyperDXApp --> MongoData
-ClickHouse --> CHData
-MongoDB --> MongoData
-Resources --> ClickHouse
-Resources --> OTEL
-Replicas --> HyperDXApp
-Replicas --> OTEL
+HyperDXApp -->|"uses"| CHData
+HyperDXApp -->|"uses"| MongoData
+ClickHouse -->|"stores in"| CHData
+MongoDB -->|"stores in"| MongoData
+Resources -->|"limits"| ClickHouse
+Resources -->|"limits"| OTEL
+Replicas -->|"scales"| HyperDXApp
+Replicas -->|"scales"| OTEL
 
 subgraph subGraph3 ["Resource Management"]
     Replicas
@@ -55,8 +55,8 @@ subgraph subGraph2 ["Persistence Layer"]
     CHData
     MongoData
     KeepPVC
-    KeepPVC --> CHData
-    KeepPVC --> MongoData
+    KeepPVC -->|"controls"| CHData
+    KeepPVC -->|"controls"| MongoData
 end
 
 subgraph subGraph1 ["Deployment Components"]
@@ -118,14 +118,14 @@ MongoReadiness["mongosh connection test<br>Port: 27017"]
 
 subgraph subGraph4 ["Health Check Flow"]
     K8s
-    K8s --> AppLiveness
-    K8s --> AppReadiness
-    K8s --> CHLiveness
-    K8s --> CHReadiness
-    K8s --> CHStartup
-    K8s --> OTELHealth
-    K8s --> MongoLiveness
-    K8s --> MongoReadiness
+    K8s -->|"probe"| AppLiveness
+    K8s -->|"probe"| AppReadiness
+    K8s -->|"probe"| CHLiveness
+    K8s -->|"probe"| CHReadiness
+    K8s -->|"probe"| CHStartup
+    K8s -->|"probe"| OTELHealth
+    K8s -->|"probe"| MongoLiveness
+    K8s -->|"probe"| MongoReadiness
 
 subgraph subGraph3 ["MongoDB Pod"]
     MongoLiveness
@@ -193,20 +193,20 @@ Config["clickhouse.prometheus.enabled: true<br>clickhouse.prometheus.port: 9363"
 Prometheus["Prometheus Server<br>Scrape Target"]
 Grafana["Grafana Dashboard<br>Visualization"]
 
-PrometheusExporter --> Prometheus
+PrometheusExporter -->|"scrape"| Prometheus
 
 subgraph subGraph1 ["Monitoring Stack"]
     Prometheus
     Grafana
-    Prometheus --> Grafana
+    Prometheus -->|"query"| Grafana
 end
 
 subgraph subGraph0 ["ClickHouse Metrics System"]
     CH
     PrometheusExporter
     Config
-    Config --> PrometheusExporter
-    CH --> PrometheusExporter
+    Config -->|"configures"| PrometheusExporter
+    CH -->|"exposes"| PrometheusExporter
 end
 ```
 
@@ -400,8 +400,8 @@ subgraph subGraph3 ["Lifecycle Management"]
     KeepPVC
     Delete
     Retain
-    KeepPVC --> Delete
-    KeepPVC --> Retain
+    KeepPVC -->|"keepPVC: false"| Delete
+    KeepPVC -->|"keepPVC: true"| Retain
 end
 
 subgraph subGraph2 ["Storage Configuration"]
@@ -575,7 +575,7 @@ TestEnv --> Upgrade
 Upgrade --> VerifyPods
 VerifyPods --> CheckLogs
 CheckLogs --> HealthCheck
-HealthCheck --> Rollback
+HealthCheck -->|"Issues Found"| Rollback
 ```
 
 **Sources:** [CHANGELOG.md L1-L154](https://github.com/hyperdxio/helm-charts/blob/845dd482/CHANGELOG.md#L1-L154)
@@ -690,8 +690,8 @@ CronJob["CronJob Mode<br>RUN_SCHEDULED_TASKS_EXTERNALLY=true<br>Separate CronJob
 CheckAlerts["checkAlerts Task<br>Alert evaluation<br>Notification dispatch"]
 Command["Version-specific command<br>v2.0.2+: npx tsx dist/...<br>Earlier: node dist/..."]
 
-Enabled --> InProcess
-Enabled --> CronJob
+Enabled -->|"false"| InProcess
+Enabled -->|"true"| CronJob
 CronJob --> Schedule
 CronJob --> Resources
 CronJob --> CheckAlerts

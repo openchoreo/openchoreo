@@ -39,20 +39,20 @@ APISvc["Service: hyperdx-app<br>Port 8000 (API)<br>Port 3000 (UI)"]
 API["HyperDX API<br>Queries via HTTP:8123"]
 ConfigMap["ConfigMap: app-config<br>Keys:<br>- connections.json<br>- sources.json"]
 
-App --> Ingress
-CustomApp --> Ingress
-LogAgent --> Ingress
+App -->|"OTLP/HTTP:4318"| Ingress
+CustomApp -->|"OTLP/gRPC:4317"| Ingress
+LogAgent -->|"Fluentd:24225"| Ingress
 OTELSvc --> OTLPHTTP
 OTELSvc --> OTLPgRPC
 OTELSvc --> FluentdRcv
-CHExporter --> CHSvc
-API --> CHSvc
+CHExporter -->|"tcp://clickhouse:9000User: otelcollector"| CHSvc
+API -->|"HTTP QueryUser: app"| CHSvc
 
 subgraph subGraph4 ["Query Layer"]
     APISvc
     API
     ConfigMap
-    ConfigMap --> API
+    ConfigMap -->|"Mounted asENV vars"| API
     API --> APISvc
 end
 
@@ -60,7 +60,7 @@ subgraph subGraph3 ["Storage Layer"]
     CHSvc
     CH
     Tables
-    CHSvc -->|"HTTP QueryUser: app"| CH
+    CHSvc --> CH
     CH --> Tables
 end
 
@@ -132,11 +132,11 @@ FluentdAgent["Fluentd/Fluent Bit<br>(Log Agents)"]
 Kubernetes["Kubernetes<br>(Health Probes)"]
 Prometheus["Prometheus<br>(Monitoring)"]
 
-OTLPSDK --> OTLPgRPCPort
-HTTPClient --> OTLPHTTPPort
-FluentdAgent --> FluentdPort
-Kubernetes --> HealthPort
-Prometheus --> MetricsPort
+OTLPSDK -->|"gRPC"| OTLPgRPCPort
+HTTPClient -->|"HTTP POST"| OTLPHTTPPort
+FluentdAgent -->|"Forward Protocol"| FluentdPort
+Kubernetes -->|"HTTP GET"| HealthPort
+Prometheus -->|"HTTP Scrape"| MetricsPort
 
 subgraph subGraph0 ["otel-collector Service"]
     HealthPort
@@ -214,11 +214,11 @@ Exporter["ClickHouse Exporter<br>Uses CLICKHOUSE_ENDPOINT"]
 OpAMPClient["OpAMP Client<br>Uses OPAMP_SERVER_URL"]
 CustomPipeline["Custom Pipelines<br>(if CUSTOM_OTELCOL_CONFIG_FILE)"]
 
-Values --> CHEP
-Values --> CHDB
-Values --> CHUSER
-Values --> OPAMP
-Values --> CUSTOMCFG
+Values -->|"otel.clickhouseEndpointotel.clickhouseUser"| CHEP
+Values -->|"otel.clickhouseDatabase"| CHDB
+Values -->|"clickhouse.config.users"| CHUSER
+Values -->|"otel.opampServerUrl"| OPAMP
+Values -->|"otel.customConfig"| CUSTOMCFG
 Secret --> APIKEY
 CustomCM --> CUSTOMCFG
 CHEP --> Exporter
@@ -320,18 +320,18 @@ SessionsTable["hyperdx_sessions<br>Columns:<br>- Timestamp, TimestampTime<br>- S
 OTEL["OTEL Collector<br>Exporter writes"]
 API["HyperDX API<br>User: app<br>HTTP Port: 8123"]
 
-OTEL --> LogsTable
-OTEL --> TracesTable
-OTEL --> MetricsGauge
-OTEL --> MetricsSum
-OTEL --> MetricsHist
-OTEL --> SessionsTable
-API --> LogsTable
-API --> TracesTable
-API --> MetricsGauge
-API --> MetricsSum
-API --> MetricsHist
-API --> SessionsTable
+OTEL -->|"Write via Native:9000User: otelcollector"| LogsTable
+OTEL -->|"Write via Native:9000"| TracesTable
+OTEL -->|"Write via Native:9000"| MetricsGauge
+OTEL -->|"Write via Native:9000"| MetricsSum
+OTEL -->|"Write via Native:9000"| MetricsHist
+OTEL -->|"Write via Native:9000"| SessionsTable
+API -->|"Query via HTTP:8123"| LogsTable
+API -->|"Query via HTTP:8123"| TracesTable
+API -->|"Query via HTTP:8123"| MetricsGauge
+API -->|"Query via HTTP:8123"| MetricsSum
+API -->|"Query via HTTP:8123"| MetricsHist
+API -->|"Query via HTTP:8123"| SessionsTable
 
 subgraph subGraph2 ["Query Clients"]
     API
@@ -404,10 +404,10 @@ Sources --> SrcFrom
 Sources --> SrcConn
 Sources --> SrcExpr
 Sources --> SrcLinks
-Connections --> API
-Sources --> API
-SrcConn --> ConnName
-QueryEngine --> ConnHost
+Connections -->|"Mounted as ENV"| API
+Sources -->|"Mounted as ENV"| API
+SrcConn -->|"References"| ConnName
+QueryEngine -->|"Uses connection +source mapping"| ConnHost
 
 subgraph subGraph3 ["HyperDX API"]
     API
@@ -422,7 +422,7 @@ subgraph subGraph2 ["Source Object"]
     SrcConn
     SrcExpr
     SrcLinks
-    SrcLinks --> SrcName
+    SrcLinks -->|"Cross-references"| SrcName
 end
 
 subgraph subGraph1 ["Connection Object"]
@@ -590,8 +590,8 @@ SourcesJSON --> ConfigEnv
 UI --> UserQuery
 UserQuery --> API
 API --> QueryBuilder
-ClickHouseQuery --> CHService
-CHDatabase --> API
+ClickHouseQuery -->|"HTTP POST:8123/query"| CHService
+CHDatabase -->|"Query Results"| API
 
 subgraph subGraph3 ["ClickHouse Service"]
     CHService
@@ -603,8 +603,8 @@ subgraph subGraph2 ["Query Processing"]
     UserQuery
     QueryBuilder
     ClickHouseQuery
-    QueryBuilder --> ClickHouseQuery
-    QueryBuilder --> ClickHouseQuery
+    QueryBuilder -->|"Uses source.from.tableNameUses source.*Expression"| ClickHouseQuery
+    QueryBuilder -->|"Uses connection.hostUses connection.username"| ClickHouseQuery
 end
 
 subgraph subGraph1 ["Configuration Loading"]
@@ -613,8 +613,8 @@ subgraph subGraph1 ["Configuration Loading"]
     ExternalSecret
     ConnectionsJSON
     SourcesJSON
-    UseSecret --> InlineConfig
-    UseSecret --> ExternalSecret
+    UseSecret -->|"false"| InlineConfig
+    UseSecret -->|"true"| ExternalSecret
     InlineConfig --> ConnectionsJSON
     InlineConfig --> SourcesJSON
     ExternalSecret --> ConnectionsJSON
@@ -683,8 +683,8 @@ UseHTTP --> EnvVars
 UseHTTP --> SDKConfig
 UsegRPC --> EnvVars
 UsegRPC --> SDKConfig
-EnvVars --> InCluster
-SDKConfig --> InCluster
+EnvVars -->|"Configured inapp deployment"| InCluster
+SDKConfig -->|"In applicationsource code"| InCluster
 
 subgraph subGraph3 ["OpenTelemetry SDK Configuration"]
     EnvVars

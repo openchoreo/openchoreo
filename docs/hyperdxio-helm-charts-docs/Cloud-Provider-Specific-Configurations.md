@@ -87,7 +87,7 @@ ExternalIP["External IP: 34.118.227.30"]
 InternalIP["Cluster IP: 10.8.0.100"]
 FQDN["otel.opampServerUrl:<br>Unsupported markdown: link"]
 
-FQDN --> InternalIP
+FQDN -->|"Forces cluster DNS"| InternalIP
 
 subgraph subGraph1 ["Solution: Use FQDN"]
     FQDN
@@ -98,10 +98,10 @@ subgraph subGraph0 ["Problem: GKE LoadBalancer DNS"]
     AppService
     ExternalIP
     InternalIP
-    OTELPod --> AppService
-    AppService --> ExternalIP
-    AppService --> InternalIP
-    ExternalIP --> OTELPod
+    OTELPod -->|"DNS lookupmy-hyperdx-hdx-oss-v2-app"| AppService
+    AppService -->|"Resolves to"| ExternalIP
+    AppService -->|"Should resolve to"| InternalIP
+    ExternalIP -->|"Connection refusedNot routable from pod"| OTELPod
 end
 ```
 
@@ -153,8 +153,8 @@ OTELPod["otel-collector Pod<br>10.8.1.16"]
 MongoDBPod["mongodb Pod<br>10.8.1.17"]
 CHService["clickhouse Service<br>Port 8123 HTTP<br>Port 9000 Native"]
 
-HyperDXPod --> CHService
-OTELPod --> CHService
+HyperDXPod -->|"Allowed: 10.8.1.15Matches 10.8.0.0/16"| CHService
+OTELPod -->|"Allowed: 10.8.1.16Matches 10.8.0.0/16"| CHService
 
 subgraph subGraph2 ["ClickHouse Service"]
     CHService
@@ -252,8 +252,8 @@ PodCIDR --> AppPod
 PodCIDR --> OTELPod
 ServiceCIDR --> AppSvc
 ServiceCIDR --> CHSvc
-AppPod --> CHSvc
-ClusterCIDRs --> CHSvc
+AppPod -->|"Connects via192.168.1.10"| CHSvc
+ClusterCIDRs -->|"Allows connectionsfrom pod IPs"| CHSvc
 
 subgraph subGraph3 ["ClickHouse Config"]
     ClusterCIDRs
@@ -344,8 +344,8 @@ CHAccess["clusterCidrs:<br>- 10.244.0.0/16<br>- 10.0.0.0/8"]
 
 Kubenet --> PodCIDR
 AzureCNI --> VNetCIDR
-PodCIDR --> CHAccess
-ServiceCIDR --> CHAccess
+PodCIDR -->|"Configure for pod access"| CHAccess
+ServiceCIDR -->|"Service IPs"| CHAccess
 
 subgraph subGraph2 ["ClickHouse Configuration"]
     CHAccess
@@ -543,13 +543,13 @@ SameNS["Same Namespace<br>All patterns work"]
 DiffNS["Different Namespace<br>Needs namespace or FQDN"]
 External["External to Cluster<br>Needs Ingress/LoadBalancer"]
 
-ShortName --> SameNS
-ShortName --> DiffNS
-Namespace --> SameNS
-Namespace --> DiffNS
-FQDN --> SameNS
-FQDN --> DiffNS
-FQDN --> SameNS
+ShortName -->|"Works"| SameNS
+ShortName -->|"Fails"| DiffNS
+Namespace -->|"Works"| SameNS
+Namespace -->|"Works"| DiffNS
+FQDN -->|"Works"| SameNS
+FQDN -->|"Works"| DiffNS
+FQDN -->|"Most reliable"| SameNS
 
 subgraph subGraph1 ["Resolution Scope"]
     SameNS

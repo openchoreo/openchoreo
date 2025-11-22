@@ -39,14 +39,14 @@ DA["DeployableArtifact<br>labels: org, project, component, track"]
 Deploy["Deployment<br>labels: org, project, component, track, env"]
 EP["Endpoint<br>labels: org, project, component, track, env, deployment"]
 
-Org --> Proj
-Org --> Env
-Proj --> Comp
-Comp --> DTrack
-DTrack --> DA
-Deploy --> Env
-Deploy --> Comp
-EP --> Deploy
+Org -->|"GetProject()"| Proj
+Org -->|"GetEnvironment()"| Env
+Proj -->|"GetComponent()"| Comp
+Comp -->|"GetDeploymentTrack()"| DTrack
+DTrack -->|"GetDeployableArtifact()"| DA
+Deploy -->|"GetEnvironment()"| Env
+Deploy -->|"GetComponent()"| Comp
+EP -->|"GetDeployment()"| Deploy
 ```
 
 Sources: [internal/controller/hierarchy.go L1-L408](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/hierarchy.go#L1-L408)
@@ -406,9 +406,9 @@ HierarchyFunc["HierarchyFunc<br>(e.g., GetDeployment)"]
 TargetObj["Target Object<br>(e.g., Deployment)"]
 ReconcileReq["Reconcile Request<br>for Target"]
 
-SourceObj --> HierarchyFunc
-HierarchyFunc --> TargetObj
-TargetObj --> ReconcileReq
+SourceObj -->|"passes to"| HierarchyFunc
+HierarchyFunc -->|"resolves"| TargetObj
+TargetObj -->|"creates"| ReconcileReq
 ```
 
 **Usage Example:**

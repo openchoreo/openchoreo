@@ -27,9 +27,9 @@ subgraph subGraph0 ["Resource Hierarchy Overview"]
     Project
     Component
     DeploymentTrack
-    Organization --> Project
-    Project --> Component
-    Component --> DeploymentTrack
+    Organization -->|"contains"| Project
+    Project -->|"contains"| Component
+    Component -->|"has"| DeploymentTrack
 end
 ```
 
@@ -97,14 +97,14 @@ subgraph subGraph0 ["Organization Controller Workflow"]
     J
     K
     A --> B
-    B --> C
-    B --> D
-    D --> E
-    D --> F
-    F --> G
-    F --> H
-    H --> I
-    H --> J
+    B -->|"No"| C
+    B -->|"Yes"| D
+    D -->|"Yes"| E
+    D -->|"No"| F
+    F -->|"No"| G
+    F -->|"Yes"| H
+    H -->|"No"| I
+    H -->|"Yes"| J
     I --> K
     J --> K
 end
@@ -346,13 +346,13 @@ subgraph subGraph0 ["Complete Organization Setup"]
     Org --> EnvProd
     Org --> Pipeline
     Org --> Proj
-    Pipeline --> EnvDev
-    EnvDev --> EnvStg
-    EnvStg --> EnvProd
-    DP --> EnvDev
-    DP --> EnvStg
-    DP --> EnvProd
-    Proj --> Pipeline
+    Pipeline -->|"promotion path"| EnvDev
+    EnvDev -->|"promote to"| EnvStg
+    EnvStg -->|"promote to"| EnvProd
+    DP -->|"runs in"| EnvDev
+    DP -->|"runs in"| EnvStg
+    DP -->|"runs in"| EnvProd
+    Proj -->|"uses"| Pipeline
 end
 ```
 

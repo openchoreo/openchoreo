@@ -39,8 +39,8 @@ Observer["Observer Service<br>(choreo-observer:8080)"]
 User["Users/Developers"]
 API["API Clients"]
 
-User --> OSDashboard
-API --> Observer
+User -->|"port-forward"| OSDashboard
+API -->|"HTTP POST"| Observer
 
 subgraph subGraph7 ["External Access"]
     User
@@ -48,12 +48,12 @@ subgraph subGraph7 ["External Access"]
 end
 
 subgraph subGraph6 ["Data Plane Cluster"]
-    AppPod1 --> LogFiles
-    AppPod2 --> LogFiles
-    PlatformPod --> LogFiles
-    LogFiles --> FluentbitDS
-    FluentbitDS --> OpenSearch
-    Observer --> OpenSearch
+    AppPod1 -->|"writes"| LogFiles
+    AppPod2 -->|"writes"| LogFiles
+    PlatformPod -->|"writes"| LogFiles
+    LogFiles -->|"tail"| FluentbitDS
+    FluentbitDS -->|"HTTP"| OpenSearch
+    Observer -->|"queries"| OpenSearch
 
 subgraph subGraph5 ["Access Layer"]
     Observer
@@ -62,7 +62,7 @@ end
 subgraph subGraph4 ["Storage Layer"]
     OpenSearch
     OSDashboard
-    OSDashboard --> OpenSearch
+    OSDashboard -->|"queries"| OpenSearch
 end
 
 subgraph subGraph3 ["Log Collection Layer"]
@@ -144,10 +144,10 @@ QueryBuilder["OpenSearch<br>Query Builder"]
 Index["kubernetes-* indices"]
 Client["API Client"]
 
-Client --> API
-QueryBuilder --> Index
-Index --> QueryBuilder
-QueryBuilder --> Client
+Client -->|"POST /api/logs/component/{name}"| API
+QueryBuilder -->|"DSL query"| Index
+Index -->|"results"| QueryBuilder
+QueryBuilder -->|"JSON response"| Client
 
 subgraph subGraph1 ["OpenSearch Cluster"]
     Index
@@ -156,7 +156,7 @@ end
 subgraph subGraph0 ["Observer Service (cmd/observer)"]
     API
     QueryBuilder
-    API --> QueryBuilder
+    API -->|"builds query"| QueryBuilder
 end
 ```
 
@@ -434,9 +434,9 @@ Deploy["Deployment<br>(provisioned by DeploymentController)"]
 Pods["Application Pods<br>(dp-org-project-env-*)"]
 Choreoctl["choreoctl"]
 
-Pods --> FluentBit
-Choreoctl --> Observer
-API --> Observer
+Pods -->|"stdout/stderr"| FluentBit
+Choreoctl -->|"query logs"| Observer
+API -->|"future: log access"| Observer
 
 subgraph subGraph3 ["CLI Tools"]
     Choreoctl
@@ -445,15 +445,15 @@ end
 subgraph subGraph2 ["Data Plane - Application Namespaces"]
     Deploy
     Pods
-    Deploy --> Pods
+    Deploy -->|"creates"| Pods
 end
 
 subgraph subGraph1 ["Data Plane - choreo-system"]
     Observer
     OpenSearch
     FluentBit
-    FluentBit --> OpenSearch
-    Observer --> OpenSearch
+    FluentBit -->|"index"| OpenSearch
+    Observer -->|"search"| OpenSearch
 end
 
 subgraph subGraph0 ["Control Plane"]

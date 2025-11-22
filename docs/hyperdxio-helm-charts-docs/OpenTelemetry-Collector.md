@@ -46,13 +46,13 @@ Metrics["Metrics Endpoint<br>:8888"]
 CH["ClickHouse<br>Native Protocol :9000<br>Tables:<br>- otel_logs<br>- otel_traces<br>- otel_metrics_*"]
 OpAMP["OpAMP Server<br>:4320<br>(HyperDX App)"]
 
-Apps --> Receivers
-Logs --> Receivers
-Exporters --> CH
-Exporters --> CH
-OpAMP --> Receivers
-OpAMP --> Processors
-OpAMP --> Exporters
+Apps -->|"OTLP gRPC/HTTP"| Receivers
+Logs -->|"Fluentd Protocol"| Receivers
+Exporters -->|"Native TCP :9000"| CH
+Exporters -->|"Scrape :9363"| CH
+OpAMP -->|"Configure"| Receivers
+OpAMP -->|"Configure"| Processors
+OpAMP -->|"Configure"| Exporters
 
 subgraph Management ["Management"]
     OpAMP
@@ -70,8 +70,8 @@ subgraph subGraph1 ["OTEL Collector Pod"]
     Metrics
     Receivers --> Processors
     Processors --> Exporters
-    Health --> Receivers
-    Metrics --> Receivers
+    Health -->|"K8s Probes"| Receivers
+    Metrics -->|"Prometheus Scrape"| Receivers
 end
 
 subgraph subGraph0 ["External Sources"]
@@ -150,11 +150,11 @@ Port3["OTLP gRPC"]
 Port4["OTLP HTTP"]
 Port5["Prometheus Metrics"]
 
-Service --> Port1
-Service --> Port2
-Service --> Port3
-Service --> Port4
-Service --> Port5
+Service -->|"health :13133"| Port1
+Service -->|"fluentd :24225"| Port2
+Service -->|"otlp-grpc :4317"| Port3
+Service -->|"otlp-http :4318"| Port4
+Service -->|"metrics :8888"| Port5
 ```
 
 The Service definition is located at [charts/hdx-oss-v2/templates/otel-collector-deployment.yaml L118-L144](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/otel-collector-deployment.yaml#L118-L144)
@@ -336,9 +336,9 @@ ConfigMap["ConfigMap<br>otel-custom-config"]
 Volume["Volume Mount<br>/etc/otelcol-contrib/custom.config.yaml"]
 Collector["OTEL Collector<br>Container"]
 
-Values --> ConfigMap
-ConfigMap --> Volume
-Volume --> Collector
+Values -->|"Creates"| ConfigMap
+ConfigMap -->|"Mounted as"| Volume
+Volume -->|"Read by"| Collector
 ```
 
 The ConfigMap is created when `otel.customConfig` is not empty, and the volume is mounted at [charts/hdx-oss-v2/templates/otel-collector-deployment.yaml L39-L44](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/otel-collector-deployment.yaml#L39-L44)
@@ -411,14 +411,14 @@ Logs["otel_logs"]
 Traces["otel_traces"]
 Metrics["otel_metrics_gauge<br>otel_metrics_sum<br>otel_metrics_histogram"]
 
-ENDPOINT --> Native
+ENDPOINT -->|"Write telemetry"| Native
 USER --> Native
 PASS --> Native
 DB --> Native
 Native --> Logs
 Native --> Traces
 Native --> Metrics
-Prom --> ENDPOINT
+Prom -->|"Optional scrape"| ENDPOINT
 
 subgraph subGraph2 ["ClickHouse Tables"]
     Logs

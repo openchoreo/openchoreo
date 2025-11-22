@@ -194,10 +194,10 @@ subgraph subGraph0 ["Helm Charts"]
     IDP
     OBS
     CIL
-    CIL --> CP
-    CP --> DP
-    DP --> BP
-    DP --> IDP
+    CIL -->|"installed first"| CP
+    CP -->|"installed after Cilium"| DP
+    DP -->|"parallel with"| BP
+    DP -->|"parallel with"| IDP
 end
 ```
 
@@ -382,9 +382,9 @@ ExtractCreds --> ExtractToken
 ExtractCA --> ValidateAuth
 ExtractClientCert --> ValidateAuth
 ExtractToken --> ValidateAuth
-ValidateAuth --> CreateDPmTLS
-ValidateAuth --> CreateDPToken
-ValidateAuth --> Error
+ValidateAuth -->|"mTLS"| CreateDPmTLS
+ValidateAuth -->|"Token"| CreateDPToken
+ValidateAuth -->|"None"| Error
 CreateDPmTLS --> ApplyDP
 CreateDPToken --> ApplyDP
 ApplyDP --> AddBuildPlane
@@ -428,8 +428,8 @@ NotInstalled["⚠️  not installed"]
 Error["❌ error"]
 
 CheckScript --> GetContext
-GetContext --> CurrentContext
-GetContext --> PromptContexts
+GetContext -->|"Single-Cluster"| CurrentContext
+GetContext -->|"Multi-Cluster"| PromptContexts
 CurrentContext --> CheckComponents
 PromptContexts --> CheckComponents
 CheckComponents --> Networking
@@ -445,10 +445,10 @@ BuildPlane --> GetPodStatus
 Identity --> GetPodStatus
 Observability --> GetPodStatus
 GetPodStatus --> Status
-Status --> Ready
-Status --> Pending
-Status --> NotInstalled
-Status --> Error
+Status -->|"Ready"| Ready
+Status -->|"Pending"| Pending
+Status -->|"Not Found"| NotInstalled
+Status -->|"Error"| Error
 
 subgraph subGraph0 ["Component Groups"]
     Networking

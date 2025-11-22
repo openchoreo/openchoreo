@@ -36,17 +36,17 @@ MongoLiveness["Liveness Probe"]
 MongoReadiness["Readiness Probe"]
 Prometheus["Prometheus Server<br>(optional)"]
 
-Kubelet --> AppLiveness
-Kubelet --> AppReadiness
-Kubelet --> CHLiveness
-Kubelet --> CHReadiness
-Kubelet --> CHStartup
-Kubelet --> OTELLiveness
-Kubelet --> OTELReadiness
+Kubelet -->|"periodSeconds: 30"| AppLiveness
+Kubelet -->|"periodSeconds: 10"| AppReadiness
+Kubelet -->|"periodSeconds: 30"| CHLiveness
+Kubelet -->|"periodSeconds: 10"| CHReadiness
+Kubelet -->|"periodSeconds: 10"| CHStartup
+Kubelet -->|"periodSeconds: 30"| OTELLiveness
+Kubelet -->|"periodSeconds: 10"| OTELReadiness
 Kubelet --> MongoLiveness
 Kubelet --> MongoReadiness
-Prometheus --> CHPrometheus
-Prometheus --> OTELMetrics
+Prometheus -->|"scrape"| CHPrometheus
+Prometheus -->|"scrape"| OTELMetrics
 
 subgraph subGraph5 ["Monitoring System"]
     Prometheus
@@ -164,10 +164,10 @@ HealthEndpoint["/health Endpoint"]
 LivenessCheck["livenessProbe<br>httpGet<br>initialDelay: 10s<br>period: 30s"]
 ReadinessCheck["readinessProbe<br>httpGet<br>initialDelay: 1s<br>period: 10s"]
 
-LivenessCheck --> HealthEndpoint
-ReadinessCheck --> HealthEndpoint
-HealthEndpoint --> LivenessCheck
-HealthEndpoint --> ReadinessCheck
+LivenessCheck -->|"GET /health:8000"| HealthEndpoint
+ReadinessCheck -->|"GET /health:8000"| HealthEndpoint
+HealthEndpoint -->|"200 OK = Healthy"| LivenessCheck
+HealthEndpoint -->|"200 OK = Ready"| ReadinessCheck
 
 subgraph subGraph1 ["Kubernetes Probe System"]
     LivenessCheck
@@ -318,9 +318,9 @@ PromScraper["Prometheus Scraper"]
 AppTraces["Application Traces"]
 AppLogs["Application Logs"]
 
-Liveness --> HealthEP
-Readiness --> HealthEP
-PromScraper --> MetricsEP
+Liveness -->|"HTTP GET"| HealthEP
+Readiness -->|"HTTP GET"| HealthEP
+PromScraper -->|"scrape"| MetricsEP
 AppTraces --> OTLPGRPC
 AppTraces --> OTLPHTTP
 AppLogs --> Fluentd
@@ -629,16 +629,16 @@ RestartContainer["Restart Container"]
 RemoveFromService["Remove from Service<br>No Traffic"]
 
 PodStart --> InitCheck
-InitCheck --> RestartContainer
-InitCheck --> StartupCheck
-StartupCheck --> RestartContainer
-StartupCheck --> ReadinessCheck
-ReadinessCheck --> RemoveFromService
-ReadinessCheck --> ServiceRouting
+InitCheck -->|"No"| RestartContainer
+InitCheck -->|"Yes"| StartupCheck
+StartupCheck -->|"No(failureThreshold reached)"| RestartContainer
+StartupCheck -->|"Yes"| ReadinessCheck
+ReadinessCheck -->|"No"| RemoveFromService
+ReadinessCheck -->|"Yes"| ServiceRouting
 ServiceRouting --> PodRunning
 PodRunning --> LivenessCheck
-LivenessCheck --> RestartContainer
-LivenessCheck --> PodRunning
+LivenessCheck -->|"No(failureThreshold reached)"| RestartContainer
+LivenessCheck -->|"Yes"| PodRunning
 RemoveFromService --> ReadinessCheck
 RestartContainer --> PodStart
 ```

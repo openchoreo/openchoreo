@@ -224,12 +224,12 @@ CHSvcNative["ClickHouse Service<br>Port 9000 Native"]
 CHSvcProm["ClickHouse Service<br>Port 9363 Prometheus"]
 OTELSvc["OTEL Collector Service<br>Port 4318 OTLP HTTP"]
 
-App --> MongoSvc
-App --> CHSvcHTTP
-OTEL --> AppSvcOpAMP
-OTEL --> CHSvcNative
-OTEL --> CHSvcProm
-App --> OTELSvc
+App -->|"mongoUrimongodb://{{fullname}}-mongodb:27017"| MongoSvc
+App -->|"defaultConnectionshttp://{{fullname}}-clickhouse:8123"| CHSvcHTTP
+OTEL -->|"OPAMP_SERVER_URLhttp://{{fullname}}-app:4320"| AppSvcOpAMP
+OTEL -->|"CLICKHOUSE_ENDPOINTtcp://{{fullname}}-clickhouse:9000"| CHSvcNative
+OTEL -->|"CLICKHOUSE_PROMETHEUS_METRICS_ENDPOINT{{fullname}}-clickhouse:9363"| CHSvcProm
+App -->|"otelExporterEndpointhttp://{{fullname}}-otel-collector:4318"| OTELSvc
 
 subgraph subGraph1 ["OTEL Collector Pod"]
     OTEL

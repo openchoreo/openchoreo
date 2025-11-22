@@ -243,10 +243,10 @@ ErrorKind["Error: Install Kind"]
 ErrorCluster["Error: Start cluster"]
 
 Start --> CheckKind
-CheckKind --> ErrorKind
-CheckKind --> CheckCluster
-CheckCluster --> ErrorCluster
-CheckCluster --> RunTests
+CheckKind -->|"No"| ErrorKind
+CheckKind -->|"Yes"| CheckCluster
+CheckCluster -->|"No"| ErrorCluster
+CheckCluster -->|"Yes"| RunTests
 ```
 
 **Sources:** [make/kube.mk L24-L34](https://github.com/openchoreo/openchoreo/blob/a577e969/make/kube.mk#L24-L34)

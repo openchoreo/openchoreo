@@ -30,17 +30,17 @@ UsersXML["/etc/clickhouse-server/users.xml"]
 DataDir["/var/lib/clickhouse"]
 LogDir["/var/log/clickhouse-server"]
 
-ValuesYAML --> Deployment
-ValuesYAML --> Service
-ValuesYAML --> ConfigMap1
-ValuesYAML --> ConfigMap2
-ValuesYAML --> PVC1
-ValuesYAML --> PVC2
+ValuesYAML -->|"helm template"| Deployment
+ValuesYAML -->|"helm template"| Service
+ValuesYAML -->|"helm template"| ConfigMap1
+ValuesYAML -->|"helm template"| ConfigMap2
+ValuesYAML -->|"helm template"| PVC1
+ValuesYAML -->|"helm template"| PVC2
 Deployment --> Container
-ConfigMap1 --> ConfigXML
-ConfigMap2 --> UsersXML
-PVC1 --> DataDir
-PVC2 --> LogDir
+ConfigMap1 -->|"volumeMount"| ConfigXML
+ConfigMap2 -->|"volumeMount"| UsersXML
+PVC1 -->|"volumeMount"| DataDir
+PVC2 -->|"volumeMount"| LogDir
 
 subgraph subGraph2 ["Container Runtime"]
     Container
@@ -48,8 +48,8 @@ subgraph subGraph2 ["Container Runtime"]
     UsersXML
     DataDir
     LogDir
-    ConfigXML --> Container
-    UsersXML --> Container
+    ConfigXML -->|"configures"| Container
+    UsersXML -->|"configures"| Container
 end
 
 subgraph subGraph1 ["Generated Kubernetes Resources"]
@@ -195,9 +195,9 @@ StartupAction["Delays other probes<br>until startup succeeds"]
 LivenessAction["Restarts pod<br>if probe fails"]
 ReadinessAction["Removes from service<br>if probe fails"]
 
-Startup --> PingEndpoint
-Liveness --> PingEndpoint
-Readiness --> PingEndpoint
+Startup -->|"HTTP GET"| PingEndpoint
+Liveness -->|"HTTP GET"| PingEndpoint
+Readiness -->|"HTTP GET"| PingEndpoint
 Startup --> StartupAction
 Liveness --> LivenessAction
 Readiness --> ReadinessAction
@@ -328,11 +328,11 @@ HyperDXAPI["HyperDX API<br>username: app<br>HTTP queries on :8123"]
 OTELCollector["OTEL Collector<br>username: otelcollector<br>Native protocol on :9000"]
 AppConnection["hyperdx.defaultConnections<br>username: app<br>password: appUserPassword"]
 
-AppConnection --> ValuesUsers
-HyperDXAPI --> ClickHouse
-OTELCollector --> ClickHouse
-ValuesUsers --> HyperDXAPI
-ValuesUsers --> OTELCollector
+AppConnection -->|"references"| ValuesUsers
+HyperDXAPI -->|"authenticates with"| ClickHouse
+OTELCollector -->|"authenticates with"| ClickHouse
+ValuesUsers -->|"credentials for"| HyperDXAPI
+ValuesUsers -->|"credentials for"| OTELCollector
 
 subgraph subGraph2 ["defaultConnections Configuration"]
     AppConnection
@@ -348,9 +348,9 @@ subgraph subGraph0 ["User Configuration Flow"]
     UsersConfigMap
     UsersXML
     ClickHouse
-    ValuesUsers --> UsersConfigMap
-    UsersConfigMap --> UsersXML
-    UsersXML --> ClickHouse
+    ValuesUsers -->|"helm template"| UsersConfigMap
+    UsersConfigMap -->|"volumeMount"| UsersXML
+    UsersXML -->|"loaded by"| ClickHouse
 end
 ```
 
@@ -408,9 +408,9 @@ InternalAPI["HyperDX API Pod<br>IP: 10.x.x.x"]
 InternalOTEL["OTEL Collector Pod<br>IP: 10.x.x.x"]
 ExternalClient["External Client<br>IP: 203.x.x.x"]
 
-InternalAPI --> ClickHouseServer
-InternalOTEL --> ClickHouseServer
-ExternalClient --> ClickHouseServer
+InternalAPI -->|"✓ Allowed"| ClickHouseServer
+InternalOTEL -->|"✓ Allowed"| ClickHouseServer
+ExternalClient -->|"✗ Blocked"| ClickHouseServer
 
 subgraph subGraph2 ["Blocked Connections"]
     ExternalClient
@@ -425,8 +425,8 @@ subgraph subGraph0 ["Network Access Control"]
     ConfigCIDRs
     ConfigXML
     ClickHouseServer
-    ConfigCIDRs --> ConfigXML
-    ConfigXML --> ClickHouseServer
+    ConfigCIDRs -->|"templated into"| ConfigXML
+    ConfigXML -->|"loaded by"| ClickHouseServer
 end
 ```
 

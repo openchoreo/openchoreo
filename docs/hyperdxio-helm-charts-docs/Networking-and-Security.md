@@ -42,17 +42,17 @@ OTELPod["otel-collector Pods"]
 CHPod["clickhouse Pods"]
 MongoPod["mongodb Pods"]
 
-Internet --> IngressController
-TelemetrySources --> IngressController
-AppIngress --> AppService
-AdditionalIngress --> OTELService
+Internet -->|"HTTPS"| IngressController
+TelemetrySources -->|"HTTPS/OTLP"| IngressController
+AppIngress -->|"Routes toappPort:3000"| AppService
+AdditionalIngress -->|"Routes tohttpPort:4318"| OTELService
 AppService --> AppPod
 OTELService --> OTELPod
 CHService --> CHPod
 MongoService --> MongoPod
-AppPod --> CHService
-AppPod --> MongoService
-OTELPod --> CHService
+AppPod -->|"HTTP :8123defaultConnections"| CHService
+AppPod -->|"TCP :27017mongoUri"| MongoService
+OTELPod -->|"Native :9000clickhouseEndpoint"| CHService
 
 subgraph subGraph4 ["Pod Network"]
     AppPod
@@ -179,9 +179,9 @@ AppSvc["-app<br>port: appPort"]
 OTELSvc["-otel-collector<br>port: httpPort"]
 CustomSvc["-<br>port: path.port"]
 
-MainConfig --> MainIngress
-AddConfig --> AdditionalIngress1
-AddConfig --> AdditionalIngressN
+MainConfig -->|"ingress.yaml:1-42"| MainIngress
+AddConfig -->|"ingress.yaml:43-96"| AdditionalIngress1
+AddConfig -->|"ingress.yaml:43-96"| AdditionalIngressN
 MainIngress --> AppSvc
 AdditionalIngress1 --> OTELSvc
 AdditionalIngressN --> CustomSvc

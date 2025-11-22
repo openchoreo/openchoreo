@@ -54,10 +54,10 @@ PR --> ChartTest
 Push --> ChartTest
 Schedule --> ChartTest
 Manual --> ChartTest
-SmokeTests --> Logs
-SmokeTests --> Events
-SmokeTests --> Status
-SmokeTests --> ReleaseWorkflow
+SmokeTests -->|"failure"| Logs
+SmokeTests -->|"failure"| Events
+SmokeTests -->|"failure"| Status
+SmokeTests -->|"success"| ReleaseWorkflow
 
 subgraph subGraph4 ["Release Gate"]
     ReleaseWorkflow
@@ -312,10 +312,10 @@ TestLog --> DBTest
 TestTrace --> DBTest
 DataVerify --> LogQuery
 DataVerify --> TraceQuery
-WaitForService --> UITest
-WaitForService --> MetricsTest
-CheckEndpoint --> UITest
-CheckEndpoint --> MetricsTest
+WaitForService -->|"used by"| UITest
+WaitForService -->|"used by"| MetricsTest
+CheckEndpoint -->|"used by"| UITest
+CheckEndpoint -->|"used by"| MetricsTest
 
 subgraph subGraph3 ["Validation Queries"]
     LogQuery

@@ -39,12 +39,12 @@ subgraph subGraph0 ["Resource Hierarchy"]
     Deploy
     Org --> DP
     Org --> Env
-    Env --> DP
+    Env -->|"references"| DP
     Org --> Proj
     Proj --> Comp
     Comp --> DT
     DT --> Deploy
-    Deploy --> Env
+    Deploy -->|"targets"| Env
 end
 ```
 
@@ -192,8 +192,8 @@ K8s["Kubernetes Cluster"]
 Gateway["Envoy Gateway"]
 Namespaces["Namespaces"]
 
-DPR --> K8s
-ER --> Namespaces
+DPR -->|"defines"| K8s
+ER -->|"uses"| Namespaces
 
 subgraph subGraph1 ["Data Plane"]
     K8s
@@ -210,7 +210,7 @@ subgraph subGraph0 ["Control Plane"]
     DPR
     EC --> ER
     DPC --> DPR
-    ER --> DPR
+    ER -->|"dataPlaneRef"| DPR
 end
 ```
 
@@ -269,9 +269,9 @@ ORG["organization-name:"]
 
 EC --> RH
 RH --> NH
-NH --> NS
-NS --> ENV
-NS --> ORG
+NH -->|"creates/updates/deletes"| NS
+NS -->|"labeled with"| ENV
+NS -->|"labeled with"| ORG
 ```
 
 Sources: [internal/controller/environment/integrations/kubernetes/namespaces_handler.go L19-L110](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/environment/integrations/kubernetes/namespaces_handler.go#L19-L110)
@@ -397,8 +397,8 @@ ORG --> DP
 ORG --> DEV
 ORG --> PIPE
 ORG --> PROJ
-DEV --> DP
-PROJ --> PIPE
+DEV -->|"references"| DP
+PROJ -->|"uses"| PIPE
 ```
 
 Sources: [samples/configuring-choreo/create-new-organization/complete-organization.yaml L1-L98](https://github.com/openchoreo/openchoreo/blob/a577e969/samples/configuring-choreo/create-new-organization/complete-organization.yaml#L1-L98)

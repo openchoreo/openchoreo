@@ -38,8 +38,8 @@ CRDs["Custom Resources<br>Organization, Project, Component, etc."]
 Kubectl["kubectl"]
 Choreoctl["choreoctl CLI"]
 
-Kubectl --> MGR
-Choreoctl --> API
+Kubectl -->|"--context=kind-choreo-cp"| MGR
+Choreoctl -->|"--context=kind-choreo-cp"| API
 
 subgraph Client ["Client Machine"]
     Kubectl
@@ -50,7 +50,7 @@ subgraph CP ["Control Plane Cluster (kind-choreo-cp)"]
     API
     MGR
     CRDs
-    MGR --> CRDs
+    MGR -->|"Manages"| CRDs
 end
 
 subgraph DP ["Data Plane Cluster (kind-choreo-dp)"]
@@ -60,11 +60,11 @@ subgraph DP ["Data Plane Cluster (kind-choreo-dp)"]
     IntGW
     Argo
     Obs
-    ExtGW --> Apps
-    IntGW --> Apps
-    Cilium --> Apps
-    Argo --> Apps
-    Apps --> Obs
+    ExtGW -->|"Routes to"| Apps
+    IntGW -->|"Routes to"| Apps
+    Cilium -->|"Enforces policies"| Apps
+    Argo -->|"Executes builds"| Apps
+    Apps -->|"Logs"| Obs
 end
 ```
 
@@ -174,8 +174,6 @@ subgraph subGraph0 ["Installation Flow"]
     DP_Install
     Verify
     AddDP
-    CP_Install --> DP_Install
-    DP_Install --> Verify
     Verify --> AddDP
 end
 ```
@@ -271,21 +269,19 @@ MultiClient["KubeMultiClientManager"]
 K8s_API["Kubernetes API Server"]
 Resources["Application Resources"]
 
-DP_CR --> K8s_API
-MultiClient --> K8s_API
+MultiClient -->|"Authenticates with credentialsfrom DataPlane CR"| K8s_API
 
 subgraph subGraph1 ["Data Plane"]
     K8s_API
     Resources
-    K8s_API --> Resources
 end
 
 subgraph subGraph0 ["Control Plane"]
     DP_CR
     MGR
     MultiClient
-    MGR --> DP_CR
-    MGR --> MultiClient
+    MGR -->|"Reads"| DP_CR
+    MGR -->|"Uses"| MultiClient
 end
 ```
 
@@ -404,8 +400,8 @@ ExtGW["choreo-external-gateway<br>Service type: LoadBalancer<br>Port: 443"]
 HTTPRoute["HTTPRoute resources<br>Created by Endpoint controller"]
 Apps["Application Pods"]
 
-Host --> ExtGW
-Host --> ExtGW
+Host -->|"Option 1: 172.19.0.X:443"| ExtGW
+Host -->|"Option 2: localhost:443"| ExtGW
 
 subgraph subGraph1 ["Data Plane"]
     ExtGW

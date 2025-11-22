@@ -79,21 +79,21 @@ Comp["Component"]
 Build["Build"]
 Deploy["Deployment"]
 
-LocalCtrl --> Org
-LocalCtrl --> Proj
-LocalCtrl --> Comp
-LocalCtrl --> Build
-LocalCtrl --> Deploy
-Make --> Cilium
-Make --> API
-Make --> Argo
-Kubectl --> CtrlDepl
-Kubectl --> Org
+LocalCtrl -->|"watches & reconciles"| Org
+LocalCtrl -->|"watches & reconciles"| Proj
+LocalCtrl -->|"watches & reconciles"| Comp
+LocalCtrl -->|"watches & reconciles"| Build
+LocalCtrl -->|"watches & reconciles"| Deploy
+Make -->|"helm upgrade"| Cilium
+Make -->|"helm upgrade"| API
+Make -->|"helm upgrade"| Argo
+Kubectl -->|"scale to 0"| CtrlDepl
+Kubectl -->|"patch DataPlane"| Org
 
 subgraph subGraph6 ["Kind Cluster: kind-choreo"]
-    Build --> Argo
-    Deploy --> ExtGW
-    Deploy --> IntGW
+    Build -->|"triggers"| Argo
+    Deploy -->|"creates"| ExtGW
+    Deploy -->|"creates"| IntGW
 
 subgraph subGraph5 ["CRDs in etcd"]
     Org
@@ -211,10 +211,10 @@ CompCRD["Component"]
 BuildCRD["Build"]
 DeployCRD["Deployment"]
 
-CtrlMgr --> OrgCRD
-CtrlMgr --> ProjCRD
-CtrlMgr --> BuildCRD
-CtrlMgr --> DeployCRD
+CtrlMgr -->|"reconciles"| OrgCRD
+CtrlMgr -->|"reconciles"| ProjCRD
+CtrlMgr -->|"reconciles"| BuildCRD
+CtrlMgr -->|"reconciles"| DeployCRD
 
 subgraph subGraph4 ["CRDs Installed"]
     OrgCRD
@@ -230,14 +230,14 @@ subgraph subGraph3 ["choreo-system namespace"]
 subgraph subGraph0 ["Control Plane"]
     CtrlMgr
     API
-    API --> CtrlMgr
+    API -->|"REST interface"| CtrlMgr
 end
 
 subgraph subGraph2 ["Build Plane"]
     ArgoServer
     ArgoCtrl
     Templates
-    ArgoCtrl --> Templates
+    ArgoCtrl -->|"executes"| Templates
 end
 
 subgraph subGraph1 ["Data Plane"]
@@ -352,14 +352,14 @@ InClusterCtrl2["Controller Manager<br>(In-Cluster)<br>replicas: 0"]
 DPURL2["DataPlane.spec.apiServerURL:<br>Unsupported markdown: link"]
 LocalCtrl["Controller Manager<br>(Local Process)<br>go run"]
 
-InClusterCtrl --> InClusterCtrl2
-DPURL1 --> DPURL2
+InClusterCtrl -->|"kubectl scale"| InClusterCtrl2
+DPURL1 -->|"kubectl patch"| DPURL2
 
 subgraph subGraph1 ["After Local Dev Setup"]
     InClusterCtrl2
     DPURL2
     LocalCtrl
-    LocalCtrl --> DPURL2
+    LocalCtrl -->|"connects to"| DPURL2
 end
 
 subgraph subGraph0 ["Before Local Dev"]
@@ -503,9 +503,9 @@ WriteCode --> RunLocal
 RunLocal --> Test
 Test --> Debug
 Debug --> MoreChanges
-MoreChanges --> StopCtrl
+MoreChanges -->|"Yes"| StopCtrl
 StopCtrl --> WriteCode
-MoreChanges --> Lint
+MoreChanges -->|"No"| Lint
 Lint --> UnitTest
 UnitTest --> CodeGen
 CodeGen --> BuildDocker

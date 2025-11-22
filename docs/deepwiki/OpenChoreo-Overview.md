@@ -49,8 +49,55 @@ OpenChoreo orchestrates multiple CNCF and open-source projects (Argo Workflows, 
 
 OpenChoreo introduces three layers of abstractions, each implemented as Kubernetes Custom Resources. These abstractions are managed by specialized controllers in the controller manager.
 
-```
+```mermaid
+flowchart TD
 
+Org["Organization<br>openchoreo.dev/v1alpha1<br>Cluster-scoped"]
+DP["DataPlane<br>openchoreo.dev/v1alpha1<br>Kubernetes cluster reference"]
+Env["Environment<br>openchoreo.dev/v1alpha1<br>dev/test/prod contexts"]
+DPipe["DeploymentPipeline<br>openchoreo.dev/v1alpha1<br>Promotion rules"]
+Proj["Project<br>openchoreo.dev/v1alpha1<br>Bounded context/app"]
+Comp["Component<br>openchoreo.dev/v1alpha1<br>Service/API/WebApp/Task"]
+EP["Endpoint<br>openchoreo.dev/v1alpha1<br>HTTPRoute + visibility"]
+Conn["Connection<br>(Dependencies)"]
+Cell["Cell = Project instance<br>Secure, isolated unit"]
+North["Northbound Ingress<br>gateway-external"]
+West["Westbound Ingress<br>gateway-internal"]
+South["Southbound Egress<br>External services"]
+East["Eastbound Egress<br>Inter-cell"]
+
+Proj -->|"deployed to"| Env
+Proj -->|"runtime form"| Cell
+EP -->|"public visibility"| North
+EP -->|"org visibility"| West
+Conn -->|"external"| South
+Conn -->|"internal"| East
+
+subgraph subGraph2 ["Runtime Abstractions (Cell)"]
+    Cell
+    North
+    West
+    South
+    East
+end
+
+subgraph subGraph1 ["Development Abstractions (Developers)"]
+    Proj
+    Comp
+    EP
+    Conn
+    Comp -->|"exposes"| EP
+end
+
+subgraph subGraph0 ["Platform Abstractions (Platform Engineers)"]
+    Org
+    DP
+    Env
+    DPipe
+    Org -->|"contains"| DP
+    Org -->|"contains"| Env
+    Org -->|"defines"| DPipe
+end
 ```
 
 ### Platform Abstractions
@@ -79,8 +126,43 @@ Developers use these resources to define their applications:
 
 Components specialize into typed workloads through a Class-Instance-Binding pattern:
 
-```
+```mermaid
+flowchart TD
 
+Component["Component<br>(base)"]
+API["API"]
+Service["Service"]
+WebApp["WebApplication"]
+Task["ScheduledTask"]
+APIClass["APIClass<br>(template)"]
+ServiceClass["ServiceClass<br>(template)"]
+WebAppClass["WebApplicationClass<br>(template)"]
+TaskClass["ScheduledTaskClass<br>(template)"]
+APIBind["APIBinding<br>(active/suspended)"]
+ServiceBind["ServiceBinding<br>(active/suspended)"]
+WebAppBind["WebApplicationBinding<br>(active/suspended)"]
+TaskBind["ScheduledTaskBinding<br>(active/suspended)"]
+Deployment1["Deployment<br>+ Release"]
+Deployment2["Deployment<br>+ Release"]
+Deployment3["Deployment<br>+ Release"]
+Deployment4["Deployment<br>+ CronJob"]
+
+Component -->|"specializes"| API
+Component -->|"specializes"| Service
+Component -->|"specializes"| WebApp
+Component -->|"specializes"| Task
+APIClass -->|"templates"| API
+ServiceClass -->|"templates"| Service
+WebAppClass -->|"templates"| WebApp
+TaskClass -->|"templates"| Task
+API -->|"bound via"| APIBind
+Service -->|"bound via"| ServiceBind
+WebApp -->|"bound via"| WebAppBind
+Task -->|"bound via"| TaskBind
+APIBind -->|"creates"| Deployment1
+ServiceBind -->|"creates"| Deployment2
+WebAppBind -->|"creates"| Deployment3
+TaskBind -->|"creates"| Deployment4
 ```
 
 ### Runtime Abstractions: The Cell Model
@@ -104,8 +186,114 @@ All traffic is enforced by Cilium network policies and routed through Envoy gate
 
 OpenChoreo separates concerns across three distinct Kubernetes clusters, enabling clear boundaries between platform control, build execution, and application runtime.
 
-```
+```mermaid
+flowchart TD
 
+API["openchoreo-api<br>HTTP REST Service<br>(Go, controller-runtime client)"]
+CLI["choreoctl<br>CLI tool<br>(Go, kubectl-like)"]
+OrgCtrl["organization.Reconciler"]
+ProjCtrl["project.Reconciler"]
+CompCtrl["component.Reconciler"]
+BuildCtrl["build.Reconciler"]
+DeployCtrl["deployment.Reconciler"]
+EPCtrl["endpoint.Reconciler"]
+ReleaseCtrl["release.Reconciler"]
+OrgCRD["Organization"]
+ProjCRD["Project"]
+CompCRD["Component"]
+BuildCRD["Build"]
+DeployCRD["Deployment"]
+EPCRD["Endpoint"]
+ReleaseCRD["Release"]
+MultiClient["KubeMultiClientManager<br>(cross-cluster client)"]
+ArgoWF["Argo Workflows<br>Controller"]
+WFTemplates["ClusterWorkflowTemplates<br>ballerina-buildpack<br>react<br>docker<br>google-cloud-buildpacks"]
+BuildPods["Build Execution Pods<br>clone → build → push → workload-create"]
+Registry["Container Registry"]
+Cilium["Cilium CNI<br>CiliumNetworkPolicies"]
+ExtGW["gateway-external<br>(Envoy Gateway)"]
+IntGW["gateway-internal<br>(Envoy Gateway)"]
+K8sDeploy["Kubernetes Deployments"]
+K8sSvc["Kubernetes Services"]
+CronJobs["CronJobs"]
+Fluentbit["Fluentbit<br>(log collection)"]
+OpenSearch["OpenSearch<br>(log storage)"]
+Observer["Observer Service<br>(query interface)"]
+
+BuildCtrl -->|"via MultiClient"| ArgoWF
+DeployCtrl -->|"via MultiClient"| K8sDeploy
+DeployCtrl -->|"via MultiClient"| K8sSvc
+EPCtrl -->|"via MultiClient"| ExtGW
+EPCtrl -->|"via MultiClient"| IntGW
+EPCtrl -->|"via MultiClient"| Cilium
+
+subgraph subGraph5 ["Data Plane Cluster"]
+    Cilium
+    ExtGW
+    IntGW
+    K8sDeploy
+    K8sSvc
+    CronJobs
+    ExtGW -->|"routes"| K8sDeploy
+    IntGW -->|"routes"| K8sDeploy
+    Cilium -->|"enforces"| K8sDeploy
+    K8sDeploy -->|"logs"| Fluentbit
+
+subgraph subGraph4 ["Observability Stack"]
+    Fluentbit
+    OpenSearch
+    Observer
+    Fluentbit -->|"forwards"| OpenSearch
+    Observer -->|"queries"| OpenSearch
+end
+end
+
+subgraph subGraph3 ["Build Plane Cluster"]
+    ArgoWF
+    WFTemplates
+    BuildPods
+    Registry
+    ArgoWF -->|"instantiates"| WFTemplates
+    WFTemplates -->|"spawns"| BuildPods
+    BuildPods -->|"pushes"| Registry
+end
+
+subgraph subGraph2 ["Control Plane Cluster"]
+    API
+    CLI
+    MultiClient
+    CLI -->|"REST API"| API
+    API -->|"CRUD ops"| OrgCRD
+    API -->|"CRUD ops"| ProjCRD
+    API -->|"CRUD ops"| CompCRD
+    OrgCtrl -->|"watches"| OrgCRD
+    ProjCtrl -->|"watches"| ProjCRD
+    CompCtrl -->|"watches"| CompCRD
+    BuildCtrl -->|"watches"| BuildCRD
+    DeployCtrl -->|"watches"| DeployCRD
+    EPCtrl -->|"watches"| EPCRD
+    ReleaseCtrl -->|"watches"| ReleaseCRD
+
+subgraph subGraph1 ["Custom Resources"]
+    OrgCRD
+    ProjCRD
+    CompCRD
+    BuildCRD
+    DeployCRD
+    EPCRD
+    ReleaseCRD
+end
+
+subgraph subGraph0 ["Controller Manager(cmd/main.go)"]
+    OrgCtrl
+    ProjCtrl
+    CompCtrl
+    BuildCtrl
+    DeployCtrl
+    EPCtrl
+    ReleaseCtrl
+end
+end
 ```
 
 ### Control Plane
@@ -165,8 +353,97 @@ The Data Plane runs application workloads with comprehensive security and observ
 
 OpenChoreo defines 32 Custom Resource Definitions across three categories. Controllers manage these resources through reconciliation loops.
 
-```
+```mermaid
+flowchart TD
 
+Org["Organization<br>(cluster-scoped)"]
+Proj["Project<br>(namespaced: org)"]
+Env["Environment<br>(namespaced: org)"]
+DP["DataPlane<br>(namespaced: org)"]
+BP["BuildPlane<br>(namespaced: org)"]
+DPipe["DeploymentPipeline<br>(namespaced: org)"]
+Comp["Component"]
+API["API"]
+APIClass["APIClass"]
+APIBind["APIBinding"]
+Svc["Service"]
+SvcClass["ServiceClass"]
+SvcBind["ServiceBinding"]
+WebApp["WebApplication"]
+WebAppClass["WebApplicationClass"]
+WebAppBind["WebApplicationBinding"]
+Task["ScheduledTask"]
+TaskClass["ScheduledTaskClass"]
+TaskBind["ScheduledTaskBinding"]
+Build["Build"]
+DA["DeployableArtifact"]
+Workload["Workload"]
+DTrack["DeploymentTrack"]
+Deploy["Deployment"]
+Release["Release"]
+Endpoint["Endpoint"]
+
+Proj -->|"contains"| Comp
+Comp -->|"triggers"| Build
+DPipe -->|"contains"| DTrack
+
+subgraph subGraph2 ["Build & Deploy Pipeline"]
+    Build
+    DA
+    Workload
+    DTrack
+    Deploy
+    Release
+    Endpoint
+    Build -->|"produces"| DA
+    DA -->|"contains"| Workload
+    DTrack -->|"creates"| Deploy
+    Deploy -->|"creates"| Release
+    Deploy -->|"creates"| Endpoint
+end
+
+subgraph subGraph1 ["Application Model"]
+    Comp
+    API
+    APIClass
+    APIBind
+    Svc
+    SvcClass
+    SvcBind
+    WebApp
+    WebAppClass
+    WebAppBind
+    Task
+    TaskClass
+    TaskBind
+    Comp -->|"specializes to"| API
+    Comp -->|"specializes to"| Svc
+    Comp -->|"specializes to"| WebApp
+    Comp -->|"specializes to"| Task
+    APIClass -->|"templates"| API
+    API -->|"bound via"| APIBind
+    SvcClass -->|"templates"| Svc
+    Svc -->|"bound via"| SvcBind
+    WebAppClass -->|"templates"| WebApp
+    WebApp -->|"bound via"| WebAppBind
+    TaskClass -->|"templates"| Task
+    Task -->|"bound via"| TaskBind
+end
+
+subgraph subGraph0 ["Organizational Hierarchy"]
+    Org
+    Proj
+    Env
+    DP
+    BP
+    DPipe
+    Org -->|"contains"| Proj
+    Org -->|"contains"| Env
+    Org -->|"contains"| DP
+    Org -->|"contains"| BP
+    Org -->|"defines"| DPipe
+    Proj -->|"references"| DPipe
+end
 ```
 
 All CRD definitions are registered in [config/crd/kustomization.yaml L4-L32](https://github.com/openchoreo/openchoreo/blob/a577e969/config/crd/kustomization.yaml#L4-L32)
@@ -207,8 +484,33 @@ Controllers for legacy CRDs (Organization, Project, Environment, DataPlane, etc.
 
 Here's how a typical application deployment flows through OpenChoreo:
 
-```
+```mermaid
+sequenceDiagram
+  participant Developer
+  participant choreoctl
+  participant openchoreo-api
+  participant component.Reconciler
+  participant build.Reconciler
+  participant Argo Workflows
+  participant deployment.Reconciler
+  participant endpoint.Reconciler
+  participant Data Plane
 
+  Developer->>choreoctl: choreoctl apply -f component.yaml
+  choreoctl->>openchoreo-api: POST /api/v1/components
+  openchoreo-api->>component.Reconciler: Component CR created
+  Developer->>choreoctl: choreoctl create build my-component
+  choreoctl->>build.Reconciler: Build CR created
+  build.Reconciler->>Argo Workflows: Create Workflow (via MultiClient)
+  Argo Workflows->>Argo Workflows: clone → build → push → workload-create
+  Argo Workflows->>build.Reconciler: DeployableArtifact created
+  Developer->>choreoctl: choreoctl promote my-component dev
+  choreoctl->>openchoreo-api: POST /api/v1/components/promote
+  openchoreo-api->>deployment.Reconciler: Deployment CR created
+  deployment.Reconciler->>Data Plane: Create Namespace, Deployment, Service
+  deployment.Reconciler->>endpoint.Reconciler: Endpoint CR created (from DeployableArtifact)
+  endpoint.Reconciler->>Data Plane: Create HTTPRoute, SecurityPolicy, NetworkPolicy
+  note over Data Plane: Application accessible via
 ```
 
 ### Step-by-Step Process

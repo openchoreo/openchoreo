@@ -36,14 +36,14 @@ AdditionalIngress["Additional Ingress<br>name: {release}-hdx-oss-v2-{ingress.nam
 AppService["hyperdx-app Service<br>ClusterIP<br>ports: 3000, 8000, 4320"]
 OtelService["otel-collector Service<br>ClusterIP<br>ports: 4317, 4318"]
 
-Client --> IngressController
+Client -->|"HTTP/HTTPS"| IngressController
 
 subgraph subGraph3 ["Kubernetes Cluster"]
     IngressController
-    IngressController --> AppIngress
-    IngressController --> AdditionalIngress
-    AppIngress --> AppService
-    AdditionalIngress --> OtelService
+    IngressController -->|"Route by host/path"| AppIngress
+    IngressController -->|"Route by host/path"| AdditionalIngress
+    AppIngress -->|"Backend:{fullname}-app:3000"| AppService
+    AdditionalIngress -->|"Backend:{fullname}-{name}:port"| OtelService
 
 subgraph Services ["Services"]
     AppService
@@ -507,8 +507,8 @@ NoResources["No resources generated"]
 AddTLSAnnotations["Add SSL redirect annotations"]
 
 ValuesYAML --> IngressTemplate
-EnabledCheck --> NoResources
-TLSCheck --> AddTLSAnnotations
+EnabledCheck -->|"false"| NoResources
+TLSCheck -->|"true"| AddTLSAnnotations
 AddTLSAnnotations --> MainIngressGen
 MainIngressGen --> AppIngressResource
 AdditionalGen --> AdditionalResource
@@ -529,11 +529,11 @@ subgraph subGraph0 ["Helm Template Processing"]
     AdditionalGen
     Validation
     IngressTemplate --> EnabledCheck
-    EnabledCheck --> NginxCheck
-    NginxCheck --> AnnotationMerge
-    NginxCheck --> MainIngressGen
+    EnabledCheck -->|"true"| NginxCheck
+    NginxCheck -->|"true"| AnnotationMerge
+    NginxCheck -->|"false"| MainIngressGen
     AnnotationMerge --> TLSCheck
-    TLSCheck --> MainIngressGen
+    TLSCheck -->|"false"| MainIngressGen
     MainIngressGen --> AdditionalLoop
     AdditionalLoop --> Validation
     Validation --> AdditionalGen

@@ -330,7 +330,7 @@ Checkout --> Setup
 Setup --> Install
 Install --> ChangesetAction
 ChangesetAction --> CheckChangesets
-HasChangesets --> NoChangesets
+HasChangesets -->|"No"| NoChangesets
 NoChangesets --> ChartReleaser
 
 subgraph subGraph0 ["Changeset Action"]
@@ -339,8 +339,8 @@ subgraph subGraph0 ["Changeset Action"]
     CreateVersionPR
     RunPublish
     CheckChangesets --> HasChangesets
-    HasChangesets --> CreateVersionPR
-    CreateVersionPR --> RunPublish
+    HasChangesets -->|"Yes"| CreateVersionPR
+    CreateVersionPR -->|"After PR merge"| RunPublish
 end
 ```
 

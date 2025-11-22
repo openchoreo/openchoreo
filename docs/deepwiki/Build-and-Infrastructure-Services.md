@@ -64,11 +64,11 @@ BuildPlaneService --> K8sClient
 BuildPlaneService --> BPClientMgr
 DataPlaneService --> K8sClient
 Services --> K8sClient
-BuildService --> BuildCR
-BuildService --> ArgoTemplates
-BuildPlaneService --> BuildPlaneCR
-DataPlaneService --> DataPlaneCR
-BPClientMgr --> ArgoTemplates
+BuildService -->|"creates"| BuildCR
+BuildService -->|"queries"| ArgoTemplates
+BuildPlaneService -->|"reads"| BuildPlaneCR
+DataPlaneService -->|"creates/reads"| DataPlaneCR
+BPClientMgr -->|"connects to"| ArgoTemplates
 
 subgraph subGraph4 ["Build Plane Cluster"]
     ArgoTemplates
@@ -131,8 +131,8 @@ BuildService --> k8sClient
 BuildService --> logger
 BuildService --> buildPlaneService
 BuildService --> bpClientMgr
-buildPlaneService --> BPClient
-bpClientMgr --> BPClient
+buildPlaneService -->|"provides"| BPClient
+bpClientMgr -->|"manages"| BPClient
 ```
 
 The `BuildService` is initialized with four dependencies that enable cross-cluster operations:
@@ -225,10 +225,10 @@ BPService["BuildPlaneService<br>GetBuildPlaneClient"]
 BPClient["Build Plane<br>Kubernetes Client"]
 Templates["ClusterWorkflowTemplates<br>(Argo Workflows)"]
 
-Service --> BPService
-BPService --> BPClient
-Service --> Templates
-Templates --> Service
+Service -->|"Unsupported markdown: list"| BPService
+BPService -->|"Unsupported markdown: list"| BPClient
+Service -->|"Unsupported markdown: list"| Templates
+Templates -->|"Unsupported markdown: list"| Service
 ```
 
 **Response Mapping:**
@@ -272,8 +272,8 @@ RemoteClient["Remote K8s Client<br>(Build Plane)"]
 BuildPlaneService --> k8sClient
 BuildPlaneService --> bpClientMgr
 BuildPlaneService --> logger
-k8sClient --> BuildPlaneCR
-bpClientMgr --> RemoteClient
+k8sClient -->|"reads"| BuildPlaneCR
+bpClientMgr -->|"creates"| RemoteClient
 ```
 
 **Sources:** [internal/openchoreo-api/services/buildplane_service.go L19-L33](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/openchoreo-api/services/buildplane_service.go#L19-L33)
@@ -367,7 +367,7 @@ DataPlaneCR["DataPlane CR"]
 
 DataPlaneService --> k8sClient
 DataPlaneService --> logger
-k8sClient --> DataPlaneCR
+k8sClient -->|"CRUD"| DataPlaneCR
 ```
 
 **Sources:** [internal/openchoreo-api/services/dataplane_service.go L20-L32](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/openchoreo-api/services/dataplane_service.go#L20-L32)
@@ -464,8 +464,8 @@ Response["ApplyResourceResponse<br>- apiVersion, kind, name<br>- namespace, oper
 Request --> Validate
 Validate --> HandleNS
 HandleNS --> CheckExists
-CheckExists --> Create
-CheckExists --> Update
+CheckExists -->|"Not found"| Create
+CheckExists -->|"Found"| Update
 Create --> Response
 Update --> Response
 ```
@@ -540,9 +540,9 @@ NewServices --> OrgService
 NewServices --> EnvService
 NewServices --> DataPlaneService
 NewServices --> BuildPlaneService
-ComponentService --> ProjectService
-BuildService --> BuildPlaneService
-DPipelineService --> ProjectService
+ComponentService -->|"depends on"| ProjectService
+BuildService -->|"depends on"| BuildPlaneService
+DPipelineService -->|"depends on"| ProjectService
 NewServices --> ComponentService
 NewServices --> BuildService
 NewServices --> DPipelineService

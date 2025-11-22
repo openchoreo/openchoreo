@@ -29,12 +29,12 @@ ExternalCH["External ClickHouse<br>Ports: 8123 HTTP, 9000 Native<br>Tables: otel
 ValuesYAML["values.yaml<br>clickhouse.enabled: false<br>otel.clickhouseEndpoint<br>hyperdx.defaultConnections"]
 ExternalSecret["Optional: External Secret<br>existingConfigSecret<br>connections.json<br>sources.json"]
 
-ValuesYAML --> OTELCollector
-ValuesYAML --> HyperDXApp
-ExternalSecret --> HyperDXApp
-OTELCollector --> ExternalCH
-HyperDXApp --> ExternalCH
-CHDisabled --> ExternalCH
+ValuesYAML -->|"configures"| OTELCollector
+ValuesYAML -->|"configures"| HyperDXApp
+ExternalSecret -->|"alternative config"| HyperDXApp
+OTELCollector -->|"Write telemetryNative protocol :9000"| ExternalCH
+HyperDXApp -->|"Query dataHTTP :8123"| ExternalCH
+CHDisabled -->|"Replaced by"| ExternalCH
 
 subgraph subGraph4 ["Configuration Sources"]
     ValuesYAML
@@ -55,7 +55,7 @@ subgraph subGraph0 ["Enabled Components"]
     HyperDXApp
     OTELCollector
     MongoDB
-    HyperDXApp --> MongoDB
+    HyperDXApp -->|"Metadata"| MongoDB
 end
 end
 ```
@@ -131,8 +131,8 @@ OTELDeployment["Deployment<br>otel-collector"]
 EnvDefaultConnections["env.DEFAULT_CONNECTIONS<br>JSON string with connection details"]
 EnvClickhouseEndpoint["env.CLICKHOUSE_ENDPOINT<br>tcp://host:9000"]
 
-HelmEngine --> AppConfigMap
-HelmEngine --> OTELConfigMap
+HelmEngine -->|"generates"| AppConfigMap
+HelmEngine -->|"generates"| OTELConfigMap
 AppDeployment --> EnvDefaultConnections
 OTELDeployment --> EnvClickhouseEndpoint
 
@@ -146,14 +146,14 @@ subgraph subGraph1 ["Generated Kubernetes Resources"]
     AppDeployment
     OTELConfigMap
     OTELDeployment
-    AppConfigMap --> AppDeployment
-    OTELConfigMap --> OTELDeployment
+    AppConfigMap -->|"envFrom"| AppDeployment
+    OTELConfigMap -->|"volumes"| OTELDeployment
 end
 
 subgraph subGraph0 ["Helm Template Processing"]
     ValuesFile
     HelmEngine
-    ValuesFile --> HelmEngine
+    ValuesFile -->|"tpl template"| HelmEngine
 end
 ```
 
@@ -360,8 +360,8 @@ SecretKeyRef["secretKeyRef<br>name: existingConfigSecret<br>key: existingConfigC
 Deployment["Deployment: hyperdx-app"]
 EnvVars["Environment Variables<br>DEFAULT_CONNECTIONS<br>DEFAULT_SOURCES"]
 
-ValuesConfig --> ConditionalCheck
-ExternalSecret --> SecretKeyRef
+ValuesConfig -->|"useExistingConfigSecret: true"| ConditionalCheck
+ExternalSecret -->|"valueFrom"| SecretKeyRef
 SecretKeyRef --> Deployment
 
 subgraph subGraph3 ["Generated Deployment"]
@@ -373,7 +373,7 @@ end
 subgraph subGraph2 ["Template Logic"]
     ConditionalCheck
     SecretKeyRef
-    ConditionalCheck --> SecretKeyRef
+    ConditionalCheck -->|"true branch"| SecretKeyRef
 end
 
 subgraph subGraph1 ["Helm Chart Configuration"]
@@ -452,9 +452,9 @@ CHNative["Port 9000<br>Native TCP Protocol<br>Binary data transfer"]
 CHHTTP["Port 8123<br>HTTP Protocol<br>SQL queries"]
 CHPrometheus["Port 9363<br>Prometheus Metrics<br>Optional"]
 
-OTELPod --> CHNative
-AppPod --> CHHTTP
-OTELPod --> CHPrometheus
+OTELPod -->|"Write telemetryHigh volume"| CHNative
+AppPod -->|"Query dataRead operations"| CHHTTP
+OTELPod -->|"Optional metrics"| CHPrometheus
 
 subgraph subGraph1 ["External ClickHouse"]
     CHNative

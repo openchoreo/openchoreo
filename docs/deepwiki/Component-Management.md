@@ -142,23 +142,23 @@ End["Return all bindings"]
 
 Start --> GetComponent
 GetComponent --> Validate
-Validate --> DetermineType
-Validate --> ErrorInvalidPath
-DetermineType --> GetSourceServiceBinding
-DetermineType --> GetSourceWebAppBinding
-DetermineType --> GetSourceScheduledTaskBinding
+Validate -->|"Valid"| DetermineType
+Validate -->|"Invalid"| ErrorInvalidPath
+DetermineType -->|"Service"| GetSourceServiceBinding
+DetermineType -->|"WebApplication"| GetSourceWebAppBinding
+DetermineType -->|"ScheduledTask"| GetSourceScheduledTaskBinding
 GetSourceServiceBinding --> CheckTarget1
 GetSourceWebAppBinding --> CheckTarget2
 GetSourceScheduledTaskBinding --> CheckTarget3
 CheckTarget1 --> CreateOrUpdate1
 CheckTarget2 --> CreateOrUpdate2
 CheckTarget3 --> CreateOrUpdate3
-CreateOrUpdate1 --> CreateNew1
-CreateOrUpdate1 --> UpdateExisting1
-CreateOrUpdate2 --> CreateNew2
-CreateOrUpdate2 --> UpdateExisting2
-CreateOrUpdate3 --> CreateNew3
-CreateOrUpdate3 --> UpdateExisting3
+CreateOrUpdate1 -->|"No"| CreateNew1
+CreateOrUpdate1 -->|"Yes"| UpdateExisting1
+CreateOrUpdate2 -->|"No"| CreateNew2
+CreateOrUpdate2 -->|"Yes"| UpdateExisting2
+CreateOrUpdate3 -->|"No"| CreateNew3
+CreateOrUpdate3 -->|"Yes"| UpdateExisting3
 CreateNew1 --> ReturnBindings
 UpdateExisting1 --> ReturnBindings
 CreateNew2 --> ReturnBindings
@@ -215,12 +215,12 @@ Failed["BindingStatusTypeFailed<br>'Failed'"]
 Undeployed["BindingStatusTypeUndeployed<br>'NotYetDeployed'"]
 
 Start --> CheckConditionStatus
-CheckConditionStatus --> Ready
-CheckConditionStatus --> CheckReason
-CheckReason --> Suspended
-CheckReason --> InProgress
-CheckReason --> Failed
-CheckReason --> Undeployed
+CheckConditionStatus -->|"ConditionTrue"| Ready
+CheckConditionStatus -->|"ConditionFalse"| CheckReason
+CheckReason -->|"ResourcesSuspendedResourcesUndeployed"| Suspended
+CheckReason -->|"ResourceHealthProgressing"| InProgress
+CheckReason -->|"ResourceHealthDegradedClassNotFoundInvalidConfigurationReleaseFailed"| Failed
+CheckReason -->|"Other/Unknown"| Undeployed
 ```
 
 **Sources**: [internal/openchoreo-api/services/component_service.go L717-L737](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/openchoreo-api/services/component_service.go#L717-L737)
@@ -279,9 +279,9 @@ Request --> Validate
 Validate --> GetComponent
 GetComponent --> ParseBindingName
 ParseBindingName --> DetermineType
-DetermineType --> GetServiceBinding
-DetermineType --> GetWebAppBinding
-DetermineType --> GetScheduledTaskBinding
+DetermineType -->|"Service"| GetServiceBinding
+DetermineType -->|"WebApplication"| GetWebAppBinding
+DetermineType -->|"ScheduledTask"| GetScheduledTaskBinding
 GetServiceBinding --> UpdateSpec1
 GetWebAppBinding --> UpdateSpec2
 GetScheduledTaskBinding --> UpdateSpec3
@@ -398,8 +398,8 @@ ExtractEnvs --> IteratePaths
 IteratePaths --> AddSource
 AddSource --> AddTargets
 AddTargets --> MorePaths
-MorePaths --> IteratePaths
-MorePaths --> ConvertToSlice
+MorePaths -->|"Yes"| IteratePaths
+MorePaths -->|"No"| ConvertToSlice
 ConvertToSlice --> FetchBindings
 FetchBindings --> Return
 ```
@@ -479,8 +479,8 @@ GetEnvironment --> GetDataPlaneRef
 GetDataPlaneRef --> GetDataPlane
 GetDataPlane --> ExtractObserver
 ExtractObserver --> CheckObserver
-CheckObserver --> ErrorNoObserver
-CheckObserver --> BuildNamespace
+CheckObserver -->|"No"| ErrorNoObserver
+CheckObserver -->|"Yes"| BuildNamespace
 BuildNamespace --> BuildURL
 BuildURL --> Return
 ```

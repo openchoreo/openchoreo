@@ -32,12 +32,12 @@ BuildCR["Build CR"]
 WorkloadCR["Workload CR"]
 BuildPlaneCR["BuildPlane CR"]
 
-Builder --> EngineMap
-ClientMgr --> BPClient
-ArgoEngine --> BPClient
-Reconciler --> BuildCR
-Reconciler --> WorkloadCR
-Reconciler --> BuildPlaneCR
+Builder -->|"maintains"| EngineMap
+ClientMgr -->|"provides"| BPClient
+ArgoEngine -->|"interacts via"| BPClient
+Reconciler -->|"watches"| BuildCR
+Reconciler -->|"applies"| WorkloadCR
+Reconciler -->|"queries"| BuildPlaneCR
 
 subgraph subGraph3 ["Custom Resources"]
     BuildCR
@@ -48,21 +48,21 @@ end
 subgraph subGraph2 ["Build Plane Cluster"]
     BPClient
     ArgoWF
-    BPClient --> ArgoWF
+    BPClient -->|"manages"| ArgoWF
 end
 
 subgraph subGraph1 ["Build Engine Registry"]
     EngineMap
     ArgoEngine
-    EngineMap --> ArgoEngine
+    EngineMap -->|"contains"| ArgoEngine
 end
 
 subgraph subGraph0 ["Control Plane"]
     Reconciler
     Builder
     ClientMgr
-    Reconciler --> Builder
-    Builder --> ClientMgr
+    Reconciler -->|"uses"| Builder
+    Builder -->|"uses"| ClientMgr
 end
 ```
 
@@ -112,24 +112,24 @@ SetWorkloadFailed["Set WorkloadUpdateFailed condition"]
 UpdateReturn["Update status and return"]
 
 Start --> Fetch
-Fetch --> End
-Fetch --> CheckIgnore
-CheckIgnore --> End
-CheckIgnore --> CheckInit
-CheckInit --> SetInit
+Fetch -->|"NotFound"| End
+Fetch -->|"Found"| CheckIgnore
+CheckIgnore -->|"true(already completed)"| End
+CheckIgnore -->|"false"| CheckInit
+CheckInit -->|"false"| SetInit
 SetInit --> UpdateRequeue
-CheckInit --> GetBP
+CheckInit -->|"true"| GetBP
 GetBP --> GetClient
 GetClient --> EnsurePrereq
 EnsurePrereq --> CreateBuild
-CreateBuild --> SetTriggered
+CreateBuild -->|"Created=true"| SetTriggered
 SetTriggered --> UpdateRequeue
-CreateBuild --> CheckWorkflow
-CheckWorkflow --> UpdateStatus
+CreateBuild -->|"Created=false"| CheckWorkflow
+CheckWorkflow -->|"false"| UpdateStatus
 UpdateStatus --> End
-CheckWorkflow --> ApplyWorkload
-ApplyWorkload --> SetWorkloadUpdated
-ApplyWorkload --> SetWorkloadFailed
+CheckWorkflow -->|"true"| ApplyWorkload
+ApplyWorkload -->|"success"| SetWorkloadUpdated
+ApplyWorkload -->|"failure"| SetWorkloadFailed
 SetWorkloadUpdated --> UpdateReturn
 SetWorkloadFailed --> UpdateRequeue
 UpdateReturn --> End
@@ -286,8 +286,8 @@ ReturnSpec["return build.Spec.TemplateRef.Engine"]
 ReturnDefault["return 'argo'"]
 
 Start --> CheckSpec
-CheckSpec --> ReturnSpec
-CheckSpec --> ReturnDefault
+CheckSpec -->|"yes"| ReturnSpec
+CheckSpec -->|"no"| ReturnDefault
 ```
 
 Sources: [internal/controller/build/builder.go L193-L201](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/build/builder.go#L193-L201)
@@ -363,13 +363,13 @@ Role["Role"]
 RB["RoleBinding"]
 WF["Argo Workflow"]
 
-BPClient --> NS
-BPClient --> SA
-BPClient --> Role
-BPClient --> RB
-BPClient --> WF
-BPClient --> WF
-BPClient --> WF
+BPClient -->|"EnsurePrerequisites"| NS
+BPClient -->|"EnsurePrerequisites"| SA
+BPClient -->|"EnsurePrerequisites"| Role
+BPClient -->|"EnsurePrerequisites"| RB
+BPClient -->|"CreateBuild"| WF
+BPClient -->|"GetBuildStatus"| WF
+BPClient -->|"ExtractBuildArtifacts"| WF
 
 subgraph subGraph0 ["Build Plane Cluster"]
     NS

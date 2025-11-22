@@ -178,10 +178,10 @@ subgraph subGraph1 ["Handler Decisions"]
     U
     D
     Context --> IR
-    IR --> GCS
-    GCS --> C
-    GCS --> U
-    IR --> D
+    IR -->|"true"| GCS
+    GCS -->|"null"| C
+    GCS -->|"not null"| U
+    IR -->|"false"| D
 end
 
 subgraph subGraph0 ["Resource Handler Chain"]
@@ -232,9 +232,9 @@ WebAppResources["Unsupported markdown: list"]
 ServiceResources["Unsupported markdown: list"]
 TaskResources["Unsupported markdown: list"]
 
-ComponentType --> WebAppResources
-ComponentType --> ServiceResources
-ComponentType --> TaskResources
+ComponentType -->|"WebApplication"| WebAppResources
+ComponentType -->|"Service"| ServiceResources
+ComponentType -->|"ScheduledTask"| TaskResources
 ```
 
 Sources: [internal/controller/deployment/integrations/kubernetes/deployment_handler.go L54-L60](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/deployment/integrations/kubernetes/deployment_handler.go#L54-L60)
@@ -403,13 +403,13 @@ EP["Endpoint"]
 EC["Endpoint Controller"]
 K8S["Kubernetes Resources"]
 
-BuildController --> DA
-DA --> DC
-EA --> DC
-CG --> DC
-DC --> EP
-EP --> EC
-DC --> K8S
+BuildController -->|"produces"| DA
+DA -->|"consumed by"| DC
+EA -->|"targets"| DC
+CG -->|"configures"| DC
+DC -->|"creates"| EP
+EP -->|"managed by"| EC
+DC -->|"creates"| K8S
 ```
 
 Sources: [internal/controller/deployment/controller.go L163-L176](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/deployment/controller.go#L163-L176)

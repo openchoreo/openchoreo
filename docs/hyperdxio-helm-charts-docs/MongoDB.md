@@ -23,10 +23,10 @@ ClickHouse["clickhouse<br>HTTP: 8123<br>Native: 9000"]
 Metadata["Metadata:<br>- User accounts<br>- Dashboards<br>- Alert rules<br>- Saved searches<br>- Team configuration<br>- API keys"]
 Telemetry["Telemetry Data:<br>- Logs (otel_logs)<br>- Traces (otel_traces)<br>- Metrics (otel_metrics_*)<br>- Sessions (hyperdx_sessions)"]
 
-API --> MongoDB
-API --> ClickHouse
-MongoDB --> Metadata
-ClickHouse --> Telemetry
+API -->|"Metadata queriesConnection string:mongodb://...:27017/hyperdx"| MongoDB
+API -->|"Telemetry queriesHTTP: 8123"| ClickHouse
+MongoDB -->|"stores"| Metadata
+ClickHouse -->|"stores"| Telemetry
 
 subgraph subGraph3 ["ClickHouse Data Types"]
     Telemetry
@@ -69,24 +69,24 @@ Probes["Health Checks:<br>- livenessProbe<br>- readinessProbe"]
 InitContainer["initContainer:<br>wait-for-mongodb<br>busybox nc -z check"]
 AppContainer["app container<br>Connects via mongoUri"]
 
-Deployment --> Container
-Volume --> PVC
-Service --> Container
-InitContainer --> Service
-AppContainer --> Service
+Deployment -->|"creates"| Container
+Volume -->|"backed by"| PVC
+Service -->|"routes to"| Container
+InitContainer -->|"waits for"| Service
+AppContainer -->|"connects to"| Service
 
 subgraph subGraph2 ["HyperDX App"]
     InitContainer
     AppContainer
-    InitContainer --> AppContainer
+    InitContainer -->|"blocks until ready"| AppContainer
 end
 
 subgraph subGraph1 ["Pod Configuration"]
     Container
     Volume
     Probes
-    Container --> Volume
-    Container --> Probes
+    Container -->|"mounts"| Volume
+    Container -->|"configured with"| Probes
 end
 
 subgraph subGraph0 ["Kubernetes Resources"]
@@ -174,12 +174,12 @@ subgraph subGraph0 ["Persistence Flow"]
     Pod
     Mount
     Data
-    Values --> Template
-    Template --> PVC
-    PVC --> PV
-    Pod --> PVC
-    PVC --> Mount
-    Mount --> Data
+    Values -->|"templated into"| Template
+    Template -->|"creates"| PVC
+    PVC -->|"bound to"| PV
+    Pod -->|"mounts"| PVC
+    PVC -->|"mounted at"| Mount
+    Mount -->|"stores"| Data
 end
 ```
 
@@ -214,7 +214,7 @@ subgraph subGraph1 ["Readiness Probe"]
     ReadyExec
     ReadyAction
     ReadyConfig --> ReadyExec
-    ReadyExec --> ReadyAction
+    ReadyExec -->|"3 consecutive failures"| ReadyAction
 end
 
 subgraph subGraph0 ["Liveness Probe"]
@@ -222,7 +222,7 @@ subgraph subGraph0 ["Liveness Probe"]
     LiveExec
     LiveAction
     LiveConfig --> LiveExec
-    LiveExec --> LiveAction
+    LiveExec -->|"3 consecutive failures"| LiveAction
 end
 ```
 
@@ -256,15 +256,15 @@ MongoDBPod["MongoDB Pod"]
 MongoURI["Environment Variable:<br>MONGO_URI=mongodb://{fullname}-mongodb:27017/hyperdx"]
 AppConfig["ConfigMap:<br>{fullname}-app-config<br>Referenced via envFrom"]
 
-InitContainer --> DNSLookup
-MongoDBPod --> InitContainer
-MainContainer --> AppConfig
-MainContainer --> Service
+InitContainer -->|"Command: nc -z {fullname}-mongodb 27017"| DNSLookup
+MongoDBPod -->|"port 27017 open"| InitContainer
+MainContainer -->|"envFrom ConfigMapRef"| AppConfig
+MainContainer -->|"connects using MONGO_URI"| Service
 
 subgraph subGraph2 ["Connection Configuration"]
     MongoURI
     AppConfig
-    AppConfig --> MongoURI
+    AppConfig -->|"contains"| MongoURI
 end
 
 subgraph subGraph1 ["MongoDB Service Discovery"]
@@ -280,7 +280,7 @@ subgraph subGraph0 ["HyperDX Pod Initialization"]
     InitContainer
     MainContainer
     PodStart --> InitContainer
-    InitContainer --> MainContainer
+    InitContainer -->|"success blocks until ready"| MainContainer
 end
 ```
 
@@ -327,9 +327,9 @@ SSD["Schedule on SSD nodes:<br>nodeSelector:<br>  disk-type: ssd"]
 DedicatedDB["Schedule on dedicated DB nodes:<br>tolerations:<br>- key: database<br>  value: mongodb<br>  effect: NoSchedule"]
 Region["Schedule in specific region:<br>nodeSelector:<br>  topology.kubernetes.io/region: us-west-1"]
 
-NodeSelector --> SSD
-NodeSelector --> Region
-Tolerations --> DedicatedDB
+NodeSelector -->|"enables"| SSD
+NodeSelector -->|"enables"| Region
+Tolerations -->|"enables"| DedicatedDB
 
 subgraph subGraph1 ["Example Use Cases"]
     SSD

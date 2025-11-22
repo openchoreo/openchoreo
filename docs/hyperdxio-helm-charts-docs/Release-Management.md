@@ -65,13 +65,13 @@ Dev --> CreateCS
 CreateCS --> Commit
 Commit --> Push
 Push --> Tests
-Tests --> Release
+Tests -->|"Success"| Release
 Release --> Changesets
-Changesets --> VersionBump
+Changesets -->|"Has Changesets"| VersionBump
 VersionBump --> UpdateScript
 UpdateScript --> PR
-PR --> Publish
-Changesets --> ChartReleaser
+PR -->|"Merged"| Publish
+Changesets -->|"No Changesets"| ChartReleaser
 Publish --> ChartReleaser
 ```
 
@@ -189,16 +189,16 @@ NodeSetup --> Install
 Install --> ChangesetsAction
 ChangesetsAction --> HasCS
 NoCS --> ChartReleaser
-CreatePR --> ChartReleaser
+CreatePR -->|"PR Merged"| ChartReleaser
 
 subgraph subGraph0 ["Changesets Action Logic"]
     HasCS
     Version
     CreatePR
     NoCS
-    HasCS --> Version
+    HasCS -->|"Yes"| Version
     Version --> CreatePR
-    HasCS --> NoCS
+    HasCS -->|"No"| NoCS
 end
 ```
 

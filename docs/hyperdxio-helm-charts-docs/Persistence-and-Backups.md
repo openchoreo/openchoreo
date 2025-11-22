@@ -30,21 +30,21 @@ PV1["PersistentVolume<br>(ClickHouse Data)"]
 PV2["PersistentVolume<br>(ClickHouse Logs)"]
 PV3["PersistentVolume<br>(MongoDB Data)"]
 
-CH --> CHPVC1
-CH --> CHPVC2
-Mongo --> MongoPVC
-CHPVC1 --> PV1
-CHPVC2 --> PV2
-MongoPVC --> PV3
+CH -->|"mounts"| CHPVC1
+CH -->|"mounts"| CHPVC2
+Mongo -->|"mounts"| MongoPVC
+CHPVC1 -->|"binds to"| PV1
+CHPVC2 -->|"binds to"| PV2
+MongoPVC -->|"binds to"| PV3
 
 subgraph subGraph3 ["Storage Infrastructure"]
     SC
     PV1
     PV2
     PV3
-    PV1 --> SC
-    PV2 --> SC
-    PV3 --> SC
+    PV1 -->|"uses"| SC
+    PV2 -->|"uses"| SC
+    PV3 -->|"uses"| SC
 end
 
 subgraph subGraph2 ["Persistent Storage"]

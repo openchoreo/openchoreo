@@ -37,10 +37,10 @@ HyperdxDep --> HyperdxSvc
 ClickhouseDep --> ClickhouseSvc
 OtelDep --> OtelSvc
 MongodbDep --> MongodbSvc
-AppConfig --> HyperdxDep
-AppSecrets --> HyperdxDep
-ClickhouseConfig --> ClickhouseDep
-OtelConfig --> OtelDep
+AppConfig -->|"envFrom: configMapRef"| HyperdxDep
+AppSecrets -->|"env: secretKeyRef"| HyperdxDep
+ClickhouseConfig -->|"volumes"| ClickhouseDep
+OtelConfig -->|"volumes"| OtelDep
 
 subgraph subGraph2 ["Configuration Resources"]
     AppConfig
@@ -104,10 +104,10 @@ CHNativePort["Native TCP<br>Port 9000<br>Data Ingestion"]
 CHPrometheus["Prometheus<br>Port 9363<br>/metrics"]
 MongoPort["MongoDB<br>Port 27017"]
 
-API --> CHHTTPPort
-API --> MongoPort
-ClickhouseExporter --> CHNativePort
-OpAMP --> OTELReceivers
+API -->|"HTTP QueriesUnsupported markdown: link"| CHHTTPPort
+API -->|"mongodb://hdx-oss-fullname-mongodb:27017/hyperdx"| MongoPort
+ClickhouseExporter -->|"tcp://hdx-oss-fullname-clickhouse:9000"| CHNativePort
+OpAMP -->|"OpAMP protocolCollector configuration"| OTELReceivers
 
 subgraph subGraph3 ["MongoDB Pod"]
     MongoPort
@@ -180,17 +180,17 @@ APIQueries["Query Engine<br>Port 8000<br>DEFAULT_CONNECTIONS env var"]
 Health["Health Endpoint<br>/health"]
 Frontend["Next.js Frontend<br>Port 3000"]
 
-Apps --> Ingress
-Infra --> Ingress
-Logs --> Ingress
+Apps -->|"Traces, Metrics, Logs"| Ingress
+Infra -->|"Metrics"| Ingress
+Logs -->|"Logs"| Ingress
 Ingress --> OTLPgRPC
 Ingress --> OTLPHTTP
 Ingress --> FluentdRcv
-CHExporter --> OtelLogs
+CHExporter -->|"Native Protocol :9000"| OtelLogs
 CHExporter --> OtelTraces
 CHExporter --> OtelMetrics
 CHExporter --> HyperdxSessions
-OtelLogs --> APIQueries
+OtelLogs -->|"HTTP :8123SELECT queries"| APIQueries
 OtelTraces --> APIQueries
 OtelMetrics --> APIQueries
 HyperdxSessions --> APIQueries
@@ -288,12 +288,12 @@ ValuesYAML --> AppConfigMap
 ValuesYAML --> ClickhouseConfigMap
 ValuesYAML --> OtelConfigMap
 ValuesYAML --> AppSecrets
-AppConfigMap --> EnvVars
-AppSecrets --> EnvVars
-ExternalSecret --> DefaultConnections
+AppConfigMap -->|"envFrom: configMapRef"| EnvVars
+AppSecrets -->|"env: secretKeyRef"| EnvVars
+ExternalSecret -->|"useExistingConfigSecret: truevalues.yaml:87"| DefaultConnections
 ExternalSecret --> DefaultSources
-ClickhouseConfigMap --> CHConfigFiles
-OtelConfigMap --> OtelConfigFile
+ClickhouseConfigMap -->|"volumes: configMapvolumeMounts"| CHConfigFiles
+OtelConfigMap -->|"volumes: configMap"| OtelConfigFile
 
 subgraph subGraph5 ["OTEL Collector Pod"]
     OtelContainer
@@ -315,8 +315,8 @@ subgraph subGraph3 ["HyperDX App Pod"]
     DefaultConnections
     DefaultSources
     EnvVars --> AppContainer
-    DefaultConnections --> AppContainer
-    DefaultSources --> AppContainer
+    DefaultConnections -->|"tpl functionvalues.yaml:117"| AppContainer
+    DefaultSources -->|"tpl functionvalues.yaml:121"| AppContainer
 end
 
 subgraph subGraph2 ["Generated Secrets"]
@@ -470,12 +470,12 @@ AdditionalIngresses["additionalIngresses[]<br>Custom ingress definitions<br>Exam
 AppService["hdx-oss-fullname-app<br>type: ClusterIP<br>Ports:<br>- 3000 (UI)<br>- 8000 (API)<br>- 4320 (OpAMP)"]
 OtelService["hdx-oss-fullname-otel-collector<br>type: ClusterIP<br>Ports:<br>- 4317 (OTLP gRPC)<br>- 4318 (OTLP HTTP)<br>- 24225 (Fluentd)"]
 
-Users --> NginxController
-TelemetrySources --> NginxController
+Users -->|"HTTPShyperdx.yourdomain.com"| NginxController
+TelemetrySources -->|"HTTPScollector.yourdomain.com"| NginxController
 NginxController --> MainIngress
 NginxController --> AdditionalIngresses
-MainIngress --> AppService
-AdditionalIngresses --> OtelService
+MainIngress -->|"Proxy to port 3000"| AppService
+AdditionalIngresses -->|"Proxy to port 4318"| OtelService
 
 subgraph subGraph3 ["ClusterIP Services"]
     AppService
@@ -642,7 +642,7 @@ CHDataMount["Mount: /var/lib/clickhouse<br>Database files"]
 CHLogsMount["Mount: /var/log/clickhouse-server<br>Server logs"]
 MongoDataMount["Mount: /data/db<br>Database files"]
 
-GlobalSC --> CHDataPVC
+GlobalSC -->|"Used by all PVCs"| CHDataPVC
 GlobalSC --> CHLogsPVC
 GlobalSC --> MongoDataPVC
 CHDataPVC --> CHDataMount
@@ -727,11 +727,11 @@ CheckAlertsCmd["Command:<br>node dist/cmd/checkAlerts.js<br>(appVersion >= 2.4.0
 MongoDB["MongoDB<br>Alert configurations"]
 ClickHouse["ClickHouse<br>Query for alert conditions"]
 
-TasksEnabled --> CheckAlertsCron
+TasksEnabled -->|"If true"| CheckAlertsCron
 TasksSchedule --> CheckAlertsCron
-CheckAlertsCron --> JobPod
-CheckAlertsCmd --> MongoDB
-CheckAlertsCmd --> ClickHouse
+CheckAlertsCron -->|"Creates pods on schedule"| JobPod
+CheckAlertsCmd -->|"Reads alert rules"| MongoDB
+CheckAlertsCmd -->|"Evaluates conditions"| ClickHouse
 
 subgraph Dependencies ["Dependencies"]
     MongoDB

@@ -41,7 +41,7 @@ Workflow["Workflow Instance"]
 WFPods["Workflow Pods<br>(clone, build, push, workload-create)"]
 Registry["Container Registry"]
 
-ClientMgr --> Workflow
+ClientMgr -->|"creates/monitors"| Workflow
 
 subgraph subGraph1 ["Build Plane Cluster"]
     ArgoController
@@ -49,10 +49,10 @@ subgraph subGraph1 ["Build Plane Cluster"]
     Workflow
     WFPods
     Registry
-    WFTemplate --> Workflow
-    ArgoController --> Workflow
-    Workflow --> WFPods
-    WFPods --> Registry
+    WFTemplate -->|"instantiates"| Workflow
+    ArgoController -->|"executes"| Workflow
+    Workflow -->|"spawns"| WFPods
+    WFPods -->|"pushes image"| Registry
 end
 
 subgraph subGraph0 ["Control Plane Cluster"]
@@ -61,10 +61,10 @@ subgraph subGraph0 ["Control Plane Cluster"]
     Builder
     ClientMgr
     BuildPlaneCR
-    BuildCR --> BuildReconciler
-    BuildReconciler --> Builder
-    BuildReconciler --> BuildPlaneCR
-    Builder --> ClientMgr
+    BuildCR -->|"watched by"| BuildReconciler
+    BuildReconciler -->|"uses"| Builder
+    BuildReconciler -->|"references"| BuildPlaneCR
+    Builder -->|"multi-cluster client"| ClientMgr
 end
 ```
 
@@ -189,9 +189,9 @@ BuildStep["build-step<br>(podman-runner)"]
 PushStep["push-step<br>(podman-runner)"]
 WorkloadStep["workload-create-step<br>(openchoreo-cli)"]
 
-CloneStep --> BuildStep
-BuildStep --> PushStep
-PushStep --> WorkloadStep
+CloneStep -->|"git-revision"| BuildStep
+BuildStep -->|"image-name"| PushStep
+PushStep -->|"image-reference"| WorkloadStep
 ```
 
 Sources: [install/helm/openchoreo-build-plane/templates/workflow-templates/ballerina-buildpack.yaml L13-L35](https://github.com/openchoreo/openchoreo/blob/a577e969/install/helm/openchoreo-build-plane/templates/workflow-templates/ballerina-buildpack.yaml#L13-L35)
@@ -405,13 +405,13 @@ BuildArtifacts["BuildArtifacts Struct"]
 WorkloadCR["Workload CR<br>(Applied to Control Plane)"]
 Build["Build.Status.ImageStatus.Image"]
 
-Workflow --> OutputParams
+Workflow -->|"outputs"| OutputParams
 OutputParams --> ImageParam
 OutputParams --> WorkloadParam
 ImageParam --> BuildArtifacts
 WorkloadParam --> BuildArtifacts
-BuildArtifacts --> Build
-BuildArtifacts --> WorkloadCR
+BuildArtifacts -->|"Image"| Build
+BuildArtifacts -->|"WorkloadCR YAML"| WorkloadCR
 ```
 
 Sources: [internal/controller/build/controller.go L161-L193](https://github.com/openchoreo/openchoreo/blob/a577e969/internal/controller/build/controller.go#L161-L193)
@@ -488,12 +488,12 @@ Secret["Secret<br>(kubeconfig)"]
 BPClient["Build Plane Client"]
 BPCluster["Build Plane Cluster<br>(Argo Workflows)"]
 
-BuildController --> BuildPlaneCR
-BuildPlaneCR --> Secret
-BuildController --> ClientMgr
-ClientMgr --> Secret
-ClientMgr --> BPClient
-BPClient --> BPCluster
+BuildController -->|"GetBuildPlane()"| BuildPlaneCR
+BuildPlaneCR -->|"spec.kubernetesCluster.clusterRef"| Secret
+BuildController -->|"GetBuildPlaneClient()"| ClientMgr
+ClientMgr -->|"reads kubeconfig from"| Secret
+ClientMgr -->|"creates"| BPClient
+BPClient -->|"API calls"| BPCluster
 ```
 
 The `BuildPlane` CR specifies a reference to a Secret containing the kubeconfig:

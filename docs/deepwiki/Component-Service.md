@@ -56,17 +56,17 @@ SchedBinding["ScheduledTaskBinding CR"]
 Pipeline["DeploymentPipeline CR"]
 Workload["Workload CR"]
 
-CompHandler --> CompService
-CompHandler --> CompService
-CompHandler --> CompService
-CompHandler --> CompService
-CompService --> CompCR
-CompService --> ServiceBinding
-CompService --> WebAppBinding
-CompService --> SchedBinding
-CompService --> Pipeline
-SpecRegistry --> ServiceBinding
-SpecRegistry --> Workload
+CompHandler -->|"CreateComponent()"| CompService
+CompHandler -->|"PromoteComponent()"| CompService
+CompHandler -->|"GetComponentBindings()"| CompService
+CompHandler -->|"UpdateComponentBinding()"| CompService
+CompService -->|"k8sClient.Get/List/Create/Update"| CompCR
+CompService -->|"k8sClient.Get/List/Create/Update"| ServiceBinding
+CompService -->|"k8sClient.Get/List/Create/Update"| WebAppBinding
+CompService -->|"k8sClient.Get/List/Create/Update"| SchedBinding
+CompService -->|"k8sClient.Get()"| Pipeline
+SpecRegistry -->|"fetches type specs"| ServiceBinding
+SpecRegistry -->|"fetches workload specs"| Workload
 
 subgraph subGraph2 ["Kubernetes API"]
     CompCR
@@ -81,8 +81,8 @@ subgraph subGraph1 ["Service Layer"]
     CompService
     ProjService
     SpecRegistry
-    CompService --> ProjService
-    CompService --> SpecRegistry
+    CompService -->|"GetProject()"| ProjService
+    CompService -->|"GetFetcher().FetchSpec()"| SpecRegistry
 end
 
 subgraph subGraph0 ["HTTP Layer"]
@@ -283,9 +283,9 @@ GetPipeline --> ExtractEnvs
 GetBindings --> LoopEnvs
 LoopEnvs --> GetBinding
 GetBinding --> Switch
-Switch --> GetSvcBinding
-Switch --> GetWebAppBinding
-Switch --> GetSchedBinding
+Switch -->|"Service"| GetSvcBinding
+Switch -->|"WebApplication"| GetWebAppBinding
+Switch -->|"ScheduledTask"| GetSchedBinding
 GetSvcBinding --> MapStatus
 GetSvcBinding --> ConvertEndpoints
 GetWebAppBinding --> MapStatus

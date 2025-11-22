@@ -44,12 +44,12 @@ Deployment["Deployment:<br>hdx-oss-v2-app"]
 ConfigMap["ConfigMap:<br>app-config"]
 Service["Service:<br>hdx-oss-v2-app"]
 
-ChartVersion --> ConfigMap
-ChartVersion --> Service
-AppVersion --> AppImage
-AppImage --> Deployment
-OtelImage --> Deployment
-ChartVersion --> Deployment
+ChartVersion -->|"generates"| ConfigMap
+ChartVersion -->|"generates"| Service
+AppVersion -->|"determines"| AppImage
+AppImage -->|"runs in"| Deployment
+OtelImage -->|"runs in"| Deployment
+ChartVersion -->|"template changes"| Deployment
 
 subgraph subGraph2 ["Kubernetes Resources"]
     Deployment
@@ -215,12 +215,12 @@ Update --> Check
 Check --> Review
 Review --> DryRun
 DryRun --> Decision
-Decision --> Execute
-Decision --> Review
+Decision -->|"Yes"| Execute
+Decision -->|"No"| Review
 Execute --> Monitor
 Monitor --> HealthCheck
-HealthCheck --> Verify
-HealthCheck --> Rollback
+HealthCheck -->|"Yes"| Verify
+HealthCheck -->|"No"| Rollback
 Verify --> Complete
 ```
 
@@ -503,12 +503,12 @@ ManualFix["Manual Recovery:<br>- Export data<br>- Rollback<br>- Restore data"]
 Monitor["Monitor for<br>Stability"]
 
 Issue --> Critical
-Critical --> RollbackNow
-Critical --> QuickFix
-QuickFix --> ApplyFix
-QuickFix --> DataLoss
-DataLoss --> Backup
-DataLoss --> ManualFix
+Critical -->|"Yes(Service Down)"| RollbackNow
+Critical -->|"No(Degraded)"| QuickFix
+QuickFix -->|"Yes"| ApplyFix
+QuickFix -->|"No"| DataLoss
+DataLoss -->|"No"| Backup
+DataLoss -->|"Yes"| ManualFix
 Backup --> RollbackSafe
 RollbackNow --> Monitor
 RollbackSafe --> Monitor

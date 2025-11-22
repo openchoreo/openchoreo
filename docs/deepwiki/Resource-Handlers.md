@@ -82,18 +82,18 @@ Reconcile --> MakeHandlers
 MakeHandlers --> ReconcileExt
 ReconcileExt --> Loop
 Loop --> IsRequired
-IsRequired --> Delete
-IsRequired --> GetState
+IsRequired -->|"false"| Delete
+IsRequired -->|"true"| GetState
 GetState --> Exists
-Exists --> Create
-Exists --> Update
+Exists -->|"false"| Create
+Exists -->|"true"| Update
 Delete --> Log1
 Create --> Log2
 Update --> Log2
 Log1 --> NextHandler
 Log2 --> NextHandler
-NextHandler --> Loop
-NextHandler --> Done
+NextHandler -->|"yes"| Loop
+NextHandler -->|"no"| Done
 ```
 
 Sources:
@@ -476,29 +476,29 @@ DP2["DataPlane CR<br>Spec.KubernetesCluster.KubeconfigSecret"]
 DP2Client["client.Client<br>(cached)"]
 DP2Resources["Kubernetes Resources"]
 
-Controller --> DP1
-Controller --> DP2
-MultiClientMgr --> DP1Client
-MultiClientMgr --> DP2Client
+Controller -->|"Get DataPlane CR"| DP1
+Controller -->|"Get DataPlane CR"| DP2
+MultiClientMgr -->|"GetK8sClient(namespace, name, kubeconfig)"| DP1Client
+MultiClientMgr -->|"GetK8sClient(namespace, name, kubeconfig)"| DP2Client
 
 subgraph subGraph2 ["Data Plane Cluster 2"]
     DP2
     DP2Client
     DP2Resources
-    DP2Client --> DP2Resources
+    DP2Client -->|"Create/Update/Delete"| DP2Resources
 end
 
 subgraph subGraph1 ["Data Plane Cluster 1"]
     DP1
     DP1Client
     DP1Resources
-    DP1Client --> DP1Resources
+    DP1Client -->|"Create/Update/Delete"| DP1Resources
 end
 
 subgraph subGraph0 ["Control Plane"]
     Controller
     MultiClientMgr
-    Controller --> MultiClientMgr
+    Controller -->|"getDPClient(ctx, environment)"| MultiClientMgr
 end
 ```
 
@@ -573,31 +573,31 @@ Start --> Loop
 Loop --> Logger
 Logger --> IsReq
 IsReq --> CheckReq
-CheckReq --> CallDelete
-CheckReq --> CallGetState
+CheckReq -->|"false"| CallDelete
+CheckReq -->|"true"| CallGetState
 CallDelete --> DeleteErr
-DeleteErr --> LogDelErr
-DeleteErr --> LogDelSuccess
+DeleteErr -->|"yes"| LogDelErr
+DeleteErr -->|"no"| LogDelSuccess
 LogDelErr --> ReturnErr
 LogDelSuccess --> Continue
 CallGetState --> GetStateErr
-GetStateErr --> LogGetErr
-GetStateErr --> CheckState
+GetStateErr -->|"yes"| LogGetErr
+GetStateErr -->|"no"| CheckState
 LogGetErr --> ReturnErr
-CheckState --> CallCreate
-CheckState --> CallUpdate
+CheckState -->|"yes"| CallCreate
+CheckState -->|"no"| CallUpdate
 CallCreate --> CreateErr
 CallUpdate --> UpdateErr
-CreateErr --> LogCreateErr
-CreateErr --> LogSuccess
-UpdateErr --> LogUpdateErr
-UpdateErr --> LogSuccess
+CreateErr -->|"yes"| LogCreateErr
+CreateErr -->|"no"| LogSuccess
+UpdateErr -->|"yes"| LogUpdateErr
+UpdateErr -->|"no"| LogSuccess
 LogCreateErr --> ReturnErr
 LogUpdateErr --> ReturnErr
 LogSuccess --> Continue
 Continue --> MoreHandlers
-MoreHandlers --> Loop
-MoreHandlers --> Done
+MoreHandlers -->|"yes"| Loop
+MoreHandlers -->|"no"| Done
 ```
 
 Sources:

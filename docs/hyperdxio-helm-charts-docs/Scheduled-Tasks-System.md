@@ -32,13 +32,13 @@ MongoDB["MongoDB<br>Metadata Storage"]
 ClickHouse["ClickHouse<br>Telemetry Data"]
 API["HyperDX API<br>Environment Config"]
 
-ValuesYAML --> CronJob
-ValuesYAML --> ConfigMap
-CronJob --> Pod
-ConfigMap --> Container
-Container --> MongoDB
-Container --> ClickHouse
-API --> ConfigMap
+ValuesYAML -->|"renders"| CronJob
+ValuesYAML -->|"configures"| ConfigMap
+CronJob -->|"creates on schedule"| Pod
+ConfigMap -->|"envFrom"| Container
+Container -->|"queries alerts"| MongoDB
+Container -->|"queries metrics"| ClickHouse
+API -->|"shared config"| ConfigMap
 
 subgraph Dependencies ["Dependencies"]
     MongoDB
@@ -49,7 +49,7 @@ end
 subgraph subGraph2 ["Task Execution"]
     Pod
     Container
-    Pod --> Container
+    Pod -->|"runs"| Container
 end
 
 subgraph subGraph1 ["Kubernetes Resources"]
@@ -120,9 +120,9 @@ TaskExec["Task Execution<br>node tasks/index check-alerts"]
 PodComplete["Pod Completes<br>exitCode: 0"]
 PodFail["Pod Fails<br>Retry with OnFailure"]
 
-Schedule --> CronJobController
-CronJobController --> Job
-Job --> PodCreation
+Schedule -->|"time trigger"| CronJobController
+CronJobController -->|"creates if not running"| Job
+Job -->|"spawns"| PodCreation
 
 subgraph subGraph3 ["Pod Lifecycle"]
     PodCreation
@@ -130,9 +130,9 @@ subgraph subGraph3 ["Pod Lifecycle"]
     PodComplete
     PodFail
     PodCreation --> TaskExec
-    TaskExec --> PodComplete
-    TaskExec --> PodFail
-    PodFail --> TaskExec
+    TaskExec -->|"success"| PodComplete
+    TaskExec -->|"error"| PodFail
+    PodFail -->|"retry"| TaskExec
 end
 
 subgraph subGraph2 ["Job Creation"]
@@ -184,10 +184,10 @@ TaskValues["tasks.checkAlerts.resources<br>from values.yaml"]
 AppConfig["app-config ConfigMap<br>Shared with API/UI"]
 Container["Task Container"]
 
-HyperdxValues --> Image
-HyperdxValues --> Command
-AppConfig --> EnvFrom
-TaskValues --> Resources
+HyperdxValues -->|"sets"| Image
+HyperdxValues -->|"determines"| Command
+AppConfig -->|"provides"| EnvFrom
+TaskValues -->|"configures"| Resources
 Image --> Container
 Command --> Container
 EnvFrom --> Container
@@ -260,10 +260,10 @@ PostEsbuild["Post-ESBuild Path<br>node /app/packages/api/build/tasks/index.js<br
 
 ImageTag --> ParseVersion
 ParseVersion --> IsSemanticVersion
-IsSemanticVersion --> PostEsbuild
-IsSemanticVersion --> CompareVersion
-CompareVersion --> PreEsbuild
-CompareVersion --> PostEsbuild
+IsSemanticVersion -->|"No (e.g. 2-beta)"| PostEsbuild
+IsSemanticVersion -->|"Yes"| CompareVersion
+CompareVersion -->|"Yes (e.g. 2.6.0)"| PreEsbuild
+CompareVersion -->|"No (e.g. 2.7.0+)"| PostEsbuild
 ```
 
 **Sources:** [charts/hdx-oss-v2/templates/cronjobs/task-checkAlerts.yaml L29-L34](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/cronjobs/task-checkAlerts.yaml#L29-L34)

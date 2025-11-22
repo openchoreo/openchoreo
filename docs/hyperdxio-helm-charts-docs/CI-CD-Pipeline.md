@@ -40,12 +40,12 @@ Push --> UnitTest
 PR --> UnitTest
 Schedule --> UnitTest
 Manual --> UnitTest
-SmokeTest --> ReleaseWorkflow
+SmokeTest -->|"Success on main"| ReleaseWorkflow
 ChangesetAction --> ReleasePR
 ChangesetAction --> Changelog
-ReleasePR --> ChartReleaser
+ReleasePR -->|"Merged"| ChartReleaser
 ChartReleaser --> GitHubRelease
-ChartReleaser -->|"Merged"| HelmRepo
+ChartReleaser --> HelmRepo
 
 subgraph Outputs ["Outputs"]
     ReleasePR
@@ -111,7 +111,7 @@ Uninstall["helm uninstall<br>kind delete cluster"]
 NightlyUpdate --> KindConfig
 StorageProvisioner --> HelmUnitTest
 SmokeTests --> Uninstall
-SmokeTests --> CollectLogs
+SmokeTests -->|"failure"| CollectLogs
 
 subgraph Cleanup ["Cleanup"]
     CollectLogs
@@ -276,8 +276,8 @@ HelmPackage["Package charts<br>Publish to gh-pages<br>Update index.yaml"]
 
 BranchCheck --> Concurrency
 Concurrency --> Checkout
-ChangesetPR --> VersionPR
-VersionPR --> ChartRelease
+ChangesetPR -->|"hasChangesets: true"| VersionPR
+VersionPR -->|"Manual merge"| ChartRelease
 ChartRelease --> PublishAction
 ChartRelease --> HelmPackage
 
@@ -298,7 +298,7 @@ subgraph subGraph2 ["Release Job Steps"]
     GitConfig --> NodeSetup
     NodeSetup --> YarnInstall
     YarnInstall --> ChangesetPR
-    ChangesetPR --> ChartRelease
+    ChangesetPR -->|"hasChangesets: false"| ChartRelease
 end
 
 subgraph subGraph1 ["Concurrency Control"]
@@ -347,7 +347,7 @@ CreateTags["Create Git tags<br>Push to GitHub"]
 
 CommitPush --> DetectChangesets
 UpdateChart --> CreatePR
-CreatePR --> RunPublish
+CreatePR -->|"Manual merge"| RunPublish
 
 subgraph Post-Merge ["Post-Merge"]
     RunPublish

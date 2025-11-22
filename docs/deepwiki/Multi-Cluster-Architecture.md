@@ -75,34 +75,34 @@ GWs["Gateway API<br>(gateway-external,<br>gateway-internal)"]
 Apps["Application Workloads<br>(Deployments, Services)"]
 Obs["Observability Stack<br>(Fluentbit, OpenSearch)"]
 
-CM --> ArgoCtrl
-CM --> Apps
-API --> Templates
+CM -->|"via KubeMultiClientManager"| ArgoCtrl
+CM -->|"via KubeMultiClientManager"| Apps
+API -->|"via KubeMultiClientManager"| Templates
 
 subgraph DP ["Data Plane Cluster"]
     Cilium
     GWs
     Apps
     Obs
-    GWs --> Apps
-    Cilium --> Apps
-    Apps --> Obs
+    GWs -->|"routes to"| Apps
+    Cilium -->|"enforces policies"| Apps
+    Apps -->|"logs to"| Obs
 end
 
 subgraph BP ["Build Plane Cluster"]
     ArgoCtrl
     Templates
     BuildPods
-    ArgoCtrl --> Templates
-    Templates --> BuildPods
+    ArgoCtrl -->|"instantiates"| Templates
+    Templates -->|"spawns"| BuildPods
 end
 
 subgraph CP ["Control Plane Cluster"]
     CM
     API
     CRDs
-    CM --> CRDs
-    API --> CRDs
+    CM -->|"reconciles"| CRDs
+    API -->|"reads/writes"| CRDs
 end
 ```
 
@@ -222,7 +222,7 @@ GetClient["GetK8sClient()<br>helper function"]
 ArgoAPI["Argo Workflows API"]
 Templates["ClusterWorkflowTemplates"]
 
-GetClient --> ArgoAPI
+GetClient -->|"authenticates withcredentials from CRD"| ArgoAPI
 
 subgraph BuildPlaneCluster ["Build Plane Cluster"]
     ArgoAPI
@@ -233,7 +233,7 @@ end
 subgraph ClientMgr ["KubeMultiClientManager"]
     ClientCache
     GetClient
-    GetClient --> ClientCache
+    GetClient -->|"caches client"| ClientCache
 end
 
 subgraph ControlPlane ["Control Plane Components"]
@@ -241,8 +241,8 @@ subgraph ControlPlane ["Control Plane Components"]
     BuildSvc
     BPSvc
     Builder
-    BuildRecon --> Builder
-    BuildSvc --> BPSvc
+    BuildRecon -->|"uses"| Builder
+    BuildSvc -->|"uses"| BPSvc
 end
 ```
 
@@ -380,22 +380,22 @@ Workflow["Workflow"]
 Template["ClusterWorkflowTemplate<br>(ballerina-buildpack,<br>react, docker, etc.)"]
 Pod["Build Pod"]
 
-BuildRecon --> Workflow
-BuildRecon --> Workflow
+BuildRecon -->|"creates viaKubeMultiClientManager"| Workflow
+BuildRecon -->|"watches status"| Workflow
 
 subgraph BP ["Build Plane"]
     Workflow
     Template
     Pod
-    Workflow --> Template
-    Template --> Pod
-    Pod --> Workflow
+    Workflow -->|"instantiates"| Template
+    Template -->|"spawns"| Pod
+    Pod -->|"updates status"| Workflow
 end
 
 subgraph CP ["Control Plane"]
     BuildCR
     BuildRecon
-    BuildCR --> BuildRecon
+    BuildCR -->|"reconciled by"| BuildRecon
 end
 ```
 
@@ -451,10 +451,10 @@ Svc["Service"]
 HTTPRoute["HTTPRoute<br>(Gateway API)"]
 GW["Gateway<br>(gateway-external or<br>gateway-internal)"]
 
-DeployCtrl --> NS
-DeployCtrl --> Deploy
-DeployCtrl --> Svc
-EPCtrl --> HTTPRoute
+DeployCtrl -->|"creates viaDataPlane client"| NS
+DeployCtrl -->|"creates"| Deploy
+DeployCtrl -->|"creates"| Svc
+EPCtrl -->|"creates viaDataPlane client"| HTTPRoute
 
 subgraph DP ["Data Plane"]
     NS
@@ -462,8 +462,8 @@ subgraph DP ["Data Plane"]
     Svc
     HTTPRoute
     GW
-    HTTPRoute --> GW
-    GW --> Svc
+    HTTPRoute -->|"references"| GW
+    GW -->|"routes to"| Svc
 end
 
 subgraph CP ["Control Plane"]
@@ -471,8 +471,8 @@ subgraph CP ["Control Plane"]
     EPCtrl
     DeployCR
     EndpointCR
-    DeployCR --> DeployCtrl
-    EndpointCR --> EPCtrl
+    DeployCR -->|"reconciled by"| DeployCtrl
+    EndpointCR -->|"reconciled by"| EPCtrl
 end
 ```
 

@@ -46,19 +46,19 @@ K8sRes["Kubernetes Resources<br>(Deployment, Service, etc)"]
 GW["Gateway API Resources<br>(HTTPRoute, SecurityPolicy)"]
 NP["CiliumNetworkPolicy"]
 
-MGR --> BP
-MGR --> DP
-API --> BP
-API --> DP
+MGR -->|"cross-cluster client"| BP
+MGR -->|"cross-cluster client"| DP
+API -->|"queries"| BP
+API -->|"provisions"| DP
 
 subgraph subGraph2 ["Data Plane Cluster"]
     DP
     K8sRes
     GW
     NP
-    DP --> K8sRes
-    DP --> GW
-    DP --> NP
+    DP -->|"provisions"| K8sRes
+    DP -->|"provisions"| GW
+    DP -->|"provisions"| NP
 end
 
 subgraph subGraph1 ["Build Plane Cluster"]
@@ -66,17 +66,17 @@ subgraph subGraph1 ["Build Plane Cluster"]
     ArgoWF
     CWFT
     BuildPods
-    BP --> ArgoWF
-    ArgoWF --> CWFT
-    CWFT --> BuildPods
+    BP -->|"references"| ArgoWF
+    ArgoWF -->|"instantiates"| CWFT
+    CWFT -->|"spawns"| BuildPods
 end
 
 subgraph subGraph0 ["Control Plane Cluster"]
     MGR
     API
     CRDs
-    MGR --> CRDs
-    API --> CRDs
+    MGR -->|"watches & reconciles"| CRDs
+    API -->|"CRUD operations"| CRDs
 end
 ```
 
@@ -125,28 +125,28 @@ DeployCR["Deployment"]
 EPCR["Endpoint"]
 ReleaseCR["Release"]
 
-Main --> Scheme
-Scheme --> Manager
-Manager --> OrgRec
-Manager --> ProjRec
-Manager --> EnvRec
-Manager --> DPRec
-Manager --> BPRec
-Manager --> CompRec
-Manager --> BuildRec
-Manager --> DeployRec
-Manager --> EPRec
-Manager --> ReleaseRec
-OrgRec --> OrgCR
-ProjRec --> ProjCR
-EnvRec --> EnvCR
-DPRec --> DPCR
-BPRec --> BPCR
-CompRec --> CompCR
-BuildRec --> BuildCR
-DeployRec --> DeployCR
-EPRec --> EPCR
-ReleaseRec --> ReleaseCR
+Main -->|"initializes"| Scheme
+Scheme -->|"registers types"| Manager
+Manager -->|"registers"| OrgRec
+Manager -->|"registers"| ProjRec
+Manager -->|"registers"| EnvRec
+Manager -->|"registers"| DPRec
+Manager -->|"registers"| BPRec
+Manager -->|"registers"| CompRec
+Manager -->|"registers"| BuildRec
+Manager -->|"registers"| DeployRec
+Manager -->|"registers"| EPRec
+Manager -->|"registers"| ReleaseRec
+OrgRec -->|"watches"| OrgCR
+ProjRec -->|"watches"| ProjCR
+EnvRec -->|"watches"| EnvCR
+DPRec -->|"watches"| DPCR
+BPRec -->|"watches"| BPCR
+CompRec -->|"watches"| CompCR
+BuildRec -->|"watches"| BuildCR
+DeployRec -->|"watches"| DeployCR
+EPRec -->|"watches"| EPCR
+ReleaseRec -->|"watches"| ReleaseCR
 
 subgraph subGraph1 ["Custom Resources"]
     OrgCR
@@ -252,33 +252,33 @@ Deploy["Deployment<br>(namespace: project-name)"]
 EP["Endpoint<br>(namespace: project-name)"]
 Release["Release<br>(namespace: project-name)"]
 
-Org --> Proj
-Org --> Env
-Org --> DP
-Org --> BP
-Org --> DPipe
-Proj --> Comp
-Proj --> DPipe
-Comp --> API
-Comp --> Svc
-Comp --> WebApp
-Comp --> Sched
-APIClass --> API
-SvcClass --> Svc
-WebAppClass --> WebApp
-SchedClass --> Sched
-API --> APIBind
-Svc --> SvcBind
-WebApp --> WebAppBind
-Sched --> SchedBind
-Comp --> Build
-Build --> DA
-DA --> Workload
-DPipe --> DTrack
-DTrack --> Deploy
-Deploy --> DA
-Deploy --> EP
-Deploy --> Release
+Org -->|"contains"| Proj
+Org -->|"contains"| Env
+Org -->|"contains"| DP
+Org -->|"contains"| BP
+Org -->|"contains"| DPipe
+Proj -->|"contains"| Comp
+Proj -->|"references"| DPipe
+Comp -->|"specializes to"| API
+Comp -->|"specializes to"| Svc
+Comp -->|"specializes to"| WebApp
+Comp -->|"specializes to"| Sched
+APIClass -->|"templates"| API
+SvcClass -->|"templates"| Svc
+WebAppClass -->|"templates"| WebApp
+SchedClass -->|"templates"| Sched
+API -->|"bound via"| APIBind
+Svc -->|"bound via"| SvcBind
+WebApp -->|"bound via"| WebAppBind
+Sched -->|"bound via"| SchedBind
+Comp -->|"triggers"| Build
+Build -->|"produces"| DA
+DA -->|"contains"| Workload
+DPipe -->|"contains"| DTrack
+DTrack -->|"contains"| Deploy
+Deploy -->|"references"| DA
+Deploy -->|"creates"| EP
+Deploy -->|"creates"| Release
 ```
 
 ### Organizational Layer
@@ -343,11 +343,11 @@ CRDs["Custom Resources"]
 CWFT["ClusterWorkflowTemplates"]
 K8sWorkloads["Kubernetes Workloads"]
 
-CLI --> Router
-WebUI --> Router
-K8sClient --> CRDs
-DPSvc --> K8sWorkloads
-BPSvc --> CWFT
+CLI -->|"HTTP/JSON"| Router
+WebUI -->|"HTTP/JSON"| Router
+K8sClient -->|"manages"| CRDs
+DPSvc -->|"queries"| K8sWorkloads
+BPSvc -->|"queries"| CWFT
 
 subgraph subGraph3 ["Data Plane Cluster"]
     K8sWorkloads
@@ -374,9 +374,9 @@ subgraph subGraph0 ["openchoreo-api Service"]
     Router --> ProjSvc
     Router --> DPSvc
     Router --> BPSvc
-    CompSvc --> K8sClient
-    BuildSvc --> K8sClient
-    ProjSvc --> K8sClient
+    CompSvc -->|"CRUD"| K8sClient
+    BuildSvc -->|"CRUD"| K8sClient
+    ProjSvc -->|"CRUD"| K8sClient
 end
 ```
 
@@ -608,31 +608,31 @@ Obs["Fluentbit + OpenSearch<br>(logs & metrics)"]
 Internet["Public Internet"]
 OrgNet["Organization Network"]
 
-Internet --> North
-OrgNet --> West
+Internet -->|"HTTPS"| North
+OrgNet -->|"HTTPS"| West
 
 subgraph subGraph4 ["Cell (Project Instance in Environment)"]
-    North --> CompA
-    West --> CompB
-    CompC --> South
-    CompC --> East
-    Cilium --> North
-    Cilium --> West
-    Cilium --> South
-    Cilium --> East
-    Cilium --> CompA
-    Cilium --> CompB
-    Cilium --> CompC
-    Envoy --> North
-    Envoy --> West
-    mTLS --> CompA
-    mTLS --> CompB
-    mTLS --> CompC
-    Obs --> North
-    Obs --> West
-    Obs --> CompA
-    Obs --> CompB
-    Obs --> CompC
+    North -->|"routes"| CompA
+    West -->|"routes"| CompB
+    CompC -->|"outbound"| South
+    CompC -->|"outbound"| East
+    Cilium -->|"enforces"| North
+    Cilium -->|"enforces"| West
+    Cilium -->|"enforces"| South
+    Cilium -->|"enforces"| East
+    Cilium -->|"enforces"| CompA
+    Cilium -->|"enforces"| CompB
+    Cilium -->|"enforces"| CompC
+    Envoy -->|"manages"| North
+    Envoy -->|"manages"| West
+    mTLS -->|"encrypts"| CompA
+    mTLS -->|"encrypts"| CompB
+    mTLS -->|"encrypts"| CompC
+    Obs -->|"monitors"| North
+    Obs -->|"monitors"| West
+    Obs -->|"monitors"| CompA
+    Obs -->|"monitors"| CompB
+    Obs -->|"monitors"| CompC
 
 subgraph subGraph3 ["Security & Observability"]
     Cilium
@@ -650,8 +650,8 @@ subgraph Components ["Components"]
     CompA
     CompB
     CompC
-    CompA --> CompB
-    CompB --> CompC
+    CompA -->|"allowed by policy"| CompB
+    CompB -->|"allowed by policy"| CompC
 end
 
 subgraph subGraph0 ["Ingress Gateways"]

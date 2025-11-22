@@ -112,8 +112,8 @@ Mount2["/etc/clickhouse-server/users.xml"]
 Mount3["/var/lib/clickhouse"]
 Mount4["/var/log/clickhouse-server"]
 
-ConfigMap1 --> Mount1
-ConfigMap2 --> Mount2
+ConfigMap1 -->|"subPath: config.xml"| Mount1
+ConfigMap2 -->|"subPath: users.xml"| Mount2
 DataVol --> Mount3
 LogsVol --> Mount4
 
@@ -210,16 +210,16 @@ LogsPVC["clickhouse-logs PVC<br>ReadWriteOnce<br>5Gi default<br>helm.sh/resource
 EmptyDirData["emptyDir: {}<br>If persistence.enabled = false"]
 EmptyDirLogs["emptyDir: {}<br>If persistence.enabled = false"]
 
-PersistenceEnabled --> DataPVC
-PersistenceEnabled --> LogsPVC
-PersistenceEnabled --> EmptyDirData
-PersistenceEnabled --> EmptyDirLogs
+PersistenceEnabled -->|"true"| DataPVC
+PersistenceEnabled -->|"true"| LogsPVC
+PersistenceEnabled -->|"false"| EmptyDirData
+PersistenceEnabled -->|"false"| EmptyDirLogs
 DataSize --> DataPVC
 LogSize --> LogsPVC
 StorageClass --> DataPVC
 StorageClass --> LogsPVC
-KeepPVC --> DataPVC
-KeepPVC --> LogsPVC
+KeepPVC -->|"true"| DataPVC
+KeepPVC -->|"true"| LogsPVC
 
 subgraph subGraph2 ["Fallback Mode"]
     EmptyDirData
@@ -300,9 +300,9 @@ NativePort["Port 9000 (native)<br>Native TCP"]
 PrometheusPort["Port 9363 (prometheus)<br>Metrics Endpoint"]
 Container["ClickHouse Server<br>clickhouse/clickhouse-server:25.7-alpine"]
 
-HyperDXAPI --> HTTPPort
-OTELCollector --> NativePort
-PrometheusServer --> PrometheusPort
+HyperDXAPI -->|"HTTP/8123"| HTTPPort
+OTELCollector -->|"Native/9000"| NativePort
+PrometheusServer -->|"HTTP/9363"| PrometheusPort
 HTTPPort --> Container
 NativePort --> Container
 PrometheusPort --> Container
@@ -389,10 +389,10 @@ ServiceReady["Service Traffic"]
 ContainerRunning["Running State"]
 
 ContainerStart --> Startup
-Startup --> StartupComplete
+Startup -->|"Passes"| StartupComplete
 StartupComplete --> Liveness
 StartupComplete --> Readiness
-Readiness --> ServiceReady
+Readiness -->|"Passes"| ServiceReady
 Liveness --> ContainerRunning
 
 subgraph Lifecycle ["Lifecycle"]

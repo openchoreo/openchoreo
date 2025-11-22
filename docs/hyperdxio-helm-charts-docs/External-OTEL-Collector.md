@@ -42,19 +42,19 @@ MongoDB["mongodb Deployment<br>Metadata Storage"]
 ClickHouse["clickhouse Deployment<br>Optional: can be external"]
 ConfigMap["app-config ConfigMap<br>OTEL_EXPORTER_OTLP_ENDPOINT"]
 
-HyperdxApp --> ExtOTEL
-ExtOTEL --> ClickHouse
+HyperdxApp -->|"Internal telemetry"| ExtOTEL
+ExtOTEL -->|"ClickHouse protocol:9000"| ClickHouse
 
 subgraph subGraph2 ["HyperDX Deployment"]
     ConfigMap
-    ConfigMap --> HyperdxApp
+    ConfigMap -->|"configures"| HyperdxApp
 
 subgraph subGraph1 ["Helm Chart Components"]
     HyperdxApp
     MongoDB
     ClickHouse
-    HyperdxApp --> ClickHouse
-    HyperdxApp --> MongoDB
+    HyperdxApp -->|"HTTP queries:8123"| ClickHouse
+    HyperdxApp -->|"Metadata:27017"| MongoDB
 end
 end
 
@@ -62,8 +62,8 @@ subgraph subGraph0 ["External Infrastructure"]
     ExtOTEL
     Apps
     Infra
-    Apps --> ExtOTEL
-    Infra --> ExtOTEL
+    Apps -->|"OTLP:4317/:4318"| ExtOTEL
+    Infra -->|"Various protocols"| ExtOTEL
 end
 ```
 
@@ -93,11 +93,11 @@ ValuesYAML --> OtelEnabled
 ValuesYAML --> OtelEndpoint
 OtelEnabled --> HelmTemplate
 OtelEndpoint --> HelmTemplate
-HelmTemplate --> NoOtelDeploy
-HelmTemplate --> NoOtelService
-HelmTemplate --> AppConfigMap
-AppConfigMap --> AppContainer
-OTELExporter --> ExtOTEL
+HelmTemplate -->|"if .Values.otel.enabled"| NoOtelDeploy
+HelmTemplate -->|"if .Values.otel.enabled"| NoOtelService
+HelmTemplate -->|"tpl function"| AppConfigMap
+AppConfigMap -->|"envFrom"| AppContainer
+OTELExporter -->|"HTTP/gRPC"| ExtOTEL
 
 subgraph Runtime ["Runtime"]
     AppContainer
@@ -198,8 +198,8 @@ subgraph subGraph3 ["Resolution Logic"]
     OtelEnabled
     UseDefault
     UseExternal
-    OtelEnabled --> UseDefault
-    OtelEnabled --> UseExternal
+    OtelEnabled -->|"true"| UseDefault
+    OtelEnabled -->|"false"| UseExternal
 end
 
 subgraph ConfigMap ["ConfigMap"]

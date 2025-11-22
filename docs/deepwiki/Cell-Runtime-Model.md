@@ -51,8 +51,8 @@ mTLS["mTLS Encryption<br>All Traffic"]
 Internet["External Users"]
 OrgNet["Organization Internal"]
 
-Internet --> North
-OrgNet --> West
+Internet -->|"HTTPS"| North
+OrgNet -->|"HTTPS"| West
 
 subgraph Cell ["Cell (Project Runtime Instance)"]
     North --> CompA
@@ -61,15 +61,15 @@ subgraph Cell ["Cell (Project Runtime Instance)"]
     West --> CompC
     CompA --> South
     CompB --> East
-    Cilium --> North
-    Cilium --> West
-    Cilium --> South
-    Cilium --> East
-    Envoy --> North
-    Envoy --> West
-    mTLS --> CompA
-    mTLS --> CompB
-    mTLS --> CompC
+    Cilium -->|"Enforces"| North
+    Cilium -->|"Enforces"| West
+    Cilium -->|"Enforces"| South
+    Cilium -->|"Enforces"| East
+    Envoy -->|"Manages"| North
+    Envoy -->|"Manages"| West
+    mTLS -->|"Encrypts"| CompA
+    mTLS -->|"Encrypts"| CompB
+    mTLS -->|"Encrypts"| CompC
 
 subgraph Security ["Security Layer"]
     Cilium
@@ -86,8 +86,8 @@ subgraph Components ["Application Components"]
     CompA
     CompB
     CompC
-    CompA --> CompB
-    CompB --> CompC
+    CompA -->|"Intra-Cell"| CompB
+    CompB -->|"Intra-Cell"| CompC
 end
 
 subgraph Ingress ["Ingress Gateways"]
@@ -122,13 +122,13 @@ HTTPRoute2["HTTPRoute<br>ParentRef: gateway-internal"]
 SecPolicy1["SecurityPolicy<br>TargetRef: HTTPRoute"]
 HTTPFilter["HTTPRouteFilter<br>URL Rewrite Rules"]
 
-PubStrat --> ExtGW
-OrgStrat --> IntGW
-PubStrat --> HTTPRoute1
-OrgStrat --> HTTPRoute2
-PubStrat --> SecPolicy1
-OrgStrat --> SecPolicy1
-PubStrat --> HTTPFilter
+PubStrat -->|"GetGatewayType"| ExtGW
+OrgStrat -->|"GetGatewayType"| IntGW
+PubStrat -->|"IsHTTPRouteRequired"| HTTPRoute1
+OrgStrat -->|"IsHTTPRouteRequired"| HTTPRoute2
+PubStrat -->|"IsSecurityPolicyRequired"| SecPolicy1
+OrgStrat -->|"IsSecurityPolicyRequired"| SecPolicy1
+PubStrat -->|"IsHTTPRouteFilterRequired"| HTTPFilter
 ExtGW --> HTTPRoute1
 IntGW --> HTTPRoute2
 
@@ -137,8 +137,8 @@ subgraph Resources ["Provisioned Resources (Project Namespace)"]
     HTTPRoute2
     SecPolicy1
     HTTPFilter
-    HTTPRoute1 --> HTTPFilter
-    SecPolicy1 --> HTTPRoute1
+    HTTPRoute1 -->|"References"| HTTPFilter
+    SecPolicy1 -->|"Attaches to"| HTTPRoute1
 end
 
 subgraph Gateways ["Gateway Instances (choreo-system namespace)"]
@@ -180,9 +180,9 @@ ServicePublic["prod.choreoapis.localhost<br>Path: /project/component/..."]
 ServiceOrg["prod.internal.choreoapis.localhost<br>Path: /project/component/..."]
 WebAppPublic["component-env.choreoapps.localhost<br>Path: /"]
 
-PubVHost --> ServicePublic
-OrgVHost --> ServiceOrg
-PubVHost --> WebAppPublic
+PubVHost -->|"Service"| ServicePublic
+OrgVHost -->|"Service"| ServiceOrg
+PubVHost -->|"WebApp"| WebAppPublic
 DNSPrefix --> ServicePublic
 DNSPrefix --> ServiceOrg
 DNSPrefix --> WebAppPublic
@@ -249,10 +249,10 @@ CompService["Kubernetes Service<br>in Project Namespace"]
 
 Public --> PubCheck
 Org --> OrgCheck
-PubCheck --> ExtRoute
-OrgCheck --> IntRoute
-ExtRoute --> CompService
-IntRoute --> CompService
+PubCheck -->|"enable=true"| ExtRoute
+OrgCheck -->|"enable=true"| IntRoute
+ExtRoute -->|"Routes to"| CompService
+IntRoute -->|"Routes to"| CompService
 
 subgraph GatewayProvisioning ["HTTPRoute Provisioning"]
     ExtRoute
@@ -442,7 +442,7 @@ HTTPRoute["HTTPRoute (same name)<br>Regex match for specific operation"]
 
 RestOps --> PolicyName
 PolicyName --> TargetRef
-TargetRef --> HTTPRoute
+TargetRef -->|"Attaches to"| HTTPRoute
 
 subgraph TargetAttachment ["Policy Attachment"]
     TargetRef
@@ -527,9 +527,9 @@ PubHandlers --> HTTPRouteFilterHandler
 OrgHandlers --> HTTPRouteHandler
 OrgHandlers --> SecurityPolicyHandler
 OrgHandlers --> HTTPRouteFilterHandler
-HTTPRouteHandler --> HTTPRoute
-SecurityPolicyHandler --> SecurityPolicy
-HTTPRouteFilterHandler --> HTTPRouteFilter
+HTTPRouteHandler -->|"Provisions"| HTTPRoute
+SecurityPolicyHandler -->|"Provisions"| SecurityPolicy
+HTTPRouteFilterHandler -->|"Provisions"| HTTPRouteFilter
 
 subgraph DataPlaneResources ["Data Plane Kubernetes Resources"]
     HTTPRoute
@@ -603,12 +603,12 @@ SecurityPolicy["SecurityPolicy"]
 Service["Service: {component}-{track}"]
 Deployment["Deployment: {component}-{track}"]
 
-MultiClientMgr --> HTTPRoute
-MultiClientMgr --> SecurityPolicy
+MultiClientMgr -->|"Creates/Updates"| HTTPRoute
+MultiClientMgr -->|"Creates/Updates"| SecurityPolicy
 EndpointController --> DataPlaneWatch
 EndpointController --> EnvWatch
-DataPlaneWatch --> EndpointCR
-EnvWatch --> EndpointCR
+DataPlaneWatch -->|"Reconciles"| EndpointCR
+EnvWatch -->|"Reconciles"| EndpointCR
 
 subgraph DataPlaneCluster ["Data Plane Cluster"]
     Namespace

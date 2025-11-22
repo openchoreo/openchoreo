@@ -77,14 +77,14 @@ IngressTLS["spec.tls"]
 IngressAnnotations["metadata.annotations"]
 Backend["backend → app service:3000"]
 
-Enabled --> IngressResource
+Enabled -->|"if true"| IngressResource
 ClassName --> IngressResource
 Annotations --> IngressAnnotations
 Host --> IngressSpec
 Path --> IngressSpec
 PathType --> IngressSpec
 ProxySettings --> IngressAnnotations
-TLS --> IngressTLS
+TLS -->|"if enabled"| IngressTLS
 
 subgraph subGraph1 ["Generated Resource"]
     IngressResource
@@ -163,15 +163,15 @@ OtelService["hdx-oss-v2-otel-collector<br>ports: 4317, 4318, 24225"]
 AppPod["HyperDX Application<br>UI:3000 API:8000 OpAMP:4320"]
 OtelPod["OTEL Collector<br>gRPC:4317 HTTP:4318"]
 
-Users --> IngressController
-TelemetrySources --> IngressController
+Users -->|"HTTPShyperdx.example.com"| IngressController
+TelemetrySources -->|"HTTPScollector.example.com"| IngressController
 
 subgraph subGraph4 ["Kubernetes Cluster"]
     IngressController
     IngressController --> AppIngress
     IngressController --> OtelIngress
-    AppIngress --> AppService
-    OtelIngress --> OtelService
+    AppIngress -->|"routes to"| AppService
+    OtelIngress -->|"routes to"| OtelService
     AppService --> AppPod
     OtelService --> OtelPod
 
@@ -237,12 +237,12 @@ FinalAnnotations["Final Ingress Annotations"]
 IngressClassName["ingressClassName<br>== 'nginx'?"]
 TLSEnabled["tls.enabled<br>== true?"]
 
-IngressClassName --> ChartAnnotations
-IngressClassName --> UserAnnotations
-TLSEnabled --> ChartAnnotations
+IngressClassName -->|"yes"| ChartAnnotations
+IngressClassName -->|"no"| UserAnnotations
+TLSEnabled -->|"yes"| ChartAnnotations
 UserAnnotations --> MergeFunction
 ChartAnnotations --> MergeFunction
-MergeFunction --> FinalAnnotations
+MergeFunction -->|"chart values override user"| FinalAnnotations
 ```
 
 Sources: [charts/hdx-oss-v2/templates/ingress.yaml L9-L23](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/ingress.yaml#L9-L23)
@@ -351,10 +351,10 @@ NameCheck["path.name<br>defined?"]
 Name --> IngressResource
 Hosts --> IngressResource
 Paths --> NameCheck
-PathName --> NameCheck
-NoPathName --> NameCheck
-NameCheck --> ServiceWithName
-NameCheck --> ServiceDefault
+PathName -->|"if defined"| NameCheck
+NoPathName -->|"if undefined"| NameCheck
+NameCheck -->|"yes"| ServiceWithName
+NameCheck -->|"no"| ServiceDefault
 PathPort --> ServiceWithName
 PathPort --> ServiceDefault
 
@@ -427,14 +427,14 @@ RenderIngress["Render Ingress Resources"]
 End["No Resources Generated"]
 
 Start --> CheckEnabled
-CheckEnabled --> End
-CheckEnabled --> CheckAnnotations
-CheckAnnotations --> FailAnnotations
-CheckAnnotations --> CheckTLS
-CheckTLS --> FailTLS
-CheckTLS --> CheckPaths
-CheckPaths --> FailPaths
-CheckPaths --> RenderIngress
+CheckEnabled -->|"false"| End
+CheckEnabled -->|"true"| CheckAnnotations
+CheckAnnotations -->|"no"| FailAnnotations
+CheckAnnotations -->|"yes"| CheckTLS
+CheckTLS -->|"no"| FailTLS
+CheckTLS -->|"yes"| CheckPaths
+CheckPaths -->|"no"| FailPaths
+CheckPaths -->|"yes"| RenderIngress
 ```
 
 Sources: [charts/hdx-oss-v2/templates/ingress.yaml L51-L85](https://github.com/hyperdxio/helm-charts/blob/845dd482/charts/hdx-oss-v2/templates/ingress.yaml#L51-L85)

@@ -62,11 +62,11 @@ subgraph subGraph5 ["Kubernetes Cluster"]
     OTEL --> OTELSvc
     CH --> CHSvc
     Mongo --> MongoSvc
-    AppCM --> App
-    AppSecret --> App
-    CHPVC1 --> CH
-    CHPVC2 --> CH
-    MongoPVC --> Mongo
+    AppCM -->|"envFrom"| App
+    AppSecret -->|"env"| App
+    CHPVC1 -->|"mount"| CH
+    CHPVC2 -->|"mount"| CH
+    MongoPVC -->|"mount"| Mongo
 
 subgraph PersistentVolumeClaims ["PersistentVolumeClaims"]
     CHPVC1
@@ -168,8 +168,8 @@ TelemetryClient["Application<br>with OTEL SDK"]
 AppSvc["my-hyperdx-hdx-oss-v2-app<br>Type: ClusterIP<br>Port 3000: UI<br>Port 8000: API<br>Port 4320: OpAMP"]
 OTELSvc["my-hyperdx-hdx-oss-v2-otel-collector<br>Type: ClusterIP<br>Port 4317: OTLP gRPC<br>Port 4318: OTLP HTTP<br>Port 24225: Fluentd"]
 
-Browser --> AppSvc
-TelemetryClient --> OTELSvc
+Browser -->|"port-forward"| AppSvc
+TelemetryClient -->|"port-forward"| OTELSvc
 
 subgraph subGraph1 ["Kubernetes Services"]
     AppSvc
@@ -232,12 +232,12 @@ App["Instrumented App<br>OTEL SDK configured"]
 OTEL["my-hyperdx-hdx-oss-v2-otel-collector<br>Receiver: 4318/v1/traces<br>Receiver: 4318/v1/logs<br>Receiver: 4318/v1/metrics"]
 CH["my-hyperdx-hdx-oss-v2-clickhouse<br>Tables:<br>- otel_logs<br>- otel_traces<br>- otel_metrics_*"]
 
-App --> OTEL
+App -->|"OTLP HTTPPOST to :4318"| OTEL
 
 subgraph subGraph1 ["HyperDX Ingestion"]
     OTEL
     CH
-    OTEL --> CH
+    OTEL -->|"Native protocol:9000"| CH
 end
 
 subgraph subGraph0 ["Your Application"]

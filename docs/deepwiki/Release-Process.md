@@ -60,12 +60,12 @@ Tag021["Tag: v0.2.1"]
 Tag022["Tag: v0.2.2"]
 Tag030["Tag: v0.3.0"]
 
-Main --> Release02
-Main --> Release03
-Release02 --> Tag020
-Release02 --> Tag021
-Release02 --> Tag022
-Release03 --> Tag030
+Main -->|"Create for v0.2.0"| Release02
+Main -->|"Create for v0.3.0"| Release03
+Release02 -->|"Tag v0.2.0"| Tag020
+Release02 -->|"Tag v0.2.1"| Tag021
+Release02 -->|"Tag v0.2.2"| Tag022
+Release03 -->|"Tag v0.3.0"| Tag030
 ```
 
 Sources: [.github/ISSUE_TEMPLATE/03-release.md L25-L59](https://github.com/openchoreo/openchoreo/blob/a577e969/.github/ISSUE_TEMPLATE/03-release.md#L25-L59)
@@ -137,8 +137,8 @@ MergeMainPR["Merge to main"]
 CheckoutMain --> CreatePrepBranch
 CreatePrepBranch --> UpdateVersion
 UpdateVersion --> CheckChanges
-CheckChanges --> CommitPR
-CheckChanges --> CreateReleaseBranch
+CheckChanges -->|"Changes exist"| CommitPR
+CheckChanges -->|"No changes"| CreateReleaseBranch
 CommitPR --> MergePR
 MergePR --> WaitCI
 WaitCI --> CreateReleaseBranch
@@ -196,8 +196,8 @@ Ready["Ready to tag"]
 CheckoutRelease --> CreatePrepBranch
 CreatePrepBranch --> UpdateVersion
 UpdateVersion --> CheckChanges
-CheckChanges --> CommitPR
-CheckChanges --> WaitCI
+CheckChanges -->|"Changes exist"| CommitPR
+CheckChanges -->|"No changes"| WaitCI
 CommitPR --> MergePR
 MergePR --> WaitCI
 WaitCI --> Ready

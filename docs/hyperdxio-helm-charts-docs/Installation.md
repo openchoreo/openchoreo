@@ -212,14 +212,14 @@ AppDeploy --> AppSvc
 CHDeploy --> CHSvc
 MongoDeploy --> MongoSvc
 OTELDeploy --> OTELSvc
-AppDeploy --> AppCM
-AppDeploy --> AppSecret
-CHDeploy --> CHCM
-CHDeploy --> CHUsersCM
-CHDeploy --> CHPVC
-CHDeploy --> CHLogsPVC
-MongoDeploy --> MongoPVC
-OTELDeploy --> OTELCM
+AppDeploy -->|"mounts"| AppCM
+AppDeploy -->|"mounts"| AppSecret
+CHDeploy -->|"mounts"| CHCM
+CHDeploy -->|"mounts"| CHUsersCM
+CHDeploy -->|"mounts"| CHPVC
+CHDeploy -->|"mounts"| CHLogsPVC
+MongoDeploy -->|"mounts"| MongoPVC
+OTELDeploy -->|"mounts"| OTELCM
 
 subgraph PersistentVolumeClaims ["PersistentVolumeClaims"]
     CHPVC

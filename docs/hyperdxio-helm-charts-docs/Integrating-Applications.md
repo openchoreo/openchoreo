@@ -41,8 +41,8 @@ HTTPPort["Port 4318<br>OTLP HTTP"]
 FluentdPort["Port 24225<br>Fluentd"]
 MetricsPort["Port 8888<br>Metrics"]
 
-App --> GRPCPort
-App --> HTTPPort
+App -->|"Traces, Logs, MetricsOTLP/gRPC"| GRPCPort
+App -->|"Traces, Logs, MetricsOTLP/HTTP"| HTTPPort
 
 subgraph subGraph1 ["OTEL Collector Service"]
     Collector
@@ -87,9 +87,9 @@ OTELPod["OTEL Collector Pod"]
 
 subgraph subGraph2 ["Kubernetes Cluster"]
     DNS
-    App --> DNS
-    DNS --> App
-    App --> OTELSvc
+    App -->|"1.Resolve FQDN"| DNS
+    DNS -->|"2.Returns ClusterIP"| App
+    App -->|"3.OTLP gRPC/HTTP"| OTELSvc
 
 subgraph subGraph1 ["HyperDX Namespace"]
     OTELSvc
@@ -141,15 +141,15 @@ OTELIngress["OTEL Collector Ingress<br>collector.example.com<br>/v1/traces<br>/v
 OTELSvc["otel-collector<br>Service"]
 OTELPod["OTEL Collector Pod"]
 
-ExtApp --> Ingress
-DevMachine --> Ingress
+ExtApp -->|"HTTPS"| Ingress
+DevMachine -->|"HTTPS"| Ingress
 
 subgraph subGraph2 ["Kubernetes Cluster"]
     Ingress
     OTELSvc
     OTELPod
     Ingress --> OTELIngress
-    OTELIngress --> OTELSvc
+    OTELIngress -->|"Port 4318"| OTELSvc
     OTELSvc --> OTELPod
 
 subgraph subGraph1 ["Ingress Resources"]
@@ -253,8 +253,8 @@ Exporter["OTLP Exporter<br>gRPC or HTTP"]
 EnvVars["Environment Variables<br>OTEL_EXPORTER_OTLP_ENDPOINT<br>OTEL_EXPORTER_OTLP_HEADERS<br>OTEL_SERVICE_NAME"]
 Receiver["OTLP Receiver<br>Port 4317/4318"]
 
-EnvVars --> Exporter
-Exporter --> Receiver
+EnvVars -->|"Configure"| Exporter
+Exporter -->|"OTLP Protocol"| Receiver
 
 subgraph subGraph2 ["OTEL Collector"]
     Receiver
@@ -268,7 +268,7 @@ subgraph subGraph0 ["Application Process"]
     AppCode
     OTELLibs
     Exporter
-    AppCode --> OTELLibs
+    AppCode -->|"Traces APIMetrics APILogs API"| OTELLibs
     OTELLibs --> Exporter
 end
 ```

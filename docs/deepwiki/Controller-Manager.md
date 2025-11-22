@@ -182,33 +182,33 @@ ReleaseRecon["release.Reconciler"]
 BuildRecon["build.Reconciler"]
 BPRecon["buildplane.BuildPlaneReconciler"]
 
-Mgr --> OrgRecon
-Mgr --> ProjRecon
-Mgr --> EnvRecon
-Mgr --> DPRecon
-Mgr --> DPipeRecon
-Mgr --> DTrackRecon
-Mgr --> DARecon
-Mgr --> DeployRecon
-Mgr --> EPRecon
-Mgr --> WLRecon
-Mgr --> CompRecon
-Mgr --> GitRecon
-Mgr --> APIRecon
-Mgr --> APIClassRecon
-Mgr --> APIBindRecon
-Mgr --> SvcRecon
-Mgr --> SvcClassRecon
-Mgr --> SvcBindRecon
-Mgr --> WebRecon
-Mgr --> WebClassRecon
-Mgr --> WebBindRecon
-Mgr --> SchedRecon
-Mgr --> SchedClassRecon
-Mgr --> SchedBindRecon
-Mgr --> ReleaseRecon
-Mgr --> BuildRecon
-Mgr --> BPRecon
+Mgr -->|"SetupWithManager()"| OrgRecon
+Mgr -->|"SetupWithManager()"| ProjRecon
+Mgr -->|"SetupWithManager()"| EnvRecon
+Mgr -->|"SetupWithManager()"| DPRecon
+Mgr -->|"SetupWithManager()"| DPipeRecon
+Mgr -->|"SetupWithManager()"| DTrackRecon
+Mgr -->|"SetupWithManager()"| DARecon
+Mgr -->|"SetupWithManager()"| DeployRecon
+Mgr -->|"SetupWithManager()"| EPRecon
+Mgr -->|"SetupWithManager()"| WLRecon
+Mgr -->|"SetupWithManager()"| CompRecon
+Mgr -->|"SetupWithManager()"| GitRecon
+Mgr -->|"SetupWithManager()"| APIRecon
+Mgr -->|"SetupWithManager()"| APIClassRecon
+Mgr -->|"SetupWithManager()"| APIBindRecon
+Mgr -->|"SetupWithManager()"| SvcRecon
+Mgr -->|"SetupWithManager()"| SvcClassRecon
+Mgr -->|"SetupWithManager()"| SvcBindRecon
+Mgr -->|"SetupWithManager()"| WebRecon
+Mgr -->|"SetupWithManager()"| WebClassRecon
+Mgr -->|"SetupWithManager()"| WebBindRecon
+Mgr -->|"SetupWithManager()"| SchedRecon
+Mgr -->|"SetupWithManager()"| SchedClassRecon
+Mgr -->|"SetupWithManager()"| SchedBindRecon
+Mgr -->|"SetupWithManager()"| ReleaseRecon
+Mgr -->|"SetupWithManager()"| BuildRecon
+Mgr -->|"SetupWithManager()"| BPRecon
 
 subgraph subGraph7 ["Build/Release Controllers [lines 359-380]"]
     ReleaseRecon
@@ -501,32 +501,31 @@ SM["ServiceMonitor"]
 
 subgraph subGraph4 ["Kubernetes Cluster"]
     API
-    SA --> CRB
-    Pod1 --> API
-    Pod2 --> API
-    API --> VS
-    API --> MS
-    WS --> Pod1
-    MS_Svc --> Pod1
+    SA -->|"bound to"| CRB
+    Pod1 -->|"watches/reconciles"| API
+    Pod2 -->|"leader election"| API
+    API -->|"validates via"| VS
+    API -->|"mutates via"| MS
+    WS -->|"targets"| Pod1
 
 subgraph Monitoring ["Monitoring"]
     MS_Svc
     SM
-    SM --> MS_Svc
+    SM -->|"scrapes"| MS_Svc
 end
 
 subgraph Webhooks ["Webhooks"]
     VS
     MS
     WS
-    VS --> WS
-    MS --> WS
+    VS -->|"routes to"| WS
+    MS -->|"routes to"| WS
 end
 
 subgraph RBAC ["RBAC"]
     CRB
     CR
-    CRB --> CR
+    CRB -->|"grants"| CR
 end
 
 subgraph subGraph0 ["openchoreo-system Namespace"]
@@ -534,10 +533,10 @@ subgraph subGraph0 ["openchoreo-system Namespace"]
     Pod1
     Pod2
     SA
-    Deploy --> Pod1
-    Deploy --> Pod2
-    Pod1 --> SA
-    Pod2 --> SA
+    Deploy -->|"creates"| Pod1
+    Deploy -->|"creates"| Pod2
+    Pod1 -->|"uses"| SA
+    Pod2 -->|"uses"| SA
 end
 end
 ```

@@ -41,13 +41,13 @@ subgraph subGraph6 ["Kubernetes Namespace"]
     OTEL --> OTELSvc
     CH --> CHSvc
     Mongo --> MongoSvc
-    CH --> CHPVC
-    CH --> CHLogPVC
-    Mongo --> MongoPVC
-    UI --> CHSvc
-    UI --> MongoSvc
-    OTEL --> CHSvc
-    OTEL --> AppSvc
+    CH -->|"mounts"| CHPVC
+    CH -->|"mounts"| CHLogPVC
+    Mongo -->|"mounts"| MongoPVC
+    UI -->|"queries HTTP:8123"| CHSvc
+    UI -->|"metadata"| MongoSvc
+    OTEL -->|"writes Native:9000"| CHSvc
+    OTEL -->|"OpAMP 4320"| AppSvc
 
 subgraph subGraph5 ["Storage (Optional)"]
     CHPVC
@@ -216,10 +216,10 @@ CHHost --> API
 OTELEndpoint --> API
 CHEndpoint --> OTEL
 OpAMPURL --> OTEL
-API --> CHSvc
-API --> MongoSvc
-OTEL --> CHNative
-OTEL --> OpAMP
+API -->|"HTTP"| CHSvc
+API -->|"TCP"| MongoSvc
+OTEL -->|"TCP"| CHNative
+OTEL -->|"HTTP"| OpAMP
 
 subgraph subGraph2 ["OTEL Collector Environment"]
     CHEndpoint

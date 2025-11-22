@@ -32,10 +32,10 @@ ExtOTEL["External OTEL Collector<br>Ports: 4317 gRPC, 4318 HTTP"]
 ValuesYAML["values.yaml<br>clickhouse.enabled: false<br>otel.enabled: false<br>hyperdx.otelExporterEndpoint<br>hyperdx.defaultConnections"]
 ExternalSecret["External Secret<br>hyperdx.useExistingConfigSecret: true<br>connections.json<br>sources.json"]
 
-HyperDX --> ExtClickHouse
-HyperDX --> ExtOTEL
-ValuesYAML --> HyperDX
-ExternalSecret --> HyperDX
+HyperDX -->|"queries via HTTP:8123"| ExtClickHouse
+HyperDX -->|"sends telemetry via HTTP:4318"| ExtOTEL
+ValuesYAML -->|"configures"| HyperDX
+ExternalSecret -->|"alternative configuration"| HyperDX
 
 subgraph subGraph2 ["Configuration Sources"]
     ValuesYAML
@@ -45,7 +45,7 @@ end
 subgraph subGraph1 ["External Infrastructure - User Managed"]
     ExtClickHouse
     ExtOTEL
-    ExtOTEL --> ExtClickHouse
+    ExtOTEL -->|"stores telemetry via Native:9000"| ExtClickHouse
 end
 
 subgraph subGraph0 ["Helm Chart Managed Components"]
@@ -53,7 +53,7 @@ subgraph subGraph0 ["Helm Chart Managed Components"]
     MongoDB
     MongoSvc
     AppSvc
-    HyperDX --> MongoSvc
+    HyperDX -->|"metadata storage"| MongoSvc
     MongoSvc --> MongoDB
     AppSvc --> HyperDX
 end
@@ -115,13 +115,13 @@ SecretOtelEndpoint["hyperdx.otelExporterEndpoint<br>External OTEL URL"]
 AppConfigMap["app-config ConfigMap<br>envFrom reference"]
 AppDeployment["hyperdx-app Deployment<br>Environment variables"]
 
-Decision --> InlineValues
-Decision --> SecretConfig
-DefaultConnections --> AppConfigMap
-DefaultSources --> AppConfigMap
-OtelEndpoint --> AppConfigMap
-K8sSecret --> AppDeployment
-SecretOtelEndpoint --> AppConfigMap
+Decision -->|"Development/Testing"| InlineValues
+Decision -->|"Production"| SecretConfig
+DefaultConnections -->|"rendered via Helm"| AppConfigMap
+DefaultSources -->|"rendered via Helm"| AppConfigMap
+OtelEndpoint -->|"rendered via Helm"| AppConfigMap
+K8sSecret -->|"mounted as volume"| AppDeployment
+SecretOtelEndpoint -->|"rendered via Helm"| AppConfigMap
 
 subgraph subGraph3 ["Generated Resources"]
     AppConfigMap
@@ -353,8 +353,8 @@ AppDeployment["templates/deployment-app.yaml<br>Mounts secret as volume<br>if us
 
 ConnectionsJSON --> CreateSecret
 SourcesJSON --> CreateSecret
-K8sSecret --> ValuesConfig
-ValuesConfig --> HelmTemplate
+K8sSecret -->|"references"| ValuesConfig
+ValuesConfig -->|"Helm render"| HelmTemplate
 
 subgraph subGraph3 ["Step 4: Helm Template Rendering"]
     HelmTemplate
@@ -556,11 +556,11 @@ AppSecrets["Secret:<br>my-hyperdx-hdx-oss-v2-app-secrets<br>HDX_NODE_HYPERDX_API
 ExternalSecret["Secret:<br>hyperdx-external-config<br>(user-created, optional)<br>connections.json<br>sources.json"]
 MongoPVC["PVC:<br>my-hyperdx-hdx-oss-v2-mongodb-data<br>size: 10Gi"]
 
-AppDeployment --> AppConfig
-AppDeployment --> AppSecrets
-AppDeployment --> ExternalSecret
-AppDeployment --> MongoService
-MongoDeployment --> MongoPVC
+AppDeployment -->|"reads config from"| AppConfig
+AppDeployment -->|"reads secrets from"| AppSecrets
+AppDeployment -->|"optional: reads from"| ExternalSecret
+AppDeployment -->|"connects to"| MongoService
+MongoDeployment -->|"mounts volume"| MongoPVC
 MongoService --> MongoDeployment
 AppService --> AppDeployment
 
@@ -819,12 +819,12 @@ NetworkPolicy1["NetworkPolicy:<br>Allow hyperdx → external ClickHouse<br>Port:
 NetworkPolicy2["NetworkPolicy:<br>Allow hyperdx → external OTEL<br>Port: 4318"]
 SecretMgmt["Secret Management:<br>Use external secrets<br>Rotate credentials regularly"]
 
-HyperDXPod --> NetworkPolicy1
-HyperDXPod --> NetworkPolicy2
-HyperDXPod --> ClickHouseExt
-HyperDXPod --> OTELExt
-ClickHouseExt --> SecretMgmt
-OTELExt --> SecretMgmt
+HyperDXPod -->|"Controlled by"| NetworkPolicy1
+HyperDXPod -->|"Controlled by"| NetworkPolicy2
+HyperDXPod -->|"HTTP:8123"| ClickHouseExt
+HyperDXPod -->|"HTTP:4318"| OTELExt
+ClickHouseExt -->|"Requires"| SecretMgmt
+OTELExt -->|"May require"| SecretMgmt
 
 subgraph subGraph2 ["Security Controls"]
     NetworkPolicy1
@@ -840,7 +840,7 @@ end
 subgraph subGraph0 ["Kubernetes Cluster"]
     HyperDXPod
     MongoPod
-    HyperDXPod --> MongoPod
+    HyperDXPod -->|"Internal only"| MongoPod
 end
 ```
 

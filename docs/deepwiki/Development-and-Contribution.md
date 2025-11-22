@@ -57,7 +57,7 @@ Test --> Build
 Build --> Run
 Run --> Code
 Code --> PR
-PR --> Merge
+PR -->|"CI: Build and Test"| Merge
 Merge --> Release
 Release --> Publish
 ```
@@ -186,15 +186,15 @@ ObserverImage["observer image"]
 Version --> LDFLAGS
 GitRev --> LDFLAGS
 BuildTime --> LDFLAGS
-LDFLAGS --> Manager
-LDFLAGS --> CLI
-LDFLAGS --> API
-LDFLAGS --> Observer
-Manager --> ControllerImage
-CLI --> CLIImage
-CLI --> QuickStartImage
-API --> APIImage
-Observer --> ObserverImage
+LDFLAGS -->|"injected into"| Manager
+LDFLAGS -->|"injected into"| CLI
+LDFLAGS -->|"injected into"| API
+LDFLAGS -->|"injected into"| Observer
+Manager -->|"used by"| ControllerImage
+CLI -->|"used by"| CLIImage
+CLI -->|"used by"| QuickStartImage
+API -->|"used by"| APIImage
+Observer -->|"used by"| ObserverImage
 
 subgraph subGraph2 ["Link Flags Injection"]
     LDFLAGS
@@ -244,7 +244,7 @@ Changes --> Manifests
 HelmGen --> ModTidy
 ModTidy --> GoLint
 Newline --> UnitTest
-UnitTest --> Verify
+UnitTest -->|"make code.gen-check"| Verify
 
 subgraph Testing ["Testing"]
     ModTidy
@@ -320,8 +320,8 @@ E2ETarget["make test-e2e"]
 KindCheck["Kind cluster check"]
 GinkgoTests["Ginkgo test suite<br>(test/e2e/)"]
 
-UnitTarget --> DevDeploy
-SampleTests --> E2ETarget
+UnitTarget -->|"Local testing"| DevDeploy
+SampleTests -->|"Automated"| E2ETarget
 
 subgraph subGraph2 ["E2E Tests"]
     E2ETarget
@@ -335,7 +335,7 @@ subgraph subGraph1 ["Integration Tests"]
     DevDeploy
     MultiCluster
     SampleTests
-    DevDeploy --> SampleTests
+    DevDeploy -->|"Full workflow"| SampleTests
 end
 
 subgraph subGraph0 ["Unit Tests"]

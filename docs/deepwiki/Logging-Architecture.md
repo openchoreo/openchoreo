@@ -43,8 +43,8 @@ AppPods["Application Pods<br>(dp-*)"]
 Browser["Browser"]
 API["API Clients"]
 
-Browser --> OSD
-API --> OBS
+Browser -->|"port 5601"| OSD
+API -->|"port 8080"| OBS
 
 subgraph subGraph3 ["External Access"]
     Browser
@@ -52,8 +52,8 @@ subgraph subGraph3 ["External Access"]
 end
 
 subgraph subGraph2 ["Data Plane Cluster"]
-    SysPods --> FB
-    AppPods --> FB
+    SysPods -->|"stdout/stderr"| FB
+    AppPods -->|"stdout/stderr"| FB
 
 subgraph subGraph1 ["Application Namespaces"]
     SysPods
@@ -65,9 +65,9 @@ subgraph subGraph0 ["choreo-system Namespace"]
     OS
     OSD
     OBS
-    FB --> OS
-    OSD --> OS
-    OBS --> OS
+    FB -->|"port 9200"| OS
+    OSD -->|"queries"| OS
+    OBS -->|"queries"| OS
 end
 end
 ```
@@ -110,8 +110,8 @@ Filter["Kubernetes Filter<br>metadata enrichment"]
 Output["Output Plugin<br>opensearch"]
 Index["kubernetes-* indices"]
 
-LogFiles --> Input
-Output --> Index
+LogFiles -->|"mounts"| Input
+Output -->|"host: opensearchport: 9200"| Index
 
 subgraph OpenSearch ["OpenSearch"]
     Index
@@ -124,13 +124,13 @@ subgraph subGraph1 ["Fluentbit Pod"]
     Output
     Input --> Parser
     Parser --> Filter
-    Filter --> Output
+    Filter -->|"match: kube.*"| Output
 end
 
 subgraph subGraph0 ["Node Host"]
     Containers
     LogFiles
-    Containers --> LogFiles
+    Containers -->|"writes"| LogFiles
 end
 ```
 
@@ -219,10 +219,10 @@ OSClient["OpenSearch Client"]
 Client["API Client"]
 OS["OpenSearch<br>port 9200"]
 
-Client --> API
-OSClient --> OS
-OS --> OSClient
-Handler --> Client
+Client -->|"POST /api/logs/component/:name"| API
+OSClient -->|"Query"| OS
+OS -->|"Results"| OSClient
+Handler -->|"JSON"| Client
 
 subgraph subGraph0 ["Observer Service"]
     API
@@ -230,7 +230,7 @@ subgraph subGraph0 ["Observer Service"]
     OSClient
     API --> Handler
     Handler --> OSClient
-    OSClient --> Handler
+    OSClient -->|"JSON Response"| Handler
 end
 ```
 

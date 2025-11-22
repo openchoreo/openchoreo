@@ -61,17 +61,17 @@ Workspace["workspace PVC<br>2Gi ReadWriteOnce"]
 Cache["podman-cache HostPath<br>/shared/podman/cache"]
 
 WF --> Step1
-Step1 --> Step2
-Step2 --> Step3
-Step3 --> Step4
-Step1 --> Vol1
-Step3 --> Vol2
-Step4 --> Vol3
-Step1 --> Workspace
-Step2 --> Workspace
-Step2 --> Cache
-Step3 --> Workspace
-Step4 --> Workspace
+Step1 -->|"git-revision output"| Step2
+Step2 -->|"git-revision input"| Step3
+Step3 -->|"image output"| Step4
+Step1 -->|"writes to"| Vol1
+Step3 -->|"writes to"| Vol2
+Step4 -->|"writes to"| Vol3
+Step1 -->|"mounts"| Workspace
+Step2 -->|"mounts"| Workspace
+Step2 -->|"mounts"| Cache
+Step3 -->|"mounts"| Workspace
+Step4 -->|"mounts"| Workspace
 
 subgraph subGraph0 ["Shared Storage"]
     Workspace
