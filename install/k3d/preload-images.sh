@@ -424,7 +424,8 @@ pull_images() {
         start_time=$(date +%s)
 
         # Pull the image silently in background
-        docker pull "$image" &>/dev/null &
+        # Use --platform to pull the correct arch and avoid buildx cache issues
+        docker pull --platform "$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')" "$image" &>/dev/null &
         local pull_pid=$!
 
         # Wait for pull to complete or timeout
@@ -519,11 +520,11 @@ pull_images() {
                     
                     # Print the completed line
                     if [ "$exit_code" -eq 0 ]; then
-                        echo -e "${GREEN}✓${RESET} $img (${duration}s)"
+                        echo -e "${GREEN}[OK]${RESET} $img (${duration}s)"
                     elif [ "$exit_code" -eq 124 ]; then
-                        echo -e "${YELLOW}⚠${RESET} $img (timeout after ${duration}s, skipping)"
+                        echo -e "${YELLOW}[TIMEOUT]${RESET} $img (timeout after ${duration}s, skipping)"
                     else
-                        echo -e "${YELLOW}⚠${RESET} $img (failed after ${duration}s)"
+                        echo -e "${YELLOW}[FAILED]${RESET} $img (failed after ${duration}s)"
                     fi
                     
                     # Reset counter and reprint remaining pulling lines
@@ -569,29 +570,146 @@ import_images_to_k3d() {
     local images=("$@")
     local total=${#images[@]}
     local failed=0
+    local success=0
 
     log_info "Importing ${total} images to k3d cluster '${CLUSTER_NAME}'..."
 
-    # Import images in batches to avoid argument limit issues
-    # k3d can handle multiple images, but we batch to be safe with large lists
-    local batch_size=20
-    local batch_count=$(( (total + batch_size - 1) / batch_size ))
+    # Get k3d node names and platform
+    # Find all server nodes for this cluster using k3d node list
+    local node_names=()
+    while IFS= read -r line; do
+        node_names+=("$line")
+    done < <(k3d node list --no-headers | awk -v cluster="${CLUSTER_NAME}" '$2 == "server" && $3 == cluster {print $1}')
 
-    for ((i=0; i<total; i+=batch_size)); do
-        local batch=("${images[@]:i:batch_size}")
-        local batch_num=$(( i / batch_size + 1 ))
+    if [[ ${#node_names[@]} -eq 0 ]]; then
+        log_error "No k3d server nodes found for cluster '${CLUSTER_NAME}'"
+        return 1
+    fi
 
-        if ! k3d image import "${batch[@]}" --cluster "${CLUSTER_NAME}" 2>/dev/null; then
-            log_warning "Batch $batch_num/$batch_count: Some images failed to import"
-            ((failed++))
+    log_info "Found ${#node_names[@]} k3d server node(s): ${node_names[*]}"
+
+    local platform="linux/$(docker version --format '{{.Server.Arch}}')"
+
+    # Temporary directory for storing results
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf $temp_dir" RETURN
+
+    # Function to import a single image to a single node
+    import_single_image_to_node() {
+        local image=$1
+        local index=$2
+        local node=$3
+        local temp_tar="${temp_dir}/image-${index}.tar"
+
+        # Copy and import with platform flag (tar is already saved)
+        docker cp "$temp_tar" "$node:/tmp/image-${index}.tar" >/dev/null 2>&1
+        local cp_status=$?
+
+        if [ $cp_status -eq 0 ]; then
+            docker exec "$node" ctr -n k8s.io images import --platform "$platform" "/tmp/image-${index}.tar" >/dev/null 2>&1
+            local import_status=$?
+
+            docker exec "$node" rm "/tmp/image-${index}.tar" >/dev/null 2>&1 || true
+
+            if [ $import_status -eq 0 ]; then
+                return 0
+            else
+                return 1
+            fi
+        else
+            return 2
         fi
+    }
+
+    # Function to import a single image to all nodes
+    import_single_image() {
+        local image=$1
+        local index=$2
+        local temp_tar="${temp_dir}/image-${index}.tar"
+
+        # Save image once
+        docker save "$image" -o "$temp_tar" >/dev/null 2>&1
+        local save_status=$?
+
+        if [ $save_status -eq 0 ]; then
+            # Import to all nodes
+            local all_nodes_success=0
+            for node in "${node_names[@]}"; do
+                import_single_image_to_node "$image" "$index" "$node"
+                local node_status=$?
+
+                if [ $node_status -ne 0 ]; then
+                    all_nodes_success=$node_status
+                    break
+                fi
+            done
+
+            if [ $all_nodes_success -eq 0 ]; then
+                echo "0" > "${temp_dir}/${index}.result"
+            elif [ $all_nodes_success -eq 1 ]; then
+                echo "1" > "${temp_dir}/${index}.result"
+            else
+                echo "2" > "${temp_dir}/${index}.result"
+            fi
+        else
+            echo "3" > "${temp_dir}/${index}.result"
+        fi
+
+        rm -f "$temp_tar"
+    }
+
+    # Import images in parallel batches of 20
+    local batch_size=20
+    local next_index=0
+
+    while [ $next_index -lt $total ]; do
+        local pids=()
+        local batch_start=$next_index
+
+        # Start a batch of parallel imports
+        for ((j=0; j<batch_size && next_index<total; j++)); do
+            local image="${images[$next_index]}"
+            import_single_image "$image" "$next_index" &
+            pids+=($!)
+            next_index=$((next_index + 1))
+        done
+
+        # Wait for this batch to complete
+        for pid in "${pids[@]}"; do
+            wait "$pid" 2>/dev/null || true
+        done
+
+        # Check results and print status
+        for ((k=batch_start; k<next_index; k++)); do
+            local image="${images[$k]}"
+            if [ -f "${temp_dir}/${k}.result" ]; then
+                local result
+                result=$(cat "${temp_dir}/${k}.result")
+                if [ "$result" -eq 0 ]; then
+                    success=$((success + 1))
+                    log_success "$image"
+                elif [ "$result" -eq 1 ]; then
+                    failed=$((failed + 1))
+                    log_warning "$image (ctr import failed)"
+                elif [ "$result" -eq 2 ]; then
+                    failed=$((failed + 1))
+                    log_warning "$image (docker cp failed)"
+                else
+                    failed=$((failed + 1))
+                    log_warning "$image (docker save failed)"
+                fi
+            else
+                failed=$((failed + 1))
+                log_warning "$image (no result file)"
+            fi
+        done
     done
 
     if [[ $failed -gt 0 ]]; then
-        log_warning "Some images may not have imported successfully"
-        return 1
+        log_warning "Imported $success/$total images ($failed failed)"
     else
-        log_success "Successfully imported all images to cluster"
+        log_success "Successfully imported all $success images to cluster"
     fi
 }
 
