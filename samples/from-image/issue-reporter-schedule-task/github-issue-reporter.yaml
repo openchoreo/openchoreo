@@ -11,7 +11,6 @@ spec:
   componentType: cronjob/scheduled-task
 
   parameters:
-    schedule: "*/1 * * * *"  # Run every minute for testing
     successfulJobsHistoryLimit: 3
     failedJobsHistoryLimit: 1
     concurrencyPolicy: "Forbid"
@@ -25,7 +24,6 @@ spec:
       limits:
         cpu: "200m"
         memory: "256Mi"
-
 ---
 
 # Defines a workload that specifies the developer contract which describes the source code including
@@ -87,7 +85,7 @@ spec:
   releaseName: github-issue-reporter-release
 
   componentTypeEnvOverrides:
-    schedule: "*/5 * * * *"  # Override to run every 5 minutes in development
+    schedule: "*/5 * * * *"  # Run every 5 minutes in development
     resources:
       requests:
         cpu: "50m"

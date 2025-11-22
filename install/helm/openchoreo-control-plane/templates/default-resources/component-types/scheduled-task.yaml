@@ -12,12 +12,14 @@ spec:
 
   schema:
     types:
-      Resources:
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
         cpu: "string | default=100m"
         memory: "string | default=128Mi"
 
     parameters:
-      schedule: "string | default=0 * * * *"
       successfulJobsHistoryLimit: "integer | default=3"
       failedJobsHistoryLimit: "integer | default=1"
       concurrencyPolicy: "string | default=Forbid"
@@ -28,16 +30,8 @@ spec:
       containerName: "string | default=main"
 
     envOverrides:
-      schedule: "string"
-      successfulJobsHistoryLimit: "integer"
-      failedJobsHistoryLimit: "integer"
-      concurrencyPolicy: "string"
-      backoffLimit: "integer"
-      activeDeadlineSeconds: "integer"
-      restartPolicy: "string"
-      resources:
-        requests: Resources
-        limits: Resources
+      schedule: "string | default=0 0 31 2 *" # will never execute
+      resources: "ResourceRequirements | default={}"
 
   resources:
     - id: cronjob

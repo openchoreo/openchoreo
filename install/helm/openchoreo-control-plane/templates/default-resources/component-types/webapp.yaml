@@ -12,7 +12,10 @@ spec:
 
   schema:
     types:
-      Resources:
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
         cpu: "string | default=100m"
         memory: "string | default=256Mi"
 
@@ -23,9 +26,7 @@ spec:
       containerName: "string | default=main"
 
     envOverrides:
-      resources:
-        requests: Resources
-        limits: Resources
+      resources: "ResourceRequirements | default={}"
 
   resources:
     - id: deployment
