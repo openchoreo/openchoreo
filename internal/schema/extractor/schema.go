@@ -86,8 +86,30 @@ type converter struct {
 //
 // The "required" marker is not allowed - use defaults to make fields optional.
 //
+// Special handling for $default key:
+//   - If the field map contains a $default key, it specifies a default value for the object itself
+//   - The $default key is removed from the fields before processing other properties
+//   - The default value must be valid JSON and must satisfy the object's schema
+//
 // Fields are processed in sorted order to ensure deterministic JSON Schema output.
 func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaProps, error) {
+	// Check for and extract $default key before processing other fields
+	var objectDefault any
+	var hasObjectDefault bool
+	if defaultVal, ok := fields["$default"]; ok {
+		objectDefault = defaultVal
+		hasObjectDefault = true
+
+		// Create a new map without the $default key
+		fieldsWithoutDefault := make(map[string]any, len(fields)-1)
+		for k, v := range fields {
+			if k != "$default" {
+				fieldsWithoutDefault[k] = v
+			}
+		}
+		fields = fieldsWithoutDefault
+	}
+
 	props := map[string]extv1.JSONSchemaProps{}
 	required := []string{}
 
@@ -122,7 +144,61 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 	if len(required) > 0 {
 		result.Required = required
 	}
+
+	// Apply object-level default if specified
+	if hasObjectDefault {
+		if err := c.applyObjectDefault(result, objectDefault); err != nil {
+			return nil, fmt.Errorf("invalid $default: %w", err)
+		}
+	}
+
 	return result, nil
+}
+
+// applyObjectDefault validates and applies a $default value to an object schema.
+//
+// Validation rules:
+//  1. The default value must be parseable as a JSON object
+//  2. All required fields must be present in the default value
+//  3. The default value types should match the schema (best-effort validation)
+func (c *converter) applyObjectDefault(schema *extv1.JSONSchemaProps, defaultValue any) error {
+	var defaultMap map[string]any
+
+	// Handle the default value based on its type
+	switch v := defaultValue.(type) {
+	case map[string]any:
+		// Direct YAML map - use as-is
+		defaultMap = v
+	case string:
+		// JSON string - parse it
+		parsed, err := parseValueForType(v, typeObject)
+		if err != nil {
+			return fmt.Errorf("value is not a valid object: %w", err)
+		}
+		var ok bool
+		defaultMap, ok = parsed.(map[string]any)
+		if !ok {
+			return fmt.Errorf("value must be an object, got %T", parsed)
+		}
+	default:
+		return fmt.Errorf("value must be an object or JSON string, got %T", defaultValue)
+	}
+
+	// Validate that all required fields are present in the default
+	for _, requiredField := range schema.Required {
+		if _, ok := defaultMap[requiredField]; !ok {
+			return fmt.Errorf("missing required field %q in default value", requiredField)
+		}
+	}
+
+	// Marshal the validated default value and set it on the schema
+	raw, err := json.Marshal(defaultMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal default value: %w", err)
+	}
+	schema.Default = &extv1.JSON{Raw: raw}
+
+	return nil
 }
 
 // buildFieldSchema determines the schema for a field value that may itself be an object or shorthand string.

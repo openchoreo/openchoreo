@@ -894,3 +894,331 @@ func TestSplitRespectingQuotes(t *testing.T) {
 		})
 	}
 }
+
+func TestConverter_InlineObjectWithDollarDefaultEmpty(t *testing.T) {
+	const typesYAML = ``
+	const schemaYAML = `
+monitoring:
+  $default: {}
+  enabled: 'boolean | default=false'
+  port: 'integer | default=9090'
+`
+	const expected = `{
+  "type": "object",
+  "properties": {
+    "monitoring": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "port": {
+          "type": "integer",
+          "default": 9090
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_InlineObjectWithDollarDefaultValues(t *testing.T) {
+	const typesYAML = ``
+	const schemaYAML = `
+database:
+  $default:
+    host: "localhost"
+    port: 5432
+  host: string
+  port: 'integer | default=5432'
+`
+	const expected = `{
+  "type": "object",
+  "properties": {
+    "database": {
+      "type": "object",
+      "default": {
+        "host": "localhost",
+        "port": 5432
+      },
+      "required": [
+        "host"
+      ],
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "default": 5432
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_MultipleInlineObjectsWithDollarDefault(t *testing.T) {
+	const typesYAML = ``
+	const schemaYAML = `
+resources:
+  requests:
+    $default: {}
+    cpu: 'string | default=100m'
+    memory: 'string | default=256Mi'
+  limits:
+    $default: {}
+    cpu: 'string | default=1000m'
+    memory: 'string | default=1Gi'
+`
+	const expected = `{
+  "type": "object",
+  "required": [
+    "resources"
+  ],
+  "properties": {
+    "resources": {
+      "type": "object",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "default": "1000m"
+            },
+            "memory": {
+              "type": "string",
+              "default": "1Gi"
+            }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "default": "100m"
+            },
+            "memory": {
+              "type": "string",
+              "default": "256Mi"
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_DollarDefaultWithJSONString(t *testing.T) {
+	const typesYAML = ``
+	const schemaYAML = `
+config:
+  $default: '{"enabled":true,"count":5}'
+  enabled: 'boolean | default=false'
+  count: 'integer | default=1'
+`
+	const expected = `{
+  "type": "object",
+  "properties": {
+    "config": {
+      "type": "object",
+      "default": {
+        "count": 5,
+        "enabled": true
+      },
+      "properties": {
+        "count": {
+          "type": "integer",
+          "default": 1
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_NestedObjectWithDollarDefault(t *testing.T) {
+	const typesYAML = ``
+	const schemaYAML = `
+server:
+  $default: {}
+  host: 'string | default=localhost'
+  tls:
+    $default: {}
+    enabled: 'boolean | default=false'
+    port: 'integer | default=443'
+`
+	const expected = `{
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "localhost"
+        },
+        "tls": {
+          "type": "object",
+          "default": {},
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "port": {
+              "type": "integer",
+              "default": 443
+            }
+          }
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_TypeWithDollarDefault(t *testing.T) {
+	const typesYAML = `
+Resources:
+  $default:
+    cpu: "100m"
+    memory: "256Mi"
+  cpu: string
+  memory: string
+`
+	const schemaYAML = `
+defaultResources: Resources
+customResources: 'Resources | default={"cpu":"500m","memory":"1Gi"}'
+`
+	const expected = `{
+  "type": "object",
+  "properties": {
+    "customResources": {
+      "type": "object",
+      "default": {
+        "cpu": "500m",
+        "memory": "1Gi"
+      },
+      "required": [
+        "cpu",
+        "memory"
+      ],
+      "properties": {
+        "cpu": {
+          "type": "string"
+        },
+        "memory": {
+          "type": "string"
+        }
+      }
+    },
+    "defaultResources": {
+      "type": "object",
+      "default": {
+        "cpu": "100m",
+        "memory": "256Mi"
+      },
+      "required": [
+        "cpu",
+        "memory"
+      ],
+      "properties": {
+        "cpu": {
+          "type": "string"
+        },
+        "memory": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
+func TestConverter_DollarDefaultErrorCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		schemaYAML  string
+		expectError string
+	}{
+		{
+			name: "empty default missing required field",
+			schemaYAML: `
+cache:
+  $default: {}
+  host: string
+  port: 'integer | default=6379'
+`,
+			expectError: "missing required field \"host\"",
+		},
+		{
+			name: "default with invalid type",
+			schemaYAML: `
+config:
+  $default: "not an object"
+  enabled: boolean
+`,
+			expectError: "value is not a valid object",
+		},
+		{
+			name: "default missing multiple required fields",
+			schemaYAML: `
+database:
+  $default:
+    port: 5432
+  host: string
+  name: string
+  port: 'integer | default=5432'
+`,
+			expectError: "missing required field",
+		},
+		{
+			name: "default with non-map value",
+			schemaYAML: `
+items:
+  $default: []
+  name: string
+`,
+			expectError: "value must be an object",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields := parseYAMLMap(t, tt.schemaYAML)
+
+			_, err := ExtractSchema(fields, nil)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.expectError)
+			}
+			if !strings.Contains(err.Error(), tt.expectError) {
+				t.Fatalf("expected error containing %q, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
