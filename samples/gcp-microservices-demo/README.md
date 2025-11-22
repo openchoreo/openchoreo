@@ -25,33 +25,42 @@ This sample demonstrates a complete microservices architecture deployment using 
 ## File Structure
 
 ```
-google-microservices-sample/
+gcp-microservices-demo/
 ├── gcp-microservice-demo-project.yaml    # Project definition
-├── ad-component.yaml                     # Ad service component
-├── cart-component.yaml                   # Cart service component
-├── checkout-component.yaml               # Checkout service component
-├── currency-component.yaml               # Currency service component
-├── email-component.yaml                  # Email service component
-├── frontend-component.yaml               # Frontend web application
-├── payment-component.yaml                # Payment service component
-├── productcatalog-component.yaml         # Product catalog service component
-├── recommendation-component.yaml         # Recommendation service component
-├── redis-component.yaml                  # Redis cache component
-├── shipping-component.yaml               # Shipping service component
+├── components/                           # Component definitions
+│   ├── ad-component.yaml                 # Ad service component
+│   ├── cart-component.yaml               # Cart service component
+│   ├── checkout-component.yaml           # Checkout service component
+│   ├── currency-component.yaml           # Currency service component
+│   ├── email-component.yaml              # Email service component
+│   ├── frontend-component.yaml           # Frontend web application
+│   ├── payment-component.yaml            # Payment service component
+│   ├── productcatalog-component.yaml     # Product catalog service component
+│   ├── recommendation-component.yaml     # Recommendation service component
+│   ├── redis-component.yaml              # Redis cache component
+│   └── shipping-component.yaml           # Shipping service component
 └── README.md                             # This guide
 ```
 
-## Step 1: Deploy the Application
+## Step 1: Create the Project
 
-From the repository root, deploy the project and all microservices components:
+First, create the project that will contain all the microservices:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```
 
-This will create the project and deploy all the microservices using official Google Container Registry images.
+## Step 2: Deploy the Components
 
-## Step 2: Test the Application
+Deploy all the microservices components:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/
+```
+
+This will deploy all the microservices using official Google Container Registry images.
+
+## Step 3: Test the Application
 
 Access the frontend application in your browser:
 
@@ -72,6 +81,9 @@ http://frontend-development.openchoreoapis.localhost:9080
 Remove all resources:
 
 ```bash
-# Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
+# Remove components
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/
+
+# Remove project
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```

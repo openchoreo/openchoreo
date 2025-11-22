@@ -53,13 +53,11 @@ fi
 if [[ "$CLEAN_MODE" == "true" ]]; then
     log_info "Deleting the GCP Microservices Demo..."
 
-    # Delete in reverse order (components before project)
-    for file in "$SAMPLE_DIR"/*-component.yaml; do
-        if [[ -f "$file" ]]; then
-            log_info "Deleting $(basename "$file")..."
-            kubectl delete -f "$file" 2>/dev/null || log_warning "  Resource may not exist"
-        fi
-    done
+    # Delete components first
+    if [[ -d "$SAMPLE_DIR/components" ]]; then
+        log_info "Deleting components..."
+        kubectl delete -f "$SAMPLE_DIR/components/" 2>/dev/null || log_warning "  Components may not exist"
+    fi
 
     # Delete project last
     if [[ -f "$SAMPLE_DIR/gcp-microservice-demo-project.yaml" ]]; then
@@ -88,7 +86,7 @@ fi
 # Apply all component files
 log_info "Deploying microservices..."
 component_count=0
-for file in "$SAMPLE_DIR"/*-component.yaml; do
+for file in "$SAMPLE_DIR"/components/*-component.yaml; do
     if [[ -f "$file" ]]; then
         component_name=$(basename "$file" | sed 's/-component.yaml//')
         log_info "  Deploying $component_name..."
