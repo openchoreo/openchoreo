@@ -31,7 +31,7 @@ spec:
         # === OpenTelemetry 配置 ===
         # OTEL Collector 端點（Cluster 內部訪問）
         - key: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317"
+          value: "openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local:4317"
 
         # 服務識別
         - key: OTEL_SERVICE_NAME

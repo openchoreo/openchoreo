@@ -29,8 +29,8 @@ helm repo update
 
 # Install ClickStack
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
-  --namespace openchoreo-observability-plane \
+  ./install/helm/openchoreo-observability-clickstack \
+  --namespace openchoreo-observability-clickstack \
   --create-namespace
 ```
 
@@ -72,8 +72,8 @@ Install with custom values:
 
 ```bash
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
-  --namespace openchoreo-observability-plane \
+  ./install/helm/openchoreo-observability-clickstack \
+  --namespace openchoreo-observability-clickstack \
   --create-namespace \
   -f custom-values.yaml
 ```
@@ -96,8 +96,8 @@ hyperdx:
 
 ```bash
 helm install openchoreo-observability-clickstack \
-  ./openchoreo-observability-clickstack \
-  --namespace openchoreo-observability-plane \
+  ./install/helm/openchoreo-observability-clickstack \
+  --namespace openchoreo-observability-clickstack \
   --create-namespace \
   -f minimal-values.yaml
 ```
@@ -112,7 +112,7 @@ See [values.yaml](./values.yaml) for full configuration options.
 |-----------|-------------|---------|
 | `global.storageClassName` | StorageClass for PVCs | `"standard"` |
 | `hyperdx.enabled` | Enable HyperDX stack | `true` |
-| `hyperdx.hyperdx.apiKey` | HyperDX API key | `"hyperdx-api-key-change-me"` |
+| `hyperdx.hyperdx.apiKey` | HyperDX API key | `"2c04a8a1-c7a4-445c-9919-ebd01289c6bd"` |
 | `hyperdx.hyperdx.frontendUrl` | Frontend URL | `"http://localhost:3000"` |
 | `hyperdx.hyperdx.ingress.enabled` | Enable ingress | `false` |
 | `hyperdx.clickhouse.persistence.enabled` | Enable ClickHouse persistence | `true` |
@@ -125,7 +125,7 @@ See [values.yaml](./values.yaml) for full configuration options.
 ### Port Forward (Development)
 
 ```bash
-kubectl port-forward -n openchoreo-observability-plane \
+kubectl port-forward -n openchoreo-observability-clickstack \
   svc/openchoreo-observability-clickstack-hyperdx-app 3000:3000
 ```
 
@@ -147,7 +147,67 @@ hyperdx:
         secretName: "hyperdx-tls"
 ```
 
-## Sending Telemetry Data
+## Integration with OpenChoreo Observability Plane
+
+To integrate HyperDX with the existing OpenChoreo Observability Plane (OpenSearch/Fluent Bit), you can configure Fluent Bit to "dual-ship" logs to both OpenSearch and HyperDX.
+
+### 1. Deploy ClickStack
+
+Follow the installation instructions above to deploy the `openchoreo-observability-clickstack` chart.
+
+### 2. Configure Fluent Bit in OpenChoreo Observability Plane
+
+Update your `openchoreo-observability-clickstack` values to include an additional output for HyperDX.
+
+Add the following to your `values.yaml` for `openchoreo-observability-clickstack`:
+
+```yaml
+fluentBit:
+  config:
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd admin
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
+      # Add this section for HyperDX integration
+      [OUTPUT]
+          Name http
+          Match kube.*
+          Host openchoreo-observability-clickstack-hyperdx-otel-collector
+          Port 4318
+          URI /v1/logs
+          Format json
+          Json_Date_Key time
+          Json_Date_Format iso8601
+          Header x-api-key 2c04a8a1-c7a4-445c-9919-ebd01289c6bd
+```
+
+> **Note**: Replace `2c04a8a1-c7a4-445c-9919-ebd01289c6bd` with your actual API key if you changed it.
+
+### 3. Upgrade OpenChoreo Observability Plane
+
+Apply the changes:
+
+```bash
+helm upgrade openchoreo-observability-clickstack \
+  ./install/helm/openchoreo-observability-clickstack \
+  --namespace openchoreo-observability-clickstack \
+  -f your-values.yaml
+```
+
+## Sending Telemetry Data Directly
 
 Configure your applications to send OTLP data to the OTEL Collector:
 
@@ -168,17 +228,17 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 
 ```bash
 # Show tables
-kubectl exec -n openchoreo-observability-plane \
+kubectl exec -n openchoreo-observability-clickstack \
   statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "SHOW TABLES"
 
 # Count logs
-kubectl exec -n openchoreo-observability-plane \
+kubectl exec -n openchoreo-observability-clickstack \
   statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "SELECT count() FROM otel_logs"
 
 # View recent logs from dp-* namespaces
-kubectl exec -n openchoreo-observability-plane \
+kubectl exec -n openchoreo-observability-clickstack \
   statefulset/openchoreo-observability-clickstack-hdx-oss-v2-clickhouse -- \
   clickhouse-client --query "
     SELECT
@@ -197,10 +257,10 @@ kubectl exec -n openchoreo-observability-plane \
 
 ```bash
 # Uninstall the chart
-helm uninstall openchoreo-observability-clickstack -n openchoreo-observability-plane
+helm uninstall openchoreo-observability-clickstack -n openchoreo-observability-clickstack
 
 # Delete PVCs (if you want to remove data)
-kubectl delete pvc -n openchoreo-observability-plane -l app.kubernetes.io/instance=openchoreo-observability-clickstack
+kubectl delete pvc -n openchoreo-observability-clickstack -l app.kubernetes.io/instance=openchoreo-observability-clickstack
 ```
 
 ## Troubleshooting
@@ -208,23 +268,23 @@ kubectl delete pvc -n openchoreo-observability-plane -l app.kubernetes.io/instan
 ### Check Pod Status
 
 ```bash
-kubectl get pods -n openchoreo-observability-plane
+kubectl get pods -n openchoreo-observability-clickstack
 ```
 
 ### View Logs
 
 ```bash
 # HyperDX App
-kubectl logs -n openchoreo-observability-plane -l app=hyperdx-app
+kubectl logs -n openchoreo-observability-clickstack -l app=hyperdx-app
 
 # ClickHouse
-kubectl logs -n openchoreo-observability-plane -l app=clickhouse
+kubectl logs -n openchoreo-observability-clickstack -l app=clickhouse
 
 # OTEL Collector
-kubectl logs -n openchoreo-observability-plane -l app=otel-collector
+kubectl logs -n openchoreo-observability-clickstack -l app=otel-collector
 
 # MongoDB
-kubectl logs -n openchoreo-observability-plane -l app=mongodb
+kubectl logs -n openchoreo-observability-clickstack -l app=mongodb
 ```
 
 ### Common Issues

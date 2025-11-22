@@ -37,7 +37,7 @@ spec:
             - name: LOG_LEVEL
               value: info
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-clickstack.svc.cluster.local:4317
+              value: openchoreo-observability-clickstack-hyperdx-otel-collector.openchoreo-observability-plane.svc.cluster.local:4317
             - name: OTEL_SERVICE_NAME
               value: greeter-service
             - name: SERVICE_VERSION
