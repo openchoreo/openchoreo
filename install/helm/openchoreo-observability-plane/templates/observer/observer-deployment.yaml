@@ -69,7 +69,7 @@ spec:
               name: observer-opensearch
               key: password
         - name: PROMETHEUS_ADDRESS
-          value: "{{ if .Values.observer.prometheus.address }}{{ .Values.observer.prometheus.address }}{{ else }}http://{{ .Release.Name }}-promet-prometheus:9090{{ end }}"
+          value: "http://openchoreo-observability-prometheus:9090"
         - name: PROMETHEUS_TIMEOUT
           value: {{ .Values.observer.prometheus.timeout | default "30s" | quote }}
         livenessProbe:
