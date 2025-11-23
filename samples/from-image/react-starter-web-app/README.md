@@ -59,7 +59,9 @@ If you cannot access the application:
 
 5. **Check pod logs for errors:**
    ```bash
-   kubectl logs -n $(kubectl get pods -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].metadata.namespace}') -l openchoreo.dev/component=react-starter --tail=50
+   POD_UUID=$(kubectl get pods -A -l "$(kubectl get deploy -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].spec.selector.matchLabels}' | jq -r 'to_entries|map("\(.key)=\(.value)")|join(",")')" -o jsonpath='{range .items[*]}{.metadata.labels.openchoreo\.dev/component-uid}{"\n"}{end}' | sort -u | head -n1)
+   POD_NAMESPACE=$(kubectl get deploy -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].metadata.namespace}')
+   kubectl logs -n $POD_NAMESPACE -l openchoreo.dev/component-uid=$POD_UUID --tail=50
    ```
 
 6. **Verify the web application URL:**

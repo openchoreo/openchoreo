@@ -36,8 +36,9 @@ kubectl get cronjob -A -l openchoreo.dev/component=github-issue-reporter
 kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter
 
 # View logs from the latest job pod
-POD_NAMESPACE=$(kubectl get pods -A -l openchoreo.dev/component=github-issue-reporter -o jsonpath='{.items[0].metadata.namespace}')
-POD_NAME=$(kubectl get pods -A -l openchoreo.dev/component=github-issue-reporter -o jsonpath='{.items[0].metadata.name}')
+POD_NAMESPACE=$(kubectl get jobs -A -l openchoreo.dev/component=github-issue-reporter -o jsonpath='{.items[0].metadata.namespace}')
+JOB_NAME=$(kubectl get jobs -n $POD_NAMESPACE -l openchoreo.dev/component=github-issue-reporter --sort-by=.metadata.creationTimestamp --no-headers | tail -1 | awk '{print $1}')
+POD_NAME=$(kubectl get pods -n $POD_NAMESPACE -l job-name=$JOB_NAME -o jsonpath='{.items[0].metadata.name}')
 kubectl logs -n $POD_NAMESPACE $POD_NAME --tail=50
 ```
 
