@@ -7,11 +7,6 @@ spec:
   workloadType: deployment
 
   schema:
-    types:
-      Resources:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
-
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
@@ -19,8 +14,15 @@ spec:
 
     envOverrides:
       resources:
-        requests: Resources
-        limits: Resources
+        $default: {}
+        requests:
+          $default: {}
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          $default: {}
+          cpu: "string | default=1000m"
+          memory: "string | default=1Gi"
 
   resources:
     - id: deployment
@@ -106,13 +108,6 @@ spec:
   parameters:
     replicas: 2
     port: 8080
-    resources:
-      requests:
-        cpu: "200m"
-        memory: "512Mi"
-      limits:
-        cpu: "1000m"
-        memory: "1Gi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
