@@ -42,7 +42,7 @@ https://github.com/wso2/choreo-samples/tree/main/patient-management-service
 The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
 
 > [!NOTE]
@@ -184,5 +184,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```

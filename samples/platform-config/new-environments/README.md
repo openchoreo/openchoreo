@@ -18,8 +18,8 @@ We will create four such environments in the new organization created earlier.
 Use the following command to create new environments.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/platform-config/new-environments/development-environment.yaml
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/platform-config/new-environments/qa-environment.yaml
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/platform-config/new-environments/pre-production-environment.yaml
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/platform-config/new-environments/production-environment.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/platform-config/new-environments/development-environment.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/platform-config/new-environments/qa-environment.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/platform-config/new-environments/pre-production-environment.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.5/samples/platform-config/new-environments/production-environment.yaml
 ```
