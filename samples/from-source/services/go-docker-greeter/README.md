@@ -21,7 +21,7 @@ https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```
 
 > [!NOTE]
@@ -57,5 +57,5 @@ Stop the port forwarding and remove all resources:
 
 ```bash
 # Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```

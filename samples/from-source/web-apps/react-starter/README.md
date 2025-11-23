@@ -12,7 +12,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/webapp-react-nginx
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```
 
 > [!NOTE]
@@ -41,5 +41,5 @@ Stop the port forwarding and remove all resources:
 
 ```bash
 # Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```

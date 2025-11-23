@@ -46,7 +46,7 @@ google-microservices-sample/
 From the repository root, deploy the project and all microservices components:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/gcp-microservices-demo/
 ```
 
 This will create the project and deploy all the microservices using official Google Container Registry images.
@@ -73,5 +73,5 @@ Remove all resources:
 
 ```bash
 # Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/gcp-microservices-demo/
 ```
