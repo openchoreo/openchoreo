@@ -12,7 +12,7 @@ The application is deployed from the pre-built image:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/react-starter-web-app/react-starter.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-image/react-starter-web-app/react-starter.yaml
 ```
 
 > [!NOTE]
@@ -41,5 +41,5 @@ Stop the port forwarding and remove all resources:
 
 ```bash
 # Remove all resources
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/react-starter-web-app/react-starter.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.4/samples/from-image/react-starter-web-app/react-starter.yaml
 ```
