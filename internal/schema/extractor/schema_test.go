@@ -545,20 +545,10 @@ func TestConverter_EnumParsing(t *testing.T) {
 level: string | enum=debug,info,warn | default=info
 status: 'string | enum="active","inactive","pending" | default="active"'
 priority: 'integer | enum=1,2,3 | default=1'
-code: 'integer | enum="1","2","3" | default="1"'
 `
 	const expected = `{
   "type": "object",
   "properties": {
-    "code": {
-      "type": "integer",
-      "default": 1,
-      "enum": [
-        1,
-        2,
-        3
-      ]
-    },
     "level": {
       "type": "string",
       "default": "info",

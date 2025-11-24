@@ -590,61 +590,36 @@ func (c *converter) buildConstraintSetters(schema *apiextensions.JSONSchemaProps
 
 // parseValueForType converts a raw token into a Go value appropriate for the given schema type.
 func parseValueForType(value, schemaType string) (any, error) {
-	// Unquote the value upfront for all types (handles both single and double quotes)
-	// This allows users to write default="1" for integers, default="true" for booleans, etc.
-	// String types have additional unquoting logic below for backward compatibility
-	unquotedValue := unquoteIfNeeded(value)
-
 	switch schemaType {
 	case typeString:
-		// Allow callers to write defaults like default="" (or default='v1') in the shorthand.
-		// The parser stores the raw token, so we need to recognize quoted literals here and
-		// unquote them back into their canonical form; otherwise default="" would render as "".
-		if len(value) >= 2 {
-			if value[0] == '"' && value[len(value)-1] == '"' {
-				// Double-quoted strings: use Go's unquoting (matches YAML double-quote escaping)
-				parsed, err := strconv.Unquote(value)
-				if err == nil {
-					return parsed, nil
-				}
-			} else if value[0] == '\'' && value[len(value)-1] == '\'' {
-				// Single-quoted strings: YAML uses '' to escape a single quote
-				// Strip outer quotes and replace '' with '
-				inner := value[1 : len(value)-1]
-				return strings.ReplaceAll(inner, "''", "'"), nil
-			}
-		}
-		return value, nil
+		return unquoteIfNeeded(value), nil
 	case typeInteger:
-		if unquotedValue == "" {
+		if value == "" {
 			return 0, fmt.Errorf("empty integer value")
 		}
-		intVal, err := strconv.ParseInt(unquotedValue, 10, 64)
+		intVal, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		return intVal, nil
 	case typeNumber:
-		if unquotedValue == "" {
+		if value == "" {
 			return 0.0, fmt.Errorf("empty number value")
 		}
-		floatVal, err := strconv.ParseFloat(unquotedValue, 64)
+		floatVal, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			return nil, err
 		}
 		return floatVal, nil
 	case typeBoolean:
-		boolVal, err := strconv.ParseBool(unquotedValue)
+		boolVal, err := strconv.ParseBool(value)
 		if err != nil {
 			return nil, err
 		}
 		return boolVal, nil
 	case typeArray, typeObject:
 		if strings.TrimSpace(value) == "" {
-			if schemaType == typeArray {
-				return []any{}, nil
-			}
-			return map[string]any{}, nil
+			return nil, fmt.Errorf("empty %s value", schemaType)
 		}
 		var parsed any
 		if err := json.Unmarshal([]byte(value), &parsed); err != nil {
@@ -652,25 +627,7 @@ func parseValueForType(value, schemaType string) (any, error) {
 		}
 		return parsed, nil
 	default:
-		// For custom object-like types, attempt JSON parsing; fall back to string.
-		if strings.TrimSpace(unquotedValue) == "" {
-			return unquotedValue, nil
-		}
-		var parsed any
-		if err := json.Unmarshal([]byte(unquotedValue), &parsed); err == nil {
-			return parsed, nil
-		}
-		// Attempt numeric/bool parsing as a best effort.
-		if boolVal, err := strconv.ParseBool(unquotedValue); err == nil {
-			return boolVal, nil
-		}
-		if intVal, err := strconv.ParseInt(unquotedValue, 10, 64); err == nil {
-			return intVal, nil
-		}
-		if floatVal, err := strconv.ParseFloat(unquotedValue, 64); err == nil {
-			return floatVal, nil
-		}
-		return unquotedValue, nil
+		return nil, fmt.Errorf("unsupported schema type %q", schemaType)
 	}
 }
 
