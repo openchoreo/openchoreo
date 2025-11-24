@@ -41,7 +41,7 @@ spec:
           - name: image-name
             value: ${ctx.projectName}-${ctx.componentName}-image
           - name: image-tag
-            value: v${schema.version}
+            value: v1
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true

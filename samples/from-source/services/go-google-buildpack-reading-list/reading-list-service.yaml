@@ -25,23 +25,7 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-go-reading-list"
-        secretRef: "reading-list-repo-credentials-dev"
-
-      # Simple schema fields
       version: 1
-      testMode: "integration"  # From enum: ["unit", "integration", "none"]
-      command: ["npm", "run", "build"]
-      args: ["--production", "--verbose"]
-      resources:
-        cpuCores: 2
-        memoryGb: 4
-      timeout: "45m"
-      cache:
-        enabled: true
-        paths: ["/root/.npm", "/root/.cache"]
-      limits:
-        maxRetries: 5
-        maxDurationMinutes: 90
 
   parameters:
     exposed: true
@@ -77,18 +61,4 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-go-reading-list"
-        secretRef: "reading-list-repo-credentials-dev"
       version: 1
-      testMode: "integration"
-      command: ["npm", "run", "build"]
-      args: ["--production", "--verbose"]
-      resources:
-        cpuCores: 2
-        memoryGb: 4
-      timeout: "45m"
-      cache:
-        enabled: true
-        paths: ["/root/.npm", "/root/.cache"]
-      limits:
-        maxRetries: 5
-        maxDurationMinutes: 90
