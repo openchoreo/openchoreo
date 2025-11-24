@@ -46,7 +46,7 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
               environment:
                 description: EnvironmentName is the name of the environment this binds
-                  the release to
+                  the ComponentRelease to
                 type: string
               owner:
                 description: Owner identifies the component and project this ReleaseBinding
@@ -66,7 +66,9 @@ spec:
                 - projectName
                 type: object
               releaseName:
-                description: ReleaseName is the name of the release to bind
+                description: |-
+                  ReleaseName is the name of the ComponentRelease to bind
+                  When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
                 type: string
               traitOverrides:
                 additionalProperties:
@@ -197,7 +199,6 @@ spec:
             required:
             - environment
             - owner
-            - releaseName
             type: object
           status:
             description: ReleaseBindingStatus defines the observed state of ReleaseBinding.
