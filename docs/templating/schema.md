@@ -398,7 +398,7 @@ format: 'string | enum="lastname, firstname","firstname lastname"'
 OpenChoreo schemas allow additional properties beyond what's defined (no `"additionalProperties": false`), enabling safe schema evolution:
 
 - **Development**: Add fields to Component before updating ComponentType schema
-- **Promotion**: Add new `envOverrides` in target environment before promoting Release with updated schema
+- **Promotion**: Add new `envOverrides` in target environment before promoting ComponentRelease with updated schema
 - **Rollback**: Rolling back to older Release works - extra fields are simply ignored
 - **Safety**: Unknown fields don't cause failures, enabling gradual evolution
 
