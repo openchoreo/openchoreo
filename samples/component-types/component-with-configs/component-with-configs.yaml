@@ -285,7 +285,6 @@ spec:
   owner:
     componentName: demo-app
     projectName: default
-  releaseName: demo-app
   workloadOverrides:
     containers:
       main:

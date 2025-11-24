@@ -267,7 +267,6 @@ spec:
     componentName: demo-app-with-traits
 
   environment: development
-  releaseName: demo-app-with-traits-dev
 
   componentTypeEnvOverrides:
     resources:

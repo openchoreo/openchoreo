@@ -144,7 +144,6 @@ spec:
     projectName: default
     componentName: demo-app-web-service
 
-  releaseName: demo-web-app-dev
   environment: development
 
   componentTypeEnvOverrides:

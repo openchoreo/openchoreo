@@ -82,7 +82,6 @@ spec:
     componentName: github-issue-reporter
 
   environment: development
-  releaseName: github-issue-reporter-release
 
   componentTypeEnvOverrides:
     schedule: "*/5 * * * *"  # Run every 5 minutes in development

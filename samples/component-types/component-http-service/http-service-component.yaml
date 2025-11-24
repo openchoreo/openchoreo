@@ -154,10 +154,6 @@ spec:
 
   environment: development
 
-  # When autoDeploy=true on Component, this will be automatically updated
-  # by the controller to reference the latest ComponentRelease
-  releaseName: demo-app-http-service-dev
-
   componentTypeEnvOverrides:
     resources:
       requests:
