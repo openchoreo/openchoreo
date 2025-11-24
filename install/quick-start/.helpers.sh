@@ -326,6 +326,15 @@ install_data_plane() {
         "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
+# Configure the dataplane and buildplane with observer reference
+configure_observer_reference() {
+    log_info "Configuring OpenChoreo Data Plane with observer reference..."
+    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observer":{"url":"http://observer.openchoreo-observability-plane:8080","authentication":{"basicAuth":{"username":"dummy","password":"dummy"}}}}}'
+    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+        log_info "Configuring OpenChoreo Build Plane with observer reference..."
+        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observer":{"url":"http://observer.openchoreo-observability-plane:8080","authentication":{"basicAuth":{"username":"dummy","password":"dummy"}}}}}'
+    fi
+}
 
 # Install OpenChoreo Build Plane (optional)
 install_build_plane() {

@@ -137,6 +137,11 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     fi
 fi
 
+# Step 10: Configure the dataplane and buildplane with observer reference
+if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    configure_observer_reference
+fi
+
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  Backstage UI: http://openchoreo.localhost:8080/"
