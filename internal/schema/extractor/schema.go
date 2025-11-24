@@ -33,6 +33,17 @@ const (
 //	userId: "string | oc:indexed=true"
 var allowedUnknownMarkerPrefixes = []string{"oc:"}
 
+// Options configures schema extraction behavior.
+type Options struct {
+	// SetAdditionalPropertiesFalse sets additionalProperties: false on all object schemas.
+	// This prevents any properties not explicitly defined in the schema.
+	SetAdditionalPropertiesFalse bool
+
+	// ValidateDefaults validates that default values satisfy their schema constraints.
+	// This uses Kubernetes' schema validator to ensure defaults are valid.
+	ValidateDefaults bool
+}
+
 // ExtractSchema converts a field map using shorthand schema syntax into OpenAPI v3 JSON Schema.
 //
 // This is the primary API for converting ComponentType/Trait schemas from the
@@ -52,7 +63,7 @@ var allowedUnknownMarkerPrefixes = []string{"oc:"}
 //   - Fields are required by default unless they have a default value
 //   - Unknown markers cause errors unless they have an allowedUnknownMarkerPrefixes prefix (reserved for custom annotations)
 //   - The "required" marker is not allowed (use defaults to make fields optional)
-func ExtractSchema(fields map[string]any, types map[string]any) (*apiextensions.JSONSchemaProps, error) {
+func ExtractSchema(fields map[string]any, types map[string]any, opts Options) (*apiextensions.JSONSchemaProps, error) {
 	if len(fields) == 0 {
 		return &apiextensions.JSONSchemaProps{
 			Type:       typeObject,
@@ -64,6 +75,7 @@ func ExtractSchema(fields map[string]any, types map[string]any) (*apiextensions.
 		types:     types,
 		typeCache: map[string]*apiextensions.JSONSchemaProps{},
 		typeStack: map[string]bool{},
+		opts:      opts,
 	}
 
 	return c.buildObjectSchema(fields)
@@ -74,6 +86,7 @@ type converter struct {
 	types     map[string]any
 	typeCache map[string]*apiextensions.JSONSchemaProps
 	typeStack map[string]bool
+	opts      Options
 }
 
 // buildObjectSchema converts a field map into an object schema with properties and required markers.
@@ -146,6 +159,13 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*apiextensions.JSO
 		result.Required = required
 	}
 
+	// Set additionalProperties: false if configured
+	if c.opts.SetAdditionalPropertiesFalse {
+		result.AdditionalProperties = &apiextensions.JSONSchemaPropsOrBool{
+			Allows: false,
+		}
+	}
+
 	// Apply object-level default if specified
 	if hasObjectDefault {
 		if err := c.applyObjectDefault(result, objectDefault); err != nil {
@@ -188,15 +208,17 @@ func (c *converter) applyObjectDefault(schema *apiextensions.JSONSchemaProps, de
 		return fmt.Errorf("value must be an object or JSON string, got %T", defaultValue)
 	}
 
-	// Use Kubernetes schema validator to validate the default value against the schema
-	validator, _, err := validation.NewSchemaValidator(schema)
-	if err != nil {
-		return fmt.Errorf("failed to create schema validator: %w", err)
-	}
+	// Validate default value against schema if configured
+	if c.opts.ValidateDefaults {
+		validator, _, err := validation.NewSchemaValidator(schema)
+		if err != nil {
+			return fmt.Errorf("failed to create schema validator: %w", err)
+		}
 
-	result := validator.Validate(defaultMap)
-	if !result.IsValid() {
-		return fmt.Errorf("default value does not satisfy schema: %v", result.Errors)
+		result := validator.Validate(defaultMap)
+		if !result.IsValid() {
+			return fmt.Errorf("default value does not satisfy schema: %v", result.Errors)
+		}
 	}
 
 	// Set the validated default value on the schema

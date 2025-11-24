@@ -20,6 +20,7 @@ import (
 type Definition struct {
 	Types   map[string]any
 	Schemas []map[string]any
+	Options extractor.Options
 }
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
@@ -49,7 +50,7 @@ func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
 		}, nil
 	}
 
-	internalSchema, err := extractor.ExtractSchema(merged, def.Types)
+	internalSchema, err := extractor.ExtractSchema(merged, def.Types, def.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}
@@ -95,7 +96,7 @@ func ToStructural(def Definition) (*apiextschema.Structural, error) {
 		return structural, nil
 	}
 
-	internalSchema, err := extractor.ExtractSchema(merged, def.Types)
+	internalSchema, err := extractor.ExtractSchema(merged, def.Types, def.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"gopkg.in/yaml.v3"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func TestConverter_JSONMatchesExpected(t *testing.T) {
@@ -104,7 +104,7 @@ optionalWithDefault: 'boolean | default=false'
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, types)
+	internalSchema, err := ExtractSchema(root, types, Options{ValidateDefaults: true})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -168,11 +168,11 @@ items: 'array<Item>'
 
 	types := parseYAMLMap(t, typesYAML)
 
-	list, err := ExtractSchema(parseYAMLMap(t, listSchema), types)
+	list, err := ExtractSchema(parseYAMLMap(t, listSchema), types, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema for []Item returned error: %v", err)
 	}
-	array, err := ExtractSchema(parseYAMLMap(t, arraySchema), types)
+	array, err := ExtractSchema(parseYAMLMap(t, arraySchema), types, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema for array<Item> returned error: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestConverter_ParenthesizedArraySyntaxRejected(t *testing.T) {
 tags: "[](map<string>)"
 `
 
-	_, err := ExtractSchema(parseYAMLMap(t, schemaYAML), nil)
+	_, err := ExtractSchema(parseYAMLMap(t, schemaYAML), nil, Options{})
 	if err == nil {
 		t.Fatalf("expected error for unsupported syntax [](map<string>)")
 	}
@@ -508,7 +508,7 @@ field: "map[string][]object"
 			}
 			fields := parseYAMLMap(t, tt.schemaYAML)
 
-			_, err := ExtractSchema(fields, types)
+			_, err := ExtractSchema(fields, types, Options{})
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tt.expectError)
 			}
@@ -537,7 +537,7 @@ field: string | default=foo pattern=^[a-z]+$ minLength=3
 
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, nil)
+	internalSchema, err := ExtractSchema(root, nil, Options{ValidateDefaults: true})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -677,7 +677,7 @@ field3: 'string | default=foo'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(fields, nil)
+	internalSchema, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -699,7 +699,7 @@ field: 'string | unknownMarker=foo'
 	fields := parseYAMLMap(t, schemaYAML)
 
 	// Unknown markers (without oc: prefix) should error
-	_, err := ExtractSchema(fields, nil)
+	_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
 	if err == nil {
 		t.Fatal("expected error with unknown marker")
 	}
@@ -716,7 +716,7 @@ field: 'string | oc:custom=foo oc:annotation=bar'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(fields, nil)
+	schema, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
 	if err != nil {
 		t.Fatalf("ExtractSchema with oc: prefixed markers should not error, got: %v", err)
 	}
@@ -828,7 +828,7 @@ func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expected string)
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, types)
+	internalSchema, err := ExtractSchema(root, types, Options{ValidateDefaults: true})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -1237,7 +1237,7 @@ items:
 		t.Run(tt.name, func(t *testing.T) {
 			fields := parseYAMLMap(t, tt.schemaYAML)
 
-			_, err := ExtractSchema(fields, nil)
+			_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tt.expectError)
 			}
