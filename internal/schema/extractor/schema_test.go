@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -109,13 +110,7 @@ optionalWithDefault: 'boolean | default=false'
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	// Convert to v1 for JSON comparison
-	v1Schema := new(extv1.JSONSchemaProps)
-	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
-		t.Fatalf("failed to convert schema to v1: %v", err)
-	}
-
-	assertSchemaJSON(t, v1Schema, expected)
+	assertSchemaWithOptions(t, internalSchema, expected)
 }
 
 func TestConverter_CustomTypeJSONMatchesExpected(t *testing.T) {
@@ -542,13 +537,7 @@ field: string | default=foo pattern=^[a-z]+$ minLength=3
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	// Convert to v1 for JSON comparison
-	v1Schema := new(extv1.JSONSchemaProps)
-	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
-		t.Fatalf("failed to convert schema to v1: %v", err)
-	}
-
-	assertSchemaJSON(t, v1Schema, expected)
+	assertSchemaWithOptions(t, internalSchema, expected)
 }
 
 func TestConverter_EnumParsing(t *testing.T) {
@@ -682,13 +671,7 @@ field3: 'string | default=foo'
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	// Convert to v1 for JSON comparison
-	v1Schema := new(extv1.JSONSchemaProps)
-	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
-		t.Fatalf("failed to convert schema to v1: %v", err)
-	}
-
-	assertSchemaJSON(t, v1Schema, expected)
+	assertSchemaWithOptions(t, internalSchema, expected)
 }
 
 func TestConverter_ErrorOnUnknownMarkers(t *testing.T) {
@@ -806,7 +789,7 @@ pattern: "string | default=\"^[a-z]+\\\\d{3}$\""
 	assertConvertedSchema(t, "", schemaYAML, expected)
 }
 
-func assertSchemaJSON(t *testing.T, schema any, expected string) {
+func assertV1SchemaEqualsJSON(t *testing.T, schema *extv1.JSONSchemaProps, expectedJSON string) {
 	t.Helper()
 
 	actualBytes, err := json.MarshalIndent(schema, "", "  ")
@@ -814,12 +797,23 @@ func assertSchemaJSON(t *testing.T, schema any, expected string) {
 		t.Fatalf("failed to marshal schema: %v", err)
 	}
 
-	if string(actualBytes) != expected {
-		t.Fatalf("schema JSON mismatch\nexpected:\n%s\nactual:\n%s", expected, string(actualBytes))
+	if string(actualBytes) != expectedJSON {
+		t.Fatalf("schema JSON mismatch\nexpected:\n%s\nactual:\n%s", expectedJSON, string(actualBytes))
 	}
 }
 
-func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expected string) {
+func assertSchemaWithOptions(t *testing.T, internalSchema *apiextensions.JSONSchemaProps, expectedJSON string) {
+	t.Helper()
+
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		t.Fatalf("failed to convert schema to v1: %v", err)
+	}
+
+	assertV1SchemaEqualsJSON(t, v1Schema, expectedJSON)
+}
+
+func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expectedJSON string) {
 	t.Helper()
 
 	var types map[string]any
@@ -839,7 +833,7 @@ func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expected string)
 		t.Fatalf("failed to convert schema to v1: %v", err)
 	}
 
-	assertSchemaJSON(t, v1Schema, expected)
+	assertV1SchemaEqualsJSON(t, v1Schema, expectedJSON)
 }
 
 func parseYAMLMap(t *testing.T, doc string) map[string]any {
