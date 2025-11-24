@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -103,12 +104,18 @@ optionalWithDefault: 'boolean | default=false'
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(root, types)
+	internalSchema, err := ExtractSchema(root, types)
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	assertSchemaJSON(t, schema, expected)
+	// Convert to v1 for JSON comparison
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		t.Fatalf("failed to convert schema to v1: %v", err)
+	}
+
+	assertSchemaJSON(t, v1Schema, expected)
 }
 
 func TestConverter_CustomTypeJSONMatchesExpected(t *testing.T) {
@@ -530,12 +537,18 @@ field: string | default=foo pattern=^[a-z]+$ minLength=3
 
 	root := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(root, nil)
+	internalSchema, err := ExtractSchema(root, nil)
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	assertSchemaJSON(t, schema, expected)
+	// Convert to v1 for JSON comparison
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		t.Fatalf("failed to convert schema to v1: %v", err)
+	}
+
+	assertSchemaJSON(t, v1Schema, expected)
 }
 
 func TestConverter_EnumParsing(t *testing.T) {
@@ -664,12 +677,18 @@ field3: 'string | default=foo'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(fields, nil)
+	internalSchema, err := ExtractSchema(fields, nil)
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	assertSchemaJSON(t, schema, expected)
+	// Convert to v1 for JSON comparison
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		t.Fatalf("failed to convert schema to v1: %v", err)
+	}
+
+	assertSchemaJSON(t, v1Schema, expected)
 }
 
 func TestConverter_ErrorOnUnknownMarkers(t *testing.T) {
@@ -809,12 +828,18 @@ func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expected string)
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(root, types)
+	internalSchema, err := ExtractSchema(root, types)
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
 
-	assertSchemaJSON(t, schema, expected)
+	// Convert to v1 for JSON comparison (v1 has JSON tags for proper serialization)
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		t.Fatalf("failed to convert schema to v1: %v", err)
+	}
+
+	assertSchemaJSON(t, v1Schema, expected)
 }
 
 func parseYAMLMap(t *testing.T, doc string) map[string]any {
@@ -1174,7 +1199,7 @@ cache:
   host: string
   port: 'integer | default=6379'
 `,
-			expectError: "missing required field \"host\"",
+			expectError: "is required",
 		},
 		{
 			name: "default with invalid type",
@@ -1195,7 +1220,7 @@ database:
   name: string
   port: 'integer | default=5432'
 `,
-			expectError: "missing required field",
+			expectError: "is required",
 		},
 		{
 			name: "default with non-map value",

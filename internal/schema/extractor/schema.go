@@ -11,7 +11,8 @@ import (
 	"strings"
 	"unicode"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 )
 
 const (
@@ -51,17 +52,17 @@ var allowedUnknownMarkerPrefixes = []string{"oc:"}
 //   - Fields are required by default unless they have a default value
 //   - Unknown markers cause errors unless they have an allowedUnknownMarkerPrefixes prefix (reserved for custom annotations)
 //   - The "required" marker is not allowed (use defaults to make fields optional)
-func ExtractSchema(fields map[string]any, types map[string]any) (*extv1.JSONSchemaProps, error) {
+func ExtractSchema(fields map[string]any, types map[string]any) (*apiextensions.JSONSchemaProps, error) {
 	if len(fields) == 0 {
-		return &extv1.JSONSchemaProps{
+		return &apiextensions.JSONSchemaProps{
 			Type:       typeObject,
-			Properties: map[string]extv1.JSONSchemaProps{},
+			Properties: map[string]apiextensions.JSONSchemaProps{},
 		}, nil
 	}
 
 	c := &converter{
 		types:     types,
-		typeCache: map[string]*extv1.JSONSchemaProps{},
+		typeCache: map[string]*apiextensions.JSONSchemaProps{},
 		typeStack: map[string]bool{},
 	}
 
@@ -71,7 +72,7 @@ func ExtractSchema(fields map[string]any, types map[string]any) (*extv1.JSONSche
 // converter builds JSON schemas from simple schema definitions.
 type converter struct {
 	types     map[string]any
-	typeCache map[string]*extv1.JSONSchemaProps
+	typeCache map[string]*apiextensions.JSONSchemaProps
 	typeStack map[string]bool
 }
 
@@ -92,7 +93,7 @@ type converter struct {
 //   - The default value must be valid JSON and must satisfy the object's schema
 //
 // Fields are processed in sorted order to ensure deterministic JSON Schema output.
-func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaProps, error) {
+func (c *converter) buildObjectSchema(fields map[string]any) (*apiextensions.JSONSchemaProps, error) {
 	// Check for and extract $default key before processing other fields
 	var objectDefault any
 	var hasObjectDefault bool
@@ -110,7 +111,7 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 		fields = fieldsWithoutDefault
 	}
 
-	props := map[string]extv1.JSONSchemaProps{}
+	props := map[string]apiextensions.JSONSchemaProps{}
 	required := []string{}
 
 	keys := make([]string, 0, len(fields))
@@ -137,7 +138,7 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 		}
 	}
 
-	result := &extv1.JSONSchemaProps{
+	result := &apiextensions.JSONSchemaProps{
 		Type:       typeObject,
 		Properties: props,
 	}
@@ -159,9 +160,12 @@ func (c *converter) buildObjectSchema(fields map[string]any) (*extv1.JSONSchemaP
 //
 // Validation rules:
 //  1. The default value must be parseable as a JSON object
-//  2. All required fields must be present in the default value
-//  3. The default value types should match the schema (best-effort validation)
-func (c *converter) applyObjectDefault(schema *extv1.JSONSchemaProps, defaultValue any) error {
+//  2. The default value must satisfy the schema (types, constraints, required fields, etc.)
+//
+// This uses Kubernetes' built-in schema validation to ensure the default value
+// satisfies all schema constraints including types, required fields, enums, patterns,
+// min/max values, and nested structures.
+func (c *converter) applyObjectDefault(schema *apiextensions.JSONSchemaProps, defaultValue any) error {
 	var defaultMap map[string]any
 
 	// Handle the default value based on its type
@@ -184,25 +188,26 @@ func (c *converter) applyObjectDefault(schema *extv1.JSONSchemaProps, defaultVal
 		return fmt.Errorf("value must be an object or JSON string, got %T", defaultValue)
 	}
 
-	// Validate that all required fields are present in the default
-	for _, requiredField := range schema.Required {
-		if _, ok := defaultMap[requiredField]; !ok {
-			return fmt.Errorf("missing required field %q in default value", requiredField)
-		}
+	// Use Kubernetes schema validator to validate the default value against the schema
+	validator, _, err := validation.NewSchemaValidator(schema)
+	if err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
 	}
 
-	// Marshal the validated default value and set it on the schema
-	raw, err := json.Marshal(defaultMap)
-	if err != nil {
-		return fmt.Errorf("failed to marshal default value: %w", err)
+	result := validator.Validate(defaultMap)
+	if !result.IsValid() {
+		return fmt.Errorf("default value does not satisfy schema: %v", result.Errors)
 	}
-	schema.Default = &extv1.JSON{Raw: raw}
+
+	// Set the validated default value on the schema
+	var defaultJSON apiextensions.JSON = defaultMap
+	schema.Default = &defaultJSON
 
 	return nil
 }
 
 // buildFieldSchema determines the schema for a field value that may itself be an object or shorthand string.
-func (c *converter) buildFieldSchema(raw any) (*extv1.JSONSchemaProps, error) {
+func (c *converter) buildFieldSchema(raw any) (*apiextensions.JSONSchemaProps, error) {
 	switch typed := raw.(type) {
 	case string:
 		return c.schemaFromString(typed)
@@ -233,7 +238,7 @@ func (c *converter) buildFieldSchema(raw any) (*extv1.JSONSchemaProps, error) {
 // Note: The "required" marker is not allowed. Fields are required unless they have a default.
 //
 // Example: "integer | minimum=1 | maximum=65535 | default=8080"
-func (c *converter) schemaFromString(expr string) (*extv1.JSONSchemaProps, error) {
+func (c *converter) schemaFromString(expr string) (*apiextensions.JSONSchemaProps, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, fmt.Errorf("empty schema expression")
@@ -258,16 +263,16 @@ func (c *converter) schemaFromString(expr string) (*extv1.JSONSchemaProps, error
 }
 
 // schemaFromType resolves a type expression into a JSON schema, handling arrays, maps, and custom types.
-func (c *converter) schemaFromType(typeExpr string) (*extv1.JSONSchemaProps, error) {
+func (c *converter) schemaFromType(typeExpr string) (*apiextensions.JSONSchemaProps, error) {
 	switch {
 	case typeExpr == typeString:
-		return &extv1.JSONSchemaProps{Type: typeString}, nil
+		return &apiextensions.JSONSchemaProps{Type: typeString}, nil
 	case typeExpr == typeInteger:
-		return &extv1.JSONSchemaProps{Type: typeInteger}, nil
+		return &apiextensions.JSONSchemaProps{Type: typeInteger}, nil
 	case typeExpr == typeNumber:
-		return &extv1.JSONSchemaProps{Type: typeNumber}, nil
+		return &apiextensions.JSONSchemaProps{Type: typeNumber}, nil
 	case typeExpr == typeBoolean:
-		return &extv1.JSONSchemaProps{Type: typeBoolean}, nil
+		return &apiextensions.JSONSchemaProps{Type: typeBoolean}, nil
 	case typeExpr == typeObject:
 		return nil, fmt.Errorf("'object' type is not allowed; use a map type (e.g., 'map<string>') for free-form objects or define a structured type with explicit properties")
 	case strings.HasPrefix(typeExpr, "[]"):
@@ -276,9 +281,9 @@ func (c *converter) schemaFromType(typeExpr string) (*extv1.JSONSchemaProps, err
 		if err != nil {
 			return nil, err
 		}
-		return &extv1.JSONSchemaProps{
+		return &apiextensions.JSONSchemaProps{
 			Type: typeArray,
-			Items: &extv1.JSONSchemaPropsOrArray{
+			Items: &apiextensions.JSONSchemaPropsOrArray{
 				Schema: items,
 			},
 		}, nil
@@ -288,9 +293,9 @@ func (c *converter) schemaFromType(typeExpr string) (*extv1.JSONSchemaProps, err
 		if err != nil {
 			return nil, err
 		}
-		return &extv1.JSONSchemaProps{
+		return &apiextensions.JSONSchemaProps{
 			Type: typeArray,
-			Items: &extv1.JSONSchemaPropsOrArray{
+			Items: &apiextensions.JSONSchemaPropsOrArray{
 				Schema: items,
 			},
 		}, nil
@@ -314,15 +319,15 @@ func (c *converter) schemaFromType(typeExpr string) (*extv1.JSONSchemaProps, err
 }
 
 // mapSchemaFromType builds the schema for map values using the provided value type expression.
-func (c *converter) mapSchemaFromType(valueTypeExpr string) (*extv1.JSONSchemaProps, error) {
+func (c *converter) mapSchemaFromType(valueTypeExpr string) (*apiextensions.JSONSchemaProps, error) {
 	valueSchema, err := c.schemaFromType(valueTypeExpr)
 	if err != nil {
 		return nil, err
 	}
 
-	return &extv1.JSONSchemaProps{
+	return &apiextensions.JSONSchemaProps{
 		Type: typeObject,
-		AdditionalProperties: &extv1.JSONSchemaPropsOrBool{
+		AdditionalProperties: &apiextensions.JSONSchemaPropsOrBool{
 			Allows: true,
 			Schema: valueSchema,
 		},
@@ -330,7 +335,7 @@ func (c *converter) mapSchemaFromType(valueTypeExpr string) (*extv1.JSONSchemaPr
 }
 
 // schemaFromCustomType resolves user supplied type definitions while guarding against cycles and caching results.
-func (c *converter) schemaFromCustomType(typeName string) (*extv1.JSONSchemaProps, error) {
+func (c *converter) schemaFromCustomType(typeName string) (*apiextensions.JSONSchemaProps, error) {
 	if cached, ok := c.typeCache[typeName]; ok {
 		return cached.DeepCopy(), nil
 	}
@@ -350,7 +355,7 @@ func (c *converter) schemaFromCustomType(typeName string) (*extv1.JSONSchemaProp
 	defer delete(c.typeStack, typeName)
 
 	var (
-		built *extv1.JSONSchemaProps
+		built *apiextensions.JSONSchemaProps
 		err   error
 	)
 
@@ -373,7 +378,7 @@ func (c *converter) schemaFromCustomType(typeName string) (*extv1.JSONSchemaProp
 // applyConstraints parses constraint tokens and updates the schema in place.
 // The "required" marker is not allowed - use defaults to make fields optional.
 // Unknown markers cause errors unless they have an "oc_" prefix (reserved for annotations).
-func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintExpr, schemaType string) error {
+func (c *converter) applyConstraints(schema *apiextensions.JSONSchemaProps, constraintExpr, schemaType string) error {
 	if strings.TrimSpace(constraintExpr) == "" {
 		return nil
 	}
@@ -419,33 +424,26 @@ func (c *converter) applyConstraints(schema *extv1.JSONSchemaProps, constraintEx
 }
 
 // buildConstraintHandlers creates the map of constraint handlers for schema validation.
-func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schemaType string) map[string]func(string) error {
+func (c *converter) buildConstraintHandlers(schema *apiextensions.JSONSchemaProps, schemaType string) map[string]func(string) error {
 	return map[string]func(string) error{
 		"default": func(value string) error {
 			parsed, err := parseValueForType(value, schemaType)
 			if err != nil {
 				return fmt.Errorf("invalid default %q: %w", value, err)
 			}
-			raw, err := json.Marshal(parsed)
-			if err != nil {
-				return fmt.Errorf("failed to marshal default %#v: %w", parsed, err)
-			}
-			schema.Default = &extv1.JSON{Raw: raw}
+			var defaultJSON apiextensions.JSON = parsed
+			schema.Default = &defaultJSON
 			return nil
 		},
 		"enum": func(value string) error {
 			values := splitRespectingQuotes(value, ",")
-			enums := make([]extv1.JSON, 0, len(values))
+			enums := make([]apiextensions.JSON, 0, len(values))
 			for _, v := range values {
 				parsed, err := parseValueForType(v, schemaType)
 				if err != nil {
 					return fmt.Errorf("invalid enum value %q: %w", v, err)
 				}
-				raw, err := json.Marshal(parsed)
-				if err != nil {
-					return fmt.Errorf("failed to marshal enum value %#v: %w", parsed, err)
-				}
-				enums = append(enums, extv1.JSON{Raw: raw})
+				enums = append(enums, parsed)
 			}
 			schema.Enum = enums
 			return nil
@@ -551,18 +549,15 @@ func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schem
 			if err != nil {
 				return fmt.Errorf("invalid example %q: %w", value, err)
 			}
-			raw, err := json.Marshal(parsed)
-			if err != nil {
-				return fmt.Errorf("failed to marshal example %#v: %w", parsed, err)
-			}
-			schema.Example = &extv1.JSON{Raw: raw}
+			var exampleJSON apiextensions.JSON = parsed
+			schema.Example = &exampleJSON
 			return nil
 		},
 	}
 }
 
 // buildConstraintSetters creates the map of simple constraint setters.
-func (c *converter) buildConstraintSetters(schema *extv1.JSONSchemaProps) map[string]func(string) {
+func (c *converter) buildConstraintSetters(schema *apiextensions.JSONSchemaProps) map[string]func(string) {
 	return map[string]func(string){
 		"pattern":     func(value string) { schema.Pattern = unquoteIfNeeded(value) },
 		"title":       func(value string) { schema.Title = unquoteIfNeeded(value) },

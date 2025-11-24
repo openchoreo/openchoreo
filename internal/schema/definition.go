@@ -29,8 +29,9 @@ type Definition struct {
 //
 // Process:
 //  1. Merge all schema maps (parameters, envOverrides, trait config) into one
-//  2. Convert from shorthand syntax to full JSON Schema via extractor
-//  3. Sort required fields for deterministic output
+//  2. Convert from shorthand syntax to full JSON Schema via extractor (internal type)
+//  3. Convert from internal to v1 type (for API compatibility and JSON serialization)
+//  4. Sort required fields for deterministic output
 //
 // Example input (shorthand):
 //
@@ -48,13 +49,19 @@ func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
 		}, nil
 	}
 
-	jsonSchema, err := extractor.ExtractSchema(merged, def.Types)
+	internalSchema, err := extractor.ExtractSchema(merged, def.Types)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}
 
-	sortRequiredFields(jsonSchema)
-	return jsonSchema, nil
+	// Convert from internal to v1 type for API responses (v1 has JSON tags for proper serialization)
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		return nil, fmt.Errorf("failed to convert schema to v1: %w", err)
+	}
+
+	sortRequiredFields(v1Schema)
+	return v1Schema, nil
 }
 
 // ToStructural converts the definition into a Kubernetes structural schema.
@@ -65,9 +72,8 @@ func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
 //  3. Pruning unknown fields during admission
 //
 // The conversion process:
-//  1. Convert to standard JSON Schema (OpenAPI v3)
-//  2. Convert from v1 to internal API version
-//  3. Validate and convert to structural format (enforces additional constraints)
+//  1. Extract schema using shorthand syntax (returns internal type)
+//  2. Validate and convert to structural format (enforces additional constraints)
 //
 // Structural schema constraints include:
 //   - All objects must have explicit type: "object"
@@ -76,17 +82,25 @@ func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
 //
 // This is primarily used with ApplyDefaults to populate default values.
 func ToStructural(def Definition) (*apiextschema.Structural, error) {
-	jsonSchemaV1, err := ToJSONSchema(def)
+	merged := mergeFieldMaps(def.Schemas)
+	if len(merged) == 0 {
+		emptySchema := &apiext.JSONSchemaProps{
+			Type:       "object",
+			Properties: map[string]apiext.JSONSchemaProps{},
+		}
+		structural, err := apiextschema.NewStructural(emptySchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build structural schema: %w", err)
+		}
+		return structural, nil
+	}
+
+	internalSchema, err := extractor.ExtractSchema(merged, def.Types)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}
 
-	internal := new(apiext.JSONSchemaProps)
-	if err := extv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(jsonSchemaV1, internal, nil); err != nil {
-		return nil, fmt.Errorf("failed to convert schema: %w", err)
-	}
-
-	structural, err := apiextschema.NewStructural(internal)
+	structural, err := apiextschema.NewStructural(internalSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build structural schema: %w", err)
 	}
