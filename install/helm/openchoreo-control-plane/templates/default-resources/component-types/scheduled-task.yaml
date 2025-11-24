@@ -30,7 +30,7 @@ spec:
       containerName: "string | default=main"
 
     envOverrides:
-      schedule: "string | default=0 0 31 2 *" # will never execute
+      schedule: 'string | default="0 0 31 2 *"' # will never execute
       resources: "ResourceRequirements | default={}"
 
   resources:

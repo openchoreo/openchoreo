@@ -141,15 +141,15 @@ spec:
         containerName: "string"
         mountPath: "string"
         readOnly: "boolean | default=false"
-        subPath: "string | default="
+        subPath: 'string | default=""'
 
     parameters:
       volumeName: "string"
       mounts: "[]MountConfig | minItems=1"
 
     envOverrides:
-      sizeLimit: string | default=""
-      medium: string | default="" # "" for disk, "Memory" for tmpfs
+      sizeLimit: 'string | default=""'
+      medium: 'string | default=""' # "" for disk, "Memory" for tmpfs
 
   # Patch the Deployment to add emptyDir volume
   patches:
