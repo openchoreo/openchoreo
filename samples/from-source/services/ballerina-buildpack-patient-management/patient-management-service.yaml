@@ -26,7 +26,6 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-ballerina-patient-management"
-        secretRef: "patient-repo-credentials-dev"
 
   parameters:
     exposed: true
@@ -62,4 +61,3 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-ballerina-patient-management"
-        secretRef: "patient-repo-credentials-dev"

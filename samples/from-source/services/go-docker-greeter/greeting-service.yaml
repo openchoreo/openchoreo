@@ -25,7 +25,6 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-go-greeter"
-        secretRef: "greeting-repo-credentials-dev"
 
       # Docker-specific parameters
       docker:
@@ -65,7 +64,6 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/service-go-greeter"
-        secretRef: "greeting-repo-credentials-dev"
       # Docker-specific parameters
       docker:
         context: "/service-go-greeter"
