@@ -358,7 +358,9 @@ func (c *converter) buildConstraintHandlers(schema *extv1.JSONSchemaProps, schem
 			return nil
 		},
 		"enum": func(value string) error {
-			values := splitRespectingQuotes(value, ",")
+			// Unquote the entire value first if it's wrapped in quotes
+			unquotedValue := unquoteIfNeeded(value)
+			values := splitRespectingQuotes(unquotedValue, ",")
 			enums := make([]extv1.JSON, 0, len(values))
 			for _, v := range values {
 				parsed, err := parseValueForType(v, schemaType)

@@ -544,6 +544,7 @@ level: string | enum=debug,info,warn | default=info
 status: 'string | enum="active","inactive","pending" | default="active"'
 priority: 'integer | enum=1,2,3 | default=1'
 code: 'integer | enum="1","2","3" | default="1"'
+nodeVersion: 'string | default="18" enum="16,18,20,22"'
 `
 	const expected = `{
   "type": "object",
@@ -564,6 +565,16 @@ code: 'integer | enum="1","2","3" | default="1"'
         "debug",
         "info",
         "warn"
+      ]
+    },
+    "nodeVersion": {
+      "type": "string",
+      "default": "18",
+      "enum": [
+        "16",
+        "18",
+        "20",
+        "22"
       ]
     },
     "priority": {
@@ -745,9 +756,9 @@ description: 'string | default=''User''''s preferred timezone'''
 }
 
 func TestConverter_SingleQuotedEnumWithSpecialChars(t *testing.T) {
-	// Enum values with quotes in configuration contexts
+	// Enum values in single-quoted YAML strings (unquoted list)
 	const schemaYAML = `
-logLevel: 'string | enum=''info'',''warn'',''error'',''debug'' | default=''info'''
+logLevel: 'string | enum=info,warn,error,debug | default=info'
 `
 	const expected = `{
   "type": "object",
