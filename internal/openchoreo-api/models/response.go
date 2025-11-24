@@ -309,3 +309,37 @@ type ReleaseResponse struct {
 	Spec   openchoreov1alpha1.ReleaseSpec   `json:"spec"`
 	Status openchoreov1alpha1.ReleaseStatus `json:"status"`
 }
+
+// SecretReferenceResponse represents a SecretReference in API responses
+type SecretReferenceResponse struct {
+	Name            string                 `json:"name"`
+	Namespace       string                 `json:"namespace"`
+	DisplayName     string                 `json:"displayName,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	SecretStores    []SecretStoreReference `json:"secretStores,omitempty"`
+	RefreshInterval string                 `json:"refreshInterval,omitempty"`
+	Data            []SecretDataSourceInfo `json:"data,omitempty"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	LastRefreshTime *time.Time             `json:"lastRefreshTime,omitempty"`
+	Status          string                 `json:"status,omitempty"`
+}
+
+// SecretStoreReference represents where a SecretReference is being used
+type SecretStoreReference struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// SecretDataSourceInfo represents secret data source information for API responses
+type SecretDataSourceInfo struct {
+	SecretKey string              `json:"secretKey"`
+	RemoteRef RemoteReferenceInfo `json:"remoteRef"`
+}
+
+// RemoteReferenceInfo represents remote reference information for API responses
+type RemoteReferenceInfo struct {
+	Key      string `json:"key"`
+	Property string `json:"property,omitempty"`
+	Version  string `json:"version,omitempty"`
+}

@@ -77,6 +77,7 @@ func (h *Handler) Routes() http.Handler {
 	// Organization operations
 	api.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/secret-references", h.ListSecretReferences)
 
 	// Apply/Delete operations (kubectl-like)
 	api.HandleFunc("POST "+v1+"/apply", h.ApplyResource)

@@ -24,6 +24,7 @@ type Services struct {
 	BuildPlaneService         *BuildPlaneService
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
+	SecretReferenceService    *SecretReferenceService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
@@ -65,6 +66,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
+	// Create SecretReference service
+	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
@@ -78,6 +82,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		BuildPlaneService:         buildPlaneService,
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
+		SecretReferenceService:    secretReferenceService,
 		k8sClient:                 k8sClient,
 	}
 }
