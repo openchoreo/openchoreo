@@ -25,7 +25,6 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/webapp-react-nginx"
-        secretRef: "react-repo-credentials-dev"
       nodeVersion: "20"
 
   parameters:
@@ -61,5 +60,4 @@ spec:
           branch: "main"
           commit: ""
         appPath: "/webapp-react-nginx"
-        secretRef: "react-repo-credentials-dev"
       nodeVersion: "20"
