@@ -33,7 +33,15 @@ dependencies:
   - name: gateway-helm
     repository: "oci://docker.io/envoyproxy"
     version: v1.5.4
-    condition: gateway.enabled
+    condition: gateway.envoy.enabled
+  - name: kgateway-crds
+    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
+    version: v2.1.1
+    condition: gateway.kgateway.enabled
+  - name: kgateway
+    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
+    version: v2.1.1
+    condition: gateway.kgateway.enabled
   - name: cert-manager
     repository: oci://quay.io/jetstack/charts
     condition: cert-manager.enabled

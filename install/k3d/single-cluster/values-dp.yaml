@@ -8,8 +8,14 @@ cert-manager:
 # Gateway configuration for single-cluster setup
 # The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS)
 gateway:
-  config:
-    envoyGateway:
-      gateway:
-        httpPort: 9080
-        httpsPort: 9443
+  # Use custom ports for k3d
+  httpPort: 9080
+  httpsPort: 9443
+
+  # KGateway is the default
+  kgateway:
+    enabled: true
+
+  # Envoy Gateway - disabled by default
+  envoy:
+    enabled: false

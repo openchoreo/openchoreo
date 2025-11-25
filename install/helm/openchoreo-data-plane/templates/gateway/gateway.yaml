@@ -1,4 +1,4 @@
-{{- if .Values.gateway.enabled }}
+{{- if or (index .Values "gateway" "envoy" "enabled") (index .Values "gateway" "kgateway" "enabled") }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -7,23 +7,29 @@ metadata:
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:
+  {{- if index .Values "gateway" "kgateway" "enabled" }}
+  gatewayClassName: kgateway
+  {{- else }}
   gatewayClassName: openchoreo
+  {{- end }}
+  {{- if index .Values "gateway" "envoy" "enabled" }}
   infrastructure:
     parametersRef:
       group: gateway.envoyproxy.io
       kind: EnvoyProxy
       name: gateway-external
+  {{- end }}
   listeners:
     - name: http
       protocol: HTTP
-      port: {{ .Values.gateway.config.envoyGateway.gateway.httpPort | default 80 }}
+      port: {{ .Values.gateway.httpPort | default 80 }}
       allowedRoutes:
         namespaces:
           from: All
 {{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
     - name: https
       protocol: HTTPS
-      port: {{ .Values.gateway.config.envoyGateway.gateway.httpsPort | default 443 }}
+      port: {{ .Values.gateway.httpsPort | default 443 }}
       allowedRoutes:
         namespaces:
           from: All
@@ -35,6 +41,7 @@ spec:
             namespace: {{ .Release.Namespace }}
 {{- end }}
 
+{{- if index .Values "gateway" "envoy" "enabled" }}
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
@@ -51,4 +58,5 @@ spec:
         name: gateway-external
       envoyService:
         name: gateway-external
+{{- end }}
 {{- end }}
