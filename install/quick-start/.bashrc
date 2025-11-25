@@ -1,5 +1,10 @@
 # OpenChoreo Quick-Start Shell Configuration
 
+# Source environment variables passed from Docker (DEV_MODE, OPENCHOREO_VERSION, DEBUG)
+if [ -f "$HOME/.env_from_docker" ]; then
+    source "$HOME/.env_from_docker"
+fi
+
 # Custom prompt with colors
 export PS1="\[\033[01;32m\]openchoreo\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "
 

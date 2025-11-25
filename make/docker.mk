@@ -159,7 +159,7 @@ QUICK_START_DEV_IMAGES := controller openchoreo-api observer
 QUICK_START_CONTAINER_NAME := openchoreo-quick-start-dev
 
 .PHONY: quick-start.dev
-quick-start.dev: TAG=dev
+quick-start.dev: TAG=latest-dev
 quick-start.dev: $(addprefix docker.build., $(QUICK_START_DEV_IMAGES)) docker.build.quick-start ## Build and run quick-start with HEAD images and helm charts
 	@$(call log_info, Stopping any existing quick-start container)
 	@$(DOCKER) rm -f $(QUICK_START_CONTAINER_NAME) 2>/dev/null || true
