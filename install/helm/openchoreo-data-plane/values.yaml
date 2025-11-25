@@ -34,6 +34,15 @@ gateway:
   httpPort: 80
   httpsPort: 443
 
+  # TLS configuration for HTTPS listeners
+  tls:
+    # -- Cert-manager ClusterIssuer to use for certificate generation
+    # Defaults to openchoreo-selfsigned-issuer if not specified
+    clusterIssuer: ""
+    # -- Hostname for the HTTPS listener
+    # Defaults to *.openchoreoapis.localhost if not specified
+    hostname: ""
+
   # Envoy Gateway - kept for backwards compatibility during migration
   # Will be removed once all users migrate to KGateway
   envoy:
