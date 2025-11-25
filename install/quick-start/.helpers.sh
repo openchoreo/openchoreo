@@ -347,6 +347,7 @@ install_build_plane() {
 install_observability_plane() {
     log_info "Installing OpenChoreo Observability Plane..."
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "1800" \
+        "--values" "$HOME/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
 }
 
@@ -574,6 +575,7 @@ preload_images() {
     if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
         preload_args+=(
             "--observability-plane"
+            "--op-values" "${SCRIPT_DIR}/.values-op.yaml"
         )
     fi
 

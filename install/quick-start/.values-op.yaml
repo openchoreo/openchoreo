@@ -1,0 +1,37 @@
+# Helm values for OpenChoreo Observability Plane in quick-start container. This file overrides the default
+# values of the openchoreo-observability-plane Helm chart to suit the quick-start k3d environment.
+
+# Global values shared across all components
+global:
+  # Common labels to add to all resources
+  commonLabels: {}
+
+  # Installation mode for the OpenChoreo Observability Plane
+  # standard: Operator managed OpenSearch cluster will be deployed
+  # minimal: Single replica OpenSearch instance will be deployed
+  installationMode: minimal
+
+
+data-prepper:
+  enabled: false
+
+
+openSearch:
+  enabled: true
+
+
+# OpenSearch cluster configuration
+openSearchCluster:
+  enabled: false
+
+
+# OpenChoreo Observer Service Configuration
+observer:
+  resources:
+    limits:
+      cpu: 50m
+      memory: 40Mi
+    requests:
+      cpu: 20m
+      memory: 20Mi
+
