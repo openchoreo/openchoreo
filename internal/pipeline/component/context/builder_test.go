@@ -56,13 +56,8 @@ spec:
 					"replicas": float64(3), // JSON numbers are float64
 					"image":    "myapp:v1",
 				},
-				"component": map[string]any{
-					"name":      "test-component",
-					"namespace": "default",
-				},
-				"environment": map[string]any{
-					"name":  "dev",
-					"vhost": "api.example.com",
+				"dataplane": map[string]any{
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":            "test-component-dev-12345678",
@@ -76,6 +71,10 @@ spec:
 					"environmentName": "dev",
 					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
 				},
+				"workload": map[string]any{
+					"containers": map[string]any{},
+				},
+				"configurations": map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -118,12 +117,8 @@ spec:
 					"replicas": float64(5), // Override applied
 					"cpu":      "100m",     // Base value preserved
 				},
-				"component": map[string]any{
-					"name": "test-component",
-				},
-				"environment": map[string]any{
-					"name":  "prod",
-					"vhost": "api.example.com",
+				"dataplane": map[string]any{
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":            "test-component-dev-12345678",
@@ -137,6 +132,10 @@ spec:
 					"environmentName": "prod",
 					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
 				},
+				"workload": map[string]any{
+					"containers": map[string]any{},
+				},
+				"configurations": map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -173,11 +172,7 @@ spec:
 			environment: "dev",
 			want: map[string]any{
 				"parameters": map[string]any{},
-				"component": map[string]any{
-					"name": "test-component",
-				},
 				"workload": map[string]any{
-					"name": "test-workload",
 					"containers": map[string]any{
 						"app": map[string]any{
 							"image": "myapp:latest",
@@ -196,9 +191,8 @@ spec:
 						},
 					},
 				},
-				"environment": map[string]any{
-					"name":  "dev",
-					"vhost": "api.example.com",
+				"dataplane": map[string]any{
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":            "test-component-dev-12345678",
@@ -234,9 +228,12 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
 			input := &ComponentContextInput{
-				Environment: EnvironmentContext{
-					Name:        tt.environment,
-					VirtualHost: "api.example.com",
+				DataPlane: &v1alpha1.DataPlane{
+					Spec: v1alpha1.DataPlaneSpec{
+						Gateway: v1alpha1.GatewaySpec{
+							PublicVirtualHost: "api.example.com",
+						},
+					},
 				},
 				Metadata: MetadataContext{
 					Name:            "test-component-dev-12345678",
@@ -299,7 +296,7 @@ spec:
 			}
 
 			// Compare the entire result using cmp.Diff
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got.ToMap()); diff != "" {
 				t.Errorf("BuildComponentContext() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -358,13 +355,6 @@ parameters:
 					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
-				"component": map[string]any{
-					"name": "test-component",
-				},
-				"environment": map[string]any{
-					"name":  "dev",
-					"vhost": "api.example.com",
-				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -420,13 +410,6 @@ spec:
 					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
-				"component": map[string]any{
-					"name": "test-component",
-				},
-				"environment": map[string]any{
-					"name":  "prod",
-					"vhost": "api.example.com",
-				},
 				"metadata": map[string]any{
 					"name":      "test-component-dev-12345678",
 					"namespace": "test-namespace",
@@ -453,10 +436,6 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
 			input := &TraitContextInput{
-				Environment: EnvironmentContext{
-					Name:        tt.environment,
-					VirtualHost: "api.example.com",
-				},
 				Metadata: MetadataContext{
 					Name:      "test-component-dev-12345678",
 					Namespace: "test-namespace",

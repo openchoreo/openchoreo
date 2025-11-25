@@ -62,18 +62,11 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
-	// Build environment context
-	environment := context.EnvironmentContext{
-		Name:        input.Environment.Name,
-		VirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
-	}
-
 	// 2. Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
 		Component:           input.Component,
 		ComponentType:       input.ComponentType,
 		Workload:            input.Workload,
-		Environment:         environment,
 		ComponentDeployment: input.ComponentDeployment,
 		ReleaseBinding:      input.ReleaseBinding,
 		DataPlane:           input.DataPlane,
@@ -88,7 +81,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	resourceRenderer := renderer.NewRenderer(p.templateEngine)
 	resources, err := resourceRenderer.RenderResources(
 		input.ComponentType.Spec.Resources,
-		componentContext,
+		componentContext.ToMap(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render base resources: %w", err)
@@ -115,12 +108,11 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			return nil, fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
 		}
 
-		// Build trait context (BuildtraitContext will handle schema caching)
+		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
 			Trait:               trait,
 			Instance:            traitInstance,
 			Component:           input.Component,
-			Environment:         environment,
 			ComponentDeployment: input.ComponentDeployment,
 			ReleaseBinding:      input.ReleaseBinding,
 			Metadata:            input.Metadata,

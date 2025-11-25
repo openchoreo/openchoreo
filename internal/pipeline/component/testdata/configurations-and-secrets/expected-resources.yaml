@@ -43,7 +43,7 @@
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: test-app
+    name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev

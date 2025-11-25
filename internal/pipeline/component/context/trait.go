@@ -111,23 +111,7 @@ func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
 	}
 	ctx["trait"] = traitMeta
 
-	// 6. Add component reference
-	componentMeta := map[string]any{
-		"name": input.Component.Name,
-	}
-	if input.Component.Namespace != "" {
-		componentMeta["namespace"] = input.Component.Namespace
-	}
-	ctx["component"] = componentMeta
-
-	// 7. Add environment
-	environment := map[string]any{
-		"name":  input.Environment.Name,
-		"vhost": input.Environment.VirtualHost,
-	}
-	ctx["environment"] = environment
-
-	// 8. Add structured metadata for resource generation
+	// 6. Add structured metadata for resource generation
 	// This is what templates and patches use via ${metadata.name}, ${metadata.namespace}, etc.
 	metadataMap := map[string]any{
 		"name":      input.Metadata.Name,

@@ -29,7 +29,7 @@ import (
 //  1. ComponentDeployment.Spec.Overrides (environment-specific)
 //  2. Component.Spec.Parameters (component defaults)
 //  3. Schema defaults from ComponentType
-func BuildComponentContext(input *ComponentContextInput) (map[string]any, error) {
+func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, error) {
 	if input == nil {
 		return nil, fmt.Errorf("component context input is nil")
 	}
@@ -37,7 +37,10 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("component is nil")
 	}
 	if input.ComponentType == nil {
-		return nil, fmt.Errorf("component type  is nil")
+		return nil, fmt.Errorf("component type is nil")
+	}
+	if input.DataPlane == nil {
+		return nil, fmt.Errorf("dataplane is nil")
 	}
 
 	if input.Metadata.Name == "" {
@@ -47,7 +50,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("metadata.namespace is required")
 	}
 
-	ctx := make(map[string]any)
+	ctx := &ComponentContext{}
 
 	schemaInput := &SchemaInput{
 		Types:              input.ComponentType.Spec.Schema.Types,
@@ -72,79 +75,36 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		parameters = deepMerge(parameters, envOverrides)
 	}
 
-	parameters = schema.ApplyDefaults(parameters, structural)
-	ctx["parameters"] = parameters
+	ctx.Parameters = schema.ApplyDefaults(parameters, structural)
 
 	workload := input.Workload
 	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
 		workload = mergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
 	}
 
-	if workload != nil {
-		workloadData, err := extractWorkloadData(workload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract workload data: %w", err)
-		}
-		ctx["workload"] = workloadData
-	}
+	ctx.Workload = extractWorkloadData(workload)
+	ctx.Configurations = extractConfigurationsFromWorkload(input.SecretReferences, workload)
 
-	if workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.SecretReferences, workload)
-		if len(configurations) > 0 {
-			ctx["configurations"] = configurations
-		}
-	}
+	ctx.Metadata = input.Metadata
 
-	componentMeta := map[string]any{
-		"name": input.Component.Name,
+	ctx.DataPlane = DataPlaneData{
+		PublicVirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
 	}
-	if input.Component.Namespace != "" {
-		componentMeta["namespace"] = input.Component.Namespace
-	}
-	ctx["component"] = componentMeta
-
-	environment := map[string]any{
-		"name":  input.Environment.Name,
-		"vhost": input.Environment.VirtualHost,
-	}
-	ctx["environment"] = environment
-
-	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.
-	metadataMap := map[string]any{
-		"name":            input.Metadata.Name,
-		"namespace":       input.Metadata.Namespace,
-		"componentName":   input.Metadata.ComponentName,
-		"componentUID":    input.Metadata.ComponentUID,
-		"projectName":     input.Metadata.ProjectName,
-		"projectUID":      input.Metadata.ProjectUID,
-		"dataPlaneName":   input.Metadata.DataPlaneName,
-		"dataPlaneUID":    input.Metadata.DataPlaneUID,
-		"environmentName": input.Metadata.EnvironmentName,
-		"environmentUID":  input.Metadata.EnvironmentUID,
-	}
-	if len(input.Metadata.Labels) > 0 {
-		metadataMap["labels"] = input.Metadata.Labels
-	}
-	if len(input.Metadata.Annotations) > 0 {
-		metadataMap["annotations"] = input.Metadata.Annotations
-	}
-	if len(input.Metadata.PodSelectors) > 0 {
-		metadataMap["podSelectors"] = input.Metadata.PodSelectors
-	}
-	ctx["metadata"] = metadataMap
-
-	// 12. Add dataplane context with secretStore if available
-	if input.DataPlane != nil {
-		dataPlaneContext := make(map[string]any)
-		if input.DataPlane.Spec.SecretStoreRef != nil {
-			dataPlaneContext["secretStore"] = input.DataPlane.Spec.SecretStoreRef.Name
-		}
-		if len(dataPlaneContext) > 0 {
-			ctx["dataplane"] = dataPlaneContext
-		}
+	if input.DataPlane.Spec.SecretStoreRef != nil {
+		ctx.DataPlane.SecretStore = input.DataPlane.Spec.SecretStoreRef.Name
 	}
 
 	return ctx, nil
+}
+
+// ToMap converts the ComponentContext to map[string]any for CEL evaluation.
+func (c *ComponentContext) ToMap() map[string]any {
+	result, err := structToMap(c)
+	if err != nil {
+		// This should never happen with well-formed ComponentContext
+		return make(map[string]any)
+	}
+	return result
 }
 
 // extractParameters converts a runtime.RawExtension to a map for CEL evaluation.
@@ -171,75 +131,36 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 }
 
 // extractWorkloadData extracts relevant workload information for the rendering context.
-func extractWorkloadData(workload *v1alpha1.Workload) (map[string]any, error) {
-	data := make(map[string]any)
+func extractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
+	data := WorkloadData{
+		Containers: make(map[string]ContainerData),
+	}
 
 	if workload == nil {
-		return data, nil
+		return data
 	}
 
-	// Add workload name
-	if workload.Name != "" {
-		data["name"] = workload.Name
-	}
-
-	// Extract containers information
-	if len(workload.Spec.Containers) > 0 {
-		containers := make(map[string]any)
-		for name, container := range workload.Spec.Containers {
-			containerData := map[string]any{
-				"image": container.Image,
-			}
-			if len(container.Command) > 0 {
-				containerData["command"] = container.Command
-			}
-			if len(container.Args) > 0 {
-				containerData["args"] = container.Args
-			}
-			containers[name] = containerData
+	for name, container := range workload.Spec.Containers {
+		data.Containers[name] = ContainerData{
+			Image:   container.Image,
+			Command: container.Command,
+			Args:    container.Args,
 		}
-		data["containers"] = containers
 	}
 
-	// Extract endpoints information
-	// Convert struct slices to map[string]any for CEL access
-	if len(workload.Spec.Endpoints) > 0 {
-		endpoints, err := structToMap(workload.Spec.Endpoints)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert endpoints to map: %w", err)
-		}
-		data["endpoints"] = endpoints
-	}
-
-	// Extract connections information
-	// Convert struct slices to map[string]any for CEL access
-	if len(workload.Spec.Connections) > 0 {
-		connections, err := structToMap(workload.Spec.Connections)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert connections to map: %w", err)
-		}
-		data["connections"] = connections
-	}
-
-	return data, nil
+	return data
 }
 
 // structToMap converts typed Go structs to map[string]any for CEL evaluation.
 //
 // CEL expressions can only access maps and primitive types, not arbitrary Go structs.
-// This function uses JSON marshaling as a universal conversion mechanism:
-//  1. Marshal the struct to JSON (respects json tags)
-//  2. Unmarshal to map[string]any/[]any
-//  3. Result is accessible to CEL as ${workload.endpoints[0].path}
-//
-// This is used to expose Workload.Spec.Endpoints and Workload.Spec.Connections
-// to component templates.
-func structToMap(v any) (any, error) {
+// This function uses JSON marshaling as a conversion mechanism:
+func structToMap(v any) (map[string]any, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-	var result any
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, err
 	}

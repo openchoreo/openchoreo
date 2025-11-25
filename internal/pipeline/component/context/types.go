@@ -15,50 +15,50 @@ import (
 type MetadataContext struct {
 	// ComponentName is the name of the component.
 	// Example: "my-service"
-	ComponentName string
+	ComponentName string `json:"componentName,omitempty"`
 
 	// ComponentUID is the unique identifier of the component.
 	// Example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-	ComponentUID string
+	ComponentUID string `json:"componentUID,omitempty"`
 
 	// ProjectName is the name of the project.
 	// Example: "my-project"
-	ProjectName string
+	ProjectName string `json:"projectName,omitempty"`
 
 	// ProjectUID is the unique identifier of the project.
 	// Example: "b2c3d4e5-6789-01bc-def0-234567890abc"
-	ProjectUID string
+	ProjectUID string `json:"projectUID,omitempty"`
 
 	// DataPlaneName is the name of the data plane.
 	// Example: "my-dataplane"
-	DataPlaneName string
+	DataPlaneName string `json:"dataPlaneName,omitempty"`
 
 	// DataPlaneUID is the unique identifier of the data plane.
 	// Example: "c3d4e5f6-7890-12cd-ef01-34567890abcd"
-	DataPlaneUID string
+	DataPlaneUID string `json:"dataPlaneUID,omitempty"`
 
 	// EnvironmentName is the name of the environment.
 	// Example: "production"
-	EnvironmentName string
+	EnvironmentName string `json:"environmentName,omitempty"`
 
 	// EnvironmentUID is the unique identifier of the environment.
 	// Example: "d4e5f6g7-8901-23de-f012-4567890abcde"
-	EnvironmentUID string
+	EnvironmentUID string `json:"environmentUID,omitempty"`
 
 	// Name is the base name to use for generated resources.
 	// Example: "my-service-dev-a1b2c3d4"
-	Name string
+	Name string `json:"name,omitempty"`
 
 	// Namespace is the target namespace for the resources.
 	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
-	Namespace string
+	Namespace string `json:"namespace,omitempty"`
 
 	// Labels are common labels to add to all resources.
 	// Example: {"openchoreo.dev/component": "my-service", ...}
-	Labels map[string]string
+	Labels map[string]string `json:"labels,omitempty"`
 
 	// Annotations are common annotations to add to all resources.
-	Annotations map[string]string
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// PodSelectors are platform-injected selectors for pod identity.
 	// Used in Deployment selectors, Service selectors, etc.
@@ -67,7 +67,7 @@ type MetadataContext struct {
 	//   "openchoreo.dev/environment-uid": "dev",
 	//   "openchoreo.dev/project-uid": "xyz789",
 	// }
-	PodSelectors map[string]string
+	PodSelectors map[string]string `json:"podSelectors,omitempty"`
 }
 
 // ComponentContextInput contains all inputs needed to build a component rendering context.
@@ -90,11 +90,8 @@ type ComponentContextInput struct {
 	// Workload contains the workload specification with the built image.
 	Workload *v1alpha1.Workload
 
-	// Environment to which the component is being deployed.
-	Environment EnvironmentContext
-
 	// DataPlane contains the data plane configuration.
-	// Optional - can be nil if no data plane is configured.
+	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane
 
 	// SecretReferences is a map of SecretReference objects needed for rendering.
@@ -127,9 +124,6 @@ type TraitContextInput struct {
 	// Can be nil if no overrides are needed.
 	ReleaseBinding *v1alpha1.ReleaseBinding
 
-	// Environment is the name of the environment being rendered for.
-	Environment EnvironmentContext
-
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext
@@ -155,10 +149,79 @@ type SchemaInput struct {
 	Structural *apiextschema.Structural
 }
 
-type EnvironmentContext struct {
-	// Name is the name of the environment.
-	Name string
+// ComponentContext represents the evaluated context for rendering component resources.
+// This is the output of BuildComponentContext and is used by the template engine.
+type ComponentContext struct {
+	// Metadata provides structured naming and labeling information.
+	// Accessed via ${metadata.name}, ${metadata.namespace}, ${metadata.componentName}, etc.
+	Metadata MetadataContext `json:"metadata"`
 
-	// VirtualHost is the virtual host that is associated with the environment.
-	VirtualHost string
+	// DataPlane provides data plane configuration.
+	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
+	DataPlane DataPlaneData `json:"dataplane"`
+
+	// Parameters are merged component parameters with defaults applied.
+	// Dynamic - depends on ComponentType schema.
+	Parameters map[string]any `json:"parameters"`
+
+	// Workload contains workload specification (containers, endpoints, connections).
+	// Accessed via ${workload.name}, ${workload.containers}, etc.
+	Workload WorkloadData `json:"workload"`
+
+	// Configurations are extracted configuration items from workload.
+	// Keyed by container name, contains configs and secrets.
+	// Accessed via ${configurations["containerName"].configs.envs}, etc.
+	Configurations map[string]ContainerConfigurations `json:"configurations"`
+}
+
+// DataPlaneData provides data plane configuration in templates.
+type DataPlaneData struct {
+	SecretStore       string `json:"secretStore,omitempty"`
+	PublicVirtualHost string `json:"publicVirtualHost,omitempty"`
+}
+
+// WorkloadData contains workload information for templates.
+type WorkloadData struct {
+	Containers map[string]ContainerData `json:"containers"`
+}
+
+// ContainerData contains container information.
+type ContainerData struct {
+	Image   string   `json:"image,omitempty"`
+	Command []string `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+}
+
+// ContainerConfigurations contains configs and secrets for a container.
+type ContainerConfigurations struct {
+	Configs ConfigurationItems `json:"configs"`
+	Secrets ConfigurationItems `json:"secrets"`
+}
+
+// ConfigurationItems contains environment and file configurations.
+type ConfigurationItems struct {
+	Envs  []EnvConfiguration  `json:"envs"`
+	Files []FileConfiguration `json:"files"`
+}
+
+// EnvConfiguration represents an environment variable configuration.
+type EnvConfiguration struct {
+	Name      string         `json:"name"`
+	Value     string         `json:"value,omitempty"`
+	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
+}
+
+// FileConfiguration represents a file configuration.
+type FileConfiguration struct {
+	Name      string         `json:"name"`
+	MountPath string         `json:"mountPath"`
+	Value     string         `json:"value,omitempty"`
+	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
+}
+
+// RemoteRefData contains remote reference data for secrets.
+type RemoteRefData struct {
+	Key      string `json:"key"`
+	Property string `json:"property,omitempty"`
+	Version  string `json:"version,omitempty"`
 }
