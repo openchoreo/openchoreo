@@ -45,6 +45,7 @@ rules:
   - workflows
   - workflowruns
   - workloads
+  - secretreferences
   verbs:
   - create
   - delete
@@ -89,6 +90,7 @@ rules:
   - webapplicationclasses/status
   - webapplications/status
   - workloads/status
+  - secretreferences/status
   verbs:
   - get
   - patch
