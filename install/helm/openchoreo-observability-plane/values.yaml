@@ -6,7 +6,7 @@ global:
   # Installation mode for the OpenChoreo Observability Plane
   # standard: Operator managed OpenSearch cluster will be deployed
   # minimal: Single replica OpenSearch instance will be deployed
-  installationMode: minimal
+  installationMode: standard
 
 # Wait job configuration for post-install hooks
 waitJob:
@@ -29,7 +29,7 @@ fakeSecretStore:
       value: "fake-llm-api-key-for-development"
 
 data-prepper:
-  enabled: false
+  enabled: true
   fullnameOverride: "data-prepper"
 
   pipelineConfig:
@@ -55,11 +55,11 @@ data-prepper:
       cpu: 1000m
       memory: 500Mi
     requests:
-      cpu: 1000m
+      cpu: 700m
       memory: 500Mi
 
 openSearch:
-  enabled: true
+  enabled: false
 
   extraEnvs:
     - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
@@ -79,16 +79,16 @@ openSearch:
     enabled: false
   singleNode: true
 
-# OpenSearch cluster configuration
+# OpenSearch configuration for operator based OpenSearch deployment
 openSearchCluster:
-  enabled: false
+  enabled: true
   general:
     version: 3.3.0
     additionalConfig:
       pluginsSecurityDisabled: "true"
 
   dashboard:
-    enabled: true
+    enabled: false
     replicas: 1
     version: 3.3.0
 
@@ -104,7 +104,7 @@ openSearchCluster:
           cpu: 100m
           memory: 700Mi
     master:
-      replicas: 0
+      replicas: 3
       diskSize: 1Gi
       resources:
         limits:
@@ -139,7 +139,7 @@ openSearchClusterSetup:
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
-  enabled: true
+  enabled: false
 
   config:
     disableSecurity: "true"
@@ -177,8 +177,8 @@ observer:
 
   resources:
     limits:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 200m
+      memory: 200Mi
     requests:
       cpu: 100m
       memory: 128Mi
@@ -316,6 +316,14 @@ prometheus:
   prometheusOperator:
     enabled: true
     fullnameOverride: prometheus-operator
+
+    resources:
+      limits:
+        cpu: 40m
+        memory: 50Mi
+      requests:
+        cpu: 20m
+        memory: 30Mi
 
   ## Install Prometheus Operator CRDs
   crds:
