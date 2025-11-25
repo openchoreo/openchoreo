@@ -140,7 +140,7 @@ spec:
             - name: gateway-external
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.componentName}-${environment.name}.${environment.vhost}
+            - ${metadata.componentName}-${metadata.environmentName}.${dataplane.publicVirtualHost}
           rules:
           - backendRefs:
             - name: ${metadata.componentName}

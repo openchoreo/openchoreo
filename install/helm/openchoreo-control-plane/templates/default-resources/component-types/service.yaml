@@ -141,7 +141,7 @@ spec:
             - name: gateway-external
               namespace: openchoreo-data-plane
           hostnames:
-            - ${environment.name}.${environment.vhost}
+            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
           rules:
           - matches:
             - path:
