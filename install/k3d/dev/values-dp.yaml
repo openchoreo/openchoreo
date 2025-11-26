@@ -4,11 +4,11 @@
 cert-manager:
   enabled: false
 
-# Use NodePort for gateway access in dev
+# Gateway configuration for k3d dev environment
 gateway:
+  # Enable gateway
   enabled: true
-  config:
-    envoyGateway:
-      gateway:
-        httpPort: 9080
-        httpsPort: 9443
+
+  # Use custom ports for k3d dev
+  httpPort: 9080
+  httpsPort: 9443

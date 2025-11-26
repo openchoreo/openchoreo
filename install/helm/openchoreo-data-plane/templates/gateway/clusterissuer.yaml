@@ -1,4 +1,4 @@
-{{- if or (index .Values "gateway" "envoy" "enabled") (index .Values "gateway" "kgateway" "enabled") }}
+{{- if .Values.gateway.enabled }}
 {{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer

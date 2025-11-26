@@ -1,4 +1,4 @@
-{{- if or (index .Values "gateway" "envoy" "enabled") (index .Values "gateway" "kgateway" "enabled") }}
+{{- if .Values.gateway.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -11,18 +11,7 @@ metadata:
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:
-  {{- if index .Values "gateway" "kgateway" "enabled" }}
   gatewayClassName: kgateway
-  {{- else }}
-  gatewayClassName: openchoreo
-  {{- end }}
-  {{- if index .Values "gateway" "envoy" "enabled" }}
-  infrastructure:
-    parametersRef:
-      group: gateway.envoyproxy.io
-      kind: EnvoyProxy
-      name: gateway-external
-  {{- end }}
   listeners:
     - name: http
       protocol: HTTP
@@ -44,24 +33,5 @@ spec:
           - kind: Secret
             name: openchoreo-gateway-tls
             namespace: {{ .Release.Namespace }}
-{{- end }}
-
-{{- if index .Values "gateway" "envoy" "enabled" }}
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: EnvoyProxy
-metadata:
-  name: gateway-external
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
-spec:
-  provider:
-    type: Kubernetes
-    kubernetes:
-      envoyDeployment:
-        name: gateway-external
-      envoyService:
-        name: gateway-external
 {{- end }}
 {{- end }}

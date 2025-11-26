@@ -29,8 +29,13 @@ registry:
     size: 2Gi
 
 # customizing the gateway configurations
+# This follows the structure from https://github.com/kgateway-dev/kgateway/blob/main/install/helm/kgateway/values.yaml
+# with additional OpenChoreo-specific gateway configuration
 gateway:
-  # Common gateway configuration
+  # Enable KGateway (controls both kgateway and kgateway-crds installation)
+  enabled: true
+
+  # OpenChoreo gateway configuration
   httpPort: 80
   httpsPort: 443
 
@@ -43,112 +48,43 @@ gateway:
     # Defaults to *.openchoreoapis.localhost if not specified
     hostname: ""
 
-  # Envoy Gateway - kept for backwards compatibility during migration
-  # Will be removed once all users migrate to KGateway
-  envoy:
-    enabled: false
-    nameOverride: envoy-controller
-    config:
-      envoyGateway:
-        gateway:
-          httpPort: 80
-          httpsPort: 443
-          controllerName: gateway.envoyproxy.io/gatewayclass-controller
-        provider:
-          kubernetes:
-            envoyDeployment:
-              name: openchoreo-gateway
-    deployment:
-      envoyGateway:
-        resources:
-          limits:
-            cpu: 200m
-            memory: 256Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-      envoy:
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-
-  # KGateway is the default gateway
-  # To use Envoy Gateway instead, set kgateway.enabled: false and envoy.enabled: true
-  # This follows the structure from https://github.com/kgateway-dev/kgateway/blob/main/install/helm/kgateway/values.yaml
-  kgateway:
-    enabled: true
-    controller:
-      replicaCount: 1
-      logLevel: info
-      image:
-        registry: ""
-        repository: kgateway
-        pullPolicy: IfNotPresent
-        tag: ""
-      service:
-        type: ClusterIP
-        ports:
-          grpc: 9977
-          agwGrpc: 9978
-          health: 9093
-          metrics: 9092
-      resources:
-        limits:
-          cpu: 200m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
-
-    # Agent Gateway - disabled by default for MCP server and REST API connectivity
-    agentgateway:
-      enabled: false
-
-    # Envoy - enabled by default for traffic routing
-    envoy:
-      enabled: true
-
-    # Inference Extension - disabled by default
-    inferenceExtension:
-      enabled: false
-
-    # Waypoint Integration (Istio Ambient) - disabled by default
-    waypoint:
-      enabled: false
-
-    # Validation level: "standard" or "strict"
-    validation:
-      level: standard
-
-    # Service Account
-    serviceAccount:
-      create: true
-      annotations: {}
-      name: ""
-
-    # Discovery namespace selectors
-    discoveryNamespaceSelectors: []
-
-    # Image configuration
+  # KGateway controller configuration
+  controller:
+    replicaCount: 1
+    logLevel: info
     image:
-      registry: cr.kgateway.dev/kgateway-dev
-      tag: ""
+      registry: ""
+      repository: kgateway
       pullPolicy: IfNotPresent
+      tag: ""
+    service:
+      type: ClusterIP
+      ports:
+        grpc: 9977
+        agwGrpc: 9978
+        health: 9093
+        metrics: 9092
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
 
-    imagePullSecrets: []
+  # Agent Gateway - disabled by default for MCP server and REST API connectivity
+  agentgateway:
+    enabled: false
 
-    podAnnotations:
-      prometheus.io/scrape: "true"
+  # Envoy - enabled by default for traffic routing
+  envoy:
+    enabled: true
 
-    podSecurityContext: {}
-    securityContext: {}
-    nodeSelector: {}
-    tolerations: []
-    affinity: {}
+  # Image configuration
+  image:
+    registry: cr.kgateway.dev/kgateway-dev
+    tag: ""
+    pullPolicy: IfNotPresent
 
 # customizing the cert-manager configurations
 cert-manager:
