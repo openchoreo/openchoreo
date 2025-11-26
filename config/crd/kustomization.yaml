@@ -39,6 +39,7 @@ resources:
   - bases/openchoreo.dev_secretreferences.yaml
   - bases/openchoreo.dev_componentreleases.yaml
   - bases/openchoreo.dev_releasebindings.yaml
+  - bases/openchoreo.dev_componentworkflows.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:
