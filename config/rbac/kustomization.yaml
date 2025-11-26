@@ -110,6 +110,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the openchoreo itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+  - componentworkflowrun_admin_role.yaml
+  - componentworkflowrun_editor_role.yaml
+  - componentworkflowrun_viewer_role.yaml
   - componentworkflow_admin_role.yaml
   - componentworkflow_editor_role.yaml
   - componentworkflow_viewer_role.yaml

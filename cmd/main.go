@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
+	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
 	"github.com/openchoreo/openchoreo/internal/controller/deployment"
@@ -545,6 +546,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SecretReference")
+		os.Exit(1)
+	}
+	if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentWorkflowRun")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
