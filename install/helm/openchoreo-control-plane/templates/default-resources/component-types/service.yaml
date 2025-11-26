@@ -138,7 +138,7 @@ spec:
           labels: ${metadata.labels}
         spec:
           parentRefs:
-            - name: gateway-external
+            - name: gateway-default
               namespace: openchoreo-data-plane
           hostnames:
             - ${environment.name}.${environment.vhost}
