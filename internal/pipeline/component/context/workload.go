@@ -7,9 +7,9 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// mergeWorkloadOverrides merges workload overrides into the base workload.
-// Currently supports merging container env and file configurations.
-func mergeWorkloadOverrides(baseWorkload *openchoreov1alpha1.Workload, overrides *openchoreov1alpha1.WorkloadOverrideTemplateSpec) *openchoreov1alpha1.Workload {
+// MergeWorkloadOverrides merges workload overrides into the base workload.
+// Currently, supports merging container env and file configurations.
+func MergeWorkloadOverrides(baseWorkload *openchoreov1alpha1.Workload, overrides *openchoreov1alpha1.WorkloadOverrideTemplateSpec) *openchoreov1alpha1.Workload {
 	if baseWorkload == nil {
 		return nil
 	}

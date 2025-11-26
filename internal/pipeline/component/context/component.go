@@ -77,7 +77,7 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 
 	workload := input.Workload
 	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
-		workload = mergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+		workload = MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
 	}
 
 	if workload != nil {
