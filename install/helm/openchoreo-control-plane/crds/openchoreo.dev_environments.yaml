@@ -42,8 +42,8 @@ spec:
             description: EnvironmentSpec defines the desired state of Environment.
             properties:
               dataPlaneRef:
-                description: Foo is an example field of Environment. Edit environment_types.go
-                  to remove/update
+                description: DataPlaneRef references the DataPlane for this environment.
+                  Immutable once set.
                 type: string
               gateway:
                 properties:
@@ -63,6 +63,10 @@ spec:
               isProduction:
                 type: boolean
             type: object
+            x-kubernetes-validations:
+            - message: dataPlaneRef is immutable once set
+              rule: '!has(oldSelf.dataPlaneRef) || size(oldSelf.dataPlaneRef) == 0
+                || oldSelf.dataPlaneRef == self.dataPlaneRef'
           status:
             description: EnvironmentStatus defines the observed state of Environment.
             properties:
