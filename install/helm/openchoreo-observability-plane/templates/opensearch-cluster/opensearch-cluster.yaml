@@ -5,9 +5,15 @@ metadata:
   name: opensearch
   namespace: openchoreo-observability-plane
 spec:
+  bootstrap:
+    resources:
+      limits:
+        cpu: {{ .Values.openSearchCluster.bootstrap.resources.limits.cpu }}
+        memory: {{ .Values.openSearchCluster.bootstrap.resources.limits.memory }}
+      requests:
+        cpu: {{ .Values.openSearchCluster.bootstrap.resources.requests.cpu }}
+        memory: {{ .Values.openSearchCluster.bootstrap.resources.requests.memory }}
   general:
-    additionalConfig:
-      plugins.security.disabled: {{ .Values.openSearchCluster.general.additionalConfig.pluginsSecurityDisabled | quote }}
     serviceName: opensearch
     version: {{ .Values.openSearchCluster.general.version | quote }}
   nodePools:

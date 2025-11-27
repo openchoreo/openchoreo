@@ -64,8 +64,6 @@ openSearch:
   extraEnvs:
     - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
       value: ThisIsTheOpenSearchPassword1
-    - name: DISABLE_SECURITY_PLUGIN
-      value: "true"
   nameOverride: "opensearch"
   image:
     tag: "3.3.0"
@@ -75,17 +73,24 @@ openSearch:
     create: true
     serviceAccountName: "opensearch"
 
-  securityConfig:
-    enabled: false
   singleNode: true
 
 # OpenSearch configuration for operator based OpenSearch deployment
 openSearchCluster:
   enabled: true
+
+  bootstrap:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1000Mi
+      requests:
+        cpu: 100m
+        memory: 1000Mi
+
   general:
+    setVMMaxMapCount: true
     version: 3.3.0
-    additionalConfig:
-      pluginsSecurityDisabled: "true"
 
   dashboard:
     enabled: false
@@ -95,28 +100,28 @@ openSearchCluster:
   nodePools:
     data:
       replicas: 2
-      diskSize: 1Gi
+      diskSize: 5Gi
       resources:
         limits:
           cpu: 1000m
-          memory: 1Gi
+          memory: 1000Mi
         requests:
           cpu: 100m
-          memory: 700Mi
+          memory: 1000Mi
     master:
       replicas: 3
       diskSize: 1Gi
       resources:
         limits:
           cpu: 1000m
-          memory: 1Gi
+          memory: 900Mi
         requests:
           cpu: 100m
-          memory: 512Mi
+          memory: 900Mi
 
   # Secrets
   adminUsername: admin
-  adminUserPassword: admin
+  adminUserPassword: ThisIsTheOpenSearchPassword1
   internalUsers: |
     # This is the internal user database
     # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh

@@ -29,13 +29,26 @@ spec:
         - -c
         - |
           echo "Waiting for OpenSearch to be ready..."
-          OPENSEARCH_URL="http://opensearch:9200"
-          echo "Checking OpenSearch at: $OPENSEARCH_URL"
-          until curl -s "$OPENSEARCH_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
+          AUTH_TOKEN=$(echo -n "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" | base64)
+          echo "Checking OpenSearch at: $OPENSEARCH_ADDRESS"
+          until curl -s -H "Authorization: Basic $AUTH_TOKEN" "$OPENSEARCH_ADDRESS/_cluster/health" --insecure | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready, waiting 10 seconds..."
             sleep 10
           done
           echo "OpenSearch is ready!"
+        env:
+        - name: OPENSEARCH_ADDRESS
+          value: "https://opensearch:9200"
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: username
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: password
         securityContext:
           runAsNonRoot: true
           runAsUser: 65532
@@ -57,7 +70,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_ADDRESS
-          value: "http://opensearch:9200"
+          value: "https://opensearch:9200"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:

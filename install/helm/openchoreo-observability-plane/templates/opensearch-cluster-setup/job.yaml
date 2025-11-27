@@ -13,6 +13,19 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: cluster-setup
+        env:
+        - name: OPENSEARCH_ADDRESS
+          value: "https://opensearch:9200"
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: username
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: password
         image: "{{ .Values.openSearchClusterSetup.image.repository }}:{{ .Values.openSearchClusterSetup.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openSearchClusterSetup.image.pullPolicy | default "IfNotPresent" }}
         resources:

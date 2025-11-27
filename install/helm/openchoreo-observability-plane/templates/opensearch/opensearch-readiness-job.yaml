@@ -16,15 +16,28 @@ spec:
       restartPolicy: Never
       containers:
       - name: opensearch-readiness
+        env:
+        - name: OPENSEARCH_ADDRESS
+          value: "https://opensearch:9200"
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: username
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: observer-opensearch
+              key: password
         image: curlimages/curl:latest
         command:
         - /bin/sh
         - -c
         - |
+          AUTH_TOKEN=$(echo -n "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" | base64)
           echo "Waiting for OpenSearch to be ready..."
-          until curl -s http://opensearch:9200/_cluster/health | grep -q '"status":"green\|yellow"'; do
+          until curl -s -H "Authorization: Basic $AUTH_TOKEN" "$OPENSEARCH_ADDRESS/_cluster/health" --insecure | grep -q '"status":"green\|yellow"'; do
             echo "OpenSearch not ready yet, waiting 10 seconds..."
             sleep 10
           done
           echo "OpenSearch is ready!"
-          curl -s http://opensearch:9200/_cluster/health

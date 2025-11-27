@@ -6,14 +6,16 @@
 # 1. Check OpenSearch cluster status and wait for it to become ready. Any API calls to configure
 #    the cluster should be made only after the cluster is ready.
 
-openSearchHost="${OPENSEARCH_HOST:-http://opensearch:9200}"
+openSearchHost="${OPENSEARCH_ADDRESS:-https://opensearch:9200}"
+authnToken=$(echo -n "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" | base64)
 
 echo "Checking OpenSearch cluster status"
 attempt=1
 max_attempts=30
 
 while [ $attempt -le $max_attempts ]; do
-    clusterHealth=$(curl --insecure \
+    clusterHealth=$(curl --header "Authorization: Basic $authnToken" \
+                         --insecure \
                          --location "$openSearchHost/_cluster/health" \
                          --show-error \
                          --silent)
@@ -74,6 +76,7 @@ for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
     templateContent="${!templateDefinition}"
     
     response=$(curl --data "$templateContent" \
+                    --header "Authorization: Basic $authnToken" \
                     --header "Content-Type: application/json" \
                     --request PUT \
                     --show-error \

@@ -5,8 +5,10 @@ package opensearch
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
@@ -23,14 +25,15 @@ type Client struct {
 
 // NewClient creates a new OpenSearch client with the provided configuration
 func NewClient(cfg *config.OpenSearchConfig, logger *slog.Logger) (*Client, error) {
-	// Configure OpenSearch client
 	opensearchConfig := opensearch.Config{
 		Addresses: []string{cfg.Address},
-		Username:  cfg.Username,
-		Password:  cfg.Password,
-		// TODO: Add configurable TLS settings with proper certificate verification
-		// Consider adding TLSInsecureSkipVerify config option for development environments
-		// while defaulting to secure certificate verification in production
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // G402: Using self-signed cert
+			},
+		},
+		Username: cfg.Username,
+		Password: cfg.Password,
 	}
 
 	client, err := opensearch.NewClient(opensearchConfig)
