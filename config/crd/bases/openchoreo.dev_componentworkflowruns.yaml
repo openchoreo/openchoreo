@@ -4,23 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: components.openchoreo.dev
+  name: componentworkflowruns.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: Component
-    listKind: ComponentList
-    plural: components
-    shortNames:
-    - comp
-    - comps
-    singular: component
+    kind: ComponentWorkflowRun
+    listKind: ComponentWorkflowRunList
+    plural: componentworkflowruns
+    singular: componentworkflowrun
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Component is the Schema for the components API.
+        description: ComponentWorkflowRun is the Schema for the componentworkflowruns
+          API
         properties:
           apiVersion:
             description: |-
@@ -40,77 +38,28 @@ spec:
           metadata:
             type: object
           spec:
-            description: ComponentSpec defines the desired state of Component.
+            description: spec defines the desired state of ComponentWorkflowRun
             properties:
-              autoDeploy:
-                description: |-
-                  AutoDeploy indicates whether the component should be deployed automatically when created
-                  When not specified, defaults to false (zero value)
-                type: boolean
-              componentType:
-                description: |-
-                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
-                  Example: "deployment/web-app", "cronjob/scheduled-task"
-                  This field is used with ComponentTypes (new model)
-                pattern: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-                x-kubernetes-validations:
-                - message: spec.componentType cannot be changed after creation
-                  rule: self == oldSelf
               owner:
-                description: Owner defines the ownership information for the component
+                description: |-
+                  Owner identifies the Component that owns this ComponentWorkflowRun.
+                  This is required for component workflow executions.
                 properties:
+                  componentName:
+                    description: ComponentName is the name of the owning Component
+                    minLength: 1
+                    type: string
                   projectName:
+                    description: ProjectName is the name of the owning Project
                     minLength: 1
                     type: string
                 required:
+                - componentName
                 - projectName
                 type: object
-              parameters:
-                description: |-
-                  Parameters from ComponentType (oneOf schema based on componentType)
-                  This is the merged schema of parameters + envOverrides from the ComponentType
-                x-kubernetes-preserve-unknown-fields: true
-              traits:
-                description: |-
-                  Traits to compose into this component
-                  Each trait can be instantiated multiple times with different instanceNames
-                items:
-                  description: ComponentTrait represents an trait instance attached
-                    to a component
-                  properties:
-                    instanceName:
-                      description: |-
-                        InstanceName uniquely identifies this trait instance within the component
-                        Allows the same trait to be used multiple times with different configurations
-                        Must be unique across all traits in the component
-                      minLength: 1
-                      type: string
-                    name:
-                      description: Name is the name of the Trait resource to use
-                      minLength: 1
-                      type: string
-                    parameters:
-                      description: |-
-                        Parameters contains the trait parameter values
-                        The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
-                      x-kubernetes-preserve-unknown-fields: true
-                  required:
-                  - instanceName
-                  - name
-                  type: object
-                type: array
-              type:
-                description: |-
-                  Type specifies the component type (e.g., Service, WebApplication, etc.)
-                  LEGACY FIELD: Use componentType instead for new components with ComponentTypes
-                type: string
               workflow:
-                description: |-
-                  Workflow defines the component workflow configuration for building the component.
-                  This references a ComponentWorkflow CR and provides both system parameters (repository info)
-                  and developer-configured parameter values.
-                  The ComponentWorkflow must be in the allowedWorkflows list of the ComponentType.
+                description: Workflow configuration referencing the ComponentWorkflow
+                  CR and providing parameter values.
                 properties:
                   name:
                     description: |-
@@ -185,15 +134,14 @@ spec:
                 type: object
             required:
             - owner
+            - workflow
             type: object
-            x-kubernetes-validations:
-            - message: Component must have either spec.type or spec.componentType
-                set
-              rule: has(self.type) || has(self.componentType)
           status:
-            description: ComponentStatus defines the observed state of Component.
+            description: status defines the observed state of ComponentWorkflowRun
             properties:
               conditions:
+                description: Conditions represent the current state of the ComponentWorkflowRun
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -249,29 +197,35 @@ spec:
                   - type
                   type: object
                 type: array
-              latestRelease:
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              imageStatus:
                 description: |-
-                  LatestRelease keeps the information of the latest ComponentRelease created for this component
-                  This is used to make sure the component's latest ComponentRelease is always
-                  deployed to the first environment, if the autoDeploy flag is set to true
+                  ImageStatus contains information about the built container image from the workflow execution.
+                  This is populated when the workflow produces a container image.
+                properties:
+                  image:
+                    description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+                    type: string
+                type: object
+              runReference:
+                description: |-
+                  RunReference contains a reference to the workflow run resource that was applied to the build plane cluster.
+                  This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
                 properties:
                   name:
-                    description: Name of the ComponentRelease resource
-                    minLength: 1
+                    description: Name is the name of the workflow run resource in
+                      the build plane cluster
                     type: string
-                  releaseHash:
-                    description: ReleaseHash record the hash value of the spec of
-                      ComponentRelease.
-                    minLength: 1
+                  namespace:
+                    description: Namespace is the namespace of the workflow run resource
+                      in the build plane cluster
                     type: string
-                required:
-                - name
-                - releaseHash
                 type: object
-              observedGeneration:
-                format: int64
-                type: integer
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

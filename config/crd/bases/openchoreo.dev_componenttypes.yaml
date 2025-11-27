@@ -51,19 +51,11 @@ spec:
             properties:
               allowedWorkflows:
                 description: |-
-                  AllowedWorkflows restricts which Workflow CRs developers can use
-                  for building components of this type. If not specified, any workflow can be used.
+                  AllowedWorkflows restricts which ComponentWorkflow CRs developers can use
+                  for building components of this type. If empty, no ComponentWorkflows are allowed.
+                  References must point to ComponentWorkflow resources, not generic Workflow resources.
                 items:
-                  description: AllowedWorkflow references a Workflow CR that developers
-                    can use for this component type.
-                  properties:
-                    name:
-                      description: Name is the name of the Workflow CR
-                      minLength: 1
-                      type: string
-                  required:
-                  - name
-                  type: object
+                  type: string
                 type: array
               resources:
                 description: |-

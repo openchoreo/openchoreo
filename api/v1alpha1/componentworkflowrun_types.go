@@ -5,44 +5,142 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// ComponentWorkflowRunSpec defines the desired state of ComponentWorkflowRun
+// ComponentWorkflowRunSpec defines the desired state of ComponentWorkflowRun.
+// ComponentWorkflowRun represents a runtime execution instance of a ComponentWorkflow.
 type ComponentWorkflowRunSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// Owner identifies the Component that owns this ComponentWorkflowRun.
+	// This is required for component workflow executions.
+	// +kubebuilder:validation:Required
+	Owner ComponentWorkflowOwner `json:"owner"`
 
-	// foo is an example field of ComponentWorkflowRun. Edit componentworkflowrun_types.go to remove/update
+	// Workflow configuration referencing the ComponentWorkflow CR and providing parameter values.
+	// +kubebuilder:validation:Required
+	Workflow ComponentWorkflowRunConfig `json:"workflow"`
+}
+
+// ComponentWorkflowOwner identifies the Component that owns a ComponentWorkflowRun execution.
+type ComponentWorkflowOwner struct {
+	// ProjectName is the name of the owning Project
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ProjectName string `json:"projectName"`
+
+	// ComponentName is the name of the owning Component
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ComponentName string `json:"componentName"`
+}
+
+// ComponentWorkflowRunConfig defines the workflow configuration for execution.
+type ComponentWorkflowRunConfig struct {
+	// Name references the ComponentWorkflow CR to use for this execution.
+	// The ComponentWorkflow CR contains the schema definition and resource template.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// SystemParameters contains the actual repository information values.
+	// This must conform to the required system parameters structure:
+	//   - repository.url
+	//   - repository.revision.branch
+	//   - repository.revision.commit
+	//   - repository.appPath
+	// +kubebuilder:validation:Required
+	SystemParameters SystemParametersValues `json:"systemParameters"`
+
+	// Parameters contains the developer-provided values for the flexible parameter schema
+	// defined in the referenced ComponentWorkflow CR.
+	//
+	// These values are validated against the ComponentWorkflow's parameter schema.
+	//
 	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// SystemParametersValues contains the actual values for system parameters.
+// This structure matches the required schema for build-specific features.
+type SystemParametersValues struct {
+	// Repository contains the actual repository information values.
+	// +kubebuilder:validation:Required
+	Repository RepositoryValues `json:"repository"`
+}
+
+// RepositoryValues contains the actual repository parameter values.
+type RepositoryValues struct {
+	// URL is the Git repository URL for the component source code.
+	// Example: "https://github.com/openchoreo/sample-workloads"
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^https?://`
+	URL string `json:"url"`
+
+	// Revision contains the revision-related parameter values (branch, commit).
+	// +kubebuilder:validation:Required
+	Revision RepositoryRevisionValues `json:"revision"`
+
+	// AppPath is the path to the application code within the repository.
+	// Example: "/service-go-reading-list" or "."
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	AppPath string `json:"appPath"`
+}
+
+// RepositoryRevisionValues contains the actual repository revision values.
+type RepositoryRevisionValues struct {
+	// Branch is the Git branch to build from.
+	// Example: "main"
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Branch string `json:"branch"`
+
+	// Commit is the specific commit SHA to build.
+	// Can be empty to use the latest commit.
+	// Example: "a1b2c3d4e5f6" or ""
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{7,40}$`
+	Commit string `json:"commit,omitempty"`
 }
 
 // ComponentWorkflowRunStatus defines the observed state of ComponentWorkflowRun.
 type ComponentWorkflowRunStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the ComponentWorkflowRun resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
+	// Conditions represent the current state of the ComponentWorkflowRun resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ImageStatus contains information about the built container image from the workflow execution.
+	// This is populated when the workflow produces a container image.
+	// +optional
+	ImageStatus ComponentWorkflowImage `json:"imageStatus,omitempty"`
+
+	// RunReference contains a reference to the workflow run resource that was applied to the build plane cluster.
+	// This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
+	// +optional
+	RunReference ComponentWorkflowRunReference `json:"runReference,omitempty"`
+}
+
+// ComponentWorkflowImage contains information about a container image produced by a component workflow execution.
+type ComponentWorkflowImage struct {
+	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+	// +optional
+	Image string `json:"image,omitempty"`
+}
+
+// ComponentWorkflowRunReference contains a reference to the workflow run resource applied to the build plane cluster.
+// This allows tracking the actual workflow execution instance that was created in the target cluster.
+type ComponentWorkflowRunReference struct {
+	// Name is the name of the workflow run resource in the build plane cluster
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Namespace is the namespace of the workflow run resource in the build plane cluster
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -72,6 +170,16 @@ type ComponentWorkflowRunList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ComponentWorkflowRun `json:"items"`
+}
+
+// GetConditions returns the conditions from the ComponentWorkflowRun status.
+func (c *ComponentWorkflowRun) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+// SetConditions sets the conditions in the ComponentWorkflowRun status.
+func (c *ComponentWorkflowRun) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
 }
 
 func init() {
