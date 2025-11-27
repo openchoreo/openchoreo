@@ -137,7 +137,7 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 	}
 
 	spec := openchoreov1alpha1.DataPlaneSpec{
-		KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
+		KubernetesCluster: &openchoreov1alpha1.KubernetesClusterSpec{
 			Server: req.APIServerURL,
 			TLS: openchoreov1alpha1.KubernetesTLS{
 				CA: openchoreov1alpha1.ValueFrom{

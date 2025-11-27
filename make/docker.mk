@@ -31,7 +31,9 @@ DOCKER_BUILD_IMAGES := \
 	init-observability-opensearch:$(PROJECT_DIR)/install/init/observability/opensearch/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
-	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR)
+	openchoreo-cli:$(PROJECT_DIR)/cmd/choreoctl/Dockerfile:$(PROJECT_DIR) \
+	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway/Dockerfile:$(PROJECT_DIR) \
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 
@@ -72,6 +74,8 @@ docker.build.controller: go.build-multiarch.manager
 docker.build.quick-start: go.build-multiarch.choreoctl
 docker.build.openchoreo-api: go.build-multiarch.openchoreo-api
 docker.build.observer: go.build-multiarch.observer
+docker.build.cluster-gateway: go.build-multiarch.cluster-gateway
+docker.build.cluster-agent: go.build-multiarch.cluster-agent
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)
@@ -155,7 +159,7 @@ docker.retag-registry: ## Retag existing registry images from SOURCE_TAG to NEW_
 	@$(call log_info, Successfully retagged all images)
 
 # Quick-start dev mode - builds images from HEAD and runs quick-start with local helm charts
-QUICK_START_DEV_IMAGES := controller openchoreo-api observer
+QUICK_START_DEV_IMAGES := controller openchoreo-api observer cluster-gateway cluster-agent
 QUICK_START_CONTAINER_NAME := openchoreo-quick-start-dev
 
 .PHONY: quick-start.dev

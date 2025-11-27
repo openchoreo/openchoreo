@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -23,6 +24,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	clustergateway "github.com/openchoreo/openchoreo/internal/cluster-gateway"
 	"github.com/openchoreo/openchoreo/internal/controller/api"
 	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
 	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
@@ -100,6 +102,10 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var enableLegacyCRDs bool
+	var agentServerURL string
+	var agentServerCAPath string
+	var agentClientCertPath string
+	var agentClientKeyPath string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -113,6 +119,18 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
+	flag.StringVar(&agentServerURL, "agent-server-url",
+		getEnv("AGENT_SERVER_URL", "https://cluster-agent-server.openchoreo-control-plane.svc.cluster.local:8443"),
+		"URL of the cluster agent server (e.g. https://cluster-agent-server.openchoreo-control-plane.svc.cluster.local:8443)")
+	flag.StringVar(&agentServerCAPath, "agent-server-ca",
+		getEnv("AGENT_SERVER_CA_PATH", ""),
+		"Path to CA certificate for verifying agent server TLS certificate (leave empty to use system CA pool or insecure)")
+	flag.StringVar(&agentClientCertPath, "agent-client-cert",
+		getEnv("AGENT_CLIENT_CERT_PATH", ""),
+		"Path to client certificate for mTLS with agent server (optional)")
+	flag.StringVar(&agentClientKeyPath, "agent-client-key",
+		getEnv("AGENT_CLIENT_KEY_PATH", ""),
+		"Path to client private key for mTLS with agent server (optional)")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -189,6 +207,55 @@ func main() {
 	}
 
 	// -----------------------------------------------------------------------------
+	// Setup remote agent server client
+	// -----------------------------------------------------------------------------
+	// Controller manager always connects to a separate cluster agent server deployment
+	// The agent server manages WebSocket connections from cluster agents in data planes
+
+	var agentSrv clustergateway.Dispatcher
+
+	// Determine if we should use production TLS configuration or dev mode
+	useProductionTLS := agentServerCAPath != "" || agentClientCertPath != ""
+
+	if useProductionTLS {
+		// Production mode: Use proper TLS configuration with CA verification
+		setupLog.Info("connecting to cluster agent server with TLS verification",
+			"url", agentServerURL,
+			"caPath", agentServerCAPath,
+			"clientCertPath", agentClientCertPath,
+			"mode", "production",
+		)
+
+		clientConfig := &clustergateway.RemoteServerClientConfig{
+			ServerURL:          agentServerURL,
+			InsecureSkipVerify: false, // Verify server certificate
+			ServerCAPath:       agentServerCAPath,
+			ClientCertPath:     agentClientCertPath,
+			ClientKeyPath:      agentClientKeyPath,
+			Timeout:            60 * time.Second,
+		}
+
+		var clientErr error
+		agentSrv, clientErr = clustergateway.NewRemoteServerClientWithConfig(clientConfig)
+		if clientErr != nil {
+			setupLog.Error(clientErr, "failed to create agent server client")
+			os.Exit(1)
+		}
+
+		setupLog.Info("cluster agent server client initialized with TLS verification")
+	} else if agentServerURL != "" {
+		// Development mode: Use insecure TLS (skip verification)
+		setupLog.Info("connecting to cluster agent server in development mode",
+			"url", agentServerURL,
+			"mode", "development",
+			"warning", "TLS certificate verification disabled - not suitable for production",
+		)
+
+		agentSrv = clustergateway.NewRemoteServerClient(agentServerURL, true)
+		setupLog.Info("cluster agent server client initialized (insecure mode)")
+	}
+
+	// -----------------------------------------------------------------------------
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
 
@@ -208,8 +275,9 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&environment.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Client:      mgr.GetClient(),
+			Scheme:      mgr.GetScheme(),
+			AgentServer: agentSrv,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			os.Exit(1)
@@ -243,15 +311,17 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&deployment.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Client:      mgr.GetClient(),
+			Scheme:      mgr.GetScheme(),
+			AgentServer: agentSrv,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
 			os.Exit(1)
 		}
 		if err = (&endpoint.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Client:      mgr.GetClient(),
+			Scheme:      mgr.GetScheme(),
+			AgentServer: agentSrv,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 			os.Exit(1)
@@ -431,8 +501,9 @@ func main() {
 	}
 
 	if err = (&release.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		AgentServer: agentSrv,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
 		os.Exit(1)
@@ -540,4 +611,12 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// getEnv retrieves an environment variable value, returning a default if not set
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

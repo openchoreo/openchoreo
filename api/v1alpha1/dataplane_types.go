@@ -7,11 +7,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// SecretKeyReference defines a reference to a specific key in a Kubernetes secret
+type SecretKeyReference struct {
+	// Name of the secret
+	Name string `json:"name"`
+	// Namespace of the secret (optional, defaults to same namespace as parent resource)
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// Key is the key within the secret
+	Key string `json:"key"`
+}
+
 // ValueFrom defines a common pattern for referencing secrets or providing inline values
 type ValueFrom struct {
 	// SecretRef is a reference to a secret containing the value
 	// +optional
-	SecretRef string `json:"secretRef,omitempty"`
+	SecretRef *SecretKeyReference `json:"secretRef,omitempty"`
 	// Value is the inline value (optional fallback)
 	// +optional
 	Value string `json:"value,omitempty"`
@@ -87,6 +98,21 @@ type SecretStoreRef struct {
 	Name string `json:"name"`
 }
 
+// AgentConfig defines the configuration for agent-based communication
+// This configuration is specified in DataPlane or BuildPlane CRs on the control plane
+type AgentConfig struct {
+	// Enabled indicates whether agent-based communication is enabled
+	// If false, direct Kubernetes API access is used via KubernetesCluster config
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// ClientCA contains the CA certificate used to verify the agent's client certificate
+	// This allows per-plane CA configuration for enhanced security
+	// The CA certificate should be base64-encoded PEM format
+	// +optional
+	ClientCA *ValueFrom `json:"clientCA,omitempty"`
+}
+
 // DataPlaneSpec defines the desired state of a DataPlane.
 type DataPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -101,8 +127,16 @@ type DataPlaneSpec struct {
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 
+	// Agent specifies the configuration for agent-based communication with the downstream cluster
+	// When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
+	// instead of direct Kubernetes API access
+	// +optional
+	Agent *AgentConfig `json:"agent,omitempty"`
+
 	// KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
-	KubernetesCluster KubernetesClusterSpec `json:"kubernetesCluster"`
+	// This field is optional when Agent.Enabled is true
+	// +optional
+	KubernetesCluster *KubernetesClusterSpec `json:"kubernetesCluster,omitempty"`
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
 	Gateway GatewaySpec `json:"gateway"`
 	// Observer specifies the configuration for the Observer API integration.
