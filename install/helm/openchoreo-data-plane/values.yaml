@@ -93,6 +93,9 @@ cert-manager:
   nameOverride: cert-manager
   crds:
     enabled: true
+  # -- Enable Gateway API support in cert-manager
+  config:
+    enableGatewayAPI: true
   # -- Resource limits and requests for the cert-manager controller
   resources:
     requests:
