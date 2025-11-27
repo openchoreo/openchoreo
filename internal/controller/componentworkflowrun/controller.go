@@ -89,16 +89,16 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	if componentWorkflowRun.Status.RunReference.Name != "" && componentWorkflowRun.Status.RunReference.Namespace != "" {
-		pipeline := &argoproj.Workflow{}
+		runResource := &argoproj.Workflow{}
 		err = bpClient.Get(ctx, types.NamespacedName{
 			Name:      componentWorkflowRun.Status.RunReference.Name,
 			Namespace: componentWorkflowRun.Status.RunReference.Namespace,
-		}, pipeline)
+		}, runResource)
 
 		if err == nil {
-			return r.syncWorkflowRunStatus(ctx, oldComponentWorkflowRun, componentWorkflowRun, pipeline)
+			return r.syncWorkflowRunStatus(ctx, oldComponentWorkflowRun, componentWorkflowRun, runResource)
 		} else if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to get build plane pipeline")
+			logger.Error(err, "failed to get run resource")
 			return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 		}
 		setWorkflowNotFoundCondition(componentWorkflowRun)
@@ -131,13 +131,13 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 	}
 
-	pipelineNamespace, err := extractNamespace(output.Resource)
+	runResNamespace, err := extractRunResourceNamespace(output.Resource)
 	if err != nil {
 		logger.Error(err, "failed to extract namespace from rendered resource")
 		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 	}
 
-	return r.ensurePipelineResource(ctx, oldComponentWorkflowRun, componentWorkflowRun, output, pipelineNamespace, bpClient)
+	return r.ensureRunResource(ctx, oldComponentWorkflowRun, componentWorkflowRun, output, runResNamespace, bpClient)
 }
 
 func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
@@ -172,11 +172,11 @@ func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
 	return r.updateStatusAndReturn(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 }
 
-func (r *ComponentWorkflowRunReconciler) ensurePipelineResource(
+func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	ctx context.Context,
 	oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	output *componentworkflowpipeline.RenderOutput,
-	pipelineNamespace string,
+	runResNamespace string,
 	bpClient client.Client,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -188,13 +188,13 @@ func (r *ComponentWorkflowRunReconciler) ensurePipelineResource(
 	}
 
 	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
-	if err := r.ensurePrerequisites(ctx, pipelineNamespace, serviceAccountName, bpClient); err != nil {
+	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources")
 		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 	}
 
-	if err := r.applyRenderedPipeline(ctx, componentWorkflowRun, output.Resource, bpClient); err != nil {
-		logger.Error(err, "failed to apply rendered pipeline resource")
+	if err := r.applyRenderedRunResource(ctx, componentWorkflowRun, output.Resource, bpClient); err != nil {
+		logger.Error(err, "failed to apply rendered run resource")
 		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
 	}
 
@@ -204,18 +204,18 @@ func (r *ComponentWorkflowRunReconciler) ensurePipelineResource(
 func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 	ctx context.Context,
 	oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
-	pipeline *argoproj.Workflow,
+	runResource *argoproj.Workflow,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	switch pipeline.Status.Phase {
+	switch runResource.Status.Phase {
 	case argoproj.WorkflowRunning:
 		setWorkflowRunningCondition(componentWorkflowRun)
 		return r.updateStatusAndRequeueAfter(ctx, oldComponentWorkflowRun, componentWorkflowRun, 20*time.Second)
 	case argoproj.WorkflowSucceeded:
 		setWorkflowSucceededCondition(componentWorkflowRun)
-		if pushStep := getStepByTemplateName(pipeline.Status.Nodes, engines.StepPush); pushStep != nil {
-			if image := getImageNameFromPipeline(*pushStep.Outputs); image != "" {
+		if pushStep := getStepByTemplateName(runResource.Status.Nodes, engines.StepPush); pushStep != nil {
+			if image := getImageNameFromRunResource(*pushStep.Outputs); image != "" {
 				componentWorkflowRun.Status.ImageStatus.Image = string(image)
 			}
 		}
@@ -232,7 +232,7 @@ func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 	}
 }
 
-func (r *ComponentWorkflowRunReconciler) applyRenderedPipeline(
+func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	resource map[string]any,
@@ -303,28 +303,28 @@ func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
 ) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("componentworkflowrun", componentWorkflowRun.Name)
 
-	// Use the stored RunReference to retrieve the build plane pipeline
+	// Use the stored RunReference to retrieve the run resource
 	if componentWorkflowRun.Status.RunReference.Name == "" || componentWorkflowRun.Status.RunReference.Namespace == "" {
-		logger.Error(nil, "build plane pipeline reference not found in status")
-		return true, fmt.Errorf("pipeline reference not set in status")
+		logger.Error(nil, "run resource reference not found in status")
+		return true, fmt.Errorf("run resource reference not set in status")
 	}
 
-	pipeline := &argoproj.Workflow{}
+	runResource := &argoproj.Workflow{}
 	if err := bpClient.Get(ctx, types.NamespacedName{
 		Name:      componentWorkflowRun.Status.RunReference.Name,
 		Namespace: componentWorkflowRun.Status.RunReference.Namespace,
-	}, pipeline); err != nil {
+	}, runResource); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("build plane pipeline not found, skipping workload creation")
-			return false, fmt.Errorf("build plane pipeline not found: %w", err)
+			logger.Info("run resource not found, skipping workload creation")
+			return false, fmt.Errorf("run resource not found: %w", err)
 		}
-		return true, fmt.Errorf("failed to get build plane pipeline: %w", err)
+		return true, fmt.Errorf("failed to get run resource: %w", err)
 	}
 
-	workloadCR := extractWorkloadCRFromPipeline(pipeline)
+	workloadCR := extractWorkloadCRFromRunResource(runResource)
 	if workloadCR == "" {
-		logger.Info("no workload CR found in build plane pipeline outputs")
-		return false, fmt.Errorf("no workload CR found in pipeline outputs")
+		logger.Info("no workload CR found in run resource outputs")
+		return false, fmt.Errorf("no workload CR found in run resource outputs")
 	}
 
 	workload := &openchoreodevv1alpha1.Workload{}
@@ -378,9 +378,9 @@ func (r *ComponentWorkflowRunReconciler) SetupWithManager(mgr ctrl.Manager) erro
 		Complete(r)
 }
 
-// extractWorkloadCRFromPipeline extracts workload CR from build plane pipeline outputs
-func extractWorkloadCRFromPipeline(pipeline *argoproj.Workflow) string {
-	for _, node := range pipeline.Status.Nodes {
+// extractWorkloadCRFromRunResource extracts workload CR from run resource outputs
+func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
+	for _, node := range runResource.Status.Nodes {
 		if node.TemplateName == "workload-create-step" && node.Phase == argoproj.NodeSucceeded {
 			if node.Outputs != nil {
 				for _, param := range node.Outputs.Parameters {
@@ -500,8 +500,8 @@ func getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStat
 	return nil
 }
 
-// getImageNameFromPipeline extracts the image name from build plane pipeline outputs
-func getImageNameFromPipeline(output argoproj.Outputs) argoproj.AnyString {
+// getImageNameFromRunResource extracts the image name from run resource outputs
+func getImageNameFromRunResource(output argoproj.Outputs) argoproj.AnyString {
 	for _, param := range output.Parameters {
 		if param.Name == "image" && param.Value != nil {
 			return *param.Value
@@ -510,7 +510,7 @@ func getImageNameFromPipeline(output argoproj.Outputs) argoproj.AnyString {
 	return ""
 }
 
-// extractServiceAccountName extracts the service account name from the rendered workflow resource
+// extractServiceAccountName extracts the service account name from the rendered run resource
 func extractServiceAccountName(resource map[string]any) (string, error) {
 	spec, ok := resource["spec"].(map[string]any)
 	if !ok {
@@ -525,8 +525,8 @@ func extractServiceAccountName(resource map[string]any) (string, error) {
 	return serviceAccountName, nil
 }
 
-// extractNamespace extracts the namespace from rendered resource metadata
-func extractNamespace(resource map[string]any) (string, error) {
+// extractRunResourceNamespace extracts the namespace from rendered resource metadata
+func extractRunResourceNamespace(resource map[string]any) (string, error) {
 	metadata, ok := resource["metadata"].(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("metadata not found in rendered resource")
