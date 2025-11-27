@@ -6,6 +6,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	"os"
 	"time"
 
@@ -549,8 +550,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentworkflowpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ComponentWorkflowRun")
 		os.Exit(1)
