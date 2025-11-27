@@ -11,20 +11,22 @@ spec:
 
   autoDeploy: true
 
-  # Workflow configuration (developer-provided)
+  # Component Workflow configuration (developer-provided)
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: react
 
-    # Schema matching the Workflow's schema section
-    schema:
-      # Nested structure from schema
+    # Required parameters required by the ComponentWorkflow
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
           commit: ""
         appPath: "/webapp-react-nginx"
+
+    # Developer-configurable parameters (defined by PE, passed to build plane resource)
+    parameters:
       nodeVersion: "20"
 
   parameters:
@@ -40,24 +42,28 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowRun
+kind: ComponentWorkflowRun
 metadata:
   name: react-starter-build-01
 spec:
-  # Ownership tracking for the workflow execution
+  # Ownership tracking for the component workflow execution (required)
   owner:
     projectName: default
     componentName: react-starter-from-source
 
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: react
 
-    schema:
+    # Required system parameters
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
           commit: ""
         appPath: "/webapp-react-nginx"
+
+    # Developer-configurable parameters (defined by PE, passed to build plane resource)
+    parameters:
       nodeVersion: "20"

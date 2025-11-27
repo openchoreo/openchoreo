@@ -11,21 +11,19 @@ spec:
 
   autoDeploy: true
 
-  # Workflow configuration (developer-provided)
+  # Component Workflow configuration (developer-provided)
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: google-cloud-buildpacks
 
-    # Schema matching the Workflow's schema section
-    schema:
-      # Nested structure from schema
+    # Required parameters required by the ComponentWorkflow
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
           commit: ""
         appPath: "/service-go-reading-list"
-      version: 1
 
   parameters:
     exposed: true
@@ -40,25 +38,25 @@ spec:
         memory: "512Mi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowRun
+kind: ComponentWorkflowRun
 metadata:
   # Should be unique per execution
   name: reading-list-service-build-01
 spec:
-  # Ownership tracking for the workflow execution (optional)
+  # Ownership tracking for the component workflow execution (required)
   owner:
     projectName: "default"
     componentName: "reading-list-service"
 
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: google-cloud-buildpacks
 
-    schema:
+    # Required parameters required by the ComponentWorkflow
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
           commit: ""
         appPath: "/service-go-reading-list"
-      version: 1

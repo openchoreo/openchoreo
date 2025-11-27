@@ -11,14 +11,13 @@ spec:
 
   autoDeploy: true
 
-  # Workflow configuration (developer-provided)
+  # Component Workflow configuration (developer-provided)
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: docker
 
-    # Schema matching the Workflow's schema section
-    schema:
-      # Nested structure from schema
+    # Required parameters required by the ComponentWorkflow
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -26,7 +25,8 @@ spec:
           commit: ""
         appPath: "/service-go-greeter"
 
-      # Docker-specific parameters
+    # Developer-configurable parameters (defined by PE, passed to build plane resource)
+    parameters:
       docker:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"
@@ -44,27 +44,30 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowRun
+kind: ComponentWorkflowRun
 metadata:
   name: greeting-service-build-01
 spec:
-  # Ownership tracking for the workflow execution (optional)
+  # Ownership tracking for the component workflow execution (required)
   owner:
     projectName: "default"
     componentName: "greeting-service"
 
   workflow:
-    # Reference to Workflow
+    # Reference to ComponentWorkflow
     name: docker
 
-    schema:
+    # Required parameters required by the ComponentWorkflow
+    systemParameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
           commit: ""
         appPath: "/service-go-greeter"
-      # Docker-specific parameters
+
+    # Developer-configurable parameters (defined by PE, passed to build plane resource)
+    parameters:
       docker:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"

@@ -32,13 +32,13 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
 - **[Component with Traits](./component-types/component-with-traits/)** - Demonstrate trait composition
 
-### [Workflows](./workflows)
-Reusable workflow definitions for building applications from source code. These Workflow CRDs are used by the build system to define how different types of applications should be built.
+### [Component Workflows](./component-workflows)
+Reusable component workflow definitions for building applications from source code. These Workflow CRDs are used by the build system to define how different types of applications should be built.
 
-**Available Workflows:**
-- **[Docker Workflow](./workflows/docker.yaml)** - Build workflow for applications with Dockerfiles
-- **[Google Cloud Buildpacks](./workflows/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
-- **[React Workflow](./workflows/react.yaml)** - Specialized build workflow for React applications
+**Available Component Workflows:**
+- **[Docker Workflow](./component-workflows/docker.yaml)** - Build workflow for applications with Dockerfiles
+- **[Google Cloud Buildpacks](./component-workflows/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
+- **[React Workflow](./component-workflows/react.yaml)** - Specialized build workflow for React applications
 
 ### [GCP Microservices Demo](./gcp-microservices-demo)
 A complete microservices application based on Google's popular [microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo). This sample showcases how to deploy a full e-commerce application with multiple interconnected services using OpenChoreo.

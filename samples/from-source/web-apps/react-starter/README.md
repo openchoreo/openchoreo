@@ -16,15 +16,15 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 ```
 
 > [!NOTE]
-> The React build will take around 4-6 minutes depending on the network speed and Node.js dependency installation.
+> The React workflow will take around 4-6 minutes depending on the network speed and Node.js dependency installation.
 
-## Step 2: Monitor the Build
+## Step 2: Monitor the Workflow
 
-After deploying, monitor the build progress:
+After deploying, monitor the workflow progress:
 
 ```bash
-# Check WorkflowRun status
-kubectl get workflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+# Check ComponentWorkflowRun status
+kubectl get componentworkflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Watch build pods (in openchoreo-ci-default namespace)
 kubectl get pods -n openchoreo-ci-default | grep react-starter
@@ -33,14 +33,14 @@ kubectl get pods -n openchoreo-ci-default | grep react-starter
 kubectl logs -n openchoreo-ci-default <pod-name> -f
 ```
 
-Wait for the WorkflowRun to complete successfully. You should see:
+Wait for the ComponentWorkflowRun to complete successfully. You should see:
 - `WorkflowCompleted: True`
 - `WorkflowSucceeded: True`
 - `WorkloadUpdated: True`
 
 ## Step 3: Verify Deployment
 
-After the build completes, verify the deployment is ready:
+After the workflow completes, verify the deployment is ready:
 
 ```bash
 # Check ReleaseBinding status
@@ -67,30 +67,30 @@ echo "Access the application at: http://${HOSTNAME}:9080"
 
 ## Troubleshooting
 
-### Build Issues
+### Workflow Issues
 
-If the build fails or takes too long:
+If the workflow fails or takes too long:
 
-1. **Check WorkflowRun status and conditions:**
+1. **Check ComponentWorkflowRun status and conditions:**
    ```bash
-   kubectl get workflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentworkflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
-2. **Check build pod status:**
+2. **Check workflow pod status:**
    ```bash
    kubectl get pods -n openchoreo-ci-default | grep react-starter
    ```
 
-3. **View build pod logs for errors:**
+3. **View workflow pod logs for errors:**
    ```bash
    # Get the pod name
-   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l workflows.argoproj.io/workflow=react-starter-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l component-workflows.argoproj.io/workflow=react-starter-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
    # View logs
    kubectl logs -n openchoreo-ci-default $POD_NAME
    ```
 
-4. **Check if Workload was created after build:**
+4. **Check if Workload was created after workflow:**
    ```bash
    kubectl get workload -n default | grep react-starter
    ```

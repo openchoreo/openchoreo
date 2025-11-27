@@ -1,0 +1,109 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: google-cloud-buildpacks
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${ctx.componentWorkflowRunName}  - ComponentWorkflowRun CR name
+  # ${ctx.componentName}             - Component name (Only accessible for component level component-workflows)
+  # ${ctx.projectName}               - Project name (Only accessible for component level component-workflows)
+  # ${ctx.orgName}                   - Organization name (namespace)
+  # ${systemParameters.*}            - System-provided values from systemParameters schema
+  # ${parameters.*}                  - Developer-provided values from parameters schema
+
+  # Schema definition for component workflows
+  schema:
+    # System parameters - Required structured parameters for component workflows
+    # These fields are necessary for workflow-specific platform features
+    # Platform Engineers can customize defaults, enums, and descriptions, but must maintain the field structure
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+
+    # Developer-configurable parameters - PE-defined schema for additional build configuration
+    parameters:
+      version: integer | default=1 description="Build version number for image tagging"
+      testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
+      command: '[]string | default=[] description="Custom command to override the default entrypoint"'
+      args: '[]string | default=[] description="Custom arguments to pass to the command"'
+      resources:
+        cpuCores: integer | default=1 minimum=1 maximum=8 description="Number of CPU cores allocated for the build"
+        memoryGb: integer | default=2 minimum=1 maximum=32 description="Amount of memory in GB allocated for the build"
+      timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
+      cache:
+        enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
+        paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
+      limits:
+        maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
+        maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
+
+  # Rendered workflow resource for ComponentWorkflowRun executions
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${ctx.componentWorkflowRunName}
+      namespace: openchoreo-ci-${ctx.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${ctx.componentName}
+          - name: project-name
+            value: ${ctx.projectName}
+          # Parameters from system parameters (developer-facing)
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          # Parameters from parameters defined by PE (developer-facing)
+          - name: version
+            value: ${parameters.version}
+          - name: test-mode
+            value: ${parameters.testMode}
+          - name: command
+            value: ${parameters.command}
+          - name: args
+            value: ${parameters.args}
+          - name: cpu-cores
+            value: ${parameters.resources.cpuCores}
+          - name: memory-gb
+            value: ${parameters.resources.memoryGb}
+          - name: timeout
+            value: ${parameters.timeout}
+          - name: cache-enabled
+            value: ${parameters.cache.enabled}
+          - name: cache-paths
+            value: ${parameters.cache.paths}
+          - name: max-retries
+            value: ${parameters.limits.maxRetries}
+          - name: max-duration-minutes
+            value: ${parameters.limits.maxDurationMinutes}
+          # PE-controlled hardcoded parameters
+          - name: builder-image
+            value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
+          - name: registry-url
+            value: gcr.io/openchoreo-dev/images
+          - name: security-scan-enabled
+            value: "true"
+          - name: build-timeout
+            value: "30m"
+          - name: image-name
+            value: ${ctx.projectName}-${ctx.componentName}-image
+          - name: image-tag
+            value: v${parameters.version}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks
