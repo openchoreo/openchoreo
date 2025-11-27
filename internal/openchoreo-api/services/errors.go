@@ -24,6 +24,7 @@ var (
 	ErrDeploymentPipelineNotFound = errors.New("deployment pipeline not found")
 	ErrInvalidPromotionPath       = errors.New("invalid promotion path")
 	ErrWorkflowNotFound           = errors.New("workflow not found")
+	ErrComponentWorkflowNotFound  = errors.New("component workflow not found")
 	ErrWorkloadNotFound           = errors.New("workload not found")
 	ErrComponentReleaseNotFound   = errors.New("component release not found")
 	ErrReleaseBindingNotFound     = errors.New("release binding not found")
@@ -50,6 +51,7 @@ const (
 	CodeDeploymentPipelineNotFound = "DEPLOYMENT_PIPELINE_NOT_FOUND"
 	CodeInvalidPromotionPath       = "INVALID_PROMOTION_PATH"
 	CodeWorkflowNotFound           = "WORKFLOW_NOT_FOUND"
+	CodeComponentWorkflowNotFound  = "COMPONENT_WORKFLOW_NOT_FOUND"
 	CodeWorkloadNotFound           = "WORKLOAD_NOT_FOUND"
 	CodeComponentReleaseNotFound   = "COMPONENT_RELEASE_NOT_FOUND"
 	CodeReleaseBindingNotFound     = "RELEASE_BINDING_NOT_FOUND"
