@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"time"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,7 +49,7 @@ type ComponentWorkflowRunReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx).WithValues("componentworkflowrun", req.NamespacedName)
 
 	componentWorkflowRun := &openchoreodevv1alpha1.ComponentWorkflowRun{}
@@ -58,34 +60,49 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	oldComponentWorkflowRun := componentWorkflowRun.DeepCopy()
+	// Keep a copy for comparison
+	old := componentWorkflowRun.DeepCopy()
+
+	// Deferred status update
+	defer func() {
+		// Skip update if nothing changed
+		if apiequality.Semantic.DeepEqual(old.Status, componentWorkflowRun.Status) {
+			return
+		}
+
+		// Update the status
+		if err := r.Status().Update(ctx, componentWorkflowRun); err != nil {
+			logger.Error(err, "Failed to update ComponentWorkflowRun status")
+			rErr = kerrors.NewAggregate([]error{rErr, err})
+		}
+	}()
 
 	if isWorkloadUpdated(componentWorkflowRun) {
 		return ctrl.Result{}, nil
 	}
 
-	if isWorkflowCompleted(componentWorkflowRun) {
-		if isWorkflowSucceeded(componentWorkflowRun) {
-			return r.handleWorkloadCreation(ctx, oldComponentWorkflowRun, componentWorkflowRun)
-		}
-		return ctrl.Result{}, nil
-	}
-
 	if !isWorkflowInitiated(componentWorkflowRun) {
 		setWorkflowPendingCondition(componentWorkflowRun)
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, componentWorkflowRun)
 	if err != nil {
 		logger.Error(err, "failed to get build plane")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	bpClient, err := r.getBuildPlaneClient(buildPlane)
 	if err != nil {
 		logger.Error(err, "failed to get build plane client")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if isWorkflowCompleted(componentWorkflowRun) {
+		if isWorkflowSucceeded(componentWorkflowRun) {
+			return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if componentWorkflowRun.Status.RunReference.Name != "" && componentWorkflowRun.Status.RunReference.Namespace != "" {
@@ -96,13 +113,13 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		}, runResource)
 
 		if err == nil {
-			return r.syncWorkflowRunStatus(ctx, oldComponentWorkflowRun, componentWorkflowRun, runResource)
+			return r.syncWorkflowRunStatus(componentWorkflowRun, runResource)
 		} else if !errors.IsNotFound(err) {
 			logger.Error(err, "failed to get run resource")
-			return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+			return ctrl.Result{Requeue: true}, nil
 		}
 		setWorkflowNotFoundCondition(componentWorkflowRun)
-		return r.updateStatusAndReturn(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{}, nil
 	}
 
 	componentWorkflow := &openchoreodevv1alpha1.ComponentWorkflow{}
@@ -111,7 +128,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		Namespace: componentWorkflowRun.Namespace,
 	}, componentWorkflow); err != nil {
 		logger.Error(err, "failed to get ComponentWorkflow")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	renderInput := &componentworkflowpipeline.RenderInput{
@@ -128,53 +145,42 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 	output, err := r.Pipeline.Render(renderInput)
 	if err != nil {
 		logger.Error(err, "failed to render component workflow")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	runResNamespace, err := extractRunResourceNamespace(output.Resource)
 	if err != nil {
 		logger.Error(err, "failed to extract namespace from rendered resource")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return r.ensureRunResource(ctx, oldComponentWorkflowRun, componentWorkflowRun, output, runResNamespace, bpClient)
+	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient)
 }
 
 func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
 	ctx context.Context,
-	oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	bpClient client.Client,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, componentWorkflowRun)
-	if err != nil {
-		logger.Error(err, "failed to get build plane for workload creation")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
-	}
-
-	bpClient, err := r.getBuildPlaneClient(buildPlane)
-	if err != nil {
-		logger.Error(err, "failed to get build plane client for workload creation")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
-	}
 
 	shouldRequeue, err := r.createWorkloadFromComponentWorkflowRun(ctx, componentWorkflowRun, bpClient)
 	if err != nil {
 		logger.Error(err, "failed to create workload CR")
 		if shouldRequeue {
-			return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+			return ctrl.Result{Requeue: true}, nil
 		}
 		setWorkloadUpdateFailedCondition(componentWorkflowRun)
-		return r.updateStatusAndReturn(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{}, nil
 	}
 
 	setWorkloadUpdatedCondition(componentWorkflowRun)
-	return r.updateStatusAndReturn(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+	return ctrl.Result{}, nil
 }
 
 func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	ctx context.Context,
-	oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	output *componentworkflowpipeline.RenderOutput,
 	runResNamespace string,
 	bpClient client.Client,
@@ -184,34 +190,31 @@ func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	serviceAccountName, err := extractServiceAccountName(output.Resource)
 	if err != nil {
 		logger.Error(err, "failed to extract service account name from rendered resource")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
 	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if err := r.applyRenderedRunResource(ctx, componentWorkflowRun, output.Resource, bpClient); err != nil {
 		logger.Error(err, "failed to apply rendered run resource")
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+	return ctrl.Result{Requeue: true}, nil
 }
 
 func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
-	ctx context.Context,
-	oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	runResource *argoproj.Workflow,
 ) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
 	switch runResource.Status.Phase {
 	case argoproj.WorkflowRunning:
 		setWorkflowRunningCondition(componentWorkflowRun)
-		return r.updateStatusAndRequeueAfter(ctx, oldComponentWorkflowRun, componentWorkflowRun, 20*time.Second)
+		return ctrl.Result{RequeueAfter: 20 * time.Second}, nil
 	case argoproj.WorkflowSucceeded:
 		setWorkflowSucceededCondition(componentWorkflowRun)
 		if pushStep := getStepByTemplateName(runResource.Status.Nodes, engines.StepPush); pushStep != nil {
@@ -219,16 +222,12 @@ func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 				componentWorkflowRun.Status.ImageStatus.Image = string(image)
 			}
 		}
-		if err := r.Status().Update(ctx, componentWorkflowRun); err != nil {
-			logger.Error(err, "Failed to update componentworkflowrun status")
-			return ctrl.Result{}, err
-		}
 		return ctrl.Result{Requeue: true}, nil
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
 		setWorkflowFailedCondition(componentWorkflowRun)
-		return r.updateStatusAndReturn(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{}, nil
 	default:
-		return r.updateStatusAndRequeue(ctx, oldComponentWorkflowRun, componentWorkflowRun)
+		return ctrl.Result{Requeue: true}, nil
 	}
 }
 
@@ -238,8 +237,6 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 	resource map[string]any,
 	bpClient client.Client,
 ) error {
-	logger := log.FromContext(ctx)
-
 	resource = convertParameterValuesToStrings(resource)
 
 	unstructuredResource := &unstructured.Unstructured{Object: resource}
@@ -277,10 +274,6 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 			}
 			componentWorkflowRun.Status.RunReference.Name = name
 			componentWorkflowRun.Status.RunReference.Namespace = namespace
-			if err := r.Status().Update(ctx, componentWorkflowRun); err != nil {
-				logger.Error(err, "Failed to update componentworkflowrun status")
-				return err
-			}
 			return nil
 		}
 		return fmt.Errorf("failed to get existing resource: %w", err)
@@ -348,18 +341,6 @@ func (r *ComponentWorkflowRunReconciler) getBuildPlaneClient(buildPlane *opencho
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
 	return bpClient, nil
-}
-
-func (r *ComponentWorkflowRunReconciler) updateStatusAndRequeue(ctx context.Context, oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
-	return controller.UpdateStatusConditionsAndRequeue(ctx, r.Client, oldComponentWorkflowRun, componentWorkflowRun)
-}
-
-func (r *ComponentWorkflowRunReconciler) updateStatusAndReturn(ctx context.Context, oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
-	return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, oldComponentWorkflowRun, componentWorkflowRun)
-}
-
-func (r *ComponentWorkflowRunReconciler) updateStatusAndRequeueAfter(ctx context.Context, oldComponentWorkflowRun, componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun, duration time.Duration) (ctrl.Result, error) {
-	return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, oldComponentWorkflowRun, componentWorkflowRun, duration)
 }
 
 // SetupWithManager sets up the controller with the Manager.
