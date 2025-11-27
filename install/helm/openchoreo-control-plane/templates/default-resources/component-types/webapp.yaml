@@ -10,6 +10,9 @@ metadata:
 spec:
   workloadType: deployment
 
+  allowedWorkflows:
+    - react
+
   schema:
     types:
       ResourceRequirements:

@@ -10,6 +10,11 @@ metadata:
 spec:
   workloadType: deployment
 
+  allowedWorkflows:
+    - google-cloud-buildpacks
+    - ballerina-buildpack
+    - docker
+
   schema:
     types:
       ResourceRequirements:

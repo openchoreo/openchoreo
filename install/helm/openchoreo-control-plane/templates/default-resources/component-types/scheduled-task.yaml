@@ -10,6 +10,10 @@ metadata:
 spec:
   workloadType: cronjob
 
+  allowedWorkflows:
+    - google-cloud-buildpacks
+    - docker
+
   schema:
     types:
       ResourceRequirements:
