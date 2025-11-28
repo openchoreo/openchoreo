@@ -35,6 +35,7 @@ type ComponentList struct {
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ComponentOwner `json:"owner"`
 
 	// Type specifies the component type (e.g., Service, WebApplication, etc.)

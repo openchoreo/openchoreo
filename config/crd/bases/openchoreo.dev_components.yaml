@@ -66,6 +66,9 @@ spec:
                 required:
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
               parameters:
                 description: |-
                   Parameters from ComponentType (oneOf schema based on componentType)

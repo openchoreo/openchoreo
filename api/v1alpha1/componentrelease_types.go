@@ -12,6 +12,7 @@ import (
 type ComponentReleaseSpec struct {
 	// Owner identifies the component and project this ComponentRelease belongs to
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ComponentReleaseOwner `json:"owner"`
 
 	// ComponentType is a full embedded copy of the ComponentType

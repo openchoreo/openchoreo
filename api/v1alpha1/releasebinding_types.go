@@ -31,10 +31,12 @@ type WorkloadOverrideTemplateSpec struct {
 type ReleaseBindingSpec struct {
 	// Owner identifies the component and project this ReleaseBinding belongs to
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ReleaseBindingOwner `json:"owner"`
 
 	// EnvironmentName is the name of the environment this binds the ComponentRelease to
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.environment is immutable"
 	Environment string `json:"environment"`
 
 	// ReleaseName is the name of the ComponentRelease to bind

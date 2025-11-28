@@ -208,6 +208,9 @@ spec:
                 - componentName
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
               traits:
                 additionalProperties:
                   description: TraitSpec defines the desired state of Trait.
