@@ -75,17 +75,13 @@ data:
         ]
 
     service:
-      extensions:
-        - basicauth/opensearch
-        - health_check
+      extensions: [basicauth/opensearch, health_check]
       pipelines:
         traces:
-          receivers:
-            - otlp
-          processors:
-            {{- if eq .Values.global.installationMode "singleCluster" }}
-            - k8sattributes
-            {{- end }}
-            - tail_sampling
-          exporters:
-            - opensearch
+          receivers: [otlp]
+          {{- if eq .Values.global.installationMode "singleCluster" }}
+          processors: [k8sattributes, tail_sampling]
+          {{- else }}
+          processors: [tail_sampling]
+          {{- end }}
+          exporters: [opensearch]

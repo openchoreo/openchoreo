@@ -8,8 +8,11 @@ dependencies:
 - name: kgateway
   repository: oci://cr.kgateway.dev/kgateway-dev/charts
   version: v2.1.1
+- name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.140.0
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:038b5b9953aeaf18df5436834c664210b7cde368e7d65f7f1ef138614ac26aac
-generated: "2025-11-26T13:52:21.496439+05:30"
+digest: sha256:b75b536439a1198835509b326939a35395a72db8c20fab3873a7539621367184
+generated: "2025-11-28T16:14:26.444233+05:30"

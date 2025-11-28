@@ -155,6 +155,7 @@ security:
 # Customizing overall observability configurations
 observability:
   enabled: true
+  observabilityPlaneUrl: ""
   # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
   metrics:
     enabled: false  # Enable after observability-plane is installed
@@ -240,6 +241,38 @@ fluentBit:
   hostPaths:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
+
+opentelemetry-collector:
+  enabled: false
+  clusterRole:
+    create: true
+    rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["replicasets"]
+        verbs: ["list","watch"]
+
+  configMap:
+    create: false
+    existingName: "opentelemetry-collector-config"
+
+  fullnameOverride: "opentelemetry-collector"
+
+  image:
+    repository: otel/opentelemetry-collector-contrib
+
+  mode: deployment
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
 
 # Cluster Agent configuration
 # The agent connects to the control plane cluster gateway via WebSocket
