@@ -1,4 +1,4 @@
-{{- if eq .Values.global.installationMode "standard" }}
+{{- if or (eq .Values.global.installationMode "singleCluster") (eq .Values.global.installationMode "multiCluster") }}
 apiVersion: opensearch.opster.io/v1
 kind: OpenSearchCluster
 metadata:
@@ -13,6 +13,10 @@ spec:
       requests:
         cpu: {{ .Values.openSearchCluster.bootstrap.resources.requests.cpu }}
         memory: {{ .Values.openSearchCluster.bootstrap.resources.requests.memory }}
+  dashboards:
+    enable: {{ .Values.openSearchCluster.dashboards.enable }}
+    version: {{ .Values.openSearchCluster.dashboards.version | quote }}
+    replicas: {{ .Values.openSearchCluster.dashboards.replicas }}
   general:
     serviceName: opensearch
     version: {{ .Values.openSearchCluster.general.version | quote }}

@@ -3,33 +3,15 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
-  # Installation mode for the OpenChoreo Observability Plane
-  # standard: Operator managed OpenSearch cluster will be deployed
-  # minimal: Single replica OpenSearch instance will be deployed
-  installationMode: standard
-
-# Wait job configuration for post-install hooks
-waitJob:
-  image: bitnamilegacy/kubectl:1.32.4
-
-# External Secrets Operator configuration for secret management
-# Single cluster: Set to false to use data plane's ESO
-# Multi-cluster: Set to true to install dedicated ESO in observability plane
-external-secrets:
-  enabled: false
-  fullnameOverride: external-secrets
-  nameOverride: external-secrets
-
-# Fake Secret Store configuration for local development
-fakeSecretStore:
-  enabled: false
-  name: default
-  secrets:
-    - key: RCA_LLM_API_KEY
-      value: "fake-llm-api-key-for-development"
+  # Installation mode of OpenChoreo
+  # Supported values:
+  # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster
+  # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
+  # quickStart: Limited set of features for quick-start setup
+  installationMode: singleCluster
 
 data-prepper:
-  enabled: true
+  enabled: false
   fullnameOverride: "data-prepper"
 
   pipelineConfig:
@@ -46,9 +28,11 @@ data-prepper:
             batch_size: 200
         sink:
           - opensearch:
-              hosts: ["http://opensearch:9200"]
+              hosts: ["https://opensearch:9200"]
+              password: ThisIsTheOpenSearchPassword1
               insecure: true
-              index_type: trace-analytics-raw
+              index: otel-traces-%{yyyy-MM-dd}
+              username: admin
 
   resources:
     limits:
@@ -57,6 +41,73 @@ data-prepper:
     requests:
       cpu: 700m
       memory: 500Mi
+
+
+# External Secrets Operator configuration for secret management
+# Single cluster: Set to false to use data plane's ESO
+# Multi-cluster: Set to true to install dedicated ESO in observability plane
+external-secrets:
+  enabled: false
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
+
+# Fake Secret Store configuration for local development
+fakeSecretStore:
+  enabled: false
+  name: default
+  secrets:
+    - key: RCA_LLM_API_KEY
+      value: "fake-llm-api-key-for-development"
+
+
+opentelemetry-collector:
+  enabled: true
+  clusterRole:
+    create: true
+    rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["replicasets"]
+        verbs: ["list","watch"]
+      
+  configMap:
+    create: false
+    existingName: "opentelemetry-collector-config"
+  
+  fullnameOverride: "opentelemetry-collector"
+
+  image:
+    repository: otel/opentelemetry-collector-contrib
+
+  mode: deployment
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
+## opentelemetryCollectorCustomizations aren't passed to the opentelemetry-collector helm values file directly.
+# They are to be used by openchoreo specific templates
+opentelemetryCollectorCustomizations:
+  openSearchQueue:
+    numConsumers: 5
+    queueSize: 1000
+    sizer: items
+  tailSampling:
+    decisionWait: 10s
+    numTraces: 100
+    expectedNewTracesPerSec: 10
+    decisionCache:
+      sampledCacheSize: 10000
+      nonSampledCacheSize: 1000
+    spansPerSecond: 10
+
 
 openSearch:
   enabled: false
@@ -92,8 +143,8 @@ openSearchCluster:
     setVMMaxMapCount: true
     version: 3.3.0
 
-  dashboard:
-    enabled: false
+  dashboards:
+    enable: false
     replicas: 1
     version: 3.3.0
 
@@ -436,3 +487,7 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
+
+# Wait job configuration for post-install hooks
+waitJob:
+  image: bitnamilegacy/kubectl:1.32.4

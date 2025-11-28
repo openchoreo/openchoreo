@@ -48,5 +48,4 @@ spec:
       securityContext:
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: opensearch
 {{- end }}

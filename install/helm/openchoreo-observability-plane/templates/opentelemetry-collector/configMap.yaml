@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opentelemetry-collector-config
+  namespace: {{ .Release.Namespace }}
+data:
+  relay: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    exporters:
+      opensearch:
+        http:
+          auth:
+            authenticator: basicauth/opensearch
+          endpoint: https://opensearch.openchoreo-observability-plane.svc.cluster.local:9200
+          tls:
+            insecure_skip_verify: true
+        sending_queue:
+          num_consumers: {{ .Values.opentelemetryCollectorCustomizations.openSearchQueue.numConsumers }}
+          queue_size: {{ .Values.opentelemetryCollectorCustomizations.openSearchQueue.queueSize }}
+          sizer: {{ .Values.opentelemetryCollectorCustomizations.openSearchQueue.sizer }}
+        traces_index: "otel-traces"
+        traces_index_time_format: "yyyy-MM-dd"
+
+    extensions:
+      basicauth/opensearch:
+        client_auth: 
+          username: admin
+          password: ThisIsTheOpenSearchPassword1
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+  
+    processors:
+      {{- if eq .Values.global.installationMode "singleCluster" }}
+      k8sattributes:
+        auth_type: "serviceAccount"
+        passthrough: false
+
+        extract:
+          labels:
+            - key: openchoreo.dev/component-uid
+              tag_name: openchoreo.dev/component-uid
+            - key: openchoreo.dev/environment-uid
+              tag_name: openchoreo.dev/environment-uid
+            - key: openchoreo.dev/project-uid
+              tag_name: openchoreo.dev/project-uid
+            
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+      {{- end }}
+
+      tail_sampling:
+        decision_wait: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.decisionWait }}
+        num_traces: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.numTraces }}
+        expected_new_traces_per_sec: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.expectedNewTracesPerSec }}
+        decision_cache:
+          sampled_cache_size: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.decisionCache.sampledCacheSize }}
+          non_sampled_cache_size: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.decisionCache.nonSampledCacheSize }}
+        policies: [
+            {
+              name: rate_limiting,
+              type: rate_limiting,
+              rate_limiting: {spans_per_second: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.spansPerSecond }} }
+            },
+        ]
+
+    service:
+      extensions:
+        - basicauth/opensearch
+        - health_check
+      pipelines:
+        traces:
+          receivers:
+            - otlp
+          processors:
+            {{- if eq .Values.global.installationMode "singleCluster" }}
+            - k8sattributes
+            {{- end }}
+            - tail_sampling
+          exporters:
+            - opensearch

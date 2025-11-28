@@ -38,6 +38,8 @@ done
 
 
 # 2. Create index templates
+
+# Template for indices which hold container logs
 containerLogsIndexTemplate='
 {
   "index_patterns": [
@@ -61,10 +63,71 @@ containerLogsIndexTemplate='
   }
 }'
 
+# Template for indices which hold OpenTelemetry traces
+otelTracesIndexTemplate='
+{
+  "index_patterns": [
+    "otel-traces-*"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1
+    },
+    "mappings": {
+      "properties": {
+        "endTime": {
+          "type": "date_nanos"
+        },
+        "parentSpanId": {
+          "type": "keyword"
+        },
+        "resource": {
+          "properties": {
+            "k8s.namespace.name": {
+              "type": "keyword"
+            },
+            "k8s.node.name": {
+              "type": "keyword"
+            },
+            "k8s.pod.name": {
+              "type": "keyword"
+            },
+            "k8s.pod.uid": {
+              "type": "keyword"
+            },
+            "openchoreo.dev/component-uid": {
+              "type": "keyword"
+            },
+            "openchoreo.dev/environment-uid": {
+              "type": "keyword"
+            },
+            "openchoreo.dev/project-uid": {
+              "type": "keyword"
+            },
+            "service.name": {
+              "type": "keyword"
+            }
+          }
+        },
+        "spanId": {
+          "type": "keyword"
+        },
+        "startTime": {
+          "type": "date_nanos"
+        },
+        "traceId": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}'
+
 # The following array holds pairs of index template names and their definitions. Define more templates above
 # and add them to this array.
 # Format: (templateName1 templateDefinition1 templateName2 templateDefinition2 ...)
-indexTemplates=("container-logs" "containerLogsIndexTemplate")
+indexTemplates=("container-logs" "containerLogsIndexTemplate" "otel-traces" "otelTracesIndexTemplate")
 
 # Create index templates through a loop using the above array
 echo "Creating index templates..."
@@ -78,6 +141,7 @@ for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
     response=$(curl --data "$templateContent" \
                     --header "Authorization: Basic $authnToken" \
                     --header "Content-Type: application/json" \
+                    --insecure \
                     --request PUT \
                     --show-error \
                     --silent \
@@ -88,11 +152,12 @@ for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
     responseBody=$(echo "$response" | head -n-1)
     
     if [ "$httpCode" -eq 200 ]; then
+        echo "Response: $responseBody"
         echo "Successfully created/updated index template $templateName. HTTP response code: $httpCode"
-        echo "Response: $responseBody"
+        
     else
-        echo "Failed to create/update index template: $templateName. HTTP response code: $httpCode"
         echo "Response: $responseBody"
+        echo "Failed to create/update index template: $templateName. HTTP response code: $httpCode"
     fi
 done
 
