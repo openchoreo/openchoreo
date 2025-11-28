@@ -402,29 +402,37 @@ check_system_resources() {
     disk_available_kb=$(df "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' || echo "0")
     disk_gb=$((disk_available_kb / 1024 / 1024))
 
-    # Calculate required resources
-    # Base requirements
-    local required_cpus_min=2
-    local required_cpus_rec=4
-    local required_memory_min=3
-    local required_memory_rec=6
-    local required_disk=20
-
-    # Add observability plane requirements
-    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
-        required_cpus_min=$((required_cpus_min + 1))
-        required_cpus_rec=$((required_cpus_rec + 2))
-        required_memory_min=$((required_memory_min + 1))
-        required_memory_rec=$((required_memory_rec + 3))
-        required_disk=$((required_disk + 20))
-    fi
+    # Calculate required resources based on actual measured usage:
+    # - k3s kubernetes control plane: ~1.5GB baseline
+    # - Control Plane pods: ~350MB (cert-manager, controller, api, ui, thunder)
+    # - Data Plane pods: ~200MB (envoy-gateway, external-secrets, gateway)
+    # - Build Plane pods: ~70MB steady + ~500MB during builds (argo, registry)
+    # - Observability pods: ~1GB (OpenSearch is memory intensive)
+    #
+    # Base requirements (Control + Data Planes)
+    local required_cpus_min=1
+    local required_cpus_rec=2
+    local required_memory_min=2
+    local required_memory_rec=3
+    local required_disk=10
 
     # Add build plane requirements
+    # Build plane adds ~70MB steady state but needs headroom for concurrent builds
     if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
-        required_cpus_min=$((required_cpus_min + 2))
-        required_cpus_rec=$((required_cpus_rec + 2))
-        required_memory_min=$((required_memory_min + 4))
-        required_memory_rec=$((required_memory_rec + 4))
+        required_cpus_min=$((required_cpus_min + 1))
+        required_cpus_rec=$((required_cpus_rec + 1))
+        required_memory_min=$((required_memory_min + 1))
+        required_memory_rec=$((required_memory_rec + 1))
+        required_disk=$((required_disk + 5))
+    fi
+
+    # Add observability plane requirements
+    # OpenSearch requires significant memory for indexing and queries
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        required_cpus_min=$((required_cpus_min + 1))
+        required_cpus_rec=$((required_cpus_rec + 1))
+        required_memory_min=$((required_memory_min + 1))
+        required_memory_rec=$((required_memory_rec + 2))
         required_disk=$((required_disk + 10))
     fi
 
