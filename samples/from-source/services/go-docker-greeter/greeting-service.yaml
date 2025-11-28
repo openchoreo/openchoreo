@@ -22,7 +22,8 @@ spec:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          commit: ""
+          # Optional commit hash, should be a valid git commit
+          # commit: ""
         appPath: "/service-go-greeter"
 
     # Developer-configurable parameters (defined by PE, passed to build plane resource)
@@ -63,7 +64,8 @@ spec:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          commit: ""
+          # Optional commit hash, should be a valid git commit
+          # commit: ""
         appPath: "/service-go-greeter"
 
     # Developer-configurable parameters (defined by PE, passed to build plane resource)

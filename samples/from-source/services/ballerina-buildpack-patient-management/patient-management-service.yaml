@@ -23,7 +23,8 @@ spec:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          commit: ""
+          # Optional commit hash, should be a valid git commit
+          # commit: ""
         appPath: "/service-ballerina-patient-management"
 
   parameters:
@@ -59,5 +60,6 @@ spec:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          commit: ""
+          # Optional commit hash, should be a valid git commit
+          # commit: ""
         appPath: "/service-ballerina-patient-management"
