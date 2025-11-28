@@ -5,10 +5,10 @@
 //
 // The pipeline combines Component, ComponentType, Traits, Workload and ComponentDeployment
 // to generate fully resolved Kubernetes resource manifests by:
-//  1. Building CEL evaluation contexts with parameters, overrides, and defaults
-//  2. Rendering base resources from ComponentType
-//  3. Processing traits (creates and patches)
-//  4. Post-processing (validation, labels, annotations)
+//   - Building CEL evaluation contexts with parameters, overrides, and defaults
+//   - Rendering base resources from ComponentType
+//   - Processing traits (creates and patches)
+//   - Post-processing (validation, labels, annotations)
 package component
 
 import (
@@ -44,16 +44,16 @@ func NewPipeline(opts ...Option) *Pipeline {
 // Render orchestrates the complete rendering workflow for a Component.
 //
 // Workflow:
-//  1. Validate input
-//  2. Build component context (parameters + overrides + defaults)
-//  3. Render base resources from ComponentType
-//  4. Process traits (creates and patches)
-//  5. Post-process (validate, add labels/annotations, sort)
-//  6. Return output
+//   - Validate input
+//   - Build component context (parameters + overrides + defaults)
+//   - Render base resources from ComponentType
+//   - Process traits (creates and patches)
+//   - Post-process (validate, add labels/annotations, sort)
+//   - Return output
 //
 // Returns an error if any step fails.
 func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
-	// 1. Validate input
+	// Validate input
 	if err := p.validateInput(input); err != nil {
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
@@ -62,22 +62,23 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
-	// 2. Build component context
+	// Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
-		Component:           input.Component,
-		ComponentType:       input.ComponentType,
-		Workload:            input.Workload,
-		ComponentDeployment: input.ComponentDeployment,
-		ReleaseBinding:      input.ReleaseBinding,
-		DataPlane:           input.DataPlane,
-		SecretReferences:    input.SecretReferences,
-		Metadata:            input.Metadata,
+		Component:                    input.Component,
+		ComponentType:                input.ComponentType,
+		Workload:                     input.Workload,
+		ComponentDeployment:          input.ComponentDeployment,
+		ReleaseBinding:               input.ReleaseBinding,
+		DataPlane:                    input.DataPlane,
+		SecretReferences:             input.SecretReferences,
+		Metadata:                     input.Metadata,
+		DiscardComponentEnvOverrides: p.options.DiscardComponentEnvOverrides,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
 	}
 
-	// 3. Render base resources from ComponentType
+	// Render base resources from ComponentType
 	resourceRenderer := renderer.NewRenderer(p.templateEngine)
 	resources, err := resourceRenderer.RenderResources(
 		input.ComponentType.Spec.Resources,
@@ -88,7 +89,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	}
 	metadata.BaseResourceCount = len(resources)
 
-	// 4. Process traits
+	// Process traits
 	traitProcessor := trait.NewProcessor(p.templateEngine)
 
 	// Build trait map
@@ -110,13 +111,14 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
-			Trait:               trait,
-			Instance:            traitInstance,
-			Component:           input.Component,
-			ComponentDeployment: input.ComponentDeployment,
-			ReleaseBinding:      input.ReleaseBinding,
-			Metadata:            input.Metadata,
-			SchemaCache:         schemaCache,
+			Trait:                        trait,
+			Instance:                     traitInstance,
+			Component:                    input.Component,
+			ComponentDeployment:          input.ComponentDeployment,
+			ReleaseBinding:               input.ReleaseBinding,
+			Metadata:                     input.Metadata,
+			SchemaCache:                  schemaCache,
+			DiscardComponentEnvOverrides: p.options.DiscardComponentEnvOverrides,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
@@ -135,12 +137,12 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	metadata.TraitResourceCount = len(resources) - metadata.BaseResourceCount
 
-	// 5. Post-process resources
+	// Post-process resources
 	if err := p.postProcessResources(resources, input); err != nil {
 		return nil, fmt.Errorf("failed to post-process resources: %w", err)
 	}
 
-	// 6. Validate if enabled
+	// Validate if enabled
 	if p.options.EnableValidation {
 		if err := p.validateResources(resources); err != nil {
 			return nil, fmt.Errorf("validation failed: %w", err)

@@ -100,13 +100,20 @@ type RenderOptions struct {
 
 	// ResourceAnnotations are additional annotations to add to all rendered resources.
 	ResourceAnnotations map[string]string
+
+	// DiscardComponentEnvOverrides when true, discards envOverride values from Component.Spec.Parameters
+	// and only uses values from ReleaseBinding.Spec.ComponentTypeEnvOverrides for envOverride fields.
+	// Component parameters are still used for fields defined in schema.parameters.
+	// Default: false (current behavior - merge Component parameters with ReleaseBinding envOverrides)
+	DiscardComponentEnvOverrides bool
 }
 
 // DefaultRenderOptions returns the default rendering options.
 func DefaultRenderOptions() RenderOptions {
 	return RenderOptions{
-		EnableValidation:    true,
-		ResourceLabels:      map[string]string{},
-		ResourceAnnotations: map[string]string{},
+		EnableValidation:             true,
+		ResourceLabels:               map[string]string{},
+		ResourceAnnotations:          map[string]string{},
+		DiscardComponentEnvOverrides: false,
 	}
 }

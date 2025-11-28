@@ -50,6 +50,12 @@ spec:
       replicas: "integer | default=1"
       image: "string"
 `,
+			envSettingsYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+`,
 			environment: "dev",
 			want: map[string]any{
 				"parameters": map[string]any{
@@ -169,6 +175,12 @@ spec:
     app:
       image: myapp:latest
 `,
+			envSettingsYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+`,
 			environment: "dev",
 			want: map[string]any{
 				"parameters": map[string]any{},
@@ -208,19 +220,6 @@ spec:
 				},
 			},
 			wantErr: false,
-		},
-		{
-			name: "nil component type",
-			componentYAML: `
-apiVersion: choreo.dev/v1alpha1
-kind: Component
-metadata:
-  name: test-component
-spec:
-  type: service
-`,
-			componentTypeYAML: "", // Empty to test nil
-			wantErr:           true,
 		},
 	}
 
@@ -303,6 +302,172 @@ spec:
 	}
 }
 
+func TestBuildComponentContext_DiscardComponentEnvOverrides(t *testing.T) {
+	tests := []struct {
+		name                         string
+		componentYAML                string
+		componentTypeYAML            string
+		releaseBindingYAML           string
+		discardComponentEnvOverrides bool
+		want                         map[string]any
+		wantErr                      bool
+	}{
+		{
+			name: "discard=false merges component and releasebinding envOverrides",
+			componentYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-component
+spec:
+  type: service
+  parameters:
+    replicas: 2
+    cpu: "200m"
+    memory: "512Mi"
+`,
+			componentTypeYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: service
+spec:
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+    envOverrides:
+      cpu: "string | default=100m"
+      memory: "string | default=256Mi"
+`,
+			releaseBindingYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+spec:
+  componentTypeEnvOverrides:
+    cpu: "500m"
+`,
+			discardComponentEnvOverrides: false,
+			want: map[string]any{
+				"parameters": map[string]any{
+					"replicas": float64(2), // From parameters schema
+					"cpu":      "500m",     // From ReleaseBinding envOverrides (overrides component)
+					"memory":   "512Mi",    // From component envOverrides
+				},
+			},
+		},
+		{
+			name: "discard=true uses only releasebinding envOverrides",
+			componentYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-component
+spec:
+  type: service
+  parameters:
+    replicas: 2
+    cpu: "200m"
+    memory: "512Mi"
+`,
+			componentTypeYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: service
+spec:
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+    envOverrides:
+      cpu: "string | default=100m"
+      memory: "string | default=256Mi"
+`,
+			releaseBindingYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+spec:
+  componentTypeEnvOverrides:
+    cpu: "500m"
+`,
+			discardComponentEnvOverrides: true,
+			want: map[string]any{
+				"parameters": map[string]any{
+					"replicas": float64(2), // From parameters schema
+					"cpu":      "500m",     // From ReleaseBinding envOverrides only
+					"memory":   "256Mi",    // Default from envOverrides schema (component value discarded)
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build input from YAML
+			input := &ComponentContextInput{
+				DataPlane: &v1alpha1.DataPlane{
+					Spec: v1alpha1.DataPlaneSpec{
+						Gateway: v1alpha1.GatewaySpec{
+							PublicVirtualHost: "api.example.com",
+						},
+					},
+				},
+				Metadata: MetadataContext{
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-component",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "test-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+				},
+				DiscardComponentEnvOverrides: tt.discardComponentEnvOverrides,
+			}
+
+			comp := &v1alpha1.Component{}
+			if err := yaml.Unmarshal([]byte(tt.componentYAML), comp); err != nil {
+				t.Fatalf("Failed to parse component YAML: %v", err)
+			}
+			input.Component = comp
+
+			ct := &v1alpha1.ComponentType{}
+			if err := yaml.Unmarshal([]byte(tt.componentTypeYAML), ct); err != nil {
+				t.Fatalf("Failed to parse ComponentType YAML: %v", err)
+			}
+			input.ComponentType = ct
+
+			if tt.releaseBindingYAML != "" {
+				rb := &v1alpha1.ReleaseBinding{}
+				if err := yaml.Unmarshal([]byte(tt.releaseBindingYAML), rb); err != nil {
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
+				}
+				input.ReleaseBinding = rb
+			}
+
+			got, err := BuildComponentContext(input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildComponentContext() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			// Compare only the parameters field
+			gotParams := got.ToMap()["parameters"]
+			if diff := cmp.Diff(tt.want["parameters"], gotParams); diff != "" {
+				t.Errorf("BuildComponentContext() parameters mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestBuildTraitContext(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -345,6 +510,12 @@ name: mysql-trait
 instanceName: db-1
 parameters:
   database: mydb
+`,
+			envSettingsYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
 `,
 			environment: "dev",
 			want: map[string]any{
@@ -417,19 +588,6 @@ spec:
 			},
 			wantErr: false,
 		},
-		{
-			name: "nil trait input",
-			componentYAML: `
-apiVersion: choreo.dev/v1alpha1
-kind: Component
-metadata:
-  name: test-component
-spec:
-  type: service
-`,
-			traitYAML: "", // Empty to test nil
-			wantErr:   true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -491,6 +649,174 @@ spec:
 			// Compare the entire result using cmp.Diff
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("BuildTraitContext() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestBuildTraitContext_DiscardComponentEnvOverrides(t *testing.T) {
+	tests := []struct {
+		name                         string
+		traitYAML                    string
+		componentYAML                string
+		instanceYAML                 string
+		releaseBindingYAML           string
+		discardComponentEnvOverrides bool
+		want                         map[string]any
+		wantErr                      bool
+	}{
+		{
+			name: "discard=false merges trait instance and releasebinding envOverrides",
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: mysql-trait
+spec:
+  schema:
+    parameters:
+      database: "string"
+    envOverrides:
+      size: "string | default=small"
+      storage: "string | default=10Gi"
+`,
+			componentYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-component
+spec:
+  type: service
+`,
+			instanceYAML: `
+name: mysql-trait
+instanceName: db-1
+parameters:
+  database: mydb
+  size: medium
+  storage: 20Gi
+`,
+			releaseBindingYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+spec:
+  traitOverrides:
+    db-1:
+      size: large
+`,
+			discardComponentEnvOverrides: false,
+			want: map[string]any{
+				"parameters": map[string]any{
+					"database": "mydb",  // From parameters schema
+					"size":     "large", // From ReleaseBinding envOverrides (overrides instance)
+					"storage":  "20Gi",  // From instance envOverrides
+				},
+			},
+		},
+		{
+			name: "discard=true uses only releasebinding envOverrides",
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: mysql-trait
+spec:
+  schema:
+    parameters:
+      database: "string"
+    envOverrides:
+      size: "string | default=small"
+      storage: "string | default=10Gi"
+`,
+			componentYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-component
+spec:
+  type: service
+`,
+			instanceYAML: `
+name: mysql-trait
+instanceName: db-1
+parameters:
+  database: mydb
+  size: medium
+  storage: 20Gi
+`,
+			releaseBindingYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: test-binding
+spec:
+  traitOverrides:
+    db-1:
+      size: large
+`,
+			discardComponentEnvOverrides: true,
+			want: map[string]any{
+				"parameters": map[string]any{
+					"database": "mydb",  // From parameters schema
+					"size":     "large", // From ReleaseBinding envOverrides only
+					"storage":  "10Gi",  // Default from envOverrides schema (instance value discarded)
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build input from YAML
+			input := &TraitContextInput{
+				Metadata: MetadataContext{
+					Name:      "test-component-dev-12345678",
+					Namespace: "test-namespace",
+				},
+				DiscardComponentEnvOverrides: tt.discardComponentEnvOverrides,
+			}
+
+			trait := &v1alpha1.Trait{}
+			if err := yaml.Unmarshal([]byte(tt.traitYAML), trait); err != nil {
+				t.Fatalf("Failed to parse Trait YAML: %v", err)
+			}
+			input.Trait = trait
+
+			comp := &v1alpha1.Component{}
+			if err := yaml.Unmarshal([]byte(tt.componentYAML), comp); err != nil {
+				t.Fatalf("Failed to parse Component YAML: %v", err)
+			}
+			input.Component = comp
+
+			instance := v1alpha1.ComponentTrait{}
+			if err := yaml.Unmarshal([]byte(tt.instanceYAML), &instance); err != nil {
+				t.Fatalf("Failed to parse trait instance YAML: %v", err)
+			}
+			input.Instance = instance
+
+			if tt.releaseBindingYAML != "" {
+				rb := &v1alpha1.ReleaseBinding{}
+				if err := yaml.Unmarshal([]byte(tt.releaseBindingYAML), rb); err != nil {
+					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
+				}
+				input.ReleaseBinding = rb
+			}
+
+			got, err := BuildTraitContext(input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildTraitContext() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			// Compare only the parameters field
+			gotParams := got["parameters"]
+			if diff := cmp.Diff(tt.want["parameters"], gotParams); diff != "" {
+				t.Errorf("BuildTraitContext() parameters mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

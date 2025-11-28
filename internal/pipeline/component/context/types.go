@@ -102,6 +102,12 @@ type ComponentContextInput struct {
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext
+
+	// DiscardComponentEnvOverrides when true, discards envOverride values from Component.Spec.Parameters
+	// and only uses values from ReleaseBinding.Spec.ComponentTypeEnvOverrides for envOverride fields.
+	// Component parameters are still used for fields defined in schema.parameters.
+	// Default: false
+	DiscardComponentEnvOverrides bool
 }
 
 // TraitContextInput contains all inputs needed to build a trait rendering context.
@@ -132,6 +138,12 @@ type TraitContextInput struct {
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
 	SchemaCache map[string]*apiextschema.Structural
+
+	// DiscardComponentEnvOverrides when true, discards envOverride values from trait instance parameters
+	// and only uses values from ReleaseBinding.Spec.TraitOverrides for envOverride fields.
+	// Trait instance parameters are still used for fields defined in trait's schema.parameters.
+	// Default: false
+	DiscardComponentEnvOverrides bool
 }
 
 // SchemaInput contains schema information for applying defaults.
