@@ -59,6 +59,12 @@ type ComponentSpec struct {
 	// +optional
 	AutoDeploy bool `json:"autoDeploy,omitempty"`
 
+	// AutoBuild enables automatic builds when code is pushed to the repository
+	// When enabled, the component controller will register a webhook with the git provider
+	// to trigger builds automatically on push events
+	// +optional
+	AutoBuild *bool `json:"autoBuild,omitempty"`
+
 	// Parameters from ComponentType (oneOf schema based on componentType)
 	// This is the merged schema of parameters + envOverrides from the ComponentType
 	// +optional
@@ -115,6 +121,20 @@ type ComponentStatus struct {
 	// deployed to the first environment, if the autoDeploy flag is set to true
 	// +optional
 	LatestRelease *LatestRelease `json:"latestRelease,omitempty"`
+
+	// WebhookRegistered indicates whether a webhook has been successfully registered
+	// with the git provider for auto-build functionality
+	// +optional
+	WebhookRegistered *bool `json:"webhookRegistered,omitempty"`
+
+	// WebhookID stores the webhook ID from the git provider
+	// Used for webhook management (updates, deletion)
+	// +optional
+	WebhookID string `json:"webhookID,omitempty"`
+
+	// WebhookProvider stores the git provider type (github, gitlab, bitbucket)
+	// +optional
+	WebhookProvider string `json:"webhookProvider,omitempty"`
 }
 
 // LatestRelease has name and generated hash of the latest ComponentRelease spec

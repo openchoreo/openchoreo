@@ -12,6 +12,7 @@ import (
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -31,6 +32,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
+	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
+	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
@@ -55,6 +58,7 @@ import (
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
@@ -463,8 +467,261 @@ func main() {
 			setupLog.Error(err, "unable to setup observability plane controllers")
 			os.Exit(1)
 		}
-	default:
-		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
+		if err = (&environment.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Environment")
+			os.Exit(1)
+		}
+		if err = (&dataplane.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+			os.Exit(1)
+		}
+		if err = (&deploymentpipeline.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+			os.Exit(1)
+		}
+		if err = (&deploymenttrack.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
+			os.Exit(1)
+		}
+		if err = (&deployableartifact.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
+			os.Exit(1)
+		}
+		if err = (&deployment.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
+			os.Exit(1)
+		}
+		if err = (&endpoint.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
+			os.Exit(1)
+		}
+		if err = (&workload.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Workload")
+			os.Exit(1)
+		}
+	}
+
+	// Initialize Git Provider for webhook management
+	gitProvider := initializeGitProvider(setupLog)
+	webhookBaseURL := os.Getenv("WEBHOOK_BASE_URL")
+	if webhookBaseURL == "" {
+		setupLog.Info("WEBHOOK_BASE_URL not set, using default", "default", "http://localhost:8080")
+		webhookBaseURL = "http://localhost:8080"
+	}
+
+	if err = (&component.Reconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		GitProvider:    gitProvider,
+		WebhookBaseURL: webhookBaseURL,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Component")
+		os.Exit(1)
+	}
+
+	// ComponentType controller
+	if err = (&componenttype.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentType")
+		os.Exit(1)
+	}
+
+	if err = (&trait.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Trait")
+		os.Exit(1)
+	}
+
+	// ComponentDeployment controller
+	// Create a single pipeline instance shared across all reconciliations.
+	// This enables CEL environment caching for better performance (~4x faster after first render).
+	if err = (&componentdeployment.Reconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
+		os.Exit(1)
+	}
+
+	// ComponentEnvSnapshot controller
+	if err = (&componentenvsnapshot.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
+		os.Exit(1)
+	}
+
+	// ComponentRelease controller
+	if err = (&componentrelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
+		os.Exit(1)
+	}
+
+	// ReleaseBinding controller
+	if err = (&releasebinding.Reconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
+		os.Exit(1)
+	}
+
+	if err = (&gitcommitrequest.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
+		os.Exit(1)
+	}
+
+	// API controllers
+	if err = (&api.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "API")
+		os.Exit(1)
+	}
+	if err = (&apiclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
+		os.Exit(1)
+	}
+	if err = (&apibinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
+		os.Exit(1)
+	}
+
+	// Service controllers
+	if err := (&service.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		os.Exit(1)
+	}
+	if err := (&serviceclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceClass")
+		os.Exit(1)
+	}
+	if err := (&servicebinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
+		os.Exit(1)
+	}
+
+	// WebApplication controllers
+	if err := (&webapplication.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplication")
+		os.Exit(1)
+	}
+	if err := (&webapplicationclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationClass")
+		os.Exit(1)
+	}
+	if err := (&webapplicationbinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
+		os.Exit(1)
+	}
+
+	// ScheduledTask controllers
+	if err := (&scheduledtask.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTask")
+		os.Exit(1)
+	}
+	if err := (&scheduledtaskclass.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskClass")
+		os.Exit(1)
+	}
+	if err := (&scheduledtaskbinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
+		os.Exit(1)
+	}
+
+	if err = (&release.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Release")
+		os.Exit(1)
+	}
+
+	if err := (&workflow.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Workflow")
+		os.Exit(1)
+	}
+
+	if err := (&workflowrun.Reconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: workflowpipeline.NewPipeline(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
 		os.Exit(1)
 	}
 
@@ -534,10 +791,31 @@ func main() {
 	}
 }
 
-// getEnv retrieves an environment variable value, returning a default if not set
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// initializeGitProvider initializes the git provider for webhook management
+func initializeGitProvider(logger logr.Logger) git.Provider {
+	gitProviderType := os.Getenv("GIT_PROVIDER")
+	if gitProviderType == "" {
+		gitProviderType = "github"
 	}
-	return defaultValue
+
+	gitToken := os.Getenv("GIT_TOKEN")
+	if gitToken == "" {
+		logger.Info("GIT_TOKEN not set, git provider will not be able to create webhooks")
+	}
+
+	gitBaseURL := os.Getenv("GIT_BASE_URL")
+
+	config := git.ProviderConfig{
+		Token:   gitToken,
+		BaseURL: gitBaseURL,
+	}
+
+	provider, err := git.GetProvider(git.ProviderType(gitProviderType), config)
+	if err != nil {
+		logger.Error(err, "Failed to initialize git provider", "type", gitProviderType)
+		return nil
+	}
+
+	logger.Info("Git provider initialized", "type", gitProviderType)
+	return provider
 }

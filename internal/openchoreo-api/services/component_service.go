@@ -41,8 +41,15 @@ type ComponentService struct {
 	k8sClient           client.Client
 	projectService      *ProjectService
 	specFetcherRegistry *ComponentSpecFetcherRegistry
+	gitProvider         GitProvider
+	webhookBaseURL      string
 	logger              *slog.Logger
-	authzPDP            authz.PDP
+}
+
+// GitProvider interface for webhook operations (to avoid circular dependency with git package)
+type GitProvider interface {
+	RegisterWebhook(ctx context.Context, repoURL, webhookURL, secret string) (webhookID string, err error)
+	DeregisterWebhook(ctx context.Context, repoURL, webhookID string) error
 }
 
 // parseComponentTypeName extracts the ComponentType name from the ComponentType string
@@ -98,11 +105,13 @@ type PromoteComponentPayload struct {
 }
 
 // NewComponentService creates a new component service
-func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger, authzPDP authz.PDP) *ComponentService {
+func NewComponentService(k8sClient client.Client, projectService *ProjectService, gitProvider GitProvider, webhookBaseURL string, logger *slog.Logger, authzPDP authz.PDP) *ComponentService {
 	return &ComponentService{
 		k8sClient:           k8sClient,
 		projectService:      projectService,
 		specFetcherRegistry: NewComponentSpecFetcherRegistry(),
+		gitProvider:         gitProvider,
+		webhookBaseURL:      webhookBaseURL,
 		logger:              logger,
 		authzPDP:            authzPDP,
 	}
@@ -2723,13 +2732,329 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	// Get component
+	return structural, nil
+}
+
+// RegisterWebhook registers a webhook for a component with the git provider
+// This method implements per-repository webhook tracking with reference counting
+func (s *ComponentService) RegisterWebhook(ctx context.Context, orgName, projectName, componentName string) (string, error) {
+	s.logger.Debug("Registering webhook for component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Get the component
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
 		Name:      componentName,
+		Namespace: orgName,
 	}
-	var component openchoreov1alpha1.Component
-	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return "", ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return "", fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return "", ErrComponentNotFound
+	}
+
+	// Check if webhook is already registered for this component
+	if component.Status.WebhookRegistered != nil && *component.Status.WebhookRegistered {
+		s.logger.Debug("Webhook already registered for component", "component", componentName)
+		return component.Status.WebhookID, nil
+	}
+
+	// Extract repository URL from component workflow schema
+	repoURL, err := s.extractRepoURLFromComponent(component)
+	if err != nil {
+		s.logger.Error("Failed to extract repository URL from component", "error", err)
+		return "", fmt.Errorf("failed to extract repository URL: %w", err)
+	}
+
+	// Normalize repository URL
+	normalizedRepoURL := normalizeRepoURL(repoURL)
+
+	if s.gitProvider == nil {
+		s.logger.Error("Git provider not configured")
+		return "", fmt.Errorf("git provider not configured")
+	}
+
+	// Generate a name for the GitRepositoryWebhook resource based on repository URL
+	webhookResourceName := generateWebhookResourceName(normalizedRepoURL)
+
+	// Check if a GitRepositoryWebhook already exists for this repository
+	gitWebhook := &openchoreov1alpha1.GitRepositoryWebhook{}
+	gitWebhookKey := client.ObjectKey{
+		Name: webhookResourceName,
+	}
+	err = s.k8sClient.Get(ctx, gitWebhookKey, gitWebhook)
+
+	if err == nil {
+		// GitRepositoryWebhook exists, add this component to references
+		s.logger.Debug("GitRepositoryWebhook already exists, adding component reference", "webhook", webhookResourceName, "component", componentName)
+
+		// Check if component is already in references
+		componentRef := openchoreov1alpha1.ComponentReference{
+			Namespace:   orgName,
+			Name:        componentName,
+			OrgName:     orgName,
+			ProjectName: projectName,
+		}
+
+		alreadyExists := false
+		for _, ref := range gitWebhook.Spec.ComponentReferences {
+			if ref.Namespace == componentRef.Namespace && ref.Name == componentRef.Name {
+				alreadyExists = true
+				break
+			}
+		}
+
+		if !alreadyExists {
+			gitWebhook.Spec.ComponentReferences = append(gitWebhook.Spec.ComponentReferences, componentRef)
+			if err := s.k8sClient.Update(ctx, gitWebhook); err != nil {
+				s.logger.Error("Failed to update GitRepositoryWebhook", "error", err)
+				return "", fmt.Errorf("failed to update GitRepositoryWebhook: %w", err)
+			}
+
+			// Update status
+			gitWebhook.Status.ReferenceCount = len(gitWebhook.Spec.ComponentReferences)
+			if err := s.k8sClient.Status().Update(ctx, gitWebhook); err != nil {
+				s.logger.Warn("Failed to update GitRepositoryWebhook status", "error", err)
+			}
+		}
+
+		// Update component status
+		registered := true
+		component.Status.WebhookRegistered = &registered
+		component.Status.WebhookID = gitWebhook.Spec.WebhookID
+		component.Status.WebhookProvider = gitWebhook.Spec.Provider
+
+		if err := s.k8sClient.Status().Update(ctx, component); err != nil {
+			s.logger.Error("Failed to update component status", "error", err)
+			return "", fmt.Errorf("failed to update component status: %w", err)
+		}
+
+		s.logger.Debug("Component added to existing webhook", "component", componentName, "webhookID", gitWebhook.Spec.WebhookID)
+		return gitWebhook.Spec.WebhookID, nil
+
+	} else if err = client.IgnoreNotFound(err); err != nil {
+		s.logger.Error("Failed to get GitRepositoryWebhook", "error", err)
+		return "", fmt.Errorf("failed to get GitRepositoryWebhook: %w", err)
+	}
+
+	// GitRepositoryWebhook doesn't exist, create webhook with git provider
+	s.logger.Debug("Creating new webhook for repository", "repo", normalizedRepoURL)
+
+	// Generate webhook URL
+	webhookURL := fmt.Sprintf("%s/api/v1/webhooks/github", s.webhookBaseURL)
+
+	// Generate or retrieve webhook secret
+	// TODO: Store this securely in a Kubernetes Secret
+	webhookSecret := "changeme" // This should be generated and stored securely
+
+	// Register webhook with git provider
+	webhookID, err := s.gitProvider.RegisterWebhook(ctx, repoURL, webhookURL, webhookSecret)
+	if err != nil {
+		s.logger.Error("Failed to register webhook with git provider", "error", err)
+		return "", fmt.Errorf("failed to register webhook: %w", err)
+	}
+
+	// Create GitRepositoryWebhook resource
+	componentRef := openchoreov1alpha1.ComponentReference{
+		Namespace:   orgName,
+		Name:        componentName,
+		OrgName:     orgName,
+		ProjectName: projectName,
+	}
+
+	gitWebhook = &openchoreov1alpha1.GitRepositoryWebhook{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: webhookResourceName,
+		},
+		Spec: openchoreov1alpha1.GitRepositoryWebhookSpec{
+			RepositoryURL:       normalizedRepoURL,
+			Provider:            "github",
+			WebhookID:           webhookID,
+			ComponentReferences: []openchoreov1alpha1.ComponentReference{componentRef},
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, gitWebhook); err != nil {
+		s.logger.Error("Failed to create GitRepositoryWebhook", "error", err)
+		// Try to deregister the webhook since we couldn't create the CR
+		_ = s.gitProvider.DeregisterWebhook(ctx, repoURL, webhookID)
+		return "", fmt.Errorf("failed to create GitRepositoryWebhook: %w", err)
+	}
+
+	// Update GitRepositoryWebhook status
+	gitWebhook.Status.Registered = true
+	gitWebhook.Status.ReferenceCount = 1
+	now := metav1.Now()
+	gitWebhook.Status.LastSyncTime = &now
+	if err := s.k8sClient.Status().Update(ctx, gitWebhook); err != nil {
+		s.logger.Warn("Failed to update GitRepositoryWebhook status", "error", err)
+	}
+
+	// Update component status
+	registered := true
+	component.Status.WebhookRegistered = &registered
+	component.Status.WebhookID = webhookID
+	component.Status.WebhookProvider = "github"
+
+	if err := s.k8sClient.Status().Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component status", "error", err)
+		// Try to clean up the GitRepositoryWebhook and webhook
+		_ = s.k8sClient.Delete(ctx, gitWebhook)
+		_ = s.gitProvider.DeregisterWebhook(ctx, repoURL, webhookID)
+		return "", fmt.Errorf("failed to update component status: %w", err)
+	}
+
+	s.logger.Debug("Webhook registered successfully", "component", componentName, "webhookID", webhookID)
+	return webhookID, nil
+}
+
+// DeregisterWebhook removes a webhook for a component
+// This method implements per-repository webhook tracking with reference counting
+// Only deletes the webhook from git provider when no components remain
+func (s *ComponentService) DeregisterWebhook(ctx context.Context, orgName, projectName, componentName string) error {
+	s.logger.Debug("Deregistering webhook for component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return ErrComponentNotFound
+	}
+
+	// Check if webhook is registered
+	if component.Status.WebhookRegistered == nil || !*component.Status.WebhookRegistered {
+		s.logger.Debug("No webhook registered for component", "component", componentName)
+		return nil // Already deregistered, no error
+	}
+
+	// Extract repository URL from component workflow schema
+	repoURL, err := s.extractRepoURLFromComponent(component)
+	if err != nil {
+		s.logger.Error("Failed to extract repository URL from component", "error", err)
+		return fmt.Errorf("failed to extract repository URL: %w", err)
+	}
+
+	// Normalize repository URL
+	normalizedRepoURL := normalizeRepoURL(repoURL)
+
+	if s.gitProvider == nil {
+		s.logger.Error("Git provider not configured")
+		return fmt.Errorf("git provider not configured")
+	}
+
+	// Find the GitRepositoryWebhook for this repository
+	webhookResourceName := generateWebhookResourceName(normalizedRepoURL)
+	gitWebhook := &openchoreov1alpha1.GitRepositoryWebhook{}
+	gitWebhookKey := client.ObjectKey{
+		Name: webhookResourceName,
+	}
+	err = s.k8sClient.Get(ctx, gitWebhookKey, gitWebhook)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("GitRepositoryWebhook not found", "webhook", webhookResourceName)
+			// Update component status anyway
+			registered := false
+			component.Status.WebhookRegistered = &registered
+			component.Status.WebhookID = ""
+			component.Status.WebhookProvider = ""
+			_ = s.k8sClient.Status().Update(ctx, component)
+			return nil
+		}
+		s.logger.Error("Failed to get GitRepositoryWebhook", "error", err)
+		return fmt.Errorf("failed to get GitRepositoryWebhook: %w", err)
+	}
+
+	// Remove this component from references
+	updatedReferences := make([]openchoreov1alpha1.ComponentReference, 0)
+	for _, ref := range gitWebhook.Spec.ComponentReferences {
+		if ref.Namespace != orgName || ref.Name != componentName {
+			updatedReferences = append(updatedReferences, ref)
+		}
+	}
+
+	gitWebhook.Spec.ComponentReferences = updatedReferences
+
+	// Check if there are any remaining references
+	if len(updatedReferences) == 0 {
+		// No more components use this webhook, delete it from git provider and remove the CR
+		s.logger.Debug("No more components using webhook, deleting from git provider", "webhookID", gitWebhook.Spec.WebhookID)
+
+		if err := s.gitProvider.DeregisterWebhook(ctx, repoURL, gitWebhook.Spec.WebhookID); err != nil {
+			s.logger.Error("Failed to deregister webhook with git provider", "error", err)
+			// Continue with cleanup even if git provider deletion fails
+		}
+
+		// Delete the GitRepositoryWebhook CR
+		if err := s.k8sClient.Delete(ctx, gitWebhook); err != nil {
+			s.logger.Error("Failed to delete GitRepositoryWebhook", "error", err)
+			return fmt.Errorf("failed to delete GitRepositoryWebhook: %w", err)
+		}
+
+		s.logger.Debug("GitRepositoryWebhook deleted", "webhook", webhookResourceName)
+	} else {
+		// Still have components using this webhook, just update the references
+		s.logger.Debug("Other components still using webhook, updating references", "remainingCount", len(updatedReferences))
+
+		if err := s.k8sClient.Update(ctx, gitWebhook); err != nil {
+			s.logger.Error("Failed to update GitRepositoryWebhook", "error", err)
+			return fmt.Errorf("failed to update GitRepositoryWebhook: %w", err)
+		}
+
+		// Update status
+		gitWebhook.Status.ReferenceCount = len(updatedReferences)
+		if err := s.k8sClient.Status().Update(ctx, gitWebhook); err != nil {
+			s.logger.Warn("Failed to update GitRepositoryWebhook status", "error", err)
+		}
+	}
+
+	// Update component status
+	registered := false
+	component.Status.WebhookRegistered = &registered
+	component.Status.WebhookID = ""
+	component.Status.WebhookProvider = ""
+
+	if err := s.k8sClient.Status().Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component status", "error", err)
+		return fmt.Errorf("failed to update component status: %w", err)
+	}
+
+	s.logger.Debug("Webhook deregistered successfully for component", "component", componentName)
+	return nil
+}
+
+// GetWebhookStatus retrieves webhook registration status
+func (s *ComponentService) GetWebhookStatus(ctx context.Context, orgName, projectName, componentName string) (*models.WebhookStatus, error) {
+	s.logger.Debug("Getting webhook status for component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
@@ -2738,68 +3063,87 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	// Verify component belongs to project
+	// Verify component belongs to the project
 	if component.Spec.Owner.ProjectName != projectName {
 		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
-	// Validate that all referenced traits exist in the organization
-	for _, traitReq := range req.Traits {
-		traitKey := client.ObjectKey{
-			Namespace: orgName,
-			Name:      traitReq.Name,
-		}
-		var trait openchoreov1alpha1.Trait
-		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
-			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "org", orgName, "trait", traitReq.Name)
-				return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
-			}
-			s.logger.Error("Failed to get trait", "error", err)
-			return nil, fmt.Errorf("failed to get trait %s: %w", traitReq.Name, err)
+	status := &models.WebhookStatus{
+		Registered: component.Status.WebhookRegistered != nil && *component.Status.WebhookRegistered,
+		WebhookID:  component.Status.WebhookID,
+		Provider:   component.Status.WebhookProvider,
+		CreatedAt:  component.CreationTimestamp.Time,
+	}
+
+	return status, nil
+}
+
+// extractRepoURLFromComponent extracts the repository URL from component workflow schema
+func (s *ComponentService) extractRepoURLFromComponent(comp *openchoreov1alpha1.Component) (string, error) {
+	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Schema == nil {
+		return "", fmt.Errorf("component has no workflow schema")
+	}
+
+	// Parse the workflow schema to extract repository information
+	var schema map[string]interface{}
+	if err := json.Unmarshal(comp.Spec.Workflow.Schema.Raw, &schema); err != nil {
+		return "", fmt.Errorf("failed to unmarshal workflow schema: %w", err)
+	}
+
+	// Extract repository URL
+	if repo, ok := schema["repository"].(map[string]interface{}); ok {
+		if url, ok := repo["url"].(string); ok {
+			return url, nil
 		}
 	}
 
-	// Convert request traits to component traits
-	componentTraits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
-	for _, traitReq := range req.Traits {
-		componentTrait := openchoreov1alpha1.ComponentTrait{
-			Name:         traitReq.Name,
-			InstanceName: traitReq.InstanceName,
-		}
+	return "", fmt.Errorf("repository URL not found in workflow schema")
+}
 
-		// Convert parameters map to runtime.RawExtension
-		if len(traitReq.Parameters) > 0 {
-			paramsBytes, err := json.Marshal(traitReq.Parameters)
-			if err != nil {
-				s.logger.Error("Failed to marshal trait parameters", "trait", traitReq.Name, "error", err)
-				return nil, fmt.Errorf("failed to marshal trait parameters for %s: %w", traitReq.Name, err)
-			}
-			componentTrait.Parameters = &runtime.RawExtension{Raw: paramsBytes}
-		}
-
-		componentTraits = append(componentTraits, componentTrait)
+// normalizeRepoURL normalizes repository URLs for comparison
+// Converts SSH URLs to HTTPS, removes .git suffix, and converts to lowercase
+func normalizeRepoURL(repoURL string) string {
+	// Convert SSH to HTTPS
+	if strings.HasPrefix(repoURL, "git@") {
+		repoURL = strings.Replace(repoURL, ":", "/", 1)
+		repoURL = strings.Replace(repoURL, "git@", "https://", 1)
 	}
 
-	// Create a patch base
-	patchBase := component.DeepCopy()
+	// Remove .git suffix
+	repoURL = strings.TrimSuffix(repoURL, ".git")
 
-	// Update the traits
-	component.Spec.Traits = componentTraits
+	// Convert to lowercase for case-insensitive comparison
+	repoURL = strings.ToLower(repoURL)
 
-	// Only patch if there are actual changes
-	if !reflect.DeepEqual(patchBase.Spec.Traits, component.Spec.Traits) {
-		patch := client.MergeFrom(patchBase)
-		if err := s.k8sClient.Patch(ctx, &component, patch); err != nil {
-			s.logger.Error("Failed to patch component traits", "error", err)
-			return nil, fmt.Errorf("failed to patch component traits: %w", err)
+	return repoURL
+}
+
+// generateWebhookResourceName generates a Kubernetes resource name from a repository URL
+// Uses a hash-based approach to ensure the name is valid and consistent
+func generateWebhookResourceName(normalizedRepoURL string) string {
+	// Remove protocol prefix
+	url := strings.TrimPrefix(normalizedRepoURL, "https://")
+	url = strings.TrimPrefix(url, "http://")
+
+	// Replace invalid characters with hyphens
+	url = strings.ReplaceAll(url, "/", "-")
+	url = strings.ReplaceAll(url, ".", "-")
+	url = strings.ReplaceAll(url, "_", "-")
+
+	// Kubernetes resource names must be lowercase and no more than 253 characters
+	// Prefix with "webhook-" for clarity
+	resourceName := "webhook-" + url
+
+	// If name is too long, truncate and add a hash
+	if len(resourceName) > 253 {
+		// Take first 240 characters and add a hash of the full URL
+		hash := fmt.Sprintf("%x", strings.ToLower(normalizedRepoURL))
+		if len(hash) > 12 {
+			hash = hash[:12]
 		}
-		s.logger.Debug("Component traits updated successfully", "org", orgName, "project", projectName, "component", componentName)
-	} else {
-		s.logger.Debug("No trait changes detected", "org", orgName, "project", projectName, "component", componentName)
+		resourceName = resourceName[:240] + "-" + hash
 	}
 
-	// Return the updated traits
-	return s.ListComponentTraits(ctx, orgName, projectName, componentName)
+	return resourceName
 }

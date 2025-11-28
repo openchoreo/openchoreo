@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
@@ -22,17 +24,19 @@ import (
 
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
-	services *services.Services
-	config   *config.Config
-	logger   *slog.Logger
+	services  *services.Services
+	config    *config.Config
+	logger    *slog.Logger
+	k8sClient client.Client
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.Config, k8sClient client.Client, logger *slog.Logger) *Handler {
 	return &Handler{
-		services: services,
-		config:   cfg,
-		logger:   logger,
+		services:  services,
+		config:    cfg,
+		k8sClient: k8sClient,
+		logger:    logger,
 	}
 }
 
@@ -57,6 +61,9 @@ func (h *Handler) Routes() http.Handler {
 
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
+
+	// Webhook endpoint (public - called by GitHub)
+	routes.HandleFunc("POST "+v1+"/webhooks/github", h.HandleGitHubWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
@@ -185,6 +192,11 @@ func (h *Handler) Routes() http.Handler {
 
 	// ObservabilityPlane management
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/observabilityplanes", h.ListObservabilityPlanes)
+
+	// Webhook management (protected - requires authentication)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.RegisterWebhook)
+	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.DeregisterWebhook)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.GetWebhookStatus)
 
 	return mux
 }

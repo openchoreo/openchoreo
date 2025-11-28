@@ -364,3 +364,26 @@ type ObservabilityPlaneResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Status      string    `json:"status,omitempty"`
 }
+
+// WebhookStatus represents the webhook registration status
+type WebhookStatus struct {
+	Registered bool      `json:"registered"`
+	WebhookID  string    `json:"webhookID,omitempty"`
+	Provider   string    `json:"provider"`
+	CreatedAt  time.Time `json:"createdAt,omitempty"`
+}
+
+// WebhookResponse represents a webhook operation response
+type WebhookResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	WebhookID string `json:"webhookID,omitempty"`
+}
+
+// WebhookEventResponse represents the response after processing a webhook event
+type WebhookEventResponse struct {
+	Success            bool     `json:"success"`
+	Message            string   `json:"message"`
+	AffectedComponents []string `json:"affectedComponents,omitempty"`
+	TriggeredBuilds    int      `json:"triggeredBuilds"`
+}
