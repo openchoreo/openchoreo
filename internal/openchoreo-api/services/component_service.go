@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2768,78 +2767,6 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 
 	// Return the updated component
 	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
-}
-
-// validateWorkflowSchema validates the provided schema against the Workflow CRD's schema definition
-func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, workflowName string, providedSchema *runtime.RawExtension) error {
-	// Fetch the Workflow CR
-	workflowKey := client.ObjectKey{
-		Name:      workflowName,
-		Namespace: orgName,
-	}
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workflow not found", "org", orgName, "workflow", workflowName)
-			return ErrWorkflowNotFound
-		}
-		s.logger.Error("Failed to get workflow", "error", err)
-		return fmt.Errorf("failed to get workflow: %w", err)
-	}
-
-	// If workflow has no schema defined, any schema is valid
-	if workflow.Spec.Schema == nil {
-		return nil
-	}
-
-	// If provided schema is nil or empty, it's valid (defaults will be applied)
-	if providedSchema == nil || len(providedSchema.Raw) == 0 {
-		return nil
-	}
-
-	// Unmarshal the workflow's schema definition
-	var workflowSchemaMap map[string]any
-	if err := json.Unmarshal(workflow.Spec.Schema.Raw, &workflowSchemaMap); err != nil {
-		s.logger.Error("Failed to unmarshal workflow schema", "error", err)
-		return fmt.Errorf("failed to parse workflow schema definition: %w", err)
-	}
-
-	// Unmarshal the provided schema values
-	var providedValues map[string]any
-	if err := json.Unmarshal(providedSchema.Raw, &providedValues); err != nil {
-		s.logger.Error("Failed to unmarshal provided schema", "error", err)
-		return fmt.Errorf("failed to parse provided schema: %w", err)
-	}
-
-	// Build structural schema from workflow schema definition
-	structural, err := s.buildWorkflowStructuralSchema(workflowSchemaMap)
-	if err != nil {
-		s.logger.Error("Failed to build structural schema", "error", err)
-		return fmt.Errorf("failed to build workflow schema structure: %w", err)
-	}
-
-	// Validate the provided values against the structural schema
-	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// buildWorkflowStructuralSchema converts a workflow schema map to a structural schema
-func (s *ComponentService) buildWorkflowStructuralSchema(workflowSchemaMap map[string]any) (*schema.Structural, error) {
-	// Import the schema package if not already imported
-	// The workflow schema uses the same format as ComponentType schemas
-	def := openchoreoschema.Definition{
-		Schemas: []map[string]any{workflowSchemaMap},
-	}
-
-	structural, err := openchoreoschema.ToStructural(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert workflow schema: %w", err)
-	}
-
-	return structural, nil
 }
 
 // validateComponentWorkflowParameters validates the provided parameters against the ComponentWorkflow CRD's parameter schema

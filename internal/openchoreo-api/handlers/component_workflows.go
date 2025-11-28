@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
@@ -97,6 +98,14 @@ func (h *Handler) TriggerComponentWorkflow(w http.ResponseWriter, r *http.Reques
 
 	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
 	if err != nil {
+		// Check for invalid commit SHA error
+		if errors.Is(err, services.ErrInvalidCommitSHA) {
+			log.Warn("Invalid commit SHA provided", "commit", commit)
+			writeErrorResponse(w, http.StatusBadRequest,
+				fmt.Sprintf("Invalid commit SHA format: '%s'. Commit SHA must be 7-40 hexadecimal characters", commit),
+				services.CodeInvalidCommitSHA)
+			return
+		}
 		log.Error("Failed to trigger component workflow", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to trigger component workflow", "INTERNAL_ERROR")
 		return

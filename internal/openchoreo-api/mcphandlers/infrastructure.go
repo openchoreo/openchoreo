@@ -12,7 +12,7 @@ type ListComponentTypesResponse struct {
 }
 
 type ListWorkflowsResponse struct {
-	Workflows any `json:"component-workflows"`
+	Workflows any `json:"component-component-workflows"`
 }
 
 type ListTraitsResponse struct {

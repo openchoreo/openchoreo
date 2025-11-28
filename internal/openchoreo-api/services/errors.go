@@ -30,6 +30,7 @@ var (
 	ErrReleaseBindingNotFound     = errors.New("release binding not found")
 	ErrWorkflowSchemaInvalid      = errors.New("workflow schema is invalid")
 	ErrReleaseNotFound            = errors.New("release not found")
+	ErrInvalidCommitSHA           = errors.New("invalid commit SHA format")
 )
 
 // Error codes for API responses
@@ -59,4 +60,5 @@ const (
 	CodeInvalidInput               = "INVALID_INPUT"
 	CodeInternalError              = "INTERNAL_ERROR"
 	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
+	CodeInvalidCommitSHA           = "INVALID_COMMIT_SHA"
 )

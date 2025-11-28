@@ -37,7 +37,7 @@ type ComponentWorkflow struct {
 	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
 }
 
-// ComponentWorkflowSystemParams represents the system parameters for component component-workflows
+// ComponentWorkflowSystemParams represents the system parameters for component component-component-workflows
 type ComponentWorkflowSystemParams struct {
 	Repository ComponentWorkflowRepository `json:"repository"`
 }

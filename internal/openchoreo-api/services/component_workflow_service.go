@@ -7,10 +7,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -66,6 +70,16 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 
 	// Copy system parameters and update the commit
 	systemParams = component.Spec.Workflow.SystemParameters
+
+	// Validate commit SHA format if provided
+	if commit != "" {
+		// Git commit SHA validation: 7-40 hexadecimal characters
+		commitPattern := regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+		if !commitPattern.MatchString(commit) {
+			return nil, ErrInvalidCommitSHA
+		}
+	}
+
 	systemParams.Repository.Revision.Commit = commit
 
 	// Generate a unique workflow run name with short UUID
@@ -74,7 +88,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 		s.logger.Error("Failed to generate UUID", "error", err)
 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
 	}
-	workflowRunName := fmt.Sprintf("%s-%s", componentName, uuid)
+	workflowRunName := fmt.Sprintf("%s-workflow-%s", componentName, uuid)
 
 	// Create the ComponentWorkflowRun CR
 	workflowRun := &openchoreov1alpha1.ComponentWorkflowRun{
@@ -96,6 +110,20 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 	}
 
 	if err := s.k8sClient.Create(ctx, workflowRun); err != nil {
+		// Check if this is a validation error from Kubernetes
+		if apierrors.IsInvalid(err) {
+			// Extract validation error details
+			var statusErr *apierrors.StatusError
+			if errors.As(err, &statusErr) && statusErr.ErrStatus.Details != nil {
+				// Check if the error is related to commit SHA validation
+				for _, cause := range statusErr.ErrStatus.Details.Causes {
+					if strings.Contains(cause.Field, "commit") {
+						s.logger.Warn("Commit SHA validation failed", "error", cause.Message, "field", cause.Field)
+						return nil, ErrInvalidCommitSHA
+					}
+				}
+			}
+		}
 		s.logger.Error("Failed to create component workflow run", "error", err)
 		return nil, fmt.Errorf("failed to create component workflow run: %w", err)
 	}

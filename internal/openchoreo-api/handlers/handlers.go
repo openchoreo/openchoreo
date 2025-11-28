@@ -100,11 +100,11 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types", h.ListComponentTypes)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
 
-	// Workflow endpoints
+	// Workflow endpoints (generic workflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows", h.ListWorkflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
 
-	// ComponentWorkflow endpoints
+	// ComponentWorkflow endpoints (component-specific workflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
 	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-schema", h.UpdateComponentWorkflowSchema)
@@ -244,7 +244,6 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 			toolsets.ComponentToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
 		case tools.ToolsetBuild:
-			// toolsets.BuildToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
 		case tools.ToolsetDeployment:
 			toolsets.DeploymentToolset = handler
