@@ -100,7 +100,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 
 	if isWorkflowCompleted(componentWorkflowRun) {
 		if isWorkflowSucceeded(componentWorkflowRun) {
-			return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient)
+			return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient), nil
 		}
 		return ctrl.Result{}, nil
 	}
@@ -113,7 +113,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		}, runResource)
 
 		if err == nil {
-			return r.syncWorkflowRunStatus(componentWorkflowRun, runResource)
+			return r.syncWorkflowRunStatus(componentWorkflowRun, runResource), nil
 		} else if !errors.IsNotFound(err) {
 			logger.Error(err, "failed to get run resource")
 			return ctrl.Result{Requeue: true}, nil
@@ -154,28 +154,27 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient)
+	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient), nil
 }
 
 func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
-	bpClient client.Client,
-) (ctrl.Result, error) {
+	bpClient client.Client) ctrl.Result {
 	logger := log.FromContext(ctx)
 
 	shouldRequeue, err := r.createWorkloadFromComponentWorkflowRun(ctx, componentWorkflowRun, bpClient)
 	if err != nil {
 		logger.Error(err, "failed to create workload CR")
 		if shouldRequeue {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}
 		}
 		setWorkloadUpdateFailedCondition(componentWorkflowRun)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}
 	}
 
 	setWorkloadUpdatedCondition(componentWorkflowRun)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}
 }
 
 func (r *ComponentWorkflowRunReconciler) ensureRunResource(
@@ -184,37 +183,37 @@ func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	output *componentworkflowpipeline.RenderOutput,
 	runResNamespace string,
 	bpClient client.Client,
-) (ctrl.Result, error) {
+) ctrl.Result {
 	logger := log.FromContext(ctx)
 
 	serviceAccountName, err := extractServiceAccountName(output.Resource)
 	if err != nil {
 		logger.Error(err, "failed to extract service account name from rendered resource")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}
 	}
 
 	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
 	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}
 	}
 
 	if err := r.applyRenderedRunResource(ctx, componentWorkflowRun, output.Resource, bpClient); err != nil {
 		logger.Error(err, "failed to apply rendered run resource")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}
 	}
 
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{Requeue: true}
 }
 
 func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	runResource *argoproj.Workflow,
-) (ctrl.Result, error) {
+) ctrl.Result {
 	switch runResource.Status.Phase {
 	case argoproj.WorkflowRunning:
 		setWorkflowRunningCondition(componentWorkflowRun)
-		return ctrl.Result{RequeueAfter: 20 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: 20 * time.Second}
 	case argoproj.WorkflowSucceeded:
 		setWorkflowSucceededCondition(componentWorkflowRun)
 		if pushStep := getStepByTemplateName(runResource.Status.Nodes, engines.StepPush); pushStep != nil {
@@ -222,12 +221,12 @@ func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 				componentWorkflowRun.Status.ImageStatus.Image = string(image)
 			}
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}
 	case argoproj.WorkflowFailed, argoproj.WorkflowError:
 		setWorkflowFailedCondition(componentWorkflowRun)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}
 	default:
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}
 	}
 }
 

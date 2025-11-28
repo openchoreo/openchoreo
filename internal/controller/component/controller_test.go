@@ -42,8 +42,18 @@ var _ = Describe("Component Controller", func() {
 							ProjectName: "test-project",
 						},
 						Type: openchoreov1alpha1.ComponentTypeService,
-						Workflow: &openchoreov1alpha1.WorkflowConfig{
+						Workflow: &openchoreov1alpha1.ComponentWorkflowRunConfig{
 							Name: "test-workflow",
+							SystemParameters: openchoreov1alpha1.SystemParametersValues{
+								Repository: openchoreov1alpha1.RepositoryValues{
+									URL: "https://github.com/test/repo",
+									Revision: openchoreov1alpha1.RepositoryRevisionValues{
+										Branch: "main",
+										Commit: "",
+									},
+									AppPath: ".",
+								},
+							},
 						},
 					},
 				}

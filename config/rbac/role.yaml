@@ -107,6 +107,7 @@ rules:
   - apis
   - buildplanes
   - builds
+  - component-workflows
   - componentdeployments
   - componentenvsnapshots
   - componentreleases
@@ -138,7 +139,6 @@ rules:
   - webapplicationclasses
   - webapplications
   - workflowruns
-  - workflows
   - workloads
   verbs:
   - create
@@ -156,6 +156,7 @@ rules:
   - apis/finalizers
   - buildplanes/finalizers
   - builds/finalizers
+  - component-workflows/finalizers
   - componentdeployments/finalizers
   - componentenvsnapshots/finalizers
   - componentreleases/finalizers
@@ -187,7 +188,6 @@ rules:
   - webapplicationclasses/finalizers
   - webapplications/finalizers
   - workflowruns/finalizers
-  - workflows/finalizers
   - workloads/finalizers
   verbs:
   - update
@@ -199,6 +199,7 @@ rules:
   - apis/status
   - buildplanes/status
   - builds/status
+  - component-workflows/status
   - componentdeployments/status
   - componentenvsnapshots/status
   - componentreleases/status
@@ -230,7 +231,6 @@ rules:
   - webapplicationclasses/status
   - webapplications/status
   - workflowruns/status
-  - workflows/status
   - workloads/status
   verbs:
   - get
