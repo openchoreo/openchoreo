@@ -6,7 +6,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	"os"
 	"time"
 
@@ -68,6 +67,7 @@ import (
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
