@@ -1,0 +1,17 @@
+{{- if .Values.clusterAgent.enabled }}
+{{- if .Values.clusterAgent.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+spec:
+  selfSigned: {}
+{{- end }}
+{{- end }}

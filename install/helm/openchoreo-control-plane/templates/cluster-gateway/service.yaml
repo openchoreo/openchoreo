@@ -1,0 +1,31 @@
+{{- if .Values.clusterGateway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+    app: cluster-gateway
+spec:
+  type: {{ .Values.clusterGateway.service.type }}
+  {{- if .Values.clusterGateway.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.clusterGateway.service.loadBalancerIP }}
+  {{- end }}
+  {{- if .Values.clusterGateway.service.clusterIP }}
+  clusterIP: {{ .Values.clusterGateway.service.clusterIP }}
+  {{- end }}
+  ports:
+  - name: websocket
+    port: {{ .Values.clusterGateway.service.port }}
+    targetPort: {{ .Values.clusterGateway.port }}
+    protocol: TCP
+    {{- if and (eq .Values.clusterGateway.service.type "NodePort") .Values.clusterGateway.service.nodePort }}
+    nodePort: {{ .Values.clusterGateway.service.nodePort }}
+    {{- end }}
+  selector:
+    app: cluster-gateway
+    app.kubernetes.io/component: cluster-gateway
+    {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
+{{- end }}

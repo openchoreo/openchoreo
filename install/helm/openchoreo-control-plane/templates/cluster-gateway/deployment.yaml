@@ -1,0 +1,89 @@
+{{- if .Values.clusterGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+    app: cluster-gateway
+spec:
+  replicas: {{ .Values.clusterGateway.replicas }}
+  selector:
+    matchLabels:
+      app: cluster-gateway
+      app.kubernetes.io/component: cluster-gateway
+      {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: cluster-gateway
+        app.kubernetes.io/component: cluster-gateway
+        {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "openchoreo-control-plane.clusterGateway.serviceAccountName" . }}
+      {{- if .Values.clusterGateway.priorityClass.create }}
+      priorityClassName: {{ .Values.clusterGateway.priorityClass.name }}
+      {{- end }}
+      {{- with .Values.clusterGateway.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterGateway.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterGateway.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterGateway.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cluster-gateway
+        image: "{{ .Values.clusterGateway.image.repository }}:{{ .Values.clusterGateway.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.clusterGateway.image.pullPolicy }}
+        args:
+        - --port={{ .Values.clusterGateway.port }}
+        - --server-cert=/certs/tls.crt
+        - --server-key=/certs/tls.key
+        - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
+        - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
+        - --log-level={{ .Values.clusterGateway.logLevel }}
+        ports:
+        - name: websocket
+          containerPort: {{ .Values.clusterGateway.port }}
+          protocol: TCP
+        - name: health
+          containerPort: 8080
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.clusterGateway.resources | nindent 10 }}
+        {{- with .Values.clusterGateway.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: server-certs
+          mountPath: /certs
+          readOnly: true
+      volumes:
+      - name: server-certs
+        secret:
+          secretName: {{ .Values.clusterGateway.tls.secretName }}
+{{- end }}

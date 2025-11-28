@@ -15,6 +15,10 @@ gateway:
   httpPort: 9080
   httpsPort: 9443
 
+# Disable cluster agent for quick-start (single-cluster mode)
+clusterAgent:
+  enabled: false
+
 networking:
   enabled: false
 

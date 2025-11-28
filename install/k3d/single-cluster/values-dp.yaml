@@ -14,3 +14,10 @@ gateway:
   # Use custom ports for single-cluster setup
   httpPort: 9080
   httpsPort: 9443
+
+# Cluster Agent configuration for single-cluster setup
+clusterAgent:
+  enabled: true
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: dataplane

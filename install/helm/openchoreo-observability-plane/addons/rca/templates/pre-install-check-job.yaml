@@ -68,7 +68,7 @@ spec:
       serviceAccountName: {{ include "openchoreo-observer-rca.fullname" . }}-pre-install
       containers:
       - name: check-dependencies
-        image: bitnami/kubectl:latest
+        image: bitnamilegacy/kubectl:1.32.4
         command:
         - /bin/sh
         - -c

@@ -1,0 +1,26 @@
+{{- if .Values.clusterGateway.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+rules:
+# Allow reading TLS secrets for CA extraction and creating cluster-agent-ca secret
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "delete", "patch"]
+# Allow creating and updating ConfigMaps for CA certificate
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "create", "update", "patch"]
+# Allow checking cert-manager webhook readiness (for wait job)
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["endpoints"]
+  verbs: ["get", "list"]
+{{- end }}

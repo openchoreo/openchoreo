@@ -42,6 +42,34 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       terminationGracePeriodSeconds: 10
+      {{- if .Values.controllerManager.clusterGateway.enabled }}
+      initContainers:
+      - name: wait-for-cluster-gateway-ca
+        image: busybox:1.36
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for cluster-gateway CA certificate to be ready..."
+          retries=0
+          max_retries=60
+          until [ -f /etc/cluster-gateway/ca.crt ] && grep -q "BEGIN CERTIFICATE" /etc/cluster-gateway/ca.crt 2>/dev/null; do
+            retries=$((retries+1))
+            if [ $retries -gt $max_retries ]; then
+              echo "ERROR: Timeout waiting for valid CA certificate"
+              echo "ConfigMap content:"
+              cat /etc/cluster-gateway/ca.crt || echo "File not found"
+              exit 1
+            fi
+            echo "CA certificate not ready yet (attempt $retries/$max_retries)..."
+            sleep 5
+          done
+          echo "✓ Cluster gateway CA certificate is ready!"
+        volumeMounts:
+        - mountPath: /etc/cluster-gateway
+          name: cluster-gateway-ca
+          readOnly: true
+      {{- end }}
       containers:
       - name: manager
         image: {{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag | default .Chart.AppVersion }}
@@ -49,11 +77,21 @@ spec:
         command:
         - /manager
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        {{- if .Values.controllerManager.clusterGateway.enabled }}
+        - --agent-server-url={{ .Values.controllerManager.clusterGateway.url }}
+        - --agent-server-ca={{ .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.controllerManager.clusterGateway.enabled }}
+        - name: AGENT_SERVER_URL
+          value: {{ quote .Values.controllerManager.clusterGateway.url }}
+        - name: AGENT_SERVER_CA_PATH
+          value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- end }}
         ports:
         - containerPort: 8080
           name: metrics
@@ -81,16 +119,26 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
         volumeMounts:
+        {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
         {{- end }}
-      {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
+        {{- if .Values.controllerManager.clusterGateway.enabled }}
+        - mountPath: /etc/cluster-gateway
+          name: cluster-gateway-ca
+          readOnly: true
+        {{- end }}
       volumes:
+      {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       - name: cert
         secret:
           defaultMode: 420
           secretName: {{ .Values.controllerManager.name }}-webhook-server-cert
+      {{- end }}
+      {{- if .Values.controllerManager.clusterGateway.enabled }}
+      - name: cluster-gateway-ca
+        configMap:
+          name: {{ .Values.controllerManager.clusterGateway.tls.caConfigMap }}
       {{- end }}

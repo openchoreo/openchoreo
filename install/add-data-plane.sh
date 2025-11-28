@@ -40,7 +40,16 @@ Options:
                                     Default: default
 
   --namespace NAMESPACE             Namespace for the DataPlane resource
-                                    Default: default
+                                    Default: default (Note: DataPlane CRs are typically created in 'default')
+
+  --enable-agent                    Use cluster agent for data plane communication
+                                    When enabled, skips kubernetesCluster configuration
+
+  --agent-ca-secret NAME            Secret name containing agent client CA certificate
+                                    Default: cluster-agent-ca (only used with --enable-agent)
+
+  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret
+                                    Default: same as --namespace (only used with --enable-agent)
 
   --dry-run                         Preview the YAML without applying changes
 
@@ -68,9 +77,16 @@ Examples:
   # Preview without applying
   $script_name --dry-run
 
+  # Using cluster agent (recommended for production)
+  $script_name --enable-agent --control-plane-context k3d-openchoreo
+
+  # Using cluster agent with custom CA secret and namespace
+  $script_name --enable-agent --agent-ca-secret my-agent-ca --agent-ca-namespace openchoreo-control-plane --control-plane-context k3d-openchoreo
+
 Note:
   Single-cluster: Both control plane and data plane in same cluster
   Multi-cluster:  Different clusters, requires explicit --server URL
+  Agent mode:     Uses cluster agent for secure communication (recommended)
 EOF
 }
 
@@ -81,6 +97,9 @@ SERVER_URL="https://kubernetes.default.svc.cluster.local"
 DATAPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
+ENABLE_AGENT=false
+AGENT_CA_SECRET="cluster-agent-ca"
+AGENT_CA_NAMESPACE=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -88,6 +107,26 @@ while [[ $# -gt 0 ]]; do
     --dry-run)
       DRY_RUN=true
       shift
+      ;;
+    --enable-agent)
+      ENABLE_AGENT=true
+      shift
+      ;;
+    --agent-ca-secret)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --agent-ca-secret requires a value"
+        exit 1
+      fi
+      AGENT_CA_SECRET="$2"
+      shift 2
+      ;;
+    --agent-ca-namespace)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --agent-ca-namespace requires a value"
+        exit 1
+      fi
+      AGENT_CA_NAMESPACE="$2"
+      shift 2
       ;;
     --target-context)
       if [ -z "$2" ] || [[ "$2" == --* ]]; then
@@ -166,8 +205,13 @@ if [ -z "$TARGET_CONTEXT" ]; then
   TARGET_CONTEXT="$CONTROL_PLANE_CONTEXT"
 fi
 
-# Rule 2: Multi-cluster requires explicit external server URL
-if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ] && [ "$SERVER_URL" == "https://kubernetes.default.svc.cluster.local" ]; then
+# Set agent CA namespace default
+if [ -z "$AGENT_CA_NAMESPACE" ]; then
+  AGENT_CA_NAMESPACE="$NAMESPACE"
+fi
+
+# Rule 2: Multi-cluster requires explicit external server URL (unless using agent)
+if [ "$ENABLE_AGENT" = false ] && [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ] && [ "$SERVER_URL" == "https://kubernetes.default.svc.cluster.local" ]; then
   error "Error: Multi-cluster mode requires --server with external URL"
   echo "Use --help for more information"
   exit 1
@@ -182,14 +226,75 @@ if ! kubectl config get-contexts "$CONTROL_PLANE_CONTEXT" &>/dev/null; then
   exit 1
 fi
 
-# Only check target if different from control plane
-if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ]; then
+# Only check target if different from control plane and not using agent mode
+if [ "$ENABLE_AGENT" = false ] && [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ]; then
   if ! kubectl config get-contexts "$TARGET_CONTEXT" &>/dev/null; then
     error "Error: Target context '$TARGET_CONTEXT' not found in kubeconfig"
     echo "Available contexts:"
     kubectl config get-contexts -o name
     exit 1
   fi
+fi
+
+# If using agent mode, skip credential extraction
+if [ "$ENABLE_AGENT" = true ]; then
+  if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
+    error "Cluster gateway CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
+    echo ""
+    echo "The cluster gateway CA secret is required for agent-based communication."
+    echo "This secret should be created automatically by the cluster-gateway component."
+    echo ""
+    echo "Please ensure:"
+    echo "  1. Cluster gateway is enabled in the control plane Helm chart"
+    echo "  2. The cluster-gateway pod is running and healthy"
+    echo "  3. The CA extraction job has completed successfully"
+    echo ""
+    echo "You can check the status with:"
+    echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get pods -n $AGENT_CA_NAMESPACE | grep cluster-gateway"
+    echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get secret $AGENT_CA_SECRET -n $AGENT_CA_NAMESPACE"
+    echo ""
+    exit 1
+  fi
+
+  # Generate the DataPlane YAML with agent configuration
+  DATAPLANE_YAML=$(cat <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: $DATAPLANE_NAME
+  namespace: $NAMESPACE
+  annotations:
+    openchoreo.dev/description: "DataPlane created via $(basename $0) script with cluster agent"
+    openchoreo.dev/display-name: "DataPlane $DATAPLANE_NAME"
+spec:
+  agent:
+    enabled: true
+    clientCA:
+      secretRef:
+        name: $AGENT_CA_SECRET
+        namespace: $AGENT_CA_NAMESPACE
+        key: ca.crt
+  secretStoreRef:
+    name: default
+  gateway:
+    organizationVirtualHost: openchoreoapis.internal
+    publicVirtualHost: openchoreoapis.localhost
+EOF
+)
+
+  # Apply or preview the manifest
+  if [ "$DRY_RUN" = true ]; then
+    echo "$DATAPLANE_YAML"
+    exit 0
+  else
+    if echo "$DATAPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
+      :
+    else
+      error "Failed to create DataPlane resource"
+      exit 1
+    fi
+  fi
+  exit 0
 fi
 
 # Extract cluster and user info from target context

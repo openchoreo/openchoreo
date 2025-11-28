@@ -64,11 +64,32 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 ### 3. Create DataPlane Resource
 
-Create a DataPlane resource to enable workload deployment:
+Create a DataPlane resource to enable workload deployment.
+
+**Using Cluster Agent (Recommended):**
+
+The cluster agent provides secure communication between control plane and data plane without exposing the Kubernetes API:
+
+```bash
+./install/add-data-plane.sh \
+  --enable-agent \
+  --control-plane-context k3d-openchoreo \
+  --namespace default \
+  --agent-ca-namespace openchoreo-control-plane \
+  --name default
+```
+
+This creates a DataPlane CR that uses the cluster agent for communication. The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
+
+**Using Direct API Access (Alternative):**
+
+For simple setups or testing, you can use direct Kubernetes API access:
 
 ```bash
 ./install/add-data-plane.sh --control-plane-context k3d-openchoreo
 ```
+
+> **Note:** The cluster agent approach is recommended for production deployments as it provides better security and doesn't require exposing the Kubernetes API server.
 
 ### 4. Create BuildPlane Resource (optional)
 
@@ -137,6 +158,16 @@ kubectl --context k3d-openchoreo get dataplane -n default
 
 # Verify BuildPlane resource (if created)
 kubectl --context k3d-openchoreo get buildplane -n default
+
+# Verify Cluster Agent Connection (if using agent mode)
+echo "=== Cluster Agent Status ==="
+kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane -l app=cluster-agent
+
+echo "=== Agent Connection Logs ==="
+kubectl --context k3d-openchoreo logs -n openchoreo-data-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
+
+echo "=== Gateway Registration ==="
+kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -1
 ```
 
 ## Architecture

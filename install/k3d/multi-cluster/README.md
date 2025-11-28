@@ -87,7 +87,24 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 ### 5. Create DataPlane Resource
 
-Create a DataPlane resource to enable workload deployment:
+Create a DataPlane resource to enable workload deployment.
+
+**Using Cluster Agent (Recommended):**
+
+The cluster agent approach uses outbound WebSocket connections from the Data Plane to the Control Plane, eliminating the need for Control Plane to access Data Plane's Kubernetes API. This is the recommended approach for production deployments.
+
+```bash
+./install/add-data-plane.sh \
+  --enable-agent \
+  --control-plane-context k3d-openchoreo-cp \
+  --namespace default \
+  --agent-ca-namespace openchoreo-control-plane \
+  --name default
+```
+
+**Using Direct API Access (Alternative):**
+
+For simpler setups or when cluster agent is not available, you can use direct Kubernetes API access:
 
 ```bash
 ./install/add-data-plane.sh \
@@ -109,16 +126,19 @@ Create a BuildPlane resource to enable building from source:
 
 ## Port Mappings
 
-| Plane               | Cluster           | Kube API Port | Port Range |
-|---------------------|-------------------|---------------|------------|
-| Control Plane       | k3d-openchoreo-cp | 6550          | 8xxx       |
-| Data Plane          | k3d-openchoreo-dp | 6551          | 9xxx       |
-| Build Plane         | k3d-openchoreo-bp | 6552          | 10xxx      |
-| Observability Plane | k3d-openchoreo-op | 6553          | 11xxx      |
+| Plane               | Cluster           | Kube API Port | Port Range | Special Ports |
+|---------------------|-------------------|---------------|------------|---------------|
+| Control Plane       | k3d-openchoreo-cp | 6550          | 8xxx       | 30443 (Cluster Gateway NodePort) |
+| Data Plane          | k3d-openchoreo-dp | 6551          | 9xxx       | - |
+| Build Plane         | k3d-openchoreo-bp | 6552          | 10xxx      | - |
+| Observability Plane | k3d-openchoreo-op | 6553          | 11xxx      | - |
 
 > [!NOTE]
 > Port ranges (e.g., 8xxx) indicate the ports exposed to your host machine for accessing services from that plane. Each
 > range uses ports like 8080 (HTTP) and 8443 (HTTPS) on localhost.
+>
+> The Cluster Gateway (port 30443) is used by cluster agents in Data/Build Planes to establish WebSocket connections
+> to the Control Plane for agent-based communication.
 
 ## Access Services
 
