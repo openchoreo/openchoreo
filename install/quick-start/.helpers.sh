@@ -128,7 +128,22 @@ create_k3d_cluster() {
     fi
 }
 
+# Clear N lines from the terminal (used for updating status display)
+_clear_terminal_lines() {
+    local count="$1"
+    local use_tput="$2"
+    if [[ "$use_tput" == "true" && "$count" -gt 0 ]]; then
+        local i
+        for ((i = 0; i < count; i++)); do
+            tput cuu1 2>/dev/null || true
+            tput el 2>/dev/null || true
+        done
+    fi
+}
+
 # Monitor pod status in a namespace while helm is running
+# Supports interactive mode where users can press 'v' to see detailed pod list
+# Shows container readiness and detects blocking resources (LoadBalancers, Jobs, etc.)
 monitor_pod_status_with_helm() {
     local namespace="$1"
     local helm_pid="$2"
@@ -136,68 +151,238 @@ monitor_pod_status_with_helm() {
     start_time=$(date +%s)
 
     # Check if tput is available for fancy display
-    local use_fancy_display=false
+    local use_fancy_display="false"
     if command -v tput >/dev/null 2>&1; then
-        use_fancy_display=true
-        export TERM=${TERM:-xterm}
+        use_fancy_display="true"
+        export TERM="${TERM:-xterm}"
     fi
 
-    local line_printed=false
+    # Check if running in interactive terminal (both stdin and stdout must be terminals)
+    local is_interactive="false"
+    if [[ -t 0 && -t 1 ]]; then
+        is_interactive="true"
+    fi
+
+    local show_details=0
+    local lines_printed=0
 
     while true; do
         local current_time
         current_time=$(date +%s)
         local elapsed=$((current_time - start_time))
 
-        # Get pod counts
+        # Get pod info with READY column (format: NAME READY STATUS RESTARTS AGE)
         local pod_info
-        pod_info=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null || echo "")
+        pod_info=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null) || pod_info=""
+
+        # Clear previous output
+        _clear_terminal_lines "$lines_printed" "$use_fancy_display"
+        lines_printed=0
 
         if [[ -z "$pod_info" ]]; then
             # No pods yet
-            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
-                tput cuu1
-                tput el
+            if [[ "$is_interactive" == "true" ]]; then
+                echo "Waiting for pods to be created... (${elapsed}s)"
+            else
+                echo "Waiting for pods to be created... (${elapsed}s)"
             fi
-            echo "Waiting for pods to be created... (${elapsed}s)"
-            line_printed=true
+            lines_printed=1
         else
-            local total
-            total=$(echo "$pod_info" | wc -l | tr -d ' ')
-
-            # Count running pods (grep -c always outputs a number, just handle exit code)
-            local running=0
-            running=$(echo "$pod_info" | grep -c "Running" || true)
-
-            # Count pending pods (includes Pending, ContainerCreating, PodInitializing, and error states)
+            local total=0
+            local ready=0
             local pending=0
-            pending=$(echo "$pod_info" | grep -c -E "Pending|ContainerCreating|PodInitializing|Error|CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError|InvalidImageName" || true)
 
-            # Clear previous line if using fancy display
-            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
-                tput cuu1
-                tput el
+            # Count pods by analyzing READY column (e.g., "1/1", "0/1", "2/3")
+            while IFS= read -r line; do
+                total=$((total + 1))
+                local ready_col status_col
+                ready_col=$(echo "$line" | awk '{print $2}')
+                status_col=$(echo "$line" | awk '{print $3}')
+
+                # Check if all containers are ready (e.g., "1/1", "2/2")
+                local ready_count total_count
+                ready_count=$(echo "$ready_col" | cut -d'/' -f1)
+                total_count=$(echo "$ready_col" | cut -d'/' -f2)
+
+                if [[ "$ready_count" == "$total_count" && "$status_col" == "Running" ]]; then
+                    ready=$((ready + 1))
+                else
+                    pending=$((pending + 1))
+                fi
+            done <<< "$pod_info"
+
+            # Check for blocking resources when all pods are ready but helm is still waiting
+            local blocking_info=""
+            if [[ $pending -eq 0 && $ready -gt 0 ]]; then
+                blocking_info=$(get_blocking_resources "$namespace") || blocking_info=""
             fi
 
-            # Print status line
-            echo "Pods: $pending Pending, $running Running (${elapsed}s)"
-            line_printed=true
+            if [[ $show_details -eq 1 ]]; then
+                # Detailed view with container readiness
+                echo "Pods: $ready/$total Ready (${elapsed}s)"
+                echo ""
+                printf "  %-45s %-12s %-15s\n" "NAME" "READY" "STATUS"
+                printf "  %-45s %-12s %-15s\n" "---------------------------------------------" "------------" "---------------"
+                lines_printed=4
+
+                while IFS= read -r line; do
+                    local pod_name ready_col status_col
+                    pod_name=$(echo "$line" | awk '{print $1}')
+                    ready_col=$(echo "$line" | awk '{print $2}')
+                    status_col=$(echo "$line" | awk '{print $3}')
+                    printf "  %-45s %-12s %-15s\n" "$pod_name" "$ready_col" "$status_col"
+                    lines_printed=$((lines_printed + 1))
+                done <<< "$pod_info"
+
+                # Show blocking resources if any
+                if [[ -n "$blocking_info" ]]; then
+                    echo ""
+                    echo "Waiting on:"
+                    lines_printed=$((lines_printed + 2))
+                    while IFS= read -r block_line; do
+                        if [[ -n "$block_line" ]]; then
+                            echo "  $block_line"
+                            lines_printed=$((lines_printed + 1))
+                        fi
+                    done <<< "$blocking_info"
+                fi
+
+                echo ""
+                echo "Press 'x' to hide details."
+                lines_printed=$((lines_printed + 2))
+            else
+                # Summary view
+                local summary_msg="Pods: $ready/$total Ready (${elapsed}s)"
+                local suffix=""
+
+                if [[ -n "$blocking_info" ]]; then
+                    suffix=" waiting on other resources..."
+                fi
+
+                if [[ "$is_interactive" == "true" ]]; then
+                    echo "$summary_msg$suffix [Press 'v' for details]"
+                else
+                    echo "$summary_msg$suffix"
+                fi
+                lines_printed=1
+            fi
         fi
 
         # Check if helm is still running - if not, stop monitoring
-        # Check this AFTER printing status so we always show at least one update
         if ! kill -0 "$helm_pid" 2>/dev/null; then
-            # Helm has finished, clear the status line and exit
-            if [[ "$use_fancy_display" == "true" && "$line_printed" == "true" ]]; then
-                tput cuu1
-                tput el
-            fi
+            # Helm has finished, clear the output and exit
+            _clear_terminal_lines "$lines_printed" "$use_fancy_display"
             return 0
         fi
 
-        # Wait before next check
-        sleep 2
+        # Handle input: interactive mode reads keys, non-interactive just sleeps
+        if [[ "$is_interactive" == "true" ]]; then
+            local key=""
+            # Read single key with 1 second timeout
+            if read -rsn1 -t 1 key 2>/dev/null; then
+                case "$key" in
+                    v|V)
+                        show_details=1
+                        ;;
+                    x|X|q|Q)
+                        show_details=0
+                        ;;
+                esac
+            fi
+        else
+            # Non-interactive: just wait
+            sleep 2
+        fi
     done
+}
+
+# Get resources that might be blocking helm --wait completion
+# Called when all pods are ready but helm is still waiting
+get_blocking_resources() {
+    local namespace="$1"
+    local blocking=""
+
+    # Check for pending Jobs
+    local jobs
+    jobs=$(kubectl get jobs -n "$namespace" --no-headers 2>/dev/null || echo "")
+    if [[ -n "$jobs" ]]; then
+        while IFS= read -r line; do
+            local job_name completions
+            job_name=$(echo "$line" | awk '{print $1}')
+            completions=$(echo "$line" | awk '{print $2}')
+            local complete_count total_count
+            complete_count=$(echo "$completions" | cut -d'/' -f1)
+            total_count=$(echo "$completions" | cut -d'/' -f2)
+            if [[ "$complete_count" != "$total_count" ]]; then
+                blocking+="Job: $job_name ($completions)"$'\n'
+            fi
+        done <<< "$jobs"
+    fi
+
+    # Check for LoadBalancer services without external IP
+    local services
+    services=$(kubectl get svc -n "$namespace" --no-headers 2>/dev/null | grep LoadBalancer || echo "")
+    if [[ -n "$services" ]]; then
+        while IFS= read -r line; do
+            local svc_name external_ip
+            svc_name=$(echo "$line" | awk '{print $1}')
+            external_ip=$(echo "$line" | awk '{print $4}')
+            if [[ "$external_ip" == "<pending>" || "$external_ip" == "<none>" ]]; then
+                blocking+="Service (LoadBalancer): $svc_name (pending external IP)"$'\n'
+            fi
+        done <<< "$services"
+    fi
+
+    # Check for PVCs that are not bound
+    local pvcs
+    pvcs=$(kubectl get pvc -n "$namespace" --no-headers 2>/dev/null || echo "")
+    if [[ -n "$pvcs" ]]; then
+        while IFS= read -r line; do
+            local pvc_name pvc_status
+            pvc_name=$(echo "$line" | awk '{print $1}')
+            pvc_status=$(echo "$line" | awk '{print $2}')
+            if [[ "$pvc_status" != "Bound" ]]; then
+                blocking+="PVC: $pvc_name ($pvc_status)"$'\n'
+            fi
+        done <<< "$pvcs"
+    fi
+
+    # Check for Deployments not fully available
+    local deployments
+    deployments=$(kubectl get deployments -n "$namespace" --no-headers 2>/dev/null || echo "")
+    if [[ -n "$deployments" ]]; then
+        while IFS= read -r line; do
+            local dep_name ready_replicas
+            dep_name=$(echo "$line" | awk '{print $1}')
+            ready_replicas=$(echo "$line" | awk '{print $2}')
+            local ready_count desired_count
+            ready_count=$(echo "$ready_replicas" | cut -d'/' -f1)
+            desired_count=$(echo "$ready_replicas" | cut -d'/' -f2)
+            if [[ "$ready_count" != "$desired_count" ]]; then
+                blocking+="Deployment: $dep_name ($ready_replicas ready)"$'\n'
+            fi
+        done <<< "$deployments"
+    fi
+
+    # Check for StatefulSets not fully ready
+    local statefulsets
+    statefulsets=$(kubectl get statefulsets -n "$namespace" --no-headers 2>/dev/null || echo "")
+    if [[ -n "$statefulsets" ]]; then
+        while IFS= read -r line; do
+            local sts_name ready_replicas
+            sts_name=$(echo "$line" | awk '{print $1}')
+            ready_replicas=$(echo "$line" | awk '{print $2}')
+            local ready_count desired_count
+            ready_count=$(echo "$ready_replicas" | cut -d'/' -f1)
+            desired_count=$(echo "$ready_replicas" | cut -d'/' -f2)
+            if [[ "$ready_count" != "$desired_count" ]]; then
+                blocking+="StatefulSet: $sts_name ($ready_replicas ready)"$'\n'
+            fi
+        done <<< "$statefulsets"
+    fi
+
+    # Remove trailing newline
+    echo "${blocking%$'\n'}"
 }
 
 # Install or upgrade a helm chart with idempotency
