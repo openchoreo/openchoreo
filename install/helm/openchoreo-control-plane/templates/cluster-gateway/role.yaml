@@ -16,11 +16,4 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "create", "update", "patch"]
-# Allow checking cert-manager webhook readiness (for wait job)
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list"]
-- apiGroups: [""]
-  resources: ["endpoints"]
-  verbs: ["get", "list"]
 {{- end }}

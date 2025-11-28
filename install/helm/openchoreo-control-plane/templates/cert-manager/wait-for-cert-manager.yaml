@@ -1,5 +1,4 @@
-{{- if .Values.clusterGateway.enabled }}
-{{- if .Values.clusterGateway.tls.enabled }}
+{{- if ".Values.cert-anager.enabled" }}
 ---
 # Job to wait for cert-manager webhook to be ready
 apiVersion: batch/v1
@@ -9,7 +8,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: cluster-gateway
   annotations:
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-weight: "-10"
@@ -21,10 +19,11 @@ spec:
         app.kubernetes.io/component: wait-cert-manager
     spec:
       restartPolicy: OnFailure
-      serviceAccountName: {{ include "openchoreo-control-plane.clusterGateway.serviceAccountName" . }}
+      serviceAccountName: cert-manager-wait-sa
       containers:
       - name: wait-webhook
-        image: bitnamilegacy/kubectl:1.32.4
+        image: {{ .Values.waitJob.image }}
+        imagePullPolicy: IfNotPresent
         command:
         - /bin/bash
         - -c
@@ -71,7 +70,42 @@ spec:
           done
 
           echo "✓ Webhook endpoint is available"
+
+          # Wait for webhook to accept requests (TLS verification)
+
+          echo "Waiting for webhook TLS to be trusted by API server..."
+          retries=0
+          max_test_retries=60  # 2 minutes with 2s sleeps
+
+          while [ $retries -lt $max_test_retries ]; do
+            # Try to create a test issuer to verify webhook works
+            if kubectl apply -f - <<EOF 2>&1 | tee /tmp/test-result.txt && ! grep -q "error" /tmp/test-result.txt; then
+          apiVersion: cert-manager.io/v1
+          kind: Issuer
+          metadata:
+            name: test-webhook-validation
+            namespace: {{ .Release.Namespace }}
+          spec:
+            selfSigned: {}
+          EOF
+              echo "✓ Test issuer created successfully"
+              # Clean up test resource
+              kubectl delete issuer test-webhook-validation -n {{ .Release.Namespace }} --ignore-not-found=true
+              break
+            fi
+
+            retries=$((retries+1))
+            if [ $retries -ge $max_test_retries ]; then
+              echo "ERROR: Timeout waiting for webhook to accept requests"
+              echo "Last error:"
+              cat /tmp/test-result.txt
+              exit 1
+            fi
+            echo "Waiting for webhook TLS validation... ($retries/$max_test_retries)"
+            sleep 2
+          done
+
+          echo "✓ Webhook TLS is trusted and operational"
           echo ""
           echo "=== cert-manager is fully ready! ==="
-{{- end }}
 {{- end }}

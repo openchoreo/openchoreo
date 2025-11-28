@@ -24,7 +24,7 @@ spec:
       serviceAccountName: {{ include "openchoreo-control-plane.clusterGateway.serviceAccountName" . }}
       containers:
       - name: ca-extractor
-        image: bitnamilegacy/kubectl:1.32.4
+        image: {{ .Values.waitJob.image }}
         command:
         - /bin/bash
         - -c
