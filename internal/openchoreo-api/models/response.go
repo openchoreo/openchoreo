@@ -44,6 +44,7 @@ type ComponentResponse struct {
 	DisplayName       string                                 `json:"displayName,omitempty"`
 	Description       string                                 `json:"description,omitempty"`
 	Type              string                                 `json:"type"`
+	AutoDeploy        bool                                   `json:"autoDeploy"`
 	ProjectName       string                                 `json:"projectName"`
 	OrgName           string                                 `json:"orgName"`
 	CreatedAt         time.Time                              `json:"createdAt"`
@@ -283,7 +284,7 @@ type ReleaseBindingResponse struct {
 	ProjectName               string                 `json:"projectName"`
 	OrgName                   string                 `json:"orgName"`
 	Environment               string                 `json:"environment"`
-	ReleaseName               string                 `json:"releaseName"`
+	ReleaseName               string                 `json:"releaseName,omitempty"`
 	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
 	TraitOverrides            map[string]interface{} `json:"traitOverrides,omitempty"`
 	WorkloadOverrides         *WorkloadOverrides     `json:"workloadOverrides,omitempty"`

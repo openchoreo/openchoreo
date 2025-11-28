@@ -61,4 +61,5 @@ const (
 	CodeInternalError              = "INTERNAL_ERROR"
 	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
 	CodeInvalidCommitSHA           = "INVALID_COMMIT_SHA"
+	CodeInvalidParams              = "INVALID_PARAMS"
 )

@@ -71,6 +71,14 @@ type PromoteComponentRequest struct {
 	// TODO Support overrides for the target environment
 }
 
+// PatchComponentRequest represents the request to patch a Component
+type PatchComponentRequest struct {
+	// AutoDeploy controls whether the component should automatically deploy to the default environment
+	// +optional
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+	// TODO Add support for other fields to be patched
+}
+
 type CreateComponentReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 }

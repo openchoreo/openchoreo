@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -1424,6 +1425,81 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 	return s.toComponentResponse(component, typeSpecs, true), nil
 }
 
+// PatchComponent patches a Component with the provided updates
+func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectName, componentName string,
+	req *models.PatchComponentRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Patching component", "org", orgName, "project", projectName, "component", componentName)
+
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify that the component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	patchBase := component.DeepCopy()
+
+	s.applyComponentPatch(&component.Spec, req)
+
+	// Only patch if there are actual changes
+	if !reflect.DeepEqual(patchBase.Spec, component.Spec) {
+		patch := client.MergeFrom(patchBase)
+		if err := s.k8sClient.Patch(ctx, &component, patch); err != nil {
+			s.logger.Error("Failed to patch component", "error", err)
+			return nil, fmt.Errorf("failed to patch component: %w", err)
+		}
+		s.logger.Debug("Component patched successfully", "org", orgName, "project", projectName, "component", componentName)
+	} else {
+		s.logger.Debug("No changes detected, returning existing component", "org", orgName, "project", projectName, "component", componentName)
+	}
+
+	return s.toComponentResponse(&component, nil, true), nil
+}
+
+// applyComponentPatch applies non-nil fields from PatchComponentRequest to ComponentSpec using reflection
+// This automatically handles all pointer fields in the request struct without explicit if checks
+// Field names must match exactly between PatchComponentRequest and ComponentSpec
+// Example: req.AutoDeploy (pointer) maps to spec.AutoDeploy (value) by matching field name "AutoDeploy"
+func (s *ComponentService) applyComponentPatch(spec *openchoreov1alpha1.ComponentSpec, req *models.PatchComponentRequest) {
+	reqValue := reflect.ValueOf(req).Elem()
+	specValue := reflect.ValueOf(spec).Elem()
+	reqType := reqValue.Type()
+
+	for i := 0; i < reqValue.NumField(); i++ {
+		reqField := reqValue.Field(i)
+		fieldName := reqType.Field(i).Name
+
+		// Skip if the field is not a pointer or is nil
+		if reqField.Kind() != reflect.Ptr || reqField.IsNil() {
+			continue
+		}
+
+		// Find the corresponding field in spec
+		specField := specValue.FieldByName(fieldName)
+		if !specField.IsValid() || !specField.CanSet() {
+			s.logger.Warn("Field not found or cannot be set in ComponentSpec", "field", fieldName)
+			continue
+		}
+
+		// Set the spec field to the dereferenced request value
+		specField.Set(reqField.Elem())
+		s.logger.Debug("Patched field", "field", fieldName, "value", reqField.Elem().Interface())
+	}
+}
+
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
 func (s *ComponentService) componentExists(ctx context.Context, orgName, projectName, componentName string) (bool, error) {
 	component := &openchoreov1alpha1.Component{}
@@ -1548,6 +1624,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		DisplayName:       component.Annotations[controller.AnnotationKeyDisplayName],
 		Description:       component.Annotations[controller.AnnotationKeyDescription],
 		Type:              component.Spec.ComponentType,
+		AutoDeploy:        component.Spec.AutoDeploy,
 		ProjectName:       projectName,
 		OrgName:           component.Namespace,
 		CreatedAt:         component.CreationTimestamp.Time,

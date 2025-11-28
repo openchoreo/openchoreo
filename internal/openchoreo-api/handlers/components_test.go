@@ -601,3 +601,189 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		})
 	}
 }
+
+// TestPatchComponent_RequestParsing tests PATCH component request body parsing
+func TestPatchComponent_RequestParsing(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestBody string
+		wantErr     bool
+		checkFunc   func(*testing.T, *models.PatchComponentRequest)
+	}{
+		{
+			name:        "Valid request with autoDeploy true",
+			requestBody: `{"autoDeploy": true}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.PatchComponentRequest) {
+				if req.AutoDeploy == nil {
+					t.Error("Expected autoDeploy to be set")
+				} else if *req.AutoDeploy != true {
+					t.Errorf("Expected autoDeploy to be true, got %v", *req.AutoDeploy)
+				}
+			},
+		},
+		{
+			name:        "Valid request with autoDeploy false",
+			requestBody: `{"autoDeploy": false}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.PatchComponentRequest) {
+				if req.AutoDeploy == nil {
+					t.Error("Expected autoDeploy to be set")
+				} else if *req.AutoDeploy != false {
+					t.Errorf("Expected autoDeploy to be false, got %v", *req.AutoDeploy)
+				}
+			},
+		},
+		{
+			name:        "Valid request with no autoDeploy field",
+			requestBody: `{}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.PatchComponentRequest) {
+				if req.AutoDeploy != nil {
+					t.Errorf("Expected autoDeploy to be nil, got %v", *req.AutoDeploy)
+				}
+			},
+		},
+		{
+			name:        "Invalid JSON",
+			requestBody: `{"autoDeploy": }`,
+			wantErr:     true,
+		},
+		{
+			name:        "Invalid autoDeploy value type",
+			requestBody: `{"autoDeploy": "true"}`,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req models.PatchComponentRequest
+			err := json.NewDecoder(bytes.NewReader([]byte(tt.requestBody))).Decode(&req)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error parsing JSON, got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error parsing JSON: %v", err)
+				}
+				if tt.checkFunc != nil {
+					tt.checkFunc(t, &req)
+				}
+			}
+		})
+	}
+}
+
+// TestPatchComponent_PathParameters tests path parameter extraction for PatchComponent
+func TestPatchComponent_PathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		url           string
+		orgName       string
+		projectName   string
+		componentName string
+	}{
+		{
+			name:          "Valid path with all parameters",
+			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+		},
+		{
+			name:          "Path with hyphens in names",
+			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component",
+			orgName:       "my-org",
+			projectName:   "my-project",
+			componentName: "my-component",
+		},
+		{
+			name:          "Path with underscores in names",
+			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component",
+			orgName:       "my_org",
+			projectName:   "my_project",
+			componentName: "my_component",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPatch, tt.url, nil)
+			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("projectName", tt.projectName)
+			req.SetPathValue("componentName", tt.componentName)
+
+			// Verify all path values are set correctly
+			if req.PathValue("orgName") != tt.orgName {
+				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			}
+			if req.PathValue("projectName") != tt.projectName {
+				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
+			}
+			if req.PathValue("componentName") != tt.componentName {
+				t.Errorf("componentName = %v, want %v", req.PathValue("componentName"), tt.componentName)
+			}
+		})
+	}
+}
+
+// TestPatchComponent_MissingPathParameters tests validation for missing required parameters
+func TestPatchComponent_MissingPathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		orgName       string
+		projectName   string
+		componentName string
+		wantValid     bool
+	}{
+		{
+			name:          "All parameters present",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     true,
+		},
+		{
+			name:          "Missing org name",
+			orgName:       "",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing project name",
+			orgName:       "myorg",
+			projectName:   "",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing component name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "",
+			wantValid:     false,
+		},
+		{
+			name:          "All parameters missing",
+			orgName:       "",
+			projectName:   "",
+			componentName: "",
+			wantValid:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the validation logic from PatchComponent handler
+			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+
+			if isValid != tt.wantValid {
+				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
+			}
+		})
+	}
+}
