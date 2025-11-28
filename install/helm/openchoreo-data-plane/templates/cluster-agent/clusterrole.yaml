@@ -74,5 +74,12 @@ rules:
   - tcproutes
   - grpcroutes
   verbs: ["*"]
+# External Secrets Operator
+- apiGroups: ["external-secrets.io"]
+  resources:
+  - externalsecrets
+  - secretstores
+  - clustersecretstores
+  verbs: ["*"]
 {{- end }}
 {{- end }}
