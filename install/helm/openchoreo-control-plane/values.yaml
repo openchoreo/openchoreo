@@ -149,7 +149,7 @@ controllerManager:
       - --leader-elect
       - --health-probe-bind-address=:8081
     env:
-      enableWebhooks: "false"
+      enableWebhooks: "true"
   # Cluster Gateway configuration for agent-based data plane communication
   clusterGateway:
     enabled: false  # Set to true to enable cluster gateway integration

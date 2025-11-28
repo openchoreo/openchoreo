@@ -14,7 +14,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-component
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vcomponent-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -34,7 +34,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-componentrelease
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vcomponentrelease-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -54,7 +54,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-componenttype
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vcomponenttype-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -74,7 +74,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vproject-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -94,7 +94,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-releasebinding
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vreleasebinding-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -114,7 +114,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-trait
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: vtrait-v1alpha1.kb.io
   rules:
   - apiGroups:

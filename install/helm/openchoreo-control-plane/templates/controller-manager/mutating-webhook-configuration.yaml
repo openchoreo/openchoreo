@@ -14,7 +14,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-openchoreo-dev-v1alpha1-component
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: mcomponent-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -34,7 +34,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-openchoreo-dev-v1alpha1-componentrelease
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: mcomponentrelease-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -54,7 +54,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: mproject-v1alpha1.kb.io
   rules:
   - apiGroups:
@@ -74,7 +74,7 @@ webhooks:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-openchoreo-dev-v1alpha1-releasebinding
-  failurePolicy: Ignore
+  failurePolicy: Fail
   name: mreleasebinding-v1alpha1.kb.io
   rules:
   - apiGroups:
