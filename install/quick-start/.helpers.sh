@@ -393,8 +393,9 @@ install_helm_chart() {
     local namespace="$3"
     local create_namespace="${4:-true}"
     local wait_flag="${5:-false}"
-    local timeout="${6:-1800}"
-    shift 6
+    local monitor_flag="${6:-false}"
+    local timeout="${7:-1800}"
+    shift 7
     local additional_args=("$@")
 
     log_info "Installing/upgrading Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
@@ -432,8 +433,8 @@ install_helm_chart() {
 
     helm_args+=("${additional_args[@]}")
 
-    # If wait flag is requested, run helm in background and monitor pods in real-time
-    if [[ "$wait_flag" == "true" ]]; then
+    # If monitor flag is requested, run helm in background and monitor pods in real-time
+    if [[ "$monitor_flag" == "true" ]]; then
         # Create a temp file for helm output
         local temp_dir
         temp_dir=$(mktemp -d)
@@ -470,7 +471,7 @@ install_helm_chart() {
             return 1
         fi
     else
-        # No wait flag: run helm normally without monitoring
+        # No monitor flag: run helm normally without monitoring
         local helm_output
         local helm_exit_code=0
         if [[ "${DEBUG:-false}" == "true" ]]; then
@@ -496,7 +497,9 @@ install_helm_chart() {
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
-    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "true" "1800" \
+    # Disable --wait for control plane to avoid deadlock with webhook cert hooks
+    # But keep monitoring enabled to track pod status
+    install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "true" "1800" \
         "--values" "$HOME/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
@@ -506,7 +509,7 @@ install_control_plane() {
 # Install OpenChoreo Data Plane
 install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
-    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "1800" \
+    install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-dp.yaml" \
         "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
@@ -524,14 +527,14 @@ configure_observer_reference() {
 # Install OpenChoreo Build Plane (optional)
 install_build_plane() {
     log_info "Installing OpenChoreo Build Plane..."
-    install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "true" "1800" \
+    install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-bp.yaml"
 }
 
 # Install OpenChoreo Observability Plane (optional)
 install_observability_plane() {
     log_info "Installing OpenChoreo Observability Plane..."
-    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "1800" \
+    install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
 }
