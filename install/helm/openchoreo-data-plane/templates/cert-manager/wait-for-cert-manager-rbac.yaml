@@ -1,0 +1,50 @@
+{{- if ".Values.cert-manager.enabled" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager-wait-sa
+  annotations:
+    helm.sh/hook: post-install, post-upgrade
+    helm.sh/hook-weight: "-11"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager-wait-role
+  annotations:
+    helm.sh/hook: post-install, post-upgrade
+    helm.sh/hook-weight: "-11"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [ "apps" ]
+    resources: [ "deployments" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "endpoints" ]
+    verbs: [ "get", "list" ]
+  - apiGroups: [ "cert-manager.io" ]
+    resources: [ "issuers" ]
+    verbs: [ "get", "list", "create", "delete", "patch" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager-wait-rolebinding
+  annotations:
+    helm.sh/hook: post-install, post-upgrade
+    helm.sh/hook-weight: "-11"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager-wait-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: cert-manager-wait-role
+  apiGroup: rbac.authorization.k8s.io
+{{ end }}
