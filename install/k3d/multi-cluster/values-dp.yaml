@@ -1,17 +1,6 @@
 # Helm values for OpenChoreo Data Plane in k3d multi-cluster setup
 # This file contains overrides specific to running the data plane in a k3d environment
 
-# Enable cluster agent for agent-based communication with control plane
-clusterAgent:
-  enabled: true
-  planeName: "default-data-plane"
-  # Gateway address uses host.k3d.internal to reach control plane cluster's NodePort
-  gatewayAddress: "host.k3d.internal:30443"
-  tls:
-    enabled: true
-    secretName: cluster-agent-tls
-  serverCANamespace: openchoreo-control-plane
-
 fluentBit:
   config:
     # OpenSearch connection for multi-cluster setup
