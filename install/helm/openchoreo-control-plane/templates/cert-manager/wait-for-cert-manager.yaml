@@ -1,4 +1,4 @@
-{{- if ".Values.cert-anager.enabled" }}
+{{- if index .Values "cert-manager" "enabled" }}
 ---
 # Job to wait for cert-manager webhook to be ready
 apiVersion: batch/v1
