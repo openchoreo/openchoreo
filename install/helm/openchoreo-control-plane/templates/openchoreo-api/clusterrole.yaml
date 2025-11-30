@@ -29,6 +29,7 @@ rules:
   - environments
   - gitcommitrequests
   - observabilityplanes
+  - gitrepositorywebhooks
   - organizations
   - projects
   - releasebindings
@@ -77,6 +78,7 @@ rules:
   - environments/status
   - gitcommitrequests/status
   - observabilityplanes/status
+  - gitrepositorywebhooks/status
   - organizations/status
   - projects/status
   - releasebindings/status
@@ -97,4 +99,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
 {{- end }}
