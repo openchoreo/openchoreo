@@ -59,6 +59,7 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --kube-context k3d-openchoreo \
   --namespace openchoreo-observability-plane \
   --create-namespace \
+  --timeout 15m \
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
