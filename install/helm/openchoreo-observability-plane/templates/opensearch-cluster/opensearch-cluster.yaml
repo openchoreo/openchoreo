@@ -23,6 +23,7 @@ spec:
   general:
     serviceName: opensearch
     version: {{ .Values.openSearchCluster.general.version | quote }}
+    setVMMaxMapCount: {{ .Values.openSearchCluster.general.setVMMaxMapCount }}
   nodePools:
   - component: data
     diskSize: {{ .Values.openSearchCluster.nodePools.data.diskSize }}
