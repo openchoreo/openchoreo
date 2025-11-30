@@ -1,3 +1,4 @@
+{{ if .Values.global.defaultResources.enabled }}
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentWorkflow
 metadata:
@@ -5,6 +6,8 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "7"
 spec:
   # Schema definition for component workflows
   schema:
@@ -59,3 +62,4 @@ spec:
       workflowTemplateRef:
         clusterScope: true
         name: react
+{{ end }}

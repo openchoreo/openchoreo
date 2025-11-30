@@ -1,3 +1,4 @@
+{{ if .Values.global.defaultResources.enabled }}
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentWorkflow
 metadata:
@@ -5,6 +6,8 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "7"
 spec:
   # Schema definition for component workflows
   schema:
@@ -55,3 +58,4 @@ spec:
       workflowTemplateRef:
         clusterScope: true
         name: ballerina-buildpack
+{{ end }}

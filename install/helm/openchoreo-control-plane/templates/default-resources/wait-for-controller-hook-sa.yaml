@@ -5,8 +5,9 @@ kind: ServiceAccount
 metadata:
   name: controller-wait-sa
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install, post-upgrade
     "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -14,8 +15,9 @@ kind: Role
 metadata:
   name: controller-wait-role
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install, post-upgrade
     "helm.sh/hook-weight": "4"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   namespace: {{ .Release.Namespace }}
 rules:
   - apiGroups: [""]
@@ -27,8 +29,9 @@ kind: RoleBinding
 metadata:
   name: controller-wait-rolebinding
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install, post-upgrade
     "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount

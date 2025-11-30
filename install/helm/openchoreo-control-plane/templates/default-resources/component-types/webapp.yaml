@@ -7,6 +7,9 @@ metadata:
   namespace: default
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "7"
 spec:
   workloadType: deployment
 
