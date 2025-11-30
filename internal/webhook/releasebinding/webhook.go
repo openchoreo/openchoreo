@@ -209,11 +209,11 @@ func (v *Validator) validateAgainstRelease(ctx context.Context, binding *opencho
 	}
 
 	// Validate envOverrides against ComponentType's envOverrides schema
-	if binding.Spec.ComponentTypeEnvOverrides != nil && len(binding.Spec.ComponentTypeEnvOverrides.Raw) > 0 {
-		allErrs = append(allErrs, v.validateEnvOverridesAgainstSchema(binding, &release.Spec.ComponentType)...)
-	}
+	// Always validate, using empty object if not provided (catches missing required fields)
+	allErrs = append(allErrs, v.validateEnvOverridesAgainstSchema(binding, &release.Spec.ComponentType)...)
 
 	// Validate traitOverrides against traits in the release
+	// Always validate each trait that has envOverrides schema (catches missing required fields)
 	allErrs = append(allErrs, v.validateTraitOverridesAgainstRelease(binding, release)...)
 
 	return warnings, allErrs
@@ -255,8 +255,8 @@ func (v *Validator) validateEnvOverridesAgainstSchema(binding *openchoreodevv1al
 		Schemas: []map[string]any{envOverridesSchema},
 	}
 
-	// Convert to JSON schema for validation
-	jsonSchema, err := schema.ToJSONSchema(schemaDef)
+	// Convert to structural (for defaulting) and JSON schema (for validation)
+	structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(schemaDef)
 	if err != nil {
 		allErrs = append(allErrs, field.Invalid(
 			basePath,
@@ -265,17 +265,25 @@ func (v *Validator) validateEnvOverridesAgainstSchema(binding *openchoreodevv1al
 		return allErrs
 	}
 
-	// Unmarshal binding's envOverrides
+	// Unmarshal binding's envOverrides (treat nil/empty as empty object)
 	var envOverrides map[string]any
-	if err := yaml.Unmarshal(binding.Spec.ComponentTypeEnvOverrides.Raw, &envOverrides); err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			"<invalid>",
-			fmt.Sprintf("failed to parse envOverrides: %v", err)))
-		return allErrs
+	if binding.Spec.ComponentTypeEnvOverrides != nil && len(binding.Spec.ComponentTypeEnvOverrides.Raw) > 0 {
+		if err := yaml.Unmarshal(binding.Spec.ComponentTypeEnvOverrides.Raw, &envOverrides); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				basePath,
+				"<invalid>",
+				fmt.Sprintf("failed to parse envOverrides: %v", err)))
+			return allErrs
+		}
+	} else {
+		envOverrides = map[string]any{}
 	}
 
-	// Validate envOverrides against schema
+	// Apply defaults first to populate optional fields with defaults,
+	// then validate to catch missing required fields (those without defaults)
+	envOverrides = schema.ApplyDefaults(envOverrides, structural)
+
+	// Validate envOverrides against schema (will catch missing required fields)
 	if err := schema.ValidateWithJSONSchema(envOverrides, jsonSchema); err != nil {
 		allErrs = append(allErrs, field.Invalid(
 			basePath,
@@ -297,23 +305,21 @@ func (v *Validator) validateTraitOverridesAgainstRelease(binding *openchoreodevv
 		validInstanceNames[traitInstance.InstanceName] = traitInstance.Name
 	}
 
-	// Validate each trait override
-	for instanceName, override := range binding.Spec.TraitOverrides {
-		overridePath := basePath.Key(instanceName)
-
-		// Check if instance name exists in the release
-		traitName, exists := validInstanceNames[instanceName]
-		if !exists {
+	// Validate trait overrides that reference non-existent instances
+	for instanceName := range binding.Spec.TraitOverrides {
+		if _, exists := validInstanceNames[instanceName]; !exists {
 			allErrs = append(allErrs, field.NotFound(
-				overridePath,
+				basePath.Key(instanceName),
 				fmt.Sprintf("trait instance %q not found in ComponentRelease %q", instanceName, release.Name)))
-			continue
 		}
+	}
 
-		// If override has no content, skip validation
-		if len(override.Raw) == 0 {
-			continue
-		}
+	// Validate all trait instances that have envOverrides schema
+	// Uses empty object if no override is provided (catches missing required fields)
+	for _, traitInstance := range release.Spec.ComponentProfile.Traits {
+		instanceName := traitInstance.InstanceName
+		traitName := traitInstance.Name
+		overridePath := basePath.Key(instanceName)
 
 		// Get the trait spec from the release
 		traitSpec, exists := release.Spec.Traits[traitName]
@@ -325,7 +331,7 @@ func (v *Validator) validateTraitOverridesAgainstRelease(binding *openchoreodevv
 			continue
 		}
 
-		// If Trait has no envOverrides schema, nothing to validate against
+		// If Trait has no envOverrides schema, nothing to validate
 		if traitSpec.Schema.EnvOverrides == nil || len(traitSpec.Schema.EnvOverrides.Raw) == 0 {
 			continue
 		}
@@ -356,8 +362,8 @@ func (v *Validator) validateTraitOverridesAgainstRelease(binding *openchoreodevv
 			Schemas: []map[string]any{envOverridesSchema},
 		}
 
-		// Convert to JSON schema for validation
-		jsonSchema, err := schema.ToJSONSchema(schemaDef)
+		// Convert to structural (for defaulting) and JSON schema (for validation)
+		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(schemaDef)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				overridePath,
@@ -366,17 +372,25 @@ func (v *Validator) validateTraitOverridesAgainstRelease(binding *openchoreodevv
 			continue
 		}
 
-		// Unmarshal trait override
+		// Unmarshal trait override (treat nil/empty as empty object)
 		var traitOverride map[string]any
-		if err := yaml.Unmarshal(override.Raw, &traitOverride); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				overridePath,
-				"<invalid>",
-				fmt.Sprintf("failed to parse trait override: %v", err)))
-			continue
+		if override, exists := binding.Spec.TraitOverrides[instanceName]; exists && len(override.Raw) > 0 {
+			if err := yaml.Unmarshal(override.Raw, &traitOverride); err != nil {
+				allErrs = append(allErrs, field.Invalid(
+					overridePath,
+					"<invalid>",
+					fmt.Sprintf("failed to parse trait override: %v", err)))
+				continue
+			}
+		} else {
+			traitOverride = map[string]any{}
 		}
 
-		// Validate override against schema
+		// Apply defaults first to populate optional fields with defaults,
+		// then validate to catch missing required fields (those without defaults)
+		traitOverride = schema.ApplyDefaults(traitOverride, structural)
+
+		// Validate override against schema (will catch missing required fields)
 		if err := schema.ValidateWithJSONSchema(traitOverride, jsonSchema); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				overridePath,

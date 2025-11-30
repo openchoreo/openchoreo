@@ -110,6 +110,38 @@ func ToStructural(def Definition) (*apiextschema.Structural, error) {
 	return structural, nil
 }
 
+// ToStructuralAndJSONSchema converts a schema definition to both structural and JSON schema formats.
+// Use this when you need both formats, e.g., for applying defaults (structural) then validating (JSON schema).
+func ToStructuralAndJSONSchema(def Definition) (*apiextschema.Structural, *extv1.JSONSchemaProps, error) {
+	merged := mergeFieldMaps(def.Schemas)
+
+	var internalSchema *apiext.JSONSchemaProps
+	if len(merged) == 0 {
+		internalSchema = &apiext.JSONSchemaProps{
+			Type:       "object",
+			Properties: map[string]apiext.JSONSchemaProps{},
+		}
+	} else {
+		var err error
+		internalSchema, err = extractor.ExtractSchema(merged, def.Types, def.Options)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
+		}
+	}
+
+	structural, err := apiextschema.NewStructural(internalSchema)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build structural schema: %w", err)
+	}
+
+	v1Schema := new(extv1.JSONSchemaProps)
+	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
+		return nil, nil, fmt.Errorf("failed to convert schema to v1: %w", err)
+	}
+
+	return structural, v1Schema, nil
+}
+
 // ApplyDefaults applies schema default values to a target object using Kubernetes defaulting logic.
 //
 // This function walks the structural schema and target object in parallel, filling in default
