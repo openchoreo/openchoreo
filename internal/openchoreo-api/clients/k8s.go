@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,6 +21,13 @@ func NewK8sClient() (client.Client, error) {
 	}
 
 	scheme := runtime.NewScheme()
+
+	// Add core Kubernetes types (Secret, ConfigMap, etc.)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add core v1 scheme: %w", err)
+	}
+
+	// Add OpenChoreo custom types
 	if err := openchoreov1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add OpenChoreo scheme: %w", err)
 	}
