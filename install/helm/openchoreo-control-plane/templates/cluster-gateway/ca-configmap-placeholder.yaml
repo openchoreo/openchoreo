@@ -1,0 +1,21 @@
+{{- if .Values.clusterGateway.enabled }}
+{{- if .Values.clusterGateway.tls.enabled }}
+---
+# Placeholder ConfigMap for cluster-gateway CA certificate
+# This is created as a regular resource so the controller manager can mount it
+# The CA extractor hook job will populate it with the actual certificate
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-gateway-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+data:
+  # Empty placeholder - will be populated by the CA extractor job
+  ca.crt: |
+    # Placeholder certificate - will be replaced by actual CA certificate
+    # after cluster-gateway TLS secret is ready
+{{- end }}
+{{- end }}

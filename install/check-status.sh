@@ -31,7 +31,7 @@ get_component_group() {
     case "$group" in
         "Networking") echo "cilium" ;;
         "Control_Plane") echo "cert_manager_cp controller_manager api_server" ;;
-        "Data_Plane") echo "vault registry redis envoy_gateway external_gateway internal_gateway fluent_bit_dp" ;;
+        "Data_Plane") echo "vault registry redis gateway_controller gateway_default fluent_bit_dp" ;;
         "Build_Plane") echo "build_plane" ;;
         "Identity_Provider") echo "identity_provider" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
@@ -59,13 +59,13 @@ get_group_display_name() {
 # Component lists for multi-cluster mode (kept for backward compatibility)
 components_cp=("cert_manager_cp" "controller_manager" "api_server")
 components_dp=(
-    "cilium" "vault" "registry" "redis" "envoy_gateway"
-    "external_gateway" "internal_gateway" "fluent_bit_dp"
+    "cilium" "vault" "registry" "redis" "gateway_controller"
+    "gateway_default" "fluent_bit_dp"
     "build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer"
 )
 
 # Core vs optional component classification
-core_components=("cilium" "cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "envoy_gateway" "external_gateway" "internal_gateway" "fluent_bit_dp")
+core_components=("cilium" "cert_manager_cp" "controller_manager" "api_server" "vault" "registry" "redis" "gateway_controller" "gateway_default" "fluent_bit_dp")
 optional_components=("build_plane" "identity_provider" "opensearch" "opensearch_dashboard" "observer")
 
 # Function to get component configuration (namespace:label)
@@ -79,9 +79,8 @@ get_component_config() {
         "vault") echo "$DATA_PLANE_NS:app.kubernetes.io/name=hashicorp-vault" ;;
         "registry") echo "$DATA_PLANE_NS:app=registry" ;;
         "redis") echo "$DATA_PLANE_NS:app=redis" ;;
-        "envoy_gateway") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-helm" ;;
-        "external_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-external" ;;
-        "internal_gateway") echo "$DATA_PLANE_NS:gateway.envoyproxy.io/owning-gateway-name=gateway-internal" ;;
+        "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway" ;;
+        "gateway_default") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-default" ;;
         "fluent_bit_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/component=fluent-bit" ;;
         "build_plane") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo" ;;
         "identity_provider") echo "$IDENTITY_NS:app.kubernetes.io/name=openchoreo-identity-provider" ;;

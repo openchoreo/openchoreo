@@ -1,0 +1,22 @@
+{{- if .Values.clusterGateway.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+rules:
+# Allow reading DataPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["dataplanes"]
+  verbs: ["get", "list", "watch"]
+# Allow reading BuildPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["buildplanes"]
+  verbs: ["get", "list", "watch"]
+# Allow reading Secrets for client CA certificates
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+{{- end }}

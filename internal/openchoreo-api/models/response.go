@@ -39,21 +39,22 @@ type ProjectResponse struct {
 
 // ComponentResponse represents a component in API responses
 type ComponentResponse struct {
-	UID            string                                 `json:"uid"`
-	Name           string                                 `json:"name"`
-	DisplayName    string                                 `json:"displayName,omitempty"`
-	Description    string                                 `json:"description,omitempty"`
-	Type           string                                 `json:"type"`
-	ProjectName    string                                 `json:"projectName"`
-	OrgName        string                                 `json:"orgName"`
-	CreatedAt      time.Time                              `json:"createdAt"`
-	Status         string                                 `json:"status,omitempty"`
-	Service        *openchoreov1alpha1.ServiceSpec        `json:"service,omitempty"`
-	WebApplication *openchoreov1alpha1.WebApplicationSpec `json:"webApplication,omitempty"`
-	ScheduledTask  *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
-	API            *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
-	Workload       *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
-	Workflow       *Workflow                              `json:"workflow,omitempty"`
+	UID               string                                 `json:"uid"`
+	Name              string                                 `json:"name"`
+	DisplayName       string                                 `json:"displayName,omitempty"`
+	Description       string                                 `json:"description,omitempty"`
+	Type              string                                 `json:"type"`
+	AutoDeploy        bool                                   `json:"autoDeploy"`
+	ProjectName       string                                 `json:"projectName"`
+	OrgName           string                                 `json:"orgName"`
+	CreatedAt         time.Time                              `json:"createdAt"`
+	Status            string                                 `json:"status,omitempty"`
+	Service           *openchoreov1alpha1.ServiceSpec        `json:"service,omitempty"`
+	WebApplication    *openchoreov1alpha1.WebApplicationSpec `json:"webApplication,omitempty"`
+	ScheduledTask     *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
+	API               *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
+	Workload          *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
+	ComponentWorkflow *ComponentWorkflow                     `json:"componentWorkflow,omitempty"`
 }
 
 type BindingResponse struct {
@@ -200,8 +201,8 @@ type BuildPlaneResponse struct {
 	Status                string    `json:"status,omitempty"`
 }
 
-// BuildResponse represents a build in API responses
-type BuildResponse struct {
+// ComponentWorkflowResponse represents a component workflow run in API responses
+type ComponentWorkflowResponse struct {
 	Name          string    `json:"name"`
 	UUID          string    `json:"uuid"`
 	ComponentName string    `json:"componentName"`
@@ -211,19 +212,6 @@ type BuildResponse struct {
 	Status        string    `json:"status,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	Image         string    `json:"image,omitempty"`
-}
-
-// BuildTemplateResponse represents a build template (ClusterWorkflowTemplate) in API responses
-type BuildTemplateResponse struct {
-	Name       string                   `json:"name"`
-	Parameters []BuildTemplateParameter `json:"parameters,omitempty"`
-	CreatedAt  time.Time                `json:"createdAt"`
-}
-
-// BuildTemplateParameter represents a parameter of a build template
-type BuildTemplateParameter struct {
-	Name    string `json:"name"`
-	Default string `json:"default,omitempty"`
 }
 
 func SuccessResponse[T any](data T) APIResponse[T] {
@@ -296,7 +284,7 @@ type ReleaseBindingResponse struct {
 	ProjectName               string                 `json:"projectName"`
 	OrgName                   string                 `json:"orgName"`
 	Environment               string                 `json:"environment"`
-	ReleaseName               string                 `json:"releaseName"`
+	ReleaseName               string                 `json:"releaseName,omitempty"`
 	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
 	TraitOverrides            map[string]interface{} `json:"traitOverrides,omitempty"`
 	WorkloadOverrides         *WorkloadOverrides     `json:"workloadOverrides,omitempty"`

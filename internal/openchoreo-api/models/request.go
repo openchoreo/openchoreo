@@ -30,13 +30,38 @@ type Workflow struct {
 	Schema *runtime.RawExtension `json:"schema,omitempty"`
 }
 
+// ComponentWorkflow represents the component workflow configuration in API requests/responses
+type ComponentWorkflow struct {
+	Name             string                         `json:"name"`
+	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters"`
+	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
+}
+
+// ComponentWorkflowSystemParams represents the system parameters for component component-component-workflows
+type ComponentWorkflowSystemParams struct {
+	Repository ComponentWorkflowRepository `json:"repository"`
+}
+
+// ComponentWorkflowRepository represents repository information
+type ComponentWorkflowRepository struct {
+	URL      string                              `json:"url"`
+	Revision ComponentWorkflowRepositoryRevision `json:"revision"`
+	AppPath  string                              `json:"appPath"`
+}
+
+// ComponentWorkflowRepositoryRevision represents repository revision information
+type ComponentWorkflowRepositoryRevision struct {
+	Branch string `json:"branch"`
+	Commit string `json:"commit,omitempty"`
+}
+
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name        string    `json:"name"`
-	DisplayName string    `json:"displayName,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Type        string    `json:"type"`
-	Workflow    *Workflow `json:"workflow,omitempty"`
+	Name              string             `json:"name"`
+	DisplayName       string             `json:"displayName,omitempty"`
+	Description       string             `json:"description,omitempty"`
+	Type              string             `json:"type"`
+	ComponentWorkflow *ComponentWorkflow `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
@@ -44,6 +69,14 @@ type PromoteComponentRequest struct {
 	SourceEnvironment string `json:"sourceEnv"`
 	TargetEnvironment string `json:"targetEnv"`
 	// TODO Support overrides for the target environment
+}
+
+// PatchComponentRequest represents the request to patch a Component
+type PatchComponentRequest struct {
+	// AutoDeploy controls whether the component should automatically deploy to the default environment
+	// +optional
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+	// TODO Add support for other fields to be patched
 }
 
 type CreateComponentReleaseRequest struct {
@@ -290,7 +323,8 @@ type SecretKeyRef struct {
 	Key  string `json:"key"`
 }
 
-// UpdateWorkflowSchemaRequest represents the request to update a component's workflow schema
-type UpdateWorkflowSchemaRequest struct {
-	Schema *runtime.RawExtension `json:"schema"`
+// UpdateComponentWorkflowSchemaRequest represents the request to update a component's workflow schema
+type UpdateComponentWorkflowSchemaRequest struct {
+	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
+	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
 }

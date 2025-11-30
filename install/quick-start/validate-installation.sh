@@ -113,7 +113,7 @@ validate_services() {
     log_info "Validating key services..."
     
     # Check external gateway service
-    if ! kubectl get svc -n "$DATA_PLANE_NS" -l gateway.envoyproxy.io/owning-gateway-name=gateway-external >/dev/null 2>&1; then
+    if ! kubectl get svc -n "$DATA_PLANE_NS" -l gateway.networking.k8s.io/gateway-name=gateway-default >/dev/null 2>&1; then
         log_error "External gateway service not found"
         return 1
     fi

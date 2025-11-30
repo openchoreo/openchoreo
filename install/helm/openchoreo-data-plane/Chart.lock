@@ -2,11 +2,17 @@ dependencies:
 - name: external-secrets
   repository: https://charts.external-secrets.io
   version: 0.19.2
-- name: gateway-helm
-  repository: oci://docker.io/envoyproxy
-  version: v1.5.4
+- name: kgateway-crds
+  repository: oci://cr.kgateway.dev/kgateway-dev/charts
+  version: v2.1.1
+- name: kgateway
+  repository: oci://cr.kgateway.dev/kgateway-dev/charts
+  version: v2.1.1
+- name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.140.0
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:74aa8abd7bc730b622f993bdb5ca410d63636942a2ccf7ed0d62a6baf5db79af
-generated: "2025-11-12T00:25:06.147873+05:30"
+digest: sha256:b75b536439a1198835509b326939a35395a72db8c20fab3873a7539621367184
+generated: "2025-11-28T16:14:26.444233+05:30"

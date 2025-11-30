@@ -28,37 +28,63 @@ registry:
   storage:
     size: 2Gi
 
-# customizing the envoy gateway configurations
+# customizing the gateway configurations
+# This follows the structure from https://github.com/kgateway-dev/kgateway/blob/main/install/helm/kgateway/values.yaml
+# with additional OpenChoreo-specific gateway configuration
 gateway:
+  # Enable KGateway (controls both kgateway and kgateway-crds installation)
   enabled: true
-  nameOverride: envoy-controller
-  config:
-    envoyGateway:
-      gateway:
-        httpPort: 80
-        httpsPort: 443
-        controllerName: gateway.envoyproxy.io/gatewayclass-controller
-      provider:
-        kubernetes:
-          envoyDeployment:
-            name: openchoreo-gateway
-  deployment:
-    envoyGateway:
-      resources:
-        limits:
-          cpu: 200m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
-    envoy:
-      resources:
-        limits:
-          cpu: 500m
-          memory: 512Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
+
+  # OpenChoreo gateway configuration
+  httpPort: 80
+  httpsPort: 443
+
+  # TLS configuration for HTTPS listeners
+  tls:
+    # -- Cert-manager ClusterIssuer to use for certificate generation
+    # Defaults to openchoreo-selfsigned-issuer if not specified
+    clusterIssuer: ""
+    # -- Hostname for the HTTPS listener
+    # Defaults to *.openchoreoapis.localhost if not specified
+    hostname: ""
+
+  # KGateway controller configuration
+  controller:
+    replicaCount: 1
+    logLevel: info
+    image:
+      registry: ""
+      repository: kgateway
+      pullPolicy: IfNotPresent
+      tag: ""
+    service:
+      type: ClusterIP
+      ports:
+        grpc: 9977
+        agwGrpc: 9978
+        health: 9093
+        metrics: 9092
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  # Agent Gateway - disabled by default for MCP server and REST API connectivity
+  agentgateway:
+    enabled: false
+
+  # Envoy - enabled by default for traffic routing
+  envoy:
+    enabled: true
+
+  # Image configuration
+  image:
+    registry: cr.kgateway.dev/kgateway-dev
+    tag: ""
+    pullPolicy: IfNotPresent
 
 # customizing the cert-manager configurations
 cert-manager:
@@ -67,6 +93,9 @@ cert-manager:
   nameOverride: cert-manager
   crds:
     enabled: true
+  # -- Enable Gateway API support in cert-manager
+  config:
+    enableGatewayAPI: true
   # -- Resource limits and requests for the cert-manager controller
   resources:
     requests:
@@ -126,6 +155,7 @@ security:
 # Customizing overall observability configurations
 observability:
   enabled: true
+  observabilityPlaneUrl: ""
   # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
   metrics:
     enabled: false  # Enable after observability-plane is installed
@@ -193,8 +223,8 @@ fluentBit:
       authentication:
         basicauth:
           username: "admin"
-          password: "admin"
-      tls: false
+          password: "ThisIsTheOpenSearchPassword1"
+      tls: true
       tlsVerify: false
     
     parser:
@@ -211,6 +241,101 @@ fluentBit:
   hostPaths:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
+
+opentelemetry-collector:
+  enabled: false
+  clusterRole:
+    create: true
+    rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["replicasets"]
+        verbs: ["list","watch"]
+
+  configMap:
+    create: false
+    existingName: "opentelemetry-collector-config"
+
+  fullnameOverride: "opentelemetry-collector"
+
+  image:
+    repository: otel/opentelemetry-collector-contrib
+
+  mode: deployment
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
+
+# Cluster Agent configuration
+# The agent connects to the control plane cluster gateway via WebSocket
+clusterAgent:
+  enabled: false  # Set to true to enable cluster agent
+  name: cluster-agent
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/cluster-agent
+    tag: "" # If no value is set, use Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # Server URL of the cluster gateway in control plane
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # Name of this data plane
+  planeName: default
+  # Type of plane (dataplane or buildplane)
+  planeType: dataplane
+  heartbeatInterval: 30s
+  reconnectDelay: 5s
+  logLevel: info
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+  serviceAccount:
+    create: true
+    name: cluster-agent
+    annotations: {}
+  rbac:
+    create: true
+  priorityClass:
+    create: false
+    name: cluster-agent
+    value: 900000
+  tls:
+    enabled: true
+    # Secret containing client certificate and key
+    secretName: cluster-agent-tls
+    clientSecretName: cluster-agent-tls
+    # ConfigMap containing server CA certificate
+    serverCAConfigMap: cluster-gateway-ca
+    # Certificate duration and renewal
+    duration: 2160h # 90 days
+    renewBefore: 360h # 15 days
+  # Namespace where cluster-gateway CA exists (control plane namespace)
+  serverCANamespace: openchoreo-control-plane
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 
 

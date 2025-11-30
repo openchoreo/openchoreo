@@ -7,9 +7,9 @@ observer:
     tag: latest-dev
     pullPolicy: Never
 
-# Use minimal installation mode for dev
+# Use quickStart installation mode for dev
 global:
-  installationMode: minimal
+  installationMode: quickStart
 
 # OpenSearch configuration for dev
 openSearch:

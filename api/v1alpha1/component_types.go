@@ -35,6 +35,7 @@ type ComponentList struct {
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ComponentOwner `json:"owner"`
 
 	// Type specifies the component type (e.g., Service, WebApplication, etc.)
@@ -73,10 +74,12 @@ type ComponentSpec struct {
 	// +optional
 	Traits []ComponentTrait `json:"traits,omitempty"`
 
-	// Workflow defines the workflow configuration for building the component
-	// This references a Workflow CR and provides developer-configured schema values
+	// Workflow defines the component workflow configuration for building the component.
+	// This references a ComponentWorkflow CR and provides both system parameters (repository info)
+	// and developer-configured parameter values.
+	// The ComponentWorkflow must be in the allowedWorkflows list of the ComponentType.
 	// +optional
-	Workflow *WorkflowConfig `json:"workflow,omitempty"`
+	Workflow *ComponentWorkflowRunConfig `json:"workflow,omitempty"`
 }
 
 // ComponentTrait represents an trait instance attached to a component

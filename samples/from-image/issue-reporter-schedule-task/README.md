@@ -18,7 +18,7 @@ Features:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
 ```
 
 > [!NOTE]

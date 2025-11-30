@@ -2,28 +2,28 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: gateway-external
+  name: gateway-default
   namespace: {{ .Release.Namespace }}
+{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
+{{- end }}
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:
-  gatewayClassName: openchoreo
-  infrastructure:
-    parametersRef:
-      group: gateway.envoyproxy.io
-      kind: EnvoyProxy
-      name: gateway-external
+  gatewayClassName: kgateway
   listeners:
     - name: http
       protocol: HTTP
-      port: {{ .Values.gateway.config.envoyGateway.gateway.httpPort | default 80 }}
+      port: {{ .Values.gateway.httpPort | default 80 }}
       allowedRoutes:
         namespaces:
           from: All
 {{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
     - name: https
       protocol: HTTPS
-      port: {{ .Values.gateway.config.envoyGateway.gateway.httpsPort | default 443 }}
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      hostname: {{ .Values.gateway.tls.hostname | default "*.openchoreoapis.localhost" | quote }}
       allowedRoutes:
         namespaces:
           from: All
@@ -34,21 +34,4 @@ spec:
             name: openchoreo-gateway-tls
             namespace: {{ .Release.Namespace }}
 {{- end }}
-
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: EnvoyProxy
-metadata:
-  name: gateway-external
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
-spec:
-  provider:
-    type: Kubernetes
-    kubernetes:
-      envoyDeployment:
-        name: gateway-external
-      envoyService:
-        name: gateway-external
 {{- end }}

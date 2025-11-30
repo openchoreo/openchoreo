@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -1435,6 +1436,81 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 	return s.toComponentResponse(component, typeSpecs, true), nil
 }
 
+// PatchComponent patches a Component with the provided updates
+func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectName, componentName string,
+	req *models.PatchComponentRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Patching component", "org", orgName, "project", projectName, "component", componentName)
+
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify that the component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		return nil, ErrComponentNotFound
+	}
+
+	patchBase := component.DeepCopy()
+
+	s.applyComponentPatch(&component.Spec, req)
+
+	// Only patch if there are actual changes
+	if !reflect.DeepEqual(patchBase.Spec, component.Spec) {
+		patch := client.MergeFrom(patchBase)
+		if err := s.k8sClient.Patch(ctx, &component, patch); err != nil {
+			s.logger.Error("Failed to patch component", "error", err)
+			return nil, fmt.Errorf("failed to patch component: %w", err)
+		}
+		s.logger.Debug("Component patched successfully", "org", orgName, "project", projectName, "component", componentName)
+	} else {
+		s.logger.Debug("No changes detected, returning existing component", "org", orgName, "project", projectName, "component", componentName)
+	}
+
+	return s.toComponentResponse(&component, nil, true), nil
+}
+
+// applyComponentPatch applies non-nil fields from PatchComponentRequest to ComponentSpec using reflection
+// This automatically handles all pointer fields in the request struct without explicit if checks
+// Field names must match exactly between PatchComponentRequest and ComponentSpec
+// Example: req.AutoDeploy (pointer) maps to spec.AutoDeploy (value) by matching field name "AutoDeploy"
+func (s *ComponentService) applyComponentPatch(spec *openchoreov1alpha1.ComponentSpec, req *models.PatchComponentRequest) {
+	reqValue := reflect.ValueOf(req).Elem()
+	specValue := reflect.ValueOf(spec).Elem()
+	reqType := reqValue.Type()
+
+	for i := 0; i < reqValue.NumField(); i++ {
+		reqField := reqValue.Field(i)
+		fieldName := reqType.Field(i).Name
+
+		// Skip if the field is not a pointer or is nil
+		if reqField.Kind() != reflect.Ptr || reqField.IsNil() {
+			continue
+		}
+
+		// Find the corresponding field in spec
+		specField := specValue.FieldByName(fieldName)
+		if !specField.IsValid() || !specField.CanSet() {
+			s.logger.Warn("Field not found or cannot be set in ComponentSpec", "field", fieldName)
+			continue
+		}
+
+		// Set the spec field to the dereferenced request value
+		specField.Set(reqField.Elem())
+		s.logger.Debug("Patched field", "field", fieldName, "value", reqField.Elem().Interface())
+	}
+}
+
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
 func (s *ComponentService) componentExists(ctx context.Context, orgName, projectName, componentName string) (bool, error) {
 	component := &openchoreov1alpha1.Component{}
@@ -1489,12 +1565,32 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		},
 	}
 
-	// Set workflow configuration if provided
-	if req.Workflow != nil {
-		componentCR.Spec.Workflow = &openchoreov1alpha1.WorkflowConfig{
-			Name:   req.Workflow.Name,
-			Schema: req.Workflow.Schema,
+	// Set component workflow configuration if provided (new preferred way)
+	if req.ComponentWorkflow != nil {
+		workflowConfig := &openchoreov1alpha1.ComponentWorkflowRunConfig{
+			Name: req.ComponentWorkflow.Name,
 		}
+
+		// Set system parameters if provided
+		if req.ComponentWorkflow.SystemParameters != nil {
+			workflowConfig.SystemParameters = openchoreov1alpha1.SystemParametersValues{
+				Repository: openchoreov1alpha1.RepositoryValues{
+					URL: req.ComponentWorkflow.SystemParameters.Repository.URL,
+					Revision: openchoreov1alpha1.RepositoryRevisionValues{
+						Branch: req.ComponentWorkflow.SystemParameters.Repository.Revision.Branch,
+						Commit: req.ComponentWorkflow.SystemParameters.Repository.Revision.Commit,
+					},
+					AppPath: req.ComponentWorkflow.SystemParameters.Repository.AppPath,
+				},
+			}
+		}
+
+		// Set developer parameters if provided
+		if req.ComponentWorkflow.Parameters != nil {
+			workflowConfig.Parameters = req.ComponentWorkflow.Parameters
+		}
+
+		componentCR.Spec.Workflow = workflowConfig
 	}
 
 	if err := s.k8sClient.Create(ctx, componentCR); err != nil {
@@ -1514,26 +1610,37 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when Component adds status conditions
 	status := "Created"
 
-	// Convert workflow configuration to API Workflow format only if requested
-	var workflow *models.Workflow
+	// Convert workflow configuration to API ComponentWorkflow format only if requested
+	var componentWorkflow *models.ComponentWorkflow
 	if includeWorkflow && component.Spec.Workflow != nil {
-		workflow = &models.Workflow{
-			Name:   component.Spec.Workflow.Name,
-			Schema: component.Spec.Workflow.Schema,
+		componentWorkflow = &models.ComponentWorkflow{
+			Name: component.Spec.Workflow.Name,
+			SystemParameters: &models.ComponentWorkflowSystemParams{
+				Repository: models.ComponentWorkflowRepository{
+					URL: component.Spec.Workflow.SystemParameters.Repository.URL,
+					Revision: models.ComponentWorkflowRepositoryRevision{
+						Branch: component.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
+						Commit: component.Spec.Workflow.SystemParameters.Repository.Revision.Commit,
+					},
+					AppPath: component.Spec.Workflow.SystemParameters.Repository.AppPath,
+				},
+			},
+			Parameters: component.Spec.Workflow.Parameters,
 		}
 	}
 
 	response := &models.ComponentResponse{
-		UID:         string(component.UID),
-		Name:        component.Name,
-		DisplayName: component.Annotations[controller.AnnotationKeyDisplayName],
-		Description: component.Annotations[controller.AnnotationKeyDescription],
-		Type:        component.Spec.ComponentType,
-		ProjectName: projectName,
-		OrgName:     component.Namespace,
-		CreatedAt:   component.CreationTimestamp.Time,
-		Status:      status,
-		Workflow:    workflow,
+		UID:               string(component.UID),
+		Name:              component.Name,
+		DisplayName:       component.Annotations[controller.AnnotationKeyDisplayName],
+		Description:       component.Annotations[controller.AnnotationKeyDescription],
+		Type:              component.Spec.ComponentType,
+		AutoDeploy:        component.Spec.AutoDeploy,
+		ProjectName:       projectName,
+		OrgName:           component.Namespace,
+		CreatedAt:         component.CreationTimestamp.Time,
+		Status:            status,
+		ComponentWorkflow: componentWorkflow,
 	}
 
 	for _, v := range typeSpecs {
@@ -2674,7 +2781,7 @@ func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgN
 }
 
 // UpdateComponentWorkflowSchema updates the workflow schema for a component
-func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateWorkflowSchemaRequest) (*models.ComponentResponse, error) {
+func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowSchemaRequest) (*models.ComponentResponse, error) {
 	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
@@ -2714,14 +2821,29 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 		return nil, fmt.Errorf("component does not have workflow configuration")
 	}
 
-	// Validate the schema against the Workflow CRD
-	if err := s.validateWorkflowSchema(ctx, orgName, component.Spec.Workflow.Name, req.Schema); err != nil {
-		s.logger.Warn("Invalid workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
-		return nil, ErrWorkflowSchemaInvalid
+	// Update system parameters if provided
+	if req.SystemParameters != nil {
+		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
+			Repository: openchoreov1alpha1.RepositoryValues{
+				URL: req.SystemParameters.Repository.URL,
+				Revision: openchoreov1alpha1.RepositoryRevisionValues{
+					Branch: req.SystemParameters.Repository.Revision.Branch,
+					Commit: req.SystemParameters.Repository.Revision.Commit,
+				},
+				AppPath: req.SystemParameters.Repository.AppPath,
+			},
+		}
 	}
 
-	// Update the workflow schema
-	component.Spec.Workflow.Schema = req.Schema
+	// Update developer parameters if provided
+	if req.Parameters != nil {
+		// Validate the parameters against the ComponentWorkflow CRD
+		if err := s.validateComponentWorkflowParameters(ctx, orgName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, ErrWorkflowSchemaInvalid
+		}
+		component.Spec.Workflow.Parameters = req.Parameters
+	}
 
 	// Update the component in Kubernetes
 	if err := s.k8sClient.Update(ctx, component); err != nil {
@@ -2735,52 +2857,56 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
 }
 
-// validateWorkflowSchema validates the provided schema against the Workflow CRD's schema definition
-func (s *ComponentService) validateWorkflowSchema(ctx context.Context, orgName, workflowName string, providedSchema *runtime.RawExtension) error {
-	// Fetch the Workflow CR
+// validateComponentWorkflowParameters validates the provided parameters against the ComponentWorkflow CRD's parameter schema
+func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Context, orgName, workflowName string, providedParameters *runtime.RawExtension) error {
+	// Fetch the ComponentWorkflow CR
 	workflowKey := client.ObjectKey{
 		Name:      workflowName,
 		Namespace: orgName,
 	}
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
+	componentWorkflow := &openchoreov1alpha1.ComponentWorkflow{}
+	if err := s.k8sClient.Get(ctx, workflowKey, componentWorkflow); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workflow not found", "org", orgName, "workflow", workflowName)
-			return ErrWorkflowNotFound
+			s.logger.Warn("ComponentWorkflow not found", "org", orgName, "workflow", workflowName)
+			return fmt.Errorf("component workflow %s not found", workflowName)
 		}
-		s.logger.Error("Failed to get workflow", "error", err)
-		return fmt.Errorf("failed to get workflow: %w", err)
+		s.logger.Error("Failed to get component workflow", "error", err)
+		return fmt.Errorf("failed to get component workflow: %w", err)
 	}
 
-	// If workflow has no schema defined, any schema is valid
-	if workflow.Spec.Schema == nil {
+	// If component workflow has no parameter schema defined, any parameters are valid
+	if componentWorkflow.Spec.Schema.Parameters == nil {
 		return nil
 	}
 
-	// If provided schema is nil or empty, it's valid (defaults will be applied)
-	if providedSchema == nil || len(providedSchema.Raw) == 0 {
+	// If provided parameters are nil or empty, it's valid (defaults will be applied)
+	if providedParameters == nil || len(providedParameters.Raw) == 0 {
 		return nil
 	}
 
-	// Unmarshal the workflow's schema definition
-	var workflowSchemaMap map[string]any
-	if err := json.Unmarshal(workflow.Spec.Schema.Raw, &workflowSchemaMap); err != nil {
-		s.logger.Error("Failed to unmarshal workflow schema", "error", err)
-		return fmt.Errorf("failed to parse workflow schema definition: %w", err)
+	// Unmarshal the component workflow's parameter schema definition
+	var parameterSchemaMap map[string]any
+	if err := json.Unmarshal(componentWorkflow.Spec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
+		s.logger.Error("Failed to unmarshal component workflow parameter schema", "error", err)
+		return fmt.Errorf("failed to parse component workflow parameter schema: %w", err)
 	}
 
-	// Unmarshal the provided schema values
+	// Unmarshal the provided parameter values
 	var providedValues map[string]any
-	if err := json.Unmarshal(providedSchema.Raw, &providedValues); err != nil {
-		s.logger.Error("Failed to unmarshal provided schema", "error", err)
-		return fmt.Errorf("failed to parse provided schema: %w", err)
+	if err := json.Unmarshal(providedParameters.Raw, &providedValues); err != nil {
+		s.logger.Error("Failed to unmarshal provided parameters", "error", err)
+		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build structural schema from workflow schema definition
-	structural, err := s.buildWorkflowStructuralSchema(workflowSchemaMap)
+	// Build structural schema from component workflow parameter schema
+	def := openchoreoschema.Definition{
+		Schemas: []map[string]any{parameterSchemaMap},
+	}
+
+	structural, err := openchoreoschema.ToStructural(def)
 	if err != nil {
 		s.logger.Error("Failed to build structural schema", "error", err)
-		return fmt.Errorf("failed to build workflow schema structure: %w", err)
+		return fmt.Errorf("failed to build component workflow parameter schema structure: %w", err)
 	}
 
 	// Validate the provided values against the structural schema

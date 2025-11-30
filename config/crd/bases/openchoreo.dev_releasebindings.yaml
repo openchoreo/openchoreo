@@ -49,6 +49,9 @@ spec:
                 description: EnvironmentName is the name of the environment this binds
                   the ComponentRelease to
                 type: string
+                x-kubernetes-validations:
+                - message: spec.environment is immutable
+                  rule: self == oldSelf
               owner:
                 description: Owner identifies the component and project this ReleaseBinding
                   belongs to
@@ -66,6 +69,9 @@ spec:
                 - componentName
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
               releaseName:
                 description: |-
                   ReleaseName is the name of the ComponentRelease to bind

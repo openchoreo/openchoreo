@@ -53,7 +53,21 @@ spec:
                           secretRef:
                             description: SecretRef is a reference to a secret containing
                               the value
-                            type: string
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
                           value:
                             description: Value is the inline value (optional fallback)
                             type: string
@@ -69,7 +83,21 @@ spec:
                               secretRef:
                                 description: SecretRef is a reference to a secret
                                   containing the value
-                                type: string
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                               value:
                                 description: Value is the inline value (optional fallback)
                                 type: string
@@ -81,7 +109,21 @@ spec:
                               secretRef:
                                 description: SecretRef is a reference to a secret
                                   containing the value
-                                type: string
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                               value:
                                 description: Value is the inline value (optional fallback)
                                 type: string
@@ -103,7 +145,21 @@ spec:
                           secretRef:
                             description: SecretRef is a reference to a secret containing
                               the value
-                            type: string
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
                           value:
                             description: Value is the inline value (optional fallback)
                             type: string

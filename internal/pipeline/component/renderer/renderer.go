@@ -33,12 +33,12 @@ func NewRenderer(templateEngine *template.Engine) *Renderer {
 // RenderResources renders all resources from a ComponentType.
 //
 // The process:
-//  1. Iterate through ComponentType.Spec.Resources
-//  2. For each ResourceTemplate:
-//     - Evaluate includeWhen (skip if false)
-//     - Check forEach (render multiple times if present)
-//     - Render template field using template engine
-//  3. Return all rendered resources
+//   - Iterate through ComponentType.Spec.Resources
+//   - For each ResourceTemplate:
+//   - Evaluate includeWhen (skip if false)
+//   - Check forEach (render multiple times if present)
+//   - Render template field using template engine
+//   - Return all rendered resources
 //
 // Returns an error if any template fails to render (unless it's a missing data error
 // for includeWhen evaluation).
@@ -112,12 +112,12 @@ func (r *Renderer) shouldInclude(tmpl v1alpha1.ResourceTemplate, context map[str
 // renderWithForEach handles ResourceTemplate.forEach iteration.
 //
 // The process:
-//  1. Evaluate forEach expression to get array of items
-//  2. For each item:
-//     - Clone context
-//     - Bind item to variable (tmpl.var or "item")
-//     - Render template with item context
-//  3. Return all rendered resources
+//   - Evaluate forEach expression to get array of items
+//   - For each item:
+//   - Clone context
+//   - Bind item to variable (tmpl.var or "item")
+//   - Render template with item context
+//   - Return all rendered resources
 func (r *Renderer) renderWithForEach(
 	tmpl v1alpha1.ResourceTemplate,
 	context map[string]any,
@@ -162,10 +162,10 @@ func (r *Renderer) renderWithForEach(
 // renderSingleResource renders a single ResourceTemplate.
 //
 // The process:
-//  1. Extract template from runtime.RawExtension
-//  2. Render using template engine
-//  3. Remove omitted fields
-//  4. Validate basic structure (kind, apiVersion, metadata.name)
+//   - Extract template from runtime.RawExtension
+//   - Render using template engine
+//   - Remove omitted fields
+//   - Validate basic structure (kind, apiVersion, metadata.name)
 func (r *Renderer) renderSingleResource(
 	tmpl v1alpha1.ResourceTemplate,
 	context map[string]any,

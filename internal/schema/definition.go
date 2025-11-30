@@ -6,11 +6,13 @@ package schema
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 
 	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
@@ -295,6 +297,39 @@ func ValidateAgainstSchema(values map[string]any, structural *apiextschema.Struc
 	if len(unknownFields) > 0 {
 		sort.Strings(unknownFields)
 		return fmt.Errorf("unknown fields: %v", unknownFields)
+	}
+
+	return nil
+}
+
+// ValidateWithJSONSchema validates values against a JSONSchemaProps using Kubernetes validation.
+// This properly validates required fields, types, constraints, patterns, and all other JSON Schema validations.
+func ValidateWithJSONSchema(values map[string]any, jsonSchema *extv1.JSONSchemaProps) error {
+	if jsonSchema == nil {
+		return fmt.Errorf("schema is nil")
+	}
+
+	// Convert v1 JSONSchemaProps to internal type for validator
+	internalSchema := new(apiext.JSONSchemaProps)
+	if err := extv1.Convert_v1_JSONSchemaProps_To_apiextensions_JSONSchemaProps(jsonSchema, internalSchema, nil); err != nil {
+		return fmt.Errorf("failed to convert schema: %w", err)
+	}
+
+	// Create Kubernetes schema validator
+	validator, _, err := validation.NewSchemaValidator(internalSchema)
+	if err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
+	}
+
+	// Validate the values
+	result := validator.Validate(values)
+	if !result.IsValid() {
+		// Collect all validation errors
+		var errMsgs []string
+		for _, err := range result.Errors {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		return fmt.Errorf("%s", strings.Join(errMsgs, "; "))
 	}
 
 	return nil

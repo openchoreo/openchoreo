@@ -730,9 +730,9 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mergeWorkloadOverrides(tt.baseWorkload, tt.overrides)
+			got := MergeWorkloadOverrides(tt.baseWorkload, tt.overrides)
 			if diff := cmp.Diff(tt.want, got, sortEnvsByKey(), sortFilesByKey()); diff != "" {
-				t.Errorf("mergeWorkloadOverrides() mismatch (-want +got):\n%s", diff)
+				t.Errorf("MergeWorkloadOverrides() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

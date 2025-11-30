@@ -611,14 +611,14 @@ field2: string|enum=a,b,c default=b
 
 func TestConverter_PipeInsideQuotes(t *testing.T) {
 	const schemaYAML = `
-pattern: 'string | pattern="a|b|c" default="x|y"'
+pattern: 'string | pattern="a|b|c" default="b"'
 `
 	const expected = `{
   "type": "object",
   "properties": {
     "pattern": {
       "type": "string",
-      "default": "x|y",
+      "default": "b",
       "pattern": "a|b|c"
     }
   }
@@ -1227,6 +1227,210 @@ items:
 			}
 			if !strings.Contains(err.Error(), tt.expectError) {
 				t.Fatalf("expected error containing %q, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+// TestConverter_EmptySchemaWithAdditionalPropertiesFalse tests that empty schemas
+// respect the SetAdditionalPropertiesFalse option.
+// This was previously broken - empty schemas would skip this setting.
+func TestConverter_EmptySchemaWithAdditionalPropertiesFalse(t *testing.T) {
+	// Test empty schema with SetAdditionalPropertiesFalse enabled
+	fields := map[string]any{}
+
+	schema, err := ExtractSchema(fields, nil, Options{SetAdditionalPropertiesFalse: true})
+	if err != nil {
+		t.Fatalf("ExtractSchema failed: %v", err)
+	}
+
+	// Verify additionalProperties is set to false
+	if schema.AdditionalProperties == nil {
+		t.Fatal("expected additionalProperties to be set, got nil")
+	}
+	if schema.AdditionalProperties.Allows {
+		t.Error("expected additionalProperties.Allows to be false, got true")
+	}
+
+	// Test empty schema without the option - should not set additionalProperties
+	schema2, err := ExtractSchema(fields, nil, Options{SetAdditionalPropertiesFalse: false})
+	if err != nil {
+		t.Fatalf("ExtractSchema failed: %v", err)
+	}
+
+	if schema2.AdditionalProperties != nil {
+		t.Error("expected additionalProperties to be nil when option is false, got non-nil")
+	}
+}
+
+// TestConverter_FieldDefaultValidation tests that field-level defaults are validated
+// against their schema constraints when ValidateDefaults is enabled.
+// This was previously broken - only object-level $default was validated.
+func TestConverter_FieldDefaultValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		schemaYAML  string
+		expectError string
+	}{
+		{
+			name: "invalid enum default",
+			schemaYAML: `
+env: 'string | enum=dev,staging,prod | default=invalid'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "integer default below minimum",
+			schemaYAML: `
+port: 'integer | minimum=1000 | maximum=65535 | default=80'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "integer default above maximum",
+			schemaYAML: `
+port: 'integer | minimum=1000 | maximum=65535 | default=70000'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "string default not matching pattern",
+			schemaYAML: `
+name: 'string | pattern=^[a-z]+$ | default=Invalid123'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "string default below minLength",
+			schemaYAML: `
+name: 'string | minLength=5 | default=abc'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "array default below minItems",
+			schemaYAML: `
+tags: '[]string | minItems=2 | default=["one"]'
+`,
+			expectError: "invalid default value",
+		},
+		{
+			name: "valid defaults should pass",
+			schemaYAML: `
+env: 'string | enum=dev,staging,prod | default=dev'
+port: 'integer | minimum=1000 | maximum=65535 | default=8080'
+name: 'string | pattern=^[a-z]+$ | default=valid'
+`,
+			expectError: "", // Should not error
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields := parseYAMLMap(t, tt.schemaYAML)
+
+			_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+
+			if tt.expectError == "" {
+				// Should succeed
+				if err != nil {
+					t.Fatalf("expected success, got error: %v", err)
+				}
+			} else {
+				// Should fail
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.expectError)
+				}
+				if !strings.Contains(err.Error(), tt.expectError) {
+					t.Fatalf("expected error containing %q, got: %v", tt.expectError, err)
+				}
+			}
+		})
+	}
+}
+
+// TestConverter_InvalidConstraintMarkers tests that constraint markers without '='
+// (except pipe separators and allowed prefixes) cause errors instead of being silently ignored.
+// This was previously broken - typos like "minLength" without a value were silently skipped.
+//
+// Note: The "required" marker is not supported by design (fields are required unless they have
+// defaults). It's tested here to ensure clear error messages for users who might expect it.
+func TestConverter_InvalidConstraintMarkers(t *testing.T) {
+	tests := []struct {
+		name        string
+		schemaYAML  string
+		expectError string
+	}{
+		{
+			name: "minLength without value",
+			schemaYAML: `
+name: 'string | minLength'
+`,
+			expectError: "constraint marker \"minLength\" is missing a value",
+		},
+		{
+			name: "required marker without value (unsupported marker)",
+			schemaYAML: `
+name: 'string | required'
+`,
+			expectError: "constraint marker \"required\" is missing a value",
+		},
+		{
+			name: "required marker with value (explicitly disallowed)",
+			schemaYAML: `
+name: 'string | required=true'
+`,
+			expectError: "marker \"required\" is not allowed",
+		},
+		{
+			name: "random typo in marker name",
+			schemaYAML: `
+name: 'string | minimun=5'
+`,
+			expectError: "unknown constraint marker \"minimun\"",
+		},
+		{
+			name: "pipe separators should be allowed",
+			schemaYAML: `
+name: 'string | enum=a,b,c | default=a'
+`,
+			expectError: "", // Should succeed - pipes are valid separators
+		},
+		{
+			name: "oc: prefix markers without values should be allowed",
+			schemaYAML: `
+apiKey: 'string | oc:sensitive | default=secret'
+`,
+			expectError: "", // Should succeed - oc: prefixed markers are allowed
+		},
+		{
+			name: "oc: prefix markers with values should be allowed",
+			schemaYAML: `
+userId: 'string | oc:indexed=true | default=user123'
+`,
+			expectError: "", // Should succeed
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields := parseYAMLMap(t, tt.schemaYAML)
+
+			_, err := ExtractSchema(fields, nil, Options{})
+
+			if tt.expectError == "" {
+				// Should succeed
+				if err != nil {
+					t.Fatalf("expected success, got error: %v", err)
+				}
+			} else {
+				// Should fail
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.expectError)
+				}
+				if !strings.Contains(err.Error(), tt.expectError) {
+					t.Fatalf("expected error containing %q, got: %v", tt.expectError, err)
+				}
 			}
 		})
 	}

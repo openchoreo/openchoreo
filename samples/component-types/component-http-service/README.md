@@ -62,7 +62,7 @@ The OpenChoreo controller manager uses these resources and generates the Kuberne
 Apply the sample:
 
 ```bash
-kubectl apply -f http-service-component.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-http-service/http-service-component.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -97,7 +97,7 @@ Hello, Alice!
 Remove all resources:
 
 ```bash
-kubectl delete -f http-service-component.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-http-service/http-service-component.yaml
 ```
 
 ## Troubleshooting

@@ -15,10 +15,13 @@ spec:
 
     envOverrides:
       resources:
+        $default: {}
         requests:
+          $default: {}
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
         limits:
+          $default: {}
           cpu: "string | default=500m"
           memory: "string | default=512Mi"
 
@@ -231,13 +234,6 @@ spec:
   parameters:
     replicas: 2
     port: 8080
-    resources:
-      requests:
-        cpu: "200m"
-        memory: "512Mi"
-      limits:
-        cpu: "1000m"
-        memory: "1Gi"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

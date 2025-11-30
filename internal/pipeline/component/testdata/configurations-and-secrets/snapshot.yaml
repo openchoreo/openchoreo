@@ -16,7 +16,7 @@ spec:
             apiVersion: apps/v1
             kind: Deployment
             metadata:
-              name: ${component.name}
+              name: ${metadata.name}
             spec:
               replicas: ${parameters.replicas}
               template:

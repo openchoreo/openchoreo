@@ -295,4 +295,3 @@ Delete all clusters:
 ```bash
 k3d cluster delete openchoreo-cp openchoreo-dp openchoreo-bp openchoreo-op
 ```
-

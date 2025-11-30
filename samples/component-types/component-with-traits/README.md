@@ -83,7 +83,7 @@ All resources will have:
 ### Step 1: Apply resources
 
 ```bash
-kubectl apply -f component-with-traits.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-traits/component-with-traits.yaml
 ```
 
 ### Step 3: Verify ReleaseBinding status
@@ -217,7 +217,7 @@ spec:
 Remove all resources:
 
 ```bash
-kubectl delete -f component-with-traits.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-traits/component-with-traits.yaml
 ```
 
 ## Troubleshooting

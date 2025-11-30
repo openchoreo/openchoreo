@@ -41,8 +41,8 @@ func NewProcessor(templateEngine *template.Engine) *Processor {
 // ProcessTraits applies all traits to the base resources.
 //
 // For each trait:
-//  1. Apply creates (new resources)
-//  2. Apply patches (modify existing resources)
+//   - Apply creates (new resources)
+//   - Apply patches (modify existing resources)
 //
 // The resources slice is modified in place by patches.
 func (p *Processor) ProcessTraits(
@@ -176,9 +176,9 @@ func (p *Processor) applyPatchWithForEach(
 	for i, item := range items {
 		// Shallow clone context for this iteration to avoid cross-iteration contamination.
 		// A shallow copy is sufficient because:
-		// 1. We only add one new key (the loop variable)
-		// 2. The template engine doesn't mutate map values (only reads them)
-		// 3. We need isolation so one iteration's loop variable doesn't affect another
+		//   - We only add one new key (the loop variable)
+		//   - The template engine doesn't mutate map values (only reads them)
+		//   - We need isolation so one iteration's loop variable doesn't affect another
 		iterContext := maps.Clone(baseContext)
 		iterContext[varName] = item
 
@@ -199,7 +199,7 @@ func (p *Processor) applyPatchOnce(
 	traitPatch v1alpha1.TraitPatch,
 	context map[string]any,
 ) error {
-	// 1. Find target resources based on Kind/Group/Version
+	// Find target resources based on Kind/Group/Version
 	target := TargetSpec{
 		Kind:    traitPatch.Target.Kind,
 		Group:   traitPatch.Target.Group,
@@ -213,7 +213,7 @@ func (p *Processor) applyPatchOnce(
 		return nil
 	}
 
-	// 2. Filter targets using where clause if specified
+	// Filter targets using where clause if specified
 	if target.Where != "" {
 		filtered, err := p.filterTargets(targets, target.Where, context, traitName, patchIndex)
 		if err != nil {
@@ -222,13 +222,13 @@ func (p *Processor) applyPatchOnce(
 		targets = filtered
 	}
 
-	// 3. Render patch operations with CEL
+	// Render patch operations with CEL
 	renderedOps, err := p.renderOperations(traitPatch.Operations, context, traitName, patchIndex)
 	if err != nil {
 		return err
 	}
 
-	// 4. Apply rendered operations to each target using the simple patch function
+	// Apply rendered operations to each target using the simple patch function
 	for _, target := range targets {
 		if err := patch.ApplyPatches(target, renderedOps); err != nil {
 			// Extract resource identity for better error message
@@ -358,10 +358,10 @@ func (p *Processor) renderOperations(
 
 // FindTargetResources filters resources based on Kind, Group, and Version.
 //
-// Matching is done in order:
-//  1. If target.Kind is set, resource.kind must match
-//  2. If target.Group is set, the group portion of resource.apiVersion must match
-//  3. If target.Version is set, the version portion of resource.apiVersion must match
+// Matching rules:
+//   - If target.Kind is set, resource.kind must match
+//   - If target.Group is set, the group portion of resource.apiVersion must match
+//   - If target.Version is set, the version portion of resource.apiVersion must match
 //
 // An empty field in the target spec means "match any value".
 //

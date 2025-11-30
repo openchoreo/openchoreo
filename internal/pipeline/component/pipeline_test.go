@@ -100,7 +100,7 @@ spec:
             apiVersion: apps/v1
             kind: Deployment
             metadata:
-              name: ${component.name}
+              name: ${metadata.name}
             spec:
               replicas: ${parameters.replicas}
   workload: {}
@@ -111,7 +111,7 @@ spec:
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: test-app
+    name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev
@@ -142,14 +142,14 @@ spec:
             apiVersion: apps/v1
             kind: Deployment
             metadata:
-              name: ${component.name}
+              name: ${metadata.name}
         - id: service
           includeWhen: ${parameters.expose}
           template:
             apiVersion: v1
             kind: Service
             metadata:
-              name: ${component.name}
+              name: ${metadata.name}
   workload: {}
 `,
 			environmentYAML: devEnvironmentYAML,
@@ -158,7 +158,7 @@ spec:
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: test-app
+    name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev
@@ -166,7 +166,7 @@ spec:
 - apiVersion: v1
   kind: Service
   metadata:
-    name: test-app
+    name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev
@@ -250,7 +250,7 @@ spec:
             apiVersion: apps/v1
             kind: Deployment
             metadata:
-              name: ${component.name}
+              name: ${metadata.name}
   traits:
     - metadata:
         name: mysql
@@ -271,7 +271,7 @@ spec:
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: test-app
+    name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev

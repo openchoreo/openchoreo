@@ -100,17 +100,23 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
 
-	// BuildPlane & Build Templates
+	// BuildPlane management
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/build-templates", h.ListBuildTemplates)
 
 	// ComponentType endpoints
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types", h.ListComponentTypes)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
 
-	// Workflow endpoints
+	// Workflow endpoints (generic workflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows", h.ListWorkflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
+
+	// ComponentWorkflow endpoints (component-specific workflows)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows", h.ListComponentWorkflows)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-schema", h.UpdateComponentWorkflowSchema)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.TriggerComponentWorkflow)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.ListComponentWorkflowRuns)
 
 	// Trait endpoints
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
@@ -126,8 +132,8 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-schema", h.UpdateComponentWorkflowSchema)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
 
 	// Component bindings
@@ -147,10 +153,6 @@ func (h *Handler) Routes() http.Handler {
 
 	// Promotion endpoint
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
-
-	// Build operations
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.TriggerBuild)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/builds", h.ListBuilds)
 
 	// Observer URL endpoints
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", h.GetComponentObserverURL)
@@ -255,7 +257,6 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 			toolsets.ComponentToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
 		case tools.ToolsetBuild:
-			toolsets.BuildToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
 		case tools.ToolsetDeployment:
 			toolsets.DeploymentToolset = handler

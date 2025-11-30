@@ -42,6 +42,46 @@ spec:
           spec:
             description: DataPlaneSpec defines the desired state of a DataPlane.
             properties:
+              agent:
+                description: |-
+                  Agent specifies the configuration for agent-based communication with the downstream cluster
+                  When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
+                  instead of direct Kubernetes API access
+                properties:
+                  clientCA:
+                    description: |-
+                      ClientCA contains the CA certificate used to verify the agent's client certificate
+                      This allows per-plane CA configuration for enhanced security
+                      The CA certificate should be base64-encoded PEM format
+                    properties:
+                      secretRef:
+                        description: SecretRef is a reference to a secret containing
+                          the value
+                        properties:
+                          key:
+                            description: Key is the key within the secret
+                            type: string
+                          name:
+                            description: Name of the secret
+                            type: string
+                          namespace:
+                            description: Namespace of the secret (optional, defaults
+                              to same namespace as parent resource)
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      value:
+                        description: Value is the inline value (optional fallback)
+                        type: string
+                    type: object
+                  enabled:
+                    description: |-
+                      Enabled indicates whether agent-based communication is enabled
+                      If false, direct Kubernetes API access is used via KubernetesCluster config
+                    type: boolean
+                type: object
               gateway:
                 description: Gateway specifies the configuration for the API gateway
                   in this DataPlane.
@@ -64,8 +104,9 @@ spec:
                   type: string
                 type: array
               kubernetesCluster:
-                description: KubernetesCluster defines the target Kubernetes cluster
-                  where workloads should be deployed.
+                description: |-
+                  KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
+                  This field is optional when Agent.Enabled is true
                 properties:
                   auth:
                     description: Auth contains the authentication configuration
@@ -77,7 +118,21 @@ spec:
                           secretRef:
                             description: SecretRef is a reference to a secret containing
                               the value
-                            type: string
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
                           value:
                             description: Value is the inline value (optional fallback)
                             type: string
@@ -93,7 +148,21 @@ spec:
                               secretRef:
                                 description: SecretRef is a reference to a secret
                                   containing the value
-                                type: string
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                               value:
                                 description: Value is the inline value (optional fallback)
                                 type: string
@@ -105,7 +174,21 @@ spec:
                               secretRef:
                                 description: SecretRef is a reference to a secret
                                   containing the value
-                                type: string
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
                               value:
                                 description: Value is the inline value (optional fallback)
                                 type: string
@@ -127,7 +210,21 @@ spec:
                           secretRef:
                             description: SecretRef is a reference to a secret containing
                               the value
-                            type: string
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
                           value:
                             description: Value is the inline value (optional fallback)
                             type: string
@@ -183,7 +280,6 @@ spec:
                 type: object
             required:
             - gateway
-            - kubernetesCluster
             type: object
           status:
             description: DataPlaneStatus defines the observed state of DataPlane.

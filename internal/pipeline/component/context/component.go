@@ -6,8 +6,10 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 
@@ -26,10 +28,10 @@ import (
 //   - metadata: Additional metadata
 //
 // Parameter precedence (highest to lowest):
-//  1. ComponentDeployment.Spec.Overrides (environment-specific)
-//  2. Component.Spec.Parameters (component defaults)
-//  3. Schema defaults from ComponentType
-func BuildComponentContext(input *ComponentContextInput) (map[string]any, error) {
+//   - ComponentDeployment.Spec.Overrides (environment-specific)
+//   - Component.Spec.Parameters (component defaults)
+//   - Schema defaults from ComponentType
+func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, error) {
 	if input == nil {
 		return nil, fmt.Errorf("component context input is nil")
 	}
@@ -37,7 +39,10 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("component is nil")
 	}
 	if input.ComponentType == nil {
-		return nil, fmt.Errorf("component type  is nil")
+		return nil, fmt.Errorf("component type is nil")
+	}
+	if input.DataPlane == nil {
+		return nil, fmt.Errorf("dataplane is nil")
 	}
 
 	if input.Metadata.Name == "" {
@@ -47,113 +52,131 @@ func BuildComponentContext(input *ComponentContextInput) (map[string]any, error)
 		return nil, fmt.Errorf("metadata.namespace is required")
 	}
 
-	ctx := make(map[string]any)
+	ctx := &ComponentContext{}
 
-	schemaInput := &SchemaInput{
-		Types:              input.ComponentType.Spec.Schema.Types,
-		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
-		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
-	}
-	structural, err := BuildStructuralSchema(schemaInput)
+	// Process parameters and envOverrides
+	finalParameters, err := processComponentParameters(input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build component schema: %w", err)
+		return nil, err
+	}
+	ctx.Parameters = finalParameters
+
+	workload := input.Workload
+	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
+		workload = MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
 	}
 
+	ctx.Workload = extractWorkloadData(workload)
+	ctx.Configurations = extractConfigurationsFromWorkload(input.SecretReferences, workload)
+
+	ctx.Metadata = input.Metadata
+
+	ctx.DataPlane = DataPlaneData{
+		PublicVirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
+	}
+	if input.DataPlane.Spec.SecretStoreRef != nil {
+		ctx.DataPlane.SecretStore = input.DataPlane.Spec.SecretStoreRef.Name
+	}
+
+	return ctx, nil
+}
+
+// processComponentParameters processes component parameters and envOverrides separately,
+// validates each against their respective schemas, merges them, and returns the final map.
+func processComponentParameters(input *ComponentContextInput) (map[string]any, error) {
+	// Build separate structural schemas for parameters and envOverrides
+	// This allows independent validation and defaulting for each section
+	parametersSchema, err := BuildStructuralSchema(&SchemaInput{
+		Types:            input.ComponentType.Spec.Schema.Types,
+		ParametersSchema: input.ComponentType.Spec.Schema.Parameters,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build parameters schema: %w", err)
+	}
+
+	envOverridesSchema, err := BuildStructuralSchema(&SchemaInput{
+		Types:              input.ComponentType.Spec.Schema.Types,
+		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build envOverrides schema: %w", err)
+	}
+
+	// Process parameters: extract from component, prune to parameters schema, apply defaults
+	// Note: extractParameters() unmarshals into a new map, so no deep copy needed before pruning
 	parameters, err := extractParameters(input.Component.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
+	if parametersSchema != nil {
+		pruning.Prune(parameters, parametersSchema, false)
+	}
+	parameters = schema.ApplyDefaults(parameters, parametersSchema)
 
-	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
-		envOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
+	// Process envOverrides: extract and merge based on DiscardComponentEnvOverrides flag
+	var envOverrides map[string]any
+
+	if input.DiscardComponentEnvOverrides {
+		// Discard component envOverride values, use only ReleaseBinding
+		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+			envOverrides, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
+			}
+		} else {
+			envOverrides = make(map[string]any)
+		}
+	} else {
+		// Merge component envOverride values with ReleaseBinding
+		envOverrides, err = extractParameters(input.Component.Spec.Parameters)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
+			return nil, fmt.Errorf("failed to extract component parameters for envOverrides: %w", err)
 		}
-		parameters = deepMerge(parameters, envOverrides)
-	}
 
-	parameters = schema.ApplyDefaults(parameters, structural)
-	ctx["parameters"] = parameters
-
-	workload := input.Workload
-	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
-		workload = mergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
-	}
-
-	if workload != nil {
-		workloadData, err := extractWorkloadData(workload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract workload data: %w", err)
-		}
-		ctx["workload"] = workloadData
-	}
-
-	if workload != nil {
-		configurations := extractConfigurationsFromWorkload(input.SecretReferences, workload)
-		if len(configurations) > 0 {
-			ctx["configurations"] = configurations
+		// Merge with ReleaseBinding envOverrides
+		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+			rbEnvOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
+			}
+			envOverrides = deepMerge(envOverrides, rbEnvOverrides)
 		}
 	}
 
-	componentMeta := map[string]any{
-		"name": input.Component.Name,
-	}
-	if input.Component.Namespace != "" {
-		componentMeta["namespace"] = input.Component.Namespace
-	}
-	ctx["component"] = componentMeta
-
-	environment := map[string]any{
-		"name":  input.Environment.Name,
-		"vhost": input.Environment.VirtualHost,
-	}
-	ctx["environment"] = environment
-
-	// This is what templates use via ${metadata.name}, ${metadata.namespace}, etc.
-	metadataMap := map[string]any{
-		"name":            input.Metadata.Name,
-		"namespace":       input.Metadata.Namespace,
-		"componentName":   input.Metadata.ComponentName,
-		"componentUID":    input.Metadata.ComponentUID,
-		"projectName":     input.Metadata.ProjectName,
-		"projectUID":      input.Metadata.ProjectUID,
-		"dataPlaneName":   input.Metadata.DataPlaneName,
-		"dataPlaneUID":    input.Metadata.DataPlaneUID,
-		"environmentName": input.Metadata.EnvironmentName,
-		"environmentUID":  input.Metadata.EnvironmentUID,
-	}
-	if len(input.Metadata.Labels) > 0 {
-		metadataMap["labels"] = input.Metadata.Labels
-	}
-	if len(input.Metadata.Annotations) > 0 {
-		metadataMap["annotations"] = input.Metadata.Annotations
-	}
-	if len(input.Metadata.PodSelectors) > 0 {
-		metadataMap["podSelectors"] = input.Metadata.PodSelectors
-	}
-	ctx["metadata"] = metadataMap
-
-	// 12. Add dataplane context with secretStore if available
-	if input.DataPlane != nil {
-		dataPlaneContext := make(map[string]any)
-		if input.DataPlane.Spec.SecretStoreRef != nil {
-			dataPlaneContext["secretStore"] = input.DataPlane.Spec.SecretStoreRef.Name
-		}
-		if len(dataPlaneContext) > 0 {
-			ctx["dataplane"] = dataPlaneContext
-		}
+	// Prune merged result against schema
+	if envOverridesSchema != nil {
+		pruning.Prune(envOverrides, envOverridesSchema, false)
 	}
 
-	return ctx, nil
+	// Apply defaults
+	envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
+
+	// Top-level merge: combine parameters and envOverrides
+	// Safe because parameter and envOverride schemas don't overlap
+	finalParameters := make(map[string]any)
+	maps.Copy(finalParameters, parameters)
+	maps.Copy(finalParameters, envOverrides)
+
+	return finalParameters, nil
+}
+
+// ToMap converts the ComponentContext to map[string]any for CEL evaluation.
+func (c *ComponentContext) ToMap() map[string]any {
+	result, err := structToMap(c)
+	if err != nil {
+		// This should never happen with well-formed ComponentContext
+		return make(map[string]any)
+	}
+	return result
 }
 
 // extractParameters converts a runtime.RawExtension to a map for CEL evaluation.
 //
 // runtime.RawExtension is Kubernetes' way of storing arbitrary JSON in a typed field.
 // This function unmarshals the raw JSON bytes into a map that can be:
-//  1. Merged with other parameter sources
-//  2. Used as CEL evaluation context
-//  3. Validated against schemas
+//   - Merged with other parameter sources
+//   - Used as CEL evaluation context
+//   - Validated against schemas
 //
 // Returns an empty map if the extension is nil or empty, rather than an error,
 // since absent parameters are valid (defaults will be applied by schema).
@@ -171,75 +194,36 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 }
 
 // extractWorkloadData extracts relevant workload information for the rendering context.
-func extractWorkloadData(workload *v1alpha1.Workload) (map[string]any, error) {
-	data := make(map[string]any)
+func extractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
+	data := WorkloadData{
+		Containers: make(map[string]ContainerData),
+	}
 
 	if workload == nil {
-		return data, nil
+		return data
 	}
 
-	// Add workload name
-	if workload.Name != "" {
-		data["name"] = workload.Name
-	}
-
-	// Extract containers information
-	if len(workload.Spec.Containers) > 0 {
-		containers := make(map[string]any)
-		for name, container := range workload.Spec.Containers {
-			containerData := map[string]any{
-				"image": container.Image,
-			}
-			if len(container.Command) > 0 {
-				containerData["command"] = container.Command
-			}
-			if len(container.Args) > 0 {
-				containerData["args"] = container.Args
-			}
-			containers[name] = containerData
+	for name, container := range workload.Spec.Containers {
+		data.Containers[name] = ContainerData{
+			Image:   container.Image,
+			Command: container.Command,
+			Args:    container.Args,
 		}
-		data["containers"] = containers
 	}
 
-	// Extract endpoints information
-	// Convert struct slices to map[string]any for CEL access
-	if len(workload.Spec.Endpoints) > 0 {
-		endpoints, err := structToMap(workload.Spec.Endpoints)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert endpoints to map: %w", err)
-		}
-		data["endpoints"] = endpoints
-	}
-
-	// Extract connections information
-	// Convert struct slices to map[string]any for CEL access
-	if len(workload.Spec.Connections) > 0 {
-		connections, err := structToMap(workload.Spec.Connections)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert connections to map: %w", err)
-		}
-		data["connections"] = connections
-	}
-
-	return data, nil
+	return data
 }
 
 // structToMap converts typed Go structs to map[string]any for CEL evaluation.
 //
 // CEL expressions can only access maps and primitive types, not arbitrary Go structs.
-// This function uses JSON marshaling as a universal conversion mechanism:
-//  1. Marshal the struct to JSON (respects json tags)
-//  2. Unmarshal to map[string]any/[]any
-//  3. Result is accessible to CEL as ${workload.endpoints[0].path}
-//
-// This is used to expose Workload.Spec.Endpoints and Workload.Spec.Connections
-// to component templates.
-func structToMap(v any) (any, error) {
+// This function uses JSON marshaling as a conversion mechanism:
+func structToMap(v any) (map[string]any, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-	var result any
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, err
 	}
@@ -278,6 +262,11 @@ func BuildStructuralSchema(input *SchemaInput) (*apiextschema.Structural, error)
 			return nil, fmt.Errorf("failed to extract envOverrides schema: %w", err)
 		}
 		schemas = append(schemas, envOverrides)
+	}
+
+	// If no schemas are defined, return nil to skip schema-based validation and pruning
+	if len(schemas) == 0 {
+		return nil, nil
 	}
 
 	def := schema.Definition{

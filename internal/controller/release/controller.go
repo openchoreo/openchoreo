@@ -33,6 +33,7 @@ const (
 type Reconciler struct {
 	client.Client
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	AgentServer  interface{} // *agentserver.Server, passed as interface to avoid circular dependency
 	Scheme       *runtime.Scheme
 }
 
@@ -158,7 +159,8 @@ func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmen
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
 
-	dpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, dataplane.Namespace, dataplane.Name, dataplane.Spec.KubernetesCluster)
+	// Use GetK8sClientFromDataPlane which handles both agent mode and direct access mode
+	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.k8sClientMgr, dataplane, r.AgentServer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataplane.Name, err)
 	}

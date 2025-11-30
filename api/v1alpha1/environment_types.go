@@ -11,11 +11,9 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // EnvironmentSpec defines the desired state of Environment.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataPlaneRef) || size(oldSelf.dataPlaneRef) == 0 || oldSelf.dataPlaneRef == self.dataPlaneRef",message="dataPlaneRef is immutable once set"
 type EnvironmentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Environment. Edit environment_types.go to remove/update
+	// DataPlaneRef references the DataPlane for this environment. Immutable once set.
 	DataPlaneRef string        `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction,omitempty"`
 	Gateway      GatewayConfig `json:"gateway,omitempty"`

@@ -3,30 +3,17 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
-  # Installation mode for the OpenChoreo Observability Plane
-  # standard: Operator managed OpenSearch cluster will be deployed
-  # minimal: Single replica OpenSearch instance will be deployed
-  installationMode: minimal
+  # Installation mode of OpenChoreo
+  # Supported values:
+  # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster
+  # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
+  # quickStart: Limited set of features for quick-start setup
+  installationMode: singleCluster
 
-# Wait job configuration for post-install hooks
-waitJob:
-  image: bitnamilegacy/kubectl:1.32.4
-
-# External Secrets Operator configuration for secret management
-# Single cluster: Set to false to use data plane's ESO
-# Multi-cluster: Set to true to install dedicated ESO in observability plane
-external-secrets:
-  enabled: false
-  fullnameOverride: external-secrets
-  nameOverride: external-secrets
-
-# Fake Secret Store configuration for local development
-fakeSecretStore:
-  enabled: false
-  name: default
-  secrets:
-    - key: RCA_LLM_API_KEY
-      value: "fake-llm-api-key-for-development"
+opensearch-operator:
+  # This must be enabled for `singleCluster` and `multiCluster` installation modes
+  enabled: true
+  fullnameOverride: "opensearch-operator"
 
 data-prepper:
   enabled: false
@@ -46,26 +33,93 @@ data-prepper:
             batch_size: 200
         sink:
           - opensearch:
-              hosts: ["http://opensearch:9200"]
+              hosts: ["https://opensearch:9200"]
+              password: ThisIsTheOpenSearchPassword1
               insecure: true
-              index_type: trace-analytics-raw
+              index: otel-traces-%{yyyy-MM-dd}
+              username: admin
 
   resources:
     limits:
       cpu: 1000m
       memory: 500Mi
     requests:
-      cpu: 1000m
+      cpu: 700m
       memory: 500Mi
 
-openSearch:
+
+# External Secrets Operator configuration for secret management
+# Single cluster: Set to false to use data plane's ESO
+# Multi-cluster: Set to true to install dedicated ESO in observability plane
+external-secrets:
+  enabled: false
+  fullnameOverride: external-secrets
+  nameOverride: external-secrets
+
+
+# Fake Secret Store configuration for local development
+fakeSecretStore:
+  enabled: false
+  name: default
+  secrets:
+    - key: RCA_LLM_API_KEY
+      value: "fake-llm-api-key-for-development"
+
+
+opentelemetry-collector:
   enabled: true
+  clusterRole:
+    create: true
+    rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["replicasets"]
+        verbs: ["list","watch"]
+      
+  configMap:
+    create: false
+    existingName: "opentelemetry-collector-config"
+  
+  fullnameOverride: "opentelemetry-collector"
+
+  image:
+    repository: otel/opentelemetry-collector-contrib
+
+  mode: deployment
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
+## opentelemetryCollectorCustomizations aren't passed to the opentelemetry-collector helm values file directly.
+# They are to be used by openchoreo specific templates
+opentelemetryCollectorCustomizations:
+  openSearchQueue:
+    numConsumers: 5
+    queueSize: 1000
+    sizer: items
+  tailSampling:
+    decisionWait: 10s
+    numTraces: 100
+    expectedNewTracesPerSec: 10
+    decisionCache:
+      sampledCacheSize: 10000
+      nonSampledCacheSize: 1000
+    spansPerSecond: 10
+
+
+openSearch:
+  enabled: false
 
   extraEnvs:
     - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
       value: ThisIsTheOpenSearchPassword1
-    - name: DISABLE_SECURITY_PLUGIN
-      value: "true"
   nameOverride: "opensearch"
   image:
     tag: "3.3.0"
@@ -75,48 +129,55 @@ openSearch:
     create: true
     serviceAccountName: "opensearch"
 
-  securityConfig:
-    enabled: false
   singleNode: true
 
-# OpenSearch cluster configuration
+# OpenSearch configuration for operator based OpenSearch deployment
 openSearchCluster:
-  enabled: false
-  general:
-    version: 3.3.0
-    additionalConfig:
-      pluginsSecurityDisabled: "true"
+  enabled: true
 
-  dashboard:
-    enabled: true
+  bootstrap:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1000Mi
+      requests:
+        cpu: 100m
+        memory: 1000Mi
+
+  general:
+    setVMMaxMapCount: true
+    version: 3.3.0
+
+  dashboards:
+    enable: false
     replicas: 1
     version: 3.3.0
 
   nodePools:
     data:
       replicas: 2
-      diskSize: 1Gi
+      diskSize: 5Gi
       resources:
         limits:
           cpu: 1000m
-          memory: 1Gi
+          memory: 1000Mi
         requests:
           cpu: 100m
-          memory: 700Mi
+          memory: 1000Mi
     master:
-      replicas: 0
+      replicas: 3
       diskSize: 1Gi
       resources:
         limits:
           cpu: 1000m
-          memory: 1Gi
+          memory: 900Mi
         requests:
           cpu: 100m
-          memory: 512Mi
+          memory: 900Mi
 
   # Secrets
   adminUsername: admin
-  adminUserPassword: admin
+  adminUserPassword: ThisIsTheOpenSearchPassword1
   internalUsers: |
     # This is the internal user database
     # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
@@ -139,7 +200,7 @@ openSearchClusterSetup:
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
-  enabled: true
+  enabled: false
 
   config:
     disableSecurity: "true"
@@ -177,8 +238,8 @@ observer:
 
   resources:
     limits:
-      cpu: 500m
-      memory: 256Mi
+      cpu: 200m
+      memory: 200Mi
     requests:
       cpu: 100m
       memory: 128Mi
@@ -317,6 +378,14 @@ prometheus:
     enabled: true
     fullnameOverride: prometheus-operator
 
+    resources:
+      limits:
+        cpu: 40m
+        memory: 50Mi
+      requests:
+        cpu: 20m
+        memory: 30Mi
+
   ## Install Prometheus Operator CRDs
   crds:
     enabled: true
@@ -423,3 +492,7 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
+
+# Wait job configuration for post-install hooks
+waitJob:
+  image: bitnamilegacy/kubectl:1.32.4

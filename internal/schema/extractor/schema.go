@@ -64,13 +64,6 @@ type Options struct {
 //   - Unknown markers cause errors unless they have an allowedUnknownMarkerPrefixes prefix (reserved for custom annotations)
 //   - The "required" marker is not allowed (use defaults to make fields optional)
 func ExtractSchema(fields map[string]any, types map[string]any, opts Options) (*apiextensions.JSONSchemaProps, error) {
-	if len(fields) == 0 {
-		return &apiextensions.JSONSchemaProps{
-			Type:       typeObject,
-			Properties: map[string]apiextensions.JSONSchemaProps{},
-		}, nil
-	}
-
 	c := &converter{
 		types:     types,
 		typeCache: map[string]*apiextensions.JSONSchemaProps{},
@@ -208,22 +201,40 @@ func (c *converter) applyObjectDefault(schema *apiextensions.JSONSchemaProps, de
 		return fmt.Errorf("value must be an object or JSON string, got %T", defaultValue)
 	}
 
+	// Set the default value on the schema
+	var defaultJSON apiextensions.JSON = defaultMap
+	schema.Default = &defaultJSON
+
 	// Validate default value against schema if configured
 	if c.opts.ValidateDefaults {
-		validator, _, err := validation.NewSchemaValidator(schema)
-		if err != nil {
-			return fmt.Errorf("failed to create schema validator: %w", err)
-		}
-
-		result := validator.Validate(defaultMap)
-		if !result.IsValid() {
-			return fmt.Errorf("default value does not satisfy schema: %v", result.Errors)
+		if err := c.validateDefault(schema, defaultJSON); err != nil {
+			return fmt.Errorf("default value does not satisfy schema: %w", err)
 		}
 	}
 
-	// Set the validated default value on the schema
-	var defaultJSON apiextensions.JSON = defaultMap
-	schema.Default = &defaultJSON
+	return nil
+}
+
+// validateDefault validates a default value against its schema constraints using Kubernetes' validator.
+//
+// This ensures that default values satisfy all schema constraints including:
+//   - Type constraints
+//   - Numeric constraints (minimum, maximum, multipleOf)
+//   - String constraints (minLength, maxLength, pattern)
+//   - Array constraints (minItems, maxItems, uniqueItems)
+//   - Enum values
+//
+// For complex types (objects, arrays), this performs deep validation of nested structures.
+func (c *converter) validateDefault(schema *apiextensions.JSONSchemaProps, defaultValue apiextensions.JSON) error {
+	validator, _, err := validation.NewSchemaValidator(schema)
+	if err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
+	}
+
+	result := validator.Validate(defaultValue)
+	if !result.IsValid() {
+		return fmt.Errorf("default value does not satisfy schema constraints: %v", result.Errors)
+	}
 
 	return nil
 }
@@ -413,7 +424,18 @@ func (c *converter) applyConstraints(schema *apiextensions.JSONSchemaProps, cons
 
 	for _, token := range tokens {
 		if !strings.Contains(token, "=") {
-			continue
+			// Token without '=' - check if it's just a separator or an allowed marker
+			trimmedToken := strings.TrimSpace(token)
+			// Skip pure pipe separators (used for readability: "enum=a,b | default=x")
+			if trimmedToken == "|" {
+				continue
+			}
+			if hasAllowedPrefix(trimmedToken, allowedUnknownMarkerPrefixes) {
+				// Silently ignore markers with allowed prefixes (they're for annotations/metadata)
+				continue
+			}
+			// Unknown marker without value - likely a typo
+			return fmt.Errorf("constraint marker %q is missing a value (should be in format 'key=value')", trimmedToken)
 		}
 		parts := strings.SplitN(token, "=", 2)
 		key := strings.TrimSpace(parts[0])
@@ -439,6 +461,13 @@ func (c *converter) applyConstraints(schema *apiextensions.JSONSchemaProps, cons
 		}
 		if err := handler(value); err != nil {
 			return err
+		}
+	}
+
+	// Validate default value against schema constraints if configured
+	if c.opts.ValidateDefaults && schema.Default != nil {
+		if err := c.validateDefault(schema, *schema.Default); err != nil {
+			return fmt.Errorf("invalid default value: %w", err)
 		}
 	}
 

@@ -190,7 +190,6 @@ k3d.install.control-plane: ## Install Control Plane
 		--values $(K3D_DEV_DIR)/values-cp.yaml \
 		--kube-context k3d-$(K3D_CLUSTER_NAME) \
 		--create-namespace \
-		--wait \
 		--timeout=10m
 	@$(call log_success, Control Plane installed!)
 
@@ -203,7 +202,6 @@ k3d.install.data-plane: ## Install Data Plane
 		--values $(K3D_DEV_DIR)/values-dp.yaml \
 		--kube-context k3d-$(K3D_CLUSTER_NAME) \
 		--create-namespace \
-		--wait \
 		--timeout=10m
 	@$(call log_success, Data Plane installed!)
 	@$(call log_info, Setting up default DataPlane resource...)
@@ -239,7 +237,6 @@ k3d.install.build-plane: ## Install Build Plane
 		--values $(K3D_DEV_DIR)/values-bp.yaml \
 		--kube-context k3d-$(K3D_CLUSTER_NAME) \
 		--create-namespace \
-		--wait \
 		--timeout=10m
 	@$(call log_success, Build Plane installed!)
 	@$(call log_info, Setting up default BuildPlane resource...)
@@ -263,7 +260,6 @@ k3d.install.observability-plane: ## Install Observability Plane
 		--values $(K3D_DEV_DIR)/values-op.yaml \
 		--kube-context k3d-$(K3D_CLUSTER_NAME) \
 		--create-namespace \
-		--wait \
 		--timeout=10m
 	@$(call log_success, Observability Plane installed!)
 

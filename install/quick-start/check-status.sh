@@ -10,7 +10,7 @@ get_component_group() {
     local group="$1"
     case "$group" in
         "Control_Plane") echo "cert_manager_cp controller_manager" ;; # TODO: add api_server, backstage and thunder
-        "Data_Plane") echo "envoy_gateway" ;;
+        "Data_Plane") echo "gateway_controller" ;;
         "Build_Plane") echo "argo_workflow_controller registry" ;;
         "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
         *) echo "" ;;
@@ -34,10 +34,10 @@ get_group_display_name() {
 
 # Component lists for multi-cluster mode (kept for backward compatibility)
 components_cp=("cert_manager_cp" "controller_manager" "api_server")
-components_dp=("envoy_gateway")
+components_dp=("gateway_controller")
 
 # Core vs optional component classification (used in multi-cluster mode)
-core_components=("cert_manager_cp" "controller_manager" "api_server" "envoy_gateway")
+core_components=("cert_manager_cp" "controller_manager" "api_server" "gateway_controller")
 optional_components=("opensearch" "opensearch_dashboard" "observer")
 
 # Function to get component configuration (namespace:label)
@@ -47,7 +47,7 @@ get_component_config() {
         "cert_manager_cp") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=cert-manager" ;;
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
-        "envoy_gateway") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-helm" ;;
+        "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway" ;;
         "argo_workflow_controller") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$BUILD_PLANE_NS:app=registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;

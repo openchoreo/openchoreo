@@ -547,7 +547,13 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractConfigurationsFromWorkload(tt.secretReferences, tt.workload)
 
-			if diff := cmp.Diff(tt.want, got, sortSliceByName()); diff != "" {
+			// Convert to map[string]any for comparison with expected values
+			gotAny, err := structToMap(got)
+			if err != nil {
+				t.Fatalf("failed to convert result to map: %v", err)
+			}
+
+			if diff := cmp.Diff(tt.want, gotAny, sortSliceByName()); diff != "" {
 				t.Errorf("extractConfigurationsFromWorkload() mismatch (-want +got):\n%s", diff)
 			}
 		})

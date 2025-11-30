@@ -30,10 +30,19 @@ dependencies:
     version: 0.19.2
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
-  - name: gateway-helm
-    repository: "oci://docker.io/envoyproxy"
-    version: v1.5.4
+  - name: kgateway-crds
+    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
+    version: v2.1.1
     condition: gateway.enabled
+  - name: kgateway
+    alias: gateway
+    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
+    version: v2.1.1
+    condition: gateway.enabled
+  - name: opentelemetry-collector
+    repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+    version: 0.140.0
+    condition: opentelemetry-collector.enabled
   - name: cert-manager
     repository: oci://quay.io/jetstack/charts
     condition: cert-manager.enabled

@@ -18,6 +18,15 @@ if [ -S /var/run/docker.sock ]; then
   fi
 fi
 
+# Preserve environment variables by writing them to a file that .bashrc will source
+# This ensures DEV_MODE, OPENCHOREO_VERSION, and DEBUG are available after su -
+cat > /home/openchoreo/.env_from_docker <<EOF
+export DEV_MODE='${DEV_MODE}'
+export OPENCHOREO_VERSION='${OPENCHOREO_VERSION}'
+export DEBUG='${DEBUG}'
+EOF
+chown openchoreo:openchoreo /home/openchoreo/.env_from_docker
+
 # Switch to openchoreo user and start interactive bash
 # The '-' flag starts a login shell, which sources ~/.bash_profile
 # which in turn sources ~/.bashrc.

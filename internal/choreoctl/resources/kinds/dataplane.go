@@ -142,7 +142,7 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 			},
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			KubernetesCluster: openchoreov1alpha1.KubernetesClusterSpec{
+			KubernetesCluster: &openchoreov1alpha1.KubernetesClusterSpec{
 				Server: params.APIServerURL,
 				TLS: openchoreov1alpha1.KubernetesTLS{
 					CA: openchoreov1alpha1.ValueFrom{

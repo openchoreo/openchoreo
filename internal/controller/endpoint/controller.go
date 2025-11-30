@@ -30,6 +30,7 @@ import (
 type Reconciler struct {
 	client.Client
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	AgentServer  interface{} // *agentserver.Server, passed as interface to avoid circular dependency
 	Scheme       *runtime.Scheme
 	recorder     record.EventRecorder
 }
@@ -216,13 +217,8 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	// Get the DP client using the credentials from the dataplane
-	dpClient, err := kubernetesClient.GetK8sClient(
-		r.k8sClientMgr,
-		dataplaneRes.Namespace,
-		dataplaneRes.Name,
-		dataplaneRes.Spec.KubernetesCluster,
-	)
+	// Use GetK8sClientFromDataPlane which handles both agent mode and direct access mode
+	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.k8sClientMgr, dataplaneRes, r.AgentServer)
 	if err != nil {
 		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)

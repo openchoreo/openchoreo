@@ -122,6 +122,8 @@ rules:
   - componentreleases
   - components
   - componenttypes
+  - componentworkflowruns
+  - componentworkflows
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -170,6 +172,8 @@ rules:
   - componentreleases/finalizers
   - components/finalizers
   - componenttypes/finalizers
+  - componentworkflowruns/finalizers
+  - componentworkflows/finalizers
   - dataplanes/finalizers
   - deployableartifacts/finalizers
   - deploymentpipelines/finalizers
@@ -211,6 +215,8 @@ rules:
   - componentreleases/status
   - components/status
   - componenttypes/status
+  - componentworkflowruns/status
+  - componentworkflows/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status

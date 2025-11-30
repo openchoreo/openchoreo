@@ -18,38 +18,38 @@ https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 
 ## Step 1: Deploy the Application
 
-The following command will create the relevant resources in OpenChoreo. It will also trigger a build by creating a build resource.
+The following command will create the relevant resources in OpenChoreo. It will also trigger a workflow by creating a workflow resource.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```
 
 > [!NOTE]
-> The Docker build will take around 3-5 minutes depending on the network speed and system resources.
+> The Docker workflow will take around 3-5 minutes depending on the network speed and system resources.
 
-## Step 2: Monitor the Build
+## Step 2: Monitor the Workflow
 
-After deploying, monitor the build progress:
+After deploying, monitor the workflow progress:
 
 ```bash
-# Check WorkflowRun status
-kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+# Check ComponentWorkflowRun status
+kubectl get componentworkflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
 
-# Watch build pods (in openchoreo-ci-default namespace)
+# Watch workflow pods (in openchoreo-ci-default namespace)
 kubectl get pods -n openchoreo-ci-default | grep greeting-service
 
-# View build logs (replace <pod-name> with actual pod name)
+# View workflow logs (replace <pod-name> with actual pod name)
 kubectl logs -n openchoreo-ci-default <pod-name> -f
 ```
 
-Wait for the WorkflowRun to complete successfully. You should see:
+Wait for the ComponentWorkflowRun to complete successfully. You should see:
 - `WorkflowCompleted: True`
 - `WorkflowSucceeded: True`
 - `WorkloadUpdated: True`
 
 ## Step 3: Verify Deployment
 
-After the build completes, verify the deployment is ready:
+After the workflow completes, verify the deployment is ready:
 
 ```bash
 # Check ReleaseBinding status
@@ -86,30 +86,30 @@ curl http://development.openchoreoapis.localhost:9080/greeting-service/greeter/g
 
 ## Troubleshooting
 
-### Build Issues
+### Workflow Issues
 
-If the build fails or takes too long:
+If the workflow fails or takes too long:
 
-1. **Check WorkflowRun status and conditions:**
+1. **Check ComponentWorkflowRun status and conditions:**
    ```bash
-   kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentworkflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
-2. **Check build pod status:**
+2. **Check workflow pod status:**
    ```bash
    kubectl get pods -n openchoreo-ci-default | grep greeting-service
    ```
 
-3. **View build pod logs for errors:**
+3. **View workflow pod logs for errors:**
    ```bash
    # Get the pod name
-   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l workflows.argoproj.io/workflow=greeting-service-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l component-workflows.argoproj.io/workflow=greeting-service-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
    # View logs
    kubectl logs -n openchoreo-ci-default $POD_NAME
    ```
 
-4. **Check if Workload was created after build:**
+4. **Check if Workload was created after workflow:**
    ```bash
    kubectl get workload -n default | grep greeting-service
    ```

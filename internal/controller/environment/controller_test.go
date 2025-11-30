@@ -23,7 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-var _ = Describe("Environment Controller", func() {
+var _ = Describe("Environment Controller", Ordered, func() {
 	const orgName = "test-org"
 	const dpName = "test-dataplane"
 
@@ -38,7 +38,7 @@ var _ = Describe("Environment Controller", func() {
 
 	k8sClientMgr := kubernetesClient.NewManager()
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		By("Creating and reconciling organization resource", func() {
 			orgReconciler := &org.Reconciler{
 				Client:   k8sClient,
@@ -75,7 +75,7 @@ var _ = Describe("Environment Controller", func() {
 		})
 	})
 
-	AfterEach(func() {
+	AfterAll(func() {
 		By("Deleting the organization resource", func() {
 			testutils.DeleteResource(ctx, k8sClient, organization, orgNamespacedName)
 		})
@@ -192,5 +192,53 @@ var _ = Describe("Environment Controller", func() {
 		//	}, time.Second*10, time.Millisecond*500).ShouldNot(Succeed())
 		// })
 
+	})
+
+	It("should enforce dataPlaneRef immutability", func() {
+		const envName = "test-env-immutability"
+
+		envNamespacedName := types.NamespacedName{
+			Namespace: orgName,
+			Name:      envName,
+		}
+
+		environment := &openchoreov1alpha1.Environment{}
+
+		By("Creating environment without dataPlaneRef", func() {
+			env := &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      envName,
+					Namespace: orgName,
+					Labels: map[string]string{
+						labels.LabelKeyOrganizationName: orgName,
+						labels.LabelKeyName:             envName,
+					},
+				},
+				Spec: openchoreov1alpha1.EnvironmentSpec{
+					IsProduction: false,
+				},
+			}
+			Expect(k8sClient.Create(ctx, env)).To(Succeed())
+		})
+
+		By("Setting dataPlaneRef from empty to a value", func() {
+			Expect(k8sClient.Get(ctx, envNamespacedName, environment)).To(Succeed())
+			environment.Spec.DataPlaneRef = dpName
+			Expect(k8sClient.Update(ctx, environment)).To(Succeed())
+		})
+
+		By("Attempting to change dataPlaneRef (should fail)", func() {
+			Expect(k8sClient.Get(ctx, envNamespacedName, environment)).To(Succeed())
+			environment.Spec.DataPlaneRef = "different-dataplane"
+			err := k8sClient.Update(ctx, environment)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("dataPlaneRef is immutable once set"))
+		})
+
+		By("Updating other fields while keeping dataPlaneRef same", func() {
+			Expect(k8sClient.Get(ctx, envNamespacedName, environment)).To(Succeed())
+			environment.Spec.IsProduction = true
+			Expect(k8sClient.Update(ctx, environment)).To(Succeed())
+		})
 	})
 })

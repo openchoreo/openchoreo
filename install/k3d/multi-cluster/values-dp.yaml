@@ -9,3 +9,11 @@ fluentBit:
     opensearch:
       host: "host.k3d.internal"
       port: "11082"
+
+gateway:
+  # Enable gateway
+  enabled: true
+
+  # Use custom ports for k3d multi-cluster setup
+  httpPort: 80
+  httpsPort: 443

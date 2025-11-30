@@ -1,0 +1,57 @@
+{{- if index .Values "opentelemetry-collector" "enabled" }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opentelemetry-collector-config
+  namespace: {{ .Release.Namespace }}
+data:
+  relay: |
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    exporters:
+      otlp:
+        endpoint: {{ .Values.observability.observabilityPlaneUrl }}:4317
+        tls:
+          insecure: true # TODO: Enable mTLS between collectors
+
+    processors:
+      k8sattributes:
+        auth_type: "serviceAccount"
+        passthrough: false
+
+        extract:
+          labels:
+            - key: openchoreo.dev/component-uid
+              tag_name: openchoreo.dev/component-uid
+            - key: openchoreo.dev/environment-uid
+              tag_name: openchoreo.dev/environment-uid
+            - key: openchoreo.dev/project-uid
+              tag_name: openchoreo.dev/project-uid
+            
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [k8sattributes]
+          exporters: [otlp]
+
+{{- end }}

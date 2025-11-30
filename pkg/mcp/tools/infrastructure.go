@@ -216,7 +216,7 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_workflows",
-		Description: "List all available workflows in an organization. Workflows define build and deployment " +
+		Description: "List all available component-workflows in an organization. Workflows define build and deployment " +
 			"processes for components.",
 		InputSchema: createSchema(map[string]any{
 			"org_name": defaultStringProperty(),

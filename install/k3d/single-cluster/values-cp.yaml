@@ -1,6 +1,14 @@
 # Helm values for OpenChoreo Control Plane in k3d single-cluster setup
 # This file contains overrides specific to running the control plane in a k3d environment
 
+# Enable cluster gateway for agent-based data plane communication
+clusterGateway:
+  enabled: true
+
+controllerManager:
+  clusterGateway:
+    enabled: true
+
 openchoreoApi:
   ingress:
     enabled: true

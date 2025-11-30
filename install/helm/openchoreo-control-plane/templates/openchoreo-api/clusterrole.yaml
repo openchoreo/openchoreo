@@ -20,6 +20,8 @@ rules:
   - componentreleases
   - components
   - componenttypes
+  - componentworkflows
+  - componentworkflowruns
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -46,6 +48,7 @@ rules:
   - workflows
   - workflowruns
   - workloads
+  - secretreferences
   verbs:
   - create
   - delete
@@ -67,6 +70,8 @@ rules:
   - componentreleases/status
   - components/status
   - componenttypes/status
+  - componentworkflows/status
+  - componentworkflowruns/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
@@ -91,6 +96,7 @@ rules:
   - webapplicationclasses/status
   - webapplications/status
   - workloads/status
+  - secretreferences/status
   verbs:
   - get
   - patch

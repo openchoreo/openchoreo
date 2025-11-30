@@ -146,3 +146,21 @@ This keeps resource names clean and consistent (e.g., "openchoreo-api" instead o
 {{- define "openchoreo-control-plane.openchoreoApi.name" -}}
 {{- default "openchoreo-api" .Values.openchoreoApi.name }}
 {{- end }}
+
+{{/*
+Cluster Gateway resource name
+*/}}
+{{- define "openchoreo-control-plane.clusterGateway.name" -}}
+{{- default "cluster-gateway" .Values.clusterGateway.name }}
+{{- end }}
+
+{{/*
+Cluster Gateway service account name
+*/}}
+{{- define "openchoreo-control-plane.clusterGateway.serviceAccountName" -}}
+{{- if .Values.clusterGateway.serviceAccount.create }}
+{{- default "cluster-gateway" .Values.clusterGateway.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.clusterGateway.serviceAccount.name }}
+{{- end }}
+{{- end }}

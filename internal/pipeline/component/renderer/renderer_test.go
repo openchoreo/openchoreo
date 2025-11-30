@@ -31,10 +31,10 @@ func TestRenderResources(t *testing.T) {
     apiVersion: apps/v1
     kind: Deployment
     metadata:
-      name: ${component.name}
+      name: ${metadata.name}
 `,
 			context: map[string]any{
-				"component": map[string]any{
+				"metadata": map[string]any{
 					"name": "test-app",
 				},
 			},

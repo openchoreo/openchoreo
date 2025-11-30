@@ -93,6 +93,18 @@ jobs:
           name: observer
           path: bin/dist/**/observer
 
+      - name: Upload cluster-gateway binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-gateway
+          path: bin/dist/**/cluster-gateway
+
+      - name: Upload cluster-agent binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-agent
+          path: bin/dist/**/cluster-agent
+
   publish:
     name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
     runs-on: ubuntu-24.04
@@ -130,6 +142,18 @@ jobs:
           name: observer
           path: bin/dist
 
+      - name: Download cluster-gateway binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: cluster-gateway
+          path: bin/dist
+
+      - name: Download cluster-agent binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: cluster-agent
+          path: bin/dist
+
       - name: Set executable permissions
         # See: https://github.com/actions/download-artifact/issues/14
         run: |
@@ -143,7 +167,11 @@ jobs:
           chmod +x bin/dist/linux/arm64/openchoreo-api
           chmod +x bin/dist/linux/amd64/observer
           chmod +x bin/dist/linux/arm64/observer
-
+          chmod +x bin/dist/linux/amd64/cluster-gateway
+          chmod +x bin/dist/linux/arm64/cluster-gateway
+          chmod +x bin/dist/linux/amd64/cluster-agent
+          chmod +x bin/dist/linux/arm64/cluster-agent
+          
       - name: Login to GitHub container registry
         if: github.event_name == 'push'
         uses: docker/login-action@v3

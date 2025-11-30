@@ -18,11 +18,11 @@ type Services struct {
 	ComponentService          *ComponentService
 	ComponentTypeService      *ComponentTypeService
 	WorkflowService           *WorkflowService
+	ComponentWorkflowService  *ComponentWorkflowService
 	TraitService              *TraitService
 	OrganizationService       *OrganizationService
 	EnvironmentService        *EnvironmentService
 	DataPlaneService          *DataPlaneService
-	BuildService              *BuildService
 	BuildPlaneService         *BuildPlaneService
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
@@ -67,6 +67,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
 
+	// Create build plane service with client manager for multi-cluster support
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
+
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
@@ -79,6 +82,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create Workflow service
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
 
+	// Create ComponentWorkflow service
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"))
+
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
@@ -90,11 +96,11 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		ComponentService:          componentService,
 		ComponentTypeService:      componentTypeService,
 		WorkflowService:           workflowService,
+		ComponentWorkflowService:  componentWorkflowService,
 		TraitService:              traitService,
 		OrganizationService:       organizationService,
 		EnvironmentService:        environmentService,
 		DataPlaneService:          dataplaneService,
-		BuildService:              buildService,
 		BuildPlaneService:         buildPlaneService,
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,

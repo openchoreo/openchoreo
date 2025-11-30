@@ -18,10 +18,11 @@ type ComponentTypeSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
 
-	// AllowedWorkflows restricts which Workflow CRs developers can use
-	// for building components of this type. If not specified, any workflow can be used.
+	// AllowedWorkflows restricts which ComponentWorkflow CRs developers can use
+	// for building components of this type. If empty, no ComponentWorkflows are allowed.
+	// References must point to ComponentWorkflow resources, not generic Workflow resources.
 	// +optional
-	AllowedWorkflows []AllowedWorkflow `json:"allowedWorkflows,omitempty"`
+	AllowedWorkflows []string `json:"allowedWorkflows,omitempty"`
 
 	// Schema defines what developers can configure when creating components of this type
 	// +optional
@@ -104,14 +105,6 @@ type ResourceTemplate struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Template *runtime.RawExtension `json:"template"`
-}
-
-// AllowedWorkflow references a Workflow CR that developers can use for this component type.
-type AllowedWorkflow struct {
-	// Name is the name of the Workflow CR
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
 }
 
 // ComponentTypeStatus defines the observed state of ComponentType.
