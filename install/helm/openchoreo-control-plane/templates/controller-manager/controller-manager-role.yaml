@@ -30,7 +30,30 @@ rules:
 - apiGroups:
     - ""
   resources:
+    - namespaces
+    - services
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - ""
+  resources:
     - secrets
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - watch
+- apiGroups:
+    - apps
+  resources:
+    - deployments
   verbs:
     - get
     - list
@@ -64,6 +87,7 @@ rules:
     - gitcommitrequests
     - observabilityalertsnotificationchannels
     - observabilityplanes
+    - gitrepositorywebhooks
     - organizations
     - projects
     - releasebindings
@@ -125,6 +149,7 @@ rules:
     - gitcommitrequests/status
     - observabilityalertsnotificationchannels/status
     - observabilityplanes/status
+    - gitrepositorywebhooks/status
     - organizations/status
     - projects/status
     - releasebindings/status
