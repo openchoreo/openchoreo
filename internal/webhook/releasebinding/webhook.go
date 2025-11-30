@@ -5,7 +5,9 @@ package releasebinding
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"gopkg.in/yaml.v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,13 +30,27 @@ var releasebindinglog = logf.Log.WithName("releasebinding-resource")
 
 // SetupReleaseBindingWebhookWithManager registers the webhook for ReleaseBinding in the manager.
 func SetupReleaseBindingWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ReleaseBinding{}).
+	// Register mutating webhook manually because we implement admission.Handler
+	// instead of webhook.CustomDefaulter. This is necessary to access both old
+	// and new objects during updates, enabling preserve-when-empty logic for
+	// releaseName (e.g., preserving auto-populated values when users update
+	// other fields). The path must match the kubebuilder webhook marker below.
+	mutatingWebhook := &webhook.Admission{
+		Handler: &Defaulter{
+			decoder: admission.NewDecoder(mgr.GetScheme()),
+		},
+	}
+	mgr.GetWebhookServer().Register(
+		"/mutate-openchoreo-dev-v1alpha1-releasebinding",
+		mutatingWebhook,
+	)
+
+	// Register validating webhook
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&openchoreodevv1alpha1.ReleaseBinding{}).
 		WithValidator(&Validator{Client: mgr.GetClient()}).
-		WithDefaulter(&Defaulter{}).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // +kubebuilder:webhook:path=/mutate-openchoreo-dev-v1alpha1-releasebinding,mutating=true,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=releasebindings,verbs=create;update,versions=v1alpha1,name=mreleasebinding-v1alpha1.kb.io,admissionReviewVersions=v1
 
@@ -44,15 +60,41 @@ func SetupReleaseBindingWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type Defaulter struct {
-	// TODO(user): Add more fields as needed for defaulting
+	decoder admission.Decoder
 }
 
-var _ webhook.CustomDefaulter = &Defaulter{}
+var _ admission.Handler = &Defaulter{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind ReleaseBinding.
-func (d *Defaulter) Default(_ context.Context, obj runtime.Object) error {
-	// No-op: Defaulting logic disabled for now
-	return nil
+// Handle implements admission.Handler for custom defaulting logic with access to old object.
+func (d *Defaulter) Handle(ctx context.Context, req admission.Request) admission.Response {
+	releasebinding := &openchoreodevv1alpha1.ReleaseBinding{}
+
+	err := d.decoder.Decode(req, releasebinding)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	// For updates, preserve releaseName from old object if not specified in new object
+	if req.Operation == "UPDATE" && len(req.OldObject.Raw) > 0 {
+		oldBinding := &openchoreodevv1alpha1.ReleaseBinding{}
+		if err := d.decoder.DecodeRaw(req.OldObject, oldBinding); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+
+		// Preserve old releaseName if update is missing it
+		// e.g: applying sample resources with auto deploy enabled, release auto created
+		if releasebinding.Spec.ReleaseName == "" && oldBinding.Spec.ReleaseName != "" {
+			releasebinding.Spec.ReleaseName = oldBinding.Spec.ReleaseName
+		}
+	}
+
+	// Marshal the modified object
+	marshaledBinding, err := json.Marshal(releasebinding)
+	if err != nil {
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledBinding)
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion component.
@@ -103,11 +145,6 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type ReleaseBinding.
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	_, ok := oldObj.(*openchoreodevv1alpha1.ReleaseBinding)
-	if !ok {
-		return nil, fmt.Errorf("expected a ReleaseBinding object for the oldObj but got %T", oldObj)
-	}
-
 	newBinding, ok := newObj.(*openchoreodevv1alpha1.ReleaseBinding)
 	if !ok {
 		return nil, fmt.Errorf("expected a ReleaseBinding object for the newObj but got %T", newObj)
@@ -119,6 +156,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	// Note: spec.environment, spec.owner.projectName, and spec.owner.componentName immutability are enforced by CEL rules in the CRD schema
 	// Note: Required field validations (owner, environment) are enforced by the CRD schema
+	// Note: releaseName preservation when empty is handled by the mutating webhook (Defaulter)
 
 	// Cross-resource validation: validate against ComponentRelease (only if releaseName is set)
 	if newBinding.Spec.ReleaseName != "" {
