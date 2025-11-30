@@ -768,7 +768,7 @@ func (r *Reconciler) registerWebhook(ctx context.Context, comp *openchoreov1alph
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: "openchoreo-system", // TODO: Make this configurable
+			Namespace: "openchoreo-control-plane",
 			Labels: map[string]string{
 				"openchoreo.dev/webhook": webhookResourceName,
 				"openchoreo.dev/managed": "true",
@@ -781,11 +781,26 @@ func (r *Reconciler) registerWebhook(ctx context.Context, comp *openchoreov1alph
 	}
 
 	if err := r.Create(ctx, secret); err != nil {
-		logger.Error(err, "Failed to create webhook secret")
-		return fmt.Errorf("failed to create webhook secret: %w", err)
+		if !apierrors.IsAlreadyExists(err) {
+			logger.Error(err, "Failed to create webhook secret")
+			return fmt.Errorf("failed to create webhook secret: %w", err)
+		}
+		// Secret already exists, read it to get the existing secret value
+		logger.Info("Webhook secret already exists, using existing secret", "secret", secretName)
+		existingSecret := &corev1.Secret{}
+		if err := r.Get(ctx, client.ObjectKey{Name: secretName, Namespace: "openchoreo-control-plane"}, existingSecret); err != nil {
+			logger.Error(err, "Failed to get existing webhook secret")
+			return fmt.Errorf("failed to get existing webhook secret: %w", err)
+		}
+		// Use the existing secret value for webhook registration
+		existingSecretData, ok := existingSecret.Data["secret"]
+		if !ok || len(existingSecretData) == 0 {
+			return fmt.Errorf("existing secret %s is invalid or empty", secretName)
+		}
+		webhookSecret = string(existingSecretData)
+	} else {
+		logger.Info("Created webhook secret", "secret", secretName)
 	}
-
-	logger.Info("Created webhook secret", "secret", secretName)
 
 	// Register webhook with git provider using the generated secret
 	webhookID, err := r.GitProvider.RegisterWebhook(ctx, repoURL, webhookURL, webhookSecret)
@@ -815,7 +830,7 @@ func (r *Reconciler) registerWebhook(ctx context.Context, comp *openchoreov1alph
 			ComponentReferences: []openchoreov1alpha1.ComponentReference{componentRef},
 			WebhookSecretRef: &corev1.SecretReference{
 				Name:      secretName,
-				Namespace: "openchoreo-system",
+				Namespace: "openchoreo-control-plane",
 			},
 		},
 	}
