@@ -46,15 +46,6 @@ type PAP interface {
 	// ListRolePrincipalMappings lists all role-principal mappings
 	ListRolePrincipalMappings(ctx context.Context) ([]PolicyMapping, error)
 
-	// AddAction registers a new action in the system
-	AddAction(ctx context.Context, action string) error
-
-	// GetAction retrieves an action by name
-	GetAction(ctx context.Context, action string) (string, error)
-
 	// ListActions lists all defined actions in the system
 	ListActions(ctx context.Context) ([]string, error)
-
-	// DeleteAction removes an action from the system
-	DeleteAction(ctx context.Context, action string) error
 }

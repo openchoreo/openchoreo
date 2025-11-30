@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/authz/casbin"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
@@ -41,8 +42,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize services
-	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), baseLogger)
+	// Initialize authorization enforcer (both PAP and PDP)
+	casbinConfig := casbin.CasbinConfig{
+		ModelPath:    os.Getenv("AUTHZ_MODEL_PATH"),
+		DatabasePath: os.Getenv("AUTHZ_DATABASE_PATH"),
+		EnableCache:  false,
+	}
+	casbinAuthz, err := casbin.NewCasbinEnforcer(casbinConfig, baseLogger.With("component", "authz.casbin"))
+	if err != nil {
+		baseLogger.Error("Failed to initialize authorization enforcer", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// Initialize services with PAP and PDP
+	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), casbinAuthz, casbinAuthz, baseLogger)
 
 	// Initialize HTTP handlers
 	handler := handlers.New(services, baseLogger.With("component", "handlers"))
