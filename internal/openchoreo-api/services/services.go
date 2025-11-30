@@ -49,11 +49,11 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create build plane service with client manager for multi-cluster support
 	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
 
-	// Create build service (depends on build plane service)
-	buildService := NewBuildService(k8sClient, buildPlaneService, k8sBPClientMgr, logger.With("service", "build"))
+	// Create component workflow service
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "component-workflow"))
 
-	// Create GitHub webhook service (depends on build service and git provider)
-	githubWebhookService := NewGitHubWebhookService(k8sClient, gitProvider, buildService)
+	// Create GitHub webhook service (depends on component workflow service and git provider)
+	githubWebhookService := NewGitHubWebhookService(k8sClient, gitProvider, componentWorkflowService)
 
 	// Create component service (depends on project service and git provider)
 	componentService := NewComponentService(k8sClient, projectService, gitProvider, webhookBaseURL, logger.With("service", "component"))
@@ -67,9 +67,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
 
-	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
-
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
@@ -81,9 +78,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 
 	// Create Workflow service
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
-
-	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"))
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
