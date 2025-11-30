@@ -54,17 +54,6 @@ helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
   --values install/k3d/single-cluster/values-bp.yaml
 
 # Observability Plane (optional)
-## OpenSearch Kubernetes Operator (Prerequisite)
-helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
-
-helm repo update
-
-helm install opensearch-operator opensearch-operator/opensearch-operator \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 2.8.0
-
-## OpenChoreo Observability Plane
 helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
   --kube-context k3d-openchoreo \

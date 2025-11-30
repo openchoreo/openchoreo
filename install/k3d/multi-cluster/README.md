@@ -76,16 +76,6 @@ Create cluster and install components:
 # Create Observability Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-op.yaml
 
-# Install OpenSearch Kubernetes Operator (Prerequisite)
-helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
-
-helm repo update
-
-helm install opensearch-operator opensearch-operator/opensearch-operator \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 2.8.0
-
 # Install Observability Plane Helm chart
 helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
