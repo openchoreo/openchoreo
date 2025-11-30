@@ -52,11 +52,11 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create build plane service with client manager for multi-cluster support
 	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
 
-	// Create build service (depends on build plane service)
-	buildService := NewBuildService(k8sClient, buildPlaneService, k8sBPClientMgr, logger.With("service", "build"))
+	// Create component workflow service
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "component-workflow"))
 
-	// Create GitHub webhook service (depends on build service and git provider)
-	githubWebhookService := NewGitHubWebhookService(k8sClient, gitProvider, buildService)
+	// Create GitHub webhook service (depends on component workflow service and git provider)
+	githubWebhookService := NewGitHubWebhookService(k8sClient, gitProvider, componentWorkflowService)
 
 	// Create component service (depends on project service and git provider)
 	componentService := NewComponentService(k8sClient, projectService, gitProvider, webhookBaseURL, logger.With("service", "component"), authzPDP)

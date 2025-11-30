@@ -3079,26 +3079,19 @@ func (s *ComponentService) GetWebhookStatus(ctx context.Context, orgName, projec
 	return status, nil
 }
 
-// extractRepoURLFromComponent extracts the repository URL from component workflow schema
+// extractRepoURLFromComponent extracts the repository URL from component workflow system parameters
 func (s *ComponentService) extractRepoURLFromComponent(comp *openchoreov1alpha1.Component) (string, error) {
-	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Schema == nil {
-		return "", fmt.Errorf("component has no workflow schema")
+	if comp.Spec.Workflow == nil {
+		return "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Parse the workflow schema to extract repository information
-	var schema map[string]interface{}
-	if err := json.Unmarshal(comp.Spec.Workflow.Schema.Raw, &schema); err != nil {
-		return "", fmt.Errorf("failed to unmarshal workflow schema: %w", err)
+	// Extract repository URL from system parameters
+	repoURL := comp.Spec.Workflow.SystemParameters.Repository.URL
+	if repoURL == "" {
+		return "", fmt.Errorf("repository URL not found in workflow system parameters")
 	}
 
-	// Extract repository URL
-	if repo, ok := schema["repository"].(map[string]interface{}); ok {
-		if url, ok := repo["url"].(string); ok {
-			return url, nil
-		}
-	}
-
-	return "", fmt.Errorf("repository URL not found in workflow schema")
+	return repoURL, nil
 }
 
 // normalizeRepoURL normalizes repository URLs for comparison

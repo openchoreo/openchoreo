@@ -5,7 +5,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,17 +16,17 @@ import (
 
 // GitHubWebhookService handles GitHub webhook processing
 type GitHubWebhookService struct {
-	k8sClient    client.Client
-	gitProvider  git.Provider
-	buildService *BuildService
+	k8sClient         client.Client
+	gitProvider       git.Provider
+	workflowService *ComponentWorkflowService
 }
 
 // NewGitHubWebhookService creates a new GitHubWebhookService
-func NewGitHubWebhookService(k8sClient client.Client, gitProvider git.Provider, buildService *BuildService) *GitHubWebhookService {
+func NewGitHubWebhookService(k8sClient client.Client, gitProvider git.Provider, workflowService *ComponentWorkflowService) *GitHubWebhookService {
 	return &GitHubWebhookService{
-		k8sClient:    k8sClient,
-		gitProvider:  gitProvider,
-		buildService: buildService,
+		k8sClient:         k8sClient,
+		gitProvider:       gitProvider,
+		workflowService: workflowService,
 	}
 }
 
@@ -76,7 +75,7 @@ func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, payload []byt
 			"component", componentName,
 			"commit", event.Commit)
 
-		_, err := s.buildService.TriggerBuild(
+		_, err := s.workflowService.TriggerWorkflow(
 			ctx,
 			orgName,
 			projectName,
@@ -145,33 +144,20 @@ func (s *GitHubWebhookService) findAffectedComponents(ctx context.Context, event
 	return affected, nil
 }
 
-// extractRepoInfoFromComponent extracts repository URL and appPath from component workflow schema
+// extractRepoInfoFromComponent extracts repository URL and appPath from component workflow system parameters
 func (s *GitHubWebhookService) extractRepoInfoFromComponent(comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
-	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Schema == nil {
-		return "", "", fmt.Errorf("component has no workflow schema")
+	if comp.Spec.Workflow == nil {
+		return "", "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Parse the workflow schema to extract repository information
-	var schema map[string]interface{}
-	if err := json.Unmarshal(comp.Spec.Workflow.Schema.Raw, &schema); err != nil {
-		return "", "", fmt.Errorf("failed to unmarshal workflow schema: %w", err)
-	}
-
-	// Extract repository URL
-	if repo, ok := schema["repository"].(map[string]interface{}); ok {
-		if url, ok := repo["url"].(string); ok {
-			repoURL = url
-		}
-	}
-
-	// Extract appPath
-	if path, ok := schema["appPath"].(string); ok {
-		appPath = path
-	}
-
+	// Extract repository URL from system parameters
+	repoURL = comp.Spec.Workflow.SystemParameters.Repository.URL
 	if repoURL == "" {
-		return "", "", fmt.Errorf("repository URL not found in workflow schema")
+		return "", "", fmt.Errorf("repository URL not found in workflow system parameters")
 	}
+
+	// Extract appPath from system parameters
+	appPath = comp.Spec.Workflow.SystemParameters.Repository.AppPath
 
 	return repoURL, appPath, nil
 }
