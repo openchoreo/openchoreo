@@ -9,7 +9,7 @@ import (
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/glebarez/sqlite"
-	"github.com/openchoreo/openchoreo/internal/authz"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"gorm.io/gorm"
 )
 
@@ -91,7 +91,7 @@ func seedInitialData(db *gorm.DB, logger *slog.Logger) error {
 // Actions are defined in internal/authz/default_data.go
 func seedActions(db *gorm.DB, logger *slog.Logger) error {
 	// Get all actions from authz package
-	actions := authz.ListDefaultActions()
+	actions := authzcore.ListDefaultActions()
 
 	for _, actionName := range actions {
 		action := Action{Action: actionName}
@@ -112,7 +112,7 @@ func seedActions(db *gorm.DB, logger *slog.Logger) error {
 // Roles are defined in internal/authz/default_data.go
 func seedRoles(db *gorm.DB, logger *slog.Logger) error {
 	// Get default roles from authz package
-	roleDefinitions := authz.ListDefaultRoles()
+	roleDefinitions := authzcore.ListDefaultRoles()
 
 	createdCount := 0
 	for _, roleDef := range roleDefinitions {

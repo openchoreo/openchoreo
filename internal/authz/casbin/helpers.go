@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/openchoreo/openchoreo/internal/authz"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 type HierarchyResourcePrefix string
@@ -115,7 +115,7 @@ func actionMatchWrapper(arg1, arg2 string) bool {
 }
 
 // hierarchyToResourcePath converts ResourceHierarchy to a hierarchical resource path string
-func hierarchyToResourcePath(hierarchy authz.ResourceHierarchy) string {
+func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
 	path := ""
 
 	if hierarchy.Organization != "" {
@@ -140,8 +140,8 @@ func hierarchyToResourcePath(hierarchy authz.ResourceHierarchy) string {
 }
 
 // resourcePathToHierarchy converts a hierarchical resource path string back to ResourceHierarchy
-func resourcePathToHierarchy(resourcePath string) authz.ResourceHierarchy {
-	hierarchy := authz.ResourceHierarchy{}
+func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
+	hierarchy := authzcore.ResourceHierarchy{}
 
 	if resourcePath == "" {
 		return hierarchy
@@ -171,7 +171,7 @@ func resourcePathToHierarchy(resourcePath string) authz.ResourceHierarchy {
 // Extract group, service_account from subject
 // hack: this is temporarily done to work with thunder jwt token structure
 // need a proper layer to parse different token types in future
-func populateSubjectClaims(subject *authz.Subject) error {
+func populateSubjectClaims(subject *authzcore.Subject) error {
 	jwtToken := subject.JwtToken
 
 	// Parse JWT without verification (just to extract claims)
@@ -203,7 +203,7 @@ func populateSubjectClaims(subject *authz.Subject) error {
 				}
 			}
 		}
-		subject.Type = authz.SubjectTypeUser
+		subject.Type = authzcore.SubjectTypeUser
 		subject.Claims = entitlements
 		return nil
 	}
@@ -211,7 +211,7 @@ func populateSubjectClaims(subject *authz.Subject) error {
 	// Extract service account
 	if sa, ok := claims["service_account"].(string); ok && sa != "" {
 		entitlements = append(entitlements, sa)
-		subject.Type = authz.SubjectTypeServiceAccount
+		subject.Type = authzcore.SubjectTypeServiceAccount
 		subject.Claims = entitlements
 		return nil
 	}

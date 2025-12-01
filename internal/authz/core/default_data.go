@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package authz
+package core
 
 // This file contains all default authorization data that is seeded at application startup.
 // To add new actions or roles, simply update the arrays below and restart the application.

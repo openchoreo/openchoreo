@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package authz
+package core
 
 // SubjectType defines the type of subject making the authorization request
 type SubjectType string
