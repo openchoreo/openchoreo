@@ -17,3 +17,12 @@ gateway:
   # Use custom ports for k3d multi-cluster setup
   httpPort: 80
   httpsPort: 443
+
+  # Envoy - enabled by default for traffic routing
+  envoy:
+    enabled: true
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true
