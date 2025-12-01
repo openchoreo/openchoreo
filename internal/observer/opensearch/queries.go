@@ -487,7 +487,7 @@ func (qb *QueryBuilder) BuildComponentTracesQuery(params ComponentTracesRequestP
 				"filter": []map[string]interface{}{
 					{
 						"term": map[string]interface{}{
-							"serviceName": params.ServiceName,
+							"resources.service.name": params.ServiceName,
 						},
 					},
 					{

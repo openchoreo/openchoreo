@@ -282,7 +282,7 @@ func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensear
 	query := s.queryBuilder.BuildComponentTracesQuery(params)
 
 	// Execute search
-	response, err := s.osClient.Search(ctx, []string{"otel-v1-apm-span"}, query)
+	response, err := s.osClient.Search(ctx, []string{"otel-traces-*"}, query)
 	if err != nil {
 		s.logger.Error("Failed to execute component traces search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
