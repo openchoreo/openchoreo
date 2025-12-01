@@ -155,6 +155,18 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
 
+	// Authorization admin endpoints
+	api.HandleFunc("GET "+v1+"/authz/roles", h.ListRoles)
+	api.HandleFunc("GET "+v1+"/authz/roles/{roleName}", h.GetRole)
+	api.HandleFunc("POST "+v1+"/authz/roles", h.AddRole)
+	api.HandleFunc("DELETE "+v1+"/authz/roles/{roleName}", h.RemoveRole)
+	api.HandleFunc("GET "+v1+"/authz/role-mappings", h.ListRoleMappings)
+	api.HandleFunc("POST "+v1+"/authz/role-mappings", h.AddRoleMapping)
+	api.HandleFunc("DELETE "+v1+"/authz/role-mappings", h.RemoveRoleMapping)
+	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
+	api.HandleFunc("POST "+v1+"/authz/evaluate", h.Evaluate)
+	api.HandleFunc("POST "+v1+"/authz/batch-evaluate", h.BatchEvaluate)
+
 	return mux
 }
 

@@ -26,6 +26,7 @@ type Services struct {
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
+	AuthzService              *AuthzService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
@@ -70,6 +71,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create SecretReference service
 	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
 
+	// Create Authorization service
+	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
@@ -84,6 +88,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
+		AuthzService:              authzService,
 		k8sClient:                 k8sClient,
 	}
 }
