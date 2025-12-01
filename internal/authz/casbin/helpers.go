@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -229,5 +230,4 @@ func populateSubjectClaims(subject *authzcore.Subject) error {
 	}
 
 	return fmt.Errorf("no valid subject claims found in token")
-
 }

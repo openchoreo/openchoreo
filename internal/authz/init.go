@@ -50,5 +50,4 @@ func Initialize(config AuthZConfig, logger *slog.Logger) (authzcore.PAP, authzco
 	}
 
 	return casbinAuthz, casbinAuthz, nil
-
 }

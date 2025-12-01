@@ -27,7 +27,7 @@ type CasbinConfig struct {
 	ModelPath         string // Required: Path to RBAC model file
 	DatabasePath      string // Required: Path to SQLite database path
 	EnableCache       bool   // Optional: Enable policy cache (default: false)
-	CacheTtlInSeconds int    // Optional: Cache TTL in seconds (default: 300)
+	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
 }
 
 // NewCasbinEnforcer creates a new Casbin-based authorizer
@@ -39,8 +39,8 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
 	}
 
-	if config.CacheTtlInSeconds == 0 {
-		config.CacheTtlInSeconds = 300 // Default: 5 minutes
+	if config.CacheTTLInSeconds == 0 {
+		config.CacheTTLInSeconds = 300 // Default: 5 minutes
 	}
 
 	// Load Casbin model from file or string
@@ -144,7 +144,6 @@ func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.Evalu
 		}
 	}
 	return decision, nil
-
 }
 
 // BatchEvaluate evaluates multiple authorization requests and returns corresponding decisions
@@ -193,7 +192,7 @@ func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzc
 func (ce *CasbinEnforcer) AddRole(ctx context.Context, role authzcore.Role) error {
 	ce.logger.Info("add role called", "role_name", role.Name, "actions", role.Actions)
 
-	var rules [][]string
+	rules := make([][]string, 0, len(role.Actions))
 	for _, action := range role.Actions {
 		rules = append(rules, []string{role.Name, action})
 	}
@@ -239,7 +238,7 @@ func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (authzco
 		return authzcore.Role{}, fmt.Errorf("role not found: %s", roleName)
 	}
 
-	var actions []string
+	actions := make([]string, 0, len(rules))
 	for _, rule := range rules {
 		if len(rule) != 2 {
 			ce.logger.Warn("skipping invalid role-action mapping", "rule", rule)
@@ -313,7 +312,6 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 	return nil
 }
 
-// do from here
 // RemoveRolePrincipalMapping removes a role-principal mapping
 func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mapping *authzcore.PolicyMapping) error {
 	ce.logger.Info("remove role principal mapping called",
@@ -348,7 +346,8 @@ func (ce *CasbinEnforcer) ListRolePrincipalMappings(ctx context.Context) ([]auth
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role principal mappings: %w", err)
 	}
-	var mappings []authzcore.PolicyMapping
+
+	mappings := make([]authzcore.PolicyMapping, 0, len(rules))
 	for _, rule := range rules {
 		if len(rule) < 5 {
 			ce.logger.Warn("skipping malformed role-principal mapping", "rule", rule)

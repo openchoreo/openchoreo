@@ -67,7 +67,7 @@ func (s *AuthzService) AddRole(ctx context.Context, role authz.Role) error {
 // RemoveRole deletes an authorization role
 func (s *AuthzService) RemoveRole(ctx context.Context, roleName string) error {
 	s.logger.Debug("Removing authorization role", "role", roleName)
-	
+
 	if err := s.pap.RemoveRole(ctx, roleName); err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}

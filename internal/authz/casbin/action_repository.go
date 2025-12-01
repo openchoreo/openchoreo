@@ -4,6 +4,7 @@
 package casbin
 
 import (
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -38,7 +39,7 @@ func (r *ActionRepository) GetByAction(actionStr string) (*Action, error) {
 	var action Action
 	result := r.db.Where("action = ?", actionStr).First(&action)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("action not found: %s", actionStr)
 		}
 		return nil, fmt.Errorf("failed to get action: %w", result.Error)

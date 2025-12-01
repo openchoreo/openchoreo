@@ -27,7 +27,7 @@ type Subject struct {
 	Claims   []string    `json:"claims,omitempty"`
 }
 
-// ResourcePathItem represents a single item in a resource hierarchy
+// ResourceHierarchy represents a single item in a resource hierarchy
 type ResourceHierarchy struct {
 	Organization      string   `json:"organization,omitempty"`
 	OrganizationUnits []string `json:"organization_units,omitempty"`

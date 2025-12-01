@@ -9,8 +9,9 @@ import (
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/glebarez/sqlite"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"gorm.io/gorm"
+
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // CasbinRule defines the custom schema for Casbin policy storage
