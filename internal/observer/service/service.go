@@ -275,7 +275,7 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 }
 
 func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (*opensearch.TraceResponse, error) {
-	s.logger.Info("Getting component traces",
+	s.logger.Debug("Getting component traces",
 		"serviceName", params.ServiceName)
 
 	// Build component traces query

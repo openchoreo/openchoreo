@@ -369,7 +369,7 @@ func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
 						"filter": []map[string]interface{}{
 							{
 								"term": map[string]interface{}{
-									"resources.service.name": "test-service",
+									"resource.service.name": "test-service",
 								},
 							},
 							{
@@ -414,7 +414,7 @@ func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
 						"filter": []map[string]interface{}{
 							{
 								"term": map[string]interface{}{
-									"resources.service.name": "another-service",
+									"resource.service.name": "another-service",
 								},
 							},
 							{
@@ -458,7 +458,7 @@ func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
 						"filter": []map[string]interface{}{
 							{
 								"term": map[string]interface{}{
-									"resources.service.name": "my-service-123_test",
+									"resource.service.name": "my-service-123_test",
 								},
 							},
 							{
@@ -520,7 +520,7 @@ func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
 			serviceNameFound := false
 			for _, filter := range gotFilters {
 				if term, ok := filter["term"].(map[string]interface{}); ok {
-					if serviceName, exists := term["resources.service.name"]; exists {
+					if serviceName, exists := term["resource.service.name"]; exists {
 						if serviceName != tt.params.ServiceName {
 							t.Errorf("BuildComponentTracesQuery() serviceName = %v, want %v", serviceName, tt.params.ServiceName)
 						}
