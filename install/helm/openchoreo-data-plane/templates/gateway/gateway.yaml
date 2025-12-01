@@ -4,10 +4,13 @@ kind: Gateway
 metadata:
   name: gateway-default
   namespace: {{ .Release.Namespace }}
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
   annotations:
+{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
     cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
 {{- end }}
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "2"
+    helm.sh/hook-delete-policy: before-hook-creation
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:
