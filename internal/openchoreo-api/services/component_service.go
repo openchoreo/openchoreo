@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2917,22 +2916,6 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 	return nil
 }
 
-// buildWorkflowStructuralSchema converts a workflow schema map to a structural schema
-func (s *ComponentService) buildWorkflowStructuralSchema(workflowSchemaMap map[string]any) (*schema.Structural, error) {
-	// Import the schema package if not already imported
-	// The workflow schema uses the same format as ComponentType schemas
-	def := openchoreoschema.Definition{
-		Schemas: []map[string]any{workflowSchemaMap},
-	}
-
-	structural, err := openchoreoschema.ToStructural(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert workflow schema: %w", err)
-	}
-
-	return structural, nil
-}
-
 // RegisterWebhook registers a webhook for a component with the git provider
 // This method implements per-repository webhook tracking with reference counting
 func (s *ComponentService) RegisterWebhook(ctx context.Context, orgName, projectName, componentName string) (string, error) {
@@ -3037,7 +3020,6 @@ func (s *ComponentService) RegisterWebhook(ctx context.Context, orgName, project
 
 		s.logger.Debug("Component added to existing webhook", "component", componentName, "webhookID", gitWebhook.Spec.WebhookID)
 		return gitWebhook.Spec.WebhookID, nil
-
 	} else if err = client.IgnoreNotFound(err); err != nil {
 		s.logger.Error("Failed to get GitRepositoryWebhook", "error", err)
 		return "", fmt.Errorf("failed to get GitRepositoryWebhook: %w", err)

@@ -8,24 +8,25 @@ import (
 	"fmt"
 	"strings"
 
-	v1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 // GitHubWebhookService handles GitHub webhook processing
 type GitHubWebhookService struct {
-	k8sClient         client.Client
-	gitProvider       git.Provider
+	k8sClient       client.Client
+	gitProvider     git.Provider
 	workflowService *ComponentWorkflowService
 }
 
 // NewGitHubWebhookService creates a new GitHubWebhookService
 func NewGitHubWebhookService(k8sClient client.Client, gitProvider git.Provider, workflowService *ComponentWorkflowService) *GitHubWebhookService {
 	return &GitHubWebhookService{
-		k8sClient:         k8sClient,
-		gitProvider:       gitProvider,
+		k8sClient:       k8sClient,
+		gitProvider:     gitProvider,
 		workflowService: workflowService,
 	}
 }
