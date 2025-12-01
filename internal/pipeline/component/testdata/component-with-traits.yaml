@@ -80,8 +80,8 @@ metadata:
 spec:
   schema:
     parameters:
-      volumeName: "string | required=true"
-      mountPath: "string | required=true"
+      volumeName: "string"
+      mountPath: "string"
       containerName: "string | default=app"
 
     envOverrides:
@@ -137,14 +137,14 @@ spec:
     # Define custom type for mount configuration
     types:
       MountConfig:
-        containerName: string | required=true
-        mountPath: string | required=true
+        containerName: string
+        mountPath: string
         readOnly: boolean | default=false
         subPath: string | default=""
 
     parameters:
-      volumeName: string | required=true
-      mounts: "[]MountConfig | required=true minItems=1"
+      volumeName: string
+      mounts: "[]MountConfig | minItems=1"
 
     envOverrides:
       sizeLimit: string | default=""
@@ -255,7 +255,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentDeployment
+kind: ReleaseBinding
 metadata:
   name: demo-app-development
   namespace: default
@@ -266,7 +266,7 @@ spec:
 
   environment: dev
 
-  overrides:
+  componentTypeEnvOverrides:
     resources:
       requests:
         cpu: "50m"

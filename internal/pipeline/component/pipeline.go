@@ -16,6 +16,7 @@ import (
 	"maps"
 	"sort"
 
+	"github.com/go-playground/validator/v10"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -25,6 +26,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/trait"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
+
+var validate = validator.New(validator.WithRequiredStructEnabled())
 
 // NewPipeline creates a new component rendering pipeline.
 func NewPipeline(opts ...Option) *Pipeline {
@@ -67,7 +70,6 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Component:                    input.Component,
 		ComponentType:                input.ComponentType,
 		Workload:                     input.Workload,
-		ComponentDeployment:          input.ComponentDeployment,
 		ReleaseBinding:               input.ReleaseBinding,
 		DataPlane:                    input.DataPlane,
 		SecretReferences:             input.SecretReferences,
@@ -114,7 +116,6 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Trait:                        trait,
 			Instance:                     traitInstance,
 			Component:                    input.Component,
-			ComponentDeployment:          input.ComponentDeployment,
 			ReleaseBinding:               input.ReleaseBinding,
 			Metadata:                     input.Metadata,
 			SchemaCache:                  schemaCache,
@@ -126,7 +127,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		// Process trait (creates + patches)
-		resources, err = traitProcessor.ProcessTraits(resources, trait, traitContext)
+		resources, err = traitProcessor.ProcessTraits(resources, trait, traitContext.ToMap())
 		if err != nil {
 			return nil, fmt.Errorf("failed to process trait %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
@@ -162,31 +163,13 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 // validateInput ensures the input has all required fields.
 func (p *Pipeline) validateInput(input *RenderInput) error {
-	if input == nil {
-		return fmt.Errorf("input is nil")
-	}
-	if input.ComponentType == nil {
-		return fmt.Errorf("component type is nil")
-	}
-	if input.ComponentType.Spec.Resources == nil {
-		return fmt.Errorf("component type has no resources")
-	}
-	if input.Component == nil {
-		return fmt.Errorf("component is nil")
-	}
-	if input.Workload == nil {
-		return fmt.Errorf("workload is nil")
-	}
-	if input.Environment == nil {
-		return fmt.Errorf("environment is required")
+	if err := validate.Struct(input); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Validate metadata context
-	if input.Metadata.Name == "" {
-		return fmt.Errorf("metadata.name is required")
-	}
-	if input.Metadata.Namespace == "" {
-		return fmt.Errorf("metadata.namespace is required")
+	// Additional validation that can't be expressed with struct tags
+	if input.ComponentType.Spec.Resources == nil {
+		return fmt.Errorf("component type has no resources")
 	}
 
 	return nil

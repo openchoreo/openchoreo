@@ -94,6 +94,9 @@ spec:
         replicas: 2
   componentType:
     spec:
+      schema:
+        parameters:
+          replicas: "integer"
       resources:
         - id: deployment
           template:
@@ -136,6 +139,9 @@ spec:
         expose: true
   componentType:
     spec:
+      schema:
+        parameters:
+          expose: "boolean"
       resources:
         - id: deployment
           template:
@@ -191,6 +197,9 @@ spec:
           - secret2
   componentType:
     spec:
+      schema:
+        parameters:
+          secrets: "[]string"
       resources:
         - id: secrets
           forEach: ${parameters.secrets}
@@ -255,6 +264,9 @@ spec:
     - metadata:
         name: mysql
       spec:
+        schema:
+          parameters:
+            database: "string"
         creates:
           - template:
               apiVersion: v1
@@ -431,11 +443,20 @@ spec:
 					Name:            "test-component-dev-12345678",
 					Namespace:       "test-namespace",
 					ComponentName:   "test-app",
-					EnvironmentName: "dev",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "dev-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
 						"openchoreo.dev/component":   "test-component",
 						"openchoreo.dev/environment": "dev",
+					},
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
 			}
@@ -638,11 +659,20 @@ spec:
 					Name:            "test-component-dev-12345678",
 					Namespace:       "test-namespace",
 					ComponentName:   "test-app",
-					EnvironmentName: "dev",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "dev-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
 						"openchoreo.dev/component":   "test-component",
 						"openchoreo.dev/environment": "dev",
+					},
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
 			}

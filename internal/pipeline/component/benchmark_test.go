@@ -37,13 +37,13 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	docs := strings.Split(string(data), "\n---\n")
 
 	var (
-		ct          *v1alpha1.ComponentType
-		traits      []v1alpha1.Trait
-		component   *v1alpha1.Component
-		workload    *v1alpha1.Workload
-		deployment  *v1alpha1.ComponentDeployment
-		environment *v1alpha1.Environment
-		dataplane   *v1alpha1.DataPlane
+		ct             *v1alpha1.ComponentType
+		traits         []v1alpha1.Trait
+		component      *v1alpha1.Component
+		workload       *v1alpha1.Workload
+		releaseBinding *v1alpha1.ReleaseBinding
+		environment    *v1alpha1.Environment
+		dataplane      *v1alpha1.DataPlane
 	)
 
 	// Parse each document by identifying its kind
@@ -86,10 +86,10 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 				tb.Fatalf("Failed to parse Workload: %v", err)
 			}
 
-		case "ComponentDeployment":
-			deployment = &v1alpha1.ComponentDeployment{}
-			if err := yaml.Unmarshal([]byte(doc), deployment); err != nil {
-				tb.Fatalf("Failed to parse ComponentDeployment: %v", err)
+		case "ReleaseBinding":
+			releaseBinding = &v1alpha1.ReleaseBinding{}
+			if err := yaml.Unmarshal([]byte(doc), releaseBinding); err != nil {
+				tb.Fatalf("Failed to parse ReleaseBinding: %v", err)
 			}
 		case "Environment":
 			environment = &v1alpha1.Environment{}
@@ -109,7 +109,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 
 	// Validate required resources and construct snapshot
 	// Using explicit checks to satisfy staticcheck SA5011
-	if ct == nil || component == nil || workload == nil || deployment == nil {
+	if ct == nil || component == nil || workload == nil || releaseBinding == nil {
 		var missing []string
 		if ct == nil {
 			missing = append(missing, "ComponentType")
@@ -120,8 +120,8 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 		if workload == nil {
 			missing = append(missing, "Workload")
 		}
-		if deployment == nil {
-			missing = append(missing, "ComponentDeployment")
+		if releaseBinding == nil {
+			missing = append(missing, "ReleaseBinding")
 		}
 		tb.Fatalf("Missing required resources in sample file: %v", missing)
 		return nil // Never reached, but satisfies linter
@@ -130,7 +130,7 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 	// Build ComponentEnvSnapshot (all pointers guaranteed non-nil here)
 	snapshot := &v1alpha1.ComponentEnvSnapshot{
 		Spec: v1alpha1.ComponentEnvSnapshotSpec{
-			Environment:   deployment.Spec.Environment,
+			Environment:   releaseBinding.Spec.Environment,
 			Component:     *component,
 			ComponentType: *ct,
 			Workload:      *workload,
@@ -140,27 +140,34 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 
 	// Create render input
 	return &RenderInput{
-		ComponentType:       &snapshot.Spec.ComponentType,
-		Component:           &snapshot.Spec.Component,
-		Traits:              snapshot.Spec.Traits,
-		Workload:            &snapshot.Spec.Workload,
-		Environment:         environment,
-		DataPlane:           dataplane,
-		ComponentDeployment: deployment,
+		ComponentType:  &snapshot.Spec.ComponentType,
+		Component:      &snapshot.Spec.Component,
+		Traits:         snapshot.Spec.Traits,
+		Workload:       &snapshot.Spec.Workload,
+		Environment:    environment,
+		DataPlane:      dataplane,
+		ReleaseBinding: releaseBinding,
 		Metadata: context.MetadataContext{
 			Name:            "demo-app-dev-12345678",
 			Namespace:       "dp-demo-project-development-x1y2z3w4",
 			ComponentName:   "demo-app",
-			EnvironmentName: "development",
+			ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 			ProjectName:     "demo-project",
+			ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+			DataPlaneName:   "dev-dataplane",
+			DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+			EnvironmentName: "development",
+			EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 			Labels: map[string]string{
 				"openchoreo.dev/component":   "demo-app",
 				"openchoreo.dev/environment": "development",
 				"openchoreo.dev/project":     "demo-project",
 			},
+			Annotations: map[string]string{},
 			PodSelectors: map[string]string{
-				"openchoreo.dev/component-id": "demo-app-12345678",
-				"openchoreo.dev/environment":  "development",
+				"openchoreo.dev/component-uid":   "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+				"openchoreo.dev/environment-uid": "d4e5f6a7-8901-23de-f012-4567890abcde",
+				"openchoreo.dev/project-uid":     "b2c3d4e5-6789-01bc-def0-234567890abc",
 			},
 		},
 	}
@@ -213,10 +220,10 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 	b.ResetTimer()
 
 	// Run benchmark
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := pipeline.Render(input)
 		if err != nil {
-			b.Fatalf("Pipeline render failed on iteration %d: %v", i, err)
+			b.Fatalf("Pipeline render failed: %v", err)
 		}
 	}
 }
@@ -251,11 +258,11 @@ func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 
 	// Run benchmark - create NEW pipeline for each iteration
 	// This simulates the old controller behavior (cold cache every time)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		pipeline := NewPipeline() // ← NEW INSTANCE per iteration
 		_, err := pipeline.Render(input)
 		if err != nil {
-			b.Fatalf("Pipeline render failed on iteration %d: %v", i, err)
+			b.Fatalf("Pipeline render failed: %v", err)
 		}
 	}
 }
@@ -378,10 +385,22 @@ spec:
 		Environment:   &environment,
 		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{
-			Name:      "test-app-dev-12345678",
-			Namespace: "test-namespace",
+			Name:            "test-app-dev-12345678",
+			Namespace:       "test-namespace",
+			ComponentName:   "test-app",
+			ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+			ProjectName:     "test-project",
+			ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+			DataPlaneName:   "dev-dataplane",
+			DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+			EnvironmentName: "dev",
+			EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 			Labels: map[string]string{
 				"openchoreo.dev/component": "test-app",
+			},
+			Annotations: map[string]string{},
+			PodSelectors: map[string]string{
+				"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 			},
 		},
 	}
@@ -396,7 +415,7 @@ spec:
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := pipeline.Render(input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)
@@ -511,8 +530,21 @@ spec:
 		Environment:   &environment,
 		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{
-			Name:      "test-app-dev-12345678",
-			Namespace: "test-namespace",
+			Name:            "test-app-dev-12345678",
+			Namespace:       "test-namespace",
+			ComponentName:   "test-app",
+			ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+			ProjectName:     "test-project",
+			ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+			DataPlaneName:   "dev-dataplane",
+			DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+			EnvironmentName: "dev",
+			EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+			Labels:          map[string]string{},
+			Annotations:     map[string]string{},
+			PodSelectors: map[string]string{
+				"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+			},
 		},
 	}
 
@@ -520,7 +552,7 @@ spec:
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := pipeline.Render(input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)

@@ -10,6 +10,9 @@ spec:
         replicas: 2
   componentType:
     spec:
+      schema:
+        envOverrides:
+          replicas: "integer"
       resources:
         - id: deployment
           template:
