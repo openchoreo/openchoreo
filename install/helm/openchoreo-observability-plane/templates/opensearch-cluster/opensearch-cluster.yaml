@@ -1,12 +1,9 @@
-{{- if and (or (eq .Values.global.installationMode "singleCluster") (eq .Values.global.installationMode "multiCluster")) (index .Values "opensearch-operator" "enabled") }}
+{{- if or (eq .Values.global.installationMode "singleCluster") (eq .Values.global.installationMode "multiCluster") }}
 apiVersion: opensearch.opster.io/v1
 kind: OpenSearchCluster
 metadata:
   name: opensearch
   namespace: openchoreo-observability-plane
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
 spec:
   bootstrap:
     resources:

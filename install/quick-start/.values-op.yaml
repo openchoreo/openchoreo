@@ -6,8 +6,6 @@ global:
   commonLabels: {}
   installationMode: quickStart
 
-opensearch-operator:
-  enabled: false
 
 opentelemetry-collector:
   enabled: false

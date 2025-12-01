@@ -10,11 +10,6 @@ global:
   # quickStart: Limited set of features for quick-start setup
   installationMode: singleCluster
 
-opensearch-operator:
-  # This must be enabled for `singleCluster` and `multiCluster` installation modes
-  enabled: true
-  fullnameOverride: "opensearch-operator"
-
 data-prepper:
   enabled: false
   fullnameOverride: "data-prepper"
