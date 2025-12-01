@@ -5,7 +5,7 @@ metadata:
   name: gateway-default
   namespace: {{ .Release.Namespace }}
   annotations:
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
+{{- if index .Values "cert-manager" "enabled" }}
     cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
 {{- end }}
     helm.sh/hook: post-install,post-upgrade
@@ -22,7 +22,7 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
+{{- if index .Values "cert-manager" "enabled" }}
     - name: https
       protocol: HTTPS
       port: {{ .Values.gateway.httpsPort | default 443 }}
