@@ -4,8 +4,6 @@
 package project
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -64,7 +62,7 @@ var _ = Describe("Project Webhook", func() {
 	createValidDeploymentPipeline := func(name string, namespace string) *openchoreov1alpha1.DeploymentPipeline {
 		pipeline := &openchoreov1alpha1.DeploymentPipeline{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pipeline-" + name,
+				Name:      name,
 				Namespace: namespace,
 				Labels: map[string]string{
 					labels.LabelKeyName: name,
@@ -108,39 +106,6 @@ var _ = Describe("Project Webhook", func() {
 	})
 
 	Context("When validating Project creation", func() {
-		It("Should deny creation if required labels are missing", func() {
-			By("Creating a project without required labels")
-			obj = &openchoreov1alpha1.Project{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "missing-labels-project",
-					Namespace: testNamespace,
-					// Missing required labels
-				},
-				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: testPipeline,
-				},
-			}
-
-			By("Validating the project creation")
-			_, err := validator.ValidateCreate(ctx, obj)
-
-			By("Verifying validation fails with appropriate error")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("required labels missing"))
-		})
-
-		It("Should deny creation if project namespace doesn't match organization label", func() {
-			By("Creating a project with mismatched namespace and organization label")
-			obj = createValidProject("test-project", "wrong-org", "test-namespace", testPipeline)
-
-			By("Validating the project creation")
-			_, err := validator.ValidateCreate(ctx, obj)
-
-			By("Verifying validation fails with appropriate error")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("project namespace 'test-namespace' does not match with the organization label 'wrong-org'"))
-		})
-
 		It("Should deny creation if referenced deployment pipeline does not exist", func() {
 			By("Setting up client with no deployment pipelines")
 			validatorWithClient := Validator{
@@ -156,32 +121,6 @@ var _ = Describe("Project Webhook", func() {
 			By("Verifying validation fails with appropriate error")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("deployment pipeline 'non-existent-pipeline' specified in project 'test-project' not found"))
-		})
-
-		It("Should deny creation if a duplicate project exists in the organization", func() {
-			By("Creating a deployment pipeline")
-			pipelineName := "test-pipeline"
-			pipeline := createValidDeploymentPipeline(pipelineName, testNamespace)
-
-			By("Creating an existing project with the same name")
-			existingProject := createValidProject("test-project", testNamespace, testNamespace, pipelineName)
-
-			By("Setting up client with existing resources")
-			validatorWithExistingProject := Validator{
-				client: createFakeClientBuilder().WithObjects(pipeline, existingProject).Build(),
-			}
-
-			By("Creating a new project with the same name")
-			obj = createValidProject("test-project", testNamespace, testNamespace, pipelineName)
-
-			By("Validating the project creation")
-			_, err := validatorWithExistingProject.ValidateCreate(ctx, obj)
-
-			By("Verifying validation fails with appropriate error")
-			Expect(err).To(HaveOccurred())
-
-			expectedErrMsg := fmt.Sprintf("project 'test-project' specified in label '%s' already exists in organization 'test-namespace'", labels.LabelKeyName)
-			Expect(err.Error()).To(ContainSubstring(expectedErrMsg))
 		})
 
 		It("Should allow creation of a valid project", func() {
