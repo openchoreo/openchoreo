@@ -219,6 +219,19 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		secretStoreRef = dp.Spec.SecretStoreRef.Name
 	}
 
+	// Extract agent configuration
+	var agentEnabled bool
+	if dp.Spec.Agent != nil {
+		agentEnabled = dp.Spec.Agent.Enabled
+	}
+
+	// Extract KubernetesCluster fields if present (optional when agent mode is enabled)
+	// TODO: Implement a generic reflection-based utility function to handle extraction of values
+	var apiServerURL string
+	if dp.Spec.KubernetesCluster != nil {
+		apiServerURL = dp.Spec.KubernetesCluster.Server
+	}
+
 	response := &models.DataPlaneResponse{
 		Name:                    dp.Name,
 		Namespace:               dp.Namespace,
@@ -226,8 +239,9 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Description:             description,
 		ImagePullSecretRefs:     dp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:          secretStoreRef,
+		AgentEnabled:            agentEnabled,
 		KubernetesClusterName:   dp.Name,
-		APIServerURL:            dp.Spec.KubernetesCluster.Server,
+		APIServerURL:            apiServerURL,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
 		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 		CreatedAt:               dp.CreationTimestamp.Time,
