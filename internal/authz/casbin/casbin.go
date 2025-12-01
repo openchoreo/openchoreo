@@ -104,12 +104,6 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 
 // Evaluate evaluates a single authorization request and returns a decision
 func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (authzcore.Decision, error) {
-	ce.logger.Debug("evaluate called",
-		"subject", request.Subject,
-		"resource", request.Resource,
-		"action", request.Action,
-		"context", request.Context)
-
 	// TODO: once context is properly integrated, pass it to enforcer
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
 	subject := request.Subject
@@ -117,6 +111,13 @@ func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.Evalu
 	if err != nil {
 		return authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
 	}
+
+	ce.logger.Debug("evaluate called",
+		"subject", subject.Claims,
+		"resource", resourcePath,
+		"action", request.Action,
+		"context", request.Context)
+
 	result := false
 	decision := authzcore.Decision{Decision: false,
 		Context: &authzcore.DecisionContext{
@@ -301,7 +302,7 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 		mapping.Principal,
 		resourcePath,
 		mapping.RoleName,
-		mapping.Effect,
+		string(mapping.Effect),
 		"{}",
 	)
 
@@ -329,7 +330,7 @@ func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mappin
 		mapping.Principal,
 		resourcePath,
 		mapping.RoleName,
-		mapping.Effect,
+		string(mapping.Effect),
 		"{}",
 	)
 	if err != nil {

@@ -24,6 +24,10 @@ const (
 // For example, policy "org/acme" matches request "org/acme/project/p1/component/c1"
 // This allows policies to apply to all resources under a hierarchical scope.
 func resourceMatch(requestResource, policyResource string) bool {
+	// Full wildcard matches any resource
+	if policyResource == "*" {
+		return true
+	}
 	// Exact match
 	if requestResource == policyResource {
 		return true
@@ -136,14 +140,22 @@ func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
 		path = fmt.Sprintf("%s/%s/%s", path, ComponentResourcePrefix, hierarchy.Component)
 	}
 
-	return strings.Trim(path, "/")
+	path = strings.Trim(path, "/")
+
+	// Empty hierarchy means global wildcard
+	if path == "" {
+		return "*"
+	}
+
+	return path
 }
 
 // resourcePathToHierarchy converts a hierarchical resource path string back to ResourceHierarchy
 func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	hierarchy := authzcore.ResourceHierarchy{}
 
-	if resourcePath == "" {
+	// Global wildcard  map to empty hierarchy
+	if resourcePath == "*" {
 		return hierarchy
 	}
 

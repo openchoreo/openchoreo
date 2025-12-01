@@ -57,7 +57,7 @@ func newAdapter(dbPath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm
 	}
 
 	// Create the gorm adapter with custom CasbinRule schema
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(db, &CasbinRule{})
+	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(db, &CasbinRule{}, "casbin_rules")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create gorm adapter: %w", err)
 	}

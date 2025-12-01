@@ -76,5 +76,12 @@ func ListDefaultActions() []string {
 
 // ListDefaultRoles returns the default role definitions
 func ListDefaultRoles() []Role {
-	return []Role{}
+	return []Role{
+		{
+			Name: "super-admin",
+			Actions: []string{
+				"*",
+			},
+		},
+	}
 }
