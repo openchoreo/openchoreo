@@ -2839,7 +2839,6 @@ func (s *ComponentService) RegisterWebhook(ctx context.Context, orgName, project
 
 		s.logger.Debug("Component added to existing webhook", "component", componentName, "webhookID", gitWebhook.Spec.WebhookID)
 		return gitWebhook.Spec.WebhookID, nil
-
 	} else if err = client.IgnoreNotFound(err); err != nil {
 		s.logger.Error("Failed to get GitRepositoryWebhook", "error", err)
 		return "", fmt.Errorf("failed to get GitRepositoryWebhook: %w", err)

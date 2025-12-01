@@ -742,7 +742,6 @@ func (r *Reconciler) registerWebhook(ctx context.Context, comp *openchoreov1alph
 
 		logger.Info("Component added to existing webhook", "component", comp.Name, "webhookID", gitWebhook.Spec.WebhookID)
 		return nil
-
 	} else if !apierrors.IsNotFound(err) {
 		logger.Error(err, "Failed to get GitRepositoryWebhook")
 		return fmt.Errorf("failed to get GitRepositoryWebhook: %w", err)
