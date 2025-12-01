@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -648,7 +647,6 @@ func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha
 // reconcileWebhook handles webhook registration/deregistration based on autoBuild flag
 func (r *Reconciler) reconcileWebhook(ctx context.Context, comp *openchoreov1alpha1.Component) error {
 	logger := log.FromContext(ctx)
-	logger.Info("Helloooooooooo")
 
 	// Skip if GitProvider is not configured
 	if r.GitProvider == nil {
@@ -981,26 +979,19 @@ func (r *Reconciler) deregisterWebhook(ctx context.Context, comp *openchoreov1al
 	return nil
 }
 
-// extractRepoURLFromComponent extracts the repository URL from component workflow schema
+// extractRepoURLFromComponent extracts the repository URL from component workflow system parameters
 func extractRepoURLFromComponent(comp *openchoreov1alpha1.Component) (string, error) {
-	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Schema == nil {
-		return "", fmt.Errorf("component has no workflow schema")
+	if comp.Spec.Workflow == nil {
+		return "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Parse the workflow schema to extract repository information
-	var schema map[string]interface{}
-	if err := json.Unmarshal(comp.Spec.Workflow.Schema.Raw, &schema); err != nil {
-		return "", fmt.Errorf("failed to unmarshal workflow schema: %w", err)
+	// Extract repository URL from system parameters
+	repoURL := comp.Spec.Workflow.SystemParameters.Repository.URL
+	if repoURL == "" {
+		return "", fmt.Errorf("repository URL not found in workflow system parameters")
 	}
 
-	// Extract repository URL
-	if repo, ok := schema["repository"].(map[string]interface{}); ok {
-		if url, ok := repo["url"].(string); ok {
-			return url, nil
-		}
-	}
-
-	return "", fmt.Errorf("repository URL not found in workflow schema")
+	return repoURL, nil
 }
 
 // normalizeRepoURL normalizes repository URLs for comparison
