@@ -14,6 +14,9 @@ WORKDIR /
 # Copy the pre-built binary produced by the Makefile into the image
 COPY bin/dist/${TARGETOS}/${TARGETARCH}/openchoreo-api .
 
+# Copy authorization model configuration
+COPY internal/authz/casbin/rbac_model.conf /etc/openchoreo/authz/rbac_model.conf
+
 # Use non-root user for security (65532 is 'nonroot' user in distroless)
 USER 65532:65532
 

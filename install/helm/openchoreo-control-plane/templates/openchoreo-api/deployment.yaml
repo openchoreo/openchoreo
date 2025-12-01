@@ -62,6 +62,19 @@ spec:
           value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
           value: "{{ not .Values.security.enabled }}"
+        - name: AUTHZ_ENABLED
+          value: "{{ .Values.openchoreoApi.authz.enabled }}"
+        - name: AUTHZ_MODEL_PATH
+          value: {{ .Values.openchoreoApi.authz.casbinModelPath | quote }}
+        - name: AUTHZ_DATABASE_PATH
+          value: {{ .Values.openchoreoApi.authz.databasePath | quote }}
+        - name: DATABASE_PATH
+          value: {{ .Values.openchoreoApi.database.path | quote }}
+        {{- if .Values.openchoreoApi.database.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/openchoreo/data
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -80,4 +93,10 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- if .Values.openchoreoApi.database.persistence.enabled }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-db
+      {{- end }}
 {{- end }}

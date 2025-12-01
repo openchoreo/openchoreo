@@ -204,6 +204,16 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
+  database:
+    path: "/var/lib/openchoreo/data/controlplane.db"
+    persistence:
+      enabled: true
+      size: 500Mi
+      storageClassName: "" # Use default storage class if not specified
+  authz:
+    enabled: false
+    casbinModelPath: "/etc/openchoreo/authz/rbac_model.conf"
+    databasePath: "/var/lib/openchoreo/data/casbin.db"
   resources:
     requests:
       cpu: "200m"
