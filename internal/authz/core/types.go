@@ -3,6 +3,8 @@
 
 package core
 
+import "fmt"
+
 // SubjectType defines the type of subject making the authorization request
 type SubjectType string
 
@@ -133,3 +135,11 @@ type PolicyMapping struct {
 	// Context provides optional additional context metadata for this mapping
 	Context Context `json:"context"`
 }
+
+var (
+	ErrAuthzDisabled                  = fmt.Errorf("authorization is disabled - policy management operations are not available")
+	ErrRoleAlreadyExists              = fmt.Errorf("role already exists")
+	ErrRoleNotFound                   = fmt.Errorf("role not found")
+	ErrRolePolicyMappingAlreadyExists = fmt.Errorf("role policy mapping already exists")
+	ErrRolePolicyMappingNotFound      = fmt.Errorf("role policy mapping not found")
+)

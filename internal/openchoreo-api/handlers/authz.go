@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -16,6 +17,9 @@ func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.services.AuthzService.ListRoles(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to list roles", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list roles", services.CodeInternalError)
 		return
 	}
@@ -34,6 +38,9 @@ func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
 	role, err := h.services.AuthzService.GetRole(r.Context(), roleName)
 	if err != nil {
 		h.logger.Error("Failed to get role", "error", err, "role", roleName)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
 		writeErrorResponse(w, http.StatusNotFound, "Role not found", services.CodeInternalError)
 		return
 	}
@@ -51,6 +58,13 @@ func (h *Handler) AddRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.services.AuthzService.AddRole(r.Context(), role); err != nil {
 		h.logger.Error("Failed to add role", "error", err, "role", role.Name)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
+		if errors.Is(err, authz.ErrRoleAlreadyExists) {
+			writeErrorResponse(w, http.StatusConflict, authz.ErrRoleAlreadyExists.Error(), services.CodeConflict)
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to add role", services.CodeInternalError)
 		return
 	}
@@ -68,6 +82,13 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.services.AuthzService.RemoveRole(r.Context(), roleName); err != nil {
 		h.logger.Error("Failed to remove role", "error", err, "role", roleName)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
+		if errors.Is(err, authz.ErrRoleNotFound) {
+			writeSuccessResponse(w, http.StatusNoContent, "")
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to remove role", services.CodeInternalError)
 		return
 	}
@@ -80,6 +101,9 @@ func (h *Handler) ListRoleMappings(w http.ResponseWriter, r *http.Request) {
 	mappings, err := h.services.AuthzService.ListRoleMappings(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to list role mappings", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list role mappings", services.CodeInternalError)
 		return
 	}
@@ -97,6 +121,13 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.services.AuthzService.AddRoleMapping(r.Context(), &mapping); err != nil {
 		h.logger.Error("Failed to add role mapping", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
+		if errors.Is(err, authz.ErrRolePolicyMappingAlreadyExists) {
+			writeErrorResponse(w, http.StatusConflict, authz.ErrRolePolicyMappingAlreadyExists.Error(), services.CodeConflict)
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to add role mapping", services.CodeInternalError)
 		return
 	}
@@ -114,6 +145,13 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.services.AuthzService.RemoveRoleMapping(r.Context(), &mapping); err != nil {
 		h.logger.Error("Failed to remove role mapping", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
+		if errors.Is(err, authz.ErrRolePolicyMappingNotFound) {
+			writeSuccessResponse(w, http.StatusNoContent, "")
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to remove role mapping", services.CodeInternalError)
 		return
 	}
@@ -125,6 +163,10 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListActions(w http.ResponseWriter, r *http.Request) {
 	actions, err := h.services.AuthzService.ListActions(r.Context())
 	if err != nil {
+		h.logger.Error("Failed to list actions", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list actions", services.CodeInternalError)
 		return
 	}
@@ -164,4 +206,13 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeSuccessResponse(w, http.StatusOK, response)
+}
+
+// handleAuthzDisabledError checks if the error indicates that authorization is disabled and returns a standardized error
+func handleAuthzDisabledError(w http.ResponseWriter, err error) bool {
+	if err != nil && errors.Is(err, authz.ErrAuthzDisabled) {
+		writeErrorResponse(w, http.StatusForbidden, authz.ErrAuthzDisabled.Error(), services.CodeForbidden)
+		return true
+	}
+	return false
 }

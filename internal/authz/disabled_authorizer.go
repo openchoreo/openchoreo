@@ -5,7 +5,6 @@ package authz
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -80,56 +79,54 @@ func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *au
 // PAP Implementation - All policy operations fail
 // ============================================================================
 
-var errAuthzDisabled = fmt.Errorf("authorization is disabled - policy management operations are not available")
-
 // AddRole fails with error
 func (da *DisabledAuthorizer) AddRole(ctx context.Context, role authz.Role) error {
-	return errAuthzDisabled
+	return authz.ErrAuthzDisabled
 }
 
 // RemoveRole fails with error
 func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleName string) error {
-	return errAuthzDisabled
+	return authz.ErrAuthzDisabled
 }
 
 // GetRole fails with error
 func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleName string) (authz.Role, error) {
-	return authz.Role{}, errAuthzDisabled
+	return authz.Role{}, authz.ErrAuthzDisabled
 }
 
 // ListRoles fails with error
 func (da *DisabledAuthorizer) ListRoles(ctx context.Context) ([]authz.Role, error) {
-	return nil, errAuthzDisabled
+	return nil, authz.ErrAuthzDisabled
 }
 
 // AddRolePrincipalMapping fails with error
 func (da *DisabledAuthorizer) AddRolePrincipalMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
-	return errAuthzDisabled
+	return authz.ErrAuthzDisabled
 }
 
 // RemoveRolePrincipalMapping fails with error
 func (da *DisabledAuthorizer) RemoveRolePrincipalMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
-	return errAuthzDisabled
+	return authz.ErrAuthzDisabled
 }
 
 // GetPrincipalMappings fails with error
 func (da *DisabledAuthorizer) GetPrincipalMappings(ctx context.Context, principal string) ([]authz.PolicyMapping, error) {
-	return nil, errAuthzDisabled
+	return nil, authz.ErrAuthzDisabled
 }
 
 // GetRoleMappings fails with error
 func (da *DisabledAuthorizer) GetRoleMappings(ctx context.Context, roleName string) ([]authz.PolicyMapping, error) {
-	return nil, errAuthzDisabled
+	return nil, authz.ErrAuthzDisabled
 }
 
 // ListRolePrincipalMappings fails with error
 func (da *DisabledAuthorizer) ListRolePrincipalMappings(ctx context.Context) ([]authz.PolicyMapping, error) {
-	return nil, errAuthzDisabled
+	return nil, authz.ErrAuthzDisabled
 }
 
 // ListActions fails with error
 func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error) {
-	return nil, errAuthzDisabled
+	return nil, authz.ErrAuthzDisabled
 }
 
 // These var declarations enforce at compile-time that DisabledAuthorizer

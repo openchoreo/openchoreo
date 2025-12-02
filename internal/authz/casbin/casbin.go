@@ -198,9 +198,13 @@ func (ce *CasbinEnforcer) AddRole(ctx context.Context, role authzcore.Role) erro
 	}
 
 	// Add all role-action mappings in a single atomic transaction
-	_, err := ce.enforcer.AddGroupingPolicies(rules)
+	ok, err := ce.enforcer.AddGroupingPolicies(rules)
 	if err != nil {
 		return fmt.Errorf("failed to add role action mappings: %w", err)
+	}
+	// if err is nil and ok is false, some mappings already exist
+	if !ok {
+		return authzcore.ErrRoleAlreadyExists
 	}
 	return nil
 }
@@ -213,9 +217,13 @@ func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleName string) error
 		return fmt.Errorf("role name cannot be empty")
 	}
 
-	_, err := ce.enforcer.RemoveFilteredGroupingPolicy(0, roleName)
+	ok, err := ce.enforcer.RemoveFilteredGroupingPolicy(0, roleName)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
+	}
+	// if err is nil and ok is false, role did not exist
+	if !ok {
+		return authzcore.ErrRoleNotFound
 	}
 
 	return nil
@@ -297,13 +305,17 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 
 	// policy: p, subject, resourcePath, role, eft, context
 	// TODO: Handle context conditions properly in the future
-	_, err := ce.enforcer.AddPolicy(
+	ok, err := ce.enforcer.AddPolicy(
 		mapping.Principal,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
 		"{}",
 	)
+	// if err is nil and ok is false, some mappings already exist
+	if !ok {
+		return authzcore.ErrRolePolicyMappingAlreadyExists
+	}
 
 	if err != nil {
 		return fmt.Errorf("failed to add role principal mapping: %w", err)
@@ -324,13 +336,17 @@ func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mappin
 
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
-	_, err := ce.enforcer.RemovePolicy(
+	ok, err := ce.enforcer.RemovePolicy(
 		mapping.Principal,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
 		"{}",
 	)
+	// if err is nil and ok is false, mapping did not exist
+	if !ok {
+		return authzcore.ErrRolePolicyMappingNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("failed to remove role principal mapping: %w", err)
 	}
