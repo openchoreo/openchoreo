@@ -1,0 +1,15 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: false
+includeStructuralComments: false
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    parameters:
+      port: 'integer | description="Container port"'

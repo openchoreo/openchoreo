@@ -1,0 +1,60 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    types:
+      # Object with $default
+      Monitoring:
+        $default: {}
+        enabled: 'boolean | default=false'
+        port: 'integer | default=9090'
+        interval: 'integer | default=30'
+
+    parameters:
+      # Boolean type
+      debug: 'boolean | default=false'
+      enableMetrics: boolean
+
+      # Number type (float)
+      cpuThreshold: 'number | minimum=0.1 maximum=1.0 default=0.8'
+      memoryLimit: 'number | minimum=0'
+
+      # String with validation constraints
+      username: 'string | minLength=3 maxLength=20 pattern=^[a-z][a-z0-9_]*$'
+      email: 'string | format=email'
+      region: 'string | minLength=2 maxLength=50'
+
+      # Integer with validation constraints
+      replicas: 'integer | minimum=1 maximum=100 default=3'
+      port: 'integer | minimum=1 maximum=65535'
+      timeout: 'integer | minimum=0 maximum=3600 default=30'
+
+      # Nested inline objects
+      database:
+        host: string
+        port: 'integer | default=5432 minimum=1 maximum=65535'
+        username: string
+        password: string
+        options:
+          ssl: 'boolean | default=true'
+          timeout: 'integer | default=30 minimum=1'
+          maxConnections: 'integer | default=10 minimum=1 maximum=1000'
+
+      # Reference to type with $default
+      monitoring: Monitoring
+
+      # Nested object with $default
+      cache:
+        $default: {}
+        enabled: 'boolean | default=false'
+        ttl: 'integer | default=300 minimum=60'
+        maxSize: 'integer | default=1000 minimum=100'

@@ -1,0 +1,49 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    types:
+      EndpointConfig:
+        host: string
+        port: integer
+        protocol: string
+      ServiceConfig:
+        name: string
+        enabled: boolean
+        endpoints: '[]EndpointConfig'
+    parameters:
+      # []map<T> - Array of maps with primitive values
+      envMappings: '[]map<string> | description="Array of maps with string values"'
+      portMappings: '[]map<integer> | description="Array of maps with integer values"'
+      featureSets: '[]map<boolean> | description="Array of maps with boolean values"'
+
+      # []map<CustomType> - Array of maps with custom type values
+      endpoints: '[]map<EndpointConfig> | description="Array of maps with custom type values"'
+
+      # map<[]T> - Map of arrays with primitives
+      tagGroups: 'map<[]string> | description="Map of arrays with string values"'
+      portGroups: 'map<[]integer> | description="Map of arrays with integer values"'
+
+      # map<[]CustomType> - Map of arrays with custom type objects
+      serviceGroups: 'map<[]ServiceConfig> | description="Map of arrays with ServiceConfig objects"'
+
+      # map<CustomType> - Map with custom type that includes array of objects
+      services: 'map<ServiceConfig> | description="Map of services where ServiceConfig includes array of endpoints"'
+
+      # Optional variants with defaults
+      defaultEnvMappings: '[]map<string> | default=[{"DEBUG": "true", "LOG_LEVEL": "info"}, {"CACHE_TTL": "300"}] description="Optional []map with default"'
+      defaultTagGroups: 'map<[]string> | default={"app": ["web", "api"], "env": ["prod"]} description="Optional map<[]T> with default"'
+      customMappings: '[]map<string> | default=[] description="Optional []map with empty default"'
+      customGroups: 'map<[]string> | default={} description="Optional map<[]T> with empty default"'
+
+      # []CustomType with default - tests that array of objects preserves structure (not stringified)
+      defaultEndpoints: '[]EndpointConfig | default=[{"host": "api.example.com", "port": 8080, "protocol": "https"}, {"host": "metrics.example.com", "port": 9090, "protocol": "http"}] description="Optional []CustomType with default"'

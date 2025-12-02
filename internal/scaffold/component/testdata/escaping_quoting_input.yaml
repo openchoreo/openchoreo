@@ -1,0 +1,24 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    parameters:
+      environment: 'string | enum="development environment","staging environment","production environment" description="Enum with spaces in values"'
+      logFormat: 'string | enum=json,text,"key=value pairs" description="Enum with special characters"'
+      greeting: 'string | default="Hello, World!" description="Default with comma and exclamation"'
+      timeFormat: 'string | default="HH:mm:ss" description="Default with colons (YAML special)"'
+      queryTemplate: 'string | default="SELECT * FROM \"users\" WHERE status = ''active''" description="Default with quotes inside"'
+      trueFalseString: 'string | default="true" description="Boolean-like string that needs quoting"'
+      zipCode: 'string | default="00123" description="Number-like string with leading zeros"'
+      multiline: 'string | default="line1\\nline2" description="Default with escaped newline"'
+      specialTags: '[]string | default=["tag:value", "key=pair", "with spaces"] description="Array with special string values"'
+      specialLabels: 'map<string> | default={"app.kubernetes.io/name": "my-app", "version": "1.0.0"} description="Map with special key format"'
