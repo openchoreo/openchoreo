@@ -61,6 +61,7 @@ const (
 	CodeConflict                   = "CONFLICT"
 	CodeInternalError              = "INTERNAL_ERROR"
 	CodeForbidden                  = "FORBIDDEN"
+	CodeNotFound                   = "NOT_FOUND"
 	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
 	CodeInvalidCommitSHA           = "INVALID_COMMIT_SHA"
 	CodeInvalidParams              = "INVALID_PARAMS"

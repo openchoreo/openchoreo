@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -144,7 +145,11 @@ func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequ
 
 	decision, err := s.pdp.Evaluate(ctx, request)
 	if err != nil {
-		return authz.Decision{}, fmt.Errorf("failed to evaluate request")
+		s.logger.Error("Failed to evaluate authorization request", "error", err)
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			return authz.Decision{}, err
+		}
+		return authz.Decision{}, fmt.Errorf("failed to evaluate request: %w", err)
 	}
 
 	s.logger.Debug("Authorization decision made",
@@ -160,6 +165,9 @@ func (s *AuthzService) BatchEvaluate(ctx context.Context, request *authz.BatchEv
 	response, err := s.pdp.BatchEvaluate(ctx, request)
 	if err != nil {
 		s.logger.Error("Failed to batch evaluate authorization requests", "error", err)
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			return authz.BatchEvaluateResponse{}, err
+		}
 		return authz.BatchEvaluateResponse{}, fmt.Errorf("failed to batch evaluate requests: %w", err)
 	}
 

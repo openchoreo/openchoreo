@@ -70,11 +70,9 @@ spec:
           value: {{ .Values.openchoreoApi.authz.databasePath | quote }}
         - name: DATABASE_PATH
           value: {{ .Values.openchoreoApi.database.path | quote }}
-        {{- if .Values.openchoreoApi.database.persistence.enabled }}
         volumeMounts:
         - name: data
           mountPath: /var/lib/openchoreo/data
-        {{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -93,10 +91,12 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-      {{- if .Values.openchoreoApi.database.persistence.enabled }}
       volumes:
       - name: data
+      {{- if .Values.openchoreoApi.database.persistence.enabled }}
         persistentVolumeClaim:
           claimName: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-db
+      {{- else }}
+        emptyDir: {}
       {{- end }}
 {{- end }}

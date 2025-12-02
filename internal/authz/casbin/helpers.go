@@ -155,7 +155,7 @@ func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
 func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	hierarchy := authzcore.ResourceHierarchy{}
 
-	// Global wildcard  map to empty hierarchy
+	// Global wildcard map to empty hierarchy
 	if resourcePath == "*" {
 		return hierarchy
 	}
@@ -184,19 +184,19 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 // Extract group, service_account from subject
 // hack: this is temporarily done to work with thunder jwt token structure
 // need a proper layer to parse different token types in future
-func populateSubjectClaims(subject *authzcore.Subject) error {
+func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContext, error) {
 	jwtToken := subject.JwtToken
 
 	// Parse JWT without verification (just to extract claims)
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	token, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{})
 	if err != nil {
-		return fmt.Errorf("failed to parse JWT token: %w", err)
+		return nil, fmt.Errorf("failed to parse JWT token: %w", err)
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return fmt.Errorf("failed to parse JWT claims")
+		return nil, fmt.Errorf("failed to parse JWT claims")
 	}
 
 	// Extract groups and service accounts
@@ -216,18 +216,58 @@ func populateSubjectClaims(subject *authzcore.Subject) error {
 				}
 			}
 		}
-		subject.Type = authzcore.SubjectTypeUser
-		subject.Claims = entitlements
-		return nil
+		return &authzcore.SubjectContext{
+			JwtToken: subject.JwtToken,
+			Type:     authzcore.SubjectTypeUser,
+			Claims:   entitlements,
+		}, nil
 	}
 
 	// Extract service account
 	if sa, ok := claims["service_account"].(string); ok && sa != "" {
 		entitlements = append(entitlements, sa)
-		subject.Type = authzcore.SubjectTypeServiceAccount
-		subject.Claims = entitlements
-		return nil
+		return &authzcore.SubjectContext{
+			JwtToken: subject.JwtToken,
+			Type:     authzcore.SubjectTypeServiceAccount,
+			Claims:   entitlements,
+		}, nil
 	}
 
-	return fmt.Errorf("no valid subject claims found in token")
+	return nil, fmt.Errorf("no valid subject claims found in token")
+}
+
+// validateEvaluateRequest checks if the EvaluateRequest has all required fields
+func validateEvaluateRequest(req *authzcore.EvaluateRequest) error {
+	if req == nil {
+		return fmt.Errorf("%w: evaluate request is nil", authzcore.ErrInvalidRequest)
+	}
+	if req.Subject.JwtToken == "" {
+		return fmt.Errorf("%w: evaluate subject jwt token is required", authzcore.ErrInvalidRequest)
+	}
+	if req.Resource.Type == "" {
+		return fmt.Errorf("%w: resource type is required", authzcore.ErrInvalidRequest)
+	}
+	if req.Action == "" {
+		return fmt.Errorf("%w: action is required", authzcore.ErrInvalidRequest)
+	}
+	return nil
+}
+
+// validateBatchEvaluateRequest checks if each EvaluateRequest in the BatchEvaluateRequest has all required fields
+func validateBatchEvaluateRequest(req *authzcore.BatchEvaluateRequest) error {
+	if req == nil {
+		return fmt.Errorf("%w: batch evaluate request is nil", authzcore.ErrInvalidRequest)
+	}
+	for i, req := range req.Requests {
+		if req.Subject.JwtToken == "" {
+			return fmt.Errorf("%w: evaluate subject jwt token is required at index %d", authzcore.ErrInvalidRequest, i)
+		}
+		if req.Resource.Type == "" {
+			return fmt.Errorf("%w: resource type is required at index %d", authzcore.ErrInvalidRequest, i)
+		}
+		if req.Action == "" {
+			return fmt.Errorf("%w: action is required at index %d", authzcore.ErrInvalidRequest, i)
+		}
+	}
+	return nil
 }

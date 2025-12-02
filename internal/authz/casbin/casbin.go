@@ -10,6 +10,7 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
+	"gorm.io/gorm"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
@@ -20,6 +21,7 @@ type CasbinEnforcer struct {
 	config           CasbinConfig
 	logger           *slog.Logger
 	actionRepository *ActionRepository
+	db               *gorm.DB
 }
 
 // CasbinConfig holds configuration for the Casbin enforcer
@@ -29,6 +31,12 @@ type CasbinConfig struct {
 	EnableCache       bool   // Optional: Enable policy cache (default: false)
 	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
 }
+
+const (
+	// emptyContextJSON represents an empty context used when no contextual conditions are applied
+	// TODO: Replace with proper context handling when context matching is implemented
+	emptyContextJSON = "{}"
+)
 
 // NewCasbinEnforcer creates a new Casbin-based authorizer
 func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
@@ -90,6 +98,7 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		config:           config,
 		logger:           logger,
 		actionRepository: actionRepo,
+		db:               db,
 	}
 
 	logger.Info("casbin enforcer initialized",
@@ -104,55 +113,28 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 
 // Evaluate evaluates a single authorization request and returns a decision
 func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (authzcore.Decision, error) {
-	// TODO: once context is properly integrated, pass it to enforcer
-	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
-	subject := request.Subject
-	err := populateSubjectClaims(&subject)
+	err := validateEvaluateRequest(request)
 	if err != nil {
-		return authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
+		return authzcore.Decision{Decision: false}, err
 	}
-
-	ce.logger.Debug("evaluate called",
-		"subject", subject.Claims,
-		"resource", resourcePath,
-		"action", request.Action,
-		"context", request.Context)
-
-	result := false
-	decision := authzcore.Decision{Decision: false,
-		Context: &authzcore.DecisionContext{
-			Reason: "no matching policies found",
-		}}
-	for _, claim := range subject.Claims {
-		result, err = ce.enforcer.Enforce(
-			claim,
-			resourcePath,
-			request.Action,
-			"{}",
-		)
-		if err != nil {
-			return authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
-		}
-		if result {
-			decision.Decision = true
-			resourceInfo := fmt.Sprintf("hierarchy '%s'", resourcePath)
-			if request.Resource.ID != "" {
-				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
-			}
-			decision.Context.Reason = fmt.Sprintf("Access granted: principal '%s' authorized to perform '%s' on %s", claim, request.Action, resourceInfo)
-			break
-		}
-	}
-	return decision, nil
+	return ce.check(request)
 }
 
 // BatchEvaluate evaluates multiple authorization requests and returns corresponding decisions
 // NOTE: if needed, can be enhanced to do in parallel
 func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (authzcore.BatchEvaluateResponse, error) {
-	decisions := make([]authzcore.Decision, len(request.Requests))
+	err := validateBatchEvaluateRequest(request)
+	if err != nil {
+		return authzcore.BatchEvaluateResponse{}, err
+	}
 
+	decisions := make([]authzcore.Decision, len(request.Requests))
 	for i, req := range request.Requests {
-		decision, err := ce.Evaluate(ctx, &req)
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			return authzcore.BatchEvaluateResponse{}, ctx.Err()
+		}
+		decision, err := ce.check(&req)
 		if err != nil {
 			return authzcore.BatchEvaluateResponse{}, fmt.Errorf("batch evaluate failed at index %d: %w", i, err)
 		}
@@ -310,7 +292,7 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
-		"{}",
+		emptyContextJSON,
 	)
 	// if err is nil and ok is false, some mappings already exist
 	if !ok {
@@ -341,7 +323,7 @@ func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mappin
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
-		"{}",
+		emptyContextJSON,
 	)
 	// if err is nil and ok is false, mapping did not exist
 	if !ok {
@@ -426,6 +408,65 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+// TODO: once context is properly integrated, pass it to enforcer
+
+func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (authzcore.Decision, error) {
+	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
+	subject := request.Subject
+	subjectCtx, err := populateSubjectClaims(&subject)
+	if err != nil {
+		return authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
+	}
+
+	ce.logger.Debug("evaluate called",
+		"subject", subjectCtx.Claims,
+		"resource", resourcePath,
+		"action", request.Action,
+		"context", request.Context)
+
+	result := false
+	decision := authzcore.Decision{Decision: false,
+		Context: &authzcore.DecisionContext{
+			Reason: "no matching policies found",
+		}}
+	for _, claim := range subjectCtx.Claims {
+		result, err = ce.enforcer.Enforce(
+			claim,
+			resourcePath,
+			request.Action,
+			emptyContextJSON,
+		)
+		if err != nil {
+			return authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
+		}
+		if result {
+			decision.Decision = true
+			resourceInfo := fmt.Sprintf("hierarchy '%s'", resourcePath)
+			if request.Resource.ID != "" {
+				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
+			}
+			decision.Context.Reason = fmt.Sprintf("Access granted: principal '%s' authorized to perform '%s' on %s", claim, request.Action, resourceInfo)
+			break
+		}
+	}
+	return decision, nil
+}
+
+// Close closes the database connection and cleans up resources
+func (ce *CasbinEnforcer) Close() error {
+	if ce.db != nil {
+		sqlDB, err := ce.db.DB()
+		if err != nil {
+			return fmt.Errorf("failed to get underlying database connection: %w", err)
+		}
+		if err := sqlDB.Close(); err != nil {
+			return fmt.Errorf("failed to close database connection: %w", err)
+		}
+		ce.logger.Info("casbin database connection closed")
+	}
+	return nil
 }
 
 // These var declarations enforce at compile-time that CasbinEnforcer

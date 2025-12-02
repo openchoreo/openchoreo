@@ -10,20 +10,22 @@ import (
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // CasbinRule defines the custom schema for Casbin policy storage
+// The unique index ensures no duplicate rules can be created, enabling atomic conflict resolution
 type CasbinRule struct {
 	ID    uint   `gorm:"primaryKey;autoIncrement"`
-	Ptype string `gorm:"type:text"` // Policy type: p (policy) or g (grouping/role)
-	V0    string `gorm:"type:text"` // p - subject/principal, g - role
-	V1    string `gorm:"type:text"` // p - resource path, g - action
-	V2    string `gorm:"type:text"` // p - role name
-	V3    string `gorm:"type:text"` // p - effect (allow/deny)
-	V4    string `gorm:"type:text"` // p - context info
-	V5    string `gorm:"type:text"` // extra field
+	Ptype string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // Policy type: p (policy) or g (grouping/role)
+	V0    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - subject/principal, g - role
+	V1    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - resource path, g - action
+	V2    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - role name
+	V3    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - effect (allow/deny)
+	V4    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - context info
+	V5    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // extra field
 }
 
 // Action defines the schema for storing available actions
@@ -74,14 +76,23 @@ func newAdapter(dbPath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm
 func seedInitialData(db *gorm.DB, logger *slog.Logger) error {
 	logger.Info("seeding initial authorization data")
 
-	// Seed actions
-	if err := seedActions(db, logger); err != nil {
-		return fmt.Errorf("failed to seed actions: %w", err)
-	}
+	// Use a transaction to ensure atomicity of seeding operations
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Seed actions
+		if err := seedActions(tx, logger); err != nil {
+			return fmt.Errorf("failed to seed actions: %w", err)
+		}
 
-	// Seed roles (grouping policies)
-	if err := seedRoles(db, logger); err != nil {
-		return fmt.Errorf("failed to seed roles: %w", err)
+		// Seed roles (grouping policies)
+		if err := seedRoles(tx, logger); err != nil {
+			return fmt.Errorf("failed to seed roles: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	logger.Info("initial authorization data seeded successfully")
@@ -90,57 +101,66 @@ func seedInitialData(db *gorm.DB, logger *slog.Logger) error {
 
 // seedActions creates initial actions if they don't exist
 // Actions are defined in internal/authz/default_data.go
+// Uses atomic INSERT with ON CONFLICT DO NOTHING to handle race conditions
 func seedActions(db *gorm.DB, logger *slog.Logger) error {
 	// Get all actions from authz package
 	actions := authzcore.ListDefaultActions()
 
+	// Prepare action records for batch insert
+	actionRecords := make([]Action, 0, len(actions))
 	for _, actionName := range actions {
-		action := Action{Action: actionName}
-		result := db.Where(Action{Action: actionName}).FirstOrCreate(&action)
-		if result.Error != nil {
-			return fmt.Errorf("failed to create action %s: %w", actionName, result.Error)
-		}
-		if result.RowsAffected > 0 {
-			logger.Debug("created action", "action", actionName)
-		}
+		actionRecords = append(actionRecords, Action{Action: actionName})
 	}
 
-	logger.Info("actions seeded", "count", len(actions))
+	// Use atomic INSERT with ON CONFLICT DO NOTHING
+	// This is idempotent and safe for concurrent execution
+	result := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "action"}},
+		DoNothing: true, // Ignore conflicts on unique constraint
+	}).Create(&actionRecords)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to seed actions: %w", result.Error)
+	}
+
+	logger.Info("actions seeded", "total_actions", len(actions), "inserted", result.RowsAffected)
 	return nil
 }
 
 // seedRoles creates initial role definitions (grouping policies)
 // Roles are defined in internal/authz/default_data.go
+// Uses atomic INSERT with ON CONFLICT DO NOTHING to handle race conditions
 func seedRoles(db *gorm.DB, logger *slog.Logger) error {
 	// Get default roles from authz package
 	roleDefinitions := authzcore.ListDefaultRoles()
 
-	createdCount := 0
+	// Prepare all role mapping records for batch insert
+	ruleRecords := make([]CasbinRule, 0)
 	for _, roleDef := range roleDefinitions {
 		for _, action := range roleDef.Actions {
-			rule := CasbinRule{
+			ruleRecords = append(ruleRecords, CasbinRule{
 				Ptype: "g",
 				V0:    roleDef.Name,
 				V1:    action,
-			}
-
-			result := db.Where(CasbinRule{
-				Ptype: "g",
-				V0:    roleDef.Name,
-				V1:    action,
-			}).FirstOrCreate(&rule)
-
-			if result.Error != nil {
-				return fmt.Errorf("failed to create role mapping %s -> %s: %w", roleDef.Name, action, result.Error)
-			}
-
-			if result.RowsAffected > 0 {
-				logger.Debug("created role mapping", "role", roleDef.Name, "action", action)
-				createdCount++
-			}
+				V2:    "",
+				V3:    "",
+				V4:    "",
+				V5:    "",
+			})
 		}
 	}
 
-	logger.Info("roles seeded", "roles", len(roleDefinitions), "mappings_created", createdCount)
+	// Use atomic INSERT with ON CONFLICT DO NOTHING
+	// This is idempotent and safe for concurrent execution
+	result := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "ptype"}, {Name: "v0"}, {Name: "v1"}, {Name: "v2"}, {Name: "v3"}, {Name: "v4"}, {Name: "v5"}},
+		DoNothing: true, // Ignore conflicts on unique constraint
+	}).Create(&ruleRecords)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to seed roles: %w", result.Error)
+	}
+
+	logger.Info("roles seeded", "roles", len(roleDefinitions), "total_mappings", len(ruleRecords), "inserted", result.RowsAffected)
 	return nil
 }

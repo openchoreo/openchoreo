@@ -41,7 +41,7 @@ func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
-		writeErrorResponse(w, http.StatusNotFound, "Role not found", services.CodeInternalError)
+		writeErrorResponse(w, http.StatusNotFound, "Role not found", services.CodeNotFound)
 		return
 	}
 
@@ -86,14 +86,14 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, authz.ErrRoleNotFound) {
-			writeSuccessResponse(w, http.StatusNoContent, "")
+			writeSuccessResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to remove role", services.CodeInternalError)
 		return
 	}
 
-	writeSuccessResponse(w, http.StatusOK, map[string]string{"message": "Role removed successfully"})
+	writeSuccessResponse(w, http.StatusNoContent, "")
 }
 
 // ListRoleMappings handles GET /api/v1/authz/role-mappings
@@ -149,14 +149,14 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, authz.ErrRolePolicyMappingNotFound) {
-			writeSuccessResponse(w, http.StatusNoContent, "")
+			writeSuccessResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to remove role mapping", services.CodeInternalError)
 		return
 	}
 
-	writeSuccessResponse(w, http.StatusOK, map[string]string{"message": "Role mapping removed successfully"})
+	writeSuccessResponse(w, http.StatusNoContent, "")
 }
 
 // ListActions handles GET /api/v1/authz/actions
@@ -184,6 +184,10 @@ func (h *Handler) Evaluate(w http.ResponseWriter, r *http.Request) {
 
 	decision, err := h.services.AuthzService.Evaluate(r.Context(), &request)
 	if err != nil {
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to evaluate request", services.CodeInternalError)
 		return
 	}
@@ -201,6 +205,10 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.services.AuthzService.BatchEvaluate(r.Context(), &request)
 	if err != nil {
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+			return
+		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to batch evaluate requests", services.CodeInternalError)
 		return
 	}

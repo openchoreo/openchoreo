@@ -89,5 +89,12 @@ func main() {
 		baseLogger.Error("Server shutdown error", slog.Any("error", err))
 	}
 
+	// Close authorization database connection
+	if casbinEnforcer, ok := pap.(interface{ Close() error }); ok {
+		if err := casbinEnforcer.Close(); err != nil {
+			baseLogger.Error("Failed to close authorization database", slog.Any("error", err))
+		}
+	}
+
 	baseLogger.Info("Server stopped gracefully")
 }

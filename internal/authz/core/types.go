@@ -22,11 +22,15 @@ const (
 )
 
 // Subject represents the actor making the authorization request
-// Subject can be a user, or service account
 type Subject struct {
-	JwtToken string      `json:"jwt_token"`
-	Type     SubjectType `json:"type"`
-	Claims   []string    `json:"claims,omitempty"`
+	JwtToken string `json:"jwt_token"`
+}
+
+// SubjectContext - internal auth context for the subject
+type SubjectContext struct {
+	JwtToken string
+	Type     SubjectType
+	Claims   []string
 }
 
 // ResourceHierarchy represents a single item in a resource hierarchy
@@ -142,4 +146,5 @@ var (
 	ErrRoleNotFound                   = fmt.Errorf("role not found")
 	ErrRolePolicyMappingAlreadyExists = fmt.Errorf("role policy mapping already exists")
 	ErrRolePolicyMappingNotFound      = fmt.Errorf("role policy mapping not found")
+	ErrInvalidRequest                 = fmt.Errorf("invalid request")
 )
