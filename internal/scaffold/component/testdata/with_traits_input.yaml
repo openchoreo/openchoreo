@@ -1,0 +1,27 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: true
+includeStructuralComments: true
+traitInstanceNames:
+  storage: app-storage
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    parameters:
+      port: "integer"
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: storage
+spec:
+  schema:
+    parameters:
+      mountPath: 'string | description="Mount path"'
+      size: string | default=10Gi
