@@ -38,6 +38,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -122,6 +132,7 @@ rules:
   - endpoints
   - environments
   - gitcommitrequests
+  - gitrepositorywebhooks
   - organizations
   - projects
   - releasebindings
@@ -214,6 +225,7 @@ rules:
   - endpoints/status
   - environments/status
   - gitcommitrequests/status
+  - gitrepositorywebhooks/status
   - organizations/status
   - projects/status
   - releasebindings/status

@@ -45,7 +45,7 @@ func main() {
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), baseLogger)
 
 	// Initialize HTTP handlers
-	handler := handlers.New(services, baseLogger.With("component", "handlers"))
+	handler := handlers.New(services, k8sClient, baseLogger.With("component", "handlers"))
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(*port),

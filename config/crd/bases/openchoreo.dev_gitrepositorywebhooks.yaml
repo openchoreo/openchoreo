@@ -1,0 +1,185 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: gitrepositorywebhooks.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: GitRepositoryWebhook
+    listKind: GitRepositoryWebhookList
+    plural: gitrepositorywebhooks
+    shortNames:
+    - gitwebhook
+    - gitwebhooks
+    singular: gitrepositorywebhook
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          GitRepositoryWebhook is the Schema for tracking git repository webhooks
+          This resource tracks webhooks at the repository level to support multiple
+          components pointing to the same repository
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: GitRepositoryWebhookSpec defines the desired state of GitRepositoryWebhook
+            properties:
+              componentReferences:
+                description: |-
+                  ComponentReferences is a list of components that use this webhook
+                  This is used for reference counting
+                items:
+                  description: ComponentReference represents a reference to a component
+                  properties:
+                    name:
+                      description: Name is the name of the component
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the component
+                      type: string
+                    orgName:
+                      description: OrgName is the organization name
+                      type: string
+                    projectName:
+                      description: ProjectName is the project name
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
+              provider:
+                description: Provider is the git provider type (github, gitlab, bitbucket,
+                  etc.)
+                enum:
+                - github
+                - gitlab
+                - bitbucket
+                type: string
+              repositoryURL:
+                description: RepositoryURL is the normalized URL of the git repository
+                type: string
+              webhookID:
+                description: WebhookID is the ID of the webhook in the git provider
+                type: string
+              webhookSecretRef:
+                description: |-
+                  WebhookSecretRef is a reference to a Kubernetes Secret containing the webhook secret
+                  The secret is auto-generated when the webhook is created
+                properties:
+                  name:
+                    description: name is unique within a namespace to reference a
+                      secret resource.
+                    type: string
+                  namespace:
+                    description: namespace defines the space within which the secret
+                      name must be unique.
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+            required:
+            - provider
+            - repositoryURL
+            type: object
+          status:
+            description: GitRepositoryWebhookStatus defines the observed state of
+              GitRepositoryWebhook
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the webhook's state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastSyncTime:
+                description: LastSyncTime is the last time the webhook was synced
+                  with the git provider
+                format: date-time
+                type: string
+              referenceCount:
+                description: ReferenceCount is the number of components using this
+                  webhook
+                type: integer
+              registered:
+                description: Registered indicates if the webhook is successfully registered
+                  with the git provider
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
