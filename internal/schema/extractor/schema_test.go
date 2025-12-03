@@ -105,7 +105,7 @@ optionalWithDefault: 'boolean | default=false'
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, types, Options{ValidateDefaults: true})
+	internalSchema, err := ExtractSchema(root, types, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -532,7 +532,7 @@ field: string | default=foo pattern=^[a-z]+$ minLength=3
 
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, nil, Options{ValidateDefaults: true})
+	internalSchema, err := ExtractSchema(root, nil, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -656,7 +656,7 @@ field3: 'string | default=foo'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+	internalSchema, err := ExtractSchema(fields, nil, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -672,7 +672,7 @@ field: 'string | unknownMarker=foo'
 	fields := parseYAMLMap(t, schemaYAML)
 
 	// Unknown markers (without oc: prefix) should error
-	_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+	_, err := ExtractSchema(fields, nil, Options{})
 	if err == nil {
 		t.Fatal("expected error with unknown marker")
 	}
@@ -689,7 +689,7 @@ field: 'string | oc:custom=foo oc:annotation=bar'
 
 	fields := parseYAMLMap(t, schemaYAML)
 
-	schema, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+	schema, err := ExtractSchema(fields, nil, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema with oc: prefixed markers should not error, got: %v", err)
 	}
@@ -812,7 +812,7 @@ func assertConvertedSchema(t *testing.T, typesYAML, schemaYAML, expectedJSON str
 	}
 	root := parseYAMLMap(t, schemaYAML)
 
-	internalSchema, err := ExtractSchema(root, types, Options{ValidateDefaults: true})
+	internalSchema, err := ExtractSchema(root, types, Options{})
 	if err != nil {
 		t.Fatalf("ExtractSchema returned error: %v", err)
 	}
@@ -1221,7 +1221,7 @@ items:
 		t.Run(tt.name, func(t *testing.T) {
 			fields := parseYAMLMap(t, tt.schemaYAML)
 
-			_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+			_, err := ExtractSchema(fields, nil, Options{})
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tt.expectError)
 			}
@@ -1264,7 +1264,7 @@ func TestConverter_EmptySchemaWithAdditionalPropertiesFalse(t *testing.T) {
 }
 
 // TestConverter_FieldDefaultValidation tests that field-level defaults are validated
-// against their schema constraints when ValidateDefaults is enabled.
+// against their schema constraints by default (unless SkipDefaultValidation is true).
 // This was previously broken - only object-level $default was validated.
 func TestConverter_FieldDefaultValidation(t *testing.T) {
 	tests := []struct {
@@ -1329,7 +1329,7 @@ name: 'string | pattern=^[a-z]+$ | default=valid'
 		t.Run(tt.name, func(t *testing.T) {
 			fields := parseYAMLMap(t, tt.schemaYAML)
 
-			_, err := ExtractSchema(fields, nil, Options{ValidateDefaults: true})
+			_, err := ExtractSchema(fields, nil, Options{})
 
 			if tt.expectError == "" {
 				// Should succeed
@@ -1433,5 +1433,36 @@ userId: 'string | oc:indexed=true | default=user123'
 				}
 			}
 		})
+	}
+}
+
+// TestConverter_SkipDefaultValidation tests that default validation is enabled by default
+// and can be skipped when explicitly requested (e.g., for performance in API services).
+func TestConverter_SkipDefaultValidation(t *testing.T) {
+	// Schema with an invalid default (exceeds maximum)
+	const schemaYAML = `
+port: 'integer | minimum=1 | maximum=65535 | default=99999'
+`
+
+	fields := parseYAMLMap(t, schemaYAML)
+
+	// Test 1: Default behavior (validation enabled) - should fail
+	_, err := ExtractSchema(fields, nil, Options{})
+	if err == nil {
+		t.Fatal("expected error with default validation enabled, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid default value") {
+		t.Fatalf("expected error about invalid default value, got: %v", err)
+	}
+
+	// Test 2: Explicitly skip validation - should succeed
+	schema, err := ExtractSchema(fields, nil, Options{SkipDefaultValidation: true})
+	if err != nil {
+		t.Fatalf("expected success when skipping validation, got error: %v", err)
+	}
+
+	// Verify the schema was created with the invalid default (not validated)
+	if schema.Properties["port"].Default == nil {
+		t.Fatal("expected default to be set even when validation is skipped")
 	}
 }
