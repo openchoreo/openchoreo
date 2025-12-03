@@ -36,9 +36,9 @@ func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.
 	return h.Service.GetOrganizationLogs(ctx, params, podLabels)
 }
 
-// GetComponentTraces retrieves distributed tracing spans for a specific component
-func (h *MCPHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error) {
-	return h.Service.GetComponentTraces(ctx, params)
+// GetTraces retrieves distributed tracing spans for a specific component
+func (h *MCPHandler) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error) {
+	return h.Service.GetTraces(ctx, params)
 }
 
 // GetComponentResourceMetrics retrieves resource usage metrics for a component

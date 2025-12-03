@@ -389,9 +389,9 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-func (h *Handler) GetComponentTraces(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 	// Bind JSON request body
-	var req opensearch.ComponentTracesRequestParams
+	var req opensearch.TracesRequestParams
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
@@ -406,37 +406,36 @@ func (h *Handler) GetComponentTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = validateSortOrder(req.SortOrder)
+	err = validateComponentUIDs(req.ComponentUIDs)
+	if err != nil {
+		h.logger.Debug("Invalid/missing request parameter componentUids", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	err = validateSortOrder(&req.SortOrder)
 	if err != nil {
 		h.logger.Debug("Invalid sortOrder parameter", "requestBody", req, "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
 		return
 	}
 
-	err = validateLimit(req.Limit)
+	err = validateLimit(&req.Limit)
 	if err != nil {
 		h.logger.Debug("Invalid limit parameter", "requestBody", req, "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
 		return
 	}
 
-	if req.ServiceName == "" {
-		h.logger.Debug("Missing request parameters", "requestBody", req)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, "Required field serviceName not found")
+	if req.ProjectUID == "" {
+		h.logger.Debug("Missing required projectUid parameter", "requestBody", req)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, "Missing required projectUid parameter")
 		return
-	}
-
-	// Set defaults
-	if req.Limit == 0 {
-		req.Limit = 100
-	}
-	if req.SortOrder == "" {
-		req.SortOrder = defaultSortOrder
 	}
 
 	// Execute query
 	ctx := r.Context()
-	result, err := h.service.GetComponentTraces(ctx, req)
+	result, err := h.service.GetTraces(ctx, req)
 	if err != nil {
 		h.logger.Error("Failed to get component traces", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)

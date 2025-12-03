@@ -274,12 +274,11 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	}, nil
 }
 
-func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (*opensearch.TraceResponse, error) {
-	s.logger.Debug("Getting component traces",
-		"serviceName", params.ServiceName)
+func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (*opensearch.TraceResponse, error) {
+	s.logger.Debug("Getting component traces")
 
 	// Build component traces query
-	query := s.queryBuilder.BuildComponentTracesQuery(params)
+	query := s.queryBuilder.BuildTracesQuery(params)
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, []string{"otel-traces-*"}, query)
@@ -288,21 +287,31 @@ func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensear
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
-	// Parse log entries
-	traces := make([]opensearch.Span, 0, len(response.Hits.Hits))
+	// Parse spans and group by traceId
+	traceMap := make(map[string][]opensearch.Span)
 	for _, hit := range response.Hits.Hits {
 		span := opensearch.ParseSpanEntry(hit)
-		traces = append(traces, span)
+		traceID := opensearch.GetTraceID(hit)
+		if traceID != "" {
+			traceMap[traceID] = append(traceMap[traceID], span)
+		}
 	}
 
-	s.logger.Info("Component traces retrieved",
-		"count", len(traces),
-		"total", response.Hits.Total.Value)
+	// Convert map to traces array
+	traces := make([]opensearch.Trace, 0, len(traceMap))
+	for traceID, spans := range traceMap {
+		traces = append(traces, opensearch.Trace{
+			TraceID: traceID,
+			Spans:   spans,
+		})
+	}
+
+	s.logger.Debug("Traces retrieved",
+		"traceCount", len(traces))
 
 	return &opensearch.TraceResponse{
-		Spans:      traces,
-		TotalCount: response.Hits.Total.Value,
-		Took:       response.Took,
+		Traces: traces,
+		Took:   response.Took,
 	}, nil
 }
 

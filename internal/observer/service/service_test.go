@@ -85,8 +85,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 						"log":        "INFO: Application started",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/component-uid":   "comp-123",
-								"openchoreo.dev/environment-uid": "env-456",
+								"openchoreo.dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
+								"openchoreo.dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
 							},
 							"namespace_name": "default",
 						},
@@ -121,8 +121,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 			StartTime:     "2024-01-01T00:00:00Z",
 			EndTime:       "2024-01-01T23:59:59Z",
 			SearchPhrase:  "error",
-			ComponentID:   "comp-123",
-			EnvironmentID: "env-456",
+			ComponentID:   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
+			EnvironmentID: "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
 			Namespace:     "default",
 			Limit:         100,
 			SortOrder:     "desc",
@@ -158,8 +158,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 
 	// Verify first log entry
 	firstLog := result.Logs[0]
-	if firstLog.ComponentID != "comp-123" {
-		t.Errorf("Expected component ID 'comp-123', got '%s'", firstLog.ComponentID)
+	if firstLog.ComponentID != "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b" {
+		t.Errorf("Expected component ID '8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b', got '%s'", firstLog.ComponentID)
 	}
 
 	if firstLog.Log != "INFO: Application started" {
@@ -377,7 +377,7 @@ func TestParseLogEntry(t *testing.T) {
 func TestLoggingService_GetComponentTraces(t *testing.T) {
 	tests := []struct {
 		name           string
-		params         opensearch.ComponentTracesRequestParams
+		params         opensearch.TracesRequestParams
 		mockResponse   *opensearch.SearchResponse
 		mockError      error
 		expectedResult *opensearch.TraceResponse
@@ -385,11 +385,12 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 	}{
 		{
 			name: "successful trace retrieval",
-			params: opensearch.ComponentTracesRequestParams{
-				ServiceName: "test-service",
-				StartTime:   "2024-01-01T00:00:00Z",
-				EndTime:     "2024-01-01T23:59:59Z",
-				Limit:       50,
+			params: opensearch.TracesRequestParams{
+				ComponentUIDs: []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"},
+				ProjectUID:    "7b3c4d5e-8f2a-4c9b-a1e6-3d7f5c9e2b8a",
+				StartTime:     "2024-01-01T00:00:00Z",
+				EndTime:       "2024-01-01T23:59:59Z",
+				Limit:         50,
 			},
 			mockResponse: &opensearch.SearchResponse{
 				Hits: struct {
@@ -410,7 +411,7 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 						{
 							Source: map[string]interface{}{
 								"traceId":         "trace-123",
-								"spanId":          "span-456",
+								"spanId":          "614f55c7ccbfffdc",
 								"name":            "database-query",
 								"durationInNanos": int64(101018208),
 								"startTime":       "2024-01-01T10:00:00.000000Z",
@@ -420,7 +421,7 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 						{
 							Source: map[string]interface{}{
 								"traceId":         "trace-124",
-								"spanId":          "span-457",
+								"spanId":          "725f66d8ddbceefd",
 								"name":            "api-call",
 								"durationInNanos": int64(200000000),
 								"startTime":       "2024-01-01T11:00:00.000000Z",
@@ -433,36 +434,44 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 				TimedOut: false,
 			},
 			expectedResult: &opensearch.TraceResponse{
-				Spans: []opensearch.Span{
+				Traces: []opensearch.Trace{
 					{
-						TraceID:         "trace-123",
-						SpanID:          "span-456",
-						Name:            "database-query",
-						DurationInNanos: 101018208,
-						StartTime:       mustParseTime("2024-01-01T10:00:00.000000Z"),
-						EndTime:         mustParseTime("2024-01-01T10:00:00.101018208Z"),
+						TraceID: "trace-123",
+						Spans: []opensearch.Span{
+							{
+								SpanID:              "614f55c7ccbfffdc",
+								Name:                "database-query",
+								DurationNanoseconds: 101018208,
+								StartTime:           mustParseTime("2024-01-01T10:00:00Z"),
+								EndTime:             mustParseTime("2024-01-01T10:00:00.101018208Z"),
+							},
+						},
 					},
 					{
-						TraceID:         "trace-124",
-						SpanID:          "span-457",
-						Name:            "api-call",
-						DurationInNanos: 200000000,
-						StartTime:       mustParseTime("2024-01-01T11:00:00.000000Z"),
-						EndTime:         mustParseTime("2024-01-01T11:00:00.200000000Z"),
+						TraceID: "trace-124",
+						Spans: []opensearch.Span{
+							{
+								SpanID:              "725f66d8ddbceefd",
+								Name:                "api-call",
+								DurationNanoseconds: 200000000,
+								StartTime:           mustParseTime("2024-01-01T11:00:00Z"),
+								EndTime:             mustParseTime("2024-01-01T11:00:00.2Z"),
+							},
+						},
 					},
 				},
-				TotalCount: 2,
-				Took:       25,
+				Took: 25,
 			},
 			expectedError: false,
 		},
 		{
 			name: "empty trace results",
-			params: opensearch.ComponentTracesRequestParams{
-				ServiceName: "non-existent-service",
-				StartTime:   "2024-01-01T00:00:00Z",
-				EndTime:     "2024-01-01T23:59:59Z",
-				Limit:       10,
+			params: opensearch.TracesRequestParams{
+				ComponentUIDs: []string{"9b5d6e3f-a8c1-4b2e-c7f8-4d9e6a1c5f2b"},
+				ProjectUID:    "test-project",
+				StartTime:     "2024-01-01T00:00:00Z",
+				EndTime:       "2024-01-01T23:59:59Z",
+				Limit:         10,
 			},
 			mockResponse: &opensearch.SearchResponse{
 				Hits: struct {
@@ -485,19 +494,19 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 				TimedOut: false,
 			},
 			expectedResult: &opensearch.TraceResponse{
-				Spans:      []opensearch.Span{},
-				TotalCount: 0,
-				Took:       10,
+				Traces: []opensearch.Trace{},
+				Took:   10,
 			},
 			expectedError: false,
 		},
 		{
 			name: "opensearch error",
-			params: opensearch.ComponentTracesRequestParams{
-				ServiceName: "test-service",
-				StartTime:   "2024-01-01T00:00:00Z",
-				EndTime:     "2024-01-01T23:59:59Z",
-				Limit:       50,
+			params: opensearch.TracesRequestParams{
+				ComponentUIDs: []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"},
+				ProjectUID:    "7b3c4d5e-8f2a-4c9b-a1e6-3d7f5c9e2b8a",
+				StartTime:     "2024-01-01T00:00:00Z",
+				EndTime:       "2024-01-01T23:59:59Z",
+				Limit:         50,
 			},
 			mockResponse:   nil,
 			mockError:      fmt.Errorf("opensearch connection failed"),
@@ -506,11 +515,12 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 		},
 		{
 			name: "trace with missing optional fields",
-			params: opensearch.ComponentTracesRequestParams{
-				ServiceName: "test-service",
-				StartTime:   "2024-01-01T00:00:00Z",
-				EndTime:     "2024-01-01T23:59:59Z",
-				Limit:       10,
+			params: opensearch.TracesRequestParams{
+				ComponentUIDs: []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"},
+				ProjectUID:    "7b3c4d5e-8f2a-4c9b-a1e6-3d7f5c9e2b8a",
+				StartTime:     "2024-01-01T00:00:00Z",
+				EndTime:       "2024-01-01T23:59:59Z",
+				Limit:         10,
 			},
 			mockResponse: &opensearch.SearchResponse{
 				Hits: struct {
@@ -542,18 +552,21 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 				TimedOut: false,
 			},
 			expectedResult: &opensearch.TraceResponse{
-				Spans: []opensearch.Span{
+				Traces: []opensearch.Trace{
 					{
-						TraceID:         "trace-125",
-						SpanID:          "span-458",
-						Name:            "minimal-span",
-						DurationInNanos: 0,
-						StartTime:       time.Time{},
-						EndTime:         time.Time{},
+						TraceID: "trace-125",
+						Spans: []opensearch.Span{
+							{
+								SpanID:              "span-458",
+								Name:                "minimal-span",
+								DurationNanoseconds: 0,
+								StartTime:           time.Time{},
+								EndTime:             time.Time{},
+							},
+						},
 					},
 				},
-				TotalCount: 1,
-				Took:       5,
+				Took: 5,
 			},
 			expectedError: false,
 		},
@@ -580,7 +593,7 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 			}
 
 			// Call the method
-			result, err := service.GetComponentTraces(context.Background(), tt.params)
+			result, err := service.GetTraces(context.Background(), tt.params)
 
 			// Check error expectation
 			if tt.expectedError {
@@ -601,48 +614,59 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 				return
 			}
 
-			// Check total count
-			if result.TotalCount != tt.expectedResult.TotalCount {
-				t.Errorf("Expected TotalCount %d, got %d", tt.expectedResult.TotalCount, result.TotalCount)
-			}
-
 			// Check took time
 			if result.Took != tt.expectedResult.Took {
 				t.Errorf("Expected Took %d, got %d", tt.expectedResult.Took, result.Took)
 			}
 
-			// Check spans count
-			if len(result.Spans) != len(tt.expectedResult.Spans) {
-				t.Errorf("Expected %d spans, got %d", len(tt.expectedResult.Spans), len(result.Spans))
+			// Check traces count
+			if len(result.Traces) != len(tt.expectedResult.Traces) {
+				t.Errorf("Expected %d traces, got %d", len(tt.expectedResult.Traces), len(result.Traces))
 				return
 			}
 
-			// Check individual spans
-			for i, expectedSpan := range tt.expectedResult.Spans {
-				actualSpan := result.Spans[i]
+			// Build a map of actual traces by TraceID for comparison (order is non-deterministic)
+			actualTraceMap := make(map[string]opensearch.Trace)
+			for _, trace := range result.Traces {
+				actualTraceMap[trace.TraceID] = trace
+			}
 
-				if actualSpan.TraceID != expectedSpan.TraceID {
-					t.Errorf("Span %d: Expected TraceID '%s', got '%s'", i, expectedSpan.TraceID, actualSpan.TraceID)
+			// Check individual traces by TraceID
+			for _, expectedTrace := range tt.expectedResult.Traces {
+				actualTrace, exists := actualTraceMap[expectedTrace.TraceID]
+				if !exists {
+					t.Errorf("Expected trace with TraceID '%s' not found in results", expectedTrace.TraceID)
+					continue
 				}
 
-				if actualSpan.SpanID != expectedSpan.SpanID {
-					t.Errorf("Span %d: Expected SpanId '%s', got '%s'", i, expectedSpan.SpanID, actualSpan.SpanID)
+				// Check spans within the trace
+				if len(actualTrace.Spans) != len(expectedTrace.Spans) {
+					t.Errorf("Trace %s: Expected %d spans, got %d", expectedTrace.TraceID, len(expectedTrace.Spans), len(actualTrace.Spans))
+					continue
 				}
 
-				if actualSpan.Name != expectedSpan.Name {
-					t.Errorf("Span %d: Expected Name '%s', got '%s'", i, expectedSpan.Name, actualSpan.Name)
-				}
+				for j, expectedSpan := range expectedTrace.Spans {
+					actualSpan := actualTrace.Spans[j]
 
-				if actualSpan.DurationInNanos != expectedSpan.DurationInNanos {
-					t.Errorf("Span %d: Expected DurationInNanos %d, got %d", i, expectedSpan.DurationInNanos, actualSpan.DurationInNanos)
-				}
+					if actualSpan.SpanID != expectedSpan.SpanID {
+						t.Errorf("Trace %s Span %d: Expected SpanId '%s', got '%s'", expectedTrace.TraceID, j, expectedSpan.SpanID, actualSpan.SpanID)
+					}
 
-				if !actualSpan.StartTime.Equal(expectedSpan.StartTime) {
-					t.Errorf("Span %d: Expected StartTime '%v', got '%v'", i, expectedSpan.StartTime, actualSpan.StartTime)
-				}
+					if actualSpan.Name != expectedSpan.Name {
+						t.Errorf("Trace %s Span %d: Expected Name '%s', got '%s'", expectedTrace.TraceID, j, expectedSpan.Name, actualSpan.Name)
+					}
 
-				if !actualSpan.EndTime.Equal(expectedSpan.EndTime) {
-					t.Errorf("Span %d: Expected EndTime '%v', got '%v'", i, expectedSpan.EndTime, actualSpan.EndTime)
+					if actualSpan.DurationNanoseconds != expectedSpan.DurationNanoseconds {
+						t.Errorf("Trace %s Span %d: Expected DurationInNanos %d, got %d", expectedTrace.TraceID, j, expectedSpan.DurationNanoseconds, actualSpan.DurationNanoseconds)
+					}
+
+					if !actualSpan.StartTime.Equal(expectedSpan.StartTime) {
+						t.Errorf("Trace %s Span %d: Expected StartTime '%v', got '%v'", expectedTrace.TraceID, j, expectedSpan.StartTime, actualSpan.StartTime)
+					}
+
+					if !actualSpan.EndTime.Equal(expectedSpan.EndTime) {
+						t.Errorf("Trace %s Span %d: Expected EndTime '%v', got '%v'", expectedTrace.TraceID, j, expectedSpan.EndTime, actualSpan.EndTime)
+					}
 				}
 			}
 		})
@@ -681,14 +705,15 @@ func TestLoggingService_GetComponentTraces_QueryBuilding(t *testing.T) {
 		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
-	params := opensearch.ComponentTracesRequestParams{
-		ServiceName: "my-test-service",
-		StartTime:   "2024-01-01T00:00:00Z",
-		EndTime:     "2024-01-01T23:59:59Z",
-		Limit:       25,
+	params := opensearch.TracesRequestParams{
+		ComponentUIDs: []string{"c5d6e7f8-a9b0-4c1d-e2f3-5a6b7c8d9e0f"},
+		ProjectUID:    "7b3c4d5e-8f2a-4c9b-a1e6-3d7f5c9e2b8a",
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		Limit:         25,
 	}
 
-	_, err := service.GetComponentTraces(context.Background(), params)
+	_, err := service.GetTraces(context.Background(), params)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -733,8 +758,8 @@ func TestLoggingService_GetBuildLogs(t *testing.T) {
 						"log":        "Build finished successfully",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/component-uid":   "comp-123",
-								"openchoreo.dev/environment-uid": "env-456",
+								"openchoreo.dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
+								"openchoreo.dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
 							},
 							"namespace_name": "build-system",
 							"pod_name":       "build-123-job",

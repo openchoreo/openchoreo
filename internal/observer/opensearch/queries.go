@@ -479,32 +479,72 @@ func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels
 	return query
 }
 
-func (qb *QueryBuilder) BuildComponentTracesQuery(params ComponentTracesRequestParams) map[string]interface{} {
+func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"range": map[string]interface{}{
+				"startTime": map[string]interface{}{
+					"gte": params.StartTime,
+				},
+			},
+		},
+		{
+			"range": map[string]interface{}{
+				"endTime": map[string]interface{}{
+					"lte": params.EndTime,
+				},
+			},
+		},
+	}
+
+	// Add TraceID filter if present
+	if params.TraceID != "" {
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"traceId": params.TraceID,
+			},
+		})
+	}
+
+	// Add ComponentUIDs filter if present
+	if len(params.ComponentUIDs) > 0 {
+		shouldConditions := []map[string]interface{}{}
+		for _, componentUID := range params.ComponentUIDs {
+			shouldConditions = append(shouldConditions, map[string]interface{}{
+				"term": map[string]interface{}{
+					"resource.openchoreo.dev/component-uid": componentUID,
+				},
+			})
+		}
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"bool": map[string]interface{}{
+				"should": shouldConditions,
+			},
+		})
+	}
+
+	// Add EnvironmentUID filter if present
+	if params.EnvironmentUID != "" {
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/environment-uid": params.EnvironmentUID,
+			},
+		})
+	}
+
+	if params.ProjectUID != "" {
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/project-uid": params.ProjectUID,
+			},
+		})
+	}
+
 	query := map[string]interface{}{
 		"size": params.Limit,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"filter": []map[string]interface{}{
-					{
-						"term": map[string]interface{}{
-							"resource.service.name": params.ServiceName,
-						},
-					},
-					{
-						"range": map[string]interface{}{
-							"startTime": map[string]interface{}{
-								"gte": params.StartTime,
-							},
-						},
-					},
-					{
-						"range": map[string]interface{}{
-							"endTime": map[string]interface{}{
-								"lte": params.EndTime,
-							},
-						},
-					},
-				},
+				"filter": filterConditions,
 			},
 		},
 		"sort": []map[string]interface{}{

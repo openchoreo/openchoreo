@@ -272,7 +272,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LogResponse'
+                $ref: '#/components/schemas/TraceResponse'
         '400':
           description: Bad request - invalid parameters
           content:
@@ -546,24 +546,42 @@ components:
     ComponentTracesRequest:
       type: object
       required:
+        - projectUid
         - startTime
         - endTime
-        - serviceName
       properties:
+        projectUid:
+          type: string
+          format: uuid
+          description: Project UID (required)
+          example: "1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b"
+        componentUids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of component UIDs to filter traces (optional)
+          example: ["8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b"]
+        environmentUid:
+          type: string
+          format: uuid
+          description: Environment UID to filter traces (optional)
+          example: "2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c"
+        traceId:
+          type: string
+          description: Specific trace ID to retrieve (32 hex characters, optional)
+          pattern: '^[a-f0-9]{32}$'
+          example: "f3a7b9e1c4d2f5a8b6e3c9f1d4a7e2b8"
         startTime:
           type: string
           format: date-time
-          description: Start time for trace query in RFC3339 format
+          description: Start time for trace query in RFC3339 format (required)
           example: "2025-01-10T00:00:00Z"
         endTime:
           type: string
           format: date-time
-          description: End time for trace query in RFC3339 format
+          description: End time for trace query in RFC3339 format (required)
           example: "2025-01-10T23:59:59Z"
-        serviceName:
-          type: string
-          description: Service name for trace filtering
-          example: "user-service"
         limit:
           type: integer
           description: Maximum number of traces to return
@@ -649,6 +667,89 @@ components:
           type: integer
           description: Query execution time in milliseconds
           example: 42
+
+    TraceResponse:
+      type: object
+      properties:
+        traces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trace'
+          description: Array of traces with their spans
+        tookMs:
+          type: integer
+          description: Query execution time in milliseconds
+          example: 15
+      example:
+        traces:
+          - traceId: "f3a7b9e1c4d2f5a8b6e3c9f1d4a7e2b8"
+            spans:
+              - spanId: "ad3537e3f48207d0"
+                name: "lets-go"
+                durationNanoseconds: 12300000
+                startTime: "2025-12-03T09:16:56.84456548Z"
+                endTime: "2025-12-03T09:16:56.84468848Z"
+                parentSpanId: ""
+                openchoreoComponentUid: "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"
+                openchoreoProjectUid: "1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b"
+        tookMs: 15
+
+    Trace:
+      type: object
+      properties:
+        traceId:
+          type: string
+          description: Unique trace identifier (32 hex characters)
+          pattern: '^[a-f0-9]{32}$'
+          example: "f3a7b9e1c4d2f5a8b6e3c9f1d4a7e2b8"
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Span'
+          description: Array of spans belonging to this trace
+
+    Span:
+      type: object
+      properties:
+        spanId:
+          type: string
+          description: Unique span identifier (16 hex characters)
+          pattern: '^[a-f0-9]{16}$'
+          example: "ad3537e3f48207d0"
+        name:
+          type: string
+          description: Span name/operation
+          example: "database-query"
+        durationNanoseconds:
+          type: integer
+          format: int64
+          description: Span duration in nanoseconds (calculated from endTime - startTime)
+          example: 101018208
+        startTime:
+          type: string
+          format: date-time
+          description: Span start time in RFC3339Nano format
+          example: "2025-10-28T11:13:56.484388Z"
+        endTime:
+          type: string
+          format: date-time
+          description: Span end time in RFC3339Nano format
+          example: "2025-10-28T11:13:56.585406208Z"
+        parentSpanId:
+          type: string
+          description: Parent span identifier (empty if root span)
+          pattern: '^[a-f0-9]{0,16}$'
+          example: "b72e731db5edfd1d"
+        openchoreoComponentUid:
+          type: string
+          format: uuid
+          description: OpenChoreo component UID from resource attributes
+          example: "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"
+        openchoreoProjectUid:
+          type: string
+          format: uuid
+          description: OpenChoreo project UID from resource attributes
+          example: "1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b"
 
     TimeValuePoint:
       type: object
