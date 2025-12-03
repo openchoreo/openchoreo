@@ -16,6 +16,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
+// testSnapshot is a test-only struct for parsing legacy ComponentEnvSnapshot YAML in tests
+type testSnapshot struct {
+	Spec struct {
+		Component     v1alpha1.Component     `json:"component"`
+		ComponentType v1alpha1.ComponentType `json:"componentType"`
+		Workload      v1alpha1.Workload      `json:"workload"`
+		Traits        []v1alpha1.Trait       `json:"traits,omitempty"`
+	} `json:"spec"`
+}
+
 // loadTestDataFile loads a file from the testdata directory
 func loadTestDataFile(t *testing.T, path string) string {
 	t.Helper()
@@ -383,8 +393,8 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Parse snapshot
-			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			// Parse snapshot (using test-only struct for legacy YAML format)
+			snapshot := &testSnapshot{}
 			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
 				t.Fatalf("Failed to parse snapshot YAML: %v", err)
 			}
@@ -623,8 +633,8 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Parse snapshot
-			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			// Parse snapshot (using test-only struct for legacy YAML format)
+			snapshot := &testSnapshot{}
 			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
 				t.Fatalf("Failed to parse snapshot YAML: %v", err)
 			}

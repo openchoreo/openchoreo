@@ -110,8 +110,6 @@ rules:
     - apis
     - buildplanes
     - builds
-    - componentdeployments
-    - componentenvsnapshots
     - componentreleases
     - components
     - componenttypes
@@ -159,8 +157,6 @@ rules:
     - apis/finalizers
     - buildplanes/finalizers
     - builds/finalizers
-    - componentdeployments/finalizers
-    - componentenvsnapshots/finalizers
     - componentreleases/finalizers
     - components/finalizers
     - componenttypes/finalizers
@@ -202,8 +198,6 @@ rules:
     - apis/status
     - buildplanes/status
     - builds/status
-    - componentdeployments/status
-    - componentenvsnapshots/status
     - componentreleases/status
     - components/status
     - componenttypes/status

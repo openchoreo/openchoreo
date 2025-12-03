@@ -3,7 +3,7 @@
 
 // Package component provides the main rendering pipeline for Component resources.
 //
-// The pipeline combines Component, ComponentType, Traits, Workload and ComponentDeployment
+// The pipeline combines Component, ComponentType, Traits, Workload and ReleaseBinding
 // to generate fully resolved Kubernetes resource manifests by:
 //   - Building CEL evaluation contexts with parameters, overrides, and defaults
 //   - Rendering base resources from ComponentType

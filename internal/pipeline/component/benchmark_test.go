@@ -127,23 +127,12 @@ func buildRenderInputFromSample(tb testing.TB, samplePath string) *RenderInput {
 		return nil // Never reached, but satisfies linter
 	}
 
-	// Build ComponentEnvSnapshot (all pointers guaranteed non-nil here)
-	snapshot := &v1alpha1.ComponentEnvSnapshot{
-		Spec: v1alpha1.ComponentEnvSnapshotSpec{
-			Environment:   releaseBinding.Spec.Environment,
-			Component:     *component,
-			ComponentType: *ct,
-			Workload:      *workload,
-			Traits:        traits,
-		},
-	}
-
-	// Create render input
+	// Create render input directly (all pointers guaranteed non-nil here)
 	return &RenderInput{
-		ComponentType:  &snapshot.Spec.ComponentType,
-		Component:      &snapshot.Spec.Component,
-		Traits:         snapshot.Spec.Traits,
-		Workload:       &snapshot.Spec.Workload,
+		ComponentType:  ct,
+		Component:      component,
+		Traits:         traits,
+		Workload:       workload,
 		Environment:    environment,
 		DataPlane:      dataplane,
 		ReleaseBinding: releaseBinding,
@@ -270,52 +259,63 @@ func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 // BenchmarkPipeline_RenderSimple benchmarks a minimal pipeline without traits
 // to establish a baseline for comparison.
 func BenchmarkPipeline_RenderSimple(b *testing.B) {
-	snapshotYAML := `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
+	componentYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-app
 spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        replicas: 2
-        port: 8080
-  componentType:
-    spec:
-      schema:
-        parameters:
-          replicas: "integer | default=1"
-          port: "integer | default=8080"
-      resources:
-        - id: deployment
+  parameters:
+    replicas: 2
+    port: 8080
+`
+
+	componentTypeYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: test-type
+spec:
+  workloadType: deployment
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      port: "integer | default=8080"
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          replicas: ${parameters.replicas}
           template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: ${metadata.name}
-              namespace: ${metadata.namespace}
             spec:
-              replicas: ${parameters.replicas}
-              template:
-                spec:
-                  containers:
-                    - name: app
-                      ports:
-                        - containerPort: ${parameters.port}
-        - id: service
-          template:
-            apiVersion: v1
-            kind: Service
-            metadata:
-              name: ${metadata.name}
-              namespace: ${metadata.namespace}
-            spec:
-              ports:
-                - port: 80
-                  targetPort: ${parameters.port}
-  workload: {}
+              containers:
+                - name: app
+                  ports:
+                    - containerPort: ${parameters.port}
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          ports:
+            - port: 80
+              targetPort: ${parameters.port}
+`
+
+	workloadYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-workload
+spec: {}
 `
 
 	environmentYAML := `
@@ -362,9 +362,19 @@ spec:
         password: secretpassword
 `
 
-	snapshot := &v1alpha1.ComponentEnvSnapshot{}
-	if err := yaml.Unmarshal([]byte(snapshotYAML), snapshot); err != nil {
-		b.Fatalf("Failed to parse snapshot: %v", err)
+	component := &v1alpha1.Component{}
+	if err := yaml.Unmarshal([]byte(componentYAML), component); err != nil {
+		b.Fatalf("Failed to parse component: %v", err)
+	}
+
+	componentType := &v1alpha1.ComponentType{}
+	if err := yaml.Unmarshal([]byte(componentTypeYAML), componentType); err != nil {
+		b.Fatalf("Failed to parse component type: %v", err)
+	}
+
+	workload := &v1alpha1.Workload{}
+	if err := yaml.Unmarshal([]byte(workloadYAML), workload); err != nil {
+		b.Fatalf("Failed to parse workload: %v", err)
 	}
 
 	environment := v1alpha1.Environment{}
@@ -378,10 +388,10 @@ spec:
 	}
 
 	input := &RenderInput{
-		ComponentType: &snapshot.Spec.ComponentType,
-		Component:     &snapshot.Spec.Component,
-		Traits:        snapshot.Spec.Traits,
-		Workload:      &snapshot.Spec.Workload,
+		ComponentType: componentType,
+		Component:     component,
+		Traits:        []v1alpha1.Trait{},
+		Workload:      workload,
 		Environment:   &environment,
 		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{
@@ -426,41 +436,52 @@ spec:
 // BenchmarkPipeline_RenderWithForEach benchmarks forEach iteration performance
 // which is affected by context cloning.
 func BenchmarkPipeline_RenderWithForEach(b *testing.B) {
-	snapshotYAML := `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
+	componentYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: test-app
 spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters:
-        envVars:
-          - name: VAR1
-            value: value1
-          - name: VAR2
-            value: value2
-          - name: VAR3
-            value: value3
-          - name: VAR4
-            value: value4
-          - name: VAR5
-            value: value5
-  componentType:
-    spec:
-      resources:
-        - id: configmaps
-          forEach: ${parameters.envVars}
-          var: env
-          template:
-            apiVersion: v1
-            kind: ConfigMap
-            metadata:
-              name: ${metadata.name}-${env.name}
-            data:
-              value: ${env.value}
-  workload: {}
+  parameters:
+    envVars:
+      - name: VAR1
+        value: value1
+      - name: VAR2
+        value: value2
+      - name: VAR3
+        value: value3
+      - name: VAR4
+        value: value4
+      - name: VAR5
+        value: value5
+`
+
+	componentTypeYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: test-type
+spec:
+  workloadType: deployment
+  resources:
+    - id: configmaps
+      forEach: ${parameters.envVars}
+      var: env
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-${env.name}
+        data:
+          value: ${env.value}
+`
+
+	workloadYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-workload
+spec: {}
 `
 
 	environmentYAML := `
@@ -507,9 +528,19 @@ spec:
         password: secretpassword
 `
 
-	snapshot := &v1alpha1.ComponentEnvSnapshot{}
-	if err := yaml.Unmarshal([]byte(snapshotYAML), snapshot); err != nil {
-		b.Fatalf("Failed to parse snapshot: %v", err)
+	component := &v1alpha1.Component{}
+	if err := yaml.Unmarshal([]byte(componentYAML), component); err != nil {
+		b.Fatalf("Failed to parse component: %v", err)
+	}
+
+	componentType := &v1alpha1.ComponentType{}
+	if err := yaml.Unmarshal([]byte(componentTypeYAML), componentType); err != nil {
+		b.Fatalf("Failed to parse component type: %v", err)
+	}
+
+	workload := &v1alpha1.Workload{}
+	if err := yaml.Unmarshal([]byte(workloadYAML), workload); err != nil {
+		b.Fatalf("Failed to parse workload: %v", err)
 	}
 
 	environment := v1alpha1.Environment{}
@@ -523,10 +554,10 @@ spec:
 	}
 
 	input := &RenderInput{
-		ComponentType: &snapshot.Spec.ComponentType,
-		Component:     &snapshot.Spec.Component,
-		Traits:        snapshot.Spec.Traits,
-		Workload:      &snapshot.Spec.Workload,
+		ComponentType: componentType,
+		Component:     component,
+		Traits:        []v1alpha1.Trait{},
+		Workload:      workload,
 		Environment:   &environment,
 		DataPlane:     &dataplane,
 		Metadata: context.MetadataContext{

@@ -10,7 +10,7 @@ import (
 )
 
 // Pipeline orchestrates the complete rendering workflow for Component resources.
-// It combines Component, ComponentType, Traits, Workload and ComponentDeployment
+// It combines Component, ComponentType, Traits, Workload and ReleaseBinding
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine

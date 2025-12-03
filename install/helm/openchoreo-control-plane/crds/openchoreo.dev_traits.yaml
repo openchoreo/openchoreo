@@ -158,7 +158,7 @@ spec:
                 properties:
                   envOverrides:
                     description: |-
-                      EnvOverrides can be overridden per environment via ComponentDeployment.
+                      EnvOverrides can be overridden per environment via ReleaseBinding.
                       Same nested map structure and type definition format as Parameters.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true

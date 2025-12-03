@@ -61,7 +61,7 @@ type TraitSchema struct {
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides can be overridden per environment via ComponentDeployment.
+	// EnvOverrides can be overridden per environment via ReleaseBinding.
 	// Same nested map structure and type definition format as Parameters.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

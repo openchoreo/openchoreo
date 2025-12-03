@@ -31,8 +31,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
-	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
-	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
@@ -359,27 +357,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Trait")
-		os.Exit(1)
-	}
-
-	// ComponentDeployment controller
-	// Create a single pipeline instance shared across all reconciliations.
-	// This enables CEL environment caching for better performance (~4x faster after first render).
-	if err = (&componentdeployment.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
-		os.Exit(1)
-	}
-
-	// ComponentEnvSnapshot controller
-	if err = (&componentenvsnapshot.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
 		os.Exit(1)
 	}
 
