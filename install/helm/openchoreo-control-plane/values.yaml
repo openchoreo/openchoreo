@@ -43,6 +43,24 @@ global:
               requiresApproval: false
 # Override the full name of the chart release
 fullnameOverride: openchoreo
+# Common security configuration shared across all components
+security:
+  # Global security toggle - when disabled, authentication is turned off for all components
+  enabled: false
+  oidc:
+    # OIDC issuer URL - typically the identity provider's base URL
+    issuer: ""
+    # OIDC well-known configuration endpoint (auto-constructed from issuer if not set)
+    wellKnownEndpoint: ""
+    # JWKS URL for JWT signature verification (auto-constructed from issuer if not set)
+    jwksUrl: ""
+    # OAuth2 authorization endpoint
+    authorizationUrl: ""
+    # OAuth2 token endpoint
+    tokenUrl: ""
+  jwt:
+    # Expected audience claim in JWT tokens
+    audience: ""
 controllerManager:
   name: controller-manager
   replicas: 1
@@ -186,11 +204,6 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
-  jwt:
-    disabled: true
-    issuer: ""
-    jwksUrl: ""
-    audience: ""
   resources:
     requests:
       cpu: "200m"
@@ -364,9 +377,6 @@ backstage:
   thunder:
     baseUrl: ""
     token: ""
-  auth:
-    authorizationUrl: ""
-    tokenUrl: ""
   autoscaling:
     enabled: false
     minReplicas: 1

@@ -55,13 +55,13 @@ spec:
         - name: MCP_TOOLSETS
           value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
         - name: JWT_ISSUER
-          value: {{ .Values.openchoreoApi.jwt.issuer | quote }}
+          value: {{ .Values.security.oidc.issuer | quote }}
         - name: JWKS_URL
-          value: {{ .Values.openchoreoApi.jwt.jwksUrl | quote }}
+          value: {{ .Values.security.oidc.jwksUrl | quote }}
         - name: JWT_AUDIENCE
-          value: {{ .Values.openchoreoApi.jwt.audience | quote }}
+          value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
-          value: "{{ .Values.openchoreoApi.jwt.disabled }}"
+          value: "{{ not .Values.security.enabled }}"
         livenessProbe:
           httpGet:
             path: /health
