@@ -123,49 +123,49 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 // ============================================================================
 
 // Evaluate evaluates a single authorization request and returns a decision
-func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (authzcore.Decision, error) {
+func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	err := validateEvaluateRequest(request)
 	if err != nil {
-		return authzcore.Decision{Decision: false}, err
+		return &authzcore.Decision{Decision: false}, err
 	}
 	return ce.check(request)
 }
 
 // BatchEvaluate evaluates multiple authorization requests and returns corresponding decisions
 // NOTE: if needed, can be enhanced to do in parallel
-func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (authzcore.BatchEvaluateResponse, error) {
+func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
 	err := validateBatchEvaluateRequest(request)
 	if err != nil {
-		return authzcore.BatchEvaluateResponse{}, err
+		return &authzcore.BatchEvaluateResponse{}, err
 	}
 
 	decisions := make([]authzcore.Decision, len(request.Requests))
 	for i, req := range request.Requests {
 		// Check for context cancellation
 		if ctx.Err() != nil {
-			return authzcore.BatchEvaluateResponse{}, ctx.Err()
+			return &authzcore.BatchEvaluateResponse{}, ctx.Err()
 		}
 		decision, err := ce.check(&req)
 		if err != nil {
-			return authzcore.BatchEvaluateResponse{}, fmt.Errorf("batch evaluate failed at index %d: %w", i, err)
+			return &authzcore.BatchEvaluateResponse{}, fmt.Errorf("batch evaluate failed at index %d: %w", i, err)
 		}
-		decisions[i] = decision
+		decisions[i] = *decision
 	}
 
-	return authzcore.BatchEvaluateResponse{
+	return &authzcore.BatchEvaluateResponse{
 		Decisions: decisions,
 	}, nil
 }
 
 // GetSubjectProfile retrieves the authorization profile for a given subject
-func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (authzcore.SubjectProfile, error) {
+func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.SubjectProfile, error) {
 	// TODO: Implement subject profile retrieval logic
 	ce.logger.Debug("get subject profile called",
 		"subject", request.Subject,
 		"scope", request.Scope)
 
 	// Placeholder implementation
-	profile := authzcore.SubjectProfile{
+	profile := &authzcore.SubjectProfile{
 		Hierarchy: authzcore.ProfileResourceNode{
 			Type:     "organization",
 			ID:       request.Scope.Organization,
@@ -182,7 +182,7 @@ func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzc
 // ============================================================================
 
 // AddRole creates a new role with the specified name and actions
-func (ce *CasbinEnforcer) AddRole(ctx context.Context, role authzcore.Role) error {
+func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) error {
 	ce.logger.Info("add role called", "role_name", role.Name, "actions", role.Actions)
 
 	rules := make([][]string, 0, len(role.Actions))
@@ -223,20 +223,20 @@ func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleName string) error
 }
 
 // GetRole retrieves a role by name
-func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (authzcore.Role, error) {
+func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (*authzcore.Role, error) {
 	ce.logger.Debug("get role called", "role_name", roleName)
 
 	if roleName == "" {
-		return authzcore.Role{}, fmt.Errorf("role name cannot be empty")
+		return nil, fmt.Errorf("role name cannot be empty")
 	}
 
 	rules, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
 	if err != nil {
-		return authzcore.Role{}, fmt.Errorf("failed to get role: %w", err)
+		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 
 	if len(rules) == 0 {
-		return authzcore.Role{}, fmt.Errorf("role not found: %s", roleName)
+		return nil, fmt.Errorf("role not found: %s", roleName)
 	}
 
 	actions := make([]string, 0, len(rules))
@@ -248,14 +248,14 @@ func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (authzco
 		actions = append(actions, rule[1])
 	}
 
-	return authzcore.Role{
+	return &authzcore.Role{
 		Name:    roleName,
 		Actions: actions,
 	}, nil
 }
 
 // ListRoles returns all defined roles
-func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]authzcore.Role, error) {
+func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]*authzcore.Role, error) {
 	ce.logger.Debug("list roles called")
 
 	rules, err := ce.enforcer.GetGroupingPolicy()
@@ -274,9 +274,9 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]authzcore.Role, erro
 		roleMap[roleName] = append(roleMap[roleName], action)
 	}
 
-	roles := make([]authzcore.Role, 0, len(roleMap))
+	roles := make([]*authzcore.Role, 0, len(roleMap))
 	for roleName, actions := range roleMap {
-		roles = append(roles, authzcore.Role{
+		roles = append(roles, &authzcore.Role{
 			Name:    roleName,
 			Actions: actions,
 		})
@@ -285,11 +285,11 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]authzcore.Role, erro
 	return roles, nil
 }
 
-// AddRolePrincipalMapping creates a new role-principal mapping with optional conditions
-func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *authzcore.PolicyMapping) error {
+// AddRoleEntitlementMapping creates a new role-principal mapping with optional conditions
+func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("add role principal mapping called",
 		"role", mapping.RoleName,
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context)
@@ -299,7 +299,7 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 	// policy: p, subject, resourcePath, role, eft, context
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.AddPolicy(
-		mapping.Principal,
+		mapping.EntitlementValue,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -317,11 +317,11 @@ func (ce *CasbinEnforcer) AddRolePrincipalMapping(ctx context.Context, mapping *
 	return nil
 }
 
-// RemoveRolePrincipalMapping removes a role-principal mapping
-func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mapping *authzcore.PolicyMapping) error {
+// RemoveRoleEntitlementMapping removes a role-principal mapping
+func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("remove role principal mapping called",
 		"role", mapping.RoleName,
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context,
@@ -330,7 +330,7 @@ func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mappin
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.RemovePolicy(
-		mapping.Principal,
+		mapping.EntitlementValue,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -347,8 +347,8 @@ func (ce *CasbinEnforcer) RemoveRolePrincipalMapping(ctx context.Context, mappin
 	return nil
 }
 
-// ListRolePrincipalMappings lists all role-principal mappings
-func (ce *CasbinEnforcer) ListRolePrincipalMappings(ctx context.Context) ([]authzcore.PolicyMapping, error) {
+// ListRoleEntitlementMappings lists all role-principal mappings
+func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*authzcore.RoleEntitlementMapping, error) {
 	ce.logger.Debug("list role principal mappings called")
 
 	rules, err := ce.enforcer.GetPolicy()
@@ -356,7 +356,7 @@ func (ce *CasbinEnforcer) ListRolePrincipalMappings(ctx context.Context) ([]auth
 		return nil, fmt.Errorf("failed to get role principal mappings: %w", err)
 	}
 
-	mappings := make([]authzcore.PolicyMapping, 0, len(rules))
+	mappings := make([]*authzcore.RoleEntitlementMapping, 0, len(rules))
 	for _, rule := range rules {
 		if len(rule) < 5 {
 			ce.logger.Warn("skipping malformed role-principal mapping", "rule", rule)
@@ -369,36 +369,36 @@ func (ce *CasbinEnforcer) ListRolePrincipalMappings(ctx context.Context) ([]auth
 		// TODO: Handle context conditions properly in the future
 		context := authzcore.Context{}
 
-		mappings = append(mappings, authzcore.PolicyMapping{
-			Principal: principal,
-			RoleName:  roleName,
-			Hierarchy: resourcePathToHierarchy(resourcePath),
-			Effect:    effect,
-			Context:   context,
+		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
+			EntitlementValue: principal,
+			RoleName:         roleName,
+			Hierarchy:        resourcePathToHierarchy(resourcePath),
+			Effect:           effect,
+			Context:          context,
 		})
 	}
 
 	return mappings, nil
 }
 
-// GetPrincipalMappings retrieves all role mappings for a specific principal
-func (ce *CasbinEnforcer) GetPrincipalMappings(ctx context.Context, principal string) ([]authzcore.PolicyMapping, error) {
+// GetEntitlementMappings retrieves all role mappings for a specific principal
+func (ce *CasbinEnforcer) GetEntitlementMappings(ctx context.Context, principal string) ([]*authzcore.RoleEntitlementMapping, error) {
 	// TODO: Implement principal mappings retrieval logic
 	ce.logger.Debug("get principal mappings called", "principal", principal)
 
 	// Placeholder implementation
-	mappings := []authzcore.PolicyMapping{}
+	mappings := []*authzcore.RoleEntitlementMapping{}
 
 	return mappings, nil
 }
 
 // GetRoleMappings retrieves all principal mappings for a specific role
-func (ce *CasbinEnforcer) GetRoleMappings(ctx context.Context, roleName string) ([]authzcore.PolicyMapping, error) {
+func (ce *CasbinEnforcer) GetRoleMappings(ctx context.Context, roleName string) ([]*authzcore.RoleEntitlementMapping, error) {
 	// TODO: Implement role mappings retrieval logic
 	ce.logger.Debug("get role mappings called", "role_name", roleName)
 
 	// Placeholder implementation
-	mappings := []authzcore.PolicyMapping{}
+	mappings := []*authzcore.RoleEntitlementMapping{}
 
 	return mappings, nil
 }
@@ -423,34 +423,34 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 
 // TODO: once context is properly integrated, pass it to enforcer
 
-func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (authzcore.Decision, error) {
+func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
 	subject := request.Subject
 	subjectCtx, err := populateSubjectClaims(&subject)
 	if err != nil {
-		return authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
+		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
 	}
 
 	ce.logger.Debug("evaluate called",
-		"subject", subjectCtx.Claims,
+		"subject", subjectCtx.EntitlementValues,
 		"resource", resourcePath,
 		"action", request.Action,
 		"context", request.Context)
 
 	result := false
-	decision := authzcore.Decision{Decision: false,
+	decision := &authzcore.Decision{Decision: false,
 		Context: &authzcore.DecisionContext{
 			Reason: "no matching policies found",
 		}}
-	for _, claim := range subjectCtx.Claims {
+	for _, entitlementValue := range subjectCtx.EntitlementValues {
 		result, err = ce.enforcer.Enforce(
-			claim,
+			entitlementValue,
 			resourcePath,
 			request.Action,
 			emptyContextJSON,
 		)
 		if err != nil {
-			return authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
+			return &authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
 		}
 		if result {
 			decision.Decision = true
@@ -458,7 +458,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (authzcore.D
 			if request.Resource.ID != "" {
 				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
 			}
-			decision.Context.Reason = fmt.Sprintf("Access granted: principal '%s' authorized to perform '%s' on %s", claim, request.Action, resourceInfo)
+			decision.Context.Reason = fmt.Sprintf("Access granted: principal '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
 			break
 		}
 	}

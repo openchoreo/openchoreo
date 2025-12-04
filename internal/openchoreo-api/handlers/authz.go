@@ -50,7 +50,7 @@ func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
 
 // AddRole handles POST /api/v1/authz/roles
 func (h *Handler) AddRole(w http.ResponseWriter, r *http.Request) {
-	var role authz.Role
+	var role *authz.Role
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
 		return
@@ -113,13 +113,13 @@ func (h *Handler) ListRoleMappings(w http.ResponseWriter, r *http.Request) {
 
 // AddRoleMapping handles POST /api/v1/authz/role-mappings
 func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
-	var mapping authz.PolicyMapping
+	var mapping *authz.RoleEntitlementMapping
 	if err := json.NewDecoder(r.Body).Decode(&mapping); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
 		return
 	}
 
-	if err := h.services.AuthzService.AddRoleMapping(r.Context(), &mapping); err != nil {
+	if err := h.services.AuthzService.AddRoleMapping(r.Context(), mapping); err != nil {
 		h.logger.Error("Failed to add role mapping", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -137,13 +137,13 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 // RemoveRoleMapping handles DELETE /api/v1/authz/role-mappings
 func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
-	var mapping authz.PolicyMapping
+	var mapping *authz.RoleEntitlementMapping
 	if err := json.NewDecoder(r.Body).Decode(&mapping); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
 		return
 	}
 
-	if err := h.services.AuthzService.RemoveRoleMapping(r.Context(), &mapping); err != nil {
+	if err := h.services.AuthzService.RemoveRoleMapping(r.Context(), mapping); err != nil {
 		h.logger.Error("Failed to remove role mapping", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return

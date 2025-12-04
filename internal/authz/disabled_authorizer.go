@@ -26,13 +26,13 @@ func NewDisabledAuthorizer(logger *slog.Logger) *DisabledAuthorizer {
 // ============================================================================
 
 // Evaluate always returns a decision allowing access
-func (da *DisabledAuthorizer) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (authz.Decision, error) {
+func (da *DisabledAuthorizer) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (*authz.Decision, error) {
 	da.logger.Debug("disabled authorizer: evaluate called (authorization disabled)",
 		"subject", request.Subject,
 		"resource", request.Resource,
 		"action", request.Action)
 
-	return authz.Decision{
+	return &authz.Decision{
 		Decision: true,
 		Context: &authz.DecisionContext{
 			Reason: "Authorization disabled - all access granted",
@@ -41,7 +41,7 @@ func (da *DisabledAuthorizer) Evaluate(ctx context.Context, request *authz.Evalu
 }
 
 // BatchEvaluate always returns decisions allowing access for all requests
-func (da *DisabledAuthorizer) BatchEvaluate(ctx context.Context, request *authz.BatchEvaluateRequest) (authz.BatchEvaluateResponse, error) {
+func (da *DisabledAuthorizer) BatchEvaluate(ctx context.Context, request *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
 	da.logger.Debug("disabled authorizer: batch evaluate called (authorization disabled)",
 		"num_requests", len(request.Requests))
 
@@ -55,17 +55,17 @@ func (da *DisabledAuthorizer) BatchEvaluate(ctx context.Context, request *authz.
 		}
 	}
 
-	return authz.BatchEvaluateResponse{
+	return &authz.BatchEvaluateResponse{
 		Decisions: decisions,
 	}, nil
 }
 
 // GetSubjectProfile returns a profile with all actions allowed
-func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (authz.SubjectProfile, error) {
+func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.SubjectProfile, error) {
 	da.logger.Debug("disabled authorizer: get subject profile called (authorization disabled)",
 		"subject", request.Subject)
 
-	return authz.SubjectProfile{
+	return &authz.SubjectProfile{
 		Hierarchy: authz.ProfileResourceNode{
 			Type:     "organization",
 			ID:       request.Scope.Organization,
@@ -80,7 +80,7 @@ func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *au
 // ============================================================================
 
 // AddRole fails with error
-func (da *DisabledAuthorizer) AddRole(ctx context.Context, role authz.Role) error {
+func (da *DisabledAuthorizer) AddRole(ctx context.Context, role *authz.Role) error {
 	return authz.ErrAuthzDisabled
 }
 
@@ -90,37 +90,37 @@ func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleName string) e
 }
 
 // GetRole fails with error
-func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleName string) (authz.Role, error) {
-	return authz.Role{}, authz.ErrAuthzDisabled
-}
-
-// ListRoles fails with error
-func (da *DisabledAuthorizer) ListRoles(ctx context.Context) ([]authz.Role, error) {
+func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleName string) (*authz.Role, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-// AddRolePrincipalMapping fails with error
-func (da *DisabledAuthorizer) AddRolePrincipalMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
+// ListRoles fails with error
+func (da *DisabledAuthorizer) ListRoles(ctx context.Context) ([]*authz.Role, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+// AddRoleEntitlementMapping fails with error
+func (da *DisabledAuthorizer) AddRoleEntitlementMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	return authz.ErrAuthzDisabled
 }
 
-// RemoveRolePrincipalMapping fails with error
-func (da *DisabledAuthorizer) RemoveRolePrincipalMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
+// RemoveRoleEntitlementMapping fails with error
+func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	return authz.ErrAuthzDisabled
 }
 
-// GetPrincipalMappings fails with error
-func (da *DisabledAuthorizer) GetPrincipalMappings(ctx context.Context, principal string) ([]authz.PolicyMapping, error) {
+// GetEntitlementMappings fails with error
+func (da *DisabledAuthorizer) GetEntitlementMappings(ctx context.Context, principal string) ([]*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
 // GetRoleMappings fails with error
-func (da *DisabledAuthorizer) GetRoleMappings(ctx context.Context, roleName string) ([]authz.PolicyMapping, error) {
+func (da *DisabledAuthorizer) GetRoleMappings(ctx context.Context, roleName string) ([]*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-// ListRolePrincipalMappings fails with error
-func (da *DisabledAuthorizer) ListRolePrincipalMappings(ctx context.Context) ([]authz.PolicyMapping, error) {
+// ListRoleEntitlementMappings fails with error
+func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context) ([]*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

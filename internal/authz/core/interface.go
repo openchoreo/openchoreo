@@ -8,43 +8,43 @@ import "context"
 // PDP (Policy Decision Point) interface defines the contract for authorization evaluation
 type PDP interface {
 	// Evaluate evaluates a single authorization request and returns a decision
-	Evaluate(ctx context.Context, request *EvaluateRequest) (Decision, error)
+	Evaluate(ctx context.Context, request *EvaluateRequest) (*Decision, error)
 
 	// BatchEvaluate evaluates multiple authorization requests and returns corresponding decisions
-	BatchEvaluate(ctx context.Context, request *BatchEvaluateRequest) (BatchEvaluateResponse, error)
+	BatchEvaluate(ctx context.Context, request *BatchEvaluateRequest) (*BatchEvaluateResponse, error)
 
 	// GetSubjectProfile retrieves the authorization profile for a given subject
-	GetSubjectProfile(ctx context.Context, request *ProfileRequest) (SubjectProfile, error)
+	GetSubjectProfile(ctx context.Context, request *ProfileRequest) (*SubjectProfile, error)
 }
 
 // PAP (Policy Administration Point) interface defines the contract for policy management
 type PAP interface {
 	// AddRole creates a new role with the specified name and actions
-	AddRole(ctx context.Context, role Role) error
+	AddRole(ctx context.Context, role *Role) error
 
 	// RemoveRole deletes a role by name
 	RemoveRole(ctx context.Context, roleName string) error
 
 	// GetRole retrieves a role by name
-	GetRole(ctx context.Context, roleName string) (Role, error)
+	GetRole(ctx context.Context, roleName string) (*Role, error)
 
 	// ListRoles returns all defined roles
-	ListRoles(ctx context.Context) ([]Role, error)
+	ListRoles(ctx context.Context) ([]*Role, error)
 
-	// AddRolePrincipalMapping creates a new role-principal mapping with optional conditions
-	AddRolePrincipalMapping(ctx context.Context, mapping *PolicyMapping) error
+	// AddRoleEntitlementMapping creates a new role-principal mapping with optional conditions
+	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
-	// RemoveRolePrincipalMapping removes a role-principal mapping
-	RemoveRolePrincipalMapping(ctx context.Context, mapping *PolicyMapping) error
+	// RemoveRoleEntitlementMapping removes a role-principal mapping
+	RemoveRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
-	// GetPrincipalMappings retrieves all role mappings for a specific principal
-	GetPrincipalMappings(ctx context.Context, principal string) ([]PolicyMapping, error)
+	// GetEntitlementMappings retrieves all role mappings for a specific principal
+	GetEntitlementMappings(ctx context.Context, principal string) ([]*RoleEntitlementMapping, error)
 
 	// GetRoleMappings retrieves all principal mappings for a specific role
-	GetRoleMappings(ctx context.Context, roleName string) ([]PolicyMapping, error)
+	GetRoleMappings(ctx context.Context, roleName string) ([]*RoleEntitlementMapping, error)
 
-	// ListRolePrincipalMappings lists all role-principal mappings
-	ListRolePrincipalMappings(ctx context.Context) ([]PolicyMapping, error)
+	// ListRoleEntitlementMappings lists all role-principal mappings
+	ListRoleEntitlementMappings(ctx context.Context) ([]*RoleEntitlementMapping, error)
 
 	// ListActions lists all defined actions in the system
 	ListActions(ctx context.Context) ([]string, error)

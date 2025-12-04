@@ -29,7 +29,7 @@ func NewAuthzService(pap authz.PAP, pdp authz.PDP, logger *slog.Logger) *AuthzSe
 }
 
 // ListRoles lists all authorization roles
-func (s *AuthzService) ListRoles(ctx context.Context) ([]authz.Role, error) {
+func (s *AuthzService) ListRoles(ctx context.Context) ([]*authz.Role, error) {
 	s.logger.Debug("Listing authorization roles")
 
 	roles, err := s.pap.ListRoles(ctx)
@@ -42,19 +42,19 @@ func (s *AuthzService) ListRoles(ctx context.Context) ([]authz.Role, error) {
 }
 
 // GetRole retrieves a specific role by name
-func (s *AuthzService) GetRole(ctx context.Context, roleName string) (authz.Role, error) {
+func (s *AuthzService) GetRole(ctx context.Context, roleName string) (*authz.Role, error) {
 	s.logger.Debug("Getting authorization role", "role", roleName)
 
 	role, err := s.pap.GetRole(ctx, roleName)
 	if err != nil {
-		return authz.Role{}, fmt.Errorf("failed to get role: %w", err)
+		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 
 	return role, nil
 }
 
 // AddRole creates a new authorization role
-func (s *AuthzService) AddRole(ctx context.Context, role authz.Role) error {
+func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 	s.logger.Debug("Adding authorization role", "role", role.Name, "actions", role.Actions)
 
 	if err := s.pap.AddRole(ctx, role); err != nil {
@@ -78,10 +78,10 @@ func (s *AuthzService) RemoveRole(ctx context.Context, roleName string) error {
 }
 
 // ListRoleMappings lists all role-principal mappings (role mappings)
-func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]authz.PolicyMapping, error) {
+func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]*authz.RoleEntitlementMapping, error) {
 	s.logger.Debug("Listing authorization role mappings")
 
-	mappings, err := s.pap.ListRolePrincipalMappings(ctx)
+	mappings, err := s.pap.ListRoleEntitlementMappings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
 	}
@@ -91,34 +91,34 @@ func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]authz.PolicyMapp
 }
 
 // AddRoleMapping creates a new role-principal mapping
-func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
+func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Adding authorization role principal mapping",
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"role", mapping.RoleName,
 		"hierarchy", mapping.Hierarchy)
 
-	if err := s.pap.AddRolePrincipalMapping(ctx, mapping); err != nil {
+	if err := s.pap.AddRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to add policy: %w", err)
 	}
 
 	s.logger.Info("Authorization policy added",
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
 }
 
 // RemoveRoleMapping removes a role-principal mapping
-func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.PolicyMapping) error {
+func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Removing authorization role mapping",
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 
-	if err := s.pap.RemoveRolePrincipalMapping(ctx, mapping); err != nil {
+	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to remove role mapping: %w", err)
 	}
 
 	s.logger.Info("Authorization role mapping removed",
-		"principal", mapping.Principal,
+		"principal", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
 }
@@ -137,7 +137,7 @@ func (s *AuthzService) ListActions(ctx context.Context) ([]string, error) {
 }
 
 // Evaluate evaluates an authorization request using the PDP
-func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (authz.Decision, error) {
+func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (*authz.Decision, error) {
 	s.logger.Debug("Evaluating authorization request",
 		"subject", request.Subject,
 		"resource", request.Resource,
@@ -147,9 +147,9 @@ func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequ
 	if err != nil {
 		s.logger.Error("Failed to evaluate authorization request", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
-			return authz.Decision{}, err
+			return nil, err
 		}
-		return authz.Decision{}, fmt.Errorf("failed to evaluate request: %w", err)
+		return nil, fmt.Errorf("failed to evaluate request: %w", err)
 	}
 
 	s.logger.Debug("Authorization decision made",
@@ -159,16 +159,16 @@ func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequ
 }
 
 // BatchEvaluate evaluates multiple authorization requests using the PDP
-func (s *AuthzService) BatchEvaluate(ctx context.Context, request *authz.BatchEvaluateRequest) (authz.BatchEvaluateResponse, error) {
+func (s *AuthzService) BatchEvaluate(ctx context.Context, request *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
 	s.logger.Debug("Batch evaluating authorization requests", "count", len(request.Requests))
 
 	response, err := s.pdp.BatchEvaluate(ctx, request)
 	if err != nil {
 		s.logger.Error("Failed to batch evaluate authorization requests", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
-			return authz.BatchEvaluateResponse{}, err
+			return nil, err
 		}
-		return authz.BatchEvaluateResponse{}, fmt.Errorf("failed to batch evaluate requests: %w", err)
+		return nil, fmt.Errorf("failed to batch evaluate requests: %w", err)
 	}
 
 	s.logger.Debug("Batch authorization decisions made", "count", len(response.Decisions))

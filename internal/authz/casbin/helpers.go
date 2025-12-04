@@ -217,9 +217,9 @@ func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContex
 			}
 		}
 		return &authzcore.SubjectContext{
-			JwtToken: subject.JwtToken,
-			Type:     authzcore.SubjectTypeUser,
-			Claims:   entitlements,
+			Type:              authzcore.SubjectTypeUser,
+			EntitlementName:   "group",
+			EntitlementValues: entitlements,
 		}, nil
 	}
 
@@ -227,9 +227,9 @@ func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContex
 	if sa, ok := claims["service_account"].(string); ok && sa != "" {
 		entitlements = append(entitlements, sa)
 		return &authzcore.SubjectContext{
-			JwtToken: subject.JwtToken,
-			Type:     authzcore.SubjectTypeServiceAccount,
-			Claims:   entitlements,
+			Type:              authzcore.SubjectTypeServiceAccount,
+			EntitlementName:   "group",
+			EntitlementValues: entitlements,
 		}, nil
 	}
 

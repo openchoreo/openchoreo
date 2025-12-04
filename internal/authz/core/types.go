@@ -27,10 +27,11 @@ type Subject struct {
 }
 
 // SubjectContext - internal auth context for the subject
+// NOTE: This needs to be moved to subject extraction layer later
 type SubjectContext struct {
-	JwtToken string
-	Type     SubjectType
-	Claims   []string
+	Type              SubjectType
+	EntitlementName   string
+	EntitlementValues []string
 }
 
 // ResourceHierarchy represents a single item in a resource hierarchy
@@ -122,13 +123,13 @@ type Role struct {
 	Actions []string `json:"actions"`
 }
 
-// PolicyMapping represents the assignment of a role to a principal within a hierarchical scope
-type PolicyMapping struct {
+// RoleEntitlementMapping represents the assignment of a role to a principal within a hierarchical scope
+type RoleEntitlementMapping struct {
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 
-	// Principal is the identifier of the principal (e.g. group, service account)
-	Principal string `json:"principal"`
+	// EntitlementValue is the identifier of the principal (e.g. group, service account)
+	EntitlementValue string `json:"entitlement_value"`
 
 	// Hierarchy defines the resource hierarchy scope where this role applies
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
