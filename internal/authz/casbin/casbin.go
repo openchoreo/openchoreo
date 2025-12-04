@@ -86,10 +86,19 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
 	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
 
-	// Set custom matching function for g (role-action) to support wildcards
-	// This allows "component:*" to match "component:read", "component:write", etc.
-	enforcer.GetRoleManager().AddMatchingFunc("actionMatch", actionMatchWrapper)
-
+	// Add custom role matcher function to support action wildcards
+	var baseEnforcer *casbin.Enforcer
+	switch e := enforcer.(type) {
+	case *casbin.Enforcer:
+		baseEnforcer = e
+	case *casbin.CachedEnforcer:
+		baseEnforcer = e.Enforcer
+	default:
+		return nil, fmt.Errorf("unknown enforcer type")
+	}
+	if baseEnforcer != nil {
+		baseEnforcer.AddNamedMatchingFunc("g", "", actionMatchWrapper)
+	}
 	// Load policies from database
 	if err := enforcer.LoadPolicy(); err != nil {
 		return nil, fmt.Errorf("failed to load policies: %w", err)

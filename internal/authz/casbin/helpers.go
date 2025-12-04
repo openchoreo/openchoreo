@@ -96,7 +96,7 @@ func ctxMatchWrapper(args ...interface{}) (interface{}, error) {
 // - Exact match: "component:read" matches "component:read"
 // - Verb wildcard: "component:*" matches "component:read", "component:write", etc.
 // - Full wildcard: "*" matches any action
-func actionMatch(roleAction, requestAction string) bool {
+func actionMatch(requestAction, roleAction string) bool {
 	// Full wildcard matches any action
 	if roleAction == "*" {
 		return true
