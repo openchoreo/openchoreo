@@ -1,0 +1,69 @@
+# Copyright 2025 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# Actions define what operations can be performed on resources
+# These are system-defined and embedded in the binary
+
+actions:
+  # Organization
+  - organization:view
+
+  # Project
+  - project:view
+  - project:create
+
+  # Component
+  - component:view
+  - component:create
+  - component:update
+  - component:deploy
+  - component:promote
+
+  # ComponentRelease
+  - componentrelease:view
+  - componentrelease:create
+
+  # ReleaseBinding
+  - releasebinding:view
+  - releasebinding:update
+
+  # ComponentBinding
+  - componentbinding:view
+  - componentbinding:update
+
+  # ComponentType
+  - componenttype:view
+
+  # ComponentWorkflow
+  - componentworkflow:view
+  - componentworkflow:trigger
+
+  # Workflow
+  - workflow:view
+
+  # Trait
+  - trait:view
+
+  # Environment
+  - environment:view
+  - environment:create
+
+  # DataPlane
+  - dataplane:view
+  - dataplane:create
+
+  # BuildPlane
+  - buildplane:view
+
+  # DeploymentPipeline
+  - deploymentpipeline:view
+
+  # Schema
+  - schema:view
+
+  # SecretReference
+  - secretreference:view
+
+  # Workload
+  - workload:view
+  - workload:create

@@ -212,8 +212,10 @@ openchoreoApi:
       storageClassName: "" # Use default storage class if not specified
   authz:
     enabled: false
-    casbinModelPath: "/etc/openchoreo/authz/rbac_model.conf"
     databasePath: "/var/lib/openchoreo/data/casbin.db"
+    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
+    # To use custom roles, set this path and mount a ConfigMap with your roles
+    defaultRolesFilePath: ""
   resources:
     requests:
       cpu: "200m"

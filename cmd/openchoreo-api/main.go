@@ -44,10 +44,10 @@ func main() {
 
 	// Initialize authorization
 	casbinConfig := authz.AuthZConfig{
-		Enabled:      os.Getenv("AUTHZ_ENABLED") == "true",
-		ModelPath:    os.Getenv("AUTHZ_MODEL_PATH"),
-		DatabasePath: os.Getenv("AUTHZ_DATABASE_PATH"),
-		EnableCache:  false,
+		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
+		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
+		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
+		EnableCache:          false,
 	}
 	pap, pdp, err := authz.Initialize(casbinConfig, baseLogger.With("component", "authz"))
 	if err != nil {

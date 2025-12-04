@@ -5,6 +5,7 @@ package casbin
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,9 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
+
+//go:embed rbac_model.conf
+var embeddedModel string
 
 // CasbinEnforcer implements both PDP and PAP interfaces using Casbin
 type CasbinEnforcer struct {
@@ -26,8 +30,8 @@ type CasbinEnforcer struct {
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	ModelPath         string // Required: Path to RBAC model file
 	DatabasePath      string // Required: Path to SQLite database path
+	RolesFilePath     string // Optional: Path to roles YAML file (falls back to embedded if empty)
 	EnableCache       bool   // Optional: Enable policy cache (default: false)
 	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
 }
@@ -40,25 +44,23 @@ const (
 
 // NewCasbinEnforcer creates a new Casbin-based authorizer
 func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
-	if config.ModelPath == "" {
-		return nil, fmt.Errorf("ModelPath is required in CasbinConfig")
-	}
 	if config.DatabasePath == "" {
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
 	}
 
+	// RolesFilePath is optional - will use embedded default if not provided
 	if config.CacheTTLInSeconds == 0 {
 		config.CacheTTLInSeconds = 300 // Default: 5 minutes
 	}
 
-	// Load Casbin model from file or string
-	m, err := model.NewModelFromFile(config.ModelPath)
+	// Load Casbin model from embedded string
+	m, err := model.NewModelFromString(embeddedModel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load casbin model: %w", err)
+		return nil, fmt.Errorf("failed to load embedded casbin model: %w", err)
 	}
 
-	// Create adapter with configured database path
-	adapter, db, err := newAdapter(config.DatabasePath, logger)
+	// Create adapter with configured database path and roles file
+	adapter, db, err := newAdapter(config.DatabasePath, config.RolesFilePath, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin adapter: %w", err)
 	}

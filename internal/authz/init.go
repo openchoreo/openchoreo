@@ -13,10 +13,10 @@ import (
 
 // AuthZConfig holds configuration for authorization initialization
 type AuthZConfig struct {
-	Enabled      bool   // Enable or disable authorization
-	ModelPath    string // Path to Casbin RBAC model file (required if Enabled=true)
-	DatabasePath string // Path to database
-	EnableCache  bool   // Enable authz caching
+	Enabled              bool   // Enable or disable authorization
+	DatabasePath         string // Path to database
+	DefaultRolesFilePath string // Path to default roles YAML file (optional)
+	EnableCache          bool   // Enable authz caching
 }
 
 // Initialize creates and returns PAP and PDP implementations based on configuration.
@@ -31,17 +31,14 @@ func Initialize(config AuthZConfig, logger *slog.Logger) (authzcore.PAP, authzco
 	// Authorization enabled - initialize Casbin enforcer
 	logger.Info("Authorization enabled - initializing Casbin enforcer")
 
-	if config.ModelPath == "" {
-		return nil, nil, fmt.Errorf("authz model path is required when authorization is enabled")
-	}
 	if config.DatabasePath == "" {
 		return nil, nil, fmt.Errorf("authz database path is required when authorization is enabled")
 	}
 
 	casbinConfig := casbin.CasbinConfig{
-		ModelPath:    config.ModelPath,
-		DatabasePath: config.DatabasePath,
-		EnableCache:  config.EnableCache,
+		DatabasePath:  config.DatabasePath,
+		RolesFilePath: config.DefaultRolesFilePath, // Can be empty, will use embedded default
+		EnableCache:   config.EnableCache,
 	}
 
 	casbinAuthz, err := casbin.NewCasbinEnforcer(casbinConfig, logger.With("component", "authz.casbin"))

@@ -64,10 +64,10 @@ spec:
           value: "{{ not .Values.security.enabled }}"
         - name: AUTHZ_ENABLED
           value: "{{ .Values.openchoreoApi.authz.enabled }}"
-        - name: AUTHZ_MODEL_PATH
-          value: {{ .Values.openchoreoApi.authz.casbinModelPath | quote }}
         - name: AUTHZ_DATABASE_PATH
           value: {{ .Values.openchoreoApi.authz.databasePath | quote }}
+        - name: AUTHZ_DEFAULT_ROLES_FILE_PATH
+          value: {{ .Values.openchoreoApi.authz.defaultRolesFilePath | quote }}
         - name: DATABASE_PATH
           value: {{ .Values.openchoreoApi.database.path | quote }}
         volumeMounts:

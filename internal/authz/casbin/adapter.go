@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/authz/data"
 )
 
 // CasbinRule defines the custom schema for Casbin policy storage
@@ -46,7 +46,7 @@ func initializeSQLite(dbPath string) (*gorm.DB, error) {
 // NewAdapter creates a new gorm adapter with custom schema for Casbin
 // It initializes SQLite and auto-migrates the casbin_rule and actions tables
 // Returns the adapter and DB instance for use with ActionRepository
-func newAdapter(dbPath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm.DB, error) {
+func newAdapter(dbPath string, rolesFilePath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm.DB, error) {
 	// Initialize SQLite database
 	db, err := initializeSQLite(dbPath)
 	if err != nil {
@@ -66,25 +66,22 @@ func newAdapter(dbPath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm
 	}
 
 	// Seed initial data (actions and roles)
-	if err := seedInitialData(db, logger); err != nil {
+	if err := seedInitialData(db, rolesFilePath, logger); err != nil {
 		return nil, nil, fmt.Errorf("failed to seed initial data: %w", err)
 	}
 
 	return adapter, db, nil
 }
 
-func seedInitialData(db *gorm.DB, logger *slog.Logger) error {
+func seedInitialData(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
 	logger.Info("seeding initial authorization data")
 
-	// Use a transaction to ensure atomicity of seeding operations
 	err := db.Transaction(func(tx *gorm.DB) error {
-		// Seed actions
 		if err := seedActions(tx, logger); err != nil {
 			return fmt.Errorf("failed to seed actions: %w", err)
 		}
 
-		// Seed roles (grouping policies)
-		if err := seedRoles(tx, logger); err != nil {
+		if err := seedRoles(tx, rolesFilePath, logger); err != nil {
 			return fmt.Errorf("failed to seed roles: %w", err)
 		}
 
@@ -100,11 +97,12 @@ func seedInitialData(db *gorm.DB, logger *slog.Logger) error {
 }
 
 // seedActions creates initial actions if they don't exist
-// Actions are defined in internal/authz/default_data.go
-// Uses atomic INSERT with ON CONFLICT DO NOTHING to handle race conditions
 func seedActions(db *gorm.DB, logger *slog.Logger) error {
-	// Get all actions from authz package
-	actions := authzcore.ListDefaultActions()
+	// Load actions from embedded file
+	actions, err := data.LoadActions()
+	if err != nil {
+		return fmt.Errorf("failed to load actions: %w", err)
+	}
 
 	// Prepare action records for batch insert
 	actionRecords := make([]Action, 0, len(actions))
@@ -112,7 +110,6 @@ func seedActions(db *gorm.DB, logger *slog.Logger) error {
 		actionRecords = append(actionRecords, Action{Action: actionName})
 	}
 
-	// Use atomic INSERT with ON CONFLICT DO NOTHING
 	// This is idempotent and safe for concurrent execution
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "action"}},
@@ -127,12 +124,13 @@ func seedActions(db *gorm.DB, logger *slog.Logger) error {
 	return nil
 }
 
-// seedRoles creates initial role definitions (grouping policies)
-// Roles are defined in internal/authz/default_data.go
-// Uses atomic INSERT with ON CONFLICT DO NOTHING to handle race conditions
-func seedRoles(db *gorm.DB, logger *slog.Logger) error {
-	// Get default roles from authz package
-	roleDefinitions := authzcore.ListDefaultRoles()
+// seedRoles creates initial role definitions from external file
+func seedRoles(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
+	// Load roles from external file
+	roleDefinitions, err := data.LoadRolesFromFile(rolesFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load roles: %w", err)
+	}
 
 	// Prepare all role mapping records for batch insert
 	ruleRecords := make([]CasbinRule, 0)
@@ -150,7 +148,6 @@ func seedRoles(db *gorm.DB, logger *slog.Logger) error {
 		}
 	}
 
-	// Use atomic INSERT with ON CONFLICT DO NOTHING
 	// This is idempotent and safe for concurrent execution
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "ptype"}, {Name: "v0"}, {Name: "v1"}, {Name: "v2"}, {Name: "v3"}, {Name: "v4"}, {Name: "v5"}},
@@ -161,6 +158,6 @@ func seedRoles(db *gorm.DB, logger *slog.Logger) error {
 		return fmt.Errorf("failed to seed roles: %w", result.Error)
 	}
 
-	logger.Info("roles seeded", "roles", len(roleDefinitions), "total_mappings", len(ruleRecords), "inserted", result.RowsAffected)
+	logger.Info("roles seeded", "file", rolesFilePath, "roles", len(roleDefinitions), "total_mappings", len(ruleRecords), "inserted", result.RowsAffected)
 	return nil
 }
