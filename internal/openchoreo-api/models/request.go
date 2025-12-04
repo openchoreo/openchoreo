@@ -44,9 +44,10 @@ type ComponentWorkflowSystemParams struct {
 
 // ComponentWorkflowRepository represents repository information
 type ComponentWorkflowRepository struct {
-	URL      string                              `json:"url"`
-	Revision ComponentWorkflowRepositoryRevision `json:"revision"`
-	AppPath  string                              `json:"appPath"`
+	URL        string                              `json:"url"`
+	Revision   ComponentWorkflowRepositoryRevision `json:"revision"`
+	AppPath    string                              `json:"appPath"`
+	SecretName string                              `json:"secretName,omitempty"`
 }
 
 // ComponentWorkflowRepositoryRevision represents repository revision information

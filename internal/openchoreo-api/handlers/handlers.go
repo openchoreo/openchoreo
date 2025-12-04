@@ -107,9 +107,6 @@ func (h *Handler) Routes() http.Handler {
 	// ComponentWorkflow endpoints (component-specific workflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-schema", h.UpdateComponentWorkflowSchema)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.TriggerComponentWorkflow)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.ListComponentWorkflowRuns)
 
 	// Trait endpoints
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
@@ -128,6 +125,9 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-schema", h.UpdateComponentWorkflowSchema)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-runs", h.TriggerComponentWorkflowRun)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-runs", h.ListComponentWorkflowRuns)
 
 	// Component bindings
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
