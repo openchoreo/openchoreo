@@ -13,34 +13,83 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
-//go:embed actions.yaml
-var actionsYAML []byte
-
 //go:embed default_roles.yaml
 var defaultRolesYAML []byte
-
-// ActionsData represents the structure of the actions data file
-type ActionsData struct {
-	Actions []string `yaml:"actions"`
-}
 
 // RolesData represents the structure of the roles data file
 type RolesData struct {
 	Roles []authzcore.Role `yaml:"roles"`
 }
 
-// LoadActions loads the embedded actions data
+// systemActions defines all available actions in the system
+var systemActions = []string{
+	// Organization
+	"organization:view",
+
+	// Project
+	"project:view",
+	"project:create",
+
+	// Component
+	"component:view",
+	"component:create",
+	"component:update",
+	"component:deploy",
+	"component:promote",
+
+	// ComponentRelease
+	"componentrelease:view",
+	"componentrelease:create",
+
+	// ReleaseBinding
+	"releasebinding:view",
+	"releasebinding:update",
+
+	// ComponentBinding
+	"componentbinding:view",
+	"componentbinding:update",
+
+	// ComponentType
+	"componenttype:view",
+
+	// ComponentWorkflow
+	"componentworkflow:view",
+	"componentworkflow:trigger",
+
+	// Workflow
+	"workflow:view",
+
+	// Trait
+	"trait:view",
+
+	// Environment
+	"environment:view",
+	"environment:create",
+
+	// DataPlane
+	"dataplane:view",
+	"dataplane:create",
+
+	// BuildPlane
+	"buildplane:view",
+
+	// DeploymentPipeline
+	"deploymentpipeline:view",
+
+	// Schema
+	"schema:view",
+
+	// SecretReference
+	"secretreference:view",
+
+	// Workload
+	"workload:view",
+	"workload:create",
+}
+
+// LoadActions returns the system-defined actions
 func LoadActions() ([]string, error) {
-	var data ActionsData
-	if err := yaml.Unmarshal(actionsYAML, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse actions data: %w", err)
-	}
-
-	if len(data.Actions) == 0 {
-		return nil, fmt.Errorf("actions list cannot be empty")
-	}
-
-	return data.Actions, nil
+	return systemActions, nil
 }
 
 // LoadRolesFromFile loads roles with the following priority:

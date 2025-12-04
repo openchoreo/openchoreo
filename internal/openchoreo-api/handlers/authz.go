@@ -216,6 +216,15 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, response)
 }
 
+// GetAuthzProfile handles GET /api/v1/authz/profile
+func (h *Handler) GetAuthzProfile(w http.ResponseWriter, r *http.Request) {
+	// TODO: implement this once the casbin impl for this is complete
+	// get subject from the request context
+	// get the scope from query parameters
+	// ex: /api/v1/authz/profile?organization=myorg&project=myproject
+	writeSuccessResponse(w, http.StatusOK, "")
+}
+
 // handleAuthzDisabledError checks if the error indicates that authorization is disabled and returns a standardized error
 func handleAuthzDisabledError(w http.ResponseWriter, err error) bool {
 	if err != nil && errors.Is(err, authz.ErrAuthzDisabled) {

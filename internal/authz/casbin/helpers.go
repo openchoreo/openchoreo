@@ -218,7 +218,7 @@ func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContex
 		}
 		return &authzcore.SubjectContext{
 			Type:              authzcore.SubjectTypeUser,
-			EntitlementName:   "group",
+			EntitlementClaim:  "group",
 			EntitlementValues: entitlements,
 		}, nil
 	}
@@ -228,7 +228,7 @@ func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContex
 		entitlements = append(entitlements, sa)
 		return &authzcore.SubjectContext{
 			Type:              authzcore.SubjectTypeServiceAccount,
-			EntitlementName:   "group",
+			EntitlementClaim:  "group",
 			EntitlementValues: entitlements,
 		}, nil
 	}

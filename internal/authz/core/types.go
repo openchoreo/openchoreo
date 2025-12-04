@@ -30,7 +30,7 @@ type Subject struct {
 // NOTE: This needs to be moved to subject extraction layer later
 type SubjectContext struct {
 	Type              SubjectType
-	EntitlementName   string
+	EntitlementClaim  string
 	EntitlementValues []string
 }
 

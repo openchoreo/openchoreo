@@ -43,13 +43,13 @@ func main() {
 	}
 
 	// Initialize authorization
-	casbinConfig := authz.AuthZConfig{
+	authzConfig := authz.AuthZConfig{
 		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
 		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
 		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
 		EnableCache:          false,
 	}
-	pap, pdp, err := authz.Initialize(casbinConfig, baseLogger.With("component", "authz"))
+	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))
 	if err != nil {
 		baseLogger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)

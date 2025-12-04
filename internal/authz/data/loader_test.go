@@ -20,6 +20,29 @@ func TestLoadActions(t *testing.T) {
 	if len(actions) == 0 {
 		t.Error("LoadActions() returned empty actions list")
 	}
+
+	// Verify some expected actions exist
+	expectedActions := []string{
+		"organization:view",
+		"project:view",
+		"project:create",
+		"component:view",
+		"component:create",
+		"component:update",
+	}
+
+	for _, expected := range expectedActions {
+		found := false
+		for _, action := range actions {
+			if action == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("LoadActions() missing expected action: %s", expected)
+		}
+	}
 }
 
 func TestLoadEmbeddedRoles(t *testing.T) {

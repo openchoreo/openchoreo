@@ -4,4 +4,4 @@
 roles:
   - name: super-admin
     actions:
-      - "*"  # Wildcard grants all actions
+      - "*" 
