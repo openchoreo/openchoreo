@@ -102,6 +102,15 @@ type RepositorySchema struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^string(\s*\|.*)?$`
 	AppPath string `json:"appPath"`
+
+	// SecretName is the schema definition for the Kubernetes secret name containing credentials for private repositories.
+	// Must be a string type schema definition.
+	// Format: 'string | description=...'
+	// Example: 'string | description="Kubernetes secret name for private repository authentication"'
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^string(\s*\|.*)?$`
+	SecretName string `json:"secretName"`
 }
 
 // RepositoryRevisionSchema defines the schema for repository revision parameters.

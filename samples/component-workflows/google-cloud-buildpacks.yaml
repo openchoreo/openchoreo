@@ -26,6 +26,7 @@ spec:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
+        secretName: string | description="Kubernetes secret name for private repository authentication"
 
     # Developer-configurable parameters - PE-defined schema for additional build configuration
     parameters:
