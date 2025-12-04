@@ -46,7 +46,7 @@ Options:
                                     When enabled, skips kubernetesCluster configuration
 
   --agent-ca-secret NAME            Secret name containing agent client CA certificate
-                                    Default: cluster-agent-ca (only used with --enable-agent)
+                                    Default: cluster-gateway-ca (only used with --enable-agent)
 
   --agent-ca-namespace NAMESPACE    Namespace of agent CA secret
                                     Default: same as --namespace (only used with --enable-agent)
@@ -98,7 +98,7 @@ DATAPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
 ENABLE_AGENT=false
-AGENT_CA_SECRET="cluster-agent-ca"
+AGENT_CA_SECRET="cluster-gateway-ca"
 AGENT_CA_NAMESPACE=""
 
 # Parse arguments

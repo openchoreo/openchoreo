@@ -40,7 +40,8 @@ var _ = Describe("WorkflowRun Controller", func() {
 			reconciler := &Reconciler{
 				Client:       k8sClient,
 				Scheme:       k8sClient.Scheme(),
-				k8sClientMgr: kubernetesClient.NewManager(),
+				K8sClientMgr: kubernetesClient.NewManager(),
+				GatewayURL:   "http://localhost:8080",
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -138,7 +139,8 @@ var _ = Describe("WorkflowRun Controller", func() {
 			reconciler := &Reconciler{
 				Client:       k8sClient,
 				Scheme:       k8sClient.Scheme(),
-				k8sClientMgr: kubernetesClient.NewManager(),
+				K8sClientMgr: kubernetesClient.NewManager(),
+				GatewayURL:   "http://localhost:8080",
 			}
 
 			_, err := reconciler.Reconcile(testCtx, reconcile.Request{

@@ -105,11 +105,23 @@ For simple setups or testing, you can use direct Kubernetes API access:
 
 ### 4. Create BuildPlane Resource (optional)
 
-Create a BuildPlane resource to enable building from source:
+Create a BuildPlane resource to enable building from source.
+
+**Using Cluster Agent (Recommended):**
+
+The cluster agent provides secure communication between control plane and build plane without exposing the Kubernetes API:
 
 ```bash
-./install/add-build-plane.sh --control-plane-context k3d-openchoreo
+./install/add-build-plane.sh \
+  --control-plane-context k3d-openchoreo \
+  --namespace default \
+  --agent-ca-namespace openchoreo-control-plane \
+  --name default
 ```
+
+This creates a BuildPlane CR that uses the cluster agent for communication. The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the build plane Kubernetes API.
+
+> **Note:** The cluster agent approach is the only supported method for BuildPlane. The agent provides better security and doesn't require exposing the Kubernetes API server.
 
 ## Port Mappings
 
@@ -172,14 +184,20 @@ kubectl --context k3d-openchoreo get dataplane -n default
 kubectl --context k3d-openchoreo get buildplane -n default
 
 # Verify Cluster Agent Connection (if using agent mode)
-echo "=== Cluster Agent Status ==="
+echo "=== Data Plane Cluster Agent Status ==="
 kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane -l app=cluster-agent
 
-echo "=== Agent Connection Logs ==="
+echo "=== Data Plane Agent Connection Logs ==="
 kubectl --context k3d-openchoreo logs -n openchoreo-data-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
 
+echo "=== Build Plane Cluster Agent Status ==="
+kubectl --context k3d-openchoreo get pods -n openchoreo-build-plane -l app=cluster-agent
+
+echo "=== Build Plane Agent Connection Logs ==="
+kubectl --context k3d-openchoreo logs -n openchoreo-build-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
+
 echo "=== Gateway Registration ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -1
+kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -5
 ```
 
 ## Architecture

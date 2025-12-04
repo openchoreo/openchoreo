@@ -32,7 +32,9 @@ type Reconciler struct {
 	client.Client
 	// IsGitOpsMode indicates whether the controller is running in GitOps mode
 	IsGitOpsMode bool
+	K8sClientMgr *kubernetesClient.KubeMultiClientManager
 	Scheme       *runtime.Scheme
+	GatewayURL   string
 	engine       *Builder
 }
 
@@ -122,7 +124,7 @@ const (
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.engine == nil {
-		r.engine = NewBuilder(r.Client, kubernetesClient.NewManager())
+		r.engine = NewBuilder(r.Client, r.K8sClientMgr, r.GatewayURL)
 
 		// Register build engines here to avoid circular imports
 		r.engine.registerBuildEngines()

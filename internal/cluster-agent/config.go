@@ -15,4 +15,5 @@ type Config struct {
 	ReconnectDelay    time.Duration
 	HeartbeatInterval time.Duration
 	RequestTimeout    time.Duration
+	Routes            []RouteConfig // Backend service routes for HTTP proxy
 }

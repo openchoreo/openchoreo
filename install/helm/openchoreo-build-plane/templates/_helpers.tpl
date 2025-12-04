@@ -121,3 +121,21 @@ Parameters:
 {{ include "openchoreo-build-plane.selectorLabels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
+
+{{/*
+Cluster Agent name
+*/}}
+{{- define "openchoreo-build-plane.clusterAgent.name" -}}
+{{- default "cluster-agent" .Values.clusterAgent.name }}
+{{- end }}
+
+{{/*
+Cluster Agent service account name
+*/}}
+{{- define "openchoreo-build-plane.clusterAgent.serviceAccountName" -}}
+{{- if .Values.clusterAgent.serviceAccount.create }}
+{{- default "cluster-agent" .Values.clusterAgent.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.clusterAgent.serviceAccount.name }}
+{{- end }}
+{{- end }}

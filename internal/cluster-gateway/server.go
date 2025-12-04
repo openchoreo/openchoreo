@@ -5,9 +5,15 @@ package clustergateway
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,22 +24,33 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+const (
+	planeTypeDataPlane  = "dataplane"
+	planeTypeBuildPlane = "buildplane"
+)
+
 type Server struct {
-	config          *Config
-	httpServer      *http.Server
-	healthServer    *http.Server
-	upgrader        websocket.Upgrader
-	connMgr         *ConnectionManager
-	pendingRequests map[string]chan *messaging.ClusterAgentResponse
-	requestsMu      sync.Mutex
-	logger          *slog.Logger
+	config              *Config
+	httpServer          *http.Server
+	healthServer        *http.Server
+	upgrader            websocket.Upgrader
+	connMgr             *ConnectionManager
+	pendingHTTPRequests map[string]chan *messaging.HTTPTunnelResponse
+	requestsMu          sync.Mutex
+	validator           *RequestValidator
+	logger              *slog.Logger
+	k8sClient           client.Client // Kubernetes client for querying DataPlane/BuildPlane CRs
 }
 
-func New(config *Config, logger *slog.Logger) *Server {
+func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 	return &Server{
 		config: config,
 		upgrader: websocket.Upgrader{
@@ -41,10 +58,29 @@ func New(config *Config, logger *slog.Logger) *Server {
 				return true
 			},
 		},
-		connMgr:         NewConnectionManager(logger),
-		pendingRequests: make(map[string]chan *messaging.ClusterAgentResponse),
-		logger:          logger.With("component", "agent-server"),
+		connMgr:             NewConnectionManager(logger),
+		pendingHTTPRequests: make(map[string]chan *messaging.HTTPTunnelResponse),
+		validator:           NewRequestValidator(),
+		logger:              logger.With("component", "agent-server"),
+		k8sClient:           k8sClient,
 	}
+}
+
+func generateRequestID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails (extremely rare)
+		return fmt.Sprintf("gw-%d", time.Now().UnixNano())
+	}
+	return "gw-" + hex.EncodeToString(b)
+}
+
+func getOrGenerateRequestID(r *http.Request) string {
+	requestID := r.Header.Get("X-Request-ID")
+	if requestID == "" {
+		requestID = generateRequestID()
+	}
+	return requestID
 }
 
 func (s *Server) Start() error {
@@ -53,23 +89,23 @@ func (s *Server) Start() error {
 		return fmt.Errorf("failed to load server certificate: %w", err)
 	}
 
-	// Configure TLS - client certificates are not verified at TLS level
-	// Client certificate verification will be implemented at the application level based on DataPlane CR configuration
-	// TODO: Implement certificate verification using DataPlane CR's clientCA configuration
+	// Configure TLS - request client certificates but don't verify at TLS level
+	// Verification is done at application level based on DataPlane/BuildPlane CR configuration
+	// This allows per-plane CA configuration for enhanced security
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.NoClientCert, // Certificate verification will be done at application level
+		ClientAuth:   tls.RequestClientCert, // Request cert but don't verify at TLS level
 		MinVersion:   tls.VersionTLS12,
 	}
 
 	s.logger.Info("TLS configured",
-		"clientAuth", "NoClientCert",
-		"note", "Client certificate verification will be implemented via DataPlane CR configuration",
+		"clientAuth", "RequestClientCert",
+		"note", "Client certificate verification performed at application level per DataPlane/BuildPlane CR",
 	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/api/k8s-resources/", s.handleK8sResourceRequest) // Kubernetes resource operations via agent
+	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.Port),
@@ -121,11 +157,9 @@ func (s *Server) Start() error {
 	case <-ctx.Done():
 		s.logger.Info("shutdown signal received")
 
-		// Graceful shutdown with timeout
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.config.ShutdownTimeout)
 		defer cancel()
 
-		// Shutdown both servers
 		var shutdownErr error
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			s.logger.Error("main server shutdown error", "error", err)
@@ -157,128 +191,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleK8sResourceRequest handles Kubernetes resource operations via agent
-// URL format: /api/k8s-resources/{planeName}
-// Request body must include: {"action": "...", ...other fields...}
-func (s *Server) handleK8sResourceRequest(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	planeName := path[len("/api/k8s-resources/"):]
-	if planeName == "" {
-		http.Error(w, "plane name is required in path: /api/k8s-resources/{planeName}", http.StatusBadRequest)
-		return
-	}
-
-	if r.Method != http.MethodPost && r.Method != http.MethodPut {
-		http.Error(w, "only POST and PUT methods are supported", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestBody map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		s.logger.Warn("failed to parse request body", "error", err)
-		http.Error(w, "invalid request body: must be valid JSON", http.StatusBadRequest)
-		return
-	}
-
-	actionValue, ok := requestBody["action"]
-	if !ok {
-		http.Error(w, "missing 'action' field in request body", http.StatusBadRequest)
-		return
-	}
-
-	action, ok := actionValue.(string)
-	if !ok {
-		http.Error(w, "'action' field must be a string", http.StatusBadRequest)
-		return
-	}
-
-	payload := make(map[string]interface{})
-	for key, value := range requestBody {
-		if key != "action" {
-			payload[key] = value
-		}
-	}
-
-	s.logger.Info("k8s resource request received",
-		"plane", planeName,
-		"action", action,
-		"method", r.Method,
-	)
-
-	// Determine request type based on action (CQRS pattern)
-	var requestType messaging.RequestType
-	switch messaging.Action(action) {
-	case messaging.ActionApplyResource, messaging.ActionDeleteResource,
-		messaging.ActionPatchResource, messaging.ActionCreateNamespace:
-		requestType = messaging.TypeCommand
-	case messaging.ActionListResources, messaging.ActionGetResource, messaging.ActionWatchResources:
-		requestType = messaging.TypeQuery
-	default:
-		requestType = messaging.TypeCommand
-	}
-
-	// Construct composite plane identifier for agent lookup
-	// Check if planeName already includes the plane type prefix
-	planeIdentifier := planeName
-	if !strings.Contains(planeName, "/") {
-		// If no "/" found, this is just the plane name, prepend "dataplane/"
-		planeIdentifier = fmt.Sprintf("dataplane/%s", planeName)
-	}
-
-	// Send request to agent and wait for response
-	response, err := s.SendClusterAgentRequest(planeIdentifier, requestType, action, payload, 30*time.Second)
-	if err != nil {
-		s.logger.Error("k8s resource request failed",
-			"plane", planeName,
-			"action", action,
-			"error", err,
-		)
-		http.Error(w, fmt.Sprintf("request failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if response.IsSuccess() {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		statusCode := http.StatusInternalServerError
-		if response.Error != nil {
-			switch response.Error.Code {
-			case 400:
-				statusCode = http.StatusBadRequest
-			case 404:
-				statusCode = http.StatusNotFound
-			case 409:
-				statusCode = http.StatusConflict
-			case 422:
-				statusCode = http.StatusUnprocessableEntity
-			default:
-				statusCode = http.StatusInternalServerError
-			}
-		}
-		w.WriteHeader(statusCode)
-	}
-
-	responseData := map[string]interface{}{
-		"success":  response.IsSuccess(),
-		"plane":    planeName,
-		"action":   action,
-		"request":  payload,
-		"response": response,
-	}
-
-	if err := json.NewEncoder(w).Encode(responseData); err != nil {
-		s.logger.Warn("failed to encode response", "error", err)
-	}
-}
-
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	var clientCN string
-	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
-		clientCN = r.TLS.PeerCertificates[0].Subject.CommonName
-		s.logger.Info("client connecting with certificate", "CN", clientCN)
-	}
-
 	query := r.URL.Query()
 	planeType := query.Get("planeType")
 	planeName := query.Get("planeName")
@@ -295,8 +208,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate planeType
-	if planeType != "dataplane" && planeType != "buildplane" {
+	if planeType != planeTypeDataPlane && planeType != planeTypeBuildPlane {
 		s.logger.Warn("connection rejected: invalid planeType",
 			"planeType", planeType,
 		)
@@ -304,16 +216,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Construct composite plane identifier: {planeType}/{planeName}
-	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeName)
-
-	if clientCN != "" && clientCN != planeName {
-		s.logger.Warn("certificate CN does not match plane name",
-			"certificateCN", clientCN,
+	if err := s.verifyClientCertificate(r, planeType, planeName); err != nil {
+		s.logger.Warn("client certificate verification failed",
+			"planeType", planeType,
 			"planeName", planeName,
+			"error", err,
 		)
-		// Note: We continue anyway for now, but this could be enforced in production
+		http.Error(w, fmt.Sprintf("client certificate verification failed: %v", err), http.StatusUnauthorized)
+		return
 	}
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeName)
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -330,15 +243,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	welcomeMsg := messaging.NewBroadcastMessage(map[string]interface{}{
-		"message":         fmt.Sprintf("Welcome! Connected as %s/%s", planeType, planeName),
-		"planeType":       planeType,
-		"planeName":       planeName,
-		"planeIdentifier": planeIdentifier,
-	})
-	if err := s.connMgr.SendMessage(planeIdentifier, welcomeMsg); err != nil {
-		s.logger.Error("failed to send welcome message", "error", err)
-	}
+	s.logger.Info("agent connected successfully",
+		"planeType", planeType,
+		"planeName", planeName,
+		"planeIdentifier", planeIdentifier,
+	)
 
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
@@ -383,75 +292,222 @@ func (s *Server) handleConnection(planeName, connID string, conn *websocket.Conn
 
 		s.connMgr.UpdateConnectionLastSeen(planeName, connID)
 
-		var agentResp messaging.ClusterAgentResponse
-		if err := json.Unmarshal(data, &agentResp); err != nil {
-			s.logger.Warn("failed to parse response", "plane", planeName, "error", err)
+		var httpResp messaging.HTTPTunnelResponse
+		if err := json.Unmarshal(data, &httpResp); err != nil {
+			s.logger.Warn("failed to parse HTTP tunnel response", "plane", planeName, "error", err)
 			continue
 		}
 
-		if agentResp.RequestID == "" {
-			s.logger.Warn("received response without requestID", "plane", planeName)
+		if httpResp.RequestID == "" {
+			s.logger.Warn("received HTTP tunnel response without requestID", "plane", planeName)
 			continue
 		}
 
-		s.handleClusterAgentResponse(planeName, &agentResp)
+		s.handleHTTPTunnelResponse(planeName, &httpResp)
 	}
 }
 
-func (s *Server) handleClusterAgentResponse(planeName string, resp *messaging.ClusterAgentResponse) {
-	s.logger.Debug("received dispatched response",
+func (s *Server) handleHTTPTunnelResponse(planeName string, resp *messaging.HTTPTunnelResponse) {
+	s.logger.Debug("received HTTP tunnel response",
 		"plane", planeName,
-		"type", resp.Type,
 		"requestID", resp.RequestID,
-		"status", resp.Status,
+		"statusCode", resp.StatusCode,
 	)
 
 	s.requestsMu.Lock()
-	ch, ok := s.pendingRequests[resp.RequestID]
+	ch, ok := s.pendingHTTPRequests[resp.RequestID]
 	if ok {
-		delete(s.pendingRequests, resp.RequestID)
+		delete(s.pendingHTTPRequests, resp.RequestID)
 	}
 	s.requestsMu.Unlock()
 
 	if !ok {
-		s.logger.Warn("received response for unknown request", "requestID", resp.RequestID)
+		s.logger.Warn("received HTTP tunnel response for unknown request", "requestID", resp.RequestID)
 		return
 	}
 
 	select {
 	case ch <- resp:
 	default:
-		s.logger.Warn("reply channel full", "requestID", resp.RequestID)
+		s.logger.Warn("HTTP tunnel reply channel full", "requestID", resp.RequestID)
 	}
 }
 
-func (s *Server) SendClusterAgentRequest(planeName string, requestType messaging.RequestType, identifier string, payload map[string]interface{}, timeout time.Duration) (*messaging.ClusterAgentResponse, error) {
-	var req *messaging.ClusterAgentRequest
-	if requestType == messaging.TypeCommand {
-		req = messaging.NewCommand(identifier, "", planeName, payload)
-	} else {
-		req = messaging.NewQuery(identifier, "", planeName, payload)
+// handleHTTPProxy handles HTTP proxy requests to data plane services
+// URL format: /api/proxy/{planeType}/{planeName}/{target}/{path...}
+// Examples:
+//   - /api/proxy/dataplane/my-dataplane/k8s/api/v1/pods
+//   - /api/proxy/buildplane/default/k8s/api/v1/namespaces
+func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
+	requestID := getOrGenerateRequestID(r)
+	logger := s.logger.With("requestId", requestID)
+
+	// Parse URL: /api/proxy/{planeType}/{planeName}/{target}/{path...}
+	path := strings.TrimPrefix(r.URL.Path, "/api/proxy/")
+	parts := strings.SplitN(path, "/", 4)
+
+	if len(parts) < 4 {
+		logger.Warn("invalid proxy URL format",
+			"path", r.URL.Path,
+			"expected", "/api/proxy/{planeType}/{planeName}/{target}/{path}",
+		)
+		http.Error(w, "invalid proxy URL format: /api/proxy/{planeType}/{planeName}/{target}/{path}", http.StatusBadRequest)
+		return
 	}
 
+	planeType := parts[0]
+	planeName := parts[1]
+	target := parts[2]
+	targetPath := "/" + parts[3]
+
+	if err := s.validator.ValidateRequest(r, target, targetPath); err != nil {
+		var valErr *ValidationError
+		if errors.As(err, &valErr) {
+			logger.Warn("request validation failed",
+				"plane", planeName,
+				"target", target,
+				"path", targetPath,
+				"error", valErr.Message,
+			)
+			http.Error(w, valErr.Message, valErr.Code)
+			return
+		}
+		logger.Error("request validation error", "error", err)
+		http.Error(w, "request validation failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Construct planeIdentifier from planeType and planeName (e.g., "dataplane/default" or "buildplane/default")
+	// This matches how agents register themselves with the gateway
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeName)
+
+	isStreaming := s.isStreamingRequest(r, targetPath)
+
+	if isStreaming {
+		s.handleStreamingProxy(w, r, planeIdentifier, target, targetPath)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		logger.Warn("failed to read request body", "error", err)
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	logger.Info("HTTP proxy request received",
+		"plane", planeIdentifier,
+		"target", target,
+		"path", targetPath,
+		"method", r.Method,
+	)
+
+	tunnelReq := messaging.NewHTTPTunnelRequest(
+		target,
+		r.Method,
+		targetPath,
+		r.URL.RawQuery,
+		r.Header,
+		body,
+	)
+	tunnelReq.GatewayRequestID = requestID
+
+	response, err := s.SendHTTPTunnelRequest(planeIdentifier, tunnelReq, 30*time.Second)
+	if err != nil {
+		logger.Error("HTTP tunnel request failed",
+			"plane", planeIdentifier,
+			"target", target,
+			"error", err,
+		)
+		http.Error(w, fmt.Sprintf("proxy request failed: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	for key, values := range response.Headers {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+
+	w.WriteHeader(response.StatusCode)
+	if len(response.Body) > 0 {
+		if _, err := w.Write(response.Body); err != nil {
+			logger.Warn("failed to write response body", "error", err)
+		}
+	}
+
+	logger.Info("HTTP proxy request completed",
+		"plane", planeIdentifier,
+		"target", target,
+		"statusCode", response.StatusCode,
+	)
+}
+
+// isStreamingRequest detects if the request requires streaming
+func (s *Server) isStreamingRequest(r *http.Request, path string) bool {
+	if strings.Contains(r.URL.RawQuery, "watch=true") {
+		return true
+	}
+
+	if strings.Contains(path, "/log") && strings.Contains(r.URL.RawQuery, "follow=true") {
+		return true
+	}
+
+	// Check for HTTP upgrade headers (SPDY, WebSocket for exec/port-forward)
+	if r.Header.Get("Connection") == "Upgrade" || r.Header.Get("Upgrade") != "" {
+		return true
+	}
+
+	return false
+}
+
+// handleStreamingProxy handles streaming HTTP requests (watch, logs, exec, port-forward)
+func (s *Server) handleStreamingProxy(w http.ResponseWriter, r *http.Request, planeIdentifier, target, targetPath string) {
+	requestID := getOrGenerateRequestID(r)
+	logger := s.logger.With("requestId", requestID)
+
+	logger.Info("HTTP streaming proxy request received",
+		"plane", planeIdentifier,
+		"target", target,
+		"path", targetPath,
+		"method", r.Method,
+		"query", r.URL.RawQuery,
+	)
+
+	http.Error(w, "Streaming operations (watch, logs -f, exec, port-forward) are not yet supported through the HTTP proxy. "+
+		"Use the CQRS API (/api/k8s-resources/) for resource operations, or connect directly to the data plane for streaming operations.",
+		http.StatusNotImplemented)
+
+	// TODO: Implement full streaming support
+	// 1. Send HTTPTunnelStreamInit to agent
+	// 2. Set up bidirectional channel for stream chunks
+	// 3. Stream data chunks back and forth
+	// 4. Handle connection close gracefully
+}
+
+// SendHTTPTunnelRequest sends an HTTP tunnel request to an agent and waits for the response
+func (s *Server) SendHTTPTunnelRequest(planeName string, req *messaging.HTTPTunnelRequest, timeout time.Duration) (*messaging.HTTPTunnelResponse, error) {
 	req.RequestID = messaging.GenerateMessageID()
 
-	replyChan := make(chan *messaging.ClusterAgentResponse, 1)
+	replyChan := make(chan *messaging.HTTPTunnelResponse, 1)
 	s.requestsMu.Lock()
-	s.pendingRequests[req.RequestID] = replyChan
+	s.pendingHTTPRequests[req.RequestID] = replyChan
 	s.requestsMu.Unlock()
 
-	s.logger.Debug("sending dispatchable request",
+	s.logger.Debug("sending HTTP tunnel request",
 		"requestID", req.RequestID,
-		"type", req.Type,
-		"identifier", req.Identifier,
+		"target", req.Target,
+		"method", req.Method,
+		"path", req.Path,
 		"plane", planeName,
 	)
 
-	if err := s.connMgr.SendClusterAgentRequest(planeName, req); err != nil {
+	if err := s.connMgr.SendHTTPTunnelRequest(planeName, req); err != nil {
 		s.requestsMu.Lock()
-		delete(s.pendingRequests, req.RequestID)
+		delete(s.pendingHTTPRequests, req.RequestID)
 		s.requestsMu.Unlock()
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send HTTP tunnel request: %w", err)
 	}
 
 	select {
@@ -459,12 +515,320 @@ func (s *Server) SendClusterAgentRequest(planeName string, requestType messaging
 		return response, nil
 	case <-time.After(timeout):
 		s.requestsMu.Lock()
-		delete(s.pendingRequests, req.RequestID)
+		delete(s.pendingHTTPRequests, req.RequestID)
 		s.requestsMu.Unlock()
-		return nil, messaging.ErrRequestTimeout
+		return nil, fmt.Errorf("HTTP tunnel request timeout")
 	}
 }
 
 func (s *Server) GetConnectionManager() *ConnectionManager {
 	return s.connMgr
+}
+
+// verifyClientCertificate verifies the client certificate against the CA configured in the plane's CR
+func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName string) error {
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		return fmt.Errorf("no client certificate presented")
+	}
+
+	clientCert := r.TLS.PeerCertificates[0]
+	clientCN := clientCert.Subject.CommonName
+	clientIssuer := clientCert.Issuer.CommonName
+
+	s.logger.Info("verifying client certificate",
+		"planeType", planeType,
+		"planeName", planeName,
+		"certificateCN", clientCN,
+		"certificateIssuer", clientIssuer,
+		"certificateNotBefore", clientCert.NotBefore,
+		"certificateNotAfter", clientCert.NotAfter,
+		"certificateSerialNumber", clientCert.SerialNumber.String(),
+	)
+
+	clientCAData, err := s.getPlaneClientCA(planeType, planeName)
+	if err != nil {
+		return fmt.Errorf("failed to get client CA configuration: %w", err)
+	}
+
+	if clientCAData == nil {
+		s.logger.Warn("no client CA configured for plane, skipping certificate verification",
+			"planeType", planeType,
+			"planeName", planeName,
+		)
+		return nil
+	}
+
+	caCerts, err := parseCACertificates(clientCAData)
+	if err != nil {
+		s.logger.Error("failed to parse CA certificate for logging",
+			"error", err,
+		)
+	} else {
+		for i, caCert := range caCerts {
+			s.logger.Info("CA certificate details",
+				"index", i,
+				"subject", caCert.Subject.CommonName,
+				"issuer", caCert.Issuer.CommonName,
+				"notBefore", caCert.NotBefore,
+				"notAfter", caCert.NotAfter,
+				"isCA", caCert.IsCA,
+			)
+		}
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(clientCAData) {
+		return fmt.Errorf("failed to parse client CA certificate")
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:     certPool,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	chains, err := clientCert.Verify(opts)
+	if err != nil {
+		s.logger.Error("certificate verification failed with details",
+			"clientCN", clientCN,
+			"clientIssuer", clientIssuer,
+			"error", err,
+			"errorType", fmt.Sprintf("%T", err),
+		)
+		return fmt.Errorf("certificate verification failed: %w", err)
+	}
+
+	s.logger.Info("certificate verification successful",
+		"clientCN", clientCN,
+		"chainCount", len(chains),
+	)
+	for i, chain := range chains {
+		s.logger.Debug("certificate chain",
+			"chainIndex", i,
+			"chainLength", len(chain),
+		)
+		for j, cert := range chain {
+			s.logger.Debug("chain certificate",
+				"chainIndex", i,
+				"certIndex", j,
+				"subject", cert.Subject.CommonName,
+				"issuer", cert.Issuer.CommonName,
+			)
+		}
+	}
+
+	if clientCN != planeName {
+		s.logger.Warn("certificate CN does not match plane name",
+			"certificateCN", clientCN,
+			"planeName", planeName,
+			"note", "This is allowed but may indicate a configuration issue",
+		)
+	}
+
+	s.logger.Info("client certificate verified successfully",
+		"planeType", planeType,
+		"planeName", planeName,
+		"certificateCN", clientCN,
+	)
+
+	return nil
+}
+
+// getPlaneClientCA retrieves the client CA configuration from DataPlane or BuildPlane CR
+func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Todo: Need to optimize to get the plane from the correct namespace
+	namespacesToCheck := []string{"default"}
+
+	if planeType == planeTypeDataPlane {
+		var dataPlane openchoreov1alpha1.DataPlane
+
+		for _, namespace := range namespacesToCheck {
+			key := client.ObjectKey{
+				Name:      planeName,
+				Namespace: namespace,
+			}
+
+			if err := s.k8sClient.Get(ctx, key, &dataPlane); err == nil {
+				s.logger.Debug("found DataPlane CR",
+					"name", planeName,
+					"namespace", namespace,
+				)
+
+				if dataPlane.Spec.Agent != nil && dataPlane.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(dataPlane.Spec.Agent.ClientCA, namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		var dataPlaneList openchoreov1alpha1.DataPlaneList
+		if err := s.k8sClient.List(ctx, &dataPlaneList); err != nil {
+			return nil, fmt.Errorf("failed to list DataPlane CRs: %w", err)
+		}
+
+		for _, dp := range dataPlaneList.Items {
+			if dp.Name == planeName {
+				s.logger.Debug("found DataPlane CR via list",
+					"name", planeName,
+					"namespace", dp.Namespace,
+				)
+
+				if dp.Spec.Agent != nil && dp.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(dp.Spec.Agent.ClientCA, dp.Namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		return nil, fmt.Errorf("DataPlane %s not found", planeName)
+	}
+
+	if planeType == planeTypeBuildPlane {
+		var buildPlane openchoreov1alpha1.BuildPlane
+
+		// Todo: Need to optimize to get the plane from the correct namespace
+		for _, namespace := range namespacesToCheck {
+			key := client.ObjectKey{
+				Name:      planeName,
+				Namespace: namespace,
+			}
+
+			if err := s.k8sClient.Get(ctx, key, &buildPlane); err == nil {
+				s.logger.Debug("found BuildPlane CR",
+					"name", planeName,
+					"namespace", namespace,
+				)
+
+				if buildPlane.Spec.Agent != nil && buildPlane.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(buildPlane.Spec.Agent.ClientCA, namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		var buildPlaneList openchoreov1alpha1.BuildPlaneList
+		if err := s.k8sClient.List(ctx, &buildPlaneList); err != nil {
+			return nil, fmt.Errorf("failed to list BuildPlane CRs: %w", err)
+		}
+
+		for _, bp := range buildPlaneList.Items {
+			if bp.Name == planeName {
+				s.logger.Debug("found BuildPlane CR via list",
+					"name", planeName,
+					"namespace", bp.Namespace,
+				)
+
+				if bp.Spec.Agent != nil && bp.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(bp.Spec.Agent.ClientCA, bp.Namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		return nil, fmt.Errorf("BuildPlane %s not found", planeName)
+	}
+
+	return nil, fmt.Errorf("unsupported plane type: %s", planeType)
+}
+
+// extractCAData extracts CA certificate data from ValueFrom configuration
+// planeNamespace is used as default namespace for SecretRef if not specified
+func (s *Server) extractCADataWithNamespace(valueFrom *openchoreov1alpha1.ValueFrom, planeNamespace string) ([]byte, error) {
+	if valueFrom.Value != "" {
+		return []byte(valueFrom.Value), nil
+	}
+
+	if valueFrom.SecretRef != nil {
+		return s.extractCAFromSecret(valueFrom.SecretRef, planeNamespace)
+	}
+
+	return nil, fmt.Errorf("no valid CA data found in ValueFrom")
+}
+
+func parseCACertificates(pemData []byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+
+	for len(pemData) > 0 {
+		block, rest := pem.Decode(pemData)
+		if block == nil {
+			break
+		}
+
+		if block.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse certificate: %w", err)
+			}
+			certs = append(certs, cert)
+		}
+
+		pemData = rest
+	}
+
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no certificates found in PEM data")
+	}
+
+	return certs, nil
+}
+
+// extractCAFromSecret extracts CA certificate data from a Kubernetes secret
+// planeNamespace is used as default if secretRef.Namespace is not specified
+func (s *Server) extractCAFromSecret(secretRef *openchoreov1alpha1.SecretKeyReference, planeNamespace string) ([]byte, error) {
+	if secretRef.Name == "" {
+		return nil, fmt.Errorf("secret name is required")
+	}
+
+	if secretRef.Key == "" {
+		return nil, fmt.Errorf("secret key is required")
+	}
+
+	// Determine namespace: use specified namespace, or default to plane's namespace
+	namespace := secretRef.Namespace
+	if namespace == "" {
+		namespace = planeNamespace
+	}
+
+	s.logger.Debug("loading CA certificate from secret",
+		"secretName", secretRef.Name,
+		"namespace", namespace,
+		"key", secretRef.Key,
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var secret corev1.Secret
+	secretKey := types.NamespacedName{
+		Name:      secretRef.Name,
+		Namespace: namespace,
+	}
+
+	if err := s.k8sClient.Get(ctx, secretKey, &secret); err != nil {
+		return nil, fmt.Errorf("failed to get secret %s/%s: %w", namespace, secretRef.Name, err)
+	}
+
+	caData, ok := secret.Data[secretRef.Key]
+	if !ok {
+		return nil, fmt.Errorf("key %s not found in secret %s/%s", secretRef.Key, namespace, secretRef.Name)
+	}
+
+	if len(caData) == 0 {
+		return nil, fmt.Errorf("CA data is empty in secret %s/%s key %s", namespace, secretRef.Name, secretRef.Key)
+	}
+
+	s.logger.Info("loaded CA certificate from secret",
+		"secretName", secretRef.Name,
+		"namespace", namespace,
+		"key", secretRef.Key,
+		"dataSize", len(caData),
+	)
+
+	return caData, nil
 }

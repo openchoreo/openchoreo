@@ -278,7 +278,7 @@ opentelemetry-collector:
 # The agent connects to the control plane cluster gateway via WebSocket
 clusterAgent:
   enabled: false  # Set to true to enable cluster agent
-  name: cluster-agent
+  name: cluster-agent-dataplane
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/cluster-agent
@@ -295,28 +295,42 @@ clusterAgent:
   logLevel: info
   resources:
     requests:
-      cpu: "100m"
+      cpu: "50m"
       memory: "128Mi"
     limits:
-      cpu: "1000m"
-      memory: "512Mi"
+      cpu: "100m"
+      memory: "256Mi"
   serviceAccount:
     create: true
-    name: cluster-agent
+    name: cluster-agent-dataplane
     annotations: {}
   rbac:
     create: true
   priorityClass:
     create: false
-    name: cluster-agent
+    name: cluster-agent-dataplane
     value: 900000
   tls:
     enabled: true
     # Secret containing client certificate and key
     secretName: cluster-agent-tls
     clientSecretName: cluster-agent-tls
-    # ConfigMap containing server CA certificate
+    # ConfigMap containing server CA certificate for verifying gateway
     serverCAConfigMap: cluster-gateway-ca
+    # Optional: Inline server CA certificate value (PEM format)
+    # For multi-cluster setup where agent needs to verify gateway server
+    # If provided, this value is used instead of copying from control plane
+    serverCAValue: ""
+    # CA secret for signing agent client certificates
+    # Option 1: Reference existing secret (single-cluster setup)
+    # This should be the name of the cluster-gateway-ca secret created in control plane
+    caSecretName: cluster-gateway-ca
+    # Namespace where the CA secret exists (control plane namespace)
+    caSecretNamespace: openchoreo-control-plane
+    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
+    # If provided, this takes precedence over caSecretName/caSecretNamespace
+    # Use this when data plane is in a different cluster from control plane
+    caValue: ""
     # Certificate duration and renewal
     duration: 2160h # 90 days
     renewBefore: 360h # 15 days

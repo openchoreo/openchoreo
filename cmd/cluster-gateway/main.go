@@ -8,6 +8,13 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	clustergateway "github.com/openchoreo/openchoreo/internal/cluster-gateway"
 	"github.com/openchoreo/openchoreo/internal/cmdutil"
 )
@@ -21,6 +28,15 @@ const (
 	defaultHeartbeatInterval = 30 * time.Second
 	defaultHeartbeatTimeout  = 90 * time.Second
 )
+
+var (
+	scheme = runtime.NewScheme()
+)
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(openchoreov1alpha1.AddToScheme(scheme))
+}
 
 func main() {
 	var (
@@ -60,8 +76,23 @@ func main() {
 		"serverKey", serverKeyPath,
 		"heartbeatInterval", heartbeatInterval,
 		"heartbeatTimeout", heartbeatTimeout,
-		"note", "Client CA certificates are loaded dynamically from DataPlane CRs",
+		"note", "Client CA certificates are loaded dynamically from DataPlane/BuildPlane CRs",
 	)
+
+	// Create Kubernetes client for querying DataPlane/BuildPlane CRs
+	k8sConfig, err := ctrl.GetConfig()
+	if err != nil {
+		logger.Error("failed to get Kubernetes config", "error", err)
+		os.Exit(1)
+	}
+
+	k8sClient, err := client.New(k8sConfig, client.Options{Scheme: scheme})
+	if err != nil {
+		logger.Error("failed to create Kubernetes client", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("Kubernetes client created successfully")
 
 	config := &clustergateway.Config{
 		Port:              port,
@@ -75,7 +106,7 @@ func main() {
 		HeartbeatTimeout:  heartbeatTimeout,
 	}
 
-	srv := clustergateway.New(config, logger)
+	srv := clustergateway.New(config, k8sClient, logger)
 	if err := srv.Start(); err != nil {
 		logger.Error("server failed", "error", err)
 		os.Exit(1)

@@ -6,10 +6,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-ca-copier
+  name: {{ include "openchoreo-build-plane.clusterAgent.name" . }}-ca-copier
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
   annotations:
     helm.sh/hook: post-install,post-upgrade
@@ -22,7 +22,7 @@ spec:
         app.kubernetes.io/component: cluster-gateway-ca-copier
     spec:
       restartPolicy: OnFailure
-      serviceAccountName: {{ include "openchoreo-data-plane.clusterAgent.serviceAccountName" . }}
+      serviceAccountName: {{ include "openchoreo-build-plane.clusterAgent.serviceAccountName" . }}
       containers:
       - name: ca-copier
         image: bitnamilegacy/kubectl:1.32.4

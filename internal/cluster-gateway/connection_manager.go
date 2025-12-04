@@ -154,47 +154,13 @@ func (cm *ConnectionManager) GetAll() []*AgentConnection {
 	return connections
 }
 
-func (cm *ConnectionManager) SendMessage(planeIdentifier string, msg *messaging.Message) error {
+func (cm *ConnectionManager) SendHTTPTunnelRequest(planeIdentifier string, req *messaging.HTTPTunnelRequest) error {
 	conn, err := cm.Get(planeIdentifier)
 	if err != nil {
 		return err
 	}
 
-	return conn.SendMessage(msg)
-}
-
-func (cm *ConnectionManager) SendClusterAgentRequest(planeIdentifier string, req *messaging.ClusterAgentRequest) error {
-	conn, err := cm.Get(planeIdentifier)
-	if err != nil {
-		return err
-	}
-
-	return conn.SendClusterAgentRequest(req)
-}
-
-func (cm *ConnectionManager) BroadcastMessage(msg *messaging.Message) error {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
-	var errs []error
-	for planeIdentifier, conns := range cm.connections {
-		for _, conn := range conns {
-			if err := conn.SendMessage(msg); err != nil {
-				cm.logger.Error("failed to broadcast to agent",
-					"planeIdentifier", planeIdentifier,
-					"connectionID", conn.ID,
-					"error", err,
-				)
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to broadcast to %d agents", len(errs))
-	}
-
-	return nil
+	return conn.SendHTTPTunnelRequest(req)
 }
 
 // UpdateConnectionLastSeen updates the last seen time for a specific connection
@@ -222,35 +188,18 @@ func (cm *ConnectionManager) Count() int {
 	return cm.countAllConnections()
 }
 
-// SendMessage sends a message through this connection
-func (ac *AgentConnection) SendMessage(msg *messaging.Message) error {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("SendMessage: failed to marshal message: %w", err)
-	}
-
-	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		return fmt.Errorf("SendMessage: failed to send message: %w", err)
-	}
-
-	return nil
-}
-
-// SendClusterAgentRequest sends a ClusterAgentRequest through this connection
-func (ac *AgentConnection) SendClusterAgentRequest(req *messaging.ClusterAgentRequest) error {
+// SendHTTPTunnelRequest sends an HTTPTunnelRequest through this connection
+func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) error {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("SendClusterAgentRequest: failed to marshal request: %w", err)
+		return fmt.Errorf("SendHTTPTunnelRequest: failed to marshal request: %w", err)
 	}
 
 	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		return fmt.Errorf("SendClusterAgentRequest: failed to send request: %w", err)
+		return fmt.Errorf("SendHTTPTunnelRequest: failed to send request: %w", err)
 	}
 
 	return nil
