@@ -68,7 +68,6 @@ func LoadRolesFromFile(filePath string) ([]authzcore.Role, error) {
 	}
 
 	return data.Roles, nil
-
 }
 
 // LoadEmbeddedRoles loads the embedded default roles

@@ -258,6 +258,9 @@ func validateBatchEvaluateRequest(req *authzcore.BatchEvaluateRequest) error {
 	if req == nil {
 		return fmt.Errorf("%w: batch evaluate request is nil", authzcore.ErrInvalidRequest)
 	}
+	if len(req.Requests) == 0 {
+		return fmt.Errorf("%w: batch evaluate request contains no requests", authzcore.ErrInvalidRequest)
+	}
 	for i, req := range req.Requests {
 		if req.Subject.JwtToken == "" {
 			return fmt.Errorf("%w: evaluate subject jwt token is required at index %d", authzcore.ErrInvalidRequest, i)
