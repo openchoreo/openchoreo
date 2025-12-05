@@ -325,6 +325,20 @@ openchoreoApi:
       type: RuntimeDefault
     appArmorProfile:
       type: Unconfined
+  authz:
+    userTypes:
+      - type: "user"
+        display_name: "Human User"
+        priority: 1
+        entitlement:
+          claim: "group"
+          display_name: "User Group"
+      - type: "service_account"
+        display_name: "Service Account"
+        priority: 2
+        entitlement:
+          claim: "sub"
+          display_name: "Client ID"
 # Dependency configurations
 
 # Cert-Manager configuration
