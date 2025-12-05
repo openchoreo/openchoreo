@@ -441,6 +441,26 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	return result, nil
 }
 
+// ListUserTypes returns all configured user types in the system
+func (ce *CasbinEnforcer) ListUserTypes(ctx context.Context) ([]authzcore.UserTypeInfo, error) {
+	ce.logger.Debug("list user types called")
+
+	userTypes := make([]authzcore.UserTypeInfo, len(ce.config.UserTypeConfigs))
+	for i, config := range ce.config.UserTypeConfigs {
+		userTypes[i] = authzcore.UserTypeInfo{
+			Type:        config.Type,
+			DisplayName: config.DisplayName,
+			Priority:    config.Priority,
+			Entitlement: authzcore.EntitlementClaimInfo{
+				Name:        config.Entitlement.Claim,
+				DisplayName: config.Entitlement.DisplayName,
+			},
+		}
+	}
+
+	return userTypes, nil
+}
+
 // TODO: once context is properly integrated, pass it to enforcer
 
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
