@@ -46,7 +46,7 @@ func main() {
 	// Load configuration
 	configPath := os.Getenv("OPENCHOREO_API_CONFIG_PATH")
 	if configPath == "" {
-		configPath = "/etc/openchoreo/config.yaml"
+		configPath = "config.yaml"
 	}
 
 	cfg, err := config.Load(configPath)
