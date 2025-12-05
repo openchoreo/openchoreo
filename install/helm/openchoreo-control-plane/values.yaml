@@ -48,15 +48,10 @@ security:
   # Global security toggle - when disabled, authentication is turned off for all components
   enabled: false
   oidc:
-    # OIDC issuer URL - typically the identity provider's base URL
     issuer: ""
-    # OIDC well-known configuration endpoint (auto-constructed from issuer if not set)
     wellKnownEndpoint: ""
-    # JWKS URL for JWT signature verification (auto-constructed from issuer if not set)
     jwksUrl: ""
-    # OAuth2 authorization endpoint
     authorizationUrl: ""
-    # OAuth2 token endpoint
     tokenUrl: ""
   jwt:
     # Expected audience claim in JWT tokens
