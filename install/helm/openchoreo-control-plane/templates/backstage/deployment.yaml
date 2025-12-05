@@ -74,7 +74,7 @@ spec:
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
           value: {{ .Values.security.oidc.authorizationUrl }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
-          value: {{ .Values.security.oidc.tokenUrl }}
+          value: {{ .Values.security.oidc.tokenUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d/oauth2/token" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) }}
         {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
           value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}
