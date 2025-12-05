@@ -296,7 +296,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 	// Get Traces
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "get_traces",
-		Description: "Retrieve distributed tracing spans for a specific component/service in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
+		Description: "Retrieve distributed tracing spans for a specific trace ID or spans associated with specific components in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
 		InputSchema: createSchema(map[string]any{
 			"project_uid":     stringProperty("Required: Project UID to retrieve traces for"),
 			"component_uids":  arrayProperty("Optional: Array of component UIDs to filter traces (e.g., ['8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b', '3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b'])"),
@@ -304,7 +304,7 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 			"trace_id":        stringProperty("Optional: Specific trace ID to retrieve (e.g. 'a372188b620ba2d5e159a35fc529ae12')"),
 			"start_time":      stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
 			"end_time":        stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":           limitLogsProperty(),
+			"limit":           limitTraceSpansProperty(),
 			"sort_order":      sortOrderProperty(),
 		}, []string{"project_uid", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
@@ -405,6 +405,13 @@ func limitLogsProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
 		"description": "Maximum number of log entries to return. Default: 100",
+	}
+}
+
+func limitTraceSpansProperty() map[string]any {
+	return map[string]any{
+		"type":        "number",
+		"description": "Maximum number of span entries to return. Default: 100",
 	}
 }
 
