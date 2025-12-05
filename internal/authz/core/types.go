@@ -123,13 +123,22 @@ type Role struct {
 	Actions []string `json:"actions"`
 }
 
+// Entitlement represents an entitlement with its claim and value
+type Entitlement struct {
+	// Claim is the JWT claim name (e.g., "group", "sub")
+	Claim string `json:"claim"`
+
+	// Value is the entitlement value (e.g., "admin-group", "service-123")
+	Value string `json:"value"`
+}
+
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 
-	// EntitlementValue is the identifier of the entitlement (e.g. groups)
-	EntitlementValue string `json:"entitlement_value"`
+	// Entitlement contains the claim and value for this mapping
+	Entitlement Entitlement `json:"entitlement"`
 
 	// Hierarchy defines the resource hierarchy scope where this role applies
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
