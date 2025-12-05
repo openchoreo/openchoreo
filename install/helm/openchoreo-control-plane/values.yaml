@@ -331,7 +331,7 @@ openchoreoApi:
         display_name: "Human User"
         priority: 1
         entitlement:
-          claim: "group"
+          claim: "groups"
           display_name: "User Group"
       - type: "service_account"
         display_name: "Service Account"
