@@ -2819,8 +2819,7 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 					Branch: req.SystemParameters.Repository.Revision.Branch,
 					Commit: req.SystemParameters.Repository.Revision.Commit,
 				},
-				AppPath:    req.SystemParameters.Repository.AppPath,
-				SecretName: req.SystemParameters.Repository.SecretName,
+				AppPath: req.SystemParameters.Repository.AppPath,
 			},
 		}
 	}

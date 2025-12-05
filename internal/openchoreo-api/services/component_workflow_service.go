@@ -40,9 +40,9 @@ func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger) *
 	}
 }
 
-// TriggerComponentWorkflowRun creates a new ComponentWorkflowRun from a component's workflow configuration
-func (s *ComponentWorkflowService) TriggerComponentWorkflowRun(ctx context.Context, orgName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
-	s.logger.Debug("Triggering component workflow run", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
+// TriggerWorkflow creates a new ComponentWorkflowRun from a component's workflow configuration
+func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Triggering component workflow", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
 
 	// Retrieve component and use that to create the workflow run
 	var component openchoreov1alpha1.Component

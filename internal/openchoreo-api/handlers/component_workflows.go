@@ -66,11 +66,11 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
-// TriggerComponentWorkflowRun triggers a new component workflow run
-func (h *Handler) TriggerComponentWorkflowRun(w http.ResponseWriter, r *http.Request) {
+// TriggerComponentWorkflow triggers a new component workflow run
+func (h *Handler) TriggerComponentWorkflow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
-	log.Info("TriggerComponentWorkflowRun handler called")
+	log.Info("TriggerWorkflow handler called")
 
 	// Extract parameters from URL path
 	orgName := r.PathValue("orgName")
@@ -96,7 +96,7 @@ func (h *Handler) TriggerComponentWorkflowRun(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	workflowRun, err := h.services.ComponentWorkflowService.TriggerComponentWorkflowRun(ctx, orgName, projectName, componentName, commit)
+	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
 	if err != nil {
 		// Check for invalid commit SHA error
 		if errors.Is(err, services.ErrInvalidCommitSHA) {
