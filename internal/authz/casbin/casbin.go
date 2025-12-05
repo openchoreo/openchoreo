@@ -386,7 +386,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 			continue
 		}
 		subject := rule[0]
-		entitlement := strings.Split(subject, ":")
+		entitlement := strings.SplitN(subject, ":", 2)
 		if len(entitlement) != 2 {
 			ce.logger.Warn("skipping malformed entitlement in mapping", "entitlement", subject)
 			continue
@@ -487,9 +487,9 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			Reason: "no matching policies found",
 		}}
 	for _, entitlementValue := range subjectCtx.EntitlementValues {
-		subject := fmt.Sprintf("%s:%s", subjectCtx.EntitlementClaim, entitlementValue)
+		entitlement := fmt.Sprintf("%s:%s", subjectCtx.EntitlementClaim, entitlementValue)
 		result, err = ce.enforcer.Enforce(
-			subject,
+			entitlement,
 			resourcePath,
 			request.Action,
 			emptyContextJSON,
