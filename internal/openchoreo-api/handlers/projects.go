@@ -38,6 +38,11 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	// Call service to create project
 	project, err := h.services.ProjectService.CreateProject(ctx, orgName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrUnauthorized) {
+			logger.Warn("Unauthorized to create project", "org", orgName, "project", req.Name)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectAlreadyExists) {
 			logger.Warn("Project already exists", "org", orgName, "project", req.Name)
 			writeErrorResponse(w, http.StatusConflict, "Project already exists", services.CodeProjectExists)
@@ -100,6 +105,11 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	// Call service to get project
 	project, err := h.services.ProjectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
+		if errors.Is(err, services.ErrUnauthorized) {
+			logger.Warn("Unauthorized to view project", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)

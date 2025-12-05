@@ -4,6 +4,7 @@
 package jwt
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -49,4 +50,10 @@ func GetSubject(r *http.Request) (string, bool) {
 	}
 	sub, ok := value.(string)
 	return sub, ok
+}
+
+// GetTokenFromContext retrieves the raw JWT token string from a context.Context
+func GetTokenFromContext(ctx context.Context) string {
+	token, _ := ctx.Value(tokenContextKey).(string)
+	return token
 }
