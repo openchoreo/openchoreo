@@ -9,7 +9,6 @@ authz:
       entitlement:
         claim: "group"
         display_name: "User Group"
-
     - type: "service_account"
       display_name: "Service Account"
       priority: 2

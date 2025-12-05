@@ -1,0 +1,15 @@
+{{- if .Values.openchoreoApi.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+data:
+  config.yaml: |
+    authz:
+      user_types:
+        {{- toYaml .Values.openchoreoApi.authz.userTypes | nindent 8 }}
+{{- end }}
