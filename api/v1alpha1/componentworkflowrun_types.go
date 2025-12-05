@@ -87,11 +87,6 @@ type RepositoryValues struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	AppPath string `json:"appPath"`
-
-	// SecretName is the Kubernetes secret name containing credentials for private repositories.
-	// Example: "my-git-credentials"
-	// +optional
-	SecretName string `json:"secretName,omitempty"`
 }
 
 // RepositoryRevisionValues contains the actual repository revision values.

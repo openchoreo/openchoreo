@@ -127,15 +127,6 @@ spec:
                             - branch
                             - commit
                             type: object
-                          secretName:
-                            description: |-
-                              SecretName is the schema definition for the Kubernetes secret name containing credentials for private repositories.
-                              Must be a string type schema definition.
-                              Format: 'string | description=...'
-                              Example: 'string | description="Kubernetes secret name for private repository authentication"'
-                            minLength: 1
-                            pattern: ^string(\s*\|.*)?$
-                            type: string
                           url:
                             description: |-
                               URL is the schema definition for the Git repository URL field.
@@ -148,7 +139,6 @@ spec:
                         required:
                         - appPath
                         - revision
-                        - secretName
                         - url
                         type: object
                     required:

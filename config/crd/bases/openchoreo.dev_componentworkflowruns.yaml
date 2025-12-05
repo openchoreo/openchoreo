@@ -114,11 +114,6 @@ spec:
                             required:
                             - branch
                             type: object
-                          secretName:
-                            description: |-
-                              SecretName is the Kubernetes secret name containing credentials for private repositories.
-                              Example: "my-git-credentials"
-                            type: string
                           url:
                             description: |-
                               URL is the Git repository URL for the component source code.
