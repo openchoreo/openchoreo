@@ -14,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/authz/usertype"
 )
 
 // setupTestEnforcer creates a test CasbinEnforcer with temporary database
@@ -24,10 +25,30 @@ func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	dbPath := filepath.Join(tmpDir, "test.db")
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Create enforcer
+	// Create enforcer with default user type configs
 	config := CasbinConfig{
 		DatabasePath: dbPath,
 		EnableCache:  false,
+		UserTypeConfigs: []usertype.UserTypeConfig{
+			{
+				Type:        authzcore.SubjectTypeUser,
+				DisplayName: "Human User",
+				Priority:    1,
+				Entitlement: usertype.EntitlementConfig{
+					Claim:       "group",
+					DisplayName: "User Group",
+				},
+			},
+			{
+				Type:        authzcore.SubjectTypeServiceAccount,
+				DisplayName: "Service Account",
+				Priority:    2,
+				Entitlement: usertype.EntitlementConfig{
+					Claim:       "service_account",
+					DisplayName: "Service Account ID",
+				},
+			},
+		},
 	}
 
 	enforcer, err := NewCasbinEnforcer(config, logger)

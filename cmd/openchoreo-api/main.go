@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,7 +15,10 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/openchoreo/openchoreo/internal/authz"
+	"github.com/openchoreo/openchoreo/internal/authz/usertype"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
@@ -24,6 +28,16 @@ import (
 var (
 	port = flag.Int("port", 8080, "port http server runs on")
 )
+
+// OpenChoreoAPIConfig represents the top-level configuration structure
+type OpenChoreoAPIConfig struct {
+	Authz AuthzAPIConfig `yaml:"authz"`
+}
+
+// AuthzAPIConfig represents the authorization configuration section
+type AuthzAPIConfig struct {
+	UserTypes []usertype.UserTypeConfig `yaml:"user_types"`
+}
 
 func main() {
 	flag.Parse()
@@ -42,11 +56,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load configuration
+	configPath := os.Getenv("OPENCHOREO_API_CONFIG_PATH")
+	if configPath == "" {
+		configPath = "/etc/openchoreo/config.yaml"
+	}
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		baseLogger.Error("Failed to load configuration file",
+			slog.String("config_path", configPath),
+			slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	baseLogger.Info("Loaded configuration from file",
+		slog.String("config_path", configPath),
+		slog.Int("user_types_count", len(config.Authz.UserTypes)))
+
 	// Initialize authorization
 	authzConfig := authz.AuthZConfig{
 		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
 		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
 		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
+		UserTypeConfigs:      config.Authz.UserTypes,
 		EnableCache:          false,
 	}
 	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))
@@ -97,4 +130,24 @@ func main() {
 	}
 
 	baseLogger.Info("Server stopped gracefully")
+}
+
+// loadConfig loads and validates the configuration from the specified file path
+func loadConfig(filePath string) (*OpenChoreoAPIConfig, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var config OpenChoreoAPIConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	if err := usertype.ValidateConfig(config.Authz.UserTypes); err != nil {
+		return nil, fmt.Errorf("invalid user type config: %w", err)
+	}
+
+	usertype.SortByPriority(config.Authz.UserTypes)
+	return &config, nil
 }
