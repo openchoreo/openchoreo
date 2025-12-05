@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/authz/usertype"
 )
 
 //go:embed rbac_model.conf
@@ -26,14 +27,16 @@ type CasbinEnforcer struct {
 	logger           *slog.Logger
 	actionRepository *ActionRepository
 	db               *gorm.DB
+	userTypeDetector usertype.Detector
 }
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string // Required: Path to SQLite database path
-	RolesFilePath     string // Optional: Path to roles YAML file (falls back to embedded if empty)
-	EnableCache       bool   // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath      string                       // Required: Path to SQLite database path
+	RolesFilePath     string                       // Optional: Path to roles YAML file (falls back to embedded if empty)
+	UserTypeConfigs   []usertype.UserTypeConfig    // Required: User type detection configuration
+	EnableCache       bool                         // Optional: Enable policy cache (default: false)
+	CacheTTLInSeconds int                          // Optional: Cache TTL in seconds (default: 300)
 }
 
 const (
@@ -48,9 +51,19 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
 	}
 
+	if len(config.UserTypeConfigs) == 0 {
+		return nil, fmt.Errorf("UserTypeConfigs is required in CasbinConfig")
+	}
+
 	// RolesFilePath is optional - will use embedded default if not provided
 	if config.CacheTTLInSeconds == 0 {
 		config.CacheTTLInSeconds = 300 // Default: 5 minutes
+	}
+
+	// Create user type detector
+	userTypeDetector, err := usertype.NewDetector(config.UserTypeConfigs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user type detector: %w", err)
 	}
 
 	// Load Casbin model from embedded string
@@ -110,10 +123,12 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		logger:           logger,
 		actionRepository: actionRepo,
 		db:               db,
+		userTypeDetector: userTypeDetector,
 	}
 
 	logger.Info("casbin enforcer initialized",
-		"cache_enabled", config.EnableCache)
+		"cache_enabled", config.EnableCache,
+		"user_types_count", len(config.UserTypeConfigs))
 
 	return ce, nil
 }
@@ -415,13 +430,17 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
 	subject := request.Subject
-	subjectCtx, err := populateSubjectClaims(&subject)
+
+	// Use the user type detector to extract subject context
+	subjectCtx, err := ce.userTypeDetector.DetectUserType(subject.JwtToken)
 	if err != nil {
-		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
+		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to detect user type: %w", err)
 	}
 
 	ce.logger.Debug("evaluate called",
-		"subject", subjectCtx.EntitlementValues,
+		"subject_type", subjectCtx.Type,
+		"entitlement_claim", subjectCtx.EntitlementClaim,
+		"entitlements", subjectCtx.EntitlementValues,
 		"resource", resourcePath,
 		"action", request.Action,
 		"context", request.Context)

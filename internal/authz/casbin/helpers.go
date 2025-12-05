@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
-
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -179,61 +177,6 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	}
 
 	return hierarchy
-}
-
-// Extract group, service_account from subject
-// hack: this is temporarily done to work with thunder jwt token structure
-// need a proper layer to parse different token types in future
-func populateSubjectClaims(subject *authzcore.Subject) (*authzcore.SubjectContext, error) {
-	jwtToken := subject.JwtToken
-
-	// Parse JWT without verification (just to extract claims)
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	token, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT token: %w", err)
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse JWT claims")
-	}
-
-	// Extract groups and service accounts
-	var entitlements []string
-
-	// Extract "group" (singular) - Thunder JWT uses this
-	if group, ok := claims["group"]; ok {
-		switch v := group.(type) {
-		case string:
-			if v != "" {
-				entitlements = append(entitlements, v)
-			}
-		case []interface{}:
-			for _, g := range v {
-				if str, ok := g.(string); ok && str != "" {
-					entitlements = append(entitlements, str)
-				}
-			}
-		}
-		return &authzcore.SubjectContext{
-			Type:              authzcore.SubjectTypeUser,
-			EntitlementClaim:  "group",
-			EntitlementValues: entitlements,
-		}, nil
-	}
-
-	// Extract service account
-	if sa, ok := claims["service_account"].(string); ok && sa != "" {
-		entitlements = append(entitlements, sa)
-		return &authzcore.SubjectContext{
-			Type:              authzcore.SubjectTypeServiceAccount,
-			EntitlementClaim:  "group",
-			EntitlementValues: entitlements,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("no valid subject claims found in token")
 }
 
 // validateEvaluateRequest checks if the EvaluateRequest has all required fields
