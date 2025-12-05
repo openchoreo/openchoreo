@@ -170,10 +170,13 @@ func TestDisabledAuthorizer_AddRoleEntitlementMapping(t *testing.T) {
 	ctx := context.Background()
 
 	err := disabledAuthorizer.AddRoleEntitlementMapping(ctx, &authzcore.RoleEntitlementMapping{
-		EntitlementValue: "test-group",
-		RoleName:         "test-role",
-		Hierarchy:        authzcore.ResourceHierarchy{Organization: "org1"},
-		Effect:           authzcore.PolicyEffectAllow,
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "test-group",
+		},
+		RoleName:  "test-role",
+		Hierarchy: authzcore.ResourceHierarchy{Organization: "org1"},
+		Effect:    authzcore.PolicyEffectAllow,
 	})
 	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
 		t.Errorf("expected ErrAuthzDisabled, got %v", err)
@@ -185,10 +188,13 @@ func TestDisabledAuthorizer_RemoveRoleEntitlementMapping(t *testing.T) {
 	ctx := context.Background()
 
 	err := disabledAuthorizer.RemoveRoleEntitlementMapping(ctx, &authzcore.RoleEntitlementMapping{
-		EntitlementValue: "test-group",
-		RoleName:         "test-role",
-		Hierarchy:        authzcore.ResourceHierarchy{Organization: "org1"},
-		Effect:           authzcore.PolicyEffectAllow,
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "test-group",
+		},
+		RoleName:  "test-role",
+		Hierarchy: authzcore.ResourceHierarchy{Organization: "org1"},
+		Effect:    authzcore.PolicyEffectAllow,
 	})
 	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
 		t.Errorf("expected ErrAuthzDisabled, got %v", err)

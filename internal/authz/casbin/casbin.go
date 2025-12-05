@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -32,11 +33,11 @@ type CasbinEnforcer struct {
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string                       // Required: Path to SQLite database path
-	RolesFilePath     string                       // Optional: Path to roles YAML file (falls back to embedded if empty)
-	UserTypeConfigs   []usertype.UserTypeConfig    // Required: User type detection configuration
-	EnableCache       bool                         // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int                          // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath      string                    // Required: Path to SQLite database path
+	RolesFilePath     string                    // Optional: Path to roles YAML file (falls back to embedded if empty)
+	UserTypeConfigs   []usertype.UserTypeConfig // Required: User type detection configuration
+	EnableCache       bool                      // Optional: Enable policy cache (default: false)
+	CacheTTLInSeconds int                       // Optional: Cache TTL in seconds (default: 300)
 }
 
 const (
@@ -304,17 +305,21 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]*authzcore.Role, err
 func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("add role entitlement mapping called",
 		"role", mapping.RoleName,
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context)
 
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 
+	// Construct subject as "claim:value" for explicit claim tracking
+	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+
 	// policy: p, subject, resourcePath, role, eft, context
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.AddPolicy(
-		mapping.EntitlementValue,
+		subject,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -336,16 +341,19 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("remove role entitlement mapping called",
 		"role", mapping.RoleName,
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context,
 	)
 
+	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.RemovePolicy(
-		mapping.EntitlementValue,
+		subject,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -377,7 +385,12 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 			ce.logger.Warn("skipping malformed role-entitlement mapping", "rule", rule)
 			continue
 		}
-		entitlement := rule[0]
+		subject := rule[0]
+		entitlement := strings.Split(subject, ":")
+		if len(entitlement) != 2 {
+			ce.logger.Warn("skipping malformed entitlement in mapping", "entitlement", subject)
+			continue
+		}
 		resourcePath := rule[1]
 		roleName := rule[2]
 		effect := authzcore.PolicyEffectType(rule[3])
@@ -385,11 +398,14 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 		context := authzcore.Context{}
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
-			EntitlementValue: entitlement,
-			RoleName:         roleName,
-			Hierarchy:        resourcePathToHierarchy(resourcePath),
-			Effect:           effect,
-			Context:          context,
+			Entitlement: authzcore.Entitlement{
+				Claim: entitlement[0],
+				Value: entitlement[1],
+			},
+			RoleName:  roleName,
+			Hierarchy: resourcePathToHierarchy(resourcePath),
+			Effect:    effect,
+			Context:   context,
 		})
 	}
 
@@ -451,8 +467,9 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			Reason: "no matching policies found",
 		}}
 	for _, entitlementValue := range subjectCtx.EntitlementValues {
+		subject := fmt.Sprintf("%s:%s", subjectCtx.EntitlementClaim, entitlementValue)
 		result, err = ce.enforcer.Enforce(
-			entitlementValue,
+			subject,
 			resourcePath,
 			request.Action,
 			emptyContextJSON,
