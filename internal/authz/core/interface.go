@@ -31,19 +31,16 @@ type PAP interface {
 	// ListRoles returns all defined roles
 	ListRoles(ctx context.Context) ([]*Role, error)
 
-	// AddRoleEntitlementMapping creates a new role-principal mapping with optional conditions
+	// AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
-	// RemoveRoleEntitlementMapping removes a role-principal mapping
+	// RemoveRoleEntitlementMapping removes a role-entitlement mapping
 	RemoveRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
-	// GetEntitlementMappings retrieves all role mappings for a specific principal
-	GetEntitlementMappings(ctx context.Context, principal string) ([]*RoleEntitlementMapping, error)
-
-	// GetRoleMappings retrieves all principal mappings for a specific role
+	// GetRoleMappings retrieves all entitlement mappings for a specific role
 	GetRoleMappings(ctx context.Context, roleName string) ([]*RoleEntitlementMapping, error)
 
-	// ListRoleEntitlementMappings lists all role-principal mappings
+	// ListRoleEntitlementMappings lists all role-entitlement mappings
 	ListRoleEntitlementMappings(ctx context.Context) ([]*RoleEntitlementMapping, error)
 
 	// ListActions lists all defined actions in the system

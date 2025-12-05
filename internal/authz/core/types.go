@@ -123,12 +123,12 @@ type Role struct {
 	Actions []string `json:"actions"`
 }
 
-// RoleEntitlementMapping represents the assignment of a role to a principal within a hierarchical scope
+// RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 
-	// EntitlementValue is the identifier of the principal (e.g. group, service account)
+	// EntitlementValue is the identifier of the entitlement (e.g. groups)
 	EntitlementValue string `json:"entitlement_value"`
 
 	// Hierarchy defines the resource hierarchy scope where this role applies

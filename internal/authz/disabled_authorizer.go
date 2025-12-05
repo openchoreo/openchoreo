@@ -109,11 +109,6 @@ func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, 
 	return authz.ErrAuthzDisabled
 }
 
-// GetEntitlementMappings fails with error
-func (da *DisabledAuthorizer) GetEntitlementMappings(ctx context.Context, principal string) ([]*authz.RoleEntitlementMapping, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
 // GetRoleMappings fails with error
 func (da *DisabledAuthorizer) GetRoleMappings(ctx context.Context, roleName string) ([]*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled

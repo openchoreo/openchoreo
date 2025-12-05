@@ -77,7 +77,7 @@ func (s *AuthzService) RemoveRole(ctx context.Context, roleName string) error {
 	return nil
 }
 
-// ListRoleMappings lists all role-principal mappings (role mappings)
+// ListRoleMappings lists all role-entitlement mappings (role mappings)
 func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]*authz.RoleEntitlementMapping, error) {
 	s.logger.Debug("Listing authorization role mappings")
 
@@ -90,10 +90,10 @@ func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]*authz.RoleEntit
 	return mappings, nil
 }
 
-// AddRoleMapping creates a new role-principal mapping
+// AddRoleMapping creates a new role-entitlement mapping
 func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
-	s.logger.Debug("Adding authorization role principal mapping",
-		"principal", mapping.EntitlementValue,
+	s.logger.Debug("Adding authorization role entitlement mapping",
+		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName,
 		"hierarchy", mapping.Hierarchy)
 
@@ -102,15 +102,15 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 	}
 
 	s.logger.Info("Authorization policy added",
-		"principal", mapping.EntitlementValue,
+		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
 }
 
-// RemoveRoleMapping removes a role-principal mapping
+// RemoveRoleMapping removes a role-entitlement mapping
 func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Removing authorization role mapping",
-		"principal", mapping.EntitlementValue,
+		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 
 	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mapping); err != nil {
@@ -118,7 +118,7 @@ func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.Rol
 	}
 
 	s.logger.Info("Authorization role mapping removed",
-		"principal", mapping.EntitlementValue,
+		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
 }

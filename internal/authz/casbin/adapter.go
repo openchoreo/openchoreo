@@ -20,7 +20,7 @@ import (
 type CasbinRule struct {
 	ID    uint   `gorm:"primaryKey;autoIncrement"`
 	Ptype string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // Policy type: p (policy) or g (grouping/role)
-	V0    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - subject/principal, g - role
+	V0    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - entitlement, g - role
 	V1    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - resource path, g - action
 	V2    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - role name
 	V3    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - effect (allow/deny)

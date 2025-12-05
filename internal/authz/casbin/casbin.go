@@ -285,11 +285,11 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]*authzcore.Role, err
 	return roles, nil
 }
 
-// AddRoleEntitlementMapping creates a new role-principal mapping with optional conditions
+// AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
-	ce.logger.Info("add role principal mapping called",
+	ce.logger.Info("add role entitlement mapping called",
 		"role", mapping.RoleName,
-		"principal", mapping.EntitlementValue,
+		"entitlement", mapping.EntitlementValue,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context)
@@ -311,17 +311,17 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to add role principal mapping: %w", err)
+		return fmt.Errorf("failed to add role entitlement mapping: %w", err)
 	}
 
 	return nil
 }
 
-// RemoveRoleEntitlementMapping removes a role-principal mapping
+// RemoveRoleEntitlementMapping removes a role-entitlement mapping
 func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
-	ce.logger.Info("remove role principal mapping called",
+	ce.logger.Info("remove role entitlement mapping called",
 		"role", mapping.RoleName,
-		"principal", mapping.EntitlementValue,
+		"entitlement", mapping.EntitlementValue,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context,
@@ -341,28 +341,28 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 		return authzcore.ErrRolePolicyMappingNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("failed to remove role principal mapping: %w", err)
+		return fmt.Errorf("failed to remove role entitlement mapping: %w", err)
 	}
 
 	return nil
 }
 
-// ListRoleEntitlementMappings lists all role-principal mappings
+// ListRoleEntitlementMappings lists all role-entitlement mappings
 func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*authzcore.RoleEntitlementMapping, error) {
-	ce.logger.Debug("list role principal mappings called")
+	ce.logger.Debug("list role entitlement mappings called")
 
 	rules, err := ce.enforcer.GetPolicy()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get role principal mappings: %w", err)
+		return nil, fmt.Errorf("failed to get role entitlement mappings: %w", err)
 	}
 
 	mappings := make([]*authzcore.RoleEntitlementMapping, 0, len(rules))
 	for _, rule := range rules {
 		if len(rule) < 5 {
-			ce.logger.Warn("skipping malformed role-principal mapping", "rule", rule)
+			ce.logger.Warn("skipping malformed role-entitlement mapping", "rule", rule)
 			continue
 		}
-		principal := rule[0]
+		entitlement := rule[0]
 		resourcePath := rule[1]
 		roleName := rule[2]
 		effect := authzcore.PolicyEffectType(rule[3])
@@ -370,7 +370,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 		context := authzcore.Context{}
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
-			EntitlementValue: principal,
+			EntitlementValue: entitlement,
 			RoleName:         roleName,
 			Hierarchy:        resourcePathToHierarchy(resourcePath),
 			Effect:           effect,
@@ -381,18 +381,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 	return mappings, nil
 }
 
-// GetEntitlementMappings retrieves all role mappings for a specific principal
-func (ce *CasbinEnforcer) GetEntitlementMappings(ctx context.Context, principal string) ([]*authzcore.RoleEntitlementMapping, error) {
-	// TODO: Implement principal mappings retrieval logic
-	ce.logger.Debug("get principal mappings called", "principal", principal)
-
-	// Placeholder implementation
-	mappings := []*authzcore.RoleEntitlementMapping{}
-
-	return mappings, nil
-}
-
-// GetRoleMappings retrieves all principal mappings for a specific role
+// GetRoleMappings retrieves all entitlement mappings for a specific role
 func (ce *CasbinEnforcer) GetRoleMappings(ctx context.Context, roleName string) ([]*authzcore.RoleEntitlementMapping, error) {
 	// TODO: Implement role mappings retrieval logic
 	ce.logger.Debug("get role mappings called", "role_name", roleName)
@@ -458,7 +447,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			if request.Resource.ID != "" {
 				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
 			}
-			decision.Context.Reason = fmt.Sprintf("Access granted: principal '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
+			decision.Context.Reason = fmt.Sprintf("Access granted: entitlement '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
 			break
 		}
 	}
