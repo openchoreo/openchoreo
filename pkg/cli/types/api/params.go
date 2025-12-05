@@ -343,3 +343,16 @@ type CreateWorkloadParams struct {
 	OutputPath       string
 	Interactive      bool
 }
+
+// ScaffoldComponentParams defines parameters for scaffolding a component
+type ScaffoldComponentParams struct {
+	ComponentName string
+	ComponentType string   // format: workloadType/componentTypeName
+	Traits        []string // trait names
+	WorkflowName  string
+	Organization  string
+	ProjectName   string
+	OutputPath    string
+	SkipComments  bool // skip structural comments and field descriptions
+	SkipOptional  bool // skip optional fields without defaults
+}
