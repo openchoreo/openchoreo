@@ -63,11 +63,11 @@ spec:
         - name: JWT_DISABLED
           value: "{{ not .Values.security.enabled }}"
         - name: AUTHZ_ENABLED
-          value: "{{ .Values.openchoreoApi.authz.enabled }}"
+          value: "{{ .Values.security.authz.enabled }}"
         - name: AUTHZ_DATABASE_PATH
-          value: {{ .Values.openchoreoApi.authz.databasePath | quote }}
+          value: {{ .Values.security.authz.databasePath | quote }}
         - name: AUTHZ_DEFAULT_ROLES_FILE_PATH
-          value: {{ .Values.openchoreoApi.authz.defaultRolesFilePath | quote }}
+          value: {{ .Values.security.authz.defaultRolesFilePath | quote }}
         - name: DATABASE_PATH
           value: {{ .Values.openchoreoApi.database.path | quote }}
         volumeMounts:

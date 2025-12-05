@@ -447,7 +447,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			if request.Resource.ID != "" {
 				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
 			}
-			decision.Context.Reason = fmt.Sprintf("Access granted: entitlement '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
+			decision.Context.Reason = fmt.Sprintf("Access granted: entitlement value '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
 			break
 		}
 	}

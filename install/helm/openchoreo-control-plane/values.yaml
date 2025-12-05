@@ -61,6 +61,12 @@ security:
   jwt:
     # Expected audience claim in JWT tokens
     audience: ""
+  authz:
+    enabled: false
+    databasePath: "/var/lib/openchoreo/data/casbin.db"
+    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
+    # To use custom roles, set this path and mount a ConfigMap with your roles
+    defaultRolesFilePath: ""
 controllerManager:
   name: controller-manager
   replicas: 1
@@ -210,12 +216,6 @@ openchoreoApi:
       enabled: true
       size: 500Mi
       storageClassName: "" # Use default storage class if not specified
-  authz:
-    enabled: false
-    databasePath: "/var/lib/openchoreo/data/casbin.db"
-    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
-    # To use custom roles, set this path and mount a ConfigMap with your roles
-    defaultRolesFilePath: ""
   resources:
     requests:
       cpu: "200m"

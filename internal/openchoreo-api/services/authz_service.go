@@ -61,7 +61,7 @@ func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 		return fmt.Errorf("failed to add role: %w", err)
 	}
 
-	s.logger.Info("Authorization role added", "role", role.Name)
+	s.logger.Debug("Authorization role added", "role", role.Name)
 	return nil
 }
 
@@ -73,7 +73,7 @@ func (s *AuthzService) RemoveRole(ctx context.Context, roleName string) error {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
 
-	s.logger.Info("Authorization role removed", "role", roleName)
+	s.logger.Debug("Authorization role removed", "role", roleName)
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 		return fmt.Errorf("failed to add policy: %w", err)
 	}
 
-	s.logger.Info("Authorization policy added",
+	s.logger.Debug("Authorization policy added",
 		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
@@ -117,7 +117,7 @@ func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.Rol
 		return fmt.Errorf("failed to remove role mapping: %w", err)
 	}
 
-	s.logger.Info("Authorization role mapping removed",
+	s.logger.Debug("Authorization role mapping removed",
 		"entitlement", mapping.EntitlementValue,
 		"role", mapping.RoleName)
 	return nil
