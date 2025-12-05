@@ -57,7 +57,7 @@ spec:
         - name: JWT_ISSUER
           value: {{ .Values.security.oidc.issuer | quote }}
         - name: JWKS_URL
-          value: {{ .Values.security.oidc.jwksUrl | quote }}
+          value: {{ .Values.security.oidc.jwksUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d/oauth2/jwks" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) | quote }}
         - name: JWT_AUDIENCE
           value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
