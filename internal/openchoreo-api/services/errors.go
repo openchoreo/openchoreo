@@ -31,6 +31,7 @@ var (
 	ErrWorkflowSchemaInvalid      = errors.New("workflow schema is invalid")
 	ErrReleaseNotFound            = errors.New("release not found")
 	ErrInvalidCommitSHA           = errors.New("invalid commit SHA format")
+	ErrUnauthorized               = errors.New("insufficient permissions to perform this action")
 )
 
 // Error codes for API responses
