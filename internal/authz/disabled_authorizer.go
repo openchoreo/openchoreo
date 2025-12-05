@@ -124,6 +124,11 @@ func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error)
 	return nil, authz.ErrAuthzDisabled
 }
 
+// ListUserTypes fails with error
+func (da *DisabledAuthorizer) ListUserTypes(ctx context.Context) ([]authz.UserTypeInfo, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
 // These var declarations enforce at compile-time that DisabledAuthorizer
 // implements the PDP and PAP interfaces correctly.
 var (

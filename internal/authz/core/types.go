@@ -132,6 +132,30 @@ type Entitlement struct {
 	Value string `json:"value"`
 }
 
+// EntitlementClaimInfo represents information about an entitlement claim
+type EntitlementClaimInfo struct {
+	// Name is the JWT claim name (e.g., "group", "sub")
+	Name string `json:"name"`
+
+	// DisplayName is a human-readable name for the claim
+	DisplayName string `json:"display_name"`
+}
+
+// UserTypeInfo represents information about a configured user type
+type UserTypeInfo struct {
+	// Type is the user type (e.g., "user", "service_account")
+	Type SubjectType `json:"type"`
+
+	// DisplayName is a human-readable name for the user type
+	DisplayName string `json:"display_name"`
+
+	// Priority determines the order in which user types are checked (lower = higher priority)
+	Priority int `json:"priority"`
+
+	// Entitlement contains information about the entitlement claim
+	Entitlement EntitlementClaimInfo `json:"entitlement"`
+}
+
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
 	// RoleName is the name of the role being assigned
