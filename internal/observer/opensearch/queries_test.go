@@ -391,18 +391,18 @@ func TestQueryBuilder_BuildTracesQuery(t *testing.T) {
 			t.Errorf("Expected 3 filters, got %d", len(filters))
 		}
 
-		// Verify traceId filter exists
+		// Verify traceId wildcard filter exists
 		traceIDFound := false
 		for _, filter := range filters {
-			if term, ok := filter["term"].(map[string]interface{}); ok {
-				if traceID, exists := term["traceId"]; exists && traceID == "trace-123" {
+			if wildcard, ok := filter["wildcard"].(map[string]interface{}); ok {
+				if traceID, exists := wildcard["traceId"]; exists && traceID == "trace-123" {
 					traceIDFound = true
 					break
 				}
 			}
 		}
 		if !traceIDFound {
-			t.Error("TraceID filter not found")
+			t.Error("TraceID wildcard filter not found")
 		}
 	})
 

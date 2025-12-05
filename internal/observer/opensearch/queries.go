@@ -500,7 +500,7 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 	// Add TraceID filter if present
 	if params.TraceID != "" {
 		filterConditions = append(filterConditions, map[string]interface{}{
-			"term": map[string]interface{}{
+			"wildcard": map[string]interface{}{
 				"traceId": params.TraceID,
 			},
 		})

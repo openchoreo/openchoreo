@@ -243,7 +243,7 @@ func ExtractLogType(logType string) string {
 	}
 }
 
-// TracesRequestParams holds request body parameters for component traces
+// TracesRequestParams holds request body parameters for traces
 type TracesRequestParams struct {
 	ComponentUIDs  []string `json:"componentUids,omitempty"`
 	EndTime        string   `json:"endTime"`

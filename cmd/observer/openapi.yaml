@@ -253,19 +253,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/traces/component:
+  /api/traces:
     post:
       tags:
         - Traces
-      summary: Get component traces
-      description: Retrieve distributed traces for a component
-      operationId: getComponentTraces
+      summary: Get traces
+      description: Retrieve distributed traces
+      operationId: getTraces
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ComponentTracesRequest'
+              $ref: '#/components/schemas/TracesRequest'
       responses:
         '200':
           description: Successfully retrieved component traces
@@ -543,7 +543,7 @@ components:
                 app: "myapp"
                 tier: "backend"
 
-    ComponentTracesRequest:
+    TracesRequest:
       type: object
       required:
         - projectUid
@@ -569,9 +569,18 @@ components:
           example: "2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c"
         traceId:
           type: string
-          description: Specific trace ID to retrieve (32 hex characters, optional)
-          pattern: '^[a-f0-9]{32}$'
-          example: "f3a7b9e1c4d2f5a8b6e3c9f1d4a7e2b8"
+          description: |
+            Trace ID to filter by (optional). Supports wildcard characters:
+            - `*` matches zero or more characters
+            - `?` matches exactly one character
+            
+            Examples:
+            - Exact match: `63d7c3065ab25375e6c5d6bb135a77db`
+            - Prefix match: `63d7c3065ab2537*`
+            - Suffix match: `*135a77db`
+            - Single char wildcard: `63d7c3065ab2537?e6c5d6bb135a77db`
+          pattern: '^[a-fA-F0-9*?]+$'
+          example: "63d7c3065ab25375*"
         startTime:
           type: string
           format: date-time
@@ -699,8 +708,8 @@ components:
       properties:
         traceId:
           type: string
-          description: Unique trace identifier (32 hex characters)
-          pattern: '^[a-f0-9]{32}$'
+          description: Unique trace identifier (32 hexadecimal characters)
+          pattern: '^[a-fA-F0-9]{32}$'
           example: "f3a7b9e1c4d2f5a8b6e3c9f1d4a7e2b8"
         spans:
           type: array

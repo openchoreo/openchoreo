@@ -293,9 +293,9 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		return handleToolResult(result, err)
 	})
 
-	// Get Component Traces
+	// Get Traces
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_component_traces",
+		Name:        "get_traces",
 		Description: "Retrieve distributed tracing spans for a specific component/service in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
 		InputSchema: createSchema(map[string]any{
 			"project_uid":     stringProperty("Required: Project UID to retrieve traces for"),

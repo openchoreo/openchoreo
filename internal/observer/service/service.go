@@ -275,15 +275,15 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 }
 
 func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (*opensearch.TraceResponse, error) {
-	s.logger.Debug("Getting component traces")
+	s.logger.Debug("Fetching traces from OpenSearch")
 
-	// Build component traces query
+	// Build traces query
 	query := s.queryBuilder.BuildTracesQuery(params)
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, []string{"otel-traces-*"}, query)
 	if err != nil {
-		s.logger.Error("Failed to execute component traces search", "error", err)
+		s.logger.Error("Failed to execute traces search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 

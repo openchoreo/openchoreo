@@ -36,7 +36,7 @@ func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.
 	return h.Service.GetOrganizationLogs(ctx, params, podLabels)
 }
 
-// GetTraces retrieves distributed tracing spans for a specific component
+// GetTraces retrieves distributed tracing spans for a specific traceID or traces of requests which call specific components
 func (h *MCPHandler) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error) {
 	return h.Service.GetTraces(ctx, params)
 }

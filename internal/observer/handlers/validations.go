@@ -78,3 +78,27 @@ func validateTimes(startTime string, endTime string) error {
 
 	return nil
 }
+
+// validateTraceID validates a trace ID string that may contain wildcard characters (* and ?)
+// Valid characters: hexadecimal digits (0-9, a-f, A-F) and wildcards (* and ?)
+// Empty trace IDs are considered valid (optional parameter)
+func validateTraceID(traceID string) error {
+	if traceID == "" {
+		return nil // Empty trace ID is valid (optional parameter)
+	}
+
+	// Check each character
+	for i, char := range traceID {
+		isValid := (char >= '0' && char <= '9') ||
+			(char >= 'a' && char <= 'f') ||
+			(char >= 'A' && char <= 'F') ||
+			char == '*' ||
+			char == '?'
+
+		if !isValid {
+			return fmt.Errorf("traceId contains invalid character '%c' at position %d. Only hexadecimal characters (0-9, a-f, A-F) and wildcards (*, ?) are allowed", char, i)
+		}
+	}
+
+	return nil
+}

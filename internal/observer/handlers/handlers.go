@@ -433,11 +433,18 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = validateTraceID(req.TraceID)
+	if err != nil {
+		h.logger.Debug("Invalid traceId parameter", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
 	// Execute query
 	ctx := r.Context()
 	result, err := h.service.GetTraces(ctx, req)
 	if err != nil {
-		h.logger.Error("Failed to get component traces", "error", err)
+		h.logger.Error("Failed to get traces", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}

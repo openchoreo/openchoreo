@@ -374,7 +374,7 @@ func TestParseLogEntry(t *testing.T) {
 	}
 }
 
-func TestLoggingService_GetComponentTraces(t *testing.T) {
+func TestLoggingService_GetTraces(t *testing.T) {
 	tests := []struct {
 		name           string
 		params         opensearch.TracesRequestParams
@@ -625,23 +625,17 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 				return
 			}
 
-			// Build a map of actual traces by TraceID for comparison (order is non-deterministic)
-			actualTraceMap := make(map[string]opensearch.Trace)
-			for _, trace := range result.Traces {
-				actualTraceMap[trace.TraceID] = trace
-			}
+			// Check individual traces
+			for i, expectedTrace := range tt.expectedResult.Traces {
+				actualTrace := result.Traces[i]
 
-			// Check individual traces by TraceID
-			for _, expectedTrace := range tt.expectedResult.Traces {
-				actualTrace, exists := actualTraceMap[expectedTrace.TraceID]
-				if !exists {
-					t.Errorf("Expected trace with TraceID '%s' not found in results", expectedTrace.TraceID)
-					continue
+				if actualTrace.TraceID != expectedTrace.TraceID {
+					t.Errorf("Trace %d: Expected TraceID '%s', got '%s'", i, expectedTrace.TraceID, actualTrace.TraceID)
 				}
 
 				// Check spans within the trace
 				if len(actualTrace.Spans) != len(expectedTrace.Spans) {
-					t.Errorf("Trace %s: Expected %d spans, got %d", expectedTrace.TraceID, len(expectedTrace.Spans), len(actualTrace.Spans))
+					t.Errorf("Trace %d: Expected %d spans, got %d", i, len(expectedTrace.Spans), len(actualTrace.Spans))
 					continue
 				}
 
@@ -649,23 +643,23 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 					actualSpan := actualTrace.Spans[j]
 
 					if actualSpan.SpanID != expectedSpan.SpanID {
-						t.Errorf("Trace %s Span %d: Expected SpanId '%s', got '%s'", expectedTrace.TraceID, j, expectedSpan.SpanID, actualSpan.SpanID)
+						t.Errorf("Trace %d Span %d: Expected SpanId '%s', got '%s'", i, j, expectedSpan.SpanID, actualSpan.SpanID)
 					}
 
 					if actualSpan.Name != expectedSpan.Name {
-						t.Errorf("Trace %s Span %d: Expected Name '%s', got '%s'", expectedTrace.TraceID, j, expectedSpan.Name, actualSpan.Name)
+						t.Errorf("Trace %d Span %d: Expected Name '%s', got '%s'", i, j, expectedSpan.Name, actualSpan.Name)
 					}
 
 					if actualSpan.DurationNanoseconds != expectedSpan.DurationNanoseconds {
-						t.Errorf("Trace %s Span %d: Expected DurationInNanos %d, got %d", expectedTrace.TraceID, j, expectedSpan.DurationNanoseconds, actualSpan.DurationNanoseconds)
+						t.Errorf("Trace %d Span %d: Expected DurationInNanos %d, got %d", i, j, expectedSpan.DurationNanoseconds, actualSpan.DurationNanoseconds)
 					}
 
 					if !actualSpan.StartTime.Equal(expectedSpan.StartTime) {
-						t.Errorf("Trace %s Span %d: Expected StartTime '%v', got '%v'", expectedTrace.TraceID, j, expectedSpan.StartTime, actualSpan.StartTime)
+						t.Errorf("Trace %d Span %d: Expected StartTime '%v', got '%v'", i, j, expectedSpan.StartTime, actualSpan.StartTime)
 					}
 
 					if !actualSpan.EndTime.Equal(expectedSpan.EndTime) {
-						t.Errorf("Trace %s Span %d: Expected EndTime '%v', got '%v'", expectedTrace.TraceID, j, expectedSpan.EndTime, actualSpan.EndTime)
+						t.Errorf("Trace %d Span %d: Expected EndTime '%v', got '%v'", i, j, expectedSpan.EndTime, actualSpan.EndTime)
 					}
 				}
 			}
@@ -673,7 +667,7 @@ func TestLoggingService_GetComponentTraces(t *testing.T) {
 	}
 }
 
-func TestLoggingService_GetComponentTraces_QueryBuilding(t *testing.T) {
+func TestLoggingService_GetTraces_QueryBuilding(t *testing.T) {
 	// This test verifies that the correct query is built and the right indices are used
 	mockClient := &MockOpenSearchClient{
 		searchResponse: &opensearch.SearchResponse{
