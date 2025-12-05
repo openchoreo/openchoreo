@@ -155,6 +155,42 @@ Examples:
 			messages.DefaultCLIName),
 	}
 
+	Scaffold = Command{
+		Use:   "scaffold",
+		Short: "Generate scaffolded resource YAML files",
+		Long: fmt.Sprintf(`Generate scaffolded resource YAML files from existing CRDs.
+
+Examples:
+  # Scaffold a component from a ComponentType
+  %[1]s scaffold component --name my-app --type deployment/web-app`, messages.DefaultCLIName),
+	}
+
+	ScaffoldComponent = Command{
+		Use:     "component",
+		Aliases: []string{"comp"},
+		Short:   "Scaffold a Component YAML from ComponentType and Traits",
+		Long: fmt.Sprintf(`Generate a Component YAML file based on a ComponentType definition.
+
+The command fetches the ComponentType and any specified Traits from the cluster,
+applies default values, and generates a YAML file with required fields as
+placeholders and optional fields as commented examples.
+
+The --organization and --project flags can be omitted if set in the current context.
+
+Examples:
+  # Scaffold a basic component
+  %[1]s scaffold component --name my-app --type deployment/web-app
+
+  # Scaffold with traits
+  %[1]s scaffold component --name my-app --type deployment/web-app --traits storage,ingress
+
+  # Scaffold with workflow
+  %[1]s scaffold component --name my-app --type deployment/web-app --workflow docker-build
+
+  # Output to file
+  %[1]s scaffold component --name my-app --type deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
+	}
+
 	ListOrganization = Command{
 		Use:     "organization",
 		Aliases: []string{"org", "orgs", "organizations"},

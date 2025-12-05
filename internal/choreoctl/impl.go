@@ -33,6 +33,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/logs"
+	scaffoldcomponent "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/scaffold/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -232,4 +233,11 @@ func (c *CommandImplementation) GetDeploymentPipeline(params api.GetDeploymentPi
 func (c *CommandImplementation) GetConfigurationGroup(params api.GetConfigurationGroupParams) error {
 	configurationGroupImpl := getconfigurationgroup.NewGetConfigurationGroupImpl(constants.ConfigurationGroupV1Config)
 	return configurationGroupImpl.GetConfigurationGroup(params)
+}
+
+// Scaffold Operations
+
+func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentParams) error {
+	scaffoldImpl := scaffoldcomponent.NewScaffoldComponentImpl()
+	return scaffoldImpl.ScaffoldComponent(params)
 }
