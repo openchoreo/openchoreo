@@ -4,8 +4,17 @@ Production-like setup with each OpenChoreo plane running in its own k3d cluster.
 
 ## Overview
 
-This setup creates separate k3d clusters for each plane, providing better isolation and mimicking production
-architecture.
+This setup creates separate k3d clusters for each plane, providing better isolation and mimicking production architecture.
+
+**Communication Architecture:**
+- Uses **cluster agent** mode for secure communication between planes
+- Data Plane and Build Plane agents connect to Control Plane's cluster-gateway via WebSocket
+- Control Plane controllers communicate with Data/Build Planes via cluster-gateway HTTP proxy
+- Secured with mutual TLS (mTLS) - each plane has its own client certificate CA
+- No need to expose Data/Build Plane Kubernetes APIs externally
+- Eliminates VPN requirements for multi-cluster communication
+
+For more details on agent architecture, see [docs/multi-cluster-agent-setup.md](../../../docs/multi-cluster-agent-setup.md).
 
 ## Quick Start
 
@@ -25,6 +34,13 @@ Create cluster and install components:
 # Create Control Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 
+# Wait for Traefik CRDs to be installed (required for cluster gateway)
+kubectl --context k3d-openchoreo-cp wait --for=condition=complete job \
+  -l helmcharts.helm.cattle.io/chart=traefik-crd -n kube-system --timeout=120s
+
+# Verify IngressRouteTCP CRD is available
+kubectl --context k3d-openchoreo-cp get crd ingressroutetcps.traefik.io
+
 # Install Control Plane Helm chart
 helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --dependency-update \
@@ -32,9 +48,19 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-cp.yaml
+
+# Extract cluster-gateway server CA certificate (needed for agent configuration)
+./install/extract-agent-cas.sh --control-plane-context k3d-openchoreo-cp server-ca
 ```
 
+The server CA certificate will be saved to `./agent-cas/server-ca.crt`. You'll need to paste its contents into the data plane and build plane values files.
+
 ### 2. Data Plane
+
+> [!IMPORTANT]
+> Before installing the data plane, verify that the server CA certificate from Step 1 is already in `install/k3d/multi-cluster/values-dp.yaml` under `clusterAgent.tls.serverCAValue`.
+>
+> The values file in the repository already contains the CA certificate. If you regenerated it in Step 1, paste the contents of `./agent-cas/server-ca.crt` to update the values file.
 
 Create cluster and install components:
 
@@ -51,7 +77,15 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --values install/k3d/multi-cluster/values-dp.yaml
 ```
 
+> [!NOTE]
+> The agent will try to connect but won't succeed until you create the DataPlane resource in Step 5.
+
 ### 3. Build Plane (Optional)
+
+> [!IMPORTANT]
+> Before installing the build plane, verify that the server CA certificate from Step 1 is already in `install/k3d/multi-cluster/values-bp.yaml` under `clusterAgent.tls.serverCAValue`.
+>
+> The values file in the repository already contains the CA certificate. If you regenerated it in Step 1, paste the contents of `./agent-cas/server-ca.crt` to update the values file.
 
 Create cluster and install components:
 
@@ -67,6 +101,9 @@ helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-bp.yaml
 ```
+
+> [!NOTE]
+> The agent will try to connect but won't succeed until you create the BuildPlane resource in Step 6.
 
 ### 4. Observability Plane (Optional)
 
@@ -97,25 +134,87 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 ### 5. Create DataPlane Resource
 
-Create a DataPlane resource to enable workload deployment:
+The `add-data-plane.sh` script automatically extracts the cluster agent's client CA certificate from the data plane and creates the DataPlane CR:
 
 ```bash
+# Create DataPlane CR with automatic client CA extraction
 ./install/add-data-plane.sh \
+  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
-  --target-context k3d-openchoreo-dp \
-  --server https://host.k3d.internal:6551
+  --dataplane-context k3d-openchoreo-dp \
+  --name default
+
+# Verify the DataPlane resource was created
+kubectl --context k3d-openchoreo-cp get dataplane default -n default
 ```
+
+<details>
+<summary>Alternative: Manual creation with secret reference</summary>
+
+If you prefer to manage the client CA as a Kubernetes secret:
+
+```bash
+# Extract data plane agent's client CA certificate
+kubectl --context k3d-openchoreo-dp get secret cluster-agent-tls \
+  -n openchoreo-data-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/dataplane-ca.crt
+
+# Create secret in control plane with data plane's client CA
+kubectl --context k3d-openchoreo-cp create secret generic dataplane-default-ca \
+  --from-file=ca.crt=/tmp/dataplane-ca.crt \
+  -n default \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
+
+# Create DataPlane CR referencing the secret
+./install/add-data-plane.sh \
+  --enable-agent \
+  --control-plane-context k3d-openchoreo-cp \
+  --agent-ca-secret dataplane-default-ca \
+  --name default
+```
+</details>
 
 ### 6. Create BuildPlane Resource (optional)
 
-Create a BuildPlane resource to enable building from source:
+Similar to the DataPlane, use `add-build-plane.sh` to automatically extract and configure:
 
 ```bash
+# Create BuildPlane CR with automatic client CA extraction
 ./install/add-build-plane.sh \
+  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
-  --target-context k3d-openchoreo-bp \
-  --server https://host.k3d.internal:6552
+  --buildplane-context k3d-openchoreo-bp \
+  --name default
+
+# Verify the BuildPlane resource was created
+kubectl --context k3d-openchoreo-cp get buildplane default -n default
 ```
+
+<details>
+<summary>Alternative: Manual creation with secret reference</summary>
+
+If you prefer to manage the client CA as a Kubernetes secret:
+
+```bash
+# Extract build plane agent's client CA certificate
+kubectl --context k3d-openchoreo-bp get secret cluster-agent-tls \
+  -n openchoreo-build-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/buildplane-ca.crt
+
+# Create secret in control plane with build plane's client CA
+kubectl --context k3d-openchoreo-cp create secret generic buildplane-default-ca \
+  --from-file=ca.crt=/tmp/buildplane-ca.crt \
+  -n default \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
+
+# Create BuildPlane CR referencing the secret
+./install/add-build-plane.sh \
+  --enable-agent \
+  --control-plane-context k3d-openchoreo-cp \
+  --agent-ca-secret buildplane-default-ca \
+  --name default
+```
+</details>
 
 ## Port Mappings
 
@@ -127,8 +226,8 @@ Create a BuildPlane resource to enable building from source:
 | Observability Plane | k3d-openchoreo-op | 6553          | 11xxx      |
 
 > [!NOTE]
-> Port ranges (e.g., 8xxx) indicate the ports exposed to your host machine for accessing services from that plane. Each
-> range uses ports like 8080 (HTTP) and 8443 (HTTPS) on localhost.
+> - Port ranges (e.g., 8xxx) indicate the ports exposed to your host machine for accessing services from that plane. Each range uses ports like 8080 (HTTP) and 8443 (HTTPS) on localhost.
+> - **Cluster Gateway**: Control Plane's cluster-gateway is accessible at `wss://cluster-gateway.openchoreo.localhost:8443/ws` from other k3d clusters (routed through the same Traefik ingress)
 
 ## Access Services
 
@@ -137,6 +236,7 @@ Create a BuildPlane resource to enable building from source:
 - OpenChoreo UI: http://openchoreo.localhost:8080
 - OpenChoreo API: http://api.openchoreo.localhost:8080
 - Asgardeo Thunder: http://thunder.openchoreo.localhost:8080
+- Cluster Gateway: wss://cluster-gateway.openchoreo.localhost:8443/ws (for agent connections)
 
 ### Data Plane
 
@@ -155,7 +255,7 @@ Create a BuildPlane resource to enable building from source:
 
 ## Verification
 
-Check that all components are running:
+### Check Component Status
 
 ```bash
 # Control Plane
@@ -175,6 +275,39 @@ kubectl --context k3d-openchoreo-cp get dataplane -n default
 
 # Verify BuildPlane resource in Control Plane (if created)
 kubectl --context k3d-openchoreo-cp get buildplane -n default
+```
+
+### Verify Agent Connections
+
+Check that cluster agents are connected to the cluster-gateway:
+
+```bash
+# Check cluster-gateway logs for agent connections
+kubectl --context k3d-openchoreo-cp logs -n openchoreo-control-plane \
+  -l app.kubernetes.io/component=cluster-gateway --tail=50
+
+# Expected output should include:
+# {"level":"INFO","msg":"agent registered","component":"connection-manager","planeIdentifier":"dataplane/default","connectionID":"...","totalConnections":1}
+# {"level":"INFO","msg":"agent connected successfully","component":"agent-server","planeType":"dataplane","planeName":"default","planeIdentifier":"dataplane/default"}
+# {"level":"INFO","msg":"certificate verification successful","component":"agent-server","clientCN":"default"}
+
+# Check data plane agent logs
+kubectl --context k3d-openchoreo-dp logs -n openchoreo-data-plane \
+  -l app.kubernetes.io/component=cluster-agent --tail=20
+
+# Expected output:
+# {"level":"INFO","msg":"connected to control plane","component":"agent","plane":"default"}
+# {"level":"INFO","msg":"starting agent","component":"agent","plane":"default","planeType":"dataplane","planeName":"default"}
+
+# Check build plane agent logs (if installed)
+kubectl --context k3d-openchoreo-bp logs -n openchoreo-build-plane \
+  -l app.kubernetes.io/component=cluster-agent --tail=20
+
+# Verify agent is maintaining connection
+kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane \
+  -l app.kubernetes.io/component=cluster-gateway
+kubectl --context k3d-openchoreo-dp get pods -n openchoreo-data-plane \
+  -l app.kubernetes.io/component=cluster-agent
 ```
 
 ## Architecture
@@ -297,6 +430,44 @@ install/k3d/preload-images.sh \
 ```
 
 Run this after creating the clusters (step 1) but before installing components (step 2).
+
+## Troubleshooting
+
+### DNS Resolution Issues in Agents
+
+If you see errors like `no such host` or `lookup ... i/o timeout` in agent logs:
+
+```bash
+# Check if CoreDNS custom config exists
+kubectl --context k3d-openchoreo-dp get configmap coredns-custom -n kube-system
+
+# Check if DNS rewrite is enabled in values file
+grep -A2 dnsRewrite install/k3d/multi-cluster/values-dp.yaml
+
+# Test DNS resolution
+kubectl --context k3d-openchoreo-dp run test-dns --image=busybox --rm -it --restart=Never -- \
+  nslookup cluster-gateway.openchoreo.localhost
+
+# Expected output: Should resolve to 192.168.5.2 (host.k3d.internal)
+
+# If DNS is not working, restart CoreDNS
+kubectl --context k3d-openchoreo-dp rollout restart deployment coredns -n kube-system
+```
+
+### Traefik CRD Not Found
+
+If Helm installation fails with `IngressRouteTCP CRD not found`:
+
+```bash
+# Wait for Traefik CRDs to be installed
+kubectl --context k3d-openchoreo-cp wait --for=condition=complete job \
+  -l helmcharts.helm.cattle.io/chart=traefik-crd -n kube-system --timeout=120s
+
+# Verify CRD exists
+kubectl --context k3d-openchoreo-cp get crd ingressroutetcps.traefik.io
+
+# Then retry Helm installation
+```
 
 ## Cleanup
 

@@ -23,9 +23,12 @@ gateway:
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
 
-# Disable cluster agent for quick-start (single-cluster mode)
+# Enable cluster agent for secure communication with control plane
 clusterAgent:
-  enabled: false
+  enabled: true
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: dataplane
 
 networking:
   enabled: false

@@ -123,7 +123,7 @@ fi
 
 # Step 8: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
-    bash "${SCRIPT_DIR}/add-data-plane.sh"
+    bash "${SCRIPT_DIR}/add-data-plane.sh" --enable-agent --control-plane-context "${CLUSTER_CONTEXT}" --name default
 else
     log_warning "add-data-plane.sh not found, skipping dataplane configuration"
 fi
@@ -131,7 +131,7 @@ fi
 # Step 9: Add default buildplane (if build plane enabled)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/add-build-plane.sh"
+        bash "${SCRIPT_DIR}/add-build-plane.sh" --enable-agent --control-plane-context "${CLUSTER_CONTEXT}" --name default
     else
         log_warning "add-build-plane.sh not found, skipping buildplane configuration"
     fi

@@ -504,6 +504,15 @@ install_control_plane() {
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
         "--set" "backstage.image.tag=$OPENCHOREO_VERSION"
+
+    # Wait for cluster-gateway to be ready (required for agent connections)
+    log_info "Waiting for cluster-gateway to be ready..."
+    if kubectl wait --for=condition=available deployment/cluster-gateway \
+        -n "$CONTROL_PLANE_NS" --timeout=120s >/dev/null 2>&1; then
+        log_success "Cluster gateway is ready"
+    else
+        log_warning "Cluster gateway readiness check timed out, but continuing..."
+    fi
 }
 
 # Install OpenChoreo Data Plane
