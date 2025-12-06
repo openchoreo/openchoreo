@@ -1,14 +1,15 @@
 # Helm values for OpenChoreo Control Plane in quick-start container
 # This file contains overrides for running the control plane in the quick-start k3d environment
 
-# Disable cluster gateway for quick-start (single-cluster mode)
+# Enable cluster gateway for agent-based data plane communication
 clusterGateway:
-  enabled: false
+  enabled: true
 
-# Disable cluster gateway integration in controller manager
+# Enable cluster gateway integration in controller manager
+# Allows controllers to communicate with data/build planes via cluster gateway
 controllerManager:
   clusterGateway:
-    enabled: false
+    enabled: true
 
 openchoreoApi:
   ingress:

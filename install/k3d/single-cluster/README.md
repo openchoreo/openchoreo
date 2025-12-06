@@ -26,6 +26,9 @@ k3d cluster create --config install/k3d/single-cluster/config.yaml
 
 ### 2. Install Components
 
+> [!NOTE]
+> This setup uses **cluster gateway and agents** by default for secure communication between Control Plane and Data/Build Planes. The agents connect via in-cluster service (`cluster-gateway.openchoreo-control-plane.svc.cluster.local`) using mTLS authentication.
+
 Install all planes in the single cluster:
 
 ```bash
@@ -36,6 +39,10 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-cp.yaml
+
+# Wait for cluster-gateway to be ready (required for agent connections)
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cluster-gateway \
+  -n openchoreo-control-plane --timeout=120s
 
 # Data Plane
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
@@ -90,50 +97,47 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 Create a DataPlane resource to enable workload deployment.
 
-**Using Cluster Agent (Recommended):**
+**Using Cluster Agent (Default):**
 
-The cluster agent provides secure communication between control plane and data plane without exposing the Kubernetes API:
+This setup uses cluster agent by default for secure communication between control plane and data plane:
 
 ```bash
 ./install/add-data-plane.sh \
   --enable-agent \
   --control-plane-context k3d-openchoreo \
-  --namespace default \
-  --agent-ca-namespace openchoreo-control-plane \
   --name default
 ```
 
-This creates a DataPlane CR that uses the cluster agent for communication. The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
+The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
-**Using Direct API Access (Alternative):**
+<details>
+<summary>Alternative: Using Direct API Access (Not recommended)</summary>
 
-For simple setups or testing, you can use direct Kubernetes API access:
+For testing purposes, you can use direct Kubernetes API access instead:
 
 ```bash
 ./install/add-data-plane.sh --control-plane-context k3d-openchoreo
 ```
 
-> **Note:** The cluster agent approach is recommended for production deployments as it provides better security and doesn't require exposing the Kubernetes API server.
+> **Note:** Direct API access is not recommended. The cluster agent approach provides better security and doesn't require exposing the Kubernetes API server.
+</details>
 
 ### 4. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source.
 
-**Using Cluster Agent (Recommended):**
+**Using Cluster Agent (Default and only supported method):**
 
-The cluster agent provides secure communication between control plane and build plane without exposing the Kubernetes API:
+This setup uses cluster agent for secure communication between control plane and build plane:
 
 ```bash
 ./install/add-build-plane.sh \
+  --enable-agent \
   --control-plane-context k3d-openchoreo \
-  --namespace default \
-  --agent-ca-namespace openchoreo-control-plane \
   --name default
 ```
 
-This creates a BuildPlane CR that uses the cluster agent for communication. The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the build plane Kubernetes API.
-
-> **Note:** The cluster agent approach is the only supported method for BuildPlane. The agent provides better security and doesn't require exposing the Kubernetes API server.
+The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
 ## Port Mappings
 

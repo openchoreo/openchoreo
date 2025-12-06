@@ -10,6 +10,8 @@ security:
 clusterGateway:
   enabled: true
 
+# Controller Manager cluster gateway configuration
+# Enables controllers to communicate with data/build planes via cluster gateway
 controllerManager:
   clusterGateway:
     enabled: true

@@ -110,7 +110,7 @@ func main() {
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&clusterGatewayURL, "cluster-gateway-url",
-		getEnv("CLUSTER_GATEWAY_URL", "https://cluster-agent-server.openchoreo-control-plane.svc.cluster.local:8443"),
+		getEnv("CLUSTER_GATEWAY_URL", "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443"),
 		"The URL of the cluster gateway for HTTP proxy communication with data planes. "+
 			"Required for agent mode. Example: https://localhost:8443")
 	flag.StringVar(&clusterGatewayCACert, "cluster-gateway-ca-cert", getEnv("CLUSTER_GATEWAY_CA_CERT", ""),
