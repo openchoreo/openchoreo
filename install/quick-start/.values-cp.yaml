@@ -13,8 +13,8 @@ traefik:
 
 # Disable cluster gateway for quick-start (direct access mode)
 clusterGateway:
-  enabled: false
+  enabled: true
 
 controllerManager:
   clusterGateway:
-    enabled: false
+    enabled: true

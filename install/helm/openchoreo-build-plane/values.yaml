@@ -235,6 +235,10 @@ clusterAgent:
   planeName: default
   # Type of plane (dataplane or buildplane)
   planeType: buildplane
+  # DNS rewrite configuration (for multi-cluster k3d setups)
+  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+  dnsRewrite:
+    enabled: false
   heartbeatInterval: 30s
   reconnectDelay: 5s
   logLevel: info
@@ -257,6 +261,10 @@ clusterAgent:
     value: 900000
   tls:
     enabled: true
+    # Generate client certificates locally using cert-manager (multi-cluster setup)
+    # Set to true when the build plane is in a different cluster from control plane
+    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+    generateCerts: false
     # Secret containing client certificate and key
     secretName: cluster-agent-tls
     clientSecretName: cluster-agent-tls

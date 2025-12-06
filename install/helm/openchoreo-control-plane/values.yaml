@@ -648,6 +648,11 @@ clusterGateway:
     nodePort: null
     loadBalancerIP: null
     clusterIP: null
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
   tls:
     enabled: true
     secretName: cluster-gateway-tls

@@ -1,6 +1,10 @@
 # Helm values for OpenChoreo Build Plane in quick-start environment
 # Based on single-cluster setup, optimized for containerized quick-start experience
 
+# Disable cert-manager since it's already installed by Control Plane
+cert-manager:
+  enabled: false
+
 # Argo Workflows configuration
 argo-workflows:
   server:
@@ -31,3 +35,10 @@ external-secrets:
 # from ALL namespaces including openchoreo-build-plane and openchoreo-ci-*
 fluentBit:
   enabled: false
+
+# Cluster Agent configuration for single-cluster setup
+clusterAgent:
+  enabled: true
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: buildplane

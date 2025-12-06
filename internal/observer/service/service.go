@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -297,12 +298,21 @@ func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.Traces
 		}
 	}
 
-	// Convert map to traces array
+	// Convert map to traces array and sort by traceID for consistent ordering
 	traces := make([]opensearch.Trace, 0, len(traceMap))
-	for traceID, spans := range traceMap {
+	traceIDs := make([]string, 0, len(traceMap))
+
+	for traceID := range traceMap {
+		traceIDs = append(traceIDs, traceID)
+	}
+
+	// Sort trace IDs to ensure deterministic ordering
+	sort.Strings(traceIDs)
+
+	for _, traceID := range traceIDs {
 		traces = append(traces, opensearch.Trace{
 			TraceID: traceID,
-			Spans:   spans,
+			Spans:   traceMap[traceID],
 		})
 	}
 

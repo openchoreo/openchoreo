@@ -9,11 +9,11 @@ kubeAPI:
   hostPort: "6550"
 # Control Plane uses port range 8xxx
 ports:
-  # HTTP traffic to OpenChoreo UI and API
+  # HTTP traffic to OpenChoreo UI, API
   - port: 8080:80
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to OpenChoreo UI and API
+  # HTTPS traffic to OpenChoreo UI, API, and Cluster Gateway (via ingress)
   - port: 8443:443
     nodeFilters:
       - loadbalancer

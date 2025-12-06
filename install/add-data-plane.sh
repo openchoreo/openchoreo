@@ -45,11 +45,17 @@ Options:
   --enable-agent                    Use cluster agent for data plane communication
                                     When enabled, skips kubernetesCluster configuration
 
-  --agent-ca-secret NAME            Secret name containing agent client CA certificate
-                                    Default: cluster-gateway-ca (only used with --enable-agent)
+  --agent-ca-secret NAME            (Optional) Secret name containing agent client CA certificate
+                                    If provided, uses secretRef mode to reference existing secret
+                                    If omitted, auto-extracts CA from data plane (inline value mode)
+                                    Only used with --enable-agent
 
-  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret
-                                    Default: same as --namespace (only used with --enable-agent)
+  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret (only with --agent-ca-secret)
+                                    Default: same as --namespace
+
+  --dataplane-context CONTEXT       Kubernetes context of data plane to extract client CA from
+                                    Used in auto-extract mode (when --agent-ca-secret is not provided)
+                                    Default: same as target-context (only used with --enable-agent)
 
   --dry-run                         Preview the YAML without applying changes
 
@@ -83,6 +89,12 @@ Examples:
   # Using cluster agent with custom CA secret and namespace
   $script_name --enable-agent --agent-ca-secret my-agent-ca --agent-ca-namespace openchoreo-control-plane --control-plane-context k3d-openchoreo
 
+  # Multi-cluster with agent mode
+  $script_name --enable-agent \\
+    --control-plane-context k3d-openchoreo-cp \\
+    --dataplane-context k3d-openchoreo-dp \\
+    --name default
+
 Note:
   Single-cluster: Both control plane and data plane in same cluster
   Multi-cluster:  Different clusters, requires explicit --server URL
@@ -93,13 +105,15 @@ EOF
 # Defaults
 TARGET_CONTEXT=""              # Data plane cluster (extract creds, the "target")
 CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
+DATAPLANE_CONTEXT=""           # Data plane cluster for CA extraction
 SERVER_URL="https://kubernetes.default.svc.cluster.local"
 DATAPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
 ENABLE_AGENT=false
-AGENT_CA_SECRET="cluster-gateway-ca"
+AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
 AGENT_CA_NAMESPACE=""
+AGENT_CA_SECRET_EXPLICIT=false # Track if user explicitly set --agent-ca-secret
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -118,6 +132,7 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       AGENT_CA_SECRET="$2"
+      AGENT_CA_SECRET_EXPLICIT=true
       shift 2
       ;;
     --agent-ca-namespace)
@@ -126,6 +141,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       AGENT_CA_NAMESPACE="$2"
+      shift 2
+      ;;
+    --dataplane-context)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --dataplane-context requires a value"
+        exit 1
+      fi
+      DATAPLANE_CONTEXT="$2"
       shift 2
       ;;
     --target-context)
@@ -205,9 +228,9 @@ if [ -z "$TARGET_CONTEXT" ]; then
   TARGET_CONTEXT="$CONTROL_PLANE_CONTEXT"
 fi
 
-# Set agent CA namespace default
-if [ -z "$AGENT_CA_NAMESPACE" ]; then
-  AGENT_CA_NAMESPACE="$NAMESPACE"
+# Set dataplane context default
+if [ -z "$DATAPLANE_CONTEXT" ]; then
+  DATAPLANE_CONTEXT="$TARGET_CONTEXT"
 fi
 
 # Rule 2: Multi-cluster requires explicit external server URL (unless using agent)
@@ -238,22 +261,54 @@ fi
 
 # If using agent mode, skip credential extraction
 if [ "$ENABLE_AGENT" = true ]; then
-  if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
-    error "Cluster gateway CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
-    echo ""
-    echo "The cluster gateway CA secret is required for agent-based communication."
-    echo "This secret should be created automatically by the cluster-gateway component."
-    echo ""
-    echo "Please ensure:"
-    echo "  1. Cluster gateway is enabled in the control plane Helm chart"
-    echo "  2. The cluster-gateway pod is running and healthy"
-    echo "  3. The CA extraction job has completed successfully"
-    echo ""
-    echo "You can check the status with:"
-    echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get pods -n $AGENT_CA_NAMESPACE | grep cluster-gateway"
-    echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get secret $AGENT_CA_SECRET -n $AGENT_CA_NAMESPACE"
-    echo ""
-    exit 1
+  # Determine if we should use secretRef or extract CA value
+  CLIENT_CA_CONFIG=""
+
+  # Check if agent CA secret was explicitly provided
+  if [ "$AGENT_CA_SECRET_EXPLICIT" = true ]; then
+    # User provided explicit secret reference - use secretRef mode
+    # Set default namespace if not provided
+    if [ -z "$AGENT_CA_NAMESPACE" ]; then
+      AGENT_CA_NAMESPACE="$NAMESPACE"
+    fi
+
+    if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
+      error "Agent CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
+      echo ""
+      echo "Please ensure the secret exists or omit --agent-ca-secret to auto-extract from data plane"
+      echo ""
+      exit 1
+    fi
+
+    echo "Using secret reference mode: $AGENT_CA_SECRET in namespace $AGENT_CA_NAMESPACE"
+    CLIENT_CA_CONFIG="    clientCA:
+      secretRef:
+        name: $AGENT_CA_SECRET
+        namespace: $AGENT_CA_NAMESPACE
+        key: ca.crt"
+  else
+    # Auto-extract mode - extract CA from data plane and use inline value
+    echo "Extracting cluster agent client CA from data plane..."
+    CLIENT_CA_CERT=$(kubectl --context="$DATAPLANE_CONTEXT" get secret cluster-agent-tls -n openchoreo-data-plane -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d)
+
+    if [ -z "$CLIENT_CA_CERT" ]; then
+      error "Failed to extract cluster agent client CA certificate from data plane"
+      echo ""
+      echo "Please ensure:"
+      echo "  1. Data plane context '$DATAPLANE_CONTEXT' is correct"
+      echo "  2. Cluster agent is deployed in data plane (openchoreo-data-plane namespace)"
+      echo "  3. The cluster-agent-tls secret exists and contains ca.crt"
+      echo ""
+      echo "Alternatively, use --agent-ca-secret to reference an existing secret in control plane"
+      echo ""
+      echo "You can check the status with:"
+      echo "  kubectl --context=$DATAPLANE_CONTEXT get secret cluster-agent-tls -n openchoreo-data-plane"
+      echo ""
+      exit 1
+    fi
+    CLIENT_CA_CONFIG="    clientCA:
+      value: |
+$(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
   fi
 
   # Generate the DataPlane YAML with agent configuration
@@ -269,11 +324,7 @@ metadata:
 spec:
   agent:
     enabled: true
-    clientCA:
-      secretRef:
-        name: $AGENT_CA_SECRET
-        namespace: $AGENT_CA_NAMESPACE
-        key: ca.crt
+$CLIENT_CA_CONFIG
   secretStoreRef:
     name: default
   gateway:

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # OpenChoreo BuildPlane Creation Script
-# Creates a BuildPlane resource in the control plane using cluster agent mode
+# Creates a BuildPlane resource in the control plane that targets a build plane cluster
 
 set -e
 
@@ -19,11 +19,7 @@ show_help() {
   local script_name
   script_name=$(basename "$0")
   cat << EOF
-Create an OpenChoreo BuildPlane resource using cluster agent mode.
-
-The cluster agent enables secure communication between the control plane and build plane
-without requiring direct Kubernetes API access. The build plane cluster must have a
-cluster agent installed and configured.
+Create an OpenChoreo BuildPlane resource that targets a Kubernetes cluster.
 
 Usage:
   $script_name [OPTIONS]
@@ -36,13 +32,21 @@ Options:
                                     Default: default
 
   --namespace NAMESPACE             Namespace for the BuildPlane resource
-                                    Default: default
+                                    Default: default (Note: BuildPlane CRs are typically created in 'default')
 
-  --agent-ca-secret NAME            Secret name containing agent client CA certificate
-                                    Default: cluster-gateway-ca
+  --enable-agent                    Use cluster agent for build plane communication (recommended)
 
-  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret
+  --agent-ca-secret NAME            (Optional) Secret name containing agent client CA certificate
+                                    If provided, uses secretRef mode to reference existing secret
+                                    If omitted, auto-extracts CA from build plane (inline value mode)
+                                    Only used with --enable-agent
+
+  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret (only with --agent-ca-secret)
                                     Default: same as --namespace
+
+  --buildplane-context CONTEXT      Kubernetes context of build plane to extract client CA from
+                                    Used in auto-extract mode (when --agent-ca-secret is not provided)
+                                    Default: current context (only used with --enable-agent)
 
   --dry-run                         Preview the YAML without applying changes
 
@@ -50,40 +54,42 @@ Options:
 
 Examples:
 
-  # Create BuildPlane with defaults
-  $script_name
+  # Single-cluster with agent mode (auto-extract CA)
+  $script_name --enable-agent --control-plane-context k3d-openchoreo
 
-  # Create BuildPlane with custom context
-  $script_name --control-plane-context k3d-openchoreo
+  # Multi-cluster with agent mode and auto-extract
+  $script_name --enable-agent \\
+    --control-plane-context k3d-openchoreo-cp \\
+    --buildplane-context k3d-openchoreo-bp \\
+    --name default
 
-  # Create BuildPlane with custom name and namespace
-  $script_name --name prod-buildplane --namespace production
+  # Using agent with custom CA secret
+  $script_name --enable-agent \\
+    --agent-ca-secret my-agent-ca \\
+    --agent-ca-namespace openchoreo-control-plane \\
+    --control-plane-context k3d-openchoreo
 
-  # Use custom agent CA secret
-  $script_name --agent-ca-secret my-agent-ca --agent-ca-namespace openchoreo-control-plane
+  # Custom name and namespace
+  $script_name --enable-agent --name prod-buildplane --namespace production
 
   # Preview without applying
-  $script_name --dry-run
+  $script_name --enable-agent --dry-run
 
 Note:
-  This script creates a BuildPlane resource that uses cluster agent mode for communication.
-  The build plane cluster must have:
-    1. Cluster agent installed and running
-    2. Network connectivity to the control plane cluster gateway
-    3. Valid mTLS certificates for authentication
-
-  For build plane agent installation, see:
-    install/cluster-agent/README.md
+  Agent mode (recommended): Uses cluster agent for secure communication
 EOF
 }
 
 # Defaults
 CONTROL_PLANE_CONTEXT=""
+BUILDPLANE_CONTEXT=""          # Build plane cluster for CA extraction
 BUILDPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
-AGENT_CA_SECRET="cluster-gateway-ca"
+ENABLE_AGENT=false
+AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
 AGENT_CA_NAMESPACE=""
+AGENT_CA_SECRET_EXPLICIT=false # Track if user explicitly set --agent-ca-secret
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -92,12 +98,17 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=true
       shift
       ;;
+    --enable-agent)
+      ENABLE_AGENT=true
+      shift
+      ;;
     --agent-ca-secret)
       if [ -z "$2" ] || [[ "$2" == --* ]]; then
         error "Error: --agent-ca-secret requires a value"
         exit 1
       fi
       AGENT_CA_SECRET="$2"
+      AGENT_CA_SECRET_EXPLICIT=true
       shift 2
       ;;
     --agent-ca-namespace)
@@ -106,6 +117,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       AGENT_CA_NAMESPACE="$2"
+      shift 2
+      ;;
+    --buildplane-context)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --buildplane-context requires a value"
+        exit 1
+      fi
+      BUILDPLANE_CONTEXT="$2"
       shift 2
       ;;
     --control-plane-context)
@@ -149,7 +168,7 @@ CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
 
 if [ -z "$CURRENT_CONTEXT" ]; then
   error "Error: No current kubectl context found"
-  echo "Please configure kubectl or specify --control-plane-context explicitly"
+  echo "Please configure kubectl or specify contexts explicitly"
   exit 1
 fi
 
@@ -158,9 +177,9 @@ if [ -z "$CONTROL_PLANE_CONTEXT" ]; then
   CONTROL_PLANE_CONTEXT="$CURRENT_CONTEXT"
 fi
 
-# Set agent CA namespace default
-if [ -z "$AGENT_CA_NAMESPACE" ]; then
-  AGENT_CA_NAMESPACE="$NAMESPACE"
+# Set buildplane context default
+if [ -z "$BUILDPLANE_CONTEXT" ]; then
+  BUILDPLANE_CONTEXT="$CURRENT_CONTEXT"
 fi
 
 # Validate control plane context exists
@@ -171,27 +190,60 @@ if ! kubectl config get-contexts "$CONTROL_PLANE_CONTEXT" &>/dev/null; then
   exit 1
 fi
 
-# Validate agent CA secret exists
-if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
-  error "Error: Cluster gateway CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
-  echo ""
-  echo "The cluster gateway CA secret is required for agent-based communication."
-  echo "This secret should be created automatically by the cluster-gateway component."
-  echo ""
-  echo "Please ensure:"
-  echo "  1. Cluster gateway is enabled in the control plane Helm chart"
-  echo "  2. The cluster-gateway pod is running and healthy"
-  echo "  3. The CA secret has been created"
-  echo ""
-  echo "You can check the status with:"
-  echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get pods -n openchoreo-control-plane | grep cluster-gateway"
-  echo "  kubectl --context=$CONTROL_PLANE_CONTEXT get secret $AGENT_CA_SECRET -n $AGENT_CA_NAMESPACE"
-  echo ""
-  exit 1
-fi
+# If using agent mode, extract or validate client CA
+if [ "$ENABLE_AGENT" = true ]; then
+  # Determine if we should use secretRef or extract CA value
+  CLIENT_CA_CONFIG=""
 
-# Generate the BuildPlane YAML with agent configuration
-BUILDPLANE_YAML=$(cat <<EOF
+  # Check if agent CA secret was explicitly provided
+  if [ "$AGENT_CA_SECRET_EXPLICIT" = true ]; then
+    # User provided explicit secret reference - use secretRef mode
+    # Set default namespace if not provided
+    if [ -z "$AGENT_CA_NAMESPACE" ]; then
+      AGENT_CA_NAMESPACE="$NAMESPACE"
+    fi
+
+    if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
+      error "Agent CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
+      echo ""
+      echo "Please ensure the secret exists or omit --agent-ca-secret to auto-extract from build plane"
+      echo ""
+      exit 1
+    fi
+
+    echo "Using secret reference mode: $AGENT_CA_SECRET in namespace $AGENT_CA_NAMESPACE"
+    CLIENT_CA_CONFIG="    clientCA:
+      secretRef:
+        name: $AGENT_CA_SECRET
+        namespace: $AGENT_CA_NAMESPACE
+        key: ca.crt"
+  else
+    # Auto-extract mode - extract CA from build plane and use inline value
+    echo "Extracting cluster agent client CA from build plane..."
+    CLIENT_CA_CERT=$(kubectl --context="$BUILDPLANE_CONTEXT" get secret cluster-agent-tls -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d)
+
+    if [ -z "$CLIENT_CA_CERT" ]; then
+      error "Failed to extract cluster agent client CA certificate from build plane"
+      echo ""
+      echo "Please ensure:"
+      echo "  1. Build plane context '$BUILDPLANE_CONTEXT' is correct"
+      echo "  2. Cluster agent is deployed in build plane (openchoreo-build-plane namespace)"
+      echo "  3. The cluster-agent-tls secret exists and contains ca.crt"
+      echo ""
+      echo "Alternatively, use --agent-ca-secret to reference an existing secret in control plane"
+      echo ""
+      echo "You can check the status with:"
+      echo "  kubectl --context=$BUILDPLANE_CONTEXT get secret cluster-agent-tls -n openchoreo-build-plane"
+      echo ""
+      exit 1
+    fi
+    CLIENT_CA_CONFIG="    clientCA:
+      value: |
+$(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
+  fi
+
+  # Generate the BuildPlane YAML with agent configuration
+  BUILDPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
@@ -203,34 +255,27 @@ metadata:
 spec:
   agent:
     enabled: true
-    clientCA:
-      secretRef:
-        name: $AGENT_CA_SECRET
-        namespace: $AGENT_CA_NAMESPACE
-        key: ca.crt
+$CLIENT_CA_CONFIG
 EOF
 )
 
-# Apply or preview the manifest
-if [ "$DRY_RUN" = true ]; then
-  echo "$BUILDPLANE_YAML"
-  echo ""
-  echo "# To apply this configuration, run without --dry-run"
-  exit 0
-else
-  echo "Creating BuildPlane resource '$BUILDPLANE_NAME' in namespace '$NAMESPACE'..."
-  if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
-    echo ""
-    echo "✓ BuildPlane '$BUILDPLANE_NAME' created successfully"
-    echo ""
-    echo "Next steps:"
-    echo "  1. Ensure cluster agent is installed on the build plane cluster"
-    echo "  2. Configure the agent with proper mTLS certificates"
-    echo "  3. Verify agent connection: kubectl get buildplane $BUILDPLANE_NAME -n $NAMESPACE"
-    echo ""
-    echo "For build plane agent installation, see: install/cluster-agent/README.md"
+  # Apply or preview the manifest
+  if [ "$DRY_RUN" = true ]; then
+    echo "$BUILDPLANE_YAML"
+    exit 0
   else
-    error "Failed to create BuildPlane resource"
-    exit 1
+    if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
+      :
+    else
+      error "Failed to create BuildPlane resource"
+      exit 1
+    fi
   fi
+  exit 0
 fi
+
+# Non-agent mode error
+error "Error: --enable-agent is required"
+echo "BuildPlane resources must use cluster agent mode for communication"
+echo "Use --enable-agent flag and see --help for more information"
+exit 1

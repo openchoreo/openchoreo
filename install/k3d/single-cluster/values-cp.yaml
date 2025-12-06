@@ -15,3 +15,13 @@ traefik:
 security:
   oidc:
     authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize
+
+# Enable cluster gateway for agent-based data plane communication
+clusterGateway:
+  enabled: true
+
+# Controller Manager cluster gateway configuration
+# Enables controllers to communicate with data/build planes via cluster gateway
+controllerManager:
+  clusterGateway:
+    enabled: true
