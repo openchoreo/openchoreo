@@ -58,6 +58,25 @@ global:
               requiresApproval: false
 # Override the full name of the chart release
 fullnameOverride: openchoreo
+# Common security configuration shared across all components
+security:
+  # Global security toggle - when disabled, authentication is turned off for all components
+  enabled: false
+  oidc:
+    issuer: ""
+    wellKnownEndpoint: ""
+    jwksUrl: ""
+    authorizationUrl: ""
+    tokenUrl: ""
+  jwt:
+    # Expected audience claim in JWT tokens
+    audience: ""
+  authz:
+    enabled: false
+    databasePath: "/var/lib/openchoreo/data/casbin.db"
+    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
+    # To use custom roles, set this path and mount a ConfigMap with your roles
+    defaultRolesFilePath: ""
 controllerManager:
   name: controller-manager
   replicas: 1
@@ -201,11 +220,12 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
-  jwt:
-    disabled: true
-    issuer: ""
-    jwksUrl: ""
-    audience: ""
+  database:
+    path: "/var/lib/openchoreo/data/controlplane.db"
+    persistence:
+      enabled: true
+      size: 500Mi
+      storageClassName: "" # Use default storage class if not specified
   resources:
     requests:
       cpu: "200m"
@@ -379,9 +399,6 @@ backstage:
   thunder:
     baseUrl: ""
     token: ""
-  auth:
-    authorizationUrl: ""
-    tokenUrl: ""
   autoscaling:
     enabled: false
     minReplicas: 1

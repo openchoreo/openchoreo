@@ -8,6 +8,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 )
 
@@ -25,11 +26,12 @@ type Services struct {
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
+	AuthzService              *AuthzService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"))
 
@@ -69,6 +71,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create SecretReference service
 	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
 
+	// Create Authorization service
+	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
@@ -83,6 +88,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
+		AuthzService:              authzService,
 		k8sClient:                 k8sClient,
 	}
 }

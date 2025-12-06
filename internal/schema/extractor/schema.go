@@ -39,9 +39,12 @@ type Options struct {
 	// This prevents any properties not explicitly defined in the schema.
 	SetAdditionalPropertiesFalse bool
 
-	// ValidateDefaults validates that default values satisfy their schema constraints.
-	// This uses Kubernetes' schema validator to ensure defaults are valid.
-	ValidateDefaults bool
+	// SkipDefaultValidation disables validation of default values against their schema constraints.
+	// By default (false), all defaults are validated using Kubernetes' schema validator.
+	// Set to true only when you need to skip validation for performance (e.g., API endpoints
+	// serving already-validated schemas). Webhooks should always use the default (false) to
+	// validate defaults when schemas are created/updated.
+	SkipDefaultValidation bool
 }
 
 // ExtractSchema converts a field map using shorthand schema syntax into OpenAPI v3 JSON Schema.
@@ -205,8 +208,8 @@ func (c *converter) applyObjectDefault(schema *apiextensions.JSONSchemaProps, de
 	var defaultJSON apiextensions.JSON = defaultMap
 	schema.Default = &defaultJSON
 
-	// Validate default value against schema if configured
-	if c.opts.ValidateDefaults {
+	// Validate default value against schema unless explicitly skipped
+	if !c.opts.SkipDefaultValidation {
 		if err := c.validateDefault(schema, defaultJSON); err != nil {
 			return fmt.Errorf("default value does not satisfy schema: %w", err)
 		}
@@ -464,8 +467,8 @@ func (c *converter) applyConstraints(schema *apiextensions.JSONSchemaProps, cons
 		}
 	}
 
-	// Validate default value against schema constraints if configured
-	if c.opts.ValidateDefaults && schema.Default != nil {
+	// Validate default value against schema constraints unless explicitly skipped
+	if !c.opts.SkipDefaultValidation && schema.Default != nil {
 		if err := c.validateDefault(schema, *schema.Default); err != nil {
 			return fmt.Errorf("invalid default value: %w", err)
 		}

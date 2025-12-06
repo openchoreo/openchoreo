@@ -72,9 +72,9 @@ spec:
           value: {{ .Values.backstage.thunder.token | quote }}
         {{- end }}
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
-          value: {{ .Values.backstage.auth.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
+          value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
-          value: {{ .Values.backstage.auth.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
+          value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
         {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
           value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}

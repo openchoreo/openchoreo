@@ -23,8 +23,6 @@ openchoreoApi:
   containerSecurityContext:
     appArmorProfile:
       type: Unconfined
-  jwt:
-    disabled: true
 
 # Disable UI and auth for dev
 backstage:

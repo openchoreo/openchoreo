@@ -27,12 +27,11 @@ func TestParseSpanEntry(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "b72e731db5edfd1df2658bd78f751862",
-				SpanID:          "614f55c7ccbfffdc",
-				Name:            "database-query",
-				DurationInNanos: 101018208,
-				StartTime:       mustParseTime("2025-10-28T11:13:56.484388Z"),
-				EndTime:         mustParseTime("2025-10-28T11:13:56.585406208Z"),
+				SpanID:              "614f55c7ccbfffdc",
+				Name:                "database-query",
+				DurationNanoseconds: 101018208,
+				StartTime:           mustParseTime("2025-10-28T11:13:56.484388Z"),
+				EndTime:             mustParseTime("2025-10-28T11:13:56.585406208Z"),
 			},
 		},
 		{
@@ -40,7 +39,7 @@ func TestParseSpanEntry(t *testing.T) {
 			hit: Hit{
 				Source: map[string]interface{}{
 					"traceId":         "trace123",
-					"spanId":          "span456",
+					"spanId":          "a1b2c3d4e5f67890",
 					"name":            "api-call",
 					"durationInNanos": float64(200084125),
 					"startTime":       "2025-10-28T11:13:56.585424Z",
@@ -48,12 +47,11 @@ func TestParseSpanEntry(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "trace123",
-				SpanID:          "span456",
-				Name:            "api-call",
-				DurationInNanos: 200084125,
-				StartTime:       mustParseTime("2025-10-28T11:13:56.585424Z"),
-				EndTime:         mustParseTime("2025-10-28T11:13:56.785508125Z"),
+				SpanID:              "a1b2c3d4e5f67890",
+				Name:                "api-call",
+				DurationNanoseconds: 200084125,
+				StartTime:           mustParseTime("2025-10-28T11:13:56.585424Z"),
+				EndTime:             mustParseTime("2025-10-28T11:13:56.785508125Z"),
 			},
 		},
 		{
@@ -61,7 +59,7 @@ func TestParseSpanEntry(t *testing.T) {
 			hit: Hit{
 				Source: map[string]interface{}{
 					"traceId":         "trace789",
-					"spanId":          "span012",
+					"spanId":          "b2c3d4e5f6789abc",
 					"name":            "processing",
 					"durationInNanos": int(150000000),
 					"startTime":       "2025-10-28T12:00:00Z",
@@ -69,12 +67,11 @@ func TestParseSpanEntry(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "trace789",
-				SpanID:          "span012",
-				Name:            "processing",
-				DurationInNanos: 150000000,
-				StartTime:       mustParseTime("2025-10-28T12:00:00Z"),
-				EndTime:         mustParseTime("2025-10-28T12:00:00.15Z"),
+				SpanID:              "b2c3d4e5f6789abc",
+				Name:                "processing",
+				DurationNanoseconds: 150000000,
+				StartTime:           mustParseTime("2025-10-28T12:00:00Z"),
+				EndTime:             mustParseTime("2025-10-28T12:00:00.15Z"),
 			},
 		},
 		{
@@ -82,18 +79,17 @@ func TestParseSpanEntry(t *testing.T) {
 			hit: Hit{
 				Source: map[string]interface{}{
 					"traceId": "trace-minimal",
-					"spanId":  "span-minimal",
+					"spanId":  "c3d4e5f67890abcd",
 					"name":    "minimal-span",
 					// Missing durationInNanos, startTime, endTime
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-minimal",
-				SpanID:          "span-minimal",
-				Name:            "minimal-span",
-				DurationInNanos: 0,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "c3d4e5f67890abcd",
+				Name:                "minimal-span",
+				DurationNanoseconds: 0,
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 		{
@@ -101,7 +97,7 @@ func TestParseSpanEntry(t *testing.T) {
 			hit: Hit{
 				Source: map[string]interface{}{
 					"traceId":         "trace-null",
-					"spanId":          "span-null",
+					"spanId":          "d4e5f67890abcdef",
 					"name":            "null-span",
 					"durationInNanos": nil,
 					"startTime":       nil,
@@ -109,54 +105,49 @@ func TestParseSpanEntry(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-null",
-				SpanID:          "span-null",
-				Name:            "null-span",
-				DurationInNanos: 0,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "d4e5f67890abcdef",
+				Name:                "null-span",
+				DurationNanoseconds: 0,
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 		{
 			name: "invalid time formats",
 			hit: Hit{
 				Source: map[string]interface{}{
-					"traceId":         "trace-invalid-time",
-					"spanId":          "span-invalid-time",
-					"name":            "invalid-time-span",
-					"durationInNanos": int64(50000000),
-					"startTime":       "invalid-time-format",
-					"endTime":         "2025-13-45T25:70:70Z",
+					"traceId":   "trace-invalid-time",
+					"spanId":    "e5f67890abcdef12",
+					"name":      "invalid-time-span",
+					"startTime": "invalid-time-format",
+					"endTime":   "2025-13-45T25:70:70Z",
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-invalid-time",
-				SpanID:          "span-invalid-time",
-				Name:            "invalid-time-span",
-				DurationInNanos: 50000000,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "e5f67890abcdef12",
+				Name:                "invalid-time-span",
+				DurationNanoseconds: 0, // Duration is 0 because times are invalid
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 		{
 			name: "non-string time values",
 			hit: Hit{
 				Source: map[string]interface{}{
-					"traceId":         "trace-non-string-time",
-					"spanId":          "span-non-string-time",
-					"name":            "non-string-time-span",
-					"durationInNanos": int64(75000000),
-					"startTime":       123456789,
-					"endTime":         true,
+					"traceId":   "trace-non-string-time",
+					"spanId":    "f67890abcdef1234",
+					"name":      "non-string-time-span",
+					"startTime": 123456789,
+					"endTime":   true,
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-non-string-time",
-				SpanID:          "span-non-string-time",
-				Name:            "non-string-time-span",
-				DurationInNanos: 75000000,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "f67890abcdef1234",
+				Name:                "non-string-time-span",
+				DurationNanoseconds: 0, // Duration is 0 because times are non-string
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 		{
@@ -164,7 +155,7 @@ func TestParseSpanEntry(t *testing.T) {
 			hit: Hit{
 				Source: map[string]interface{}{
 					"traceId":         "trace-zero",
-					"spanId":          "span-zero",
+					"spanId":          "1234567890abcdef",
 					"name":            "zero-duration-span",
 					"durationInNanos": int64(0),
 					"startTime":       "2025-10-28T15:00:00Z",
@@ -172,33 +163,30 @@ func TestParseSpanEntry(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-zero",
-				SpanID:          "span-zero",
-				Name:            "zero-duration-span",
-				DurationInNanos: 0,
-				StartTime:       mustParseTime("2025-10-28T15:00:00Z"),
-				EndTime:         mustParseTime("2025-10-28T15:00:00Z"),
+				SpanID:              "1234567890abcdef",
+				Name:                "zero-duration-span",
+				DurationNanoseconds: 0,
+				StartTime:           mustParseTime("2025-10-28T15:00:00Z"),
+				EndTime:             mustParseTime("2025-10-28T15:00:00Z"),
 			},
 		},
 		{
 			name: "large duration",
 			hit: Hit{
 				Source: map[string]interface{}{
-					"traceId":         "trace-large",
-					"spanId":          "span-large",
-					"name":            "large-duration-span",
-					"durationInNanos": int64(9223372036854775807), // Max int64
-					"startTime":       "2025-10-28T16:00:00Z",
-					"endTime":         "2025-10-28T16:00:09.223372036Z",
+					"traceId":   "trace-large",
+					"spanId":    "234567890abcdef1",
+					"name":      "large-duration-span",
+					"startTime": "2025-10-28T16:00:00Z",
+					"endTime":   "2025-10-28T16:00:09.223372036Z",
 				},
 			},
 			expected: Span{
-				TraceID:         "trace-large",
-				SpanID:          "span-large",
-				Name:            "large-duration-span",
-				DurationInNanos: 9223372036854775807,
-				StartTime:       mustParseTime("2025-10-28T16:00:00Z"),
-				EndTime:         mustParseTime("2025-10-28T16:00:09.223372036Z"),
+				SpanID:              "234567890abcdef1",
+				Name:                "large-duration-span",
+				DurationNanoseconds: 9223372036, // Calculated from endTime - startTime
+				StartTime:           mustParseTime("2025-10-28T16:00:00Z"),
+				EndTime:             mustParseTime("2025-10-28T16:00:09.223372036Z"),
 			},
 		},
 	}
@@ -208,10 +196,6 @@ func TestParseSpanEntry(t *testing.T) {
 			result := ParseSpanEntry(tt.hit)
 
 			// Compare all fields
-			if result.TraceID != tt.expected.TraceID {
-				t.Errorf("TraceID: expected '%s', got '%s'", tt.expected.TraceID, result.TraceID)
-			}
-
 			if result.SpanID != tt.expected.SpanID {
 				t.Errorf("SpanId: expected '%s', got '%s'", tt.expected.SpanID, result.SpanID)
 			}
@@ -220,8 +204,8 @@ func TestParseSpanEntry(t *testing.T) {
 				t.Errorf("Name: expected '%s', got '%s'", tt.expected.Name, result.Name)
 			}
 
-			if result.DurationInNanos != tt.expected.DurationInNanos {
-				t.Errorf("DurationInNanos: expected %d, got %d", tt.expected.DurationInNanos, result.DurationInNanos)
+			if result.DurationNanoseconds != tt.expected.DurationNanoseconds {
+				t.Errorf("DurationInNanos: expected %d, got %d", tt.expected.DurationNanoseconds, result.DurationNanoseconds)
 			}
 
 			if !result.StartTime.Equal(tt.expected.StartTime) {
@@ -246,17 +230,15 @@ func TestParseSpanEntry_SafeHandling(t *testing.T) {
 			name: "missing required string fields",
 			hit: Hit{
 				Source: map[string]interface{}{
-					// Missing traceId, spanId, name
-					"durationInNanos": int64(100000),
+					// Missing traceId, spanId, name, and times
 				},
 			},
 			expected: Span{
-				TraceID:         "",
-				SpanID:          "",
-				Name:            "",
-				DurationInNanos: 100000,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "",
+				Name:                "",
+				DurationNanoseconds: 0, // Duration is 0 because no times provided
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 		{
@@ -269,12 +251,11 @@ func TestParseSpanEntry_SafeHandling(t *testing.T) {
 				},
 			},
 			expected: Span{
-				TraceID:         "",
-				SpanID:          "",
-				Name:            "",
-				DurationInNanos: 0,
-				StartTime:       time.Time{},
-				EndTime:         time.Time{},
+				SpanID:              "",
+				Name:                "",
+				DurationNanoseconds: 0,
+				StartTime:           time.Time{},
+				EndTime:             time.Time{},
 			},
 		},
 	}
@@ -282,10 +263,6 @@ func TestParseSpanEntry_SafeHandling(t *testing.T) {
 	for _, tt := range safeTests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ParseSpanEntry(tt.hit)
-
-			if result.TraceID != tt.expected.TraceID {
-				t.Errorf("TraceID: expected '%s', got '%s'", tt.expected.TraceID, result.TraceID)
-			}
 
 			if result.SpanID != tt.expected.SpanID {
 				t.Errorf("SpanId: expected '%s', got '%s'", tt.expected.SpanID, result.SpanID)
@@ -295,8 +272,8 @@ func TestParseSpanEntry_SafeHandling(t *testing.T) {
 				t.Errorf("Name: expected '%s', got '%s'", tt.expected.Name, result.Name)
 			}
 
-			if result.DurationInNanos != tt.expected.DurationInNanos {
-				t.Errorf("DurationInNanos: expected %d, got %d", tt.expected.DurationInNanos, result.DurationInNanos)
+			if result.DurationNanoseconds != tt.expected.DurationNanoseconds {
+				t.Errorf("DurationInNanos: expected %d, got %d", tt.expected.DurationNanoseconds, result.DurationNanoseconds)
 			}
 		})
 	}
@@ -311,17 +288,14 @@ func TestParseSpanEntry_EdgeCases(t *testing.T) {
 		result := ParseSpanEntry(hit)
 
 		// All fields should have zero/empty values
-		if result.TraceID != "" {
-			t.Errorf("Expected empty TraceID, got '%s'", result.TraceID)
-		}
 		if result.SpanID != "" {
 			t.Errorf("Expected empty SpanId, got '%s'", result.SpanID)
 		}
 		if result.Name != "" {
 			t.Errorf("Expected empty Name, got '%s'", result.Name)
 		}
-		if result.DurationInNanos != 0 {
-			t.Errorf("Expected zero DurationInNanos, got %d", result.DurationInNanos)
+		if result.DurationNanoseconds != 0 {
+			t.Errorf("Expected zero DurationInNanos, got %d", result.DurationNanoseconds)
 		}
 	})
 
@@ -333,17 +307,14 @@ func TestParseSpanEntry_EdgeCases(t *testing.T) {
 		result := ParseSpanEntry(hit)
 
 		// All fields should have zero/empty values
-		if result.TraceID != "" {
-			t.Errorf("Expected empty TraceID, got '%s'", result.TraceID)
-		}
 		if result.SpanID != "" {
 			t.Errorf("Expected empty SpanId, got '%s'", result.SpanID)
 		}
 		if result.Name != "" {
 			t.Errorf("Expected empty Name, got '%s'", result.Name)
 		}
-		if result.DurationInNanos != 0 {
-			t.Errorf("Expected zero DurationInNanos, got %d", result.DurationInNanos)
+		if result.DurationNanoseconds != 0 {
+			t.Errorf("Expected zero DurationInNanos, got %d", result.DurationNanoseconds)
 		}
 	})
 }
@@ -355,4 +326,65 @@ func mustParseTime(timeStr string) time.Time {
 		panic("Failed to parse time in test: " + timeStr)
 	}
 	return parsed
+}
+
+func TestGetTraceID(t *testing.T) {
+	tests := []struct {
+		name     string
+		hit      Hit
+		expected string
+	}{
+		{
+			name: "valid traceId",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"traceId": "b72e731db5edfd1df2658bd78f751862",
+				},
+			},
+			expected: "b72e731db5edfd1df2658bd78f751862",
+		},
+		{
+			name: "missing traceId",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"spanId": "614f55c7ccbfffdc",
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "nil traceId",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"traceId": nil,
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "non-string traceId",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"traceId": 12345,
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "nil source",
+			hit: Hit{
+				Source: nil,
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetTraceID(tt.hit)
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
 }

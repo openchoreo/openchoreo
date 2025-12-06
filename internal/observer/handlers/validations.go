@@ -9,12 +9,12 @@ import (
 )
 
 // Validates that the limit is a positive integer and does not exceed 10000
-func validateLimit(limit int) error {
-	if limit <= 0 {
+func validateLimit(limit *int) error {
+	if *limit == 0 {
+		*limit = 100
+	} else if *limit <= 0 {
 		return fmt.Errorf("limit must be a positive integer")
-	}
-
-	if limit > 10000 {
+	} else if *limit > 10000 {
 		return fmt.Errorf("limit cannot exceed 10000. If you need to fetch more logs, please use pagination")
 	}
 
@@ -22,10 +22,27 @@ func validateLimit(limit int) error {
 }
 
 // Validates that the sortOrder is either "asc" or "desc"
-func validateSortOrder(sortOrder string) error {
-	if sortOrder != "asc" && sortOrder != "desc" {
+func validateSortOrder(sortOrder *string) error {
+	if *sortOrder == "" {
+		*sortOrder = defaultSortOrder
+	} else if *sortOrder != "asc" && *sortOrder != "desc" {
 		return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
 	}
+	return nil
+}
+
+// Validates that componentUIDs is a valid array of non-empty strings
+func validateComponentUIDs(componentUIDs []string) error {
+	if len(componentUIDs) == 0 {
+		return nil // Empty array is valid (optional parameter)
+	}
+
+	for _, uid := range componentUIDs {
+		if uid == "" {
+			return fmt.Errorf("componentUid array cannot contain empty strings")
+		}
+	}
+
 	return nil
 }
 
@@ -57,6 +74,30 @@ func validateTimes(startTime string, endTime string) error {
 
 	if parsedEndTime.Before(parsedStartTime) {
 		return fmt.Errorf("endTime (%s) must be after startTime (%s)", parsedEndTime, parsedStartTime)
+	}
+
+	return nil
+}
+
+// validateTraceID validates a trace ID string that may contain wildcard characters (* and ?)
+// Valid characters: hexadecimal digits (0-9, a-f, A-F) and wildcards (* and ?)
+// Empty trace IDs are considered valid (optional parameter)
+func validateTraceID(traceID string) error {
+	if traceID == "" {
+		return nil // Empty trace ID is valid (optional parameter)
+	}
+
+	// Check each character
+	for i, char := range traceID {
+		isValid := (char >= '0' && char <= '9') ||
+			(char >= 'a' && char <= 'f') ||
+			(char >= 'A' && char <= 'F') ||
+			char == '*' ||
+			char == '?'
+
+		if !isValid {
+			return fmt.Errorf("traceId contains invalid character '%c' at position %d. Only hexadecimal characters (0-9, a-f, A-F) and wildcards (*, ?) are allowed", char, i)
+		}
 	}
 
 	return nil

@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
+	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // TraitService handles Trait-related business logic
@@ -109,6 +110,9 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, orgName, traitName st
 	// Build schema definition
 	def := schema.Definition{
 		Types: types,
+		Options: extractor.Options{
+			SkipDefaultValidation: true,
+		},
 	}
 
 	// Extract parameters schema from RawExtension

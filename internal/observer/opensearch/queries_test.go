@@ -148,7 +148,7 @@ func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 		SortOrder:     "asc",
 	}
 
-	componentIDs := []string{"comp-1", "comp-2", "comp-3"}
+	componentIDs := []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b", "5e2a7c9f-8b4d-4f1e-9c3a-6f8b2d4e7a1c"}
 
 	query := qb.BuildProjectLogsQuery(params, componentIDs)
 
@@ -345,225 +345,153 @@ func TestQueryBuilder_CheckQueryVersion(t *testing.T) {
 	}
 }
 
-func TestQueryBuilder_BuildComponentTracesQuery(t *testing.T) {
+func TestQueryBuilder_BuildTracesQuery(t *testing.T) {
 	qb := NewQueryBuilder("otel-v1-apm-span-")
 
-	tests := []struct {
-		name   string
-		params ComponentTracesRequestParams
-		want   map[string]interface{}
-	}{
-		{
-			name: "Basic component traces query",
-			params: ComponentTracesRequestParams{
-				ServiceName: "test-service",
-				StartTime:   "2024-01-01T00:00:00Z",
-				EndTime:     "2024-01-01T23:59:59Z",
-				Limit:       50,
-				SortOrder:   "desc",
-			},
-			want: map[string]interface{}{
-				"size": 50,
-				"query": map[string]interface{}{
-					"bool": map[string]interface{}{
-						"filter": []map[string]interface{}{
-							{
-								"term": map[string]interface{}{
-									"resource.service.name": "test-service",
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"startTime": map[string]interface{}{
-										"gte": "2024-01-01T00:00:00Z",
-									},
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"endTime": map[string]interface{}{
-										"lte": "2024-01-01T23:59:59Z",
-									},
-								},
-							},
-						},
-					},
-				},
-				"sort": []map[string]interface{}{
-					{
-						"startTime": map[string]interface{}{
-							"order": "desc",
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "Component traces query with default limit",
-			params: ComponentTracesRequestParams{
-				ServiceName: "another-service",
-				StartTime:   "2024-02-01T10:00:00Z",
-				EndTime:     "2024-02-01T20:00:00Z",
-				Limit:       0, // Should use this value
-				SortOrder:   "asc",
-			},
-			want: map[string]interface{}{
-				"size": 0,
-				"query": map[string]interface{}{
-					"bool": map[string]interface{}{
-						"filter": []map[string]interface{}{
-							{
-								"term": map[string]interface{}{
-									"resource.service.name": "another-service",
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"startTime": map[string]interface{}{
-										"gte": "2024-02-01T10:00:00Z",
-									},
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"endTime": map[string]interface{}{
-										"lte": "2024-02-01T20:00:00Z",
-									},
-								},
-							},
-						},
-					},
-				},
-				"sort": []map[string]interface{}{
-					{
-						"startTime": map[string]interface{}{
-							"order": "asc",
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "Component traces query with special characters in service name",
-			params: ComponentTracesRequestParams{
-				ServiceName: "my-service-123_test",
-				StartTime:   "2024-03-15T08:30:00Z",
-				EndTime:     "2024-03-15T18:30:00Z",
-				Limit:       25,
-			},
-			want: map[string]interface{}{
-				"size": 25,
-				"query": map[string]interface{}{
-					"bool": map[string]interface{}{
-						"filter": []map[string]interface{}{
-							{
-								"term": map[string]interface{}{
-									"resource.service.name": "my-service-123_test",
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"startTime": map[string]interface{}{
-										"gte": "2024-03-15T08:30:00Z",
-									},
-								},
-							},
-							{
-								"range": map[string]interface{}{
-									"endTime": map[string]interface{}{
-										"lte": "2024-03-15T18:30:00Z",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	t.Run("Basic query with time range only", func(t *testing.T) {
+		params := TracesRequestParams{
+			StartTime: "2024-01-01T00:00:00Z",
+			EndTime:   "2024-01-01T23:59:59Z",
+			Limit:     50,
+			SortOrder: "desc",
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := qb.BuildComponentTracesQuery(tt.params)
+		got := qb.BuildTracesQuery(params)
 
-			// Check size
-			if got["size"] != tt.want["size"] {
-				t.Errorf("BuildComponentTracesQuery() size = %v, want %v", got["size"], tt.want["size"])
-			}
+		if got["size"] != 50 {
+			t.Errorf("Expected size 50, got %v", got["size"])
+		}
 
-			// Check query structure exists
-			gotQuery, ok := got["query"].(map[string]interface{})
-			if !ok {
-				t.Fatal("Expected query field not found")
-			}
+		query := got["query"].(map[string]interface{})
+		boolQuery := query["bool"].(map[string]interface{})
+		filters := boolQuery["filter"].([]map[string]interface{})
 
-			wantQuery := tt.want["query"].(map[string]interface{})
-			gotBool, ok := gotQuery["bool"].(map[string]interface{})
-			if !ok {
-				t.Fatal("Expected bool query not found")
-			}
+		if len(filters) != 2 {
+			t.Errorf("Expected 2 filters (time ranges only), got %d", len(filters))
+		}
+	})
 
-			wantBool := wantQuery["bool"].(map[string]interface{})
+	t.Run("Query with TraceID", func(t *testing.T) {
+		params := TracesRequestParams{
+			TraceID:   "trace-123",
+			StartTime: "2024-01-01T00:00:00Z",
+			EndTime:   "2024-01-01T23:59:59Z",
+			Limit:     50,
+			SortOrder: "desc",
+		}
 
-			// Check filter conditions
-			gotFilters, ok := gotBool["filter"].([]map[string]interface{})
-			if !ok {
-				t.Fatal("Expected filter conditions not found")
-			}
+		got := qb.BuildTracesQuery(params)
 
-			wantFilters := wantBool["filter"].([]map[string]interface{})
-			if len(gotFilters) != len(wantFilters) {
-				t.Errorf("BuildComponentTracesQuery() filter count = %v, want %v", len(gotFilters), len(wantFilters))
-			}
+		query := got["query"].(map[string]interface{})
+		boolQuery := query["bool"].(map[string]interface{})
+		filters := boolQuery["filter"].([]map[string]interface{})
 
-			// Verify serviceName filter
-			serviceNameFound := false
-			for _, filter := range gotFilters {
-				if term, ok := filter["term"].(map[string]interface{}); ok {
-					if serviceName, exists := term["resource.service.name"]; exists {
-						if serviceName != tt.params.ServiceName {
-							t.Errorf("BuildComponentTracesQuery() serviceName = %v, want %v", serviceName, tt.params.ServiceName)
-						}
-						serviceNameFound = true
-						break
-					}
+		// Should have 3 filters: 2 time ranges + 1 traceId
+		if len(filters) != 3 {
+			t.Errorf("Expected 3 filters, got %d", len(filters))
+		}
+
+		// Verify traceId wildcard filter exists
+		traceIDFound := false
+		for _, filter := range filters {
+			if wildcard, ok := filter["wildcard"].(map[string]interface{}); ok {
+				if traceID, exists := wildcard["traceId"]; exists && traceID == "trace-123" {
+					traceIDFound = true
+					break
 				}
 			}
-			if !serviceNameFound {
-				t.Error("BuildComponentTracesQuery() serviceName filter not found")
-			}
+		}
+		if !traceIDFound {
+			t.Error("TraceID wildcard filter not found")
+		}
+	})
 
-			// Verify startTime range filter
-			startTimeFound := false
-			for _, filter := range gotFilters {
-				if rangeFilter, ok := filter["range"].(map[string]interface{}); ok {
-					if startTimeRange, exists := rangeFilter["startTime"].(map[string]interface{}); exists {
-						if gte, ok := startTimeRange["gte"]; ok && gte == tt.params.StartTime {
-							startTimeFound = true
-							break
+	t.Run("Query with ComponentUIDs array", func(t *testing.T) {
+		params := TracesRequestParams{
+			ComponentUIDs: []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b"},
+			StartTime:     "2024-01-01T00:00:00Z",
+			EndTime:       "2024-01-01T23:59:59Z",
+			Limit:         50,
+			SortOrder:     "desc",
+		}
+
+		got := qb.BuildTracesQuery(params)
+
+		query := got["query"].(map[string]interface{})
+		boolQuery := query["bool"].(map[string]interface{})
+		filters := boolQuery["filter"].([]map[string]interface{})
+
+		// Should have 3 filters: 2 time ranges + 1 bool with should conditions
+		if len(filters) != 3 {
+			t.Errorf("Expected 3 filters, got %d", len(filters))
+		}
+
+		// Verify componentUID bool filter exists with should conditions
+		componentUIDFound := false
+		for _, filter := range filters {
+			if boolFilter, ok := filter["bool"].(map[string]interface{}); ok {
+				if should, exists := boolFilter["should"].([]map[string]interface{}); exists {
+					if len(should) == 2 {
+						componentUIDFound = true
+						// Verify the UIDs are present
+						found1, found2 := false, false
+						for _, shouldTerm := range should {
+							if term, ok := shouldTerm["term"].(map[string]interface{}); ok {
+								if uid, exists := term["resource.openchoreo.dev/component-uid"]; exists {
+									if uid == "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b" {
+										found1 = true
+									}
+									if uid == "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b" {
+										found2 = true
+									}
+								}
+							}
+						}
+						if !found1 || !found2 {
+							t.Error("ComponentUID values not found in should conditions")
 						}
 					}
+					break
 				}
 			}
-			if !startTimeFound {
-				t.Error("BuildComponentTracesQuery() startTime range filter not found")
-			}
+		}
+		if !componentUIDFound {
+			t.Error("ComponentUID bool filter with should conditions not found")
+		}
+	})
 
-			// Verify endTime range filter
-			endTimeFound := false
-			for _, filter := range gotFilters {
-				if rangeFilter, ok := filter["range"].(map[string]interface{}); ok {
-					if endTimeRange, exists := rangeFilter["endTime"].(map[string]interface{}); exists {
-						if lte, ok := endTimeRange["lte"]; ok && lte == tt.params.EndTime {
-							endTimeFound = true
-							break
-						}
-					}
+	t.Run("Query with EnvironmentUID", func(t *testing.T) {
+		params := TracesRequestParams{
+			EnvironmentUID: "2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c",
+			StartTime:      "2024-01-01T00:00:00Z",
+			EndTime:        "2024-01-01T23:59:59Z",
+			Limit:          50,
+			SortOrder:      "desc",
+		}
+
+		got := qb.BuildTracesQuery(params)
+
+		query := got["query"].(map[string]interface{})
+		boolQuery := query["bool"].(map[string]interface{})
+		filters := boolQuery["filter"].([]map[string]interface{})
+
+		// Should have 3 filters: 2 time ranges + 1 environmentUID
+		if len(filters) != 3 {
+			t.Errorf("Expected 3 filters, got %d", len(filters))
+		}
+
+		// Verify environmentUID filter exists
+		envFound := false
+		for _, filter := range filters {
+			if term, ok := filter["term"].(map[string]interface{}); ok {
+				if env, exists := term["resource.openchoreo.dev/environment-uid"]; exists && env == "2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c" {
+					envFound = true
+					break
 				}
 			}
-			if !endTimeFound {
-				t.Error("BuildComponentTracesQuery() endTime range filter not found")
-			}
-		})
-	}
+		}
+		if !envFound {
+			t.Error("EnvironmentUID filter not found")
+		}
+	})
 }

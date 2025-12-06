@@ -4,3 +4,8 @@
 global:
   baseDomain: openchoreo.localhost
   devMode: true
+
+# Common security configuration
+security:
+  oidc:
+    authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize

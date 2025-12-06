@@ -9,31 +9,35 @@ import (
 
 func TestValidateLimit(t *testing.T) {
 	tests := []struct {
-		name    string
-		limit   int
-		wantErr bool
-		errMsg  string
+		name          string
+		limit         int
+		wantErr       bool
+		errMsg        string
+		expectedLimit int
 	}{
 		{
-			name:    "Valid limit - 1",
-			limit:   1,
-			wantErr: false,
+			name:          "Valid limit - 1",
+			limit:         1,
+			wantErr:       false,
+			expectedLimit: 1,
 		},
 		{
-			name:    "Valid limit - 100",
-			limit:   100,
-			wantErr: false,
+			name:          "Valid limit - 100",
+			limit:         100,
+			wantErr:       false,
+			expectedLimit: 100,
 		},
 		{
-			name:    "Valid limit - 10000 (max allowed)",
-			limit:   10000,
-			wantErr: false,
+			name:          "Valid limit - 10000 (max allowed)",
+			limit:         10000,
+			wantErr:       false,
+			expectedLimit: 10000,
 		},
 		{
-			name:    "Invalid limit - zero",
-			limit:   0,
-			wantErr: true,
-			errMsg:  "limit must be a positive integer",
+			name:          "Zero limit - sets default to 100",
+			limit:         0,
+			wantErr:       false,
+			expectedLimit: 100,
 		},
 		{
 			name:    "Invalid limit - negative",
@@ -57,7 +61,8 @@ func TestValidateLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateLimit(tt.limit)
+			limit := tt.limit
+			err := validateLimit(&limit)
 
 			if tt.wantErr {
 				if err == nil {
@@ -71,6 +76,9 @@ func TestValidateLimit(t *testing.T) {
 				if err != nil {
 					t.Errorf("validateLimit() unexpected error = %v", err)
 				}
+				if limit != tt.expectedLimit {
+					t.Errorf("validateLimit() limit = %v, want %v", limit, tt.expectedLimit)
+				}
 			}
 		})
 	}
@@ -78,26 +86,29 @@ func TestValidateLimit(t *testing.T) {
 
 func TestValidateSortOrder(t *testing.T) {
 	tests := []struct {
-		name      string
-		sortOrder string
-		wantErr   bool
-		errMsg    string
+		name              string
+		sortOrder         string
+		wantErr           bool
+		errMsg            string
+		expectedSortOrder string // expected value after validation
 	}{
 		{
-			name:      "Valid sort order - asc",
-			sortOrder: "asc",
-			wantErr:   false,
+			name:              "Valid sort order - asc",
+			sortOrder:         "asc",
+			wantErr:           false,
+			expectedSortOrder: "asc",
 		},
 		{
-			name:      "Valid sort order - desc",
-			sortOrder: "desc",
-			wantErr:   false,
+			name:              "Valid sort order - desc",
+			sortOrder:         "desc",
+			wantErr:           false,
+			expectedSortOrder: "desc",
 		},
 		{
-			name:      "Invalid sort order - empty string",
-			sortOrder: "",
-			wantErr:   true,
-			errMsg:    "sortOrder must be either 'asc' or 'desc'",
+			name:              "Empty sort order - sets default to desc",
+			sortOrder:         "",
+			wantErr:           false,
+			expectedSortOrder: "desc",
 		},
 		{
 			name:      "Invalid sort order - ASC (uppercase)",
@@ -133,7 +144,8 @@ func TestValidateSortOrder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateSortOrder(tt.sortOrder)
+			sortOrder := tt.sortOrder
+			err := validateSortOrder(&sortOrder)
 
 			if tt.wantErr {
 				if err == nil {
@@ -146,6 +158,9 @@ func TestValidateSortOrder(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("validateSortOrder() unexpected error = %v", err)
+				}
+				if sortOrder != tt.expectedSortOrder {
+					t.Errorf("validateSortOrder() sortOrder = %v, want %v", sortOrder, tt.expectedSortOrder)
 				}
 			}
 		})

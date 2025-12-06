@@ -15,50 +15,50 @@ import (
 type MetadataContext struct {
 	// ComponentName is the name of the component.
 	// Example: "my-service"
-	ComponentName string `json:"componentName,omitempty"`
+	ComponentName string `json:"componentName" validate:"required"`
 
 	// ComponentUID is the unique identifier of the component.
 	// Example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-	ComponentUID string `json:"componentUID,omitempty"`
+	ComponentUID string `json:"componentUID" validate:"required"`
 
 	// ProjectName is the name of the project.
 	// Example: "my-project"
-	ProjectName string `json:"projectName,omitempty"`
+	ProjectName string `json:"projectName" validate:"required"`
 
 	// ProjectUID is the unique identifier of the project.
 	// Example: "b2c3d4e5-6789-01bc-def0-234567890abc"
-	ProjectUID string `json:"projectUID,omitempty"`
+	ProjectUID string `json:"projectUID" validate:"required"`
 
 	// DataPlaneName is the name of the data plane.
 	// Example: "my-dataplane"
-	DataPlaneName string `json:"dataPlaneName,omitempty"`
+	DataPlaneName string `json:"dataPlaneName" validate:"required"`
 
 	// DataPlaneUID is the unique identifier of the data plane.
 	// Example: "c3d4e5f6-7890-12cd-ef01-34567890abcd"
-	DataPlaneUID string `json:"dataPlaneUID,omitempty"`
+	DataPlaneUID string `json:"dataPlaneUID" validate:"required"`
 
 	// EnvironmentName is the name of the environment.
 	// Example: "production"
-	EnvironmentName string `json:"environmentName,omitempty"`
+	EnvironmentName string `json:"environmentName" validate:"required"`
 
 	// EnvironmentUID is the unique identifier of the environment.
 	// Example: "d4e5f6g7-8901-23de-f012-4567890abcde"
-	EnvironmentUID string `json:"environmentUID,omitempty"`
+	EnvironmentUID string `json:"environmentUID" validate:"required"`
 
 	// Name is the base name to use for generated resources.
 	// Example: "my-service-dev-a1b2c3d4"
-	Name string `json:"name,omitempty"`
+	Name string `json:"name" validate:"required"`
 
 	// Namespace is the target namespace for the resources.
 	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
-	Namespace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace" validate:"required"`
 
 	// Labels are common labels to add to all resources.
 	// Example: {"openchoreo.dev/component": "my-service", ...}
-	Labels map[string]string `json:"labels,omitempty"`
+	Labels map[string]string `json:"labels" validate:"required"`
 
 	// Annotations are common annotations to add to all resources.
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Annotations map[string]string `json:"annotations" validate:"required"`
 
 	// PodSelectors are platform-injected selectors for pod identity.
 	// Used in Deployment selectors, Service selectors, etc.
@@ -67,24 +67,18 @@ type MetadataContext struct {
 	//   "openchoreo.dev/environment-uid": "dev",
 	//   "openchoreo.dev/project-uid": "xyz789",
 	// }
-	PodSelectors map[string]string `json:"podSelectors,omitempty"`
+	PodSelectors map[string]string `json:"podSelectors" validate:"required,min=1"`
 }
 
 // ComponentContextInput contains all inputs needed to build a component rendering context.
 type ComponentContextInput struct {
 	// Component is the component definition.
-	Component *v1alpha1.Component
+	Component *v1alpha1.Component `validate:"required"`
 
 	// ComponentType is the type definition for the component.
-	ComponentType *v1alpha1.ComponentType
-
-	// ComponentDeployment contains environment-specific overrides.
-	// Can be nil if no overrides are needed.
-	// Deprecated: this field will be removed in a future release. Use ReleaseBinding instead.
-	ComponentDeployment *v1alpha1.ComponentDeployment
+	ComponentType *v1alpha1.ComponentType `validate:"required"`
 
 	// ReleaseBinding contains release reference and environment-specific overrides.
-	// Can be nil if no overrides are needed.
 	ReleaseBinding *v1alpha1.ReleaseBinding
 
 	// Workload contains the workload specification with the built image.
@@ -92,7 +86,7 @@ type ComponentContextInput struct {
 
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
-	DataPlane *v1alpha1.DataPlane
+	DataPlane *v1alpha1.DataPlane `validate:"required"`
 
 	// SecretReferences is a map of SecretReference objects needed for rendering.
 	// Keyed by SecretReference name.
@@ -101,7 +95,7 @@ type ComponentContextInput struct {
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
-	Metadata MetadataContext
+	Metadata MetadataContext `validate:"required"`
 
 	// DiscardComponentEnvOverrides when true, discards envOverride values from Component.Spec.Parameters
 	// and only uses values from ReleaseBinding.Spec.ComponentTypeEnvOverrides for envOverride fields.
@@ -113,18 +107,13 @@ type ComponentContextInput struct {
 // TraitContextInput contains all inputs needed to build a trait rendering context.
 type TraitContextInput struct {
 	// Trait is the trait definition.
-	Trait *v1alpha1.Trait
+	Trait *v1alpha1.Trait `validate:"required"`
 
 	// Instance contains the specific instance configuration.
-	Instance v1alpha1.ComponentTrait
+	Instance v1alpha1.ComponentTrait `validate:"required"`
 
 	// Component is the component this trait is being applied to.
-	Component *v1alpha1.Component
-
-	// ComponentDeployment contains environment-specific trait overrides.
-	// Can be nil if no overrides are needed.
-	// Deprecated: this field will be removed in a future release. Use ReleaseBinding instead.
-	ComponentDeployment *v1alpha1.ComponentDeployment
+	Component *v1alpha1.Component `validate:"required"`
 
 	// ReleaseBinding contains release reference and environment-specific overrides.
 	// Can be nil if no overrides are needed.
@@ -132,7 +121,7 @@ type TraitContextInput struct {
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
-	Metadata MetadataContext
+	Metadata MetadataContext `validate:"required"`
 
 	// SchemaCache is an optional cache for structural schemas, keyed by trait name.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
@@ -236,4 +225,31 @@ type RemoteRefData struct {
 	Key      string `json:"key"`
 	Property string `json:"property,omitempty"`
 	Version  string `json:"version,omitempty"`
+}
+
+// TraitContext represents the evaluated context for rendering trait resources.
+// This is the output of BuildTraitContext and is used by the template engine.
+type TraitContext struct {
+	// Metadata provides structured naming and labeling information.
+	// Accessed via ${metadata.name}, ${metadata.namespace}, ${metadata.componentName}, etc.
+	Metadata MetadataContext `json:"metadata"`
+
+	// Trait contains trait-specific metadata.
+	// Accessed via ${trait.name}, ${trait.instanceName}
+	Trait TraitMetadata `json:"trait"`
+
+	// Parameters are merged trait instance parameters with defaults applied.
+	// Dynamic - depends on Trait schema.
+	Parameters map[string]any `json:"parameters"`
+}
+
+// TraitMetadata contains trait-specific metadata.
+type TraitMetadata struct {
+	// Name is the name of the trait.
+	// Example: "storage"
+	Name string `json:"name"`
+
+	// InstanceName is the unique instance name within the component.
+	// Example: "my-storage"
+	InstanceName string `json:"instanceName"`
 }

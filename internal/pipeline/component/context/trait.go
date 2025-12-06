@@ -4,16 +4,16 @@
 package context
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
+
+// Note: validator is initialized in component.go
 
 // BuildTraitContext builds a CEL evaluation context for rendering trait resources.
 //
@@ -25,65 +25,59 @@ import (
 //   - metadata: Additional metadata
 //
 // Parameter precedence (highest to lowest):
-//   - ComponentDeployment.Spec.TraitOverrides[instanceName] (environment-specific)
+//   - ReleaseBinding.Spec.TraitOverrides[instanceName] (environment-specific)
 //   - TraitInstance.Parameters (instance parameters)
 //   - Schema defaults from Trait
 //
 // Note: TraitOverrides is keyed by instanceName (not traitName), as instanceNames
 // must be unique across all traits in a component.
-func BuildTraitContext(input *TraitContextInput) (map[string]any, error) {
-	if input == nil {
-		return nil, fmt.Errorf("trait context input is nil")
-	}
-	if input.Trait == nil {
-		return nil, fmt.Errorf("trait is nil")
-	}
-	if input.Component == nil {
-		return nil, fmt.Errorf("component is nil")
+func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
+	if err := validate.Struct(input); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Validate metadata is provided
-	if input.Metadata.Name == "" {
-		return nil, fmt.Errorf("metadata.name is required")
+	// Additional validation for InstanceName (can't use struct tags on API types)
+	if input.Instance.InstanceName == "" {
+		return nil, fmt.Errorf("trait instance name is required")
 	}
-	if input.Metadata.Namespace == "" {
-		return nil, fmt.Errorf("metadata.namespace is required")
-	}
-
-	ctx := make(map[string]any)
 
 	// Process parameters and envOverrides
 	finalParameters, err := processTraitParameters(input)
 	if err != nil {
 		return nil, err
 	}
-	ctx["parameters"] = finalParameters
 
-	// 2. Add trait metadata
-	traitMeta := map[string]any{
-		"name":         input.Trait.Name,
-		"instanceName": input.Instance.InstanceName,
+	// Ensure metadata maps are always initialized
+	metadata := input.Metadata
+	if metadata.Labels == nil {
+		metadata.Labels = make(map[string]string)
 	}
-	ctx["trait"] = traitMeta
+	if metadata.Annotations == nil {
+		metadata.Annotations = make(map[string]string)
+	}
+	if metadata.PodSelectors == nil {
+		metadata.PodSelectors = make(map[string]string)
+	}
 
-	// 3. Add structured metadata for resource generation
-	// This is what templates and patches use via ${metadata.name}, ${metadata.namespace}, etc.
-	metadataMap := map[string]any{
-		"name":      input.Metadata.Name,
-		"namespace": input.Metadata.Namespace,
+	ctx := &TraitContext{
+		Parameters: finalParameters,
+		Metadata:   metadata,
+		Trait: TraitMetadata{
+			Name:         input.Trait.Name,
+			InstanceName: input.Instance.InstanceName,
+		},
 	}
-	if len(input.Metadata.Labels) > 0 {
-		metadataMap["labels"] = input.Metadata.Labels
-	}
-	if len(input.Metadata.Annotations) > 0 {
-		metadataMap["annotations"] = input.Metadata.Annotations
-	}
-	if len(input.Metadata.PodSelectors) > 0 {
-		metadataMap["podSelectors"] = input.Metadata.PodSelectors
-	}
-	ctx["metadata"] = metadataMap
-
 	return ctx, nil
+}
+
+// ToMap converts the TraitContext to map[string]any for CEL evaluation.
+func (t *TraitContext) ToMap() map[string]any {
+	result, err := structToMap(t)
+	if err != nil {
+		// This should never happen with well-formed TraitContext
+		return make(map[string]any)
+	}
+	return result
 }
 
 // processTraitParameters processes trait parameters and envOverrides separately,
@@ -94,41 +88,41 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, error) {
 	// Build or retrieve separate structural schemas for parameters and envOverrides
 	// Use cache keys with suffixes to distinguish between parameters and envOverrides schemas
 	parametersSchema := getCachedSchema(input.SchemaCache, traitName+":parameters")
-	if parametersSchema == nil {
-		var err error
-		parametersSchema, err = BuildStructuralSchema(&SchemaInput{
-			Types:            input.Trait.Spec.Schema.Types,
-			ParametersSchema: input.Trait.Spec.Schema.Parameters,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to build trait parameters schema: %w", err)
-		}
-		setCachedSchema(input.SchemaCache, traitName+":parameters", parametersSchema)
-	}
-
 	envOverridesSchema := getCachedSchema(input.SchemaCache, traitName+":envOverrides")
-	if envOverridesSchema == nil {
+
+	// If either schema is missing, build both in one call to share types unmarshaling
+	if parametersSchema == nil || envOverridesSchema == nil {
 		var err error
-		envOverridesSchema, err = BuildStructuralSchema(&SchemaInput{
+		parametersSchema, envOverridesSchema, err = BuildStructuralSchemas(&SchemaInput{
 			Types:              input.Trait.Spec.Schema.Types,
+			ParametersSchema:   input.Trait.Spec.Schema.Parameters,
 			EnvOverridesSchema: input.Trait.Spec.Schema.EnvOverrides,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to build trait envOverrides schema: %w", err)
+			return nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
+		setCachedSchema(input.SchemaCache, traitName+":parameters", parametersSchema)
 		setCachedSchema(input.SchemaCache, traitName+":envOverrides", envOverridesSchema)
 	}
 
-	// Process parameters: extract from trait instance, prune to parameters schema, apply defaults
-	// Note: extractParameters() unmarshals into a new map, so no deep copy needed before pruning
-	parameters, err := extractParameters(input.Instance.Parameters)
+	// Extract trait instance parameters once (used for both parameters and envOverrides sections)
+	instanceParams, err := extractParameters(input.Instance.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
 	}
+
+	// Process parameters: prune to parameters schema, apply defaults
+	var parameters map[string]any
 	if parametersSchema != nil {
+		// Clone the map to avoid modifying the original (needed for envOverrides processing)
+		parameters = make(map[string]any, len(instanceParams))
+		maps.Copy(parameters, instanceParams)
 		pruning.Prune(parameters, parametersSchema, false)
+		parameters = schema.ApplyDefaults(parameters, parametersSchema)
+	} else {
+		// No parameters schema defined - discard all parameters
+		parameters = make(map[string]any)
 	}
-	parameters = schema.ApplyDefaults(parameters, parametersSchema)
 
 	// Process envOverrides: extract and merge based on DiscardComponentEnvOverrides flag
 	var envOverrides map[string]any
@@ -138,7 +132,7 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, error) {
 		instanceName := input.Instance.InstanceName
 		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
 			if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
-				envOverrides, err = extractParametersFromRawExtension(&instanceOverride)
+				envOverrides, err = extractParameters(&instanceOverride)
 				if err != nil {
 					return nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)
 				}
@@ -149,17 +143,14 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, error) {
 			envOverrides = make(map[string]any)
 		}
 	} else {
-		// Merge trait instance envOverride values with ReleaseBinding
-		envOverrides, err = extractParameters(input.Instance.Parameters)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract trait instance parameters for envOverrides: %w", err)
-		}
+		// Use extracted instance parameters as starting point for envOverrides
+		envOverrides = instanceParams
 
 		// Merge with ReleaseBinding envOverrides
 		instanceName := input.Instance.InstanceName
 		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
 			if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
-				rbEnvOverrides, err := extractParametersFromRawExtension(&instanceOverride)
+				rbEnvOverrides, err := extractParameters(&instanceOverride)
 				if err != nil {
 					return nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)
 				}
@@ -168,13 +159,14 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, error) {
 		}
 	}
 
-	// Prune merged result against schema
+	// Prune merged result against schema and apply defaults
 	if envOverridesSchema != nil {
 		pruning.Prune(envOverrides, envOverridesSchema, false)
+		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
+	} else {
+		// No envOverrides schema defined - discard all envOverrides
+		envOverrides = make(map[string]any)
 	}
-
-	// Apply defaults
-	envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
 
 	// Top-level merge: combine parameters and envOverrides
 	// Safe because parameter and envOverride schemas don't overlap
@@ -183,21 +175,6 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, error) {
 	maps.Copy(finalParameters, envOverrides)
 
 	return finalParameters, nil
-}
-
-// extractParametersFromRawExtension converts a runtime.RawExtension to a map[string]any.
-// This is similar to extractParameters but operates on a runtime.RawExtension directly.
-func extractParametersFromRawExtension(raw *runtime.RawExtension) (map[string]any, error) {
-	if raw == nil || raw.Raw == nil {
-		return make(map[string]any), nil
-	}
-
-	var params map[string]any
-	if err := json.Unmarshal(raw.Raw, &params); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	return params, nil
 }
 
 // getCachedSchema retrieves a structural schema from the cache

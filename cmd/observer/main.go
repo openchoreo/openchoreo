@@ -80,7 +80,7 @@ func main() {
 	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
 
 	// API routes - Traces
-	mux.HandleFunc("POST /api/traces/component", handler.GetComponentTraces)
+	mux.HandleFunc("POST /api/traces", handler.GetTraces)
 
 	// API routes - Metrics
 	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)

@@ -55,13 +55,24 @@ spec:
         - name: MCP_TOOLSETS
           value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
         - name: JWT_ISSUER
-          value: {{ .Values.openchoreoApi.jwt.issuer | quote }}
+          value: {{ .Values.security.oidc.issuer | quote }}
         - name: JWKS_URL
-          value: {{ .Values.openchoreoApi.jwt.jwksUrl | quote }}
+          value: {{ .Values.security.oidc.jwksUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d/oauth2/jwks" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) | quote }}
         - name: JWT_AUDIENCE
-          value: {{ .Values.openchoreoApi.jwt.audience | quote }}
+          value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
-          value: "{{ .Values.openchoreoApi.jwt.disabled }}"
+          value: "{{ not .Values.security.enabled }}"
+        - name: AUTHZ_ENABLED
+          value: "{{ .Values.security.authz.enabled }}"
+        - name: AUTHZ_DATABASE_PATH
+          value: {{ .Values.security.authz.databasePath | quote }}
+        - name: AUTHZ_DEFAULT_ROLES_FILE_PATH
+          value: {{ .Values.security.authz.defaultRolesFilePath | quote }}
+        - name: DATABASE_PATH
+          value: {{ .Values.openchoreoApi.database.path | quote }}
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/openchoreo/data
         livenessProbe:
           httpGet:
             path: /health
@@ -80,4 +91,12 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      volumes:
+      - name: data
+      {{- if .Values.openchoreoApi.database.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-db
+      {{- else }}
+        emptyDir: {}
+      {{- end }}
 {{- end }}

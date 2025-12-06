@@ -62,9 +62,8 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --namespace openchoreo-observability-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-op.yaml \
-  --set global.installationMode=singleClusterNoHa \
   --set openSearch.enabled=true \
-  --set openSearchCluster.enabled=false \
+  --set openSearchCluster.enabled=false
 
 ## HA mode
 
