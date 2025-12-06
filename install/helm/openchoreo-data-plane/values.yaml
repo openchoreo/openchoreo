@@ -355,5 +355,6 @@ clusterAgent:
   tolerations: []
   affinity: {}
 
-
-
+# API Platform configuration
+api-platform:
+  enabled: false

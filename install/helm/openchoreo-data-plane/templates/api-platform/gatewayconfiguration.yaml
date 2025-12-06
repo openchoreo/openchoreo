@@ -1,0 +1,29 @@
+{{- if index .Values "api-platform" "enabled" }}
+apiVersion: api.api-platform.wso2.com/v1
+kind: GatewayConfiguration
+metadata:
+  name: cluster-gateway
+spec:
+  gatewayClassName: "production"
+
+  apiSelector:
+    scope: Cluster
+
+  infrastructure:
+    replicas: 1
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
+  controlPlane:
+    host: "gateway-control-plane.gateway-operator-system.svc.cluster.local:8443"
+    tls:
+      enabled: true
+
+  storage:
+    type: sqlite
+{{- end }}

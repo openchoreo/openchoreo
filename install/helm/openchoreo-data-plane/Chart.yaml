@@ -47,3 +47,8 @@ dependencies:
     repository: oci://quay.io/jetstack/charts
     condition: cert-manager.enabled
     version: "v1.16.2"
+  - name: gateway-operator
+    alias: api-platform
+    version: 0.0.1
+    repository: oci://ghcr.io/wso2/api-platform/helm-charts
+    condition: api-platform.enabled

@@ -14,5 +14,8 @@ dependencies:
 - name: cert-manager
   repository: oci://quay.io/jetstack/charts
   version: v1.16.2
-digest: sha256:b75b536439a1198835509b326939a35395a72db8c20fab3873a7539621367184
-generated: "2025-11-28T16:14:26.444233+05:30"
+- name: gateway-operator
+  repository: oci://ghcr.io/wso2/api-platform/helm-charts
+  version: 0.0.1
+digest: sha256:733341371ead46c6542ed7cb7142274e505b5809fdb6d87f41444ad17958de73
+generated: "2025-12-06T16:40:02.853284+05:30"
