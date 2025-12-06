@@ -36,7 +36,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
 
 	// Create component service (depends on project service)
-	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"))
+	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
 
 	// Create organization service
 	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"))
