@@ -30,7 +30,7 @@ spec:
           set -e
 
           # 1. Registry configuration
-          REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+          REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
           echo "Target registry: ${REGISTRY_ENDPOINT}"
           echo ""

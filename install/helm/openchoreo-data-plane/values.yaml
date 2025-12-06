@@ -2,6 +2,12 @@
 global:
   # Common labels to add to all resources
   commonLabels: {}
+  # Base domain for external access (e.g., "apps.openchoreo.example.com")
+  # Used for gateway hostname derivation (*.baseDomain)
+  baseDomain: "openchoreo.local"
+  # Development mode - enables port suffixes for local development (e.g., k3d)
+  # Auto-detected from baseDomain if not set (.localhost, .local domains)
+  devMode: false
 
 kubernetesClusterDomain: cluster.local
 
@@ -40,6 +46,7 @@ gateway:
   httpsPort: 443
 
   # TLS configuration for HTTPS listeners
+  # When cert-manager is available, HTTPS is automatically enabled with self-signed certificates
   tls:
     # -- Cert-manager ClusterIssuer to use for certificate generation
     # Defaults to openchoreo-selfsigned-issuer if not specified
@@ -281,7 +288,7 @@ opentelemetry-collector:
 # Cluster Agent configuration
 # The agent connects to the control plane cluster gateway via WebSocket
 clusterAgent:
-  enabled: false  # Set to true to enable cluster agent
+  enabled: true
   name: cluster-agent
   replicas: 1
   image:

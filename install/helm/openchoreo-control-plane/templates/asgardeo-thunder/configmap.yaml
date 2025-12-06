@@ -14,9 +14,9 @@ data:
       http_only: {{ .Values.asgardeoThunder.config.server.httpOnly }}
 
     gate_client:
-      hostname: {{ .Values.asgardeoThunder.config.gateClient.hostname | quote }}
-      port: {{ .Values.asgardeoThunder.config.gateClient.port }}
-      scheme: {{ .Values.asgardeoThunder.config.gateClient.scheme | quote }}
+      hostname: {{ include "openchoreo.thunderHost" . | quote }}
+      port: {{ .Values.asgardeoThunder.config.gateClient.port | default (include "openchoreo.externalPort" .) }}
+      scheme: {{ .Values.asgardeoThunder.config.gateClient.scheme | default (include "openchoreo.scheme" .) | quote }}
       login_path: {{ .Values.asgardeoThunder.config.gateClient.loginPath | quote }}
       error_path: {{ .Values.asgardeoThunder.config.gateClient.errorPath | quote }}
    
@@ -60,9 +60,9 @@ data:
         base: {{ .Values.asgardeoThunder.runtimeConfig.client.base | quote }},
       },
       server: {
-        hostname: {{ .Values.asgardeoThunder.runtimeConfig.server.hostname | quote }},
-        port: {{ .Values.asgardeoThunder.runtimeConfig.server.port }},
-        http_only: {{ .Values.asgardeoThunder.runtimeConfig.server.httpOnly }},
+        hostname: {{ include "openchoreo.thunderHost" . | quote }},
+        port: {{ .Values.asgardeoThunder.runtimeConfig.server.port | default (include "openchoreo.externalPort" .) }},
+        http_only: {{ .Values.asgardeoThunder.runtimeConfig.server.httpOnly | default (include "openchoreo.httpOnly" .) }},
       },
     };
 {{- end }}

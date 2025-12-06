@@ -104,7 +104,7 @@ spec:
             #####################################################################
             # 2. Registry configuration and pull pre-cached images
             #####################################################################
-            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
             # Pull pre-cached buildpack images from registry
             BUILDER="${REGISTRY_ENDPOINT}/buildpacks-cache/ballerina-builder:18"
@@ -161,7 +161,7 @@ spec:
             #####################################################################
             # 2. Registry
             #####################################################################
-            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
             #####################################################################
             # 3. Podman storage configuration

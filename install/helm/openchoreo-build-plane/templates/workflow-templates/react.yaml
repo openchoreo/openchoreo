@@ -171,7 +171,7 @@ spec:
             #####################################################################
             # 2. Registry
             #####################################################################
-            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
             #####################################################################
             # 3. Podman storage configuration

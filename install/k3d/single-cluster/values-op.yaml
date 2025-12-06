@@ -1,5 +1,18 @@
 # Helm values for OpenChoreo Observability Plane in k3d single-cluster setup
-# This file contains overrides specific to running the observability plane in a k3d environment
+
+global:
+  # Single-cluster non-HA mode uses standalone OpenSearch instead of operator
+  installationMode: singleClusterNoHa
+
+# Use standalone OpenSearch (not operator-managed cluster)
+openSearch:
+  enabled: true
+  service:
+    type: LoadBalancer
+
+# Disable OpenSearch operator cluster (using standalone instead)
+openSearchCluster:
+  enabled: false
 
 # Observer API - REST API for querying logs and metrics
 observer:
@@ -17,10 +30,3 @@ external-secrets:
 
 fakeSecretStore:
   enabled: false
-
-# OpenSearch - The data store for logs
-# In single-cluster mode, FluentBit from Data/Build planes connects via in-cluster service
-# So we don't need LoadBalancer, but exposing it for debugging/testing purposes
-openSearch:
-  service:
-    type: LoadBalancer

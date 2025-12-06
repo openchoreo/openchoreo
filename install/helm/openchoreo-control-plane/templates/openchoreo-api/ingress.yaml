@@ -12,9 +12,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.openchoreoApi.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.openchoreoApi.ingress.ingressClassName }}
-  {{- end }}
+  ingressClassName: {{ .Values.openchoreoApi.ingress.ingressClassName | default .Values.global.ingressClassName }}
   {{- if .Values.openchoreoApi.ingress.tls }}
   tls:
     {{- range .Values.openchoreoApi.ingress.tls }}
@@ -26,6 +24,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
+    {{- if .Values.openchoreoApi.ingress.hosts }}
     {{- range .Values.openchoreoApi.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
@@ -39,5 +38,17 @@ spec:
                 port:
                   number: 8080
           {{- end }}
+    {{- end }}
+    {{- else }}
+    - host: {{ include "openchoreo.apiHost" . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}
+                port:
+                  number: 8080
     {{- end }}
 {{- end }}

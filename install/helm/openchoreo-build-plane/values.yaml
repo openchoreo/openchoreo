@@ -2,16 +2,24 @@
 global:
   # -- Common labels to add to every resource.
   commonLabels: {}
+  imagePullSecrets: []
+  # -- Base domain for external access (e.g., "openchoreo.example.com")
+  # When set, registry will be accessible at registry.<baseDomain>
+  baseDomain: ""
+  # -- Ingress class name for registry ingress
+  ingressClassName: openchoreo-traefik
+  # Development mode - enables port suffixes for local development (e.g., k3d)
+  devMode: false
   # -- Configuration for the default workflow templates required for building container images.
   defaultResources:
     # -- If true, applies the workflow templates.
     enabled: true
-      # -- Container registry configuration
+    # -- Container registry configuration
     registry:
       # -- Registry endpoint for pushing and pulling images
-      # For local registry: "registry.openchoreo-build-plane:5000"
-      # For external registry: "gcr.io/my-project", "docker.io/my-org", "my-harbor.corp:5000"
-      endpoint: "registry.openchoreo-build-plane:5000"
+      # For local registry: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      # For external registry with baseDomain: automatically uses "registry.<baseDomain>"
+      endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
 
     # -- Podman build cache configuration for workflow templates
     # Shared PersistentVolumeClaim across all workflow executions for faster builds
@@ -25,7 +33,6 @@ global:
     buildpackCache:
       # -- Enable buildpack image caching hook
       enabled: true
-      # -- List of buildpack images to pre-push to the registry
       images:
         # Google Cloud Buildpacks
         - source: "docker.io/buildpacksio/lifecycle:0.20.5"
@@ -78,11 +85,18 @@ external-secrets:
 # Hosts container images built by Argo Workflows in the Build Plane
 registry:
   fullnameOverride: registry
-
   # Enable persistence
   persistence:
     enabled: true
     size: 10Gi
+  # Ingress for external registry access (auto-enabled when global.baseDomain is set)
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    tls:
+      enabled: false
+      secretName: ""
 
 # Fake Secret Store configuration for local development
 fakeSecretStore:

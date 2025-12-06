@@ -28,3 +28,7 @@ dependencies:
     repository: oci://quay.io/jetstack/charts
     condition: cert-manager.enabled
     version: "v1.16.2"
+  - name: traefik
+    repository: https://traefik.github.io/charts
+    condition: traefik.enabled
+    version: "34.4.1"

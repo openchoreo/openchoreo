@@ -58,7 +58,7 @@ spec:
         - name: OPENCHOREO_API_URL
           value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-control-plane.fullname" .) .Release.Namespace) }}
         - name: BACKSTAGE_BASE_URL
-          value: {{ .Values.backstage.baseUrl | default (printf "http://localhost:7007") }}
+          value: {{ .Values.backstage.baseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.consoleHost" .) (include "openchoreo.port" .)) }}
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
@@ -66,15 +66,15 @@ spec:
               key: backend-secret
         {{- if .Values.asgardeoThunder.enabled }}
         - name: THUNDER_BASE_URL
-          value: {{ .Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) }}
+          value: {{ .Values.backstage.thunder.baseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         {{- if .Values.backstage.thunder.token }}
         - name: THUNDER_TOKEN
           value: {{ .Values.backstage.thunder.token | quote }}
         {{- end }}
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
-          value: {{ .Values.backstage.auth.authorizationUrl | default (printf "%s/oauth2/authorize" (.Values.backstage.thunder.baseUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)))) }}
+          value: {{ .Values.backstage.auth.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
-          value: {{ .Values.backstage.auth.tokenUrl | default (printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d/oauth2/token" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int)) }}
+          value: {{ .Values.backstage.auth.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
         {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
           value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}

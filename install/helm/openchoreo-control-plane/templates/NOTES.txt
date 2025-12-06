@@ -1,0 +1,23 @@
+OpenChoreo Control Plane installed successfully!
+
+{{- if .Values.backstage.ingress.enabled }}
+
+Access URLs:
+  Console:  {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}
+  API:      {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.apiHost" . }}{{ include "openchoreo.port" . }}
+  Thunder:  {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.thunderHost" . }}{{ include "openchoreo.port" . }}
+
+{{- if .Values.global.devMode }}
+Add to /etc/hosts:
+  127.0.0.1  {{ include "openchoreo.consoleHost" . }} {{ include "openchoreo.apiHost" . }} {{ include "openchoreo.thunderHost" . }}
+{{- end }}
+
+Default Credentials: admin@openchoreo.dev / Admin@123
+
+{{- else }}
+
+Ingress disabled. Use port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.fullname" . }}-ui 7007:7007
+{{- end }}
+
+Next: Install Data Plane, Build Plane, and Observability Plane.

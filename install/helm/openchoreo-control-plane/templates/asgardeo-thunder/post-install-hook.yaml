@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/component: asgardeo-thunder-post-hook
     role: job
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
@@ -60,77 +60,96 @@ spec:
           echo "Checking if application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists..."
           existing_apps=$(curl -k -s --max-time 10 'http://{{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications')
 
-          if echo "$existing_apps" | grep -q '"name":"{{ .Values.asgardeoThunder.backstagePortal.name }}"'; then
-            echo "Application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists, skipping creation"
-          else
-            echo "Application does not exist, creating default application..."
-            curl -k --location 'http://{{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications' \
-              --header 'Content-Type: application/json' \
-              --data '{
-                "name": "{{ .Values.asgardeoThunder.backstagePortal.name }}",
-                "description": "{{ .Values.asgardeoThunder.backstagePortal.description }}",
-                "inbound_auth_config": [
-                  {
-                    "type": "oauth2",
-                    "config": {
-                      "client_id": "{{ .Values.asgardeoThunder.backstagePortal.clientId }}",
-                      "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
-                      "redirect_uris": [
-                        {{- range $index, $url := .Values.asgardeoThunder.backstagePortal.redirectUrls }}
-                        {{- if $index }},{{ end }}
-                        "{{ $url }}"
-                        {{- end }}
+          # Extract application ID if it exists
+          app_id=$(echo "$existing_apps" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+          # Define the application payload
+          APP_PAYLOAD='{
+            "name": "{{ .Values.asgardeoThunder.backstagePortal.name }}",
+            "description": "{{ .Values.asgardeoThunder.backstagePortal.description }}",
+            "inbound_auth_config": [
+              {
+                "type": "oauth2",
+                "config": {
+                  "client_id": "{{ .Values.asgardeoThunder.backstagePortal.clientId }}",
+                  "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
+                  "redirect_uris": [
+                    {{- if .Values.asgardeoThunder.backstagePortal.redirectUrls }}
+                    {{- range $index, $url := .Values.asgardeoThunder.backstagePortal.redirectUrls }}
+                    {{- if $index }},{{ end }}
+                    "{{ $url }}"
+                    {{- end }}
+                    {{- else }}
+                    "{{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}/api/auth/default-idp/handler/frame"
+                    {{- end }}
+                  ],
+                  "grant_types": [
+                    "authorization_code"
+                  ],
+                  "response_types": [
+                    "code"
+                  ],
+                  "token_endpoint_auth_method": "client_secret_post",
+                  "pkce_required": false,
+                  "public_client": false,
+                  "token": {
+                    "issuer": "thunder",
+                    "access_token": {
+                      "validity_period": 3600,
+                      "user_attributes": [
+                        "given_name",
+                        "family_name",
+                        "username",
+                        "group"
+                      ]
+                    },
+                    "id_token": {
+                      "validity_period": 3600,
+                      "user_attributes": [
+                        "given_name",
+                        "family_name",
+                        "username",
+                        "group"
                       ],
-                      "grant_types": [
-                        "authorization_code"
-                      ],
-                      "response_types": [
-                        "code"
-                      ],
-                      "token_endpoint_auth_method": "client_secret_post",
-                      "pkce_required": false,
-                      "public_client": false,
-                      "token": {
-                        "issuer": "thunder",
-                        "access_token": {
-                          "validity_period": 3600,
-                          "user_attributes": [
-                            "given_name",
-                            "family_name",
-                            "username",
-                            "group"
-                          ]
-                        },
-                        "id_token": {
-                          "validity_period": 3600,
-                          "user_attributes": [
-                            "given_name",
-                            "family_name",
-                            "username",
-                            "group"
-                          ],
-                          "scope_claims": {
-                            "group": [
-                              "group"
-                            ],
-                            "profile": [
-                              "username",
-                              "given_name",
-                              "family_name",
-                              "picture"
-                            ]
-                          }
-                        }
+                      "scope_claims": {
+                        "group": [
+                          "group"
+                        ],
+                        "profile": [
+                          "username",
+                          "given_name",
+                          "family_name",
+                          "picture"
+                        ]
                       }
                     }
                   }
-                ]
-              }' \
+                }
+              }
+            ]
+          }'
+
+          if echo "$existing_apps" | grep -q '"name":"{{ .Values.asgardeoThunder.backstagePortal.name }}"'; then
+            echo "Application '{{ .Values.asgardeoThunder.backstagePortal.name }}' already exists (id: $app_id), updating..."
+            curl -k --location -X PUT "http://{{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications/$app_id" \
+              --header 'Content-Type: application/json' \
+              --data "$APP_PAYLOAD" \
               --fail-with-body \
               --max-time 30 \
               --retry 3 \
               --retry-delay 5
-            
+
+            echo "Application updated successfully"
+          else
+            echo "Application does not exist, creating default application..."
+            curl -k --location 'http://{{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder:{{ .Values.asgardeoThunder.service.port }}/applications' \
+              --header 'Content-Type: application/json' \
+              --data "$APP_PAYLOAD" \
+              --fail-with-body \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5
+
             echo "Default application created successfully"
           fi
           

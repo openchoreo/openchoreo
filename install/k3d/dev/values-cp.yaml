@@ -1,6 +1,10 @@
 # Control Plane values for k3d dev environment
 # Uses locally-built images with pullPolicy: Never
 
+global:
+  baseDomain: openchoreo.localhost
+  devMode: true
+
 controllerManager:
   image:
     repository: ghcr.io/openchoreo/controller

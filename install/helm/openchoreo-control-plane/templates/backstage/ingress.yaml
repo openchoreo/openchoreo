@@ -13,9 +13,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.backstage.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.backstage.ingress.ingressClassName }}
-  {{- end }}
+  ingressClassName: {{ .Values.backstage.ingress.ingressClassName | default .Values.global.ingressClassName }}
   {{- if .Values.backstage.ingress.tls }}
   tls:
     {{- range .Values.backstage.ingress.tls }}
@@ -27,6 +25,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
+    {{- if .Values.backstage.ingress.hosts }}
     {{- range .Values.backstage.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
@@ -40,6 +39,18 @@ spec:
                 port:
                   number: {{ $.Values.backstage.service.port }}
           {{- end }}
+    {{- end }}
+    {{- else }}
+    - host: {{ include "openchoreo.consoleHost" . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "openchoreo-control-plane.fullname" . }}-ui
+                port:
+                  number: {{ .Values.backstage.service.port }}
     {{- end }}
 {{- end }}
 {{- end }}

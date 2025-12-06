@@ -1,9 +1,24 @@
 # Global values shared across all components
 global:
-  # The name of the cluster where OpenChoreo is deployed
+  # Base domain for all services
+  # Console: <baseDomain>, API: api.<baseDomain>, IDP: thunder.<baseDomain>
+  baseDomain: openchoreo.local
+
+  # Development mode - adds :8080 port suffix (for k3d/minikube with port mapping)
+  devMode: false
+
+  # TLS - enables HTTPS for all ingresses
+  tls:
+    enabled: false
+
+  # Ingress class for all services (uses Traefik by default)
+  ingressClassName: openchoreo-traefik
+
+  # Other settings
   clusterName: openchoreo
-  # Common labels to add to all resources
+  imagePullSecrets: []
   commonLabels: {}
+
   # Default OpenChoreo resources created during installation
   defaultResources:
     enabled: true
@@ -152,7 +167,7 @@ controllerManager:
       enableWebhooks: "true"
   # Cluster Gateway configuration for agent-based data plane communication
   clusterGateway:
-    enabled: false  # Set to true to enable cluster gateway integration
+    enabled: true
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
     tls:
       caPath: /etc/cluster-gateway/ca.crt
@@ -250,7 +265,7 @@ openchoreoApi:
         prometheus: kube-prometheus
       relabelings: []
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: ""
     annotations: {}
     hosts: []
@@ -408,7 +423,7 @@ backstage:
         prometheus: kube-prometheus
       relabelings: []
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: ""
     annotations: {}
     hosts: []
@@ -511,7 +526,7 @@ asgardeoThunder:
     ingress: []
     egress: []
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: ""
     annotations: {}
     hosts: []
@@ -522,9 +537,10 @@ asgardeoThunder:
       port: 8090
       httpOnly: true
     gateClient:
-      hostname: "thunder.openchoreo.localhost"
-      port: 8080
-      scheme: "http"
+      # port and scheme are auto-derived from global.devMode and TLS config
+      # Override only if you need non-standard values
+      port: ""
+      scheme: ""
       loginPath: "/signin"
       errorPath: "/error"
     security:
@@ -554,9 +570,9 @@ asgardeoThunder:
     client:
       base: "/signin"
     server:
-      hostname: "thunder.openchoreo.localhost"
-      port: 8080
-      httpOnly: true
+      # port and httpOnly are auto-derived from global.devMode and TLS config
+      port: ""
+      httpOnly: ""
   persistence:
     database:
       enabled: true
@@ -570,9 +586,7 @@ asgardeoThunder:
     description: "OpenChoreo Backstage Portal"
     clientId: "openchoreo-backstage-client"
     clientSecret: "backstage-portal-secret"
-    redirectUrls:
-      - http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame
-      - http://localhost:7007/api/auth/default-idp/handler/frame
+    redirectUrls: []
   userDetails:
     userSchemaName: "engineer"
     users:
@@ -585,7 +599,7 @@ asgardeoThunder:
 # Cluster Gateway configuration
 # The gateway manages WebSocket connections from cluster agents
 clusterGateway:
-  enabled: false
+  enabled: true
   name: cluster-gateway
   replicas: 1
   image:
@@ -641,3 +655,31 @@ clusterGateway:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+traefik:
+  enabled: true
+  fullnameOverride: openchoreo-traefik
+  ingressClass:
+    enabled: true
+    isDefaultClass: false
+    name: openchoreo-traefik
+  service:
+    type: LoadBalancer
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  ingressRoute:
+    dashboard:
+      enabled: false
+  providers:
+    kubernetesIngress:
+      ingressClass: openchoreo-traefik
+  logs:
+    general:
+      level: INFO
+    access:
+      enabled: false

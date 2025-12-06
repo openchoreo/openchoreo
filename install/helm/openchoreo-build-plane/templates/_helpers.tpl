@@ -121,3 +121,59 @@ Parameters:
 {{ include "openchoreo-build-plane.selectorLabels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
+
+{{/*
+Get the registry hostname
+Derived from global.baseDomain as: registry.<baseDomain>
+*/}}
+{{- define "openchoreo-build-plane.registryHost" -}}
+{{- if .Values.global.baseDomain -}}
+  {{- printf "registry.%s" .Values.global.baseDomain -}}
+{{- else -}}
+  {{- "" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if registry ingress should be enabled
+Enabled when: registry.ingress.enabled=true OR global.baseDomain is set
+*/}}
+{{- define "openchoreo-build-plane.registryIngressEnabled" -}}
+{{- if or .Values.registry.ingress.enabled .Values.global.baseDomain -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the registry ingress class name
+*/}}
+{{- define "openchoreo-build-plane.registryIngressClassName" -}}
+{{- if .Values.registry.ingress.className -}}
+  {{- .Values.registry.ingress.className -}}
+{{- else -}}
+  {{- .Values.global.ingressClassName -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the registry TLS secret name
+*/}}
+{{- define "openchoreo-build-plane.registryTlsSecretName" -}}
+{{- if .Values.registry.ingress.tls.secretName -}}
+  {{- .Values.registry.ingress.tls.secretName -}}
+{{- else -}}
+  {{- "registry-tls" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the registry endpoint for workflow templates
+Returns external endpoint if global.baseDomain is set, otherwise uses configured endpoint
+*/}}
+{{- define "openchoreo-build-plane.registryEndpoint" -}}
+{{- if .Values.global.baseDomain -}}
+  {{- printf "registry.%s" .Values.global.baseDomain -}}
+{{- else -}}
+  {{- .Values.global.defaultResources.registry.endpoint -}}
+{{- end -}}
+{{- end -}}

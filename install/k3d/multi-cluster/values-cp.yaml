@@ -1,33 +1,6 @@
 # Helm values for OpenChoreo Control Plane in k3d multi-cluster setup
-# This file contains overrides specific to running the control plane in a k3d environment
+# Note: devMode adds :8080 to URLs (k3d port mapping), disables HTTPS
 
-openchoreoApi:
-  ingress:
-    enabled: true
-    hosts:
-      - host: api.openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-
-backstage:
-  ingress:
-    enabled: true
-    hosts:
-      - host: openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-  baseUrl: http://openchoreo.localhost:8080
-  auth:
-    authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize
-
-asgardeoThunder:
-  ingress:
-    enabled: true
-    hosts:
-      - host: thunder.openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-            port: 8090
+global:
+  baseDomain: openchoreo.localhost
+  devMode: true

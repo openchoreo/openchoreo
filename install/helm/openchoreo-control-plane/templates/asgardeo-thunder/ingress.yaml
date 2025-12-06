@@ -13,9 +13,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  {{- if .Values.asgardeoThunder.ingress.ingressClassName }}
-  ingressClassName: {{ .Values.asgardeoThunder.ingress.ingressClassName }}
-  {{- end }}
+  ingressClassName: {{ .Values.asgardeoThunder.ingress.ingressClassName | default .Values.global.ingressClassName }}
   {{- if .Values.asgardeoThunder.ingress.tls }}
   tls:
     {{- range .Values.asgardeoThunder.ingress.tls }}
@@ -27,6 +25,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
+    {{- if .Values.asgardeoThunder.ingress.hosts }}
     {{- range .Values.asgardeoThunder.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
@@ -40,6 +39,18 @@ spec:
                 port:
                   number: {{ .port }}
           {{- end }}
+    {{- end }}
+    {{- else }}
+    - host: {{ include "openchoreo.thunderHost" . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder
+                port:
+                  number: {{ .Values.asgardeoThunder.service.port }}
     {{- end }}
 {{- end }}
 {{- end }}

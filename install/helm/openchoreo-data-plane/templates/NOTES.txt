@@ -1,0 +1,15 @@
+OpenChoreo Data Plane installed successfully!
+
+{{- if .Values.gateway.enabled }}
+
+Gateway:
+  HTTP:  {{ .Values.gateway.httpPort }}
+  HTTPS: {{ .Values.gateway.httpsPort }}
+
+Get service: kubectl get svc -n {{ .Release.Namespace }} openchoreo-gateway-envoy
+{{- end }}
+
+{{- if .Values.fakeSecretStore.enabled }}
+
+Note: Fake Secret Store enabled (dev only). Configure a real secret backend for production.
+{{- end }}

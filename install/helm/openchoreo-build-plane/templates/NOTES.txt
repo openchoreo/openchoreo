@@ -1,0 +1,14 @@
+OpenChoreo Build Plane installed successfully!
+
+Registry:
+  Internal: registry.{{ .Release.Namespace }}.svc.cluster.local:5000
+{{- if .Values.global.baseDomain }}
+  External: https://registry.{{ .Values.global.baseDomain }}
+{{- end }}
+
+Workflows: kubectl get workflowtemplate -n {{ .Release.Namespace }}
+
+{{- if .Values.fakeSecretStore.enabled }}
+
+Note: Fake Secret Store enabled (dev only). Configure a real secret backend for production.
+{{- end }}
