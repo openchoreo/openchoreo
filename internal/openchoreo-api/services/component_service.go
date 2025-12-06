@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -41,6 +42,7 @@ type ComponentService struct {
 	projectService      *ProjectService
 	specFetcherRegistry *ComponentSpecFetcherRegistry
 	logger              *slog.Logger
+	authzPDP            authz.PDP
 }
 
 // parseComponentTypeName extracts the ComponentType name from the ComponentType string
@@ -96,17 +98,24 @@ type PromoteComponentPayload struct {
 }
 
 // NewComponentService creates a new component service
-func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger) *ComponentService {
+func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger, authzPDP authz.PDP) *ComponentService {
 	return &ComponentService{
 		k8sClient:           k8sClient,
 		projectService:      projectService,
 		specFetcherRegistry: NewComponentSpecFetcherRegistry(),
 		logger:              logger,
+		authzPDP:            authzPDP,
 	}
 }
 
 func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
 	s.logger.Debug("Creating component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentRelease, ResourceTypeComponentRelease, releaseName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
@@ -345,6 +354,17 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 		if item.Spec.Owner.ComponentName != componentName || item.Spec.Owner.ProjectName != projectName {
 			continue
 		}
+		// Authorization check for each release
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, item.Name,
+			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			if errors.Is(err, ErrUnauthorized) {
+				// Skip unauthorized releases
+				s.logger.Debug("Skipping unauthorized component release", "org", orgName, "project", projectName, "component", componentName, "release", item.Name)
+				continue
+			}
+			// system failures, return the error
+			return nil, err
+		}
 		releases = append(releases, &models.ComponentReleaseResponse{
 			Name:          item.Name,
 			ComponentName: componentName,
@@ -362,6 +382,12 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 // GetComponentRelease retrieves a specific component release by its name
 func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
 	s.logger.Debug("Getting component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
@@ -1094,6 +1120,12 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectName, componentName string, req *models.DeployReleaseRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Deploying release", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName)
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
 	project, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
@@ -1257,6 +1289,12 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	// Sanitize input
 	req.Sanitize()
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponent, ResourceTypeComponent, req.Name,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: req.Name}); err != nil {
+		return nil, err
+	}
+
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
 	if err != nil {
@@ -1328,6 +1366,17 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	for _, item := range componentList.Items {
 		// Only include components that belong to the specified project
 		if item.Spec.Owner.ProjectName == projectName {
+			// Authorization check for each component
+			if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, item.Name,
+				authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: item.Name}); err != nil {
+				if errors.Is(err, ErrUnauthorized) {
+					// Skip unauthorized components
+					s.logger.Debug("Skipping unauthorized component", "org", orgName, "project", projectName, "component", item.Name)
+					continue
+				}
+				// system failures, return the error
+				return nil, err
+			}
 			components = append(components, s.toComponentResponse(&item, make(map[string]interface{}), false))
 		}
 	}
@@ -1339,6 +1388,12 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 // GetComponent retrieves a specific component
 func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectName, componentName string, additionalResources []string) (*models.ComponentResponse, error) {
 	s.logger.Debug("Getting component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	// Verify project exists
 	_, err := s.projectService.GetProject(ctx, orgName, projectName)
@@ -1429,6 +1484,12 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectName, componentName string,
 	req *models.PatchComponentRequest) (*models.ComponentResponse, error) {
 	s.logger.Debug("Patching component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	componentKey := client.ObjectKey{
 		Namespace: orgName,
@@ -1949,6 +2010,12 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteComponentPayload) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Promoting component", "org", req.OrgName, "project", req.ProjectName, "component", req.ComponentName,
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
+
+	// Authorization check (promote uses same permission as deploy)
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, req.ComponentName,
+		authz.ResourceHierarchy{Organization: req.OrgName, Project: req.ProjectName, Component: req.ComponentName}); err != nil {
+		return nil, err
+	}
 
 	if err := s.validatePromotionPath(ctx, req.OrgName, req.ProjectName, req.SourceEnvironment, req.TargetEnvironment); err != nil {
 		return nil, err
