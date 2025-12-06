@@ -1,0 +1,27 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeWorkflow: true
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    parameters:
+      port: "integer"
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: docker-build
+spec:
+  schema:
+    parameters:
+      context: 'string | default=. description="Docker build context"'
+      dockerfile: 'string | default=./Dockerfile description="Path to Dockerfile"'
+      buildArgs: 'map<string> | description="Build arguments"'

@@ -1,0 +1,42 @@
+componentName: my-api
+namespace: acme-corp
+projectName: online-store
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-app
+spec:
+  workloadType: deployment
+  schema:
+    types:
+      EnvVar:
+        name: string
+        value: 'string | description="Environment variable value"'
+        valueFrom:
+          secretKeyRef:
+            name: string
+            key: string
+      Endpoint:
+        name: 'string | description="Endpoint name"'
+        port: 'integer | description="Port number"'
+        protocol: string | enum=http,https,grpc | default=http
+        path: string | default=/
+    parameters:
+      # Simple scalar arrays
+      tags: '[]string | description="Resource tags"'
+      ports: '[]integer'
+
+      # Array of objects with multiple fields
+      env: '[]EnvVar | description="Environment variables"'
+
+      # Array of objects with different field types
+      endpoints: '[]Endpoint | description="Service endpoints"'
+
+      # Optional array with default
+      extraLabels: '[]string | default=["app", "service"]'
+
+      # Optional array with empty default
+      customAnnotations: '[]string | default=[]'

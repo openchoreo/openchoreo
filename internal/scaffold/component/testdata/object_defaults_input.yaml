@@ -1,0 +1,129 @@
+componentName: my-service
+namespace: test-ns
+projectName: test-project
+includeAllFields: true
+includeFieldDescriptions: true
+includeStructuralComments: true
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: service
+spec:
+  workloadType: deployment
+  schema:
+    types:
+      # Type with $default - all children have defaults
+      Monitoring:
+        $default: {}
+        enabled: 'boolean | default=false'
+        port: 'integer | default=9090'
+        path: 'string | default=/metrics'
+
+      # Type with $default - all children have defaults
+      Database:
+        $default: {}
+        host: 'string | default=localhost'
+        port: 'integer | default=5432'
+        ssl: 'boolean | default=true'
+
+      # Type without $default - all children have defaults
+      Timeouts:
+        connect: 'integer | default=5'
+        read: 'integer | default=30'
+        write: 'integer | default=30'
+
+      # Type without $default - has required children
+      ResourceLimits:
+        cpu: string  # required
+        memory: string  # required
+        storage: 'string | default=10Gi'
+
+    parameters:
+      # Case 1: Inline object with $default, all children have defaults
+      cache:
+        $default: {}
+        enabled: 'boolean | default=false'
+        ttl: 'integer | default=300'
+        maxSize: 'integer | default=1000'
+
+      # Case 2: Inline object with $default, all children have defaults
+      storage:
+        $default: {}
+        type: 'string | default=persistent'
+        size: 'string | default=10Gi'
+        class: 'string | default=standard'
+
+      # Case 3: Inline object without $default, all children have defaults
+      retryPolicy:
+        attempts: 'integer | default=3'
+        backoff: 'integer | default=1000'
+        maxBackoff: 'integer | default=30000'
+
+      # Case 4: Inline object without $default, has required children
+      service:
+        name: string  # required
+        port: integer  # required
+        protocol: 'string | default=http'
+
+      # Case 5: Inline object without $default, has required children
+      endpoint:
+        host: string  # required
+        port: integer  # required
+        protocol: 'string | default=https'
+
+      # Case 6: Reference to type with $default, all children have defaults
+      monitoring: Monitoring
+
+      # Case 7: Reference to type with $default, all children have defaults
+      database: Database
+
+      # Case 8: Reference to type without $default, all children have defaults
+      timeouts: Timeouts
+
+      # Case 9: Reference to type without $default, has required children
+      resources: ResourceLimits
+
+      # Case 10: Nested objects with mixed defaults
+      logging:
+        level: 'string | default=info'
+        outputs:
+          $default: {}
+          console: 'boolean | default=true'
+          file: 'boolean | default=false'
+          filePath: 'string | default=/var/log/app.log'
+        format:
+          type: 'string | default=json'
+          timestamp: 'boolean | default=true'
+
+      # Case 11: Object with non-empty $default (should expand, not use {} pattern)
+      config:
+        $default:
+          mode: production
+          debug: false
+        mode: 'string | default=development'
+        debug: 'boolean | default=true'
+        verbose: 'boolean | default=false'
+
+      # Case 12: Deep nesting with defaults
+      advanced:
+        $default: {}
+        security:
+          $default: {}
+          enabled: 'boolean | default=false'
+          maxAttempts: 'integer | default=3'
+        performance:
+          $default: {}
+          caching:
+            $default: {}
+            enabled: 'boolean | default=false'
+            ttl: 'integer | default=600'
+
+      # Case 13: Optional object with $default where children have no individual defaults
+      # Tests that children render with example values instead of blank
+      connection:
+        $default:
+          host: localhost
+          port: 5432
+        host: string
+        port: integer
