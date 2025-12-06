@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -42,11 +43,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load configuration
+	configPath := os.Getenv("OPENCHOREO_API_CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		baseLogger.Error("Failed to load configuration file",
+			slog.String("config_path", configPath),
+			slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	baseLogger.Info("Loaded configuration from file",
+		slog.String("config_path", configPath))
+
 	// Initialize authorization
 	authzConfig := authz.AuthZConfig{
 		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
 		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
 		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
+		UserTypeConfigs:      cfg.Authz.UserTypes,
 		EnableCache:          false,
 	}
 	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))

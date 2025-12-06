@@ -93,7 +93,8 @@ func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]*authz.RoleEntit
 // AddRoleMapping creates a new role-entitlement mapping
 func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Adding authorization role entitlement mapping",
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"role", mapping.RoleName,
 		"hierarchy", mapping.Hierarchy)
 
@@ -102,7 +103,8 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 	}
 
 	s.logger.Debug("Authorization policy added",
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"role", mapping.RoleName)
 	return nil
 }
@@ -110,7 +112,8 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 // RemoveRoleMapping removes a role-entitlement mapping
 func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Removing authorization role mapping",
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"role", mapping.RoleName)
 
 	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mapping); err != nil {
@@ -118,7 +121,8 @@ func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.Rol
 	}
 
 	s.logger.Debug("Authorization role mapping removed",
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"role", mapping.RoleName)
 	return nil
 }

@@ -123,13 +123,46 @@ type Role struct {
 	Actions []string `json:"actions"`
 }
 
+// Entitlement represents an entitlement with its claim and value
+type Entitlement struct {
+	// Claim is the JWT claim name (e.g., "group", "sub")
+	Claim string `json:"claim"`
+
+	// Value is the entitlement value (e.g., "admin-group", "service-123")
+	Value string `json:"value"`
+}
+
+// EntitlementClaimInfo represents information about an entitlement claim
+type EntitlementClaimInfo struct {
+	// Name is the JWT claim name (e.g., "group", "sub")
+	Name string `json:"name"`
+
+	// DisplayName is a human-readable name for the claim
+	DisplayName string `json:"display_name"`
+}
+
+// UserTypeInfo represents information about a configured user type
+type UserTypeInfo struct {
+	// Type is the user type (e.g., "user", "service_account")
+	Type SubjectType `json:"type"`
+
+	// DisplayName is a human-readable name for the user type
+	DisplayName string `json:"display_name"`
+
+	// Priority determines the order in which user types are checked (lower = higher priority)
+	Priority int `json:"priority"`
+
+	// Entitlement contains information about the entitlement claim
+	Entitlement EntitlementClaimInfo `json:"entitlement"`
+}
+
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 
-	// EntitlementValue is the identifier of the entitlement (e.g. groups)
-	EntitlementValue string `json:"entitlement_value"`
+	// Entitlement contains the claim and value for this mapping
+	Entitlement Entitlement `json:"entitlement"`
 
 	// Hierarchy defines the resource hierarchy scope where this role applies
 	Hierarchy ResourceHierarchy `json:"hierarchy"`

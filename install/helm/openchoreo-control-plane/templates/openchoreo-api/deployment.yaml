@@ -70,9 +70,14 @@ spec:
           value: {{ .Values.security.authz.defaultRolesFilePath | quote }}
         - name: DATABASE_PATH
           value: {{ .Values.openchoreoApi.database.path | quote }}
+        - name: OPENCHOREO_API_CONFIG_PATH
+          value: /etc/openchoreo/config.yaml
         volumeMounts:
         - name: data
           mountPath: /var/lib/openchoreo/data
+        - name: config
+          mountPath: /etc/openchoreo
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
@@ -99,4 +104,7 @@ spec:
       {{- else }}
         emptyDir: {}
       {{- end }}
+      - name: config
+        configMap:
+          name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
 {{- end }}

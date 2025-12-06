@@ -8,12 +8,14 @@ import (
 	_ "embed"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"gorm.io/gorm"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/authz/usertype"
 )
 
 //go:embed rbac_model.conf
@@ -26,14 +28,16 @@ type CasbinEnforcer struct {
 	logger           *slog.Logger
 	actionRepository *ActionRepository
 	db               *gorm.DB
+	userTypeDetector usertype.Detector
 }
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string // Required: Path to SQLite database path
-	RolesFilePath     string // Optional: Path to roles YAML file (falls back to embedded if empty)
-	EnableCache       bool   // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath      string                    // Required: Path to SQLite database path
+	RolesFilePath     string                    // Optional: Path to roles YAML file (falls back to embedded if empty)
+	UserTypeConfigs   []usertype.UserTypeConfig // Required: User type detection configuration
+	EnableCache       bool                      // Optional: Enable policy cache (default: false)
+	CacheTTLInSeconds int                       // Optional: Cache TTL in seconds (default: 300)
 }
 
 const (
@@ -48,9 +52,19 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
 	}
 
+	if len(config.UserTypeConfigs) == 0 {
+		return nil, fmt.Errorf("UserTypeConfigs is required in CasbinConfig")
+	}
+
 	// RolesFilePath is optional - will use embedded default if not provided
 	if config.CacheTTLInSeconds == 0 {
 		config.CacheTTLInSeconds = 300 // Default: 5 minutes
+	}
+
+	// Create user type detector
+	userTypeDetector, err := usertype.NewDetector(config.UserTypeConfigs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user type detector: %w", err)
 	}
 
 	// Load Casbin model from embedded string
@@ -110,10 +124,12 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		logger:           logger,
 		actionRepository: actionRepo,
 		db:               db,
+		userTypeDetector: userTypeDetector,
 	}
 
 	logger.Info("casbin enforcer initialized",
-		"cache_enabled", config.EnableCache)
+		"cache_enabled", config.EnableCache,
+		"user_types_count", len(config.UserTypeConfigs))
 
 	return ce, nil
 }
@@ -289,17 +305,21 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]*authzcore.Role, err
 func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("add role entitlement mapping called",
 		"role", mapping.RoleName,
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context)
 
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 
+	// Construct subject as "claim:value" for explicit claim tracking
+	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+
 	// policy: p, subject, resourcePath, role, eft, context
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.AddPolicy(
-		mapping.EntitlementValue,
+		subject,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -321,16 +341,19 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	ce.logger.Info("remove role entitlement mapping called",
 		"role", mapping.RoleName,
-		"entitlement", mapping.EntitlementValue,
+		"entitlement_claim", mapping.Entitlement.Claim,
+		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
 		"effect", mapping.Effect,
 		"context", mapping.Context,
 	)
 
+	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.RemovePolicy(
-		mapping.EntitlementValue,
+		subject,
 		resourcePath,
 		mapping.RoleName,
 		string(mapping.Effect),
@@ -362,7 +385,12 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 			ce.logger.Warn("skipping malformed role-entitlement mapping", "rule", rule)
 			continue
 		}
-		entitlement := rule[0]
+		subject := rule[0]
+		entitlement := strings.SplitN(subject, ":", 2)
+		if len(entitlement) != 2 {
+			ce.logger.Warn("skipping malformed entitlement in mapping", "entitlement", subject)
+			continue
+		}
 		resourcePath := rule[1]
 		roleName := rule[2]
 		effect := authzcore.PolicyEffectType(rule[3])
@@ -370,11 +398,14 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 		context := authzcore.Context{}
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
-			EntitlementValue: entitlement,
-			RoleName:         roleName,
-			Hierarchy:        resourcePathToHierarchy(resourcePath),
-			Effect:           effect,
-			Context:          context,
+			Entitlement: authzcore.Entitlement{
+				Claim: entitlement[0],
+				Value: entitlement[1],
+			},
+			RoleName:  roleName,
+			Hierarchy: resourcePathToHierarchy(resourcePath),
+			Effect:    effect,
+			Context:   context,
 		})
 	}
 
@@ -410,18 +441,42 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	return result, nil
 }
 
+// ListUserTypes returns all configured user types in the system
+func (ce *CasbinEnforcer) ListUserTypes(ctx context.Context) ([]authzcore.UserTypeInfo, error) {
+	ce.logger.Debug("list user types called")
+
+	userTypes := make([]authzcore.UserTypeInfo, len(ce.config.UserTypeConfigs))
+	for i, config := range ce.config.UserTypeConfigs {
+		userTypes[i] = authzcore.UserTypeInfo{
+			Type:        config.Type,
+			DisplayName: config.DisplayName,
+			Priority:    config.Priority,
+			Entitlement: authzcore.EntitlementClaimInfo{
+				Name:        config.Entitlement.Claim,
+				DisplayName: config.Entitlement.DisplayName,
+			},
+		}
+	}
+
+	return userTypes, nil
+}
+
 // TODO: once context is properly integrated, pass it to enforcer
 
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
 	subject := request.Subject
-	subjectCtx, err := populateSubjectClaims(&subject)
+
+	// Use the user type detector to extract subject context
+	subjectCtx, err := ce.userTypeDetector.DetectUserType(subject.JwtToken)
 	if err != nil {
-		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to extract subject claims: %w", err)
+		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to detect user type: %w", err)
 	}
 
 	ce.logger.Debug("evaluate called",
-		"subject", subjectCtx.EntitlementValues,
+		"subject_type", subjectCtx.Type,
+		"entitlement_claim", subjectCtx.EntitlementClaim,
+		"entitlements", subjectCtx.EntitlementValues,
 		"resource", resourcePath,
 		"action", request.Action,
 		"context", request.Context)
@@ -432,8 +487,9 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			Reason: "no matching policies found",
 		}}
 	for _, entitlementValue := range subjectCtx.EntitlementValues {
+		entitlement := fmt.Sprintf("%s:%s", subjectCtx.EntitlementClaim, entitlementValue)
 		result, err = ce.enforcer.Enforce(
-			entitlementValue,
+			entitlement,
 			resourcePath,
 			request.Action,
 			emptyContextJSON,
