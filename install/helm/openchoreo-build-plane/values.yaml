@@ -2,7 +2,6 @@
 global:
   # -- Common labels to add to every resource.
   commonLabels: {}
-  imagePullSecrets: []
   # -- Base domain for external access (e.g., "openchoreo.example.com")
   # When set, registry will be accessible at registry.<baseDomain>
   baseDomain: ""
