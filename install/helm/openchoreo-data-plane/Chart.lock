@@ -17,5 +17,5 @@ dependencies:
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.0.1
-digest: sha256:733341371ead46c6542ed7cb7142274e505b5809fdb6d87f41444ad17958de73
-generated: "2025-12-06T16:40:02.853284+05:30"
+digest: sha256:68fdd74bd6af20cf8ee91692ed26f52508abc0930ee2cc70b7321d64d992853e
+generated: "2025-12-06T18:08:03.802808+05:30"
