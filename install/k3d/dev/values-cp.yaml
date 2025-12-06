@@ -4,6 +4,12 @@
 global:
   baseDomain: openchoreo.localhost
   devMode: true
+  # Use k3d's built-in Traefik ingress class
+  ingressClassName: traefik
+
+# Disable helm chart's Traefik (use k3d's built-in Traefik instead)
+traefik:
+  enabled: false
 
 controllerManager:
   image:

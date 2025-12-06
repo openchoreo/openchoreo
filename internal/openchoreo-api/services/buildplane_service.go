@@ -67,11 +67,16 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
+	if buildPlane.Spec.KubernetesCluster == nil {
+		s.logger.Error("KubernetesCluster configuration is required for BuildPlane", "org", orgName, "buildPlane", buildPlane.Name)
+		return nil, fmt.Errorf("kubernetesCluster configuration is required for BuildPlane")
+	}
+
 	buildPlaneClient, err := kubernetesClient.GetK8sClient(
 		s.bpClientMgr,
 		orgName,
 		buildPlane.Name,
-		buildPlane.Spec.KubernetesCluster,
+		*buildPlane.Spec.KubernetesCluster,
 	)
 	if err != nil {
 		s.logger.Error("Failed to create build plane client", "error", err, "org", orgName)

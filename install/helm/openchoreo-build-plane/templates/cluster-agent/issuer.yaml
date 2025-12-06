@@ -7,10 +7,10 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-ca-issuer
+  name: {{ include "openchoreo-build-plane.clusterAgent.name" . }}-ca-issuer
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
   annotations:
     helm.sh/hook: post-install,post-upgrade
@@ -24,10 +24,10 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-selfsigned-issuer
+  name: {{ include "openchoreo-build-plane.clusterAgent.name" . }}-selfsigned-issuer
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
   annotations:
     helm.sh/hook: post-install,post-upgrade

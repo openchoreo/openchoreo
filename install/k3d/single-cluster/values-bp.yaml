@@ -1,6 +1,10 @@
 # Helm values for OpenChoreo Build Plane in k3d single-cluster setup
 # This file contains overrides specific to running the build plane in a k3d environment
 
+# Disable cert-manager since it's already installed by Control Plane
+cert-manager:
+  enabled: false
+
 argo-workflows:
   server:
     # Argo Workflows UI is enabled for testing/development purposes
@@ -32,3 +36,10 @@ external-secrets:
 # including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
 fluentBit:
   enabled: false
+
+# Cluster Agent configuration for single-cluster setup
+clusterAgent:
+  enabled: true
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: buildplane

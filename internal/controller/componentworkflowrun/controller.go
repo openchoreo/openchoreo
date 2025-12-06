@@ -32,11 +32,12 @@ import (
 type ComponentWorkflowRunReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
-	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	K8sClientMgr *kubernetesClient.KubeMultiClientManager
 
 	// Pipeline is the component workflow rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different workflow runs and reconciliations.
-	Pipeline *componentworkflowpipeline.Pipeline
+	Pipeline   *componentworkflowpipeline.Pipeline
+	GatewayURL string
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -335,7 +336,7 @@ func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
 }
 
 func (r *ComponentWorkflowRunReconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(r.K8sClientMgr, buildPlane, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
@@ -344,8 +345,8 @@ func (r *ComponentWorkflowRunReconciler) getBuildPlaneClient(buildPlane *opencho
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ComponentWorkflowRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.k8sClientMgr == nil {
-		r.k8sClientMgr = kubernetesClient.NewManager()
+	if r.K8sClientMgr == nil {
+		r.K8sClientMgr = kubernetesClient.NewManager()
 	}
 
 	if r.Pipeline == nil {

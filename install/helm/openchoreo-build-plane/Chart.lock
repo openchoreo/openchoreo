@@ -8,5 +8,8 @@ dependencies:
 - name: docker-registry
   repository: https://twuni.github.io/docker-registry.helm
   version: 3.0.0
-digest: sha256:adf6ebe14a0a8a68740932f2b133c3e15b7304e84c02a6c77562a82e296234e4
-generated: "2025-11-13T11:56:15.630957+05:30"
+- name: cert-manager
+  repository: oci://quay.io/jetstack/charts
+  version: v1.16.2
+digest: sha256:863456ed1520b6925bd0e28df0a6a6debc00d0866d908e69c601bbd41d836a4b
+generated: "2025-12-06T11:19:05.513699+05:30"

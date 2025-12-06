@@ -29,10 +29,10 @@ import (
 // Reconciler reconciles a Endpoint object
 type Reconciler struct {
 	client.Client
-	k8sClientMgr *kubernetesClient.KubeMultiClientManager
-	AgentServer  interface{} // *agentserver.Server, passed as interface to avoid circular dependency
+	K8sClientMgr *kubernetesClient.KubeMultiClientManager
 	Scheme       *runtime.Scheme
 	recorder     record.EventRecorder
+	GatewayURL   string
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -186,8 +186,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.recorder = mgr.GetEventRecorderFor("endpoint-controller")
 	}
 
-	if r.k8sClientMgr == nil {
-		r.k8sClientMgr = kubernetesClient.NewManager()
+	if r.K8sClientMgr == nil {
+		r.K8sClientMgr = kubernetesClient.NewManager()
 	}
 
 	if err := r.setupDataPlaneRefIndex(context.Background(), mgr); err != nil {
@@ -217,8 +217,8 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	// Use GetK8sClientFromDataPlane which handles both agent mode and direct access mode
-	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.k8sClientMgr, dataplaneRes, r.AgentServer)
+	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
+	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataplaneRes, r.GatewayURL)
 	if err != nil {
 		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)

@@ -8,7 +8,7 @@ metadata:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-gateway
 rules:
-# Allow reading TLS secrets for CA extraction and creating cluster-agent-ca secret
+# Allow reading TLS secrets for CA extraction and creating cluster-gateway-ca secret
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list", "create", "delete", "patch"]
