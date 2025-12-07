@@ -9,7 +9,10 @@ metadata:
     app.kubernetes.io/component: cluster-agent
     app: cluster-agent
 spec:
-  replicas: {{ .Values.clusterAgent.replicas }}
+  # Start with 0 replicas to prevent Helm --wait deadlock
+  # The cluster-agent requires TLS secrets created by post-install hooks
+  # A separate post-install hook will scale this to desired replicas after certificates are ready
+  replicas: 0
   selector:
     matchLabels:
       app: cluster-agent

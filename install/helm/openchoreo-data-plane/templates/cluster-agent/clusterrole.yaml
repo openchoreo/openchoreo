@@ -16,6 +16,13 @@ rules:
   - daemonsets
   - replicasets
   verbs: ["*"]
+# Deployment scale subresource (required for kubectl scale)
+- apiGroups: ["apps"]
+  resources:
+  - deployments/scale
+  - statefulsets/scale
+  - replicasets/scale
+  verbs: ["get", "update", "patch"]
 - apiGroups: [""]
   resources:
   - pods
