@@ -87,6 +87,10 @@ http://frontend-development.openchoreoapis.localhost:9080
 > - Shopping cart functionality
 > - Checkout process
 
+> [!NOTE]
+> #### Startup Time
+> All services may take 5-10 minutes to become fully operational. The URL will return errors or be unreachable until everything is ready.
+
 ## Clean Up
 
 Remove all resources:
