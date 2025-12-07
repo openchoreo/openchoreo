@@ -24,10 +24,13 @@ Run the following command to start the containerized environment:
 ```bash
 docker run -it --rm \
   --name openchoreo-quick-start \
+  --privileged \
   --network=host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/openchoreo/quick-start:latest
 ```
+
+**Important:** The `--privileged` flag is required for k3d to run properly inside the container (Docker-in-Docker with containerd). This is especially necessary when using Colima or other container runtimes with cgroup v2.
 
 **Available Tags:**
 
@@ -115,6 +118,43 @@ ls samples/
 ```
 
 Explore additional sample applications and deployment configurations.
+
+## Troubleshooting
+
+### k3d Cluster Creation Stuck
+
+If the k3d cluster creation gets stuck at "Injecting records for hostAliases..." or "Waiting for containerd startup", this usually means:
+
+**Solution:** Ensure you started the container with the `--privileged` flag:
+
+```bash
+docker run -it --rm \
+  --name openchoreo-quick-start \
+  --privileged \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/openchoreo/quick-start:latest
+```
+
+If the cluster is already broken, delete it and recreate:
+
+```bash
+k3d cluster delete openchoreo-quick-start
+./install.sh
+```
+
+### Cluster Agent Pod Stuck in Pending
+
+In single-cluster setups, the cluster agent should start automatically after Helm completes the installation. The Helm post-install jobs automatically:
+- Copy the cluster-gateway CA from control plane to data/build plane namespaces
+- Create TLS certificates using cert-manager
+
+If the agent pod is stuck, check the Helm job logs:
+
+```bash
+kubectl get jobs -n openchoreo-data-plane
+kubectl logs job/<job-name> -n openchoreo-data-plane
+```
 
 ## Cleaning Up
 
