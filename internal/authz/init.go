@@ -9,16 +9,15 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/authz/casbin"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
-	"github.com/openchoreo/openchoreo/internal/authz/usertype"
 )
 
 // AuthZConfig holds configuration for authorization initialization
 type AuthZConfig struct {
-	Enabled              bool                        // Enable or disable authorization
-	DatabasePath         string                      // Path to database
-	DefaultRolesFilePath string                      // Path to default roles YAML file (optional)
-	UserTypeConfigs      []usertype.UserTypeConfig   // Required: User type detection configuration
-	EnableCache          bool                        // Enable authz caching
+	Enabled              bool                       // Enable or disable authorization
+	DatabasePath         string                     // Path to database
+	DefaultRolesFilePath string                     // Path to default roles YAML file (optional)
+	UserTypeConfigs      []authzcore.UserTypeConfig // Required: User type detection configuration
+	EnableCache          bool                       // Enable authz caching
 }
 
 // Initialize creates and returns PAP and PDP implementations based on configuration.

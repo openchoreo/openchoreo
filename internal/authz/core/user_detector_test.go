@@ -1,14 +1,12 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package usertype
+package core
 
 import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
-
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 func createTestJWT(claims jwt.MapClaims) string {
@@ -27,7 +25,7 @@ func TestValidateConfig(t *testing.T) {
 			name: "valid configuration",
 			configs: []UserTypeConfig{
 				{
-					Type:        authzcore.SubjectTypeUser,
+					Type:        SubjectTypeUser,
 					DisplayName: "User",
 					Priority:    1,
 					Entitlement: EntitlementConfig{
@@ -47,13 +45,13 @@ func TestValidateConfig(t *testing.T) {
 			name: "duplicate type",
 			configs: []UserTypeConfig{
 				{
-					Type:        authzcore.SubjectTypeUser,
+					Type:        SubjectTypeUser,
 					DisplayName: "User1",
 					Priority:    1,
 					Entitlement: EntitlementConfig{Claim: "group", DisplayName: "Group"},
 				},
 				{
-					Type:        authzcore.SubjectTypeUser,
+					Type:        SubjectTypeUser,
 					DisplayName: "User2",
 					Priority:    2,
 					Entitlement: EntitlementConfig{Claim: "group2", DisplayName: "Group2"},
@@ -65,13 +63,13 @@ func TestValidateConfig(t *testing.T) {
 			name: "duplicate priority",
 			configs: []UserTypeConfig{
 				{
-					Type:        authzcore.SubjectTypeUser,
+					Type:        SubjectTypeUser,
 					DisplayName: "User",
 					Priority:    1,
 					Entitlement: EntitlementConfig{Claim: "group", DisplayName: "Group"},
 				},
 				{
-					Type:        authzcore.SubjectTypeServiceAccount,
+					Type:        SubjectTypeServiceAccount,
 					DisplayName: "Service Account",
 					Priority:    1,
 					Entitlement: EntitlementConfig{Claim: "sa", DisplayName: "SA"},
@@ -83,7 +81,7 @@ func TestValidateConfig(t *testing.T) {
 			name: "empty entitlement claim",
 			configs: []UserTypeConfig{
 				{
-					Type:        authzcore.SubjectTypeUser,
+					Type:        SubjectTypeUser,
 					DisplayName: "User",
 					Priority:    1,
 					Entitlement: EntitlementConfig{Claim: "", DisplayName: "Group"},
@@ -106,7 +104,7 @@ func TestValidateConfig(t *testing.T) {
 func TestDetectorUserTypeDetection(t *testing.T) {
 	userTypes := []UserTypeConfig{
 		{
-			Type:        authzcore.SubjectTypeUser,
+			Type:        SubjectTypeUser,
 			DisplayName: "Human User",
 			Priority:    1,
 			Entitlement: EntitlementConfig{
@@ -115,7 +113,7 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 			},
 		},
 		{
-			Type:        authzcore.SubjectTypeServiceAccount,
+			Type:        SubjectTypeServiceAccount,
 			DisplayName: "Service Account",
 			Priority:    2,
 			Entitlement: EntitlementConfig{
@@ -131,19 +129,19 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		claims           jwt.MapClaims
-		expectedType     authzcore.SubjectType
-		expectedClaim    string
-		expectedValues   []string
-		wantErr          bool
+		name           string
+		claims         jwt.MapClaims
+		expectedType   SubjectType
+		expectedClaim  string
+		expectedValues []string
+		wantErr        bool
 	}{
 		{
 			name: "user with single group",
 			claims: jwt.MapClaims{
 				"group": "admin",
 			},
-			expectedType:   authzcore.SubjectTypeUser,
+			expectedType:   SubjectTypeUser,
 			expectedClaim:  "group",
 			expectedValues: []string{"admin"},
 			wantErr:        false,
@@ -153,7 +151,7 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"group": []interface{}{"admin", "developer"},
 			},
-			expectedType:   authzcore.SubjectTypeUser,
+			expectedType:   SubjectTypeUser,
 			expectedClaim:  "group",
 			expectedValues: []string{"admin", "developer"},
 			wantErr:        false,
@@ -163,7 +161,7 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"service_account": "api-service",
 			},
-			expectedType:   authzcore.SubjectTypeServiceAccount,
+			expectedType:   SubjectTypeServiceAccount,
 			expectedClaim:  "service_account",
 			expectedValues: []string{"api-service"},
 			wantErr:        false,
@@ -174,7 +172,7 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 				"group":           "admin",
 				"service_account": "api-service",
 			},
-			expectedType:   authzcore.SubjectTypeUser,
+			expectedType:   SubjectTypeUser,
 			expectedClaim:  "group",
 			expectedValues: []string{"admin"},
 			wantErr:        false,
@@ -191,7 +189,7 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"group": "",
 			},
-			expectedType:   authzcore.SubjectTypeUser,
+			expectedType:   SubjectTypeUser,
 			expectedClaim:  "group",
 			expectedValues: []string{},
 			wantErr:        false,
@@ -231,8 +229,8 @@ func TestDetectorUserTypeDetection(t *testing.T) {
 
 func TestSortByPriority(t *testing.T) {
 	userTypes := []UserTypeConfig{
-		{Type: authzcore.SubjectTypeServiceAccount, Priority: 3},
-		{Type: authzcore.SubjectTypeUser, Priority: 1},
+		{Type: SubjectTypeServiceAccount, Priority: 3},
+		{Type: SubjectTypeUser, Priority: 1},
 		{Type: "custom", Priority: 2},
 	}
 

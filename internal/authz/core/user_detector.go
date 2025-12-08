@@ -1,20 +1,18 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package usertype
+package core
 
 import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
-
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // Detector is responsible for detecting user types from JWT tokens
 type Detector interface {
 	// DetectUserType analyzes a JWT token and returns the SubjectContext
-	DetectUserType(jwtToken string) (*authzcore.SubjectContext, error)
+	DetectUserType(jwtToken string) (*SubjectContext, error)
 }
 
 // ConfigurableDetector implements Detector using configuration
@@ -39,7 +37,7 @@ func NewDetector(userTypes []UserTypeConfig) (Detector, error) {
 }
 
 // DetectUserType implements the Detector interface
-func (d *ConfigurableDetector) DetectUserType(jwtToken string) (*authzcore.SubjectContext, error) {
+func (d *ConfigurableDetector) DetectUserType(jwtToken string) (*SubjectContext, error) {
 	// Parse JWT without verification (just to extract claims)
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	token, _, err := parser.ParseUnverified(jwtToken, jwt.MapClaims{})
@@ -55,7 +53,7 @@ func (d *ConfigurableDetector) DetectUserType(jwtToken string) (*authzcore.Subje
 	// Try each user type in priority order
 	for _, userTypeConfig := range d.userTypes {
 		if matches, entitlements := d.detectUserTypeFromClaims(claims, userTypeConfig); matches {
-			return &authzcore.SubjectContext{
+			return &SubjectContext{
 				Type:              userTypeConfig.Type,
 				EntitlementClaim:  userTypeConfig.Entitlement.Claim,
 				EntitlementValues: entitlements,

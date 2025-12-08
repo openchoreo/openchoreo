@@ -1,21 +1,19 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package usertype
+package core
 
 import (
 	"fmt"
 	"sort"
-
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // UserTypeConfig represents configuration for a single user type
 type UserTypeConfig struct {
-	Type        authzcore.SubjectType `yaml:"type"`         // "user" or "service_account"
-	DisplayName string                 `yaml:"display_name"` // Human-readable name for user type
-	Priority    int                    `yaml:"priority"`     // Check order (lower = higher priority)
-	Entitlement EntitlementConfig      `yaml:"entitlement"`  // Entitlement configuration
+	Type        SubjectType       `yaml:"type"`         // "user" or "service_account"
+	DisplayName string            `yaml:"display_name"` // Human-readable name for user type
+	Priority    int               `yaml:"priority"`     // Check order (lower = higher priority)
+	Entitlement EntitlementConfig `yaml:"entitlement"`  // Entitlement configuration
 }
 
 // EntitlementConfig defines how to extract entitlement claims from JWT tokens
@@ -30,7 +28,7 @@ func ValidateConfig(userTypes []UserTypeConfig) error {
 		return fmt.Errorf("at least one user type must be configured")
 	}
 
-	typesSeen := make(map[authzcore.SubjectType]bool)
+	typesSeen := make(map[SubjectType]bool)
 	prioritiesSeen := make(map[int]bool)
 
 	for i, ut := range userTypes {
