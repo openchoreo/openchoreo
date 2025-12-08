@@ -313,7 +313,7 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 
 	// Construct subject as "claim:value" for explicit claim tracking
-	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+	subject := formatSubject(mapping.Entitlement.Claim, mapping.Entitlement.Value)
 
 	// policy: p, subject, resourcePath, role, eft, context
 	// TODO: Handle context conditions properly in the future
@@ -347,7 +347,7 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 		"context", mapping.Context,
 	)
 
-	subject := fmt.Sprintf("%s:%s", mapping.Entitlement.Claim, mapping.Entitlement.Value)
+	subject := formatSubject(mapping.Entitlement.Claim, mapping.Entitlement.Value)
 
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
@@ -385,9 +385,9 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 			continue
 		}
 		subject := rule[0]
-		entitlement := strings.SplitN(subject, ":", 2)
-		if len(entitlement) != 2 {
-			ce.logger.Warn("skipping malformed entitlement in mapping", "entitlement", subject)
+		claim, value, err := parseSubject(subject)
+		if err != nil {
+			ce.logger.Warn("skipping malformed entitlement in mapping", "subject", subject, "error", err)
 			continue
 		}
 		resourcePath := rule[1]
@@ -398,8 +398,8 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
 			Entitlement: authzcore.Entitlement{
-				Claim: entitlement[0],
-				Value: entitlement[1],
+				Claim: claim,
+				Value: value,
 			},
 			RoleName:  roleName,
 			Hierarchy: resourcePathToHierarchy(resourcePath),
@@ -460,6 +460,22 @@ func (ce *CasbinEnforcer) ListUserTypes(ctx context.Context) ([]authzcore.UserTy
 	return userTypes, nil
 }
 
+// formatSubject creates a subject string from claim and value
+// Format: "claim:value"
+func formatSubject(claim, value string) string {
+	return fmt.Sprintf("%s:%s", claim, value)
+}
+
+// parseSubject extracts claim and value from a subject string
+// Expected format: "claim:value"
+func parseSubject(subject string) (claim, value string, err error) {
+	parts := strings.SplitN(subject, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid subject format: expected 'claim:value', got '%s'", subject)
+	}
+	return parts[0], parts[1], nil
+}
+
 // TODO: once context is properly integrated, pass it to enforcer
 
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
@@ -486,7 +502,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			Reason: "no matching policies found",
 		}}
 	for _, entitlementValue := range subjectCtx.EntitlementValues {
-		entitlement := fmt.Sprintf("%s:%s", subjectCtx.EntitlementClaim, entitlementValue)
+		entitlement := formatSubject(subjectCtx.EntitlementClaim, entitlementValue)
 		result, err = ce.enforcer.Enforce(
 			entitlement,
 			resourcePath,
