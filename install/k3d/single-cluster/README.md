@@ -93,6 +93,16 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
+Configure DataPlane to use Observer
+```
+kubectl patch dataplane default -n default --type merge -p '{"spec":{"observer":{"url":"http://observer.openchoreo-observability-plane:8080","authentication":{"basicAuth":{"username":"dummy","password":"dummy"}}}}}'
+```
+
+Configure BuildPlane (if installed) to use Observer
+```
+kubectl patch buildplane default -n default --type merge -p '{"spec":{"observer":{"url":"http://observer.openchoreo-observability-plane:8080","authentication":{"basicAuth":{"username":"dummy","password":"dummy"}}}}}'
+```
+
 ### 3. Create DataPlane Resource
 
 Create a DataPlane resource to enable workload deployment.
