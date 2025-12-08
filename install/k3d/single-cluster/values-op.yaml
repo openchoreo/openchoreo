@@ -2,7 +2,7 @@
 
 global:
   # Single-cluster non-HA mode uses standalone OpenSearch instead of operator
-  installationMode: singleClusterNoHa
+  installationMode: singleCluster
 
 # Use standalone OpenSearch (not operator-managed cluster)
 openSearch:
