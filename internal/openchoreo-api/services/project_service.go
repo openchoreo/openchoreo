@@ -106,17 +106,23 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 
 // GetProject retrieves a specific project
 func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		return nil, err
+	}
+	return s.getProject(ctx, orgName, projectName)
+
+}
+
+// getProject is the internal helper without authorization (INTERNAL USE ONLY)
+func (s *ProjectService) getProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
 	s.logger.Debug("Getting project", "org", orgName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
 		Namespace: orgName,
-	}
-	// Authorization check
-	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
-		return nil, err
 	}
 
 	if err := s.k8sClient.Get(ctx, key, project); err != nil {

@@ -117,7 +117,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 		return nil, err
 	}
 
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -389,7 +389,7 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 		return nil, err
 	}
 
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -731,7 +731,7 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
 
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1052,7 +1052,7 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Listing release bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments)
 
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1126,7 +1126,7 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 		return nil, err
 	}
 
-	project, err := s.projectService.GetProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1296,7 +1296,7 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	}
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -1344,7 +1344,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	s.logger.Debug("Listing components", "org", orgName, "project", projectName)
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1396,7 +1396,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 	}
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1957,7 +1957,7 @@ func (s *ComponentService) convertEndpointStatus(endpoints []openchoreov1alpha1.
 // getEnvironmentsFromDeploymentPipeline extracts all environments from the project's deployment pipeline
 func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Context, orgName, projectName string) ([]string, error) {
 	// Get the project to determine the deployment pipeline reference
-	project, err := s.projectService.GetProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		return nil, err
 	}
@@ -2082,7 +2082,7 @@ func (s *ComponentService) mapConditionToBindingStatus(condition metav1.Conditio
 // validatePromotionPath validates that the promotion path is allowed by the deployment pipeline
 func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, projectName, sourceEnv, targetEnv string) error {
 	// Get the project to determine the deployment pipeline reference
-	project, err := s.projectService.GetProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		return err
 	}
@@ -2280,7 +2280,7 @@ func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, 
 	s.logger.Debug("Updating component binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -2562,7 +2562,7 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2612,7 +2612,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	s.logger.Debug("Creating/updating component workload", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2841,7 +2841,7 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
-	_, err := s.projectService.GetProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
