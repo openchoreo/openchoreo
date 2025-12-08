@@ -1536,6 +1536,39 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		controller.AnnotationKeyDescription: req.Description,
 	}
 
+	componentSpec := openchoreov1alpha1.ComponentSpec{
+		Owner: openchoreov1alpha1.ComponentOwner{
+			ProjectName: projectName,
+		},
+	}
+
+	if req.ComponentType != "" {
+		// New format: {workloadType}/{componentTypeName} (e.g., "deployment/web-app")
+		componentSpec.ComponentType = req.ComponentType
+	} else if req.Type != "" {
+		// Legacy format: "Service", "WebApplication", etc.
+		componentSpec.Type = openchoreov1alpha1.DefinedComponentType(req.Type)
+	}
+
+	if req.AutoDeploy != nil {
+		componentSpec.AutoDeploy = *req.AutoDeploy
+	}
+
+	if req.Parameters != nil {
+		componentSpec.Parameters = req.Parameters
+	}
+
+	if len(req.Traits) > 0 {
+		componentSpec.Traits = make([]openchoreov1alpha1.ComponentTrait, len(req.Traits))
+		for i, trait := range req.Traits {
+			componentSpec.Traits[i] = openchoreov1alpha1.ComponentTrait{
+				Name:         trait.Name,
+				InstanceName: trait.InstanceName,
+				Parameters:   trait.Parameters,
+			}
+		}
+	}
+
 	componentCR := &openchoreov1alpha1.Component{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Component",
@@ -1546,12 +1579,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Namespace:   orgName,
 			Annotations: annotations,
 		},
-		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner: openchoreov1alpha1.ComponentOwner{
-				ProjectName: projectName,
-			},
-			ComponentType: req.Type,
-		},
+		Spec: componentSpec,
 	}
 
 	// Set component workflow configuration if provided (new preferred way)
@@ -1618,12 +1646,17 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		}
 	}
 
+	componentType := component.Spec.ComponentType
+	if componentType == "" && component.Spec.Type != "" {
+		componentType = string(component.Spec.Type)
+	}
+
 	response := &models.ComponentResponse{
 		UID:               string(component.UID),
 		Name:              component.Name,
 		DisplayName:       component.Annotations[controller.AnnotationKeyDisplayName],
 		Description:       component.Annotations[controller.AnnotationKeyDescription],
-		Type:              component.Spec.ComponentType,
+		Type:              componentType,
 		AutoDeploy:        component.Spec.AutoDeploy,
 		ProjectName:       projectName,
 		OrgName:           component.Namespace,

@@ -55,13 +55,24 @@ type ComponentWorkflowRepositoryRevision struct {
 	Commit string `json:"commit,omitempty"`
 }
 
+// ComponentTrait represents a trait instance attached to a component in API requests
+type ComponentTrait struct {
+	Name         string                `json:"name"`
+	InstanceName string                `json:"instanceName"`
+	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name              string             `json:"name"`
-	DisplayName       string             `json:"displayName,omitempty"`
-	Description       string             `json:"description,omitempty"`
-	Type              string             `json:"type"`
-	ComponentWorkflow *ComponentWorkflow `json:"workflow,omitempty"`
+	Name              string                `json:"name"`
+	DisplayName       string                `json:"displayName,omitempty"`
+	Description       string                `json:"description,omitempty"`
+	Type              string                `json:"type,omitempty"`          // LEGACY: Use componentType instead
+	ComponentType     string                `json:"componentType,omitempty"` // Format: {workloadType}/{componentTypeName}
+	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
+	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
+	Traits            []ComponentTrait      `json:"traits,omitempty"`
+	ComponentWorkflow *ComponentWorkflow    `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
@@ -177,6 +188,12 @@ func (req *CreateComponentRequest) Sanitize() {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
 	req.Type = strings.TrimSpace(req.Type)
+	req.ComponentType = strings.TrimSpace(req.ComponentType)
+
+	for i := range req.Traits {
+		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
+		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
+	}
 }
 
 // Sanitize sanitizes the CreateEnvironmentRequest by trimming whitespace
