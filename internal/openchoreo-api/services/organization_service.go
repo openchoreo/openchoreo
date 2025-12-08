@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -20,13 +22,15 @@ import (
 type OrganizationService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewOrganizationService creates a new organization service
-func NewOrganizationService(k8sClient client.Client, logger *slog.Logger) *OrganizationService {
+func NewOrganizationService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *OrganizationService {
 	return &OrganizationService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -42,6 +46,17 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 
 	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
 	for _, item := range orgList.Items {
+		// Authorization check for each organization
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewOrganization, ResourceTypeOrganization, item.Name,
+			authz.ResourceHierarchy{Organization: item.Name}); err != nil {
+			if errors.Is(err, ErrUnauthorized) {
+				// Skip unauthorized organizations
+				s.logger.Debug("Skipping unauthorized organization", "org", item.Name)
+				continue
+			}
+			// system failures, return the error
+			return nil, err
+		}
 		organizations = append(organizations, s.toOrganizationResponse(&item))
 	}
 
@@ -52,6 +67,12 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 // GetOrganization retrieves a specific organization
 func (s *OrganizationService) GetOrganization(ctx context.Context, orgName string) (*models.OrganizationResponse, error) {
 	s.logger.Debug("Getting organization", "org", orgName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewOrganization, ResourceTypeOrganization, orgName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	org := &openchoreov1alpha1.Organization{}
 	key := client.ObjectKey{

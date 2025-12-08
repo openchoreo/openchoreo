@@ -16,6 +16,8 @@ const (
 	SystemActionDeployComponent        systemAction = "component:deploy"
 	SystemActionCreateComponentRelease systemAction = "componentrelease:create"
 	SystemActionViewComponentRelease   systemAction = "componentrelease:view"
+
+	SystemActionViewOrganization systemAction = "organization:view"
 )
 
 type ResourceType string
@@ -24,4 +26,5 @@ const (
 	ResourceTypeProject          ResourceType = "project"
 	ResourceTypeComponent        ResourceType = "component"
 	ResourceTypeComponentRelease ResourceType = "componentRelease"
+	ResourceTypeOrganization     ResourceType = "organization"
 )

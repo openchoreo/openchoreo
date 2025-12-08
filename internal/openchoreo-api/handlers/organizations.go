@@ -36,6 +36,10 @@ func (h *Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
 
 	organization, err := h.services.OrganizationService.GetOrganization(ctx, orgName)
 	if err != nil {
+		if errors.Is(err, services.ErrUnauthorized) {
+			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrOrganizationNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "Organization not found", services.CodeOrganizationNotFound)
 			return

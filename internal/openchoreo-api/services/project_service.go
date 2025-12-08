@@ -112,7 +112,6 @@ func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName st
 		return nil, err
 	}
 	return s.getProject(ctx, orgName, projectName)
-
 }
 
 // getProject is the internal helper without authorization (INTERNAL USE ONLY)
