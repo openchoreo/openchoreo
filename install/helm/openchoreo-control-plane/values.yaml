@@ -388,6 +388,24 @@ backstage:
   backendSecret: ""
   openchoreoApi:
     url: ""
+
+  # Feature flags for enabling/disabling OpenChoreo features in Backstage
+  # These control which plugins and functionality are available in the UI
+  features:
+    # Build plane / Workflows functionality
+    # When disabled, hides Workflows tab and WorkflowsOverviewCard from entity pages
+    workflows:
+      enabled: true
+    # Observability plane features (Metrics, Traces, Runtime Logs)
+    # When disabled, hides Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard from entity pages
+    observability:
+      enabled: true
+    # Authentication configuration
+    # When disabled (false), users are automatically logged in as guests (no OAuth required)
+    # Useful for demos, development, or environments without identity provider
+    auth:
+      enabled: true
+
   env:
     - name: NODE_ENV
       value: production

@@ -18,3 +18,14 @@ clusterGateway:
 controllerManager:
   clusterGateway:
     enabled: true
+
+# Backstage UI feature flags
+# All features enabled by default; disable as needed for testing
+backstage:
+  features:
+    workflows:
+      enabled: true
+    observability:
+      enabled: true
+    auth:
+      enabled: true

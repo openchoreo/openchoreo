@@ -85,6 +85,13 @@ spec:
               key: backstage-client-secret
         {{- end }}
         {{- end }}
+        # Feature flags for OpenChoreo functionality
+        - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
+          value: {{ .Values.backstage.features.workflows.enabled | default true | quote }}
+        - name: OPENCHOREO_FEATURES_OBSERVABILITY_ENABLED
+          value: {{ .Values.backstage.features.observability.enabled | default true | quote }}
+        - name: OPENCHOREO_FEATURES_AUTH_ENABLED
+          value: {{ .Values.backstage.features.auth.enabled | default true | quote }}
         livenessProbe:
           httpGet:
             path: /healthcheck
