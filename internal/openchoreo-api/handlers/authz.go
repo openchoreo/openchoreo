@@ -174,6 +174,21 @@ func (h *Handler) ListActions(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, actions)
 }
 
+// ListUserTypes handles GET /api/v1/authz/user-types
+func (h *Handler) ListUserTypes(w http.ResponseWriter, r *http.Request) {
+	userTypes, err := h.services.AuthzService.ListUserTypes(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to list user types", "error", err)
+		if handleAuthzDisabledError(w, err) {
+			return
+		}
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list user types", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, userTypes)
+}
+
 // Evaluate handles POST /api/v1/authz/evaluate
 func (h *Handler) Evaluate(w http.ResponseWriter, r *http.Request) {
 	var request authz.EvaluateRequest

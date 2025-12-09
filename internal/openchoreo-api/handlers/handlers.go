@@ -166,6 +166,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
 	api.HandleFunc("POST "+v1+"/authz/evaluate", h.Evaluate)
 	api.HandleFunc("POST "+v1+"/authz/batch-evaluate", h.BatchEvaluate)
+	api.HandleFunc("GET "+v1+"/authz/user-types", h.ListUserTypes)
 	api.HandleFunc("GET "+v1+"/authz/profile", h.GetAuthzProfile)
 
 	return mux
