@@ -724,3 +724,331 @@ func TestCasbinEnforcer_ListActions(t *testing.T) {
 		t.Error("ListActions() returned empty list")
 	}
 }
+
+func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create role and mappings
+	role := &authzcore.Role{
+		Name:    "viewer",
+		Actions: []string{"component:read"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	mapping1 := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "group1",
+		},
+		RoleName: "viewer",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	mapping2 := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "group1",
+		},
+		RoleName: "viewer",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+			Project:      "p1",
+		},
+		Effect: authzcore.PolicyEffectDeny,
+	}
+	mapping3 := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "group1",
+		},
+		RoleName: "viewer",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "other-org",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+
+	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping1); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping2); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping3); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		subjectCtx      *authzcore.SubjectContext
+		scopePath       string
+		wantPolicyCount int
+	}{
+		{
+			name: "filter policies within scope",
+			subjectCtx: &authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"group1"},
+			},
+			scopePath:       "org/acme",
+			wantPolicyCount: 2, // Only policies within acme org
+		},
+		{
+			name: "filter policies within project scope",
+			subjectCtx: &authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"group1"},
+			},
+			scopePath:       "org/acme/project/p1",
+			wantPolicyCount: 2, // Both org-level and project-level policies match
+		},
+		{
+			name: "no matching entitlements",
+			subjectCtx: &authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"nonexistent-group"},
+			},
+			scopePath:       "org/acme",
+			wantPolicyCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policies, err := enforcer.filterPoliciesBySubjectAndScope(tt.subjectCtx, tt.scopePath)
+			if err != nil {
+				t.Fatalf("filterPoliciesBySubjectAndScope() error = %v", err)
+			}
+			if len(policies) != tt.wantPolicyCount {
+				t.Errorf("filterPoliciesBySubjectAndScope() returned %d policies, want %d", len(policies), tt.wantPolicyCount)
+			}
+		})
+	}
+}
+
+func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	viewerRole := &authzcore.Role{
+		Name:    "viewer",
+		Actions: []string{"component:view", "project:view"},
+	}
+	editorRole := &authzcore.Role{
+		Name:    "editor",
+		Actions: []string{"component:*", "project:create"},
+	}
+	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
+		t.Fatalf("AddRole(viewer) error = %v", err)
+	}
+	if err := enforcer.AddRole(ctx, editorRole); err != nil {
+		t.Fatalf("AddRole(editor) error = %v", err)
+	}
+
+	// Setup: Add role entitlement mappings
+	viewerMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "dev-group",
+		},
+		RoleName: "editor",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	editorMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "dev-group",
+		},
+		RoleName: "viewer",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+			Project:      "p1",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	denyMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "dev-group",
+		},
+		RoleName: "editor",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+			Project:      "secret",
+		},
+		Effect: authzcore.PolicyEffectDeny,
+	}
+
+	if err := enforcer.AddRoleEntitlementMapping(ctx, viewerMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(viewer) error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, editorMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(editor) error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, denyMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(deny) error = %v", err)
+	}
+	type expectedCapability struct {
+		action       string
+		allowedCount int
+		deniedCount  int
+	}
+
+	tests := []struct {
+		name                 string
+		request              *authzcore.ProfileRequest
+		wantErr              bool
+		wantEmptyCapability  bool
+		expectedUser         authzcore.SubjectContext
+		expectedCapabilities []expectedCapability
+	}{
+		{
+			name: "get profile for user with viewer role at org level",
+			request: &authzcore.ProfileRequest{
+				Subject: authzcore.Subject{
+					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Organization: "acme",
+				},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				{action: "component:view", allowedCount: 2, deniedCount: 1},
+				{action: "project:view", allowedCount: 1, deniedCount: 0},
+				{action: "component:create", allowedCount: 1, deniedCount: 1},
+				{action: "component:update", allowedCount: 1, deniedCount: 1},
+				{action: "component:deploy", allowedCount: 1, deniedCount: 1},
+				{action: "component:promote", allowedCount: 1, deniedCount: 1},
+				{action: "project:create", allowedCount: 1, deniedCount: 1},
+			},
+		},
+		{
+			name: "get profile with project scope",
+			request: &authzcore.ProfileRequest{
+				Subject: authzcore.Subject{
+					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Organization: "acme",
+					Project:      "p1",
+				},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				// Within p1 scope: no denied policies apply (secret is different project)
+				{action: "component:view", allowedCount: 2, deniedCount: 0},
+				{action: "project:view", allowedCount: 1, deniedCount: 0},
+				{action: "component:create", allowedCount: 1, deniedCount: 0},
+				{action: "component:update", allowedCount: 1, deniedCount: 0},
+				{action: "component:deploy", allowedCount: 1, deniedCount: 0},
+				{action: "component:promote", allowedCount: 1, deniedCount: 0},
+				{action: "project:create", allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "get profile for user with no permissions",
+			request: &authzcore.ProfileRequest{
+				Subject: authzcore.Subject{
+					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "no-permissions-group"}),
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Organization: "acme",
+				},
+			},
+			wantErr:             false,
+			wantEmptyCapability: true,
+			expectedUser: authzcore.SubjectContext{
+				Type:              authzcore.SubjectTypeUser,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"no-permissions-group"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := enforcer.GetSubjectProfile(ctx, tt.request)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetSubjectProfile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if resp == nil {
+				t.Fatal("GetSubjectProfile() returned nil response")
+			}
+			if resp.GeneratedAt.IsZero() {
+				t.Error("expected GeneratedAt to be set")
+			}
+
+			// Check the user field
+			if resp.User.Type != tt.expectedUser.Type {
+				t.Errorf("expected user type %q, got %q", tt.expectedUser.Type, resp.User.Type)
+			}
+			if resp.User.EntitlementClaim != tt.expectedUser.EntitlementClaim {
+				t.Errorf("expected user claim %q, got %q", tt.expectedUser.EntitlementClaim, resp.User.EntitlementClaim)
+			}
+			if len(resp.User.EntitlementValues) != len(tt.expectedUser.EntitlementValues) {
+				t.Errorf("expected %d entitlement values, got %d", len(tt.expectedUser.EntitlementValues), len(resp.User.EntitlementValues))
+			}
+			for i, expectedVal := range tt.expectedUser.EntitlementValues {
+				if resp.User.EntitlementValues[i] != expectedVal {
+					t.Errorf("expected entitlement value[%d] %q, got %q", i, expectedVal, resp.User.EntitlementValues[i])
+				}
+			}
+
+			// Check if we expect empty capabilities
+			if tt.wantEmptyCapability {
+				if len(resp.Capabilities) != 0 {
+					t.Errorf("expected empty capabilities, got %d", len(resp.Capabilities))
+				}
+				return
+			}
+
+			if len(resp.Capabilities) == 0 {
+				t.Error("expected capabilities to be non-empty")
+			}
+
+			if len(tt.expectedCapabilities) != len(resp.Capabilities) {
+				t.Errorf("expected %d capabilities, got %d", len(tt.expectedCapabilities), len(resp.Capabilities))
+			}
+
+			for _, exp := range tt.expectedCapabilities {
+				cap, ok := resp.Capabilities[exp.action]
+				if !ok {
+					t.Errorf("expected action %q to be present in capabilities", exp.action)
+					continue
+				}
+
+				if len(cap.Allowed) != exp.allowedCount {
+					t.Errorf("action %q: expected %d allowed resources, got %d", exp.action, exp.allowedCount, len(cap.Allowed))
+				}
+
+				if len(cap.Denied) != exp.deniedCount {
+					t.Errorf("action %q: expected %d denied resources, got %d", exp.action, exp.deniedCount, len(cap.Denied))
+				}
+			}
+		})
+	}
+}

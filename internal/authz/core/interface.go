@@ -14,7 +14,7 @@ type PDP interface {
 	BatchEvaluate(ctx context.Context, request *BatchEvaluateRequest) (*BatchEvaluateResponse, error)
 
 	// GetSubjectProfile retrieves the authorization profile for a given subject
-	GetSubjectProfile(ctx context.Context, request *ProfileRequest) (*SubjectProfile, error)
+	GetSubjectProfile(ctx context.Context, request *ProfileRequest) (*UserCapabilitiesResponse, error)
 }
 
 // PAP (Policy Administration Point) interface defines the contract for policy management

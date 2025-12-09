@@ -3,7 +3,10 @@
 
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // SubjectType defines the type of subject making the authorization request
 type SubjectType string
@@ -27,7 +30,6 @@ type Subject struct {
 }
 
 // SubjectContext - internal auth context for the subject
-// NOTE: This needs to be moved to subject extraction layer later
 type SubjectContext struct {
 	Type              SubjectType
 	EntitlementClaim  string
@@ -93,27 +95,6 @@ type ProfileRequest struct {
 	Scope ResourceHierarchy `json:"scope"`
 }
 
-// ProfileResourceNode represents a node in the resource hierarchy tree
-type ProfileResourceNode struct {
-	// Type is the resource type (e.g., org, ou, project, component)
-	Type string `json:"type"`
-
-	// ID is the unique identifier for this resource
-	ID string `json:"id"`
-
-	// Actions are the actions the subject can perform at this node
-	Actions []string `json:"actions,omitempty"`
-
-	// Children are the child nodes in the hierarchy (no children means end of tree)
-	Children []ProfileResourceNode `json:"children,omitempty"`
-}
-
-// SubjectProfile represents the authorization profile response with resource hierarchy tree
-type SubjectProfile struct {
-	// Hierarchy is the root node of the resource hierarchy tree
-	Hierarchy ProfileResourceNode `json:"hierarchy"`
-}
-
 // Role represents a role with a set of allowed actions
 type Role struct {
 	// Name is the unique identifier for the role
@@ -172,6 +153,26 @@ type RoleEntitlementMapping struct {
 
 	// Context provides optional additional context metadata for this mapping
 	Context Context `json:"context"`
+}
+
+// ActionCapability represents capabilities for a specific action
+type ActionCapability struct {
+	Allowed []*CapabilityResource `json:"allowed"`
+	Denied  []*CapabilityResource `json:"denied"`
+}
+
+// CapabilityResource represents a resource with permission details (SIMPLIFIED)
+type CapabilityResource struct {
+	Path        string       `json:"path"`        // Full resource path: "org/acme/project/payment"
+	Constraints *interface{} `json:"constraints"` // represents additional instance level restrictions
+
+}
+
+// UserCapabilitiesResponse represents the complete capabilities response
+type UserCapabilitiesResponse struct {
+	User         *SubjectContext              `json:"user"`
+	Capabilities map[string]*ActionCapability `json:"capabilities"`
+	GeneratedAt  time.Time                    `json:"evaluatedAt"`
 }
 
 var (

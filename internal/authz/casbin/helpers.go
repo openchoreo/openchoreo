@@ -217,3 +217,96 @@ func validateBatchEvaluateRequest(req *authzcore.BatchEvaluateRequest) error {
 	}
 	return nil
 }
+
+type actionIndex struct {
+	ByResourceType    map[string][]string // "component" -> ["component:read", ...]
+	actionsStringList []string
+}
+
+func indexActions(allActions []Action) actionIndex {
+	index := actionIndex{
+		ByResourceType:    make(map[string][]string),
+		actionsStringList: make([]string, 0, len(allActions)),
+	}
+
+	for _, action := range allActions {
+		resourceType := extractActionResourceType(action.Action)
+		index.ByResourceType[resourceType] = append(index.ByResourceType[resourceType], action.Action)
+		index.actionsStringList = append(index.actionsStringList, action.Action)
+	}
+
+	return index
+}
+
+// extractActionResource extracts the resource part from an action string.
+func extractActionResourceType(action string) string {
+	colonIdx := strings.LastIndex(action, ":")
+	if colonIdx > 0 {
+		return action[:colonIdx]
+	}
+	return action
+}
+
+// isWithinScope checks if a policy resource is relevant within the requested scope.
+func isWithinScope(policyResource, scopePath string) bool {
+	// Wildcard policy matches any scope
+	if policyResource == "*" || scopePath == "*" {
+		return true
+	}
+
+	// Exact match
+	if policyResource == scopePath {
+		return true
+	}
+
+	// Policy is broader (parent) - grants permissions that include the scope
+	// e.g., policy "org/acme" includes scope "org/acme/project/p1"
+	if strings.HasPrefix(scopePath, policyResource+"/") {
+		return true
+	}
+
+	// Policy is narrower (child) - grants permissions within the scope
+	// e.g., scope "org/acme" includes policy "org/acme/project/p1"
+	if strings.HasPrefix(policyResource, scopePath+"/") {
+		return true
+	}
+
+	return false
+}
+
+// expandActionWildcard expands a potentially wildcarded action to all matching concrete actions.
+// Uses a pre-built map for O(1) lookups instead of O(A) iteration.
+func expandActionWildcard(actionPattern string, actionIndex actionIndex) []string {
+	// Full wildcard matches all actions
+	if actionPattern == "*" {
+		return actionIndex.actionsStringList
+	}
+	actionsByResource := actionIndex.ByResourceType
+
+	// Verb wildcard: "component:*" -> lookup "component:" in map
+	if strings.HasSuffix(actionPattern, ":*") {
+		resourcePrefix := actionPattern[:len(actionPattern)-2]
+
+		// O(1) map lookup instead of O(A) iteration
+		if actions, ok := actionsByResource[resourcePrefix]; ok {
+			return actions
+		}
+
+		// No actions found for this resource
+		return []string{}
+	}
+
+	// Concrete action - return as-is
+	return []string{actionPattern}
+}
+
+// validateProfileRequest checks if the ProfileRequest has all required fields
+func validateProfileRequest(req *authzcore.ProfileRequest) error {
+	if req == nil {
+		return fmt.Errorf("%w: profile request is nil", authzcore.ErrInvalidRequest)
+	}
+	if req.Subject.JwtToken == "" {
+		return fmt.Errorf("%w: subject jwt token is required", authzcore.ErrInvalidRequest)
+	}
+	return nil
+}

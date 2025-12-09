@@ -6,6 +6,7 @@ package authz
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 )
@@ -61,17 +62,24 @@ func (da *DisabledAuthorizer) BatchEvaluate(ctx context.Context, request *authz.
 }
 
 // GetSubjectProfile returns a profile with all actions allowed
-func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.SubjectProfile, error) {
+func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.UserCapabilitiesResponse, error) {
 	da.logger.Debug("disabled authorizer: get subject profile called (authorization disabled)",
 		"subject", request.Subject)
 
-	return &authz.SubjectProfile{
-		Hierarchy: authz.ProfileResourceNode{
-			Type:     "organization",
-			ID:       request.Scope.Organization,
-			Actions:  []string{"*"},
-			Children: []authz.ProfileResourceNode{},
+	return &authz.UserCapabilitiesResponse{
+		User: nil,
+		Capabilities: map[string]*authz.ActionCapability{
+			"*": { // Wildcard action - all actions allowed
+				Allowed: []*authz.CapabilityResource{
+					{
+						Path:        "*", // Wildcard path - all resources
+						Constraints: nil, // No constraints
+					},
+				},
+				Denied: []*authz.CapabilityResource{}, // Empty - no denials
+			},
 		},
+		GeneratedAt: time.Now(),
 	}, nil
 }
 

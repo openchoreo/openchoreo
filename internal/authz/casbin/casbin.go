@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -173,23 +174,158 @@ func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.
 }
 
 // GetSubjectProfile retrieves the authorization profile for a given subject
-func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.SubjectProfile, error) {
-	// TODO: Implement subject profile retrieval logic
+func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
 	ce.logger.Debug("get subject profile called",
 		"subject", request.Subject,
 		"scope", request.Scope)
 
-	// Placeholder implementation
-	profile := &authzcore.SubjectProfile{
-		Hierarchy: authzcore.ProfileResourceNode{
-			Type:     "organization",
-			ID:       request.Scope.Organization,
-			Actions:  []string{},
-			Children: []authzcore.ProfileResourceNode{},
-		},
+	if err := validateProfileRequest(request); err != nil {
+		return nil, err
 	}
 
-	return profile, nil
+	subjectCtx, err := ce.userTypeDetector.DetectUserType(request.Subject.JwtToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect user type: %w", err)
+	}
+
+	scopePath := hierarchyToResourcePath(request.Scope)
+
+	allConcreteActions, err := ce.actionRepository.ListConcreteActions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list concrete actions: %w", err)
+	}
+	actionIndex := indexActions(allConcreteActions)
+
+	policies, err := ce.filterPoliciesBySubjectAndScope(subjectCtx, scopePath)
+	if err != nil {
+		return nil, err
+	}
+
+	capabilities, err := ce.buildCapabilitiesFromPolicies(policies, actionIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &authzcore.UserCapabilitiesResponse{
+		User:         subjectCtx,
+		Capabilities: capabilities,
+		GeneratedAt:  time.Now(),
+	}, nil
+}
+
+type policyInfo struct {
+	resourcePath string
+	roleName     string
+	effect       string
+}
+
+// filterPoliciesBySubjectAndScope retrieves and filters policies relevant to the subject and scope
+func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.SubjectContext, scopePath string) ([]policyInfo, error) {
+	var filteredPolicies []policyInfo
+
+	for _, entitlementValue := range subjectCtx.EntitlementValues {
+		// Format subject as "claim:value" to match how policies are stored
+		subject := formatSubject(subjectCtx.EntitlementClaim, entitlementValue)
+		policies, err := ce.enforcer.GetFilteredPolicy(0, subject)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get policies for subject '%s': %w", subject, err)
+		}
+
+		for _, policy := range policies {
+			if len(policy) != 5 {
+				ce.logger.Warn("skipping malformed policy", "policy", policy)
+				continue
+			}
+
+			resourcePath := policy[1]
+			roleName := policy[2]
+			effect := policy[3]
+
+			// Filter by scope early
+			if !isWithinScope(resourcePath, scopePath) {
+				continue
+			}
+
+			filteredPolicies = append(filteredPolicies, policyInfo{
+				resourcePath: resourcePath,
+				roleName:     roleName,
+				effect:       effect,
+			})
+		}
+	}
+
+	return filteredPolicies, nil
+}
+
+// buildCapabilitiesFromPolicies constructs the capabilities map from filtered policies
+func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, actionIdx actionIndex) (map[string]*authzcore.ActionCapability, error) {
+	// Deduplicate roles - fetch each role's actions only once
+	uniqueRoles := make(map[string]bool)
+	for _, p := range policies {
+		uniqueRoles[p.roleName] = true
+	}
+
+	// Fetch actions for each unique role
+	roleToActions := make(map[string][]string)
+	for roleName := range uniqueRoles {
+		roleActions, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get actions for role '%s': %w", roleName, err)
+		}
+
+		var actions []string
+		for _, ra := range roleActions {
+			if len(ra) != 2 {
+				ce.logger.Warn("skipping malformed role-action mapping", "rule", ra)
+				continue
+			}
+			expandedActions := expandActionWildcard(ra[1], actionIdx)
+			actions = append(actions, expandedActions...)
+		}
+		roleToActions[roleName] = actions
+	}
+
+	// Build capabilities, deduplicating resources per action
+	type resourceKey struct {
+		path   string
+		effect string
+	}
+	actionResources := make(map[string]map[resourceKey]bool)
+
+	for _, p := range policies {
+		actions := roleToActions[p.roleName]
+		for _, action := range actions {
+			if actionResources[action] == nil {
+				actionResources[action] = make(map[resourceKey]bool)
+			}
+			actionResources[action][resourceKey{path: p.resourcePath, effect: p.effect}] = true
+		}
+	}
+
+	// Convert to final capabilities structure
+	capabilities := make(map[string]*authzcore.ActionCapability)
+	for action, resources := range actionResources {
+		capability := &authzcore.ActionCapability{
+			Allowed: []*authzcore.CapabilityResource{},
+			Denied:  []*authzcore.CapabilityResource{},
+		}
+
+		for res := range resources {
+			capRes := &authzcore.CapabilityResource{
+				Path:        res.path,
+				Constraints: nil,
+			}
+			if res.effect == string(authzcore.PolicyEffectAllow) {
+				capability.Allowed = append(capability.Allowed, capRes)
+			} else if res.effect == string(authzcore.PolicyEffectDeny) {
+				capability.Denied = append(capability.Denied, capRes)
+			}
+		}
+
+		capabilities[action] = capability
+	}
+
+	return capabilities, nil
 }
 
 // ============================================================================
@@ -477,7 +613,7 @@ func parseSubject(subject string) (claim, value string, err error) {
 }
 
 // TODO: once context is properly integrated, pass it to enforcer
-
+// check performs the actual authorization check using Casbin
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
 	subject := request.Subject
@@ -485,6 +621,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 	// Use the user type detector to extract subject context
 	subjectCtx, err := ce.userTypeDetector.DetectUserType(subject.JwtToken)
 	if err != nil {
+		ce.logger.Warn("failed to detect user type", "error", err)
 		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to detect user type: %w", err)
 	}
 
@@ -510,6 +647,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			emptyContextJSON,
 		)
 		if err != nil {
+			ce.logger.Warn("enforcement failed", "error", err)
 			return &authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
 		}
 		if result {

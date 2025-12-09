@@ -29,3 +29,19 @@ func (r *ActionRepository) List() ([]Action, error) {
 
 	return actions, nil
 }
+
+// ListConcreteActions retrieves only concrete (non-wildcarded) actions from the database.
+func (r *ActionRepository) ListConcreteActions() ([]Action, error) {
+	var actions []Action
+	// Filter at database level - exclude wildcarded actions (containing *)
+	result := r.db.
+		Where("action NOT LIKE '%*%'").
+		Order("action").
+		Find(&actions)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to list concrete actions: %w", result.Error)
+	}
+
+	return actions, nil
+}

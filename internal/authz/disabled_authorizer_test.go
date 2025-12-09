@@ -103,16 +103,21 @@ func TestDisabledAuthorizer_GetSubjectProfile(t *testing.T) {
 		t.Fatal("expected profile to be non-nil")
 	}
 
-	// Verify wildcard action is present
-	foundWildcard := false
-	for _, action := range profile.Hierarchy.Actions {
-		if action == "*" {
-			foundWildcard = true
-			break
-		}
+	wildcardCapability, exists := profile.Capabilities["*"]
+	if !exists {
+		t.Fatal("expected wildcard (*) action in Capabilities map")
 	}
-	if !foundWildcard {
-		t.Errorf("expected wildcard (*) action, got %v", profile.Hierarchy.Actions)
+	if len(profile.Capabilities) != 1 {
+		t.Errorf("expected 1 capability, got %d", len(profile.Capabilities))
+	}
+	if len(wildcardCapability.Allowed) != 1 {
+		t.Fatalf("expected 1 allowed resource, got %d", len(wildcardCapability.Allowed))
+	}
+	if wildcardCapability.Allowed[0].Path != "*" {
+		t.Errorf("expected wildcard (*) path, got %s", wildcardCapability.Allowed[0].Path)
+	}
+	if len(wildcardCapability.Denied) != 0 {
+		t.Errorf("expected 0 denied resources, got %d", len(wildcardCapability.Denied))
 	}
 }
 
