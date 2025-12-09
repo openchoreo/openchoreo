@@ -136,9 +136,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			"client_key":                stringProperty("Kubernetes client key"),
 			"public_virtual_host":       stringProperty("Public virtual host for the data plane"),
 			"organization_virtual_host": stringProperty("Organization-specific virtual host"),
-			"observer_url":              stringProperty("Optional: Observer URL for monitoring"),
-			"observer_username":         stringProperty("Optional: Observer username"),
-			"observer_password":         stringProperty("Optional: Observer password"),
+			"observability_plane_ref":   stringProperty("Optional: Reference to an ObservabilityPlane resource for monitoring"),
 		}, []string{
 			"org_name", "name", "kubernetes_cluster_name", "api_server_url", "ca_cert",
 			"client_cert", "client_key", "public_virtual_host", "organization_virtual_host",
@@ -155,9 +153,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 		ClientKey               string `json:"client_key"`
 		PublicVirtualHost       string `json:"public_virtual_host"`
 		OrganizationVirtualHost string `json:"organization_virtual_host"`
-		ObserverURL             string `json:"observer_url"`
-		ObserverUsername        string `json:"observer_username"`
-		ObserverPassword        string `json:"observer_password"`
+		ObservabilityPlaneRef   string `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
 		dataPlaneReq := &models.CreateDataPlaneRequest{
 			Name:                    args.Name,
@@ -170,9 +166,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			ClientKey:               args.ClientKey,
 			PublicVirtualHost:       args.PublicVirtualHost,
 			OrganizationVirtualHost: args.OrganizationVirtualHost,
-			ObserverURL:             args.ObserverURL,
-			ObserverUsername:        args.ObserverUsername,
-			ObserverPassword:        args.ObserverPassword,
+			ObservabilityPlaneRef:   args.ObservabilityPlaneRef,
 		}
 		result, err := t.InfrastructureToolset.CreateDataPlane(ctx, args.OrgName, dataPlaneReq)
 		return handleToolResult(result, err)

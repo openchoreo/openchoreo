@@ -110,12 +110,10 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 		// Determine status from conditions
 		status := ""
 
-		// Extract observer information if available
-		observerURL := ""
-		observerUsername := ""
-		if buildPlane.Spec.Observer.URL != "" {
-			observerURL = buildPlane.Spec.Observer.URL
-			observerUsername = buildPlane.Spec.Observer.Authentication.BasicAuth.Username
+		// Extract observability plane reference if available
+		observabilityPlaneRef := ""
+		if buildPlane.Spec.ObservabilityPlaneRef != "" {
+			observabilityPlaneRef = buildPlane.Spec.ObservabilityPlaneRef
 		}
 
 		buildPlaneResponse := models.BuildPlaneResponse{
@@ -125,8 +123,7 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			Description:           description,
 			KubernetesClusterName: buildPlane.Name,
 			APIServerURL:          buildPlane.Spec.KubernetesCluster.Server,
-			ObserverURL:           observerURL,
-			ObserverUsername:      observerUsername,
+			ObservabilityPlaneRef: observabilityPlaneRef,
 			CreatedAt:             buildPlane.CreationTimestamp.Time,
 			Status:                status,
 		}

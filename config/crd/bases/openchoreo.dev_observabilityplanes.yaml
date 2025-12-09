@@ -80,8 +80,13 @@ spec:
                       If false, direct Kubernetes API access is used via KubernetesCluster config
                     type: boolean
                 type: object
+              observerURL:
+                description: ObserverURL is the base URL of the Observer API in the
+                  observability plane cluster
+                type: string
             required:
             - agent
+            - observerURL
             type: object
           status:
             description: ObservabilityPlaneStatus defines the observed state of ObservabilityPlane.

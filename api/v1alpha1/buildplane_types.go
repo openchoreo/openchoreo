@@ -25,9 +25,10 @@ type BuildPlaneSpec struct {
 	// This field is optional when Agent.Enabled is true
 	// +optional
 	KubernetesCluster *KubernetesClusterSpec `json:"kubernetesCluster,omitempty"`
-	// Observer specifies the configuration for the Observer API integration.
+
+	// ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this BuildPlane.
 	// +optional
-	Observer ObserverAPI `json:"observer,omitempty"`
+	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
 }
 
 // BuildPlaneStatus defines the observed state of BuildPlane.

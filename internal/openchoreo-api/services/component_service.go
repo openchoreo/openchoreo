@@ -2426,20 +2426,12 @@ func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, 
 
 // ComponentObserverResponse represents the response for observer URL requests
 type ComponentObserverResponse struct {
-	ObserverURL      string                    `json:"observerUrl,omitempty"`
-	ConnectionMethod *ObserverConnectionMethod `json:"connectionMethod,omitempty"`
-	Message          string                    `json:"message,omitempty"`
-}
-
-// ObserverConnectionMethod contains the access method for the observer
-type ObserverConnectionMethod struct {
-	Type        string `json:"type,omitempty"`
-	Username    string `json:"username,omitempty"`
-	Password    string `json:"password,omitempty"`
-	BearerToken string `json:"bearerToken,omitempty"`
+	ObserverURL string `json:"observerUrl,omitempty"`
+	Message     string `json:"message,omitempty"`
 }
 
 // GetComponentObserverURL retrieves the observer URL for component runtime logs
+// NOTE: This function is to be deprecated in favor of the environment service to get the observer URL
 func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName, projectName, componentName, environmentName string) (*ComponentObserverResponse, error) {
 	s.logger.Debug("Getting component observer URL", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
 
@@ -2487,24 +2479,41 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName,
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
-	// 5. Check if observer is configured in the dataplane
-	if dp.Spec.Observer.URL == "" {
-		s.logger.Debug("Observer URL not configured in dataplane", "dataplane", dp.Name)
+	// 5. Check if observer is configured via ObservabilityPlaneRef
+	if dp.Spec.ObservabilityPlaneRef == "" {
+		s.logger.Debug("ObservabilityPlaneRef not configured in dataplane", "dataplane", dp.Name)
 		return &ComponentObserverResponse{
 			Message: "observability-logs have not been configured",
 		}, nil
 	}
 
-	// 6. Return observer URL and connection method from DataPlane.Spec.Observer
-	connectionMethod := &ObserverConnectionMethod{
-		Type:     "basic",
-		Username: dp.Spec.Observer.Authentication.BasicAuth.Username,
-		Password: dp.Spec.Observer.Authentication.BasicAuth.Password,
+	// 6. Fetch the ObservabilityPlane to get the ObserverURL
+	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+	opKey := client.ObjectKey{
+		Name:      dp.Spec.ObservabilityPlaneRef,
+		Namespace: dp.Namespace,
+	}
+	if err := s.k8sClient.Get(ctx, opKey, observabilityPlane); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Debug("ObservabilityPlane not found", "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+			return &ComponentObserverResponse{
+				Message: "observability-logs have not been configured",
+			}, nil
+		}
+		s.logger.Error("Failed to get observability plane", "error", err, "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
+	if observabilityPlane.Spec.ObserverURL == "" {
+		s.logger.Debug("ObserverURL not configured in observability plane", "observabilityPlane", observabilityPlane.Name)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	// 7. Return observer URL
 	return &ComponentObserverResponse{
-		ObserverURL:      dp.Spec.Observer.URL,
-		ConnectionMethod: connectionMethod,
+		ObserverURL: observabilityPlane.Spec.ObserverURL,
 	}, nil
 }
 
@@ -2536,24 +2545,41 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, pro
 	buildPlane := &buildPlanes.Items[0]
 	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", orgName)
 
-	// 3. Check if observer is configured
-	if buildPlane.Spec.Observer.URL == "" {
-		s.logger.Debug("Observer URL not configured in build plane", "buildPlane", buildPlane.Name)
+	// 3. Check if observer is configured via ObservabilityPlaneRef
+	if buildPlane.Spec.ObservabilityPlaneRef == "" {
+		s.logger.Debug("ObservabilityPlaneRef not configured in build plane", "buildPlane", buildPlane.Name)
 		return &ComponentObserverResponse{
 			Message: "observability-logs have not been configured",
 		}, nil
 	}
 
-	// 4. Return observer URL and connection method from BuildPlane.Spec.Observer
-	connectionMethod := &ObserverConnectionMethod{
-		Type:     "basic",
-		Username: buildPlane.Spec.Observer.Authentication.BasicAuth.Username,
-		Password: buildPlane.Spec.Observer.Authentication.BasicAuth.Password,
+	// 4. Fetch the ObservabilityPlane to get the ObserverURL
+	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+	opKey := client.ObjectKey{
+		Name:      buildPlane.Spec.ObservabilityPlaneRef,
+		Namespace: buildPlane.Namespace,
+	}
+	if err := s.k8sClient.Get(ctx, opKey, observabilityPlane); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Debug("ObservabilityPlane not found", "observabilityPlane", buildPlane.Spec.ObservabilityPlaneRef)
+			return &ComponentObserverResponse{
+				Message: "observability-logs have not been configured",
+			}, nil
+		}
+		s.logger.Error("Failed to get observability plane", "error", err, "observabilityPlane", buildPlane.Spec.ObservabilityPlaneRef)
+		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
+	if observabilityPlane.Spec.ObserverURL == "" {
+		s.logger.Debug("ObserverURL not configured in observability plane", "observabilityPlane", observabilityPlane.Name)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	// 5. Return observer URL
 	return &ComponentObserverResponse{
-		ObserverURL:      buildPlane.Spec.Observer.URL,
-		ConnectionMethod: connectionMethod,
+		ObserverURL: observabilityPlane.Spec.ObserverURL,
 	}, nil
 }
 

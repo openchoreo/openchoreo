@@ -20,6 +20,10 @@ type ObservabilityPlaneSpec struct {
 	// instead of direct Kubernetes API access
 	// +required
 	Agent *AgentConfig `json:"agent,omitempty"`
+
+	// ObserverURL is the base URL of the Observer API in the observability plane cluster
+	// +required
+	ObserverURL string `json:"observerURL"`
 }
 
 // ObservabilityPlaneStatus defines the observed state of ObservabilityPlane.

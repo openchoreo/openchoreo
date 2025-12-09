@@ -182,8 +182,7 @@ type DataPlaneResponse struct {
 	APIServerURL            string    `json:"apiServerURL,omitempty"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
 	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
-	ObserverURL             string    `json:"observerURL,omitempty"`
-	ObserverUsername        string    `json:"observerUsername,omitempty"`
+	ObservabilityPlaneRef   string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt               time.Time `json:"createdAt"`
 	Status                  string    `json:"status,omitempty"`
 }
@@ -196,8 +195,7 @@ type BuildPlaneResponse struct {
 	Description           string    `json:"description,omitempty"`
 	KubernetesClusterName string    `json:"kubernetesClusterName"`
 	APIServerURL          string    `json:"apiServerURL"`
-	ObserverURL           string    `json:"observerURL,omitempty"`
-	ObserverUsername      string    `json:"observerUsername,omitempty"`
+	ObservabilityPlaneRef string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt             time.Time `json:"createdAt"`
 	Status                string    `json:"status,omitempty"`
 }

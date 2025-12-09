@@ -161,17 +161,9 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 		},
 	}
 
-	// Add observer configuration if provided
-	if req.ObserverURL != "" {
-		spec.Observer = openchoreov1alpha1.ObserverAPI{
-			URL: req.ObserverURL,
-			Authentication: openchoreov1alpha1.ObserverAuthentication{
-				BasicAuth: openchoreov1alpha1.BasicAuthCredentials{
-					Username: req.ObserverUsername,
-					Password: req.ObserverPassword,
-				},
-			},
-		}
+	// Set observability plane reference if provided
+	if req.ObservabilityPlaneRef != "" {
+		spec.ObservabilityPlaneRef = req.ObservabilityPlaneRef
 	}
 
 	return &openchoreov1alpha1.DataPlane{
@@ -248,11 +240,9 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Status:                  status,
 	}
 
-	// Add observer configuration if present
-	if dp.Spec.Observer.URL != "" {
-		response.ObserverURL = dp.Spec.Observer.URL
-		response.ObserverUsername = dp.Spec.Observer.Authentication.BasicAuth.Username
-		// Password is excluded for security
+	// Add observability plane reference if present
+	if dp.Spec.ObservabilityPlaneRef != "" {
+		response.ObservabilityPlaneRef = dp.Spec.ObservabilityPlaneRef
 	}
 
 	return response

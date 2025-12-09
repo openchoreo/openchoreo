@@ -128,9 +128,7 @@ type CreateDataPlaneRequest struct {
 	ClientKey               string `json:"clientKey"`
 	PublicVirtualHost       string `json:"publicVirtualHost"`
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-	ObserverURL             string `json:"observerURL,omitempty"`
-	ObserverUsername        string `json:"observerUsername,omitempty"`
-	ObserverPassword        string `json:"observerPassword,omitempty"`
+	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -200,10 +198,7 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.ClientKey = strings.TrimSpace(req.ClientKey)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
-
-	req.ObserverURL = strings.TrimSpace(req.ObserverURL)
-	req.ObserverUsername = strings.TrimSpace(req.ObserverUsername)
-	req.ObserverPassword = strings.TrimSpace(req.ObserverPassword)
+	req.ObservabilityPlaneRef = strings.TrimSpace(req.ObservabilityPlaneRef)
 }
 
 // Sanitize sanitizes the PromoteComponentRequest by trimming whitespace
