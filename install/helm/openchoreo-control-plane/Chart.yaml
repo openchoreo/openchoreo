@@ -28,3 +28,7 @@ dependencies:
     repository: https://traefik.github.io/charts
     condition: traefik.enabled
     version: "34.4.1"
+  - name: thunder
+    condition: thunder.enabled
+    repository: oci://ghcr.io/asgardeo/helm-charts
+    version: "0.14.0"

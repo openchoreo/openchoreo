@@ -1,24 +1,22 @@
-{{- if .Values.asgardeoThunder.enabled }}
-{{- if .Values.asgardeoThunder.ingress.enabled -}}
-{{- $host := include "openchoreo.thunderHost" . -}}
+{{- if .Values.thunder.enabled }}
+{{- if .Values.thunder.customIngress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder
+  name: {{ .Values.thunder.fullnameOverride }}-custom-ingress
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: asgardeo-thunder
-  {{- with .Values.asgardeoThunder.ingress.annotations }}
+    app.kubernetes.io/component: thunder
   annotations:
+    {{- with .Values.thunder.customIngress.annotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.asgardeoThunder.ingress.ingressClassName | default .Values.global.ingressClassName }}
-  {{- if or .Values.global.tls.enabled .Values.asgardeoThunder.ingress.tls }}
+  ingressClassName: {{ .Values.thunder.customIngress.customIngressClassName | default .Values.global.ingressClassName }}
+  {{- if .Values.thunder.customIngress.tls }}
   tls:
-    {{- if .Values.asgardeoThunder.ingress.tls }}
-    {{- range .Values.asgardeoThunder.ingress.tls }}
+    {{- range .Values.thunder.customIngress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -32,8 +30,8 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- if .Values.asgardeoThunder.ingress.hosts }}
-    {{- range .Values.asgardeoThunder.ingress.hosts }}
+    {{- if .Values.thunder.customIngress.hosts }}
+    {{- range .Values.thunder.customIngress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -42,7 +40,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "openchoreo-control-plane.fullname" $ }}-asgardeo-thunder
+                name: {{ .Values.thunder.fullnameOverride }}-service
                 port:
                   number: {{ .port }}
           {{- end }}
@@ -55,9 +53,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder
+                name: {{ .Values.thunder.fullnameOverride }}-service
                 port:
-                  number: {{ .Values.asgardeoThunder.service.port }}
+                  number: {{ .Values.thunder.service.port }}
     {{- end }}
 {{- end }}
 {{- end }}

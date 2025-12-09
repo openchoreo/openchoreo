@@ -196,12 +196,14 @@ Get the Console (Backstage) hostname
 Get the Thunder IDP hostname
 */}}
 {{- define "openchoreo.thunderHost" -}}
-{{- if .Values.asgardeoThunder.ingress.hosts -}}
-  {{- (index .Values.asgardeoThunder.ingress.hosts 0).host -}}
+{{- if .Values.thunder.configuration.server.publicUrl -}}
+  {{- $url := .Values.thunder.configuration.server.publicUrl -}}
+  {{- $url = $url | trimPrefix "http://" | trimPrefix "https://" -}}
+  {{- $url | splitList ":" | first -}}
 {{- else if .Values.global.baseDomain -}}
   {{- printf "thunder.%s" .Values.global.baseDomain -}}
 {{- else -}}
-  {{- fail "Either global.baseDomain or asgardeoThunder.ingress.hosts must be set" -}}
+  {{- fail "Either global.baseDomain or thunder.configuration.server.publicUrl must be set" -}}
 {{- end -}}
 {{- end -}}
 
@@ -254,7 +256,7 @@ Get the external port number (for Thunder config)
 Get Thunder internal URL for pod-to-pod communication
 */}}
 {{- define "openchoreo.thunderInternalUrl" -}}
-{{- printf "http://%s-asgardeo-thunder.%s.svc.cluster.local:%d" (include "openchoreo-control-plane.fullname" .) .Release.Namespace (.Values.asgardeoThunder.service.port | int) -}}
+{{- printf "http://%s-service.%s.svc.cluster.local:%d" .Values.thunder.fullnameOverride .Release.Namespace (.Values.thunder.service.port | int) -}}
 {{- end -}}
 
 {{/*

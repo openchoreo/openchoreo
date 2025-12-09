@@ -2,5 +2,8 @@ dependencies:
 - name: traefik
   repository: https://traefik.github.io/charts
   version: 34.4.1
-digest: sha256:431077956a1c078f2e439fa848804ea2333c1a4152b07deb7c04b21cdf3602f2
-generated: "2025-12-12T23:12:09.945055+05:30"
+- name: thunder
+  repository: oci://ghcr.io/asgardeo/helm-charts
+  version: 0.14.0
+digest: sha256:5fa18f0100f861f0fa2f6e0e5126b18d9a88df309af10a3a5d731cdbe074d4c2
+generated: "2025-12-08T17:08:16.238865+05:30"

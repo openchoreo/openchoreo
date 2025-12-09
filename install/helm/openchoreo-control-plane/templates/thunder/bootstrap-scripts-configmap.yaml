@@ -1,0 +1,226 @@
+{{- if .Values.thunder.enabled }}
+{{- if .Values.thunder.bootstrap.enabled }}
+{{- $scheme := ternary "http" "https" .Values.thunder.configuration.server.httpOnly }}
+{{- $curlInsecure := ternary "" "-k" .Values.thunder.configuration.server.httpOnly }}
+{{- $port := .Values.thunder.configuration.server.port }}
+{{- $thunderUrl := printf "%s://localhost:%d" $scheme (int $port) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openchoreo-thunder-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: thunder-bootstrap
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-10"
+data:
+  50-backstage-app.sh: |
+    #!/bin/bash
+    set -e
+
+    log_info "Checking if application 'Backstage' already exists..."
+    existing_apps=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/applications')
+
+    # Extract application ID if it exists
+    app_id=$(echo "$existing_apps" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    # Define the application payload
+    APP_PAYLOAD='{
+      "name": "Backstage",
+      "description": "OpenChoreo Backstage Portal",
+      "auth_flow_graph_id": "auth_flow_config_basic",
+      "inbound_auth_config": [
+        {
+          "type": "oauth2",
+          "config": {
+            "client_id": "'"$BACKSTAGE_CLIENT_ID"'",
+            "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
+            "redirect_uris": [
+              {{- if .Values.backstage.auth.redirectUrls }}
+              {{- range $index, $url := .Values.backstage.auth.redirectUrls }}
+              {{- if $index }},{{ end }}
+              "{{ $url }}"
+              {{- end }}
+              {{- else }}
+              "{{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}/api/auth/default-idp/handler/frame"
+              {{- end }}
+            ],
+            "grant_types": [
+              "authorization_code"
+            ],
+            "response_types": [
+              "code"
+            ],
+            "token_endpoint_auth_method": "client_secret_post",
+            "pkce_required": false,
+            "public_client": false,
+            "token": {
+              "issuer": "thunder",
+              "access_token": {
+                "validity_period": 3600,
+                "user_attributes": [
+                  "given_name",
+                  "family_name",
+                  "username",
+                  "groups"
+                ]
+              },
+              "id_token": {
+                "validity_period": 3600,
+                "user_attributes": [
+                  "given_name",
+                  "family_name",
+                  "username",
+                  "groups"
+                ],
+                "scope_claims": {
+                  "groups": [
+                    "groups"
+                  ],
+                  "profile": [
+                    "username",
+                    "given_name",
+                    "family_name",
+                    "picture"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }'
+
+    if echo "$existing_apps" | grep -q '"name":"Backstage"'; then
+      log_info "Application 'Backstage' already exists (id: $app_id), updating..."
+      curl {{ $curlInsecure }} --location -X PUT "{{ $thunderUrl }}/applications/$app_id" \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Application updated successfully"
+    else
+      log_info "Application does not exist, creating default application..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/applications' \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Default application created successfully"
+    fi
+
+  51-user-schema-and-users.sh: |
+    #!/bin/bash
+    set -e
+
+    # First, create the default OU if it doesn't exist
+    log_info "Checking if default organization unit exists..."
+    if ! curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -q '"handle":"default"'; then
+      log_info "Creating default organization unit..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/organization-units' \
+        --header 'Content-Type: application/json' \
+        --header 'Accept: application/json' \
+        --data '{
+          "name": "Default",
+          "handle": "default",
+          "description": "Default organizational unit"
+        }' \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+      log_info "Default organization unit created successfully"
+    else
+      log_info "Default organization unit already exists"
+    fi
+
+    # Get the organization unit ID
+    ORG_UNIT_ID=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    log_info "Using organization unit ID: $ORG_UNIT_ID"
+
+    log_info "Checking if user schema 'engineer' already exists..."
+    existing_schemas=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/user-schemas')
+
+    if echo "$existing_schemas" | grep -q '"name":"engineer"'; then
+      log_info "User schema 'engineer' already exists, skipping creation"
+    else
+      log_info "User schema does not exist, creating user schema..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/user-schemas' \
+        --header 'accept: application/json' \
+        --header 'Content-Type: application/json' \
+        --data "{
+          \"name\": \"engineer\",
+          \"ouId\": \"$ORG_UNIT_ID\",
+          \"allowSelfRegistration\": true,
+          \"schema\": {
+            \"username\": {
+              \"type\": \"string\",
+              \"required\": true
+            },
+            \"password\": {
+              \"type\": \"string\",
+              \"required\": true
+            },
+            \"given_name\": {
+              \"type\": \"string\"
+            },
+            \"family_name\": {
+              \"type\": \"string\"
+            },
+            \"groups\": {
+              \"type\": \"array\",
+              \"items\": {\"type\": \"string\"}
+            }
+          }
+        }" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "User schema created successfully"
+    fi
+
+    # Create default users
+    {{- if .Values.thunder.bootstrap.defaultUsers }}
+    {{- range .Values.thunder.bootstrap.defaultUsers }}
+    log_info "Checking if user '{{ .username }}' already exists..."
+    existing_users=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/users')
+
+    if echo "$existing_users" | grep -q '"username":"{{ .username }}"'; then
+      log_info "User '{{ .username }}' already exists, skipping creation"
+    else
+      log_info "User does not exist, creating user '{{ .username }}'..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/users' \
+        --header 'accept: application/json' \
+        --header 'Content-Type: application/json' \
+        --data "{
+          \"type\": \"engineer\",
+          \"organizationUnit\": \"$ORG_UNIT_ID\",
+          \"attributes\": {
+            \"username\": \"{{ .username }}\",
+            \"password\": \"{{ .password }}\",
+            \"given_name\": \"{{ .givenName }}\",
+            \"family_name\": \"{{ .familyName }}\",
+            \"groups\": {{ .groups | toJson | replace "\"" "\\\"" }}
+          }
+        }" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "User '{{ .username }}' created successfully"
+    fi
+    {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -34,5 +34,5 @@ openchoreoApi:
 backstage:
   enabled: false
 
-asgardeoThunder:
+thunder:
   enabled: false

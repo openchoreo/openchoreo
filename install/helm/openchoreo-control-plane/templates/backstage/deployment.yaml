@@ -62,9 +62,9 @@ spec:
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
-              name: backstage-secrets
+              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
               key: backend-secret
-        {{- if .Values.asgardeoThunder.enabled }}
+        {{- if .Values.thunder.enabled }}
         - name: THUNDER_BASE_URL
           value: {{ .Values.backstage.thunder.baseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         {{- if .Values.backstage.thunder.token }}
@@ -75,14 +75,14 @@ spec:
           value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
           value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
-        {{- if .Values.asgardeoThunder.backstagePortal.enabled }}
+        {{- if .Values.thunder.enabled }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
-          value: {{ .Values.asgardeoThunder.backstagePortal.clientId | quote }}
+          value: {{ .Values.backstage.auth.clientId | quote }}
         - name: OPENCHOREO_AUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-asgardeo-thunder-secrets
-              key: backstage-client-secret
+              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              key: client-secret
         {{- end }}
         {{- end }}
         livenessProbe:
