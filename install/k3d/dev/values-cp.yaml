@@ -30,17 +30,9 @@ openchoreoApi:
     appArmorProfile:
       type: Unconfined
 
-# Disable UI and auth for dev (backend-only testing)
-# When enabling backstage, configure features as needed:
+# Disable UI and auth for dev
 backstage:
   enabled: false
-  # features:
-  #   workflows:
-  #     enabled: true
-  #   observability:
-  #     enabled: true
-  #   auth:
-  #     enabled: false  # Use guest mode for dev
 
 asgardeoThunder:
   enabled: false

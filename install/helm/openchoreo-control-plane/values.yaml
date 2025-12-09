@@ -400,12 +400,6 @@ backstage:
     # When disabled, hides Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard from entity pages
     observability:
       enabled: true
-    # Authentication configuration
-    # When disabled (false), users are automatically logged in as guests (no OAuth required)
-    # Useful for demos, development, or environments without identity provider
-    auth:
-      enabled: true
-
   env:
     - name: NODE_ENV
       value: production
