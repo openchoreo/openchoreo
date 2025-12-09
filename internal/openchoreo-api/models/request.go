@@ -5,6 +5,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -327,4 +328,45 @@ type SecretKeyRef struct {
 type UpdateComponentWorkflowSchemaRequest struct {
 	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
 	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
+}
+
+// ComponentTraitRequest represents a single trait instance in API requests
+type ComponentTraitRequest struct {
+	// Name is the name of the Trait resource to use
+	Name string `json:"name"`
+	// InstanceName uniquely identifies this trait instance within the component
+	InstanceName string `json:"instanceName"`
+	// Parameters contains the trait parameter values
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// UpdateComponentTraitsRequest represents the request to update all traits on a component
+type UpdateComponentTraitsRequest struct {
+	Traits []ComponentTraitRequest `json:"traits"`
+}
+
+// Validate validates the UpdateComponentTraitsRequest
+func (req *UpdateComponentTraitsRequest) Validate() error {
+	instanceNames := make(map[string]bool)
+	for i, trait := range req.Traits {
+		if strings.TrimSpace(trait.Name) == "" {
+			return errors.New("trait name is required at index " + fmt.Sprintf("%d", i))
+		}
+		if strings.TrimSpace(trait.InstanceName) == "" {
+			return errors.New("trait instanceName is required at index " + fmt.Sprintf("%d", i))
+		}
+		if instanceNames[trait.InstanceName] {
+			return errors.New("duplicate trait instanceName: " + trait.InstanceName)
+		}
+		instanceNames[trait.InstanceName] = true
+	}
+	return nil
+}
+
+// Sanitize sanitizes the UpdateComponentTraitsRequest by trimming whitespace
+func (req *UpdateComponentTraitsRequest) Sanitize() {
+	for i := range req.Traits {
+		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
+		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
+	}
 }

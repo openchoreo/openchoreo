@@ -2972,3 +2972,169 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 
 	return nil
 }
+
+// ListComponentTraits returns all trait instances attached to a component
+func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentTraitResponse, error) {
+	s.logger.Debug("Listing component traits", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	// Verify project exists
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get component
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Convert component traits to response format
+	traits := make([]*models.ComponentTraitResponse, 0, len(component.Spec.Traits))
+	for _, trait := range component.Spec.Traits {
+		traitResponse := &models.ComponentTraitResponse{
+			Name:         trait.Name,
+			InstanceName: trait.InstanceName,
+		}
+
+		// Convert parameters from runtime.RawExtension to map
+		if trait.Parameters != nil && trait.Parameters.Raw != nil {
+			var params map[string]interface{}
+			if err := json.Unmarshal(trait.Parameters.Raw, &params); err != nil {
+				s.logger.Warn("Failed to unmarshal trait parameters", "trait", trait.Name, "instanceName", trait.InstanceName, "error", err)
+				// Continue without parameters rather than failing
+			} else {
+				traitResponse.Parameters = params
+			}
+		}
+
+		traits = append(traits, traitResponse)
+	}
+
+	s.logger.Debug("Listed component traits", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	return traits, nil
+}
+
+// UpdateComponentTraits replaces all traits on a component
+func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest) ([]*models.ComponentTraitResponse, error) {
+	s.logger.Debug("Updating component traits", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	// Verify project exists
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get component
+	componentKey := client.ObjectKey{
+		Namespace: orgName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Validate that all referenced traits exist in the organization
+	for _, traitReq := range req.Traits {
+		traitKey := client.ObjectKey{
+			Namespace: orgName,
+			Name:      traitReq.Name,
+		}
+		var trait openchoreov1alpha1.Trait
+		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Trait not found", "org", orgName, "trait", traitReq.Name)
+				return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
+			}
+			s.logger.Error("Failed to get trait", "error", err)
+			return nil, fmt.Errorf("failed to get trait %s: %w", traitReq.Name, err)
+		}
+	}
+
+	// Convert request traits to component traits
+	componentTraits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
+	for _, traitReq := range req.Traits {
+		componentTrait := openchoreov1alpha1.ComponentTrait{
+			Name:         traitReq.Name,
+			InstanceName: traitReq.InstanceName,
+		}
+
+		// Convert parameters map to runtime.RawExtension
+		if len(traitReq.Parameters) > 0 {
+			paramsBytes, err := json.Marshal(traitReq.Parameters)
+			if err != nil {
+				s.logger.Error("Failed to marshal trait parameters", "trait", traitReq.Name, "error", err)
+				return nil, fmt.Errorf("failed to marshal trait parameters for %s: %w", traitReq.Name, err)
+			}
+			componentTrait.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+		}
+
+		componentTraits = append(componentTraits, componentTrait)
+	}
+
+	// Create a patch base
+	patchBase := component.DeepCopy()
+
+	// Update the traits
+	component.Spec.Traits = componentTraits
+
+	// Only patch if there are actual changes
+	if !reflect.DeepEqual(patchBase.Spec.Traits, component.Spec.Traits) {
+		patch := client.MergeFrom(patchBase)
+		if err := s.k8sClient.Patch(ctx, &component, patch); err != nil {
+			s.logger.Error("Failed to patch component traits", "error", err)
+			return nil, fmt.Errorf("failed to patch component traits: %w", err)
+		}
+		s.logger.Debug("Component traits updated successfully", "org", orgName, "project", projectName, "component", componentName)
+	} else {
+		s.logger.Debug("No trait changes detected", "org", orgName, "project", projectName, "component", componentName)
+	}
+
+	// Return the updated traits
+	return s.ListComponentTraits(ctx, orgName, projectName, componentName)
+}

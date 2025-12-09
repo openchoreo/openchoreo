@@ -32,6 +32,8 @@ var (
 	ErrReleaseNotFound            = errors.New("release not found")
 	ErrInvalidCommitSHA           = errors.New("invalid commit SHA format")
 	ErrUnauthorized               = errors.New("insufficient permissions to perform this action")
+	ErrDuplicateTraitInstanceName = errors.New("duplicate trait instance name")
+	ErrInvalidTraitInstance       = errors.New("invalid trait instance")
 )
 
 // Error codes for API responses
@@ -66,4 +68,6 @@ const (
 	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
 	CodeInvalidCommitSHA           = "INVALID_COMMIT_SHA"
 	CodeInvalidParams              = "INVALID_PARAMS"
+	CodeDuplicateTraitInstanceName = "DUPLICATE_TRAIT_INSTANCE_NAME"
+	CodeInvalidTraitInstance       = "INVALID_TRAIT_INSTANCE"
 )

@@ -260,6 +260,13 @@ type TraitResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
+// ComponentTraitResponse represents a trait instance attached to a component in API responses
+type ComponentTraitResponse struct {
+	Name         string                 `json:"name"`
+	InstanceName string                 `json:"instanceName"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty"`
+}
+
 // WorkflowResponse represents a Workflow in API responses
 type WorkflowResponse struct {
 	Name        string    `json:"name"`
