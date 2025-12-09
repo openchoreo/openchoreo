@@ -232,6 +232,180 @@ func TestPromoteComponentRequest_Sanitize(t *testing.T) {
 	}
 }
 
+func TestUpdateComponentTraitsRequest_Sanitize(t *testing.T) {
+	tests := []struct {
+		name   string
+		traits []ComponentTraitRequest
+		want   []ComponentTraitRequest
+	}{
+		{
+			name: "No whitespace",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "app-logging"},
+				{Name: "scaling", InstanceName: "auto-scale"},
+			},
+			want: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "app-logging"},
+				{Name: "scaling", InstanceName: "auto-scale"},
+			},
+		},
+		{
+			name: "With whitespace",
+			traits: []ComponentTraitRequest{
+				{Name: "  logging  ", InstanceName: "  app-logging  "},
+				{Name: "scaling", InstanceName: "auto-scale"},
+			},
+			want: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "app-logging"},
+				{Name: "scaling", InstanceName: "auto-scale"},
+			},
+		},
+		{
+			name:   "Empty traits",
+			traits: []ComponentTraitRequest{},
+			want:   []ComponentTraitRequest{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &UpdateComponentTraitsRequest{
+				Traits: tt.traits,
+			}
+			req.Sanitize()
+
+			if len(req.Traits) != len(tt.want) {
+				t.Errorf("After Sanitize() len(Traits) = %v, want %v", len(req.Traits), len(tt.want))
+				return
+			}
+
+			for i, trait := range req.Traits {
+				if trait.Name != tt.want[i].Name {
+					t.Errorf("After Sanitize() Traits[%d].Name = %v, want %v", i, trait.Name, tt.want[i].Name)
+				}
+				if trait.InstanceName != tt.want[i].InstanceName {
+					t.Errorf("After Sanitize() Traits[%d].InstanceName = %v, want %v", i, trait.InstanceName, tt.want[i].InstanceName)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateComponentTraitsRequest_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		traits  []ComponentTraitRequest
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "Valid traits",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "app-logging"},
+				{Name: "scaling", InstanceName: "auto-scale"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "Empty traits - valid",
+			traits:  []ComponentTraitRequest{},
+			wantErr: false,
+		},
+		{
+			name: "Missing trait name",
+			traits: []ComponentTraitRequest{
+				{Name: "", InstanceName: "app-logging"},
+			},
+			wantErr: true,
+			errMsg:  "trait name is required at index 0",
+		},
+		{
+			name: "Missing instance name",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: ""},
+			},
+			wantErr: true,
+			errMsg:  "trait instanceName is required at index 0",
+		},
+		{
+			name: "Duplicate instance names",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "my-trait"},
+				{Name: "scaling", InstanceName: "my-trait"},
+			},
+			wantErr: true,
+			errMsg:  "duplicate trait instanceName: my-trait",
+		},
+		{
+			name: "Same trait name with different instance names - valid",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "logging-1"},
+				{Name: "logging", InstanceName: "logging-2"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Whitespace-only name",
+			traits: []ComponentTraitRequest{
+				{Name: "   ", InstanceName: "app-logging"},
+			},
+			wantErr: true,
+			errMsg:  "trait name is required at index 0",
+		},
+		{
+			name: "Whitespace-only instance name",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "   "},
+			},
+			wantErr: true,
+			errMsg:  "trait instanceName is required at index 0",
+		},
+		{
+			name: "Error at second index",
+			traits: []ComponentTraitRequest{
+				{Name: "logging", InstanceName: "app-logging"},
+				{Name: "", InstanceName: "other-logging"},
+			},
+			wantErr: true,
+			errMsg:  "trait name is required at index 1",
+		},
+		{
+			name: "Valid traits with parameters",
+			traits: []ComponentTraitRequest{
+				{
+					Name:         "logging",
+					InstanceName: "app-logging",
+					Parameters:   map[string]interface{}{"level": "info"},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &UpdateComponentTraitsRequest{
+				Traits: tt.traits,
+			}
+			err := req.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Validate() expected error but got none")
+					return
+				}
+				if err.Error() != tt.errMsg {
+					t.Errorf("Validate() error = %v, want %v", err.Error(), tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Validate() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestPatchReleaseBindingRequest(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -730,6 +730,314 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 	}
 }
 
+// TestListComponentTraits_PathParameters tests path parameter extraction for ListComponentTraits
+func TestListComponentTraits_PathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		url           string
+		orgName       string
+		projectName   string
+		componentName string
+	}{
+		{
+			name:          "Valid path with all parameters",
+			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+		},
+		{
+			name:          "Path with hyphens in names",
+			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/traits",
+			orgName:       "my-org",
+			projectName:   "my-project",
+			componentName: "my-component",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("projectName", tt.projectName)
+			req.SetPathValue("componentName", tt.componentName)
+
+			// Verify all path values are set correctly
+			if req.PathValue("orgName") != tt.orgName {
+				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			}
+			if req.PathValue("projectName") != tt.projectName {
+				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
+			}
+			if req.PathValue("componentName") != tt.componentName {
+				t.Errorf("componentName = %v, want %v", req.PathValue("componentName"), tt.componentName)
+			}
+		})
+	}
+}
+
+// TestListComponentTraits_MissingPathParameters tests validation for missing required parameters
+func TestListComponentTraits_MissingPathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		orgName       string
+		projectName   string
+		componentName string
+		wantValid     bool
+	}{
+		{
+			name:          "All parameters present",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     true,
+		},
+		{
+			name:          "Missing org name",
+			orgName:       "",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing project name",
+			orgName:       "myorg",
+			projectName:   "",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing component name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "",
+			wantValid:     false,
+		},
+		{
+			name:          "All parameters missing",
+			orgName:       "",
+			projectName:   "",
+			componentName: "",
+			wantValid:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the validation logic from ListComponentTraits handler
+			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+
+			if isValid != tt.wantValid {
+				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
+			}
+		})
+	}
+}
+
+// TestUpdateComponentTraits_RequestParsing tests PUT component traits request body parsing
+func TestUpdateComponentTraits_RequestParsing(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestBody string
+		wantErr     bool
+		checkFunc   func(*testing.T, *models.UpdateComponentTraitsRequest)
+	}{
+		{
+			name:        "Valid request with single trait",
+			requestBody: `{"traits": [{"name": "logging", "instanceName": "app-logging"}]}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.UpdateComponentTraitsRequest) {
+				if len(req.Traits) != 1 {
+					t.Errorf("Expected 1 trait, got %d", len(req.Traits))
+				}
+				if req.Traits[0].Name != "logging" {
+					t.Errorf("Expected trait name 'logging', got %s", req.Traits[0].Name)
+				}
+				if req.Traits[0].InstanceName != "app-logging" {
+					t.Errorf("Expected instanceName 'app-logging', got %s", req.Traits[0].InstanceName)
+				}
+			},
+		},
+		{
+			name:        "Valid request with multiple traits",
+			requestBody: `{"traits": [{"name": "logging", "instanceName": "app-logging"}, {"name": "scaling", "instanceName": "auto-scale"}]}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.UpdateComponentTraitsRequest) {
+				if len(req.Traits) != 2 {
+					t.Errorf("Expected 2 traits, got %d", len(req.Traits))
+				}
+			},
+		},
+		{
+			name:        "Valid request with parameters",
+			requestBody: `{"traits": [{"name": "logging", "instanceName": "app-logging", "parameters": {"level": "info", "format": "json"}}]}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.UpdateComponentTraitsRequest) {
+				if len(req.Traits) != 1 {
+					t.Errorf("Expected 1 trait, got %d", len(req.Traits))
+				}
+				if req.Traits[0].Parameters == nil {
+					t.Error("Expected parameters to be set")
+				}
+				if req.Traits[0].Parameters["level"] != "info" {
+					t.Errorf("Expected parameter level 'info', got %v", req.Traits[0].Parameters["level"])
+				}
+			},
+		},
+		{
+			name:        "Valid request with empty traits",
+			requestBody: `{"traits": []}`,
+			wantErr:     false,
+			checkFunc: func(t *testing.T, req *models.UpdateComponentTraitsRequest) {
+				if len(req.Traits) != 0 {
+					t.Errorf("Expected 0 traits, got %d", len(req.Traits))
+				}
+			},
+		},
+		{
+			name:        "Invalid JSON",
+			requestBody: `{"traits": }`,
+			wantErr:     true,
+		},
+		{
+			name:        "Invalid trait structure",
+			requestBody: `{"traits": "not-an-array"}`,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req models.UpdateComponentTraitsRequest
+			err := json.NewDecoder(bytes.NewReader([]byte(tt.requestBody))).Decode(&req)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error parsing JSON, got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error parsing JSON: %v", err)
+				}
+				if tt.checkFunc != nil {
+					tt.checkFunc(t, &req)
+				}
+			}
+		})
+	}
+}
+
+// TestUpdateComponentTraits_PathParameters tests path parameter extraction for UpdateComponentTraits
+func TestUpdateComponentTraits_PathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		url           string
+		orgName       string
+		projectName   string
+		componentName string
+	}{
+		{
+			name:          "Valid path with all parameters",
+			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+		},
+		{
+			name:          "Path with hyphens in names",
+			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/traits",
+			orgName:       "my-org",
+			projectName:   "my-project",
+			componentName: "my-component",
+		},
+		{
+			name:          "Path with underscores in names",
+			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component/traits",
+			orgName:       "my_org",
+			projectName:   "my_project",
+			componentName: "my_component",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPut, tt.url, nil)
+			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("projectName", tt.projectName)
+			req.SetPathValue("componentName", tt.componentName)
+
+			// Verify all path values are set correctly
+			if req.PathValue("orgName") != tt.orgName {
+				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			}
+			if req.PathValue("projectName") != tt.projectName {
+				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
+			}
+			if req.PathValue("componentName") != tt.componentName {
+				t.Errorf("componentName = %v, want %v", req.PathValue("componentName"), tt.componentName)
+			}
+		})
+	}
+}
+
+// TestUpdateComponentTraits_MissingPathParameters tests validation for missing required parameters
+func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		orgName       string
+		projectName   string
+		componentName string
+		wantValid     bool
+	}{
+		{
+			name:          "All parameters present",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     true,
+		},
+		{
+			name:          "Missing org name",
+			orgName:       "",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing project name",
+			orgName:       "myorg",
+			projectName:   "",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing component name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "",
+			wantValid:     false,
+		},
+		{
+			name:          "All parameters missing",
+			orgName:       "",
+			projectName:   "",
+			componentName: "",
+			wantValid:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the validation logic from UpdateComponentTraits handler
+			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+
+			if isValid != tt.wantValid {
+				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
+			}
+		})
+	}
+}
+
 // TestPatchComponent_MissingPathParameters tests validation for missing required parameters
 func TestPatchComponent_MissingPathParameters(t *testing.T) {
 	tests := []struct {
