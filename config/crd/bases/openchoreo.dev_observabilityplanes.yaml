@@ -85,7 +85,6 @@ spec:
                   observability plane cluster
                 type: string
             required:
-            - agent
             - observerURL
             type: object
           status:
