@@ -168,6 +168,9 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/authz/batch-evaluate", h.BatchEvaluate)
 	api.HandleFunc("GET "+v1+"/authz/profile", h.GetAuthzProfile)
 
+	// ObservabilityPlane management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/observabilityplanes", h.ListObservabilityPlanes)
+
 	return mux
 }
 

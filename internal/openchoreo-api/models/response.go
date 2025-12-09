@@ -332,3 +332,13 @@ type RemoteReferenceInfo struct {
 	Property string `json:"property,omitempty"`
 	Version  string `json:"version,omitempty"`
 }
+
+// ObservabilityPlaneResponse represents an observability plane in API responses
+type ObservabilityPlaneResponse struct {
+	Name        string    `json:"name"`
+	Namespace   string    `json:"namespace"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	Status      string    `json:"status,omitempty"`
+}

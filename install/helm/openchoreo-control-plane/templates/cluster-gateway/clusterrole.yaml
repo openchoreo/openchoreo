@@ -15,6 +15,10 @@ rules:
 - apiGroups: ["openchoreo.dev"]
   resources: ["buildplanes"]
   verbs: ["get", "list", "watch"]
+# Allow reading ObservabilityPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["observabilityplanes"]
+  verbs: ["get", "list", "watch"]
 # Allow reading Secrets for client CA certificates
 - apiGroups: [""]
   resources: ["secrets"]

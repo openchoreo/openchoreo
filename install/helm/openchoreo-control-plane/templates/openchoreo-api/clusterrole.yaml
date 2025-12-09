@@ -28,6 +28,7 @@ rules:
   - endpoints
   - environments
   - gitcommitrequests
+  - observabilityplanes
   - organizations
   - projects
   - releasebindings
@@ -75,6 +76,7 @@ rules:
   - endpoints/status
   - environments/status
   - gitcommitrequests/status
+  - observabilityplanes/status
   - organizations/status
   - projects/status
   - releasebindings/status
