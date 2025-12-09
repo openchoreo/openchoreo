@@ -133,3 +133,21 @@ in the data plane's fake secret store instead.
 {{- fail "\n\nERROR: fakeSecretStore is enabled but external-secrets is disabled.\n\nSince external-secrets is disabled in the observability plane, fake secrets should be configured in the data plane's fake secret store instead.\n\nTo fix this issue:\n  1. Set fakeSecretStore.enabled=false in observability plane values\n  2. Configure fake secrets in the data plane's fake secret store\n" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Cluster Agent name
+*/}}
+{{- define "openchoreo-observability-plane.clusterAgent.name" -}}
+{{- default "cluster-agent" .Values.clusterAgent.name }}
+{{- end }}
+
+{{/*
+Cluster Agent service account name
+*/}}
+{{- define "openchoreo-observability-plane.clusterAgent.serviceAccountName" -}}
+{{- if .Values.clusterAgent.serviceAccount.create }}
+{{- default "cluster-agent" .Values.clusterAgent.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.clusterAgent.serviceAccount.name }}
+{{- end }}
+{{- end }}

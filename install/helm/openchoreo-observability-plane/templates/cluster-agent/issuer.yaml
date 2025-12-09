@@ -1,0 +1,39 @@
+{{- if .Values.clusterAgent.enabled }}
+{{- if .Values.clusterAgent.tls.enabled }}
+{{- if .Values.clusterAgent.tls.caSecretName }}
+---
+# CA Issuer that uses the cluster gateway CA from control plane
+# The CA secret must be copied to this namespace first
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-4"
+spec:
+  ca:
+    secretName: {{ .Values.clusterAgent.tls.caSecretName }}
+{{- else }}
+---
+# Fallback: Self-signed issuer (not recommended for production)
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-5"
+spec:
+  selfSigned: {}
+{{- end }}
+{{- end }}
+{{- end }}

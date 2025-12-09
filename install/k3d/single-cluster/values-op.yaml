@@ -30,3 +30,9 @@ external-secrets:
 
 fakeSecretStore:
   enabled: false
+
+clusterAgent:
+  enabled: true
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: observabilityplane

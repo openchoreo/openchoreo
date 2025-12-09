@@ -1,0 +1,40 @@
+{{- if .Values.clusterAgent.enabled }}
+{{- if .Values.clusterAgent.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-3"
+spec:
+  secretName: {{ .Values.clusterAgent.tls.secretName }}
+  commonName: {{ .Values.clusterAgent.planeName }}
+  subject:
+    organizations:
+      - OpenChoreo
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  usages:
+    - client auth
+  issuerRef:
+    kind: Issuer
+    {{- if .Values.clusterAgent.tls.caSecretName }}
+    name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}-ca-issuer
+    {{- else }}
+    name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}-selfsigned-issuer
+    {{- end }}
+  {{- with .Values.clusterAgent.tls.duration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterAgent.tls.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}

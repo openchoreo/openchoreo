@@ -13,3 +13,34 @@ openSearch:
   # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
   service:
     type: LoadBalancer
+
+clusterAgent:
+  enabled: true
+  serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
+  planeName: "default"
+  planeType: "observabilityplane"
+
+  # DNS rewrite configuration for multi-cluster k3d setup
+  # Rewrites *.openchoreo.localhost to host.k3d.internal for cross-cluster communication
+  dnsRewrite:
+    enabled: true
+
+  # Client certificate auto-generation via cert-manager
+  tls:
+    enabled: true
+    generateCerts: true
+    # For multi-cluster, don't set caSecretName - use self-signed certs
+    # The cluster gateway will verify the client cert via mTLS
+    caSecretName: ""
+    caSecretNamespace: ""
+    # Server CA certificate for TLS verification
+    # Extract from control plane: kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}' | base64 -d
+    # Or use: ./install/extract-agent-cas.sh server-ca
+    serverCAValue: |
+      -----BEGIN CERTIFICATE-----
+      <PASTE_SERVER_CA_CERTIFICATE_HERE>
+      -----END CERTIFICATE-----
+
+  # RBAC for cluster agent
+  rbac:
+    create: true

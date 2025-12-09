@@ -53,7 +53,8 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
 ./install/extract-agent-cas.sh --control-plane-context k3d-openchoreo-cp server-ca
 ```
 
-The server CA certificate will be saved to `./agent-cas/server-ca.crt`. You'll need to paste its contents into the data plane and build plane values files.
+The server CA certificate will be saved to `./agent-cas/server-ca.crt`.
+You'll need to paste its contents into the data plane, build plane and observability plane values files.
 
 ### 2. Data Plane
 
@@ -106,6 +107,11 @@ helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
 > The agent will try to connect but won't succeed until you create the BuildPlane resource in Step 6.
 
 ### 4. Observability Plane (Optional)
+
+> [!IMPORTANT]
+> Before installing the observability plane, verify that the server CA certificate from Step 1 is already in `install/k3d/multi-cluster/values-op.yaml` under `clusterAgent.tls.serverCAValue`.
+>
+> The values file in the repository already contains the CA certificate. If you regenerated it in Step 1, paste the contents of `./agent-cas/server-ca.crt` to update the values file.
 
 Create cluster and install components:
 
@@ -215,6 +221,58 @@ kubectl --context k3d-openchoreo-cp create secret generic buildplane-default-ca 
   --name default
 ```
 </details>
+
+### 7. Create ObservabilityPlane Resource (optional)
+
+Similar to the DataPlane and BuildPlane, use `add-observability-plane.sh` to automatically extract and configure:
+
+```bash
+# Create ObservabilityPlane CR with automatic client CA extraction
+./install/add-observability-plane.sh \
+  --control-plane-context k3d-openchoreo-cp \
+  --observabilityplane-context k3d-openchoreo-op \
+  --name default \
+  --observer-url http://host.k3d.internal:11080/observer
+
+# Verify the ObservabilityPlane resource was created
+kubectl --context k3d-openchoreo-cp get observabilityplane default -n default
+```
+
+<details>
+<summary>Alternative: Manual creation with secret reference</summary>
+
+If you prefer to manage the client CA as a Kubernetes secret:
+
+```bash
+# Extract observability plane agent's client CA certificate
+kubectl --context k3d-openchoreo-op get secret cluster-agent-tls \
+  -n openchoreo-observability-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/observabilityplane-ca.crt
+
+# Create secret in control plane with observability plane's client CA
+kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-default-ca \
+  --from-file=ca.crt=/tmp/observabilityplane-ca.crt \
+  -n default \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
+
+# Create ObservabilityPlane CR referencing the secret
+./install/add-observability-plane.sh \
+  --control-plane-context k3d-openchoreo-cp \
+  --agent-ca-secret observabilityplane-default-ca \
+  --name default \
+  --observer-url http://host.k3d.internal:11080/observer
+```
+</details>
+
+Configure DataPlane to use default ObservabilityPlane
+```
+kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```
+
+Configure BuildPlane (if installed) to use default ObservabilityPlane
+```
+kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```
 
 ## Port Mappings
 

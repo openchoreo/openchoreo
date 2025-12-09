@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	planeTypeDataPlane  = "dataplane"
-	planeTypeBuildPlane = "buildplane"
+	planeTypeDataPlane          = "dataplane"
+	planeTypeBuildPlane         = "buildplane"
+	planeTypeObservabilityPlane = "observabilityplane"
 )
 
 type Server struct {
@@ -208,11 +209,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if planeType != planeTypeDataPlane && planeType != planeTypeBuildPlane {
+	if planeType != planeTypeDataPlane && planeType != planeTypeBuildPlane && planeType != planeTypeObservabilityPlane {
 		s.logger.Warn("connection rejected: invalid planeType",
 			"planeType", planeType,
 		)
-		http.Error(w, "invalid planeType: must be 'dataplane' or 'buildplane'", http.StatusBadRequest)
+		http.Error(w, "invalid planeType: must be 'dataplane', 'buildplane', or 'observabilityplane'", http.StatusBadRequest)
 		return
 	}
 
@@ -732,6 +733,53 @@ func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 		}
 
 		return nil, fmt.Errorf("BuildPlane %s not found", planeName)
+	}
+
+	if planeType == planeTypeObservabilityPlane {
+		var observabilityPlane openchoreov1alpha1.ObservabilityPlane
+
+		// Todo: Need to optimize to get the plane from the correct namespace
+		for _, namespace := range namespacesToCheck {
+			key := client.ObjectKey{
+				Name:      planeName,
+				Namespace: namespace,
+			}
+
+			if err := s.k8sClient.Get(ctx, key, &observabilityPlane); err == nil {
+				s.logger.Debug("found ObservabilityPlane CR",
+					"name", planeName,
+					"namespace", namespace,
+				)
+
+				if observabilityPlane.Spec.Agent != nil && observabilityPlane.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(observabilityPlane.Spec.Agent.ClientCA, namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		var observabilityPlaneList openchoreov1alpha1.ObservabilityPlaneList
+		if err := s.k8sClient.List(ctx, &observabilityPlaneList); err != nil {
+			return nil, fmt.Errorf("failed to list ObservabilityPlane CRs: %w", err)
+		}
+
+		for _, op := range observabilityPlaneList.Items {
+			if op.Name == planeName {
+				s.logger.Debug("found ObservabilityPlane CR via list",
+					"name", planeName,
+					"namespace", op.Namespace,
+				)
+
+				if op.Spec.Agent != nil && op.Spec.Agent.ClientCA != nil {
+					return s.extractCADataWithNamespace(op.Spec.Agent.ClientCA, op.Namespace)
+				}
+
+				return nil, nil
+			}
+		}
+
+		return nil, fmt.Errorf("ObservabilityPlane %s not found", planeName)
 	}
 
 	return nil, fmt.Errorf("unsupported plane type: %s", planeType)

@@ -7,7 +7,7 @@ import "time"
 
 type Config struct {
 	ServerURL         string
-	PlaneType         string // "dataplane" or "buildplane"
+	PlaneType         string // "dataplane" or "buildplane" or "observabilityplane"
 	PlaneName         string
 	ClientCertPath    string
 	ClientKeyPath     string

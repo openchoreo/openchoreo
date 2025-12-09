@@ -43,7 +43,7 @@ func main() {
 		cmdutil.GetEnv("SERVER_URL", "wss://cluster-gateway:8443/ws"),
 		"Cluster gateway WebSocket URL")
 	flag.StringVar(&planeType, "plane-type", cmdutil.GetEnv("PLANE_TYPE", "dataplane"),
-		"Plane type: dataplane or buildplane (required)")
+		"Plane type: dataplane, buildplane, or observabilityplane (required)")
 	flag.StringVar(&planeName, "plane-name", cmdutil.GetEnv("PLANE_NAME", ""),
 		"Plane name (required)")
 	flag.StringVar(&clientCertPath, "client-cert",
@@ -73,8 +73,8 @@ func main() {
 		planeType = "dataplane"
 	}
 
-	if planeType != "dataplane" && planeType != "buildplane" {
-		fmt.Printf("Error: plane-type must be 'dataplane' or 'buildplane', got: %s\n", planeType)
+	if planeType != "dataplane" && planeType != "buildplane" && planeType != "observabilityplane" {
+		fmt.Printf("Error: plane-type must be 'dataplane' or 'buildplane' or 'observabilityplane', got: %s\n", planeType)
 		flag.Usage()
 		os.Exit(1)
 	}
