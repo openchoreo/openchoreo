@@ -634,155 +634,122 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 	return nil
 }
 
-// getPlaneClientCA retrieves the client CA configuration from DataPlane or BuildPlane CR
+// getPlaneClientCA retrieves the client CA configuration from DataPlane, BuildPlane or ObservabilityPlane CR
 func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Todo: Need to optimize to get the plane from the correct namespace
+	switch planeType {
+	case planeTypeDataPlane:
+		return s.getDataPlaneClientCA(ctx, planeName)
+	case planeTypeBuildPlane:
+		return s.getBuildPlaneClientCA(ctx, planeName)
+	case planeTypeObservabilityPlane:
+		return s.getObservabilityPlaneClientCA(ctx, planeName)
+	default:
+		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
+	}
+}
+
+// getDataPlaneClientCA retrieves the client CA from a DataPlane CR
+func (s *Server) getDataPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
 	namespacesToCheck := []string{"default"}
 
-	if planeType == planeTypeDataPlane {
+	// Try to get from specific namespaces first
+	for _, namespace := range namespacesToCheck {
 		var dataPlane openchoreov1alpha1.DataPlane
+		key := client.ObjectKey{Name: planeName, Namespace: namespace}
 
-		for _, namespace := range namespacesToCheck {
-			key := client.ObjectKey{
-				Name:      planeName,
-				Namespace: namespace,
-			}
-
-			if err := s.k8sClient.Get(ctx, key, &dataPlane); err == nil {
-				s.logger.Debug("found DataPlane CR",
-					"name", planeName,
-					"namespace", namespace,
-				)
-
-				if dataPlane.Spec.Agent != nil && dataPlane.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(dataPlane.Spec.Agent.ClientCA, namespace)
-				}
-
-				return nil, nil
-			}
+		if err := s.k8sClient.Get(ctx, key, &dataPlane); err == nil {
+			s.logger.Debug("found DataPlane CR", "name", planeName, "namespace", namespace)
+			return s.extractCAFromPlane(dataPlane.Spec.Agent, namespace)
 		}
-
-		var dataPlaneList openchoreov1alpha1.DataPlaneList
-		if err := s.k8sClient.List(ctx, &dataPlaneList); err != nil {
-			return nil, fmt.Errorf("failed to list DataPlane CRs: %w", err)
-		}
-
-		for _, dp := range dataPlaneList.Items {
-			if dp.Name == planeName {
-				s.logger.Debug("found DataPlane CR via list",
-					"name", planeName,
-					"namespace", dp.Namespace,
-				)
-
-				if dp.Spec.Agent != nil && dp.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(dp.Spec.Agent.ClientCA, dp.Namespace)
-				}
-
-				return nil, nil
-			}
-		}
-
-		return nil, fmt.Errorf("DataPlane %s not found", planeName)
 	}
 
-	if planeType == planeTypeBuildPlane {
+	// Fallback to listing all DataPlanes
+	var dataPlaneList openchoreov1alpha1.DataPlaneList
+	if err := s.k8sClient.List(ctx, &dataPlaneList); err != nil {
+		return nil, fmt.Errorf("failed to list DataPlane CRs: %w", err)
+	}
+
+	for _, dp := range dataPlaneList.Items {
+		if dp.Name == planeName {
+			s.logger.Debug("found DataPlane CR via list", "name", planeName, "namespace", dp.Namespace)
+			return s.extractCAFromPlane(dp.Spec.Agent, dp.Namespace)
+		}
+	}
+
+	return nil, fmt.Errorf("DataPlane %s not found", planeName)
+}
+
+// getBuildPlaneClientCA retrieves the client CA from a BuildPlane CR
+func (s *Server) getBuildPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
+	namespacesToCheck := []string{"default"}
+
+	// Try to get from specific namespaces first
+	for _, namespace := range namespacesToCheck {
 		var buildPlane openchoreov1alpha1.BuildPlane
+		key := client.ObjectKey{Name: planeName, Namespace: namespace}
 
-		// Todo: Need to optimize to get the plane from the correct namespace
-		for _, namespace := range namespacesToCheck {
-			key := client.ObjectKey{
-				Name:      planeName,
-				Namespace: namespace,
-			}
-
-			if err := s.k8sClient.Get(ctx, key, &buildPlane); err == nil {
-				s.logger.Debug("found BuildPlane CR",
-					"name", planeName,
-					"namespace", namespace,
-				)
-
-				if buildPlane.Spec.Agent != nil && buildPlane.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(buildPlane.Spec.Agent.ClientCA, namespace)
-				}
-
-				return nil, nil
-			}
+		if err := s.k8sClient.Get(ctx, key, &buildPlane); err == nil {
+			s.logger.Debug("found BuildPlane CR", "name", planeName, "namespace", namespace)
+			return s.extractCAFromPlane(buildPlane.Spec.Agent, namespace)
 		}
-
-		var buildPlaneList openchoreov1alpha1.BuildPlaneList
-		if err := s.k8sClient.List(ctx, &buildPlaneList); err != nil {
-			return nil, fmt.Errorf("failed to list BuildPlane CRs: %w", err)
-		}
-
-		for _, bp := range buildPlaneList.Items {
-			if bp.Name == planeName {
-				s.logger.Debug("found BuildPlane CR via list",
-					"name", planeName,
-					"namespace", bp.Namespace,
-				)
-
-				if bp.Spec.Agent != nil && bp.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(bp.Spec.Agent.ClientCA, bp.Namespace)
-				}
-
-				return nil, nil
-			}
-		}
-
-		return nil, fmt.Errorf("BuildPlane %s not found", planeName)
 	}
 
-	if planeType == planeTypeObservabilityPlane {
+	// Fallback to listing all BuildPlanes
+	var buildPlaneList openchoreov1alpha1.BuildPlaneList
+	if err := s.k8sClient.List(ctx, &buildPlaneList); err != nil {
+		return nil, fmt.Errorf("failed to list BuildPlane CRs: %w", err)
+	}
+
+	for _, bp := range buildPlaneList.Items {
+		if bp.Name == planeName {
+			s.logger.Debug("found BuildPlane CR via list", "name", planeName, "namespace", bp.Namespace)
+			return s.extractCAFromPlane(bp.Spec.Agent, bp.Namespace)
+		}
+	}
+
+	return nil, fmt.Errorf("BuildPlane %s not found", planeName)
+}
+
+// getObservabilityPlaneClientCA retrieves the client CA from an ObservabilityPlane CR
+func (s *Server) getObservabilityPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
+	namespacesToCheck := []string{"default"}
+
+	// Try to get from specific namespaces first
+	for _, namespace := range namespacesToCheck {
 		var observabilityPlane openchoreov1alpha1.ObservabilityPlane
+		key := client.ObjectKey{Name: planeName, Namespace: namespace}
 
-		// Todo: Need to optimize to get the plane from the correct namespace
-		for _, namespace := range namespacesToCheck {
-			key := client.ObjectKey{
-				Name:      planeName,
-				Namespace: namespace,
-			}
-
-			if err := s.k8sClient.Get(ctx, key, &observabilityPlane); err == nil {
-				s.logger.Debug("found ObservabilityPlane CR",
-					"name", planeName,
-					"namespace", namespace,
-				)
-
-				if observabilityPlane.Spec.Agent != nil && observabilityPlane.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(observabilityPlane.Spec.Agent.ClientCA, namespace)
-				}
-
-				return nil, nil
-			}
+		if err := s.k8sClient.Get(ctx, key, &observabilityPlane); err == nil {
+			s.logger.Debug("found ObservabilityPlane CR", "name", planeName, "namespace", namespace)
+			return s.extractCAFromPlane(observabilityPlane.Spec.Agent, namespace)
 		}
-
-		var observabilityPlaneList openchoreov1alpha1.ObservabilityPlaneList
-		if err := s.k8sClient.List(ctx, &observabilityPlaneList); err != nil {
-			return nil, fmt.Errorf("failed to list ObservabilityPlane CRs: %w", err)
-		}
-
-		for _, op := range observabilityPlaneList.Items {
-			if op.Name == planeName {
-				s.logger.Debug("found ObservabilityPlane CR via list",
-					"name", planeName,
-					"namespace", op.Namespace,
-				)
-
-				if op.Spec.Agent != nil && op.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(op.Spec.Agent.ClientCA, op.Namespace)
-				}
-
-				return nil, nil
-			}
-		}
-
-		return nil, fmt.Errorf("ObservabilityPlane %s not found", planeName)
 	}
 
-	return nil, fmt.Errorf("unsupported plane type: %s", planeType)
+	// Fallback to listing all ObservabilityPlanes
+	var observabilityPlaneList openchoreov1alpha1.ObservabilityPlaneList
+	if err := s.k8sClient.List(ctx, &observabilityPlaneList); err != nil {
+		return nil, fmt.Errorf("failed to list ObservabilityPlane CRs: %w", err)
+	}
+
+	for _, op := range observabilityPlaneList.Items {
+		if op.Name == planeName {
+			s.logger.Debug("found ObservabilityPlane CR via list", "name", planeName, "namespace", op.Namespace)
+			return s.extractCAFromPlane(op.Spec.Agent, op.Namespace)
+		}
+	}
+
+	return nil, fmt.Errorf("ObservabilityPlane %s not found", planeName)
+}
+
+// extractCAFromPlane extracts CA data from a plane's Agent configuration
+func (s *Server) extractCAFromPlane(agent *openchoreov1alpha1.AgentConfig, namespace string) ([]byte, error) {
+	if agent == nil || agent.ClientCA == nil {
+		return nil, nil
+	}
+	return s.extractCADataWithNamespace(agent.ClientCA, namespace)
 }
 
 // extractCAData extracts CA certificate data from ValueFrom configuration
