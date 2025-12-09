@@ -642,7 +642,11 @@ thunder:
     enabled: true
     configMap:
       # Reference to external ConfigMap containing bootstrap scripts
+      # Using Pattern 2: Only override specific files while preserving Thunder's default bootstrap scripts
       name: openchoreo-thunder-bootstrap
+      files:
+        - 50-backstage-app.sh
+        - 51-user-schema-and-users.sh
     # Default users to create during bootstrap
     defaultUsers:
       - username: "admin@openchoreo.dev"
