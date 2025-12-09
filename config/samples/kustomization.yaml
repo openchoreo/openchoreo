@@ -37,4 +37,5 @@ resources:
   - openchoreo_v1alpha1_releasebinding.yaml
   - v1alpha1_componentworkflow.yaml
   - v1alpha1_componentworkflowrun.yaml
+  - openchoreo_v1alpha1_observabilityplane.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

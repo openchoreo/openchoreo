@@ -120,6 +120,7 @@ rules:
   - endpoints
   - environments
   - gitcommitrequests
+  - observabilityplanes
   - organizations
   - projects
   - releasebindings
@@ -167,6 +168,7 @@ rules:
   - endpoints/finalizers
   - environments/finalizers
   - gitcommitrequests/finalizers
+  - observabilityplanes/finalizers
   - organizations/finalizers
   - projects/finalizers
   - releasebindings/finalizers
@@ -208,6 +210,7 @@ rules:
   - endpoints/status
   - environments/status
   - gitcommitrequests/status
+  - observabilityplanes/status
   - organizations/status
   - projects/status
   - releasebindings/status

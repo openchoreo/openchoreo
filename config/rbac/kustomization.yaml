@@ -122,3 +122,6 @@ resources:
   - workflowrun_admin_role.yaml
   - workflowrun_editor_role.yaml
   - workflowrun_viewer_role.yaml
+  - observabilityplane_admin_role.yaml
+  - observabilityplane_editor_role.yaml
+  - observabilityplane_viewer_role.yaml

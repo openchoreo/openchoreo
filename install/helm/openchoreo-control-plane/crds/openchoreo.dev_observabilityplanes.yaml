@@ -1,0 +1,92 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: observabilityplanes.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ObservabilityPlane
+    listKind: ObservabilityPlaneList
+    plural: observabilityplanes
+    singular: observabilityplane
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ObservabilityPlane is the Schema for the observabilityplanes
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ObservabilityPlaneSpec defines the desired state of ObservabilityPlane.
+            properties:
+              agent:
+                description: |-
+                  Agent specifies the configuration for agent-based communication with the downstream cluster
+                  When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
+                  instead of direct Kubernetes API access
+                properties:
+                  clientCA:
+                    description: |-
+                      ClientCA contains the CA certificate used to verify the agent's client certificate
+                      This allows per-plane CA configuration for enhanced security
+                      The CA certificate should be base64-encoded PEM format
+                    properties:
+                      secretRef:
+                        description: SecretRef is a reference to a secret containing
+                          the value
+                        properties:
+                          key:
+                            description: Key is the key within the secret
+                            type: string
+                          name:
+                            description: Name of the secret
+                            type: string
+                          namespace:
+                            description: Namespace of the secret (optional, defaults
+                              to same namespace as parent resource)
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      value:
+                        description: Value is the inline value (optional fallback)
+                        type: string
+                    type: object
+                  enabled:
+                    description: |-
+                      Enabled indicates whether agent-based communication is enabled
+                      If false, direct Kubernetes API access is used via KubernetesCluster config
+                    type: boolean
+                type: object
+            required:
+            - agent
+            type: object
+          status:
+            description: ObservabilityPlaneStatus defines the observed state of ObservabilityPlane.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
