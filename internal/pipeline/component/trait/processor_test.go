@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -135,10 +136,12 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Parse base resources
-			var baseResources []map[string]any
-			if err := yaml.Unmarshal([]byte(tt.baseResourcesYAML), &baseResources); err != nil {
+			var baseResourceMaps []map[string]any
+			if err := yaml.Unmarshal([]byte(tt.baseResourcesYAML), &baseResourceMaps); err != nil {
 				t.Fatalf("Failed to parse base resources YAML: %v", err)
 			}
+
+			baseResources := toRenderedResources(baseResourceMaps)
 
 			// Parse trait
 			var trait v1alpha1.Trait
@@ -162,8 +165,10 @@ spec:
 					t.Errorf("ApplyTraitCreates() got %d resources, want %d", len(got), len(wantResources))
 				}
 
+				gotResources := extractResources(got)
+
 				// Compare resources
-				if diff := cmp.Diff(wantResources, got); diff != "" {
+				if diff := cmp.Diff(wantResources, gotResources); diff != "" {
 					t.Errorf("ApplyTraitCreates() mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -543,10 +548,12 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Parse resources
-			var resources []map[string]any
-			if err := yaml.Unmarshal([]byte(tt.resourcesYAML), &resources); err != nil {
+			var resourceMaps []map[string]any
+			if err := yaml.Unmarshal([]byte(tt.resourcesYAML), &resourceMaps); err != nil {
 				t.Fatalf("Failed to parse resources YAML: %v", err)
 			}
+
+			resources := toRenderedResources(resourceMaps)
 
 			// Parse trait
 			var trait v1alpha1.Trait
@@ -560,20 +567,16 @@ spec:
 				t.Fatalf("Failed to parse expected resources YAML: %v", err)
 			}
 
-			// Make a copy of resources since patches modify in place
-			resourcesCopy := make([]map[string]any, len(resources))
-			for i, r := range resources {
-				resourcesCopy[i] = deepCopy(r)
-			}
-
-			err := processor.ApplyTraitPatches(resourcesCopy, &trait, tt.context)
+			err := processor.ApplyTraitPatches(resources, &trait, tt.context)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ApplyTraitPatches() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
+				gotResources := extractResources(resources)
+
 				// Compare resources
-				if diff := cmp.Diff(wantResources, resourcesCopy); diff != "" {
+				if diff := cmp.Diff(wantResources, gotResources); diff != "" {
 					t.Errorf("ApplyTraitPatches() mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -644,10 +647,12 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Parse resources
-			var resources []map[string]any
-			if err := yaml.Unmarshal([]byte(tt.resourcesYAML), &resources); err != nil {
+			var resourceMaps []map[string]any
+			if err := yaml.Unmarshal([]byte(tt.resourcesYAML), &resourceMaps); err != nil {
 				t.Fatalf("Failed to parse resources YAML: %v", err)
 			}
+
+			resources := toRenderedResources(resourceMaps)
 
 			// Parse trait
 			var trait v1alpha1.Trait
@@ -671,8 +676,10 @@ spec:
 					t.Errorf("ProcessTraits() got %d resources, want %d", len(got), len(wantResources))
 				}
 
+				gotResources := extractResources(got)
+
 				// Compare resources
-				if diff := cmp.Diff(wantResources, got); diff != "" {
+				if diff := cmp.Diff(wantResources, gotResources); diff != "" {
 					t.Errorf("ProcessTraits() mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -702,9 +709,17 @@ func TestFindTargetResources(t *testing.T) {
     name: migration
 `
 
-	var resources []map[string]any
-	if err := yaml.Unmarshal([]byte(resourcesYAML), &resources); err != nil {
+	var resourceMaps []map[string]any
+	if err := yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps); err != nil {
 		t.Fatalf("Failed to parse resources YAML: %v", err)
+	}
+
+	// Create resources with mixed target planes
+	resources := []renderer.RenderedResource{
+		{Resource: deepCopy(resourceMaps[0]), TargetPlane: v1alpha1.TargetPlaneDataPlane},          // web deployment
+		{Resource: deepCopy(resourceMaps[1]), TargetPlane: v1alpha1.TargetPlaneDataPlane},          // database statefulset
+		{Resource: deepCopy(resourceMaps[2]), TargetPlane: v1alpha1.TargetPlaneDataPlane},          // web-svc service
+		{Resource: deepCopy(resourceMaps[3]), TargetPlane: v1alpha1.TargetPlaneObservabilityPlane}, // migration job (observability)
 	}
 
 	tests := []struct {
@@ -763,6 +778,50 @@ func TestFindTargetResources(t *testing.T) {
 			wantCount: 0,
 			wantNames: []string{},
 		},
+		{
+			name: "match by targetPlane only - dataplane",
+			target: TargetSpec{
+				TargetPlane: v1alpha1.TargetPlaneDataPlane,
+			},
+			wantCount: 3,
+			wantNames: []string{"web", "database", "web-svc"},
+		},
+		{
+			name: "match by targetPlane only - observabilityplane",
+			target: TargetSpec{
+				TargetPlane: v1alpha1.TargetPlaneObservabilityPlane,
+			},
+			wantCount: 1,
+			wantNames: []string{"migration"},
+		},
+		{
+			name: "match by targetPlane and kind",
+			target: TargetSpec{
+				TargetPlane: v1alpha1.TargetPlaneDataPlane,
+				Kind:        "Deployment",
+			},
+			wantCount: 1,
+			wantNames: []string{"web"},
+		},
+		{
+			name: "match by targetPlane and kind - no match (wrong plane)",
+			target: TargetSpec{
+				TargetPlane: v1alpha1.TargetPlaneObservabilityPlane,
+				Kind:        "Deployment",
+			},
+			wantCount: 0,
+			wantNames: []string{},
+		},
+		{
+			name: "match by targetPlane, group, and version",
+			target: TargetSpec{
+				TargetPlane: v1alpha1.TargetPlaneDataPlane,
+				Group:       "apps",
+				Version:     "v1",
+			},
+			wantCount: 2,
+			wantNames: []string{"web", "database"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -776,8 +835,8 @@ func TestFindTargetResources(t *testing.T) {
 			}
 
 			gotNames := make([]string, len(matches))
-			for i, match := range matches {
-				metadata := match["metadata"].(map[string]any)
+			for i, rr := range matches {
+				metadata := rr.Resource["metadata"].(map[string]any)
 				gotNames[i] = metadata["name"].(string)
 			}
 
@@ -789,6 +848,25 @@ func TestFindTargetResources(t *testing.T) {
 }
 
 // Helper functions
+
+func toRenderedResources(resourceMaps []map[string]any) []renderer.RenderedResource {
+	resources := make([]renderer.RenderedResource, len(resourceMaps))
+	for i, r := range resourceMaps {
+		resources[i] = renderer.RenderedResource{
+			Resource:    deepCopy(r), // Always deep copy for test isolation
+			TargetPlane: v1alpha1.TargetPlaneDataPlane,
+		}
+	}
+	return resources
+}
+
+func extractResources(rendered []renderer.RenderedResource) []map[string]any {
+	resources := make([]map[string]any, len(rendered))
+	for i, rr := range rendered {
+		resources[i] = rr.Resource
+	}
+	return resources
+}
 
 func deepCopy(m map[string]any) map[string]any {
 	result := make(map[string]any)

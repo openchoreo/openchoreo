@@ -6,6 +6,7 @@ package component
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -56,10 +57,38 @@ type RenderInput struct {
 	Metadata pipelinecontext.MetadataContext `validate:"required"`
 }
 
+// ApplyTargetPlaneDefaults normalizes empty targetPlane fields to "dataplane".
+// This handles backward compatibility with resources created before the targetPlane field existed.
+//
+// Deprecated: This method exists for backward compatibility during development
+// and should be removed when reaching 1.0.
+func (input *RenderInput) ApplyTargetPlaneDefaults() {
+	// Normalize ComponentType resources
+	for i := range input.ComponentType.Spec.Resources {
+		if input.ComponentType.Spec.Resources[i].TargetPlane == "" {
+			input.ComponentType.Spec.Resources[i].TargetPlane = v1alpha1.TargetPlaneDataPlane
+		}
+	}
+
+	// Normalize Traits
+	for i := range input.Traits {
+		for j := range input.Traits[i].Spec.Creates {
+			if input.Traits[i].Spec.Creates[j].TargetPlane == "" {
+				input.Traits[i].Spec.Creates[j].TargetPlane = v1alpha1.TargetPlaneDataPlane
+			}
+		}
+		for j := range input.Traits[i].Spec.Patches {
+			if input.Traits[i].Spec.Patches[j].TargetPlane == "" {
+				input.Traits[i].Spec.Patches[j].TargetPlane = v1alpha1.TargetPlaneDataPlane
+			}
+		}
+	}
+}
+
 // RenderOutput contains the results of the rendering process.
 type RenderOutput struct {
-	// Resources is the list of fully rendered Kubernetes resource manifests.
-	Resources []map[string]any
+	// Resources is the list of fully rendered Kubernetes resource manifests with their target planes.
+	Resources []renderer.RenderedResource
 
 	// Metadata contains information about the rendering process.
 	Metadata *RenderMetadata

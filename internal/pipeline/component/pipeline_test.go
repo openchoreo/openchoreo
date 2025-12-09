@@ -487,7 +487,13 @@ spec:
 					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 				}
 
-				if diff := cmp.Diff(wantResources, output.Resources, sortAnySlicesByName()); diff != "" {
+				// Extract just the Resource field from RenderedResource
+				actualResources := make([]map[string]any, len(output.Resources))
+				for i, rr := range output.Resources {
+					actualResources[i] = rr.Resource
+				}
+
+				if diff := cmp.Diff(wantResources, actualResources, sortAnySlicesByName()); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -700,8 +706,14 @@ spec:
 				t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 			}
 
+			// Extract just the Resource field from RenderedResource
+			actualResources := make([]map[string]any, len(output.Resources))
+			for i, rr := range output.Resources {
+				actualResources[i] = rr.Resource
+			}
+
 			// Compare actual vs expected
-			if diff := cmp.Diff(wantResources, output.Resources); diff != "" {
+			if diff := cmp.Diff(wantResources, actualResources); diff != "" {
 				t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 			}
 		})

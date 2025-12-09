@@ -120,6 +120,15 @@ spec:
                             If not specified, the resource is always created
                             Example: "${spec.autoscaling.enabled}"
                           type: string
+                        targetPlane:
+                          default: dataplane
+                          description: |-
+                            TargetPlane specifies which plane this resource should be deployed to
+                            Defaults to "dataplane" if not specified
+                          enum:
+                          - dataplane
+                          - observabilityplane
+                          type: string
                         template:
                           description: |-
                             Template contains the Kubernetes resource with CEL expressions
@@ -222,6 +231,15 @@ spec:
                         description: TraitCreate defines a resource template to be
                           created by the trait
                         properties:
+                          targetPlane:
+                            default: dataplane
+                            description: |-
+                              TargetPlane specifies which plane this resource should be deployed to
+                              Defaults to "dataplane" if not specified
+                            enum:
+                            - dataplane
+                            - observabilityplane
+                            type: string
                           template:
                             description: |-
                               Template contains the Kubernetes resource with CEL expressions
@@ -288,7 +306,7 @@ spec:
                               group:
                                 description: |-
                                   Group is the API group of the resource (e.g., "apps", "batch")
-                                  Use empty string for core resources
+                                  Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
                                 type: string
                               kind:
                                 description: Kind is the resource type to patch (e.g.,
@@ -306,9 +324,19 @@ spec:
                                   Example: ${resource.metadata.name.endsWith("-secret-envs")}
                                 type: string
                             required:
+                            - group
                             - kind
                             - version
                             type: object
+                          targetPlane:
+                            default: dataplane
+                            description: |-
+                              TargetPlane specifies which plane's resources this patch targets
+                              Defaults to "dataplane" if not specified
+                            enum:
+                            - dataplane
+                            - observabilityplane
+                            type: string
                           var:
                             description: |-
                               Var names the binding for forEach iterations

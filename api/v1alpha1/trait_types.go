@@ -25,6 +25,13 @@ type TraitSpec struct {
 
 // TraitCreate defines a resource template to be created by the trait
 type TraitCreate struct {
+	// TargetPlane specifies which plane this resource should be deployed to
+	// Defaults to "dataplane" if not specified
+	// +optional
+	// +kubebuilder:validation:Enum=dataplane;observabilityplane
+	// +kubebuilder:default=dataplane
+	TargetPlane string `json:"targetPlane,omitempty"`
+
 	// Template contains the Kubernetes resource with CEL expressions
 	// CEL expressions are enclosed in ${...} and will be evaluated at runtime
 	// +kubebuilder:validation:Required
@@ -90,6 +97,13 @@ type TraitPatch struct {
 	// +kubebuilder:validation:Required
 	Target PatchTarget `json:"target"`
 
+	// TargetPlane specifies which plane's resources this patch targets
+	// Defaults to "dataplane" if not specified
+	// +optional
+	// +kubebuilder:validation:Enum=dataplane;observabilityplane
+	// +kubebuilder:default=dataplane
+	TargetPlane string `json:"targetPlane,omitempty"`
+
 	// Operations is the list of JSONPatch operations to apply to the target resource
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
@@ -99,9 +113,9 @@ type TraitPatch struct {
 // PatchTarget specifies which resource to modify
 type PatchTarget struct {
 	// Group is the API group of the resource (e.g., "apps", "batch")
-	// Use empty string for core resources
-	// +optional
-	Group string `json:"group,omitempty"`
+	// Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+	// +kubebuilder:validation:Required
+	Group string `json:"group"`
 
 	// Version is the API version of the resource (e.g., "v1", "v1beta1")
 	// +kubebuilder:validation:Required

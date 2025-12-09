@@ -30,6 +30,15 @@ func NewRenderer(templateEngine *template.Engine) *Renderer {
 	}
 }
 
+// RenderedResource wraps a rendered Kubernetes resource with metadata about its target plane.
+type RenderedResource struct {
+	// Resource is the fully rendered Kubernetes resource manifest.
+	Resource map[string]any
+
+	// TargetPlane indicates which plane this resource should be deployed to.
+	TargetPlane string
+}
+
 // RenderResources renders all resources from a ComponentType.
 //
 // The process:
@@ -38,15 +47,15 @@ func NewRenderer(templateEngine *template.Engine) *Renderer {
 //   - Evaluate includeWhen (skip if false)
 //   - Check forEach (render multiple times if present)
 //   - Render template field using template engine
-//   - Return all rendered resources
+//   - Return all rendered resources with their target planes
 //
 // Returns an error if any template fails to render (unless it's a missing data error
 // for includeWhen evaluation).
 func (r *Renderer) RenderResources(
 	templates []v1alpha1.ResourceTemplate,
 	context map[string]any,
-) ([]map[string]any, error) {
-	resources := make([]map[string]any, 0, len(templates))
+) ([]RenderedResource, error) {
+	resources := make([]RenderedResource, 0, len(templates))
 
 	for _, tmpl := range templates {
 		// Check if resource should be included
@@ -64,7 +73,13 @@ func (r *Renderer) RenderResources(
 			if err != nil {
 				return nil, err
 			}
-			resources = append(resources, rendered...)
+			// Wrap each rendered resource with target plane
+			for _, res := range rendered {
+				resources = append(resources, RenderedResource{
+					Resource:    res,
+					TargetPlane: tmpl.TargetPlane,
+				})
+			}
 			continue
 		}
 
@@ -73,7 +88,10 @@ func (r *Renderer) RenderResources(
 		if err != nil {
 			return nil, err
 		}
-		resources = append(resources, rendered)
+		resources = append(resources, RenderedResource{
+			Resource:    rendered,
+			TargetPlane: tmpl.TargetPlane,
+		})
 	}
 
 	return resources, nil

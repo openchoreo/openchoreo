@@ -15,6 +15,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/patch"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -25,10 +26,11 @@ type Processor struct {
 
 // TargetSpec describes how to locate a resource when applying patches.
 type TargetSpec struct {
-	Kind    string
-	Group   string
-	Version string
-	Where   string
+	Kind        string
+	Group       string
+	Version     string
+	Where       string
+	TargetPlane string
 }
 
 // NewProcessor creates a new trait processor.
@@ -41,15 +43,13 @@ func NewProcessor(templateEngine *template.Engine) *Processor {
 // ProcessTraits applies all traits to the base resources.
 //
 // For each trait:
-//   - Apply creates (new resources)
-//   - Apply patches (modify existing resources)
-//
-// The resources slice is modified in place by patches.
+//   - Apply creates (new resources with targetPlane)
+//   - Apply patches (modify existing resources, respecting targetPlane)
 func (p *Processor) ProcessTraits(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
-) ([]map[string]any, error) {
+) ([]renderer.RenderedResource, error) {
 	// Apply creates first
 	var err error
 	resources, err = p.ApplyTraitCreates(resources, trait, traitContext)
@@ -66,12 +66,12 @@ func (p *Processor) ProcessTraits(
 	return resources, nil
 }
 
-// ApplyTraitCreates renders and adds new resources from trait.spec.creates.
+// ApplyTraitCreates renders and adds new resources from trait.spec.creates with targetPlane metadata.
 func (p *Processor) ApplyTraitCreates(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
-) ([]map[string]any, error) {
+) ([]renderer.RenderedResource, error) {
 	for i, createTemplate := range trait.Spec.Creates {
 		// Extract template data
 		var templateData any
@@ -98,8 +98,11 @@ func (p *Processor) ApplyTraitCreates(
 			return nil, fmt.Errorf("RemoveOmittedFields returned unexpected type %T for trait %s create #%d", cleanedAny, trait.Name, i)
 		}
 
-		// Append to resources
-		resources = append(resources, cleaned)
+		// Append to resources with targetPlane
+		resources = append(resources, renderer.RenderedResource{
+			Resource:    cleaned,
+			TargetPlane: createTemplate.TargetPlane,
+		})
 	}
 
 	return resources, nil
@@ -109,14 +112,14 @@ func (p *Processor) ApplyTraitCreates(
 //
 // This function handles the orchestration of:
 //   - forEach iteration over collections
-//   - Resource targeting (finding which resources to patch)
+//   - Resource targeting (finding which resources to patch, respecting targetPlane)
 //   - CEL rendering of patch operations and where clauses
 //   - Delegating to patch.ApplyPatches for the actual patching
 //
 // The patch package itself only handles the low-level mechanics of applying
 // operations to a single resource.
 func (p *Processor) ApplyTraitPatches(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
 ) error {
@@ -130,9 +133,9 @@ func (p *Processor) ApplyTraitPatches(
 }
 
 // applyPatch applies a single patch specification to resources.
-// Handles forEach iteration, targeting, filtering, and CEL rendering.
+// Handles forEach iteration, targeting, filtering, targetPlane matching, and CEL rendering.
 func (p *Processor) applyPatch(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
 	traitPatch v1alpha1.TraitPatch,
@@ -149,7 +152,7 @@ func (p *Processor) applyPatch(
 
 // applyPatchWithForEach handles forEach iteration for a patch.
 func (p *Processor) applyPatchWithForEach(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
 	traitPatch v1alpha1.TraitPatch,
@@ -192,34 +195,39 @@ func (p *Processor) applyPatchWithForEach(
 }
 
 // applyPatchOnce applies a patch to all matching targets with a given context.
+// Respects targetPlane - only patches resources in the same plane.
 func (p *Processor) applyPatchOnce(
-	resources []map[string]any,
+	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
 	traitPatch v1alpha1.TraitPatch,
 	context map[string]any,
 ) error {
-	// Find target resources based on Kind/Group/Version
+	// Find target resources based on targetPlane and Kind/Group/Version
 	target := TargetSpec{
-		Kind:    traitPatch.Target.Kind,
-		Group:   traitPatch.Target.Group,
-		Version: traitPatch.Target.Version,
-		Where:   traitPatch.Target.Where,
+		Kind:        traitPatch.Target.Kind,
+		Group:       traitPatch.Target.Group,
+		Version:     traitPatch.Target.Version,
+		Where:       traitPatch.Target.Where,
+		TargetPlane: traitPatch.TargetPlane,
 	}
-	targets := FindTargetResources(resources, target)
+	matchedResources := FindTargetResources(resources, target)
 
-	if len(targets) == 0 {
+	if len(matchedResources) == 0 {
 		// No matching resources - this is okay, patch is a no-op
 		return nil
 	}
 
 	// Filter targets using where clause if specified
+	var targets []renderer.RenderedResource
 	if target.Where != "" {
-		filtered, err := p.filterTargets(targets, target.Where, context, traitName, patchIndex)
+		filtered, err := p.filterTargets(matchedResources, target.Where, context, traitName, patchIndex)
 		if err != nil {
 			return err
 		}
 		targets = filtered
+	} else {
+		targets = matchedResources
 	}
 
 	// Render patch operations with CEL
@@ -229,11 +237,12 @@ func (p *Processor) applyPatchOnce(
 	}
 
 	// Apply rendered operations to each target using the simple patch function
-	for _, target := range targets {
-		if err := patch.ApplyPatches(target, renderedOps); err != nil {
+	// Note: patches modify the Resource field in-place
+	for _, rr := range targets {
+		if err := patch.ApplyPatches(rr.Resource, renderedOps); err != nil {
 			// Extract resource identity for better error message
-			kind, _ := target["kind"].(string)
-			metadata, _ := target["metadata"].(map[string]any)
+			kind, _ := rr.Resource["kind"].(string)
+			metadata, _ := rr.Resource["metadata"].(map[string]any)
 			name, _ := metadata["name"].(string)
 			resourceID := fmt.Sprintf("%s/%s", kind, name)
 			if resourceID == "/" {
@@ -247,22 +256,22 @@ func (p *Processor) applyPatchOnce(
 }
 
 // filterTargets filters resources based on a where clause.
-// The where clause is evaluated as a CEL expression with "resource" bound to each target.
+// The where clause is evaluated as a CEL expression with "resource" bound to each target's Resource field.
 func (p *Processor) filterTargets(
-	targets []map[string]any,
+	targets []renderer.RenderedResource,
 	whereClause string,
 	baseContext map[string]any,
 	traitName string,
 	patchIndex int,
-) ([]map[string]any, error) {
-	filtered := make([]map[string]any, 0, len(targets))
+) ([]renderer.RenderedResource, error) {
+	filtered := make([]renderer.RenderedResource, 0, len(targets))
 
 	// Save previous "resource" binding if it exists
 	previous, had := baseContext["resource"]
 
-	for _, target := range targets {
+	for _, rr := range targets {
 		// Bind the current resource for evaluation
-		baseContext["resource"] = target
+		baseContext["resource"] = rr.Resource
 
 		// Evaluate the where clause
 		result, err := p.templateEngine.Render(whereClause, baseContext)
@@ -293,7 +302,7 @@ func (p *Processor) filterTargets(
 		}
 
 		if boolResult {
-			filtered = append(filtered, target)
+			filtered = append(filtered, rr)
 		}
 	}
 
@@ -356,9 +365,10 @@ func (p *Processor) renderOperations(
 	return rendered, nil
 }
 
-// FindTargetResources filters resources based on Kind, Group, and Version.
+// FindTargetResources filters resources based on TargetPlane, Kind, Group, and Version.
 //
 // Matching rules:
+//   - If target.TargetPlane is set, resource.TargetPlane must match
 //   - If target.Kind is set, resource.kind must match
 //   - If target.Group is set, the group portion of resource.apiVersion must match
 //   - If target.Version is set, the version portion of resource.apiVersion must match
@@ -371,9 +381,16 @@ func (p *Processor) renderOperations(
 //
 // Note: Additional filtering (e.g., by name or custom where clauses) should be
 // done by the caller after calling this function.
-func FindTargetResources(resources []map[string]any, target TargetSpec) []map[string]any {
-	matches := make([]map[string]any, 0, len(resources))
-	for _, resource := range resources {
+func FindTargetResources(resources []renderer.RenderedResource, target TargetSpec) []renderer.RenderedResource {
+	matches := make([]renderer.RenderedResource, 0, len(resources))
+	for _, rr := range resources {
+		// Match TargetPlane
+		if target.TargetPlane != "" && rr.TargetPlane != target.TargetPlane {
+			continue
+		}
+
+		resource := rr.Resource
+
 		// Match Kind
 		if target.Kind != "" {
 			if kind, ok := resource["kind"].(string); !ok || kind != target.Kind {
@@ -394,7 +411,7 @@ func FindTargetResources(resources []map[string]any, target TargetSpec) []map[st
 			continue
 		}
 
-		matches = append(matches, resource)
+		matches = append(matches, rr)
 	}
 	return matches
 }
