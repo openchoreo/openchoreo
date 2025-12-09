@@ -1,4 +1,4 @@
-Adopters
+# Adopters
 If your organization is using OpenChoreo, we kindly encourage you to add your name to this list.
 This helps demonstrate real-world usage, builds community confidence, and strengthens the project’s momentum within the CNCF ecosystem.
 
