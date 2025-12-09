@@ -220,6 +220,7 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
+  logLevel: info
   database:
     path: "/var/lib/openchoreo/data/controlplane.db"
     persistence:

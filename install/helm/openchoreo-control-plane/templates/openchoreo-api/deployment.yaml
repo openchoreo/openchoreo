@@ -72,6 +72,8 @@ spec:
           value: {{ .Values.openchoreoApi.database.path | quote }}
         - name: OPENCHOREO_API_CONFIG_PATH
           value: /etc/openchoreo/config.yaml
+        - name: LOG_LEVEL
+          value: {{ .Values.openchoreoApi.logLevel | default "info" | quote }}
         volumeMounts:
         - name: data
           mountPath: /var/lib/openchoreo/data

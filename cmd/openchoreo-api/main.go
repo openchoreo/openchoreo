@@ -16,6 +16,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/cmdutil"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
@@ -29,8 +30,8 @@ var (
 func main() {
 	flag.Parse()
 
-	slogHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
-	baseLogger := slog.New(slogHandler)
+	// Get log level from environment variable, default to "info"
+	baseLogger := cmdutil.SetupLogger(os.Getenv(config.EnvLogLevel))
 	slog.SetDefault(baseLogger)
 
 	// Create shutdown context
