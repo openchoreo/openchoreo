@@ -36,10 +36,6 @@ func Initialize(config AuthZConfig, logger *slog.Logger) (authzcore.PAP, authzco
 		return nil, nil, fmt.Errorf("authz database path is required when authorization is enabled")
 	}
 
-	if len(config.UserTypeConfigs) == 0 {
-		return nil, nil, fmt.Errorf("authz user type configs are required when authorization is enabled")
-	}
-
 	casbinConfig := casbin.CasbinConfig{
 		DatabasePath:      config.DatabasePath,
 		AuthzDataFilePath: config.DefaultAuthzDataFilePath, // Can be empty, will use embedded default

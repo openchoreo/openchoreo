@@ -184,8 +184,8 @@ func validateEvaluateRequest(req *authzcore.EvaluateRequest) error {
 	if req == nil {
 		return fmt.Errorf("%w: evaluate request is nil", authzcore.ErrInvalidRequest)
 	}
-	if req.Subject.JwtToken == "" {
-		return fmt.Errorf("%w: evaluate subject jwt token is required", authzcore.ErrInvalidRequest)
+	if req.SubjectContext == nil {
+		return fmt.Errorf("%w: subject context is required", authzcore.ErrInvalidRequest)
 	}
 	if req.Resource.Type == "" {
 		return fmt.Errorf("%w: resource type is required", authzcore.ErrInvalidRequest)
@@ -205,8 +205,8 @@ func validateBatchEvaluateRequest(req *authzcore.BatchEvaluateRequest) error {
 		return fmt.Errorf("%w: batch evaluate request contains no requests", authzcore.ErrInvalidRequest)
 	}
 	for i, req := range req.Requests {
-		if req.Subject.JwtToken == "" {
-			return fmt.Errorf("%w: evaluate subject jwt token is required at index %d", authzcore.ErrInvalidRequest, i)
+		if req.SubjectContext == nil {
+			return fmt.Errorf("%w: subject context is required at index %d", authzcore.ErrInvalidRequest, i)
 		}
 		if req.Resource.Type == "" {
 			return fmt.Errorf("%w: resource type is required at index %d", authzcore.ErrInvalidRequest, i)
@@ -305,8 +305,8 @@ func validateProfileRequest(req *authzcore.ProfileRequest) error {
 	if req == nil {
 		return fmt.Errorf("%w: profile request is nil", authzcore.ErrInvalidRequest)
 	}
-	if req.Subject.JwtToken == "" {
-		return fmt.Errorf("%w: subject jwt token is required", authzcore.ErrInvalidRequest)
+	if req.SubjectContext == nil {
+		return fmt.Errorf("%w: subject context is required", authzcore.ErrInvalidRequest)
 	}
 	return nil
 }

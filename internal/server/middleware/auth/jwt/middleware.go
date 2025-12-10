@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 // Middleware creates a new JWT authentication middleware with the given configuration
@@ -179,11 +180,36 @@ func Middleware(config Config) func(http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 			ctx = context.WithValue(ctx, tokenContextKey, tokenString)
 
-			config.Logger.Debug("JWT authentication successful",
-				"path", r.URL.Path,
-				"method", r.Method,
-				"subject", claims["sub"],
-			)
+			// Resolve SubjectContext if detector is provided
+			if config.Detector != nil {
+				subjectCtx, err := config.Detector.ResolveUserType(tokenString)
+				if err != nil {
+					config.Logger.Debug("Failed to resolve subject context",
+						"error", err,
+						"path", r.URL.Path,
+						"method", r.Method,
+					)
+					writeErrorResponse(w, http.StatusUnauthorized, "Failed to resolve subject from token", CodeInvalidClaims)
+					return
+				}
+
+				// Store SubjectContext in context using the auth package helper
+				ctx = auth.SetSubjectContext(ctx, subjectCtx)
+
+				config.Logger.Debug("JWT authentication successful with subject resolution",
+					"path", r.URL.Path,
+					"method", r.Method,
+					"subject", claims["sub"],
+					"subject_type", subjectCtx.Type,
+					"entitlement_claim", subjectCtx.EntitlementClaim,
+				)
+			} else {
+				config.Logger.Debug("JWT authentication successful",
+					"path", r.URL.Path,
+					"method", r.Method,
+					"subject", claims["sub"],
+				)
+			}
 
 			// Continue with the request
 			next.ServeHTTP(w, r.WithContext(ctx))

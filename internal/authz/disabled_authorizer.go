@@ -29,7 +29,7 @@ func NewDisabledAuthorizer(logger *slog.Logger) *DisabledAuthorizer {
 // Evaluate always returns a decision allowing access
 func (da *DisabledAuthorizer) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (*authz.Decision, error) {
 	da.logger.Debug("disabled authorizer: evaluate called (authorization disabled)",
-		"subject", request.Subject,
+		"subject", request.SubjectContext,
 		"resource", request.Resource,
 		"action", request.Action)
 
@@ -64,7 +64,7 @@ func (da *DisabledAuthorizer) BatchEvaluate(ctx context.Context, request *authz.
 // GetSubjectProfile returns a profile with all actions allowed
 func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.UserCapabilitiesResponse, error) {
 	da.logger.Debug("disabled authorizer: get subject profile called (authorization disabled)",
-		"subject", request.Subject)
+		"subject", request.SubjectContext)
 
 	return &authz.UserCapabilitiesResponse{
 		User: nil,
@@ -139,11 +139,6 @@ func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context, f
 
 // ListActions fails with error
 func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
-// ListUserTypes fails with error
-func (da *DisabledAuthorizer) ListUserTypes(ctx context.Context) ([]authz.UserTypeInfo, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

@@ -331,20 +331,58 @@ openchoreoApi:
       type: RuntimeDefault
     appArmorProfile:
       type: Unconfined
-  authz:
+  security:
     userTypes:
       - type: "user"
-        display_name: "Human User"
+        display_name: "User"
         priority: 1
-        entitlement:
-          claim: "groups"
-          display_name: "User Group"
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "groups"
+              display_name: "User Group"
       - type: "service_account"
         display_name: "Service Account"
         priority: 2
-        entitlement:
-          claim: "sub"
-          display_name: "Client ID"
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "sub"
+              display_name: "Client ID"
+# Dependency configurations
+
+# Cert-Manager configuration
+cert-manager:
+  enabled: true
+  fullnameOverride: cert-manager
+  nameOverride: cert-manager
+  crds:
+    enabled: true
+  config:
+    enableGatewayAPI: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  cainjector:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+  webhook:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
 # Backstage UI configuration
 backstage:
   enabled: true

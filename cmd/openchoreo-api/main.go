@@ -78,8 +78,8 @@ func main() {
 	// Initialize services with PAP and PDP
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, baseLogger)
 
-	// Initialize HTTP handlers
-	handler := handlers.New(services, baseLogger.With("component", "handlers"))
+	// Initialize HTTP handlers with config for user type management
+	handler := handlers.New(services, cfg, baseLogger.With("component", "handlers"))
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(*port),

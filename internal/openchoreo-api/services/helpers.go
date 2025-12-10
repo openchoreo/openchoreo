@@ -9,20 +9,20 @@ import (
 	"log/slog"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 // constructAuthzCheckRequest builds an authorization evaluation request from context and resource details
 func constructAuthzCheckRequest(ctx context.Context, action, resourceType, resourceID string, hierarchy authz.ResourceHierarchy) *authz.EvaluateRequest {
-	// Extract token from context (may be empty if authentication is disabled)
-	// When authz is enabled but authn is disabled, Casbin validator will reject with ErrInvalidRequest
-	token := jwt.GetTokenFromContext(ctx)
+	// Extract SubjectContext from context (set by authentication middleware)
+	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
+
+	// Convert auth.SubjectContext to authz.SubjectContext
+	authzSubjectCtx := authz.FromAuthSubjectContext(authSubjectCtx)
 
 	return &authz.EvaluateRequest{
-		Subject: authz.Subject{
-			JwtToken: token,
-		},
-		Action: action,
+		SubjectContext: authzSubjectCtx,
+		Action:         action,
 		Resource: authz.Resource{
 			Type:      resourceType,
 			ID:        resourceID,
