@@ -142,24 +142,7 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 			},
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			KubernetesCluster: &openchoreov1alpha1.KubernetesClusterSpec{
-				Server: params.APIServerURL,
-				TLS: openchoreov1alpha1.KubernetesTLS{
-					CA: openchoreov1alpha1.ValueFrom{
-						Value: params.CACert,
-					},
-				},
-				Auth: openchoreov1alpha1.KubernetesAuth{
-					MTLS: &openchoreov1alpha1.MTLSAuth{
-						ClientCert: openchoreov1alpha1.ValueFrom{
-							Value: params.ClientCert,
-						},
-						ClientKey: openchoreov1alpha1.ValueFrom{
-							Value: params.ClientKey,
-						},
-					},
-				},
-			},
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
 			Gateway: openchoreov1alpha1.GatewaySpec{
 				PublicVirtualHost:       params.PublicVirtualHost,
 				OrganizationVirtualHost: params.OrganizationVirtualHost,

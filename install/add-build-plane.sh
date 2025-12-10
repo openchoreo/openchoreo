@@ -212,7 +212,7 @@ if [ "$ENABLE_AGENT" = true ]; then
     fi
 
     echo "Using secret reference mode: $AGENT_CA_SECRET in namespace $AGENT_CA_NAMESPACE"
-    CLIENT_CA_CONFIG="    clientCA:
+    CLIENT_CA_CONFIG="    caCert:
       secretRef:
         name: $AGENT_CA_SECRET
         namespace: $AGENT_CA_NAMESPACE
@@ -237,7 +237,7 @@ if [ "$ENABLE_AGENT" = true ]; then
       echo ""
       exit 1
     fi
-    CLIENT_CA_CONFIG="    clientCA:
+    CLIENT_CA_CONFIG="    caCert:
       value: |
 $(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
   fi
@@ -253,8 +253,7 @@ metadata:
     openchoreo.dev/description: "BuildPlane created via $(basename $0) script with cluster agent"
     openchoreo.dev/display-name: "BuildPlane $BUILDPLANE_NAME"
 spec:
-  agent:
-    enabled: true
+  clusterAgent:
 $CLIENT_CA_CONFIG
 EOF
 )

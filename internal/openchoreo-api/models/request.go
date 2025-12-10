@@ -130,17 +130,21 @@ type CreateEnvironmentRequest struct {
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
 type CreateDataPlaneRequest struct {
-	Name                    string `json:"name"`
-	DisplayName             string `json:"displayName,omitempty"`
-	Description             string `json:"description,omitempty"`
-	KubernetesClusterName   string `json:"kubernetesClusterName"`
-	APIServerURL            string `json:"apiServerURL"`
-	CACert                  string `json:"caCert"`
-	ClientCert              string `json:"clientCert"`
-	ClientKey               string `json:"clientKey"`
-	PublicVirtualHost       string `json:"publicVirtualHost"`
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
+	Name                    string                `json:"name"`
+	DisplayName             string                `json:"displayName,omitempty"`
+	Description             string                `json:"description,omitempty"`
+	PublicVirtualHost       string                `json:"publicVirtualHost"`
+	OrganizationVirtualHost string                `json:"organizationVirtualHost"`
+	ObservabilityPlaneRef   string                `json:"observabilityPlaneRef,omitempty"`
+	AgentCACert             string                `json:"agentCACert,omitempty"`
+	AgentCACertSecretRef    *AgentCACertSecretRef `json:"agentCACertSecretRef,omitempty"`
+}
+
+// AgentCACertSecretRef represents a reference to a secret containing the agent CA certificate
+type AgentCACertSecretRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -163,7 +167,26 @@ func (req *CreateEnvironmentRequest) Validate() error {
 
 // Validate validates the CreateDataPlaneRequest
 func (req *CreateDataPlaneRequest) Validate() error {
-	// TODO: Implement custom validation using Go stdlib
+	hasInlineCert := strings.TrimSpace(req.AgentCACert) != ""
+	hasSecretRef := req.AgentCACertSecretRef != nil
+
+	if !hasInlineCert && !hasSecretRef {
+		return errors.New("either agentCACert or agentCACertSecretRef must be provided")
+	}
+
+	if hasInlineCert && hasSecretRef {
+		return errors.New("agentCACert and agentCACertSecretRef are mutually exclusive")
+	}
+
+	if hasSecretRef {
+		if strings.TrimSpace(req.AgentCACertSecretRef.Name) == "" {
+			return errors.New("agentCACertSecretRef.name is required")
+		}
+		if strings.TrimSpace(req.AgentCACertSecretRef.Key) == "" {
+			return errors.New("agentCACertSecretRef.key is required")
+		}
+	}
+
 	return nil
 }
 
@@ -209,14 +232,16 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
-	req.KubernetesClusterName = strings.TrimSpace(req.KubernetesClusterName)
-	req.APIServerURL = strings.TrimSpace(req.APIServerURL)
-	req.CACert = strings.TrimSpace(req.CACert)
-	req.ClientCert = strings.TrimSpace(req.ClientCert)
-	req.ClientKey = strings.TrimSpace(req.ClientKey)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
 	req.ObservabilityPlaneRef = strings.TrimSpace(req.ObservabilityPlaneRef)
+	req.AgentCACert = strings.TrimSpace(req.AgentCACert)
+
+	if req.AgentCACertSecretRef != nil {
+		req.AgentCACertSecretRef.Name = strings.TrimSpace(req.AgentCACertSecretRef.Name)
+		req.AgentCACertSecretRef.Namespace = strings.TrimSpace(req.AgentCACertSecretRef.Namespace)
+		req.AgentCACertSecretRef.Key = strings.TrimSpace(req.AgentCACertSecretRef.Key)
+	}
 }
 
 // Sanitize sanitizes the PromoteComponentRequest by trimming whitespace

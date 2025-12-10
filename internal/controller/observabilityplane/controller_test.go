@@ -38,8 +38,11 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 						Namespace: "default",
 					},
 					Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
-						Agent: &openchoreov1alpha1.AgentConfig{
-							Enabled: false,
+						ObserverURL: "https://observer.example.com",
+						ClusterAgent: &openchoreov1alpha1.ClusterAgentConfig{
+							CACert: openchoreov1alpha1.ValueFrom{
+								Value: "-----BEGIN CERTIFICATE-----\ntest-ca-cert\n-----END CERTIFICATE-----",
+							},
 						},
 					},
 				}

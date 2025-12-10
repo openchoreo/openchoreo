@@ -28,40 +28,6 @@ type ValueFrom struct {
 	Value string `json:"value,omitempty"`
 }
 
-// KubernetesClusterSpec defines the configuration for the target Kubernetes cluster
-type KubernetesClusterSpec struct {
-	// Server is the URL of the Kubernetes API server
-	Server string `json:"server"`
-	// TLS contains the TLS configuration for the connection
-	TLS KubernetesTLS `json:"tls"`
-	// Auth contains the authentication configuration
-	Auth KubernetesAuth `json:"auth"`
-}
-
-// KubernetesTLS defines the TLS configuration for the Kubernetes connection
-type KubernetesTLS struct {
-	// CA contains the CA certificate configuration
-	CA ValueFrom `json:"ca"`
-}
-
-// KubernetesAuth defines the authentication configuration for the Kubernetes cluster
-type KubernetesAuth struct {
-	// MTLS contains the certificate-based authentication configuration
-	// +optional
-	MTLS *MTLSAuth `json:"mtls,omitempty"`
-	// BearerToken contains the bearer token authentication configuration
-	// +optional
-	BearerToken *ValueFrom `json:"bearerToken,omitempty"`
-}
-
-// MTLSAuth defines certificate-based authentication (mTLS)
-type MTLSAuth struct {
-	// ClientCert contains the client certificate configuration
-	ClientCert ValueFrom `json:"clientCert"`
-	// ClientKey contains the client private key configuration
-	ClientKey ValueFrom `json:"clientKey"`
-}
-
 // GatewaySpec defines the gateway configuration for the data plane
 type GatewaySpec struct {
 	// Public virtual host for the gateway
@@ -76,19 +42,13 @@ type SecretStoreRef struct {
 	Name string `json:"name"`
 }
 
-// AgentConfig defines the configuration for agent-based communication
+// ClusterAgentConfig defines the configuration for cluster agent-based communication
 // This configuration is specified in DataPlane or BuildPlane CRs on the control plane
-type AgentConfig struct {
-	// Enabled indicates whether agent-based communication is enabled
-	// If false, direct Kubernetes API access is used via KubernetesCluster config
-	// +optional
-	Enabled bool `json:"enabled,omitempty"`
-
-	// ClientCA contains the CA certificate used to verify the agent's client certificate
-	// This allows per-plane CA configuration for enhanced security
+type ClusterAgentConfig struct {
+	// CACert contains the CA certificate used to verify the agent's client certificate
+	// This is required for mTLS authentication with the cluster agent
 	// The CA certificate should be base64-encoded PEM format
-	// +optional
-	ClientCA *ValueFrom `json:"clientCA,omitempty"`
+	CACert ValueFrom `json:"caCert"`
 }
 
 // DataPlaneSpec defines the desired state of a DataPlane.
@@ -105,16 +65,11 @@ type DataPlaneSpec struct {
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 
-	// Agent specifies the configuration for agent-based communication with the downstream cluster
-	// When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
-	// instead of direct Kubernetes API access
-	// +optional
-	Agent *AgentConfig `json:"agent,omitempty"`
+	// ClusterAgent specifies the configuration for cluster agent-based communication with the downstream cluster
+	// The control plane communicates with the downstream cluster through a WebSocket cluster agent via ClusterGateway
+	// This is a required field as cluster agent mode is the only supported communication method
+	ClusterAgent ClusterAgentConfig `json:"clusterAgent"`
 
-	// KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
-	// This field is optional when Agent.Enabled is true
-	// +optional
-	KubernetesCluster *KubernetesClusterSpec `json:"kubernetesCluster,omitempty"`
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
 	Gateway GatewaySpec `json:"gateway"`
 

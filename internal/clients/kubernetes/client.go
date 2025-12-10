@@ -4,13 +4,11 @@
 package kubernetes
 
 import (
-	"encoding/base64"
 	"fmt"
 	"sync"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -84,139 +82,8 @@ func (m *KubeMultiClientManager) GetOrAddClient(key string, createFunc func() (c
 	return cl, nil
 }
 
-// GetClient returns an existing Kubernetes client or creates one using the provided cluster configuration.
-func (m *KubeMultiClientManager) GetClient(key string, kubernetesCluster *openchoreov1alpha1.KubernetesClusterSpec) (client.Client, error) {
-	return m.GetOrAddClient(key, func() (client.Client, error) {
-		// Validate that kubernetesCluster is not nil
-		if kubernetesCluster == nil {
-			return nil, fmt.Errorf("kubernetesCluster configuration is required for direct access mode")
-		}
-
-		// Create REST config from the new structure
-		restCfg, err := buildRESTConfig(*kubernetesCluster)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build REST config: %w", err)
-		}
-
-		// Create the new client
-		cl, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
-		}
-
-		return cl, nil
-	})
-}
-
-// buildRESTConfig constructs a REST config from the KubernetesClusterSpec
-func buildRESTConfig(kubernetesCluster openchoreov1alpha1.KubernetesClusterSpec) (*rest.Config, error) {
-	restCfg := &rest.Config{
-		Host: kubernetesCluster.Server,
-	}
-
-	// Configure TLS
-	if err := configureTLS(restCfg, &kubernetesCluster.TLS); err != nil {
-		return nil, fmt.Errorf("failed to configure TLS: %w", err)
-	}
-
-	// Configure authentication with priority: mTLS > bearerToken > OIDC
-	if kubernetesCluster.Auth.MTLS != nil {
-		if err := configureMTLSAuth(restCfg, kubernetesCluster.Auth.MTLS); err != nil {
-			return nil, fmt.Errorf("failed to configure mTLS authentication: %w", err)
-		}
-	} else if kubernetesCluster.Auth.BearerToken != nil {
-		if err := configureBearerAuth(restCfg, kubernetesCluster.Auth.BearerToken); err != nil {
-			return nil, fmt.Errorf("failed to configure bearer token authentication: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("no supported authentication method configured")
-	}
-
-	return restCfg, nil
-}
-
-// configureTLS sets up TLS configuration
-func configureTLS(restCfg *rest.Config, tls *openchoreov1alpha1.KubernetesTLS) error {
-	// Only handle inline CA data for now
-	if tls != nil && tls.CA.Value != "" {
-		// Decode base64 encoded CA certificate
-		caCert, err := base64.StdEncoding.DecodeString(tls.CA.Value)
-		if err != nil {
-			return fmt.Errorf("failed to decode base64 CA certificate: %w", err)
-		}
-		restCfg.TLSClientConfig.CAData = caCert
-	}
-
-	return nil
-}
-
-// configureMTLSAuth sets up mutual TLS authentication
-func configureMTLSAuth(restCfg *rest.Config, mtlsAuth *openchoreov1alpha1.MTLSAuth) error {
-	if mtlsAuth == nil {
-		return fmt.Errorf("mTLS authentication config is nil")
-	}
-
-	// Get client certificate (only inline value for now)
-	if mtlsAuth.ClientCert.Value == "" {
-		return fmt.Errorf("client certificate value is required for mTLS authentication")
-	}
-	clientCertData, err := base64.StdEncoding.DecodeString(mtlsAuth.ClientCert.Value)
-	if err != nil {
-		return fmt.Errorf("failed to decode base64 client certificate: %w", err)
-	}
-
-	// Get client key (only inline value for now)
-	if mtlsAuth.ClientKey.Value == "" {
-		return fmt.Errorf("client key value is required for mTLS authentication")
-	}
-	clientKeyData, err := base64.StdEncoding.DecodeString(mtlsAuth.ClientKey.Value)
-	if err != nil {
-		return fmt.Errorf("failed to decode base64 client key: %w", err)
-	}
-
-	restCfg.TLSClientConfig.CertData = clientCertData
-	restCfg.TLSClientConfig.KeyData = clientKeyData
-
-	return nil
-}
-
-// configureBearerAuth sets up bearer token authentication
-func configureBearerAuth(restCfg *rest.Config, bearerAuth *openchoreov1alpha1.ValueFrom) error {
-	if bearerAuth == nil {
-		return fmt.Errorf("bearer token authentication config is nil")
-	}
-
-	// Only handle inline token value for now
-	if bearerAuth.Value == "" {
-		return fmt.Errorf("bearer token value is required for bearer token authentication")
-	}
-
-	restCfg.BearerToken = bearerAuth.Value
-	return nil
-}
-
-// makeClientKey generates a unique key for the client cache.
-func makeClientKey(orgName, name string) string {
-	return fmt.Sprintf("%s/%s", orgName, name)
-}
-
-// GetK8sClient retrieves a Kubernetes client for the specified org and cluster.
-// Deprecated: Use GetK8sClientFromDataPlane instead
-func GetK8sClient(
-	clientMgr *KubeMultiClientManager,
-	orgName, name string,
-	kubernetesCluster openchoreov1alpha1.KubernetesClusterSpec,
-) (client.Client, error) {
-	key := makeClientKey(orgName, name)
-	cl, err := clientMgr.GetClient(key, &kubernetesCluster)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
-	}
-	return cl, nil
-}
-
 // GetK8sClientFromDataPlane retrieves a Kubernetes client from DataPlane specification.
-// Supports both agent mode (via HTTP proxy) and direct access mode.
+// Uses agent mode via HTTP proxy through cluster gateway.
 func GetK8sClientFromDataPlane(
 	clientMgr *KubeMultiClientManager,
 	dataplane *openchoreov1alpha1.DataPlane,
@@ -225,36 +92,23 @@ func GetK8sClientFromDataPlane(
 	// Include plane type in cache key to avoid collision with BuildPlane
 	key := fmt.Sprintf("dataplane/%s/%s", dataplane.Namespace, dataplane.Name)
 
-	// Agent mode - use HTTP proxy through cluster gateway
-	if dataplane.Spec.Agent != nil && dataplane.Spec.Agent.Enabled {
-		if gatewayURL == "" {
-			return nil, fmt.Errorf("gatewayURL is required for agent mode")
-		}
-
-		// Use planeType/planeName format to match agent registration
-		// Agent registers as "dataplane/<name>", so we use the same identifier
-		planeIdentifier := fmt.Sprintf("dataplane/%s", dataplane.Name)
-
-		// Use GetOrAddClient to cache the proxy client
-		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
-		})
+	// Agent mode is required - use HTTP proxy through cluster gateway
+	if gatewayURL == "" {
+		return nil, fmt.Errorf("gatewayURL is required for agent mode")
 	}
 
-	// Direct access mode
-	if dataplane.Spec.KubernetesCluster == nil {
-		return nil, fmt.Errorf("kubernetesCluster configuration is required for direct access mode")
-	}
+	// Use planeType/planeName format to match agent registration
+	// Agent registers as "dataplane/<name>", so we use the same identifier
+	planeIdentifier := fmt.Sprintf("dataplane/%s", dataplane.Name)
 
-	cl, err := clientMgr.GetClient(key, dataplane.Spec.KubernetesCluster)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
-	}
-	return cl, nil
+	// Use GetOrAddClient to cache the proxy client
+	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+		return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+	})
 }
 
 // GetK8sClientFromBuildPlane retrieves a Kubernetes client from BuildPlane specification.
-// Supports both agent mode (via HTTP proxy) and direct access mode.
+// Uses agent mode via HTTP proxy through cluster gateway.
 func GetK8sClientFromBuildPlane(
 	clientMgr *KubeMultiClientManager,
 	buildplane *openchoreov1alpha1.BuildPlane,
@@ -263,30 +117,17 @@ func GetK8sClientFromBuildPlane(
 	// Include plane type in cache key to avoid collision with DataPlane
 	key := fmt.Sprintf("buildplane/%s/%s", buildplane.Namespace, buildplane.Name)
 
-	// Agent mode - use HTTP proxy through cluster gateway
-	if buildplane.Spec.Agent != nil && buildplane.Spec.Agent.Enabled {
-		if gatewayURL == "" {
-			return nil, fmt.Errorf("gatewayURL is required for agent mode")
-		}
-
-		// Use planeType/planeName format to match agent registration
-		// Agent registers as "buildplane/<name>", so we use the same identifier
-		planeIdentifier := fmt.Sprintf("buildplane/%s", buildplane.Name)
-
-		// Use GetOrAddClient to cache the proxy client
-		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
-		})
+	// Agent mode is required - use HTTP proxy through cluster gateway
+	if gatewayURL == "" {
+		return nil, fmt.Errorf("gatewayURL is required for agent mode")
 	}
 
-	// Direct access mode
-	if buildplane.Spec.KubernetesCluster == nil {
-		return nil, fmt.Errorf("kubernetesCluster configuration is required for direct access mode")
-	}
+	// Use planeType/planeName format to match agent registration
+	// Agent registers as "buildplane/<name>", so we use the same identifier
+	planeIdentifier := fmt.Sprintf("buildplane/%s", buildplane.Name)
 
-	cl, err := clientMgr.GetClient(key, buildplane.Spec.KubernetesCluster)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
-	}
-	return cl, nil
+	// Use GetOrAddClient to cache the proxy client
+	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+		return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+	})
 }
