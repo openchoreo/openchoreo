@@ -797,7 +797,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementValues: []string{"group1"},
 			},
 			scopePath:       "org/acme",
-			wantPolicyCount: 2, // Only policies within acme org
+			wantPolicyCount: 2,
 		},
 		{
 			name: "filter policies within project scope",
@@ -807,7 +807,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementValues: []string{"group1"},
 			},
 			scopePath:       "org/acme/project/p1",
-			wantPolicyCount: 2, // Both org-level and project-level policies match
+			wantPolicyCount: 2,
 		},
 		{
 			name: "no matching entitlements",
@@ -914,7 +914,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		expectedCapabilities []expectedCapability
 	}{
 		{
-			name: "get profile for user with viewer role at org level",
+			name: "get profile with org scope",
 			request: &authzcore.ProfileRequest{
 				Subject: authzcore.Subject{
 					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
@@ -935,12 +935,11 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				{action: "component:create", allowedCount: 1, deniedCount: 1},
 				{action: "component:update", allowedCount: 1, deniedCount: 1},
 				{action: "component:deploy", allowedCount: 1, deniedCount: 1},
-				{action: "component:promote", allowedCount: 1, deniedCount: 1},
 				{action: "project:create", allowedCount: 1, deniedCount: 1},
 			},
 		},
 		{
-			name: "get profile with project scope",
+			name: "get profile for scope within an organization",
 			request: &authzcore.ProfileRequest{
 				Subject: authzcore.Subject{
 					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
@@ -957,13 +956,11 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				EntitlementValues: []string{"dev-group"},
 			},
 			expectedCapabilities: []expectedCapability{
-				// Within p1 scope: no denied policies apply (secret is different project)
 				{action: "component:view", allowedCount: 2, deniedCount: 0},
 				{action: "project:view", allowedCount: 1, deniedCount: 0},
 				{action: "component:create", allowedCount: 1, deniedCount: 0},
 				{action: "component:update", allowedCount: 1, deniedCount: 0},
 				{action: "component:deploy", allowedCount: 1, deniedCount: 0},
-				{action: "component:promote", allowedCount: 1, deniedCount: 0},
 				{action: "project:create", allowedCount: 1, deniedCount: 0},
 			},
 		},
@@ -1047,6 +1044,162 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 
 				if len(cap.Denied) != exp.deniedCount {
 					t.Errorf("action %q: expected %d denied resources, got %d", exp.action, exp.deniedCount, len(cap.Denied))
+				}
+			}
+		})
+	}
+}
+
+func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create roles with different actions
+	viewerRole := &authzcore.Role{
+		Name:    "viewer",
+		Actions: []string{"component:view", "project:view"},
+	}
+	editorRole := &authzcore.Role{
+		Name:    "editor",
+		Actions: []string{"component:*"},
+	}
+	adminRole := &authzcore.Role{
+		Name:    "admin",
+		Actions: []string{"*"},
+	}
+
+	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
+		t.Fatalf("AddRole(viewer) error = %v", err)
+	}
+	if err := enforcer.AddRole(ctx, editorRole); err != nil {
+		t.Fatalf("AddRole(editor) error = %v", err)
+	}
+	if err := enforcer.AddRole(ctx, adminRole); err != nil {
+		t.Fatalf("AddRole(admin) error = %v", err)
+	}
+
+	// Create action index for testing
+	testActions := []Action{
+		{Action: "component:view"},
+		{Action: "component:create"},
+		{Action: "component:update"},
+		{Action: "component:delete"},
+		{Action: "project:view"},
+		{Action: "project:create"},
+		{Action: "organization:view"},
+	}
+	actionIdx := indexActions(testActions)
+
+	tests := []struct {
+		name                 string
+		policies             []policyInfo
+		expectedCapabilities map[string]struct {
+			allowedCount int
+			deniedCount  int
+		}
+	}{
+		{
+			name: "multiple roles with different policies",
+			policies: []policyInfo{
+				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
+				{resourcePath: "org/acme/project/p1", roleName: "editor", effect: "allow"},
+			},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{
+				"component:view":   {allowedCount: 2, deniedCount: 0},
+				"component:create": {allowedCount: 1, deniedCount: 0},
+				"component:update": {allowedCount: 1, deniedCount: 0},
+				"component:delete": {allowedCount: 1, deniedCount: 0},
+				"project:view":     {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "allow and deny effects on different resources",
+			policies: []policyInfo{
+				{resourcePath: "org/acme", roleName: "editor", effect: "allow"},
+				{resourcePath: "org/acme/project/secret", roleName: "editor", effect: "deny"},
+			},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{
+				"component:view":   {allowedCount: 1, deniedCount: 1},
+				"component:create": {allowedCount: 1, deniedCount: 1},
+				"component:update": {allowedCount: 1, deniedCount: 1},
+				"component:delete": {allowedCount: 1, deniedCount: 1},
+			},
+		},
+		{
+			name: "wildcard action expansion",
+			policies: []policyInfo{
+				{resourcePath: "org/acme", roleName: "admin", effect: "allow"},
+			},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{
+				"component:view":    {allowedCount: 1, deniedCount: 0},
+				"component:create":  {allowedCount: 1, deniedCount: 0},
+				"component:update":  {allowedCount: 1, deniedCount: 0},
+				"component:delete":  {allowedCount: 1, deniedCount: 0},
+				"project:view":      {allowedCount: 1, deniedCount: 0},
+				"project:create":    {allowedCount: 1, deniedCount: 0},
+				"organization:view": {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "multiple policies with same role (duplicates)",
+			policies: []policyInfo{
+				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
+				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
+			},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{
+				"component:view": {allowedCount: 1, deniedCount: 0},
+				"project:view":   {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name:     "empty policies returns empty capabilities",
+			policies: []policyInfo{},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capabilities, err := enforcer.buildCapabilitiesFromPolicies(tt.policies, actionIdx)
+			if err != nil {
+				t.Fatalf("buildCapabilitiesFromPolicies() unexpected error = %v", err)
+			}
+
+			if len(capabilities) != len(tt.expectedCapabilities) {
+				t.Errorf("buildCapabilitiesFromPolicies() returned %d capabilities, want %d",
+					len(capabilities), len(tt.expectedCapabilities))
+			}
+
+			for action, expected := range tt.expectedCapabilities {
+				cap, ok := capabilities[action]
+				if !ok {
+					t.Errorf("action %q not found in capabilities", action)
+					continue
+				}
+
+				if len(cap.Allowed) != expected.allowedCount {
+					t.Errorf("action %q: got %d allowed resources, want %d",
+						action, len(cap.Allowed), expected.allowedCount)
+				}
+
+				if len(cap.Denied) != expected.deniedCount {
+					t.Errorf("action %q: got %d denied resources, want %d",
+						action, len(cap.Denied), expected.deniedCount)
 				}
 			}
 		})

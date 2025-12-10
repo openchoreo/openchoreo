@@ -35,7 +35,6 @@ var systemActions = []string{
 	"component:create",
 	"component:update",
 	"component:deploy",
-	"component:promote",
 
 	// ComponentRelease
 	"componentrelease:view",
