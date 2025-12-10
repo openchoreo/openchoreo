@@ -42,18 +42,6 @@ resources:
   - dataplane_viewer_role.yaml
   - environment_editor_role.yaml
   - environment_viewer_role.yaml
-  - deployment_editor_role.yaml
-  - deployment_viewer_role.yaml
-  - deployableartifact_editor_role.yaml
-  - deployableartifact_viewer_role.yaml
-  # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
-  # default, aiding admins in cluster management. Those roles are
-  # not used by the {{ .ProjectName }} itself. You can comment the following lines
-  # if you do not want those helpers be installed with your Project.
-  - endpoint_admin_role.yaml
-  - endpoint_editor_role.yaml
-  - endpoint_viewer_role.yaml
-
   # For each CRD, "Editor" and "Viewer" roles are scaffolded by
   # default, aiding admins in cluster management. Those roles are
   # not used by the Project itself. You can comment the following lines
@@ -74,30 +62,6 @@ resources:
   - secretreference_viewer_role.yaml
   - release_editor_role.yaml
   - release_viewer_role.yaml
-  - scheduledtaskbinding_editor_role.yaml
-  - scheduledtaskbinding_viewer_role.yaml
-  - scheduledtaskclass_editor_role.yaml
-  - scheduledtaskclass_viewer_role.yaml
-  - scheduledtask_editor_role.yaml
-  - scheduledtask_viewer_role.yaml
-  - webapplicationbinding_editor_role.yaml
-  - webapplicationbinding_viewer_role.yaml
-  - webapplicationclass_editor_role.yaml
-  - webapplicationclass_viewer_role.yaml
-  - webapplication_editor_role.yaml
-  - webapplication_viewer_role.yaml
-  - servicebinding_editor_role.yaml
-  - servicebinding_viewer_role.yaml
-  - serviceclass_editor_role.yaml
-  - serviceclass_viewer_role.yaml
-  - service_editor_role.yaml
-  - service_viewer_role.yaml
-  - apibinding_editor_role.yaml
-  - apibinding_viewer_role.yaml
-  - apiclass_editor_role.yaml
-  - apiclass_viewer_role.yaml
-  - api_editor_role.yaml
-  - api_viewer_role.yaml
   - gitcommitrequest_editor_role.yaml
   - gitcommitrequest_viewer_role.yaml
   - buildplane_admin_role.yaml

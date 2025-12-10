@@ -141,9 +141,6 @@ type CreateDeployableArtifactParams struct {
 	DeploymentTrack string
 	DisplayName     string
 	Description     string
-	FromBuildRef    *openchoreov1alpha1.FromBuildRef
-	FromImageRef    *openchoreov1alpha1.FromImageRef
-	Configuration   *openchoreov1alpha1.Configuration
 	Interactive     bool
 }
 
@@ -196,7 +193,6 @@ type CreateDeploymentParams struct {
 	Environment        string
 	DeploymentTrack    string
 	DeployableArtifact string
-	ConfigOverrides    *openchoreov1alpha1.ConfigurationOverrides
 	Interactive        bool
 }
 

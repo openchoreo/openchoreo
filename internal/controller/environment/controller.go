@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -109,11 +108,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Environment{}).
 		Named("environment").
-		Watches(
-			&openchoreov1alpha1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.Environment](
-				r.Client, controller.GetEnvironment)),
-		).
 		Complete(r)
 }
 

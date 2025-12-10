@@ -6,17 +6,15 @@ package labels
 // This file contains the all the labels that are used to store Choreo specific the metadata in the Kubernetes objects.
 
 const (
-	LabelKeyOrganizationName       = "openchoreo.dev/organization"
-	LabelKeyProjectName            = "openchoreo.dev/project"
-	LabelKeyComponentName          = "openchoreo.dev/component"
-	LabelKeyDeploymentTrackName    = "openchoreo.dev/deployment-track"
-	LabelKeyBuildName              = "openchoreo.dev/build"
-	LabelKeyEnvironmentName        = "openchoreo.dev/environment"
-	LabelKeyName                   = "openchoreo.dev/name"
-	LabelKeyDeployableArtifactName = "openchoreo.dev/deployable-artifact"
-	LabelKeyDeploymentName         = "openchoreo.dev/deployment"
-	LabelKeyDataPlaneName          = "openchoreo.dev/dataplane"
-	LabelKeyBuildPlane             = "openchoreo.dev/build-plane"
+	LabelKeyOrganizationName    = "openchoreo.dev/organization"
+	LabelKeyProjectName         = "openchoreo.dev/project"
+	LabelKeyComponentName       = "openchoreo.dev/component"
+	LabelKeyDeploymentTrackName = "openchoreo.dev/deployment-track"
+	LabelKeyBuildName           = "openchoreo.dev/build"
+	LabelKeyEnvironmentName     = "openchoreo.dev/environment"
+	LabelKeyName                = "openchoreo.dev/name"
+	LabelKeyDataPlaneName       = "openchoreo.dev/dataplane"
+	LabelKeyBuildPlane          = "openchoreo.dev/build-plane"
 
 	LabelKeyProjectUID     = "openchoreo.dev/project-uid"
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"

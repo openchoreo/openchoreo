@@ -1730,10 +1730,6 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		switch spec := v.(type) {
 		case *openchoreov1alpha1.WorkloadSpec:
 			response.Workload = spec
-		case *openchoreov1alpha1.ServiceSpec:
-			response.Service = spec
-		case *openchoreov1alpha1.WebApplicationSpec:
-			response.WebApplication = spec
 		default:
 			s.logger.Error("Unknown type in typeSpecs", "component", component.Name, "actualType", fmt.Sprintf("%T", v))
 		}
@@ -1797,194 +1793,8 @@ func (s *ComponentService) GetComponentBinding(ctx context.Context, orgName, pro
 
 // getComponentBinding retrieves the binding for a component in a specific environment
 func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, projectName, componentName, environment, componentType string) (*models.BindingResponse, error) {
-	// Determine binding type based on component type
-	var bindingResponse *models.BindingResponse
-	var err error
-	switch openchoreov1alpha1.DefinedComponentType(componentType) {
-	case openchoreov1alpha1.ComponentTypeService:
-		bindingResponse, err = s.getServiceBinding(ctx, orgName, componentName, environment)
-	case openchoreov1alpha1.ComponentTypeWebApplication:
-		bindingResponse, err = s.getWebApplicationBinding(ctx, orgName, componentName, environment)
-	case openchoreov1alpha1.ComponentTypeScheduledTask:
-		bindingResponse, err = s.getScheduledTaskBinding(ctx, orgName, componentName, environment)
-	default:
-		return nil, fmt.Errorf("unsupported component type: %s", componentType)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Populate common fields
-	bindingResponse.ComponentName = componentName
-	bindingResponse.ProjectName = projectName
-	bindingResponse.OrgName = orgName
-	bindingResponse.Environment = environment
-
-	return bindingResponse, nil
-}
-
-// getServiceBinding retrieves a ServiceBinding from the cluster
-func (s *ComponentService) getServiceBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// Use the reusable CR method to get the ServiceBinding
-	binding, err := s.getServiceBindingCR(ctx, orgName, componentName, environment)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to response model
-	response := &models.BindingResponse{
-		Name: binding.Name,
-		Type: "Service",
-		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
-			Reason:  "",
-			Message: "",
-		},
-	}
-
-	// Extract status from conditions and map to UI-friendly status
-	for _, condition := range binding.Status.Conditions {
-		if condition.Type == statusReady {
-			response.BindingStatus.Reason = condition.Reason
-			response.BindingStatus.Message = condition.Message
-			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
-
-			// Map condition status and reason to UI-friendly status
-			response.BindingStatus.Status = s.mapConditionToBindingStatus(condition)
-			break
-		}
-	}
-
-	// Convert endpoint status and extract image
-	serviceBinding := &models.ServiceBinding{
-		Endpoints: s.convertEndpointStatus(binding.Status.Endpoints),
-		Image:     s.extractImageFromWorkloadSpec(binding.Spec.WorkloadSpec),
-	}
-	response.ServiceBinding = serviceBinding
-
-	return response, nil
-}
-
-// getWebApplicationBinding retrieves a WebApplicationBinding from the cluster
-func (s *ComponentService) getWebApplicationBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// Use the reusable CR method to get the WebApplicationBinding
-	binding, err := s.getWebApplicationBindingCR(ctx, orgName, componentName, environment)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to response model
-	response := &models.BindingResponse{
-		Name: binding.Name,
-		Type: "WebApplication",
-		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
-			Reason:  "",
-			Message: "",
-		},
-	}
-
-	// Extract status from conditions and map to UI-friendly status
-	for _, condition := range binding.Status.Conditions {
-		if condition.Type == statusReady {
-			response.BindingStatus.Reason = condition.Reason
-			response.BindingStatus.Message = condition.Message
-			response.BindingStatus.LastTransitioned = condition.LastTransitionTime.Time
-
-			// Map condition status and reason to UI-friendly status
-			response.BindingStatus.Status = s.mapConditionToBindingStatus(condition)
-			break
-		}
-	}
-
-	// Convert endpoint status and extract image
-	webAppBinding := &models.WebApplicationBinding{
-		Endpoints: s.convertEndpointStatus(binding.Status.Endpoints),
-		Image:     s.extractImageFromWorkloadSpec(binding.Spec.WorkloadSpec),
-	}
-	response.WebApplicationBinding = webAppBinding
-
-	return response, nil
-}
-
-// getScheduledTaskBinding retrieves a ScheduledTaskBinding from the cluster
-func (s *ComponentService) getScheduledTaskBinding(ctx context.Context, orgName, componentName, environment string) (*models.BindingResponse, error) {
-	// Use the reusable CR method to get the ScheduledTaskBinding
-	binding, err := s.getScheduledTaskBindingCR(ctx, orgName, componentName, environment)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to response model
-	response := &models.BindingResponse{
-		Name: binding.Name,
-		Type: "ScheduledTask",
-		BindingStatus: models.BindingStatus{
-			Status:  models.BindingStatusTypeUndeployed, // Default to "NotYetDeployed"
-			Reason:  "",
-			Message: "",
-		},
-	}
-
-	// TODO: ScheduledTaskBinding doesn't have conditions in its status yet
-	// When conditions are added, implement the same status mapping logic as Service and WebApplication bindings
-	// For now, default to NotYetDeployed status
-	response.BindingStatus.Status = models.BindingStatusTypeUndeployed
-
-	// ScheduledTaskBinding doesn't have endpoints, but we still extract the image
-	response.ScheduledTaskBinding = &models.ScheduledTaskBinding{
-		Image: s.extractImageFromWorkloadSpec(binding.Spec.WorkloadSpec),
-	}
-
-	return response, nil
-}
-
-// convertEndpointStatus converts from Kubernetes endpoint status to API response model
-func (s *ComponentService) convertEndpointStatus(endpoints []openchoreov1alpha1.EndpointStatus) []models.EndpointStatus {
-	result := make([]models.EndpointStatus, 0, len(endpoints))
-
-	for _, ep := range endpoints {
-		endpointStatus := models.EndpointStatus{
-			Name: ep.Name,
-			Type: string(ep.Type),
-		}
-
-		// Convert each visibility level
-		if ep.Project != nil {
-			endpointStatus.Project = &models.ExposedEndpoint{
-				Host:     ep.Project.Host,
-				Port:     int(ep.Project.Port),
-				Scheme:   ep.Project.Scheme,
-				BasePath: ep.Project.BasePath,
-				URI:      ep.Project.URI,
-			}
-		}
-
-		if ep.Organization != nil {
-			endpointStatus.Organization = &models.ExposedEndpoint{
-				Host:     ep.Organization.Host,
-				Port:     int(ep.Organization.Port),
-				Scheme:   ep.Organization.Scheme,
-				BasePath: ep.Organization.BasePath,
-				URI:      ep.Organization.URI,
-			}
-		}
-
-		if ep.Public != nil {
-			endpointStatus.Public = &models.ExposedEndpoint{
-				Host:     ep.Public.Host,
-				Port:     int(ep.Public.Port),
-				Scheme:   ep.Public.Scheme,
-				BasePath: ep.Public.BasePath,
-				URI:      ep.Public.URI,
-			}
-		}
-
-		result = append(result, endpointStatus)
-	}
-
-	return result
+	// Determine binding type based on component type - all legacy types removed
+	return nil, fmt.Errorf("legacy component types no longer supported: %s", componentType)
 }
 
 // getEnvironmentsFromDeploymentPipeline extracts all environments from the project's deployment pipeline
@@ -2069,47 +1879,6 @@ func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteCom
 	}
 
 	return s.toReleaseBindingResponse(targetReleaseBinding, req.OrgName, req.ProjectName, req.ComponentName), nil
-}
-
-// extractImageFromWorkloadSpec extracts the first container image from the workload spec
-// Returns empty string if no containers or images are found
-func (s *ComponentService) extractImageFromWorkloadSpec(workloadSpec openchoreov1alpha1.WorkloadTemplateSpec) string {
-	// If no containers are defined, return empty string
-	if len(workloadSpec.Containers) == 0 {
-		return ""
-	}
-
-	// Return the image from the first container
-	// In most cases, there should be only one container, but we take the first if multiple exist
-	for _, container := range workloadSpec.Containers {
-		if container.Image != "" {
-			return container.Image
-		}
-	}
-
-	return ""
-}
-
-// mapConditionToBindingStatus maps Kubernetes condition status and reason to UI-friendly binding status
-func (s *ComponentService) mapConditionToBindingStatus(condition metav1.Condition) models.BindingStatusType {
-	if condition.Status == metav1.ConditionTrue {
-		return models.BindingStatusTypeReady // "Active"
-	}
-
-	// Condition status is False
-	switch condition.Reason {
-	case "ResourcesSuspended", "ResourcesUndeployed":
-		return models.BindingStatusTypeSuspended // "Suspended"
-	case "ResourceHealthProgressing":
-		// Use BindingStatusTypeInProgress, which maps to "InProgress" in UI
-		return models.BindingStatusTypeInProgress // "InProgress"
-	case "ResourceHealthDegraded", "ServiceClassNotFound", "APIClassNotFound", "WebApplicationClassNotFound", "ScheduledTaskClassNotFound",
-		"InvalidConfiguration", "ReleaseCreationFailed", "ReleaseUpdateFailed", "ReleaseDeletionFailed":
-		return models.BindingStatusTypeFailed // "Failed"
-	default:
-		// For unknown/initial states, use NotYetDeployed
-		return models.BindingStatusTypeUndeployed // "NotYetDeployed"
-	}
 }
 
 // validatePromotionPath validates that the promotion path is allowed by the deployment pipeline
@@ -2251,63 +2020,6 @@ func (s *ComponentService) createOrUpdateReleaseBinding(ctx context.Context, req
 	return nil
 }
 
-// getServiceBindingCR retrieves a ServiceBinding CR from the cluster
-func (s *ComponentService) getServiceBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.ServiceBinding, error) {
-	// List all ServiceBindings in the namespace and filter by owner and environment
-	bindingList := &openchoreov1alpha1.ServiceBindingList{}
-	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
-		return nil, fmt.Errorf("failed to list service bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			return b, nil
-		}
-	}
-
-	return nil, ErrBindingNotFound
-}
-
-// getWebApplicationBindingCR retrieves a WebApplicationBinding CR from the cluster
-func (s *ComponentService) getWebApplicationBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.WebApplicationBinding, error) {
-	// List all WebApplicationBindings in the namespace and filter by owner and environment
-	bindingList := &openchoreov1alpha1.WebApplicationBindingList{}
-	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
-		return nil, fmt.Errorf("failed to list web application bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			return b, nil
-		}
-	}
-
-	return nil, ErrBindingNotFound
-}
-
-// getScheduledTaskBindingCR retrieves a ScheduledTaskBinding CR from the cluster
-func (s *ComponentService) getScheduledTaskBindingCR(ctx context.Context, orgName, componentName, environment string) (*openchoreov1alpha1.ScheduledTaskBinding, error) {
-	// List all ScheduledTaskBindings in the namespace and filter by owner and environment
-	bindingList := &openchoreov1alpha1.ScheduledTaskBindingList{}
-	if err := s.k8sClient.List(ctx, bindingList, client.InNamespace(orgName)); err != nil {
-		return nil, fmt.Errorf("failed to list scheduled task bindings: %w", err)
-	}
-
-	// Find the binding that matches the component and environment
-	for i := range bindingList.Items {
-		b := &bindingList.Items[i]
-		if b.Spec.Owner.ComponentName == componentName && b.Spec.Environment == environment {
-			return b, nil
-		}
-	}
-
-	return nil, ErrBindingNotFound
-}
-
 // UpdateComponentBinding updates a component binding
 func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.UpdateBindingRequest) (*models.BindingResponse, error) {
 	s.logger.Debug("Updating component binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
@@ -2340,121 +2052,8 @@ func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, 
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	// Update the appropriate binding based on component type
-	var updatedBinding *models.BindingResponse
-	switch component.Type {
-	case string(openchoreov1alpha1.ComponentTypeService):
-		binding := &openchoreov1alpha1.ServiceBinding{}
-		err = s.k8sClient.Get(ctx, client.ObjectKey{
-			Name:      bindingName,
-			Namespace: orgName,
-		}, binding)
-		if err != nil {
-			if client.IgnoreNotFound(err) != nil {
-				s.logger.Error("Failed to get service binding", "error", err)
-				return nil, fmt.Errorf("failed to get service binding: %w", err)
-			}
-			s.logger.Warn("Service binding not found", "binding", bindingName)
-			return nil, ErrBindingNotFound
-		}
-
-		// Update the releaseState
-		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
-
-		if err := s.k8sClient.Update(ctx, binding); err != nil {
-			s.logger.Error("Failed to update service binding", "error", err)
-			return nil, fmt.Errorf("failed to update service binding: %w", err)
-		}
-
-		updatedBinding = &models.BindingResponse{
-			Name:          binding.Name,
-			Type:          string(openchoreov1alpha1.ComponentTypeService),
-			ComponentName: componentName,
-			ProjectName:   projectName,
-			OrgName:       orgName,
-			Environment:   binding.Spec.Environment,
-			ServiceBinding: &models.ServiceBinding{
-				ReleaseState: string(binding.Spec.ReleaseState),
-			},
-		}
-
-	case string(openchoreov1alpha1.ComponentTypeWebApplication):
-		binding := &openchoreov1alpha1.WebApplicationBinding{}
-		err = s.k8sClient.Get(ctx, client.ObjectKey{
-			Name:      bindingName,
-			Namespace: orgName,
-		}, binding)
-		if err != nil {
-			if client.IgnoreNotFound(err) != nil {
-				s.logger.Error("Failed to get web application binding", "error", err)
-				return nil, fmt.Errorf("failed to get web application binding: %w", err)
-			}
-			s.logger.Warn("Web application binding not found", "binding", bindingName)
-			return nil, ErrBindingNotFound
-		}
-
-		// Update the releaseState
-		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
-
-		if err := s.k8sClient.Update(ctx, binding); err != nil {
-			s.logger.Error("Failed to update web application binding", "error", err)
-			return nil, fmt.Errorf("failed to update web application binding: %w", err)
-		}
-
-		updatedBinding = &models.BindingResponse{
-			Name:          binding.Name,
-			Type:          string(openchoreov1alpha1.ComponentTypeWebApplication),
-			ComponentName: componentName,
-			ProjectName:   projectName,
-			OrgName:       orgName,
-			Environment:   binding.Spec.Environment,
-			WebApplicationBinding: &models.WebApplicationBinding{
-				ReleaseState: string(binding.Spec.ReleaseState),
-			},
-		}
-
-	case string(openchoreov1alpha1.ComponentTypeScheduledTask):
-		binding := &openchoreov1alpha1.ScheduledTaskBinding{}
-		err = s.k8sClient.Get(ctx, client.ObjectKey{
-			Name:      bindingName,
-			Namespace: orgName,
-		}, binding)
-		if err != nil {
-			if client.IgnoreNotFound(err) != nil {
-				s.logger.Error("Failed to get scheduled task binding", "error", err)
-				return nil, fmt.Errorf("failed to get scheduled task binding: %w", err)
-			}
-			s.logger.Warn("Scheduled task binding not found", "binding", bindingName)
-			return nil, ErrBindingNotFound
-		}
-
-		// Update the releaseState
-		binding.Spec.ReleaseState = openchoreov1alpha1.ReleaseState(req.ReleaseState)
-
-		if err := s.k8sClient.Update(ctx, binding); err != nil {
-			s.logger.Error("Failed to update scheduled task binding", "error", err)
-			return nil, fmt.Errorf("failed to update scheduled task binding: %w", err)
-		}
-
-		updatedBinding = &models.BindingResponse{
-			Name:          binding.Name,
-			Type:          string(openchoreov1alpha1.ComponentTypeScheduledTask),
-			ComponentName: componentName,
-			ProjectName:   projectName,
-			OrgName:       orgName,
-			Environment:   binding.Spec.Environment,
-			ScheduledTaskBinding: &models.ScheduledTaskBinding{
-				ReleaseState: string(binding.Spec.ReleaseState),
-			},
-		}
-
-	default:
-		s.logger.Error("Unsupported component type", "type", component.Type)
-		return nil, fmt.Errorf("unsupported component type: %s", component.Type)
-	}
-
-	s.logger.Debug("Component binding updated successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
-	return updatedBinding, nil
+	// Update the appropriate binding based on component type - legacy types removed
+	return nil, fmt.Errorf("legacy component types no longer supported: %s", component.Type)
 }
 
 // ComponentObserverResponse represents the response for observer URL requests
@@ -2726,7 +2325,6 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			return nil, fmt.Errorf("failed to update workload: %w", err)
 		}
 		s.logger.Debug("Updated existing workload", "name", existingWorkload.Name, "namespace", orgName)
-		workloadName = existingWorkload.Name
 	} else {
 		// Create new workload
 		workloadName = componentName + "-workload"
@@ -2752,7 +2350,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	}
 
 	// Create the appropriate type-specific resource based on component type if it doesn't exist
-	if err := s.createTypeSpecificResource(ctx, orgName, projectName, componentName, workloadName, component.Spec.Type); err != nil {
+	if err := s.createTypeSpecificResource(); err != nil {
 		s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.Type, "error", err)
 		return nil, fmt.Errorf("failed to create type-specific resource: %w", err)
 	}
@@ -2760,138 +2358,10 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	return workloadSpec, nil
 }
 
-// createTypeSpecificResource creates the appropriate resource (Service, WebApplication, or ScheduledTask) based on component type
-func (s *ComponentService) createTypeSpecificResource(ctx context.Context, orgName, projectName, componentName, workloadName string, componentType openchoreov1alpha1.DefinedComponentType) error {
-	switch componentType {
-	case openchoreov1alpha1.ComponentTypeService:
-		return s.createServiceResource(ctx, orgName, projectName, componentName, workloadName)
-	case openchoreov1alpha1.ComponentTypeWebApplication:
-		return s.createWebApplicationResource(ctx, orgName, projectName, componentName, workloadName)
-	case openchoreov1alpha1.ComponentTypeScheduledTask:
-		return s.createScheduledTaskResource(ctx, orgName, projectName, componentName, workloadName)
-	default:
-		s.logger.Debug("No type-specific resource needed for component type", "componentType", componentType)
-		return nil
-	}
-}
-
-// createServiceResource creates a Service resource for Service components
-func (s *ComponentService) createServiceResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
-	// Check if service already exists
-	serviceList := &openchoreov1alpha1.ServiceList{}
-	if err := s.k8sClient.List(ctx, serviceList, client.InNamespace(orgName)); err != nil {
-		return fmt.Errorf("failed to list services: %w", err)
-	}
-
-	// Check if service already exists for this component
-	for _, service := range serviceList.Items {
-		if service.Spec.Owner.ComponentName == componentName && service.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("Service already exists for component", "service", service.Name, "component", componentName)
-			return nil
-		}
-	}
-
-	// Create new service
-	service := &openchoreov1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentName + "-service",
-			Namespace: orgName,
-		},
-		Spec: openchoreov1alpha1.ServiceSpec{
-			Owner: openchoreov1alpha1.ServiceOwner{
-				ProjectName:   projectName,
-				ComponentName: componentName,
-			},
-			WorkloadName: workloadName,
-			ClassName:    defaultPipeline,
-		},
-	}
-
-	if err := s.k8sClient.Create(ctx, service); err != nil {
-		return fmt.Errorf("failed to create service: %w", err)
-	}
-
-	s.logger.Debug("Created service for component", "service", service.Name, "component", componentName, "workload", workloadName)
-	return nil
-}
-
-// createWebApplicationResource creates a WebApplication resource for WebApplication components
-func (s *ComponentService) createWebApplicationResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
-	// Check if web application already exists
-	webAppList := &openchoreov1alpha1.WebApplicationList{}
-	if err := s.k8sClient.List(ctx, webAppList, client.InNamespace(orgName)); err != nil {
-		return fmt.Errorf("failed to list web applications: %w", err)
-	}
-
-	// Check if web application already exists for this component
-	for _, webApp := range webAppList.Items {
-		if webApp.Spec.Owner.ComponentName == componentName && webApp.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("WebApplication already exists for component", "webApp", webApp.Name, "component", componentName)
-			return nil
-		}
-	}
-
-	// Create new web application
-	webApp := &openchoreov1alpha1.WebApplication{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentName + "-webapp",
-			Namespace: orgName,
-		},
-		Spec: openchoreov1alpha1.WebApplicationSpec{
-			Owner: openchoreov1alpha1.WebApplicationOwner{
-				ProjectName:   projectName,
-				ComponentName: componentName,
-			},
-			WorkloadName: workloadName,
-			ClassName:    defaultPipeline,
-		},
-	}
-
-	if err := s.k8sClient.Create(ctx, webApp); err != nil {
-		return fmt.Errorf("failed to create web application: %w", err)
-	}
-
-	s.logger.Debug("Created web application for component", "webApp", webApp.Name, "component", componentName, "workload", workloadName)
-	return nil
-}
-
-// createScheduledTaskResource creates a ScheduledTask resource for ScheduledTask components
-func (s *ComponentService) createScheduledTaskResource(ctx context.Context, orgName, projectName, componentName, workloadName string) error {
-	// Check if scheduled task already exists
-	scheduledTaskList := &openchoreov1alpha1.ScheduledTaskList{}
-	if err := s.k8sClient.List(ctx, scheduledTaskList, client.InNamespace(orgName)); err != nil {
-		return fmt.Errorf("failed to list scheduled tasks: %w", err)
-	}
-
-	// Check if scheduled task already exists for this component
-	for _, scheduledTask := range scheduledTaskList.Items {
-		if scheduledTask.Spec.Owner.ComponentName == componentName && scheduledTask.Spec.Owner.ProjectName == projectName {
-			s.logger.Debug("ScheduledTask already exists for component", "scheduledTask", scheduledTask.Name, "component", componentName)
-			return nil
-		}
-	}
-
-	// Create new scheduled task
-	scheduledTask := &openchoreov1alpha1.ScheduledTask{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      componentName + "-task",
-			Namespace: orgName,
-		},
-		Spec: openchoreov1alpha1.ScheduledTaskSpec{
-			Owner: openchoreov1alpha1.ScheduledTaskOwner{
-				ProjectName:   projectName,
-				ComponentName: componentName,
-			},
-			WorkloadName: workloadName,
-			ClassName:    defaultPipeline,
-		},
-	}
-
-	if err := s.k8sClient.Create(ctx, scheduledTask); err != nil {
-		return fmt.Errorf("failed to create scheduled task: %w", err)
-	}
-
-	s.logger.Debug("Created scheduled task for component", "scheduledTask", scheduledTask.Name, "component", componentName, "workload", workloadName)
+// createTypeSpecificResource creates the appropriate resource - legacy component types removed
+func (s *ComponentService) createTypeSpecificResource() error {
+	// Legacy component types (Service, WebApplication, ScheduledTask) have been removed
+	// This method is now a no-op stub for backward compatibility
 	return nil
 }
 

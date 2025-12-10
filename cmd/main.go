@@ -24,9 +24,6 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/controller/api"
-	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
-	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
@@ -34,11 +31,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
-	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
-	"github.com/openchoreo/openchoreo/internal/controller/deployment"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
-	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
@@ -46,17 +40,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/project"
 	"github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
-	"github.com/openchoreo/openchoreo/internal/controller/service"
-	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
-	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplication"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
 	"github.com/openchoreo/openchoreo/internal/controller/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
@@ -280,31 +265,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
 			os.Exit(1)
 		}
-		if err = (&deployableartifact.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
-			os.Exit(1)
-		}
-		if err = (&deployment.Reconciler{
-			Client:       mgr.GetClient(),
-			K8sClientMgr: k8sClientMgr,
-			Scheme:       mgr.GetScheme(),
-			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
-			os.Exit(1)
-		}
-		if err = (&endpoint.Reconciler{
-			Client:       mgr.GetClient(),
-			K8sClientMgr: k8sClientMgr,
-			Scheme:       mgr.GetScheme(),
-			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
-			os.Exit(1)
-		}
 		if err = (&workload.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
@@ -363,98 +323,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
-		os.Exit(1)
-	}
-
-	// API controllers
-	if err = (&api.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "API")
-		os.Exit(1)
-	}
-	if err = (&apiclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
-		os.Exit(1)
-	}
-	if err = (&apibinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
-		os.Exit(1)
-	}
-
-	// Service controllers
-	if err := (&service.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
-		os.Exit(1)
-	}
-	if err := (&serviceclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceClass")
-		os.Exit(1)
-	}
-	if err := (&servicebinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
-		os.Exit(1)
-	}
-
-	// WebApplication controllers
-	if err := (&webapplication.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplication")
-		os.Exit(1)
-	}
-	if err := (&webapplicationclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationClass")
-		os.Exit(1)
-	}
-	if err := (&webapplicationbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
-		os.Exit(1)
-	}
-
-	// ScheduledTask controllers
-	if err := (&scheduledtask.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTask")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskClass")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
 		os.Exit(1)
 	}
 

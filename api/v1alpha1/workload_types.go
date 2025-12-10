@@ -10,6 +10,50 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// EnvVar represents an environment variable present in the container.
+type EnvVar struct {
+	// The environment variable key.
+	// +required
+	Key string `json:"key"`
+
+	// The literal value of the environment variable.
+	// Mutually exclusive with valueFrom.
+	// +optional
+	Value string `json:"value,omitempty"`
+
+	// Extract the environment variable value from another resource.
+	// Mutually exclusive with value.
+	// +optional
+	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
+}
+
+// EnvVarValueFrom holds references to external sources for environment variables.
+type EnvVarValueFrom struct {
+	// Reference to a configuration group.
+	// +optional
+	ConfigurationGroupRef *ConfigurationGroupKeyRef `json:"configurationGroupRef,omitempty"`
+
+	// Reference to a secret resource.
+	// +optional
+	SecretRef *SecretKeyRef `json:"secretRef,omitempty"`
+}
+
+// ConfigurationGroupKeyRef references a specific key in a configuration group.
+type ConfigurationGroupKeyRef struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Key string `json:"key"`
+}
+
+// SecretKeyRef references a specific key in a K8s secret.
+type SecretKeyRef struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Key string `json:"key"`
+}
+
 // FileVar represents a file configuration in a container.
 // +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
 type FileVar struct {
@@ -52,6 +96,23 @@ type Container struct {
 	// File configurations.
 	// +optional
 	Files []FileVar `json:"files,omitempty"`
+}
+
+// EndpointType defines the different API technologies supported by the endpoint
+type EndpointType string
+
+const (
+	EndpointTypeHTTP      EndpointType = "HTTP"
+	EndpointTypeREST      EndpointType = "REST"
+	EndpointTypeGraphQL   EndpointType = "GraphQL"
+	EndpointTypeWebsocket EndpointType = "Websocket"
+	EndpointTypeGRPC      EndpointType = "gRPC"
+	EndpointTypeTCP       EndpointType = "TCP"
+	EndpointTypeUDP       EndpointType = "UDP"
+)
+
+func (e EndpointType) String() string {
+	return string(e)
 }
 
 // WorkloadEndpoint represents a simple network endpoint for basic exposure.

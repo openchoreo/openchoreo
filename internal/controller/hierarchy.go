@@ -183,34 +183,6 @@ func GetDeploymentTrack(ctx context.Context, c client.Client, obj client.Object)
 	)
 }
 
-func GetDeployableArtifact(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.DeployableArtifact, error) {
-	deployableArtifactList := &openchoreov1alpha1.DeployableArtifactList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         GetProjectName(obj),
-			labels.LabelKeyComponentName:       GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-		},
-	}
-
-	if err := c.List(ctx, deployableArtifactList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployable artifacts: %w", err)
-	}
-
-	if len(deployableArtifactList.Items) > 0 {
-		return &deployableArtifactList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.DeployableArtifact{}, GetDeployableArtifactName(obj)),
-		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-		objWithName(&openchoreov1alpha1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
-	)
-}
-
 func GetEnvironment(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Environment, error) {
 	environmentList := &openchoreov1alpha1.EnvironmentList{}
 	listOpts := []client.ListOption{
@@ -254,95 +226,6 @@ func GetEnvironmentByName(ctx context.Context, c client.Client, obj client.Objec
 
 	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Environment{}, envName),
 		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
-	)
-}
-
-func GetDeploymentByName(ctx context.Context, c client.Client, obj client.Object, deploymentName string) (*openchoreov1alpha1.Deployment, error) {
-	deploymentList := &openchoreov1alpha1.DeploymentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         GetProjectName(obj),
-			labels.LabelKeyComponentName:       GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyEnvironmentName:     GetEnvironmentName(obj),
-			labels.LabelKeyName:                deploymentName,
-		},
-	}
-
-	if err := c.List(ctx, deploymentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployments: %w", err)
-	}
-
-	if len(deploymentList.Items) > 0 {
-		return &deploymentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Deployment{}, deploymentName),
-		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-		objWithName(&openchoreov1alpha1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
-	)
-}
-
-func GetDeploymentByEnvironment(ctx context.Context, c client.Client, obj client.Object, envName string) (*openchoreov1alpha1.Deployment, error) {
-	deploymentList := &openchoreov1alpha1.DeploymentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         GetProjectName(obj),
-			labels.LabelKeyComponentName:       GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyEnvironmentName:     envName,
-		},
-	}
-
-	if err := c.List(ctx, deploymentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployments: %w", err)
-	}
-
-	if len(deploymentList.Items) > 0 {
-		return &deploymentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Deployment{}, GetDeploymentName(obj)),
-		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-		objWithName(&openchoreov1alpha1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
-	)
-}
-
-func GetDeployment(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Deployment, error) {
-	deploymentList := &openchoreov1alpha1.DeploymentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName:    GetOrganizationName(obj),
-			labels.LabelKeyProjectName:         GetProjectName(obj),
-			labels.LabelKeyComponentName:       GetComponentName(obj),
-			labels.LabelKeyDeploymentTrackName: GetDeploymentTrackName(obj),
-			labels.LabelKeyEnvironmentName:     GetEnvironmentName(obj),
-			labels.LabelKeyName:                GetDeploymentName(obj),
-		},
-	}
-
-	if err := c.List(ctx, deploymentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployments: %w", err)
-	}
-
-	if len(deploymentList.Items) > 0 {
-		return &deploymentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Deployment{}, GetDeploymentName(obj)),
-		objWithName(&openchoreov1alpha1.Organization{}, GetOrganizationName(obj)),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-		objWithName(&openchoreov1alpha1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
 	)
 }
 

@@ -8,16 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	k8sapierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -65,8 +62,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 	// Cleaning up the environment.
 	// This assumes that, user already removed the environment from the deployment pipelines.
 
-	// Delete all the deployments associated to the environment.
-	isPending, err := r.cleanupDeployments(ctx, environment)
+	isPending, err := r.cleanupReleaseBindings(ctx, environment)
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -120,47 +116,8 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 	return ctrl.Result{}, nil
 }
 
-// cleanupDeployments deletes all the deployments associated with the environment.
-func (r *Reconciler) cleanupDeployments(ctx context.Context, environment *openchoreov1alpha1.Environment) (bool, error) {
-	logger := log.FromContext(ctx).WithValues("environment", environment.Name)
-	logger.Info("Cleaning up the deployments associated with the environment")
-
-	// List all deployments with the label `openchoreo.dev/environment=<environment.Name>`
-	deploymentList := &openchoreov1alpha1.DeploymentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(environment.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyEnvironmentName:  environment.Name,
-			labels.LabelKeyOrganizationName: environment.Labels[labels.LabelKeyOrganizationName],
-		},
-	}
-
-	if err := r.List(ctx, deploymentList, listOpts...); err != nil {
-		return false, fmt.Errorf("error listing deployments: %w", err)
-	}
-
-	if len(deploymentList.Items) == 0 {
-		logger.Info("No deployments associated with the environment")
-		return false, nil
-	}
-
-	// Delete each deployment
-	for _, deployment := range deploymentList.Items {
-		// Check if the deployment is being already deleting
-		if !deployment.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		if err := r.Delete(ctx, &deployment); err != nil {
-			if k8sapierrors.IsNotFound(err) {
-				// The deployment is already deleted, no need to retry
-				continue
-			}
-			return false, fmt.Errorf("error deleting deployment %s: %w", deployment.Name, err)
-		}
-	}
-
-	// Reaching this point means the deployment deletion is either still in progress or has just been initiated.
-	// If this is the first deletion attempt, marking the pending deletion as true.
-	return true, nil
+// cleanupReleaseBindings deletes all the releasebindings associated with the environment.
+func (r *Reconciler) cleanupReleaseBindings(ctx context.Context, environment *openchoreov1alpha1.Environment) (bool, error) {
+	// TODO: implement
+	return false, nil
 }

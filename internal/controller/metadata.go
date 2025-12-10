@@ -36,16 +36,6 @@ func GetBuildName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyBuildName)
 }
 
-// GetDeploymentName returns the deployment name that the object belongs to.
-func GetDeploymentName(obj client.Object) string {
-	return getLabelValueOrEmpty(obj, labels.LabelKeyDeploymentName)
-}
-
-// GetDeployableArtifactName returns the deployable artifact name that the object belongs to.
-func GetDeployableArtifactName(obj client.Object) string {
-	return getLabelValueOrEmpty(obj, labels.LabelKeyDeployableArtifactName)
-}
-
 // GetEnvironmentName returns the environment name that the object belongs to.
 func GetEnvironmentName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyEnvironmentName)
