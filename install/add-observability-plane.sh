@@ -60,7 +60,7 @@ Examples:
     --control-plane-context k3d-openchoreo
 
   # Multi-cluster with agent mode and auto-extract
-  $script_name --observer-url https://external-observability.mycluster.com/observer \\
+  $script_name --observer-url http://external-observability.mycluster.com/observer \\
     --control-plane-context k3d-openchoreo-cp \\
     --observabilityplane-context k3d-openchoreo-op \\
     --name default
@@ -88,7 +88,7 @@ CONTROL_PLANE_CONTEXT=""
 OBSERVABILITYPLANE_CONTEXT=""  # Observability plane cluster for CA extraction
 OBSERVABILITYPLANE_NAME="default"
 NAMESPACE="default"
-OBSERVER_URL="https://observer.openchoreo-observability-plane.svc.cluster.local:8080" # Single cluster mode
+OBSERVER_URL="http://observer.openchoreo-observability-plane.svc.cluster.local:8080" # Single cluster mode
 DRY_RUN=false
 AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
 AGENT_CA_NAMESPACE=""
