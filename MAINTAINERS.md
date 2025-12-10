@@ -5,6 +5,8 @@ All project decisions follow the OpenChoreo Governance Policy and are driven by 
 
 ## Core Maintainers
 Core Maintainers have merge authority across the entire repository and are responsible for stewardship of the project’s long-term roadmap and architectural consistency. Core Maintainers are expected to remain active, participate in design discussions, and provide timely reviews.
+
+In addition to these responsibilities, the Core Maintainers collectively serve as the project’s Security Team, handling security-related issues, coordinating responsible disclosures, and ensuring that patches and advisories are managed appropriately.
 - Sameera Jayasoma ([@sameerajayasoma](https://github.com/sameerajayasoma))
 - Lakmal Warusawithana ([@lakwarus](https://github.com/lakwarus))
 - Binura Gunasekara ([@binura-g](https://github.com/binura-g))
