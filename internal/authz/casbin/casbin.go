@@ -28,16 +28,14 @@ type CasbinEnforcer struct {
 	logger           *slog.Logger
 	actionRepository *ActionRepository
 	db               *gorm.DB
-	userTypeDetector authzcore.Detector
 }
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string                     // Required: Path to SQLite database path
-	RolesFilePath     string                     // Optional: Path to roles YAML file (falls back to embedded if empty)
-	UserTypeConfigs   []authzcore.UserTypeConfig // Required: User type detection configuration
-	EnableCache       bool                       // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int                        // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath      string // Required: Path to SQLite database path
+	RolesFilePath     string // Optional: Path to roles YAML file (falls back to embedded if empty)
+	EnableCache       bool   // Optional: Enable policy cache (default: false)
+	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
 }
 
 const (
@@ -52,19 +50,9 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
 	}
 
-	if len(config.UserTypeConfigs) == 0 {
-		return nil, fmt.Errorf("UserTypeConfigs is required in CasbinConfig")
-	}
-
 	// RolesFilePath is optional - will use embedded default if not provided
 	if config.CacheTTLInSeconds == 0 {
 		config.CacheTTLInSeconds = 300 // Default: 5 minutes
-	}
-
-	// Create user type detector
-	userTypeDetector, err := authzcore.NewDetector(config.UserTypeConfigs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user type detector: %w", err)
 	}
 
 	// Load Casbin model from embedded string
@@ -124,12 +112,10 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		logger:           logger,
 		actionRepository: actionRepo,
 		db:               db,
-		userTypeDetector: userTypeDetector,
 	}
 
 	logger.Info("casbin enforcer initialized",
-		"cache_enabled", config.EnableCache,
-		"user_types_count", len(config.UserTypeConfigs))
+		"cache_enabled", config.EnableCache)
 
 	return ce, nil
 }
@@ -176,18 +162,14 @@ func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.
 // GetSubjectProfile retrieves the authorization profile for a given subject
 func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
 	ce.logger.Debug("get subject profile called",
-		"subject", request.Subject,
+		"subject_context", request.SubjectContext,
 		"scope", request.Scope)
 
 	if err := validateProfileRequest(request); err != nil {
 		return nil, err
 	}
 
-	subjectCtx, err := ce.userTypeDetector.DetectUserType(request.Subject.JwtToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect user type: %w", err)
-	}
-
+	subjectCtx := request.SubjectContext
 	scopePath := hierarchyToResourcePath(request.Scope)
 
 	allConcreteActions, err := ce.actionRepository.ListConcreteActions()
@@ -569,26 +551,6 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	return result, nil
 }
 
-// ListUserTypes returns all configured user types in the system
-func (ce *CasbinEnforcer) ListUserTypes(ctx context.Context) ([]authzcore.UserTypeInfo, error) {
-	ce.logger.Debug("list user types called")
-
-	userTypes := make([]authzcore.UserTypeInfo, len(ce.config.UserTypeConfigs))
-	for i, config := range ce.config.UserTypeConfigs {
-		userTypes[i] = authzcore.UserTypeInfo{
-			Type:        config.Type,
-			DisplayName: config.DisplayName,
-			Priority:    config.Priority,
-			Entitlement: authzcore.EntitlementClaimInfo{
-				Name:        config.Entitlement.Claim,
-				DisplayName: config.Entitlement.DisplayName,
-			},
-		}
-	}
-
-	return userTypes, nil
-}
-
 // formatSubject creates a subject string from claim and value
 // Format: "claim:value"
 func formatSubject(claim, value string) string {
@@ -609,13 +571,11 @@ func parseSubject(subject string) (claim, value string, err error) {
 // check performs the actual authorization check using Casbin
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := hierarchyToResourcePath(request.Resource.Hierarchy)
-	subject := request.Subject
+	subjectCtx := request.SubjectContext
 
-	// Use the user type detector to extract subject context
-	subjectCtx, err := ce.userTypeDetector.DetectUserType(subject.JwtToken)
-	if err != nil {
-		ce.logger.Warn("failed to detect user type", "error", err)
-		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to detect user type: %w", err)
+	// Validate subject context
+	if subjectCtx == nil {
+		return &authzcore.Decision{Decision: false}, fmt.Errorf("subject context is required")
 	}
 
 	ce.logger.Debug("evaluate called",
@@ -627,6 +587,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 		"context", request.Context)
 
 	result := false
+	var err error
 	decision := &authzcore.Decision{Decision: false,
 		Context: &authzcore.DecisionContext{
 			Reason: "no matching policies found",
