@@ -29,3 +29,8 @@ observer:
       cpu: 20m
       memory: 20Mi
 
+# Cluster Agent configuration for single-cluster setup
+clusterAgent:
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  planeName: default
+  planeType: observabilityplane

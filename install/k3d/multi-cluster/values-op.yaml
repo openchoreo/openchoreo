@@ -15,7 +15,6 @@ openSearch:
     type: LoadBalancer
 
 clusterAgent:
-  enabled: true
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
   planeName: "default"
   planeType: "observabilityplane"

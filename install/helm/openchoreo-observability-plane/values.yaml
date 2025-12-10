@@ -494,7 +494,7 @@ waitJob:
 
 # Cluster Agent configuration for agent-based communication with control plane
 clusterAgent:
-  enabled: false  # Set to true to enable cluster agent
+  enabled: true
   name: cluster-agent-observabilityplane
   replicas: 1
   image:
