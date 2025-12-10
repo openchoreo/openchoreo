@@ -191,3 +191,18 @@ func (s *AuthzService) BatchEvaluate(ctx context.Context, request *authz.BatchEv
 	s.logger.Debug("Batch authorization decisions made", "count", len(response.Decisions))
 	return response, nil
 }
+
+func (s *AuthzService) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.UserCapabilitiesResponse, error) {
+	s.logger.Debug("Retrieving subject profile", "subject", request.Subject, "scope", request.Scope)
+
+	profile, err := s.pdp.GetSubjectProfile(ctx, request)
+	if err != nil {
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to get subject profile: %w", err)
+	}
+	s.logger.Debug("Retrieved subject profile", "subject", profile.User.EntitlementValues, "result", profile.Capabilities)
+
+	return profile, nil
+}

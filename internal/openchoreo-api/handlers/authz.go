@@ -10,6 +10,7 @@ import (
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 // ListRoles handles GET /api/v1/authz/roles
@@ -231,13 +232,48 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, response)
 }
 
-// GetAuthzProfile handles GET /api/v1/authz/profile
-func (h *Handler) GetAuthzProfile(w http.ResponseWriter, r *http.Request) {
-	// TODO: implement this once the casbin impl for this is complete
-	// get subject from the request context
-	// get the scope from query parameters
-	// ex: /api/v1/authz/profile?organization=myorg&project=myproject
-	writeSuccessResponse(w, http.StatusOK, "")
+// GetSubjectProfile handles GET /api/v1/authz/profile
+func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
+	// Extract token from context
+	token := jwt.GetTokenFromContext(r.Context())
+	if token == "" {
+		writeErrorResponse(w, http.StatusUnauthorized, "Missing subject token", services.CodeInvalidInput)
+		return
+	}
+
+	// Extract query parameters
+	org := r.URL.Query().Get("org")
+	if org == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Organization (org) query parameter is required", services.CodeInvalidInput)
+		return
+	}
+	project := r.URL.Query().Get("project")
+	component := r.URL.Query().Get("component")
+	orgUnits := r.URL.Query()["ou"]
+
+	request := &authz.ProfileRequest{
+		Subject: authz.Subject{
+			JwtToken: token,
+		},
+		Scope: authz.ResourceHierarchy{
+			Organization:      org,
+			OrganizationUnits: orgUnits,
+			Project:           project,
+			Component:         component,
+		},
+	}
+
+	resp, err := h.services.AuthzService.GetSubjectProfile(r.Context(), request)
+	if err != nil {
+		if errors.Is(err, authz.ErrInvalidRequest) {
+			writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+			return
+		}
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get subject profile", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, resp)
 }
 
 // handleAuthzDisabledError checks if the error indicates that authorization is disabled and returns a standardized error
