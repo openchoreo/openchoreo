@@ -6,12 +6,8 @@ package component
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"gopkg.in/yaml.v3"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
 // nolint:unused
@@ -84,25 +79,10 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	var warnings admission.Warnings
 
 	// Note: Required field validations (componentType, owner.projectName, traits.name, traits.instanceName) are enforced by the CRD schema
+	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
 	// Validate unique trait instance names
-	instanceNames := make(map[string]bool)
-	for i, trait := range component.Spec.Traits {
-		if instanceNames[trait.InstanceName] {
-			allErrs = append(allErrs, field.Duplicate(
-				field.NewPath("spec", "traits").Index(i).Child("instanceName"),
-				trait.InstanceName))
-		}
-		instanceNames[trait.InstanceName] = true
-	}
-
-	// Cross-resource validation: validate parameters against ComponentType schema
-	if component.Spec.ComponentType != "" {
-		allErrs = append(allErrs, v.validateComponentTypeParameters(ctx, component)...)
-	}
-
-	// Cross-resource validation: validate trait configs against Trait schemas
-	allErrs = append(allErrs, v.validateTraitParameters(ctx, component)...)
+	allErrs = append(allErrs, validateUniqueTraitInstanceNames(component)...)
 
 	if len(allErrs) > 0 {
 		return warnings, allErrs.ToAggregate()
@@ -127,27 +107,12 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	allErrs := field.ErrorList{}
 	var warnings admission.Warnings
 
-	// Note: spec.componentType and spec.type immutability are enforced by CEL rules in the CRD schema
 	// Note: Required field validations (componentType, owner.projectName, traits.name, traits.instanceName) are enforced by the CRD schema
+	// Note: spec.componentType, spec.type immutability are enforced by CEL rules in the CRD schema
+	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
 	// Validate unique trait instance names
-	instanceNames := make(map[string]bool)
-	for i, trait := range newComponent.Spec.Traits {
-		if instanceNames[trait.InstanceName] {
-			allErrs = append(allErrs, field.Duplicate(
-				field.NewPath("spec", "traits").Index(i).Child("instanceName"),
-				trait.InstanceName))
-		}
-		instanceNames[trait.InstanceName] = true
-	}
-
-	// Cross-resource validation: validate parameters against ComponentType schema
-	if newComponent.Spec.ComponentType != "" {
-		allErrs = append(allErrs, v.validateComponentTypeParameters(ctx, newComponent)...)
-	}
-
-	// Cross-resource validation: validate trait configs against Trait schemas
-	allErrs = append(allErrs, v.validateTraitParameters(ctx, newComponent)...)
+	allErrs = append(allErrs, validateUniqueTraitInstanceNames(newComponent)...)
 
 	if len(allErrs) > 0 {
 		return warnings, allErrs.ToAggregate()
@@ -168,232 +133,18 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 	return nil, nil
 }
 
-// parseComponentType parses the componentType format: {workloadType}/{componentTypeName}
-// Returns workloadType, componentTypeName, and error
-func parseComponentType(componentType string) (string, string, error) {
-	parts := strings.SplitN(componentType, "/", 2)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("componentType must be in format 'workloadType/componentTypeName', got: %s", componentType)
-	}
-	return parts[0], parts[1], nil
-}
-
-// validateComponentTypeParameters validates component parameters against ComponentType schema
-func (v *Validator) validateComponentTypeParameters(ctx context.Context, component *openchoreodevv1alpha1.Component) field.ErrorList {
+// validateUniqueTraitInstanceNames validates that trait instance names are unique within a component
+func validateUniqueTraitInstanceNames(component *openchoreodevv1alpha1.Component) field.ErrorList {
 	allErrs := field.ErrorList{}
-	basePath := field.NewPath("spec", "parameters")
+	instanceNames := make(map[string]bool)
 
-	// Parse componentType to get the ComponentType name
-	_, componentTypeName, err := parseComponentType(component.Spec.ComponentType)
-	if err != nil {
-		// This should have been caught by validateComponentStructure, but double-check
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec", "componentType"),
-			component.Spec.ComponentType,
-			err.Error()))
-		return allErrs
-	}
-
-	// Fetch the ComponentType CRD
-	componentType := &openchoreodevv1alpha1.ComponentType{}
-	err = v.Client.Get(ctx, types.NamespacedName{
-		Name:      componentTypeName,
-		Namespace: component.Namespace,
-	}, componentType)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			allErrs = append(allErrs, field.NotFound(
-				field.NewPath("spec", "componentType"),
-				fmt.Sprintf("ComponentType %q not found in namespace %q", componentTypeName, component.Namespace)))
-			return allErrs
+	for i, trait := range component.Spec.Traits {
+		if instanceNames[trait.InstanceName] {
+			allErrs = append(allErrs, field.Duplicate(
+				field.NewPath("spec", "traits").Index(i).Child("instanceName"),
+				trait.InstanceName))
 		}
-		// For other errors, return as error
-		allErrs = append(allErrs, field.InternalError(
-			field.NewPath("spec", "componentType"),
-			fmt.Errorf("failed to fetch ComponentType %q: %w", componentTypeName, err)))
-		return allErrs
-	}
-
-	// If ComponentType has no schema, nothing to validate against
-	if componentType.Spec.Schema.Parameters == nil || len(componentType.Spec.Schema.Parameters.Raw) == 0 {
-		return allErrs
-	}
-
-	// Build the schema definition
-	var types map[string]any
-	if componentType.Spec.Schema.Types != nil && len(componentType.Spec.Schema.Types.Raw) > 0 {
-		if err := yaml.Unmarshal(componentType.Spec.Schema.Types.Raw, &types); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath,
-				"<invalid>",
-				fmt.Sprintf("ComponentType has invalid types schema: %v", err)))
-			return allErrs
-		}
-	}
-
-	var params map[string]any
-	if err := yaml.Unmarshal(componentType.Spec.Schema.Parameters.Raw, &params); err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			"<invalid>",
-			fmt.Sprintf("ComponentType has invalid parameters schema: %v", err)))
-		return allErrs
-	}
-
-	schemaDef := schema.Definition{
-		Types:   types,
-		Schemas: []map[string]any{params},
-	}
-
-	// Convert to JSON schema for validation
-	jsonSchema, err := schema.ToJSONSchema(schemaDef)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			"<invalid>",
-			fmt.Sprintf("ComponentType has invalid schema definition: %v", err)))
-		return allErrs
-	}
-
-	// Unmarshal component parameters (treat nil/empty as empty object)
-	var componentParams map[string]any
-	if component.Spec.Parameters != nil && len(component.Spec.Parameters.Raw) > 0 {
-		if err := yaml.Unmarshal(component.Spec.Parameters.Raw, &componentParams); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath,
-				"<invalid>",
-				fmt.Sprintf("failed to parse parameters: %v", err)))
-			return allErrs
-		}
-	} else {
-		// No parameters provided - validate against empty object
-		componentParams = map[string]any{}
-	}
-
-	// Validate parameters against schema (will catch missing required fields)
-	if err := schema.ValidateWithJSONSchema(componentParams, jsonSchema); err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			"<invalid>",
-			fmt.Sprintf("parameters do not match ComponentType schema: %v", err)))
-	}
-
-	return allErrs
-}
-
-// validateTraitParameters validates trait configs against Trait schemas
-func (v *Validator) validateTraitParameters(ctx context.Context, component *openchoreodevv1alpha1.Component) field.ErrorList {
-	allErrs := field.ErrorList{}
-	basePath := field.NewPath("spec", "traits")
-
-	for i, traitInstance := range component.Spec.Traits {
-		traitPath := basePath.Index(i)
-
-		// Fetch the Trait CRD
-		trait := &openchoreodevv1alpha1.Trait{}
-		err := v.Client.Get(ctx, types.NamespacedName{
-			Name:      traitInstance.Name,
-			Namespace: component.Namespace,
-		}, trait)
-
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				allErrs = append(allErrs, field.NotFound(
-					traitPath.Child("name"),
-					fmt.Sprintf("Trait %q not found in namespace %q", traitInstance.Name, component.Namespace)))
-				continue
-			}
-			// For other errors, return as error
-			allErrs = append(allErrs, field.InternalError(
-				traitPath.Child("name"),
-				fmt.Errorf("failed to fetch Trait %q: %w", traitInstance.Name, err)))
-			continue
-		}
-
-		// If Trait has no schema, nothing to validate against
-		hasParams := trait.Spec.Schema.Parameters != nil && len(trait.Spec.Schema.Parameters.Raw) > 0
-		hasEnvOverrides := trait.Spec.Schema.EnvOverrides != nil && len(trait.Spec.Schema.EnvOverrides.Raw) > 0
-		if !hasParams && !hasEnvOverrides {
-			continue
-		}
-
-		// Build the schema definition (must combine both parameters and envOverrides, like the pipeline does)
-		var types map[string]any
-		if trait.Spec.Schema.Types != nil && len(trait.Spec.Schema.Types.Raw) > 0 {
-			if err := yaml.Unmarshal(trait.Spec.Schema.Types.Raw, &types); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("parameters"),
-					"<invalid>",
-					fmt.Sprintf("Trait %q has invalid types schema: %v", traitInstance.Name, err)))
-				continue
-			}
-		}
-
-		// Extract schemas (both parameters and envOverrides)
-		var schemas []map[string]any
-
-		if hasParams {
-			var params map[string]any
-			if err := yaml.Unmarshal(trait.Spec.Schema.Parameters.Raw, &params); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("parameters"),
-					"<invalid>",
-					fmt.Sprintf("Trait %q has invalid parameters schema: %v", traitInstance.Name, err)))
-				continue
-			}
-			schemas = append(schemas, params)
-		}
-
-		if hasEnvOverrides {
-			var envOverrides map[string]any
-			if err := yaml.Unmarshal(trait.Spec.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("parameters"),
-					"<invalid>",
-					fmt.Sprintf("Trait %q has invalid envOverrides schema: %v", traitInstance.Name, err)))
-				continue
-			}
-			schemas = append(schemas, envOverrides)
-		}
-
-		schemaDef := schema.Definition{
-			Types:   types,
-			Schemas: schemas,
-		}
-
-		// Convert to JSON schema for validation
-		jsonSchema, err := schema.ToJSONSchema(schemaDef)
-		if err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("parameters"),
-				"<invalid>",
-				fmt.Sprintf("Trait %q has invalid schema definition: %v", traitInstance.Name, err)))
-			continue
-		}
-
-		// Unmarshal trait parameters (treat nil/empty as empty object)
-		var traitParams map[string]any
-		if traitInstance.Parameters != nil && len(traitInstance.Parameters.Raw) > 0 {
-			if err := yaml.Unmarshal(traitInstance.Parameters.Raw, &traitParams); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("parameters"),
-					"<invalid>",
-					fmt.Sprintf("failed to parse trait parameters: %v", err)))
-				continue
-			}
-		} else {
-			// No parameters provided - validate against empty object
-			traitParams = map[string]any{}
-		}
-
-		// Validate parameters against schema (will catch missing required fields)
-		if err := schema.ValidateWithJSONSchema(traitParams, jsonSchema); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("parameters"),
-				"<invalid>",
-				fmt.Sprintf("trait parameters do not match Trait %q schema: %v", traitInstance.Name, err)))
-		}
+		instanceNames[trait.InstanceName] = true
 	}
 
 	return allErrs
