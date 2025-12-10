@@ -48,7 +48,8 @@ data:
               {{- end }}
             ],
             "grant_types": [
-              "authorization_code"
+              "authorization_code",
+              "client_credentials"
             ],
             "response_types": [
               "code"
