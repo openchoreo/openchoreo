@@ -6,6 +6,6 @@ Adding your organization is a small contribution that has a big impact. You can 
 
 | Organization | Contact | Description |
 |--------------|---------|-------------|
-|  | |  |
+| WSO2 | [@manjulaRathnayaka](https://github.com/manjulaRathnayaka) | WSO2 bootstrapped the OpenChoreo project and uses it as the foundational technology behind the WSO2 Cloud platform. OpenChoreo is also used internally as the unified application platform for deploying and operating all internal applications. |
 
 
