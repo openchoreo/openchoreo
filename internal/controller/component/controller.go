@@ -22,6 +22,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // Reconciler reconciles a Component object
@@ -59,6 +60,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		logger.Error(err, "Failed to get Component")
 		return ctrl.Result{}, err
+	}
+
+	if r.ensureLabels(comp) {
+		if err := r.Update(ctx, comp); err != nil {
+			logger.Error(err, "Failed to update Component labels")
+			return ctrl.Result{}, err
+		}
+		logger.Info("Updated Component with required labels", "component", comp.Name)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Detect mode based on which fields are set
@@ -616,6 +626,12 @@ func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha
 		Parameters: comp.Spec.Parameters,
 		Traits:     comp.Spec.Traits,
 	}
+}
+
+// ensureLabels ensures that required labels are set on the Component.
+// Returns true if labels were updated.
+func (r *Reconciler) ensureLabels(comp *openchoreov1alpha1.Component) bool {
+	return labels.SetLabels(&comp.ObjectMeta, labels.MakeComponentLabels(comp))
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // nolint:unused
@@ -47,7 +48,12 @@ var _ webhook.CustomDefaulter = &Defaulter{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Component.
 func (d *Defaulter) Default(_ context.Context, obj runtime.Object) error {
-	// No-op: Defaulting logic disabled for now
+	component, ok := obj.(*openchoreodevv1alpha1.Component)
+	if !ok {
+		return fmt.Errorf("expected a Component object but got %T", obj)
+	}
+
+	labels.SetLabels(&component.ObjectMeta, labels.MakeComponentLabels(component))
 	return nil
 }
 

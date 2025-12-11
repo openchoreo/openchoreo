@@ -65,6 +65,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
+	if r.ensureLabels(releaseBinding) {
+		if err := r.Update(ctx, releaseBinding); err != nil {
+			logger.Error(err, "Failed to update ReleaseBinding labels")
+			return ctrl.Result{}, err
+		}
+		logger.Info("Updated ReleaseBinding with required labels", "releaseBinding", releaseBinding.Name)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// Keep a copy for comparison
 	old := releaseBinding.DeepCopy()
 
@@ -615,6 +624,12 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 
 	// Fallback: use index
 	return fmt.Sprintf("resource-%d", index)
+}
+
+// ensureLabels ensures that required labels are set on the ReleaseBinding.
+// Returns true if labels were updated.
+func (r *Reconciler) ensureLabels(rb *openchoreov1alpha1.ReleaseBinding) bool {
+	return labels.SetLabels(&rb.ObjectMeta, labels.MakeReleaseBindingLabels(rb))
 }
 
 // SetupWithManager sets up the controller with the Manager.
