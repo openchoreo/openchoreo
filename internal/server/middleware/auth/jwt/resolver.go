@@ -7,27 +7,28 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject_resolver"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
-// Ensure Detector implements subject_resolver.Resolver interface at compile time
-var _ subject_resolver.Resolver = (*Resolver)(nil)
+// Ensure Detector implements subject.Resolver interface at compile time
+var _ subject.Resolver = (*Resolver)(nil)
 
 // Resolver implements subject resolution specifically for JWT tokens
 type Resolver struct {
-	userTypes []subject_resolver.UserTypeConfig
+	userTypes []subject.UserTypeConfig
 }
 
 // NewResolver creates a new JWT-specific user type resolver
 // It filters the provided user types to only include those with OAuth2 auth mechanism configured
-func NewResolver(userTypes []subject_resolver.UserTypeConfig) (*Resolver, error) {
+func NewResolver(userTypes []subject.UserTypeConfig) (*Resolver, error) {
 	if len(userTypes) == 0 {
 		return nil, fmt.Errorf("user types configuration cannot be empty")
 	}
 
 	// Filter to only user types that have OAuth2 auth mechanism configured
-	var jwtUserTypes []subject_resolver.UserTypeConfig
+	var jwtUserTypes []subject.UserTypeConfig
 	for _, ut := range userTypes {
 		hasJWT := false
 		for _, am := range ut.AuthMechanisms {
@@ -47,7 +48,7 @@ func NewResolver(userTypes []subject_resolver.UserTypeConfig) (*Resolver, error)
 	}
 
 	// Sort by priority
-	subject_resolver.SortByPriority(jwtUserTypes)
+	subject.SortByPriority(jwtUserTypes)
 
 	return &Resolver{
 		userTypes: jwtUserTypes,
@@ -71,7 +72,7 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 	// Try each user type in priority order
 	for _, userTypeConfig := range d.userTypes {
 		// Find OAuth2 auth mechanism for this user type
-		var jwtMechanism *subject_resolver.AuthMechanismConfig
+		var jwtMechanism *subject.AuthMechanismConfig
 		for i := range userTypeConfig.AuthMechanisms {
 			if userTypeConfig.AuthMechanisms[i].Type == "oauth2" {
 				jwtMechanism = &userTypeConfig.AuthMechanisms[i]
@@ -87,7 +88,7 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 		// Check if claims match this user type with the OAuth2 mechanism's entitlement config
 		if matches, entitlements := detectUserTypeFromClaims(claims, jwtMechanism.Entitlement); matches {
 			return &auth.SubjectContext{
-				Type:              auth.SubjectType(userTypeConfig.Type),
+				Type:              userTypeConfig.Type,
 				EntitlementClaim:  jwtMechanism.Entitlement.Claim,
 				EntitlementValues: entitlements,
 			}, nil
@@ -98,7 +99,7 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 }
 
 // detectUserTypeFromClaims checks if JWT claims match a specific entitlement configuration
-func detectUserTypeFromClaims(claims jwt.MapClaims, entitlementConfig subject_resolver.EntitlementConfig) (bool, []string) {
+func detectUserTypeFromClaims(claims jwt.MapClaims, entitlementConfig subject.EntitlementConfig) (bool, []string) {
 	// Check if the entitlement claim exists in the token
 	claimValue, exists := claims[entitlementConfig.Claim]
 	if !exists {

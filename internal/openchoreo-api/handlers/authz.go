@@ -404,7 +404,6 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 
 // GetSubjectProfile handles GET /api/v1/authz/profile
 func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
-
 	// Extract query parameters
 	org := r.URL.Query().Get("org")
 	project := r.URL.Query().Get("project")

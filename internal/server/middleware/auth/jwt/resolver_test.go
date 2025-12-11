@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject_resolver"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
 func createTestJWT(claims jwt.MapClaims) string {
@@ -18,15 +19,15 @@ func createTestJWT(claims jwt.MapClaims) string {
 }
 
 func TestJWTDetectorUserTypeDetection(t *testing.T) {
-	userTypes := []subject_resolver.UserTypeConfig{
+	userTypes := []subject.UserTypeConfig{
 		{
 			Type:        auth.SubjectTypeUser,
 			DisplayName: "Human User",
 			Priority:    1,
-			AuthMechanisms: []subject_resolver.AuthMechanismConfig{
+			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
 					Type: "jwt",
-					Entitlement: subject_resolver.EntitlementConfig{
+					Entitlement: subject.EntitlementConfig{
 						Claim:       "group",
 						DisplayName: "User Group",
 					},
@@ -37,10 +38,10 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			Type:        auth.SubjectTypeServiceAccount,
 			DisplayName: "Service Account",
 			Priority:    2,
-			AuthMechanisms: []subject_resolver.AuthMechanismConfig{
+			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
 					Type: "jwt",
-					Entitlement: subject_resolver.EntitlementConfig{
+					Entitlement: subject.EntitlementConfig{
 						Claim:       "service_account",
 						DisplayName: "Service Account ID",
 					},
@@ -155,15 +156,15 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 
 func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
 	// User type without JWT mechanism
-	userTypes := []subject_resolver.UserTypeConfig{
+	userTypes := []subject.UserTypeConfig{
 		{
 			Type:        auth.SubjectTypeUser,
 			DisplayName: "OAuth User",
 			Priority:    1,
-			AuthMechanisms: []subject_resolver.AuthMechanismConfig{
+			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
 					Type: "oauth2",
-					Entitlement: subject_resolver.EntitlementConfig{
+					Entitlement: subject.EntitlementConfig{
 						Claim:       "scopes",
 						DisplayName: "OAuth Scopes",
 					},
@@ -183,15 +184,15 @@ func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
 
 func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
 	// Mix of JWT and non-JWT user types
-	userTypes := []subject_resolver.UserTypeConfig{
+	userTypes := []subject.UserTypeConfig{
 		{
 			Type:        auth.SubjectTypeUser,
 			DisplayName: "JWT User",
 			Priority:    1,
-			AuthMechanisms: []subject_resolver.AuthMechanismConfig{
+			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
 					Type: "jwt",
-					Entitlement: subject_resolver.EntitlementConfig{
+					Entitlement: subject.EntitlementConfig{
 						Claim:       "groups",
 						DisplayName: "User Groups",
 					},
@@ -202,10 +203,10 @@ func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
 			Type:        "api_client",
 			DisplayName: "API Client",
 			Priority:    2,
-			AuthMechanisms: []subject_resolver.AuthMechanismConfig{
+			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
 					Type: "api_key",
-					Entitlement: subject_resolver.EntitlementConfig{
+					Entitlement: subject.EntitlementConfig{
 						Claim:       "key_id",
 						DisplayName: "API Key ID",
 					},
