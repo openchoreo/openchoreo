@@ -884,7 +884,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	// Setup: Add role entitlement mappings
 	viewerMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "editor",
@@ -895,7 +895,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	}
 	editorMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "viewer",
@@ -907,7 +907,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	}
 	denyMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "editor",
