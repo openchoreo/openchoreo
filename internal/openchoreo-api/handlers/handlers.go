@@ -201,13 +201,13 @@ func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	jwtIssuer := os.Getenv(config.EnvJWTIssuer)
 	jwtAudience := os.Getenv(config.EnvJWTAudience) // Optional
 
-	// Create JWT user type detector from configuration
+	// Create OAuth2 user type detector from configuration
 	var detector *jwt.Resolver
 	if len(h.config.Security.UserTypes) > 0 {
 		var err error
 		detector, err = jwt.NewResolver(h.config.Security.UserTypes)
 		if err != nil {
-			h.logger.Error("Failed to create JWT user type detector", "error", err)
+			h.logger.Error("Failed to create OAuth2 user type detector", "error", err)
 			// Continue without detector - JWT middleware will still work but won't resolve SubjectContext
 		}
 	}

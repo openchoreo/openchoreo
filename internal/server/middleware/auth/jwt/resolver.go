@@ -20,7 +20,7 @@ type Resolver struct {
 	userTypes []subject.UserTypeConfig
 }
 
-// NewResolver creates a new JWT-specific user type resolver
+// NewResolver creates a new OAuth2-specific user type resolver
 // It filters the provided user types to only include those with OAuth2 auth mechanism configured
 func NewResolver(userTypes []subject.UserTypeConfig) (*Resolver, error) {
 	if len(userTypes) == 0 {
@@ -28,7 +28,7 @@ func NewResolver(userTypes []subject.UserTypeConfig) (*Resolver, error) {
 	}
 
 	// Filter to only user types that have OAuth2 auth mechanism configured
-	var jwtUserTypes []subject.UserTypeConfig
+	var oauth2UserTypes []subject.UserTypeConfig
 	for _, ut := range userTypes {
 		hasJWT := false
 		for _, am := range ut.AuthMechanisms {
@@ -38,20 +38,20 @@ func NewResolver(userTypes []subject.UserTypeConfig) (*Resolver, error) {
 			}
 		}
 		if hasJWT {
-			jwtUserTypes = append(jwtUserTypes, ut)
+			oauth2UserTypes = append(oauth2UserTypes, ut)
 		}
 	}
 
 	// Validate that at least one user type has OAuth2 configured
-	if len(jwtUserTypes) == 0 {
+	if len(oauth2UserTypes) == 0 {
 		return nil, fmt.Errorf("no user types have OAuth2 auth mechanism configured")
 	}
 
 	// Sort by priority
-	subject.SortByPriority(jwtUserTypes)
+	subject.SortByPriority(oauth2UserTypes)
 
 	return &Resolver{
-		userTypes: jwtUserTypes,
+		userTypes: oauth2UserTypes,
 	}, nil
 }
 
@@ -72,24 +72,24 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 	// Try each user type in priority order
 	for _, userTypeConfig := range d.userTypes {
 		// Find OAuth2 auth mechanism for this user type
-		var jwtMechanism *subject.AuthMechanismConfig
+		var oauth2Mechanism *subject.AuthMechanismConfig
 		for i := range userTypeConfig.AuthMechanisms {
 			if userTypeConfig.AuthMechanisms[i].Type == "oauth2" {
-				jwtMechanism = &userTypeConfig.AuthMechanisms[i]
+				oauth2Mechanism = &userTypeConfig.AuthMechanisms[i]
 				break
 			}
 		}
 
 		// Skip if no OAuth2 mechanism (should not happen since we filtered in constructor)
-		if jwtMechanism == nil {
+		if oauth2Mechanism == nil {
 			continue
 		}
 
 		// Check if claims match this user type with the OAuth2 mechanism's entitlement config
-		if matches, entitlements := detectUserTypeFromClaims(claims, jwtMechanism.Entitlement); matches {
+		if matches, entitlements := detectUserTypeFromClaims(claims, oauth2Mechanism.Entitlement); matches {
 			return &auth.SubjectContext{
 				Type:              userTypeConfig.Type,
-				EntitlementClaim:  jwtMechanism.Entitlement.Claim,
+				EntitlementClaim:  oauth2Mechanism.Entitlement.Claim,
 				EntitlementValues: entitlements,
 			}, nil
 		}

@@ -410,7 +410,11 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	component := r.URL.Query().Get("component")
 	orgUnits := r.URL.Query()["ou"]
 
-	subjectCtx, _ := auth.GetSubjectContextFromContext(r.Context())
+	subjectCtx, ok := auth.GetSubjectContextFromContext(r.Context())
+	if !ok || subjectCtx == nil {
+		writeErrorResponse(w, http.StatusForbidden, "Subject context not found", services.CodeForbidden)
+		return
+	}
 
 	authzSubjectCtx := authz.FromAuthSubjectContext(subjectCtx)
 
