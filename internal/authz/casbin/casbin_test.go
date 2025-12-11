@@ -16,6 +16,12 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
+const (
+	testRoleName         = "test-role"
+	testEntitlementType  = "group"
+	testEntitlementValue = "test-group"
+)
+
 // setupTestEnforcer creates a test CasbinEnforcer with temporary database
 func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	t.Helper()
@@ -454,7 +460,7 @@ func TestCasbinEnforcer_AddRole(t *testing.T) {
 	ctx := context.Background()
 
 	role := &authzcore.Role{
-		Name:    "test-role",
+		Name:    testRoleName,
 		Actions: []string{"component:read", "component:write"},
 	}
 	err := enforcer.AddRole(ctx, role)
@@ -462,7 +468,7 @@ func TestCasbinEnforcer_AddRole(t *testing.T) {
 		t.Fatalf("AddRole() error = %v", err)
 	}
 
-	retrievedRole, err := enforcer.GetRole(ctx, "test-role")
+	retrievedRole, err := enforcer.GetRole(ctx, testRoleName)
 	if err != nil {
 		t.Fatalf("GetRole() error = %v", err)
 	}
@@ -622,7 +628,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 	ctx := context.Background()
 
 	role := &authzcore.Role{
-		Name:    "test-role",
+		Name:    testRoleName,
 		Actions: []string{"component:read"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
@@ -634,7 +640,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 			Claim: "group",
 			Value: "test-group",
 		},
-		RoleName: "test-role",
+		RoleName: testRoleName,
 		Hierarchy: authzcore.ResourceHierarchy{
 			Organization: "acme",
 		},
@@ -653,7 +659,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 
 	found := false
 	for _, m := range mappings {
-		if m.Entitlement.Claim == "group" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleName == testRoleName {
 			found = true
 			break
 		}
@@ -669,7 +675,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 
 	// Add role and mapping
 	role := &authzcore.Role{
-		Name:    "test-role",
+		Name:    testRoleName,
 		Actions: []string{"component:read"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
@@ -681,7 +687,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 			Claim: "group",
 			Value: "test-group",
 		},
-		RoleName: "test-role",
+		RoleName: testRoleName,
 		Hierarchy: authzcore.ResourceHierarchy{
 			Organization: "acme",
 		},
@@ -701,7 +707,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 	var mappingID uint
 	found := false
 	for _, m := range mappings {
-		if m.Entitlement.Claim == "group" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleName == testRoleName {
 			mappingID = m.ID
 			found = true
 			break
@@ -724,7 +730,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 	}
 
 	for _, m := range mappings {
-		if m.Entitlement.Claim == "group" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleName == testRoleName {
 			t.Error("RemoveRoleEntitlementMapping() mapping still exists after removal")
 		}
 	}

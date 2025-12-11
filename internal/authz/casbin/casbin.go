@@ -6,6 +6,7 @@ package casbin
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -466,11 +467,11 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 }
 
 // RemoveRoleEntitlementMapping removes a role-entitlement mapping
-func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mappingId uint) error {
-	ce.logger.Info("remove role entitlement mapping called", "mapping_id", mappingId)
-	
+func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mappingID uint) error {
+	ce.logger.Info("remove role entitlement mapping called", "mapping_id", mappingID)
+
 	// Get policy by id from database
-	rule, err := ce.getPoliciesByID(ctx, mappingId)
+	rule, err := ce.getPoliciesByID(mappingID)
 	if err != nil {
 		return err
 	}
@@ -499,7 +500,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*a
 	ce.logger.Debug("list role entitlement mappings called")
 
 	// Query database directly to get IDs
-	rules, err := ce.getAllPolicies(ctx)
+	rules, err := ce.getAllPolicies()
 	if err != nil {
 		return nil, err
 	}
@@ -666,11 +667,11 @@ func (ce *CasbinEnforcer) Close() error {
 }
 
 // getPoliciesByID retrieves a P rule by its ID
-func (ce *CasbinEnforcer) getPoliciesByID(ctx context.Context, id uint) (*CasbinRule, error) {
+func (ce *CasbinEnforcer) getPoliciesByID(id uint) (*CasbinRule, error) {
 	var policy CasbinRule
 	err := ce.db.Where("id = ? AND ptype = ?", id, "p").First(&policy).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, authzcore.ErrRolePolicyMappingNotFound
 		}
 		return nil, fmt.Errorf("failed to query role entitlement mapping: %w", err)
@@ -679,7 +680,7 @@ func (ce *CasbinEnforcer) getPoliciesByID(ctx context.Context, id uint) (*Casbin
 }
 
 // getAllPolicies retrieves all P rules from the database
-func (ce *CasbinEnforcer) getAllPolicies(ctx context.Context) ([]CasbinRule, error) {
+func (ce *CasbinEnforcer) getAllPolicies() ([]CasbinRule, error) {
 	var rules []CasbinRule
 	if err := ce.db.Where("ptype = ?", "p").Find(&rules).Error; err != nil {
 		return nil, fmt.Errorf("failed to get role entitlement mappings: %w", err)
