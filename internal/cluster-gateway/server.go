@@ -656,11 +656,7 @@ func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 					"namespace", namespace,
 				)
 
-				if dataPlane.Spec.Agent != nil && dataPlane.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(dataPlane.Spec.Agent.ClientCA, namespace)
-				}
-
-				return nil, nil
+				return s.extractCADataWithNamespace(&dataPlane.Spec.ClusterAgent.CACert, namespace)
 			}
 		}
 
@@ -676,11 +672,7 @@ func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 					"namespace", dp.Namespace,
 				)
 
-				if dp.Spec.Agent != nil && dp.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(dp.Spec.Agent.ClientCA, dp.Namespace)
-				}
-
-				return nil, nil
+				return s.extractCADataWithNamespace(&dp.Spec.ClusterAgent.CACert, dp.Namespace)
 			}
 		}
 
@@ -703,11 +695,7 @@ func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 					"namespace", namespace,
 				)
 
-				if buildPlane.Spec.Agent != nil && buildPlane.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(buildPlane.Spec.Agent.ClientCA, namespace)
-				}
-
-				return nil, nil
+				return s.extractCADataWithNamespace(&buildPlane.Spec.ClusterAgent.CACert, namespace)
 			}
 		}
 
@@ -723,11 +711,7 @@ func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
 					"namespace", bp.Namespace,
 				)
 
-				if bp.Spec.Agent != nil && bp.Spec.Agent.ClientCA != nil {
-					return s.extractCADataWithNamespace(bp.Spec.Agent.ClientCA, bp.Namespace)
-				}
-
-				return nil, nil
+				return s.extractCADataWithNamespace(&bp.Spec.ClusterAgent.CACert, bp.Namespace)
 			}
 		}
 

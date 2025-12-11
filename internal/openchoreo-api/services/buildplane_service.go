@@ -57,36 +57,6 @@ func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, orgName string) (
 	return buildPlane, nil
 }
 
-// GetBuildPlaneClient creates and returns a Kubernetes client for the build plane cluster
-func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName string) (client.Client, error) {
-	s.logger.Debug("Getting build plane client", "org", orgName)
-
-	// Get the build plane first
-	buildPlane, err := s.GetBuildPlane(ctx, orgName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get build plane: %w", err)
-	}
-
-	if buildPlane.Spec.KubernetesCluster == nil {
-		s.logger.Error("KubernetesCluster configuration is required for BuildPlane", "org", orgName, "buildPlane", buildPlane.Name)
-		return nil, fmt.Errorf("kubernetesCluster configuration is required for BuildPlane")
-	}
-
-	buildPlaneClient, err := kubernetesClient.GetK8sClient(
-		s.bpClientMgr,
-		orgName,
-		buildPlane.Name,
-		*buildPlane.Spec.KubernetesCluster,
-	)
-	if err != nil {
-		s.logger.Error("Failed to create build plane client", "error", err, "org", orgName)
-		return nil, fmt.Errorf("failed to create build plane client: %w", err)
-	}
-
-	s.logger.Debug("Created build plane client", "org", orgName, "cluster", buildPlane.Name)
-	return buildPlaneClient, nil
-}
-
 // ListBuildPlanes retrieves all build planes for an organization
 func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string) ([]models.BuildPlaneResponse, error) {
 	s.logger.Debug("Listing build planes", "org", orgName)
@@ -122,7 +92,6 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			DisplayName:           displayName,
 			Description:           description,
 			KubernetesClusterName: buildPlane.Name,
-			APIServerURL:          buildPlane.Spec.KubernetesCluster.Server,
 			ObservabilityPlaneRef: observabilityPlaneRef,
 			CreatedAt:             buildPlane.CreationTimestamp.Time,
 			Status:                status,

@@ -179,8 +179,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "data", "plane"},
 			descriptionMinLen:   10,
 			requiredParams: []string{
-				"org_name", "name", "kubernetes_cluster_name", "api_server_url", "ca_cert",
-				"client_cert", "client_key", "public_virtual_host", "organization_virtual_host",
+				"org_name", "name", "public_virtual_host", "organization_virtual_host", "agent_ca_cert",
 			},
 			optionalParams: []string{
 				"display_name", "description", "observability_plane_ref",
@@ -188,13 +187,9 @@ func infrastructureToolSpecs() []toolTestSpec {
 			testArgs: map[string]any{
 				"org_name":                  testOrgName,
 				"name":                      "new-dp",
-				"kubernetes_cluster_name":   "cluster1",
-				"api_server_url":            "https://api.example.com",
-				"ca_cert":                   "cert-data",
-				"client_cert":               "client-cert-data",
-				"client_key":                "client-key-data",
 				"public_virtual_host":       "public.example.com",
 				"organization_virtual_host": "org.example.com",
+				"agent_ca_cert":             "-----BEGIN CERTIFICATE-----\ntest-ca-cert\n-----END CERTIFICATE-----",
 			},
 			expectedMethod: "CreateDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {

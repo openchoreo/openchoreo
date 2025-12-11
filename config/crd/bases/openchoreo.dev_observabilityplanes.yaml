@@ -40,16 +40,16 @@ spec:
           spec:
             description: ObservabilityPlaneSpec defines the desired state of ObservabilityPlane.
             properties:
-              agent:
+              clusterAgent:
                 description: |-
                   Agent specifies the configuration for agent-based communication with the downstream cluster
                   When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
                   instead of direct Kubernetes API access
                 properties:
-                  clientCA:
+                  caCert:
                     description: |-
-                      ClientCA contains the CA certificate used to verify the agent's client certificate
-                      This allows per-plane CA configuration for enhanced security
+                      CACert contains the CA certificate used to verify the agent's client certificate
+                      This is required for mTLS authentication with the cluster agent
                       The CA certificate should be base64-encoded PEM format
                     properties:
                       secretRef:
@@ -74,17 +74,15 @@ spec:
                         description: Value is the inline value (optional fallback)
                         type: string
                     type: object
-                  enabled:
-                    description: |-
-                      Enabled indicates whether agent-based communication is enabled
-                      If false, direct Kubernetes API access is used via KubernetesCluster config
-                    type: boolean
+                required:
+                - caCert
                 type: object
               observerURL:
                 description: ObserverURL is the base URL of the Observer API in the
                   observability plane cluster
                 type: string
             required:
+            - clusterAgent
             - observerURL
             type: object
           status:

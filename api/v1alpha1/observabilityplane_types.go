@@ -18,8 +18,7 @@ type ObservabilityPlaneSpec struct {
 	// Agent specifies the configuration for agent-based communication with the downstream cluster
 	// When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
 	// instead of direct Kubernetes API access
-	// +optional
-	Agent *AgentConfig `json:"agent,omitempty"`
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent"`
 
 	// ObserverURL is the base URL of the Observer API in the observability plane cluster
 	// +required

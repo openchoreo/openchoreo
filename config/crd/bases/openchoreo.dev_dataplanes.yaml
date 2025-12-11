@@ -42,16 +42,16 @@ spec:
           spec:
             description: DataPlaneSpec defines the desired state of a DataPlane.
             properties:
-              agent:
+              clusterAgent:
                 description: |-
-                  Agent specifies the configuration for agent-based communication with the downstream cluster
-                  When enabled, the control plane communicates with the downstream cluster through a WebSocket agent
-                  instead of direct Kubernetes API access
+                  ClusterAgent specifies the configuration for cluster agent-based communication with the downstream cluster
+                  The control plane communicates with the downstream cluster through a WebSocket cluster agent via ClusterGateway
+                  This is a required field as cluster agent mode is the only supported communication method
                 properties:
-                  clientCA:
+                  caCert:
                     description: |-
-                      ClientCA contains the CA certificate used to verify the agent's client certificate
-                      This allows per-plane CA configuration for enhanced security
+                      CACert contains the CA certificate used to verify the agent's client certificate
+                      This is required for mTLS authentication with the cluster agent
                       The CA certificate should be base64-encoded PEM format
                     properties:
                       secretRef:
@@ -76,11 +76,8 @@ spec:
                         description: Value is the inline value (optional fallback)
                         type: string
                     type: object
-                  enabled:
-                    description: |-
-                      Enabled indicates whether agent-based communication is enabled
-                      If false, direct Kubernetes API access is used via KubernetesCluster config
-                    type: boolean
+                required:
+                - caCert
                 type: object
               gateway:
                 description: Gateway specifies the configuration for the API gateway
@@ -103,140 +100,6 @@ spec:
                 items:
                   type: string
                 type: array
-              kubernetesCluster:
-                description: |-
-                  KubernetesCluster defines the target Kubernetes cluster where workloads should be deployed.
-                  This field is optional when Agent.Enabled is true
-                properties:
-                  auth:
-                    description: Auth contains the authentication configuration
-                    properties:
-                      bearerToken:
-                        description: BearerToken contains the bearer token authentication
-                          configuration
-                        properties:
-                          secretRef:
-                            description: SecretRef is a reference to a secret containing
-                              the value
-                            properties:
-                              key:
-                                description: Key is the key within the secret
-                                type: string
-                              name:
-                                description: Name of the secret
-                                type: string
-                              namespace:
-                                description: Namespace of the secret (optional, defaults
-                                  to same namespace as parent resource)
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                          value:
-                            description: Value is the inline value (optional fallback)
-                            type: string
-                        type: object
-                      mtls:
-                        description: MTLS contains the certificate-based authentication
-                          configuration
-                        properties:
-                          clientCert:
-                            description: ClientCert contains the client certificate
-                              configuration
-                            properties:
-                              secretRef:
-                                description: SecretRef is a reference to a secret
-                                  containing the value
-                                properties:
-                                  key:
-                                    description: Key is the key within the secret
-                                    type: string
-                                  name:
-                                    description: Name of the secret
-                                    type: string
-                                  namespace:
-                                    description: Namespace of the secret (optional,
-                                      defaults to same namespace as parent resource)
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                              value:
-                                description: Value is the inline value (optional fallback)
-                                type: string
-                            type: object
-                          clientKey:
-                            description: ClientKey contains the client private key
-                              configuration
-                            properties:
-                              secretRef:
-                                description: SecretRef is a reference to a secret
-                                  containing the value
-                                properties:
-                                  key:
-                                    description: Key is the key within the secret
-                                    type: string
-                                  name:
-                                    description: Name of the secret
-                                    type: string
-                                  namespace:
-                                    description: Namespace of the secret (optional,
-                                      defaults to same namespace as parent resource)
-                                    type: string
-                                required:
-                                - key
-                                - name
-                                type: object
-                              value:
-                                description: Value is the inline value (optional fallback)
-                                type: string
-                            type: object
-                        required:
-                        - clientCert
-                        - clientKey
-                        type: object
-                    type: object
-                  server:
-                    description: Server is the URL of the Kubernetes API server
-                    type: string
-                  tls:
-                    description: TLS contains the TLS configuration for the connection
-                    properties:
-                      ca:
-                        description: CA contains the CA certificate configuration
-                        properties:
-                          secretRef:
-                            description: SecretRef is a reference to a secret containing
-                              the value
-                            properties:
-                              key:
-                                description: Key is the key within the secret
-                                type: string
-                              name:
-                                description: Name of the secret
-                                type: string
-                              namespace:
-                                description: Namespace of the secret (optional, defaults
-                                  to same namespace as parent resource)
-                                type: string
-                            required:
-                            - key
-                            - name
-                            type: object
-                          value:
-                            description: Value is the inline value (optional fallback)
-                            type: string
-                        type: object
-                    required:
-                    - ca
-                    type: object
-                required:
-                - auth
-                - server
-                - tls
-                type: object
               observabilityPlaneRef:
                 description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
                   for this DataPlane.
@@ -253,6 +116,7 @@ spec:
                 - name
                 type: object
             required:
+            - clusterAgent
             - gateway
             type: object
           status:
