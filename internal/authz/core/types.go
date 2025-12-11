@@ -102,6 +102,9 @@ type Role struct {
 
 	// Actions is the list of actions this role permits
 	Actions []string `json:"actions"`
+
+	// IsPrivate indicates if this role should be hidden from public listings
+	IsPrivate bool `json:"-"`
 }
 
 // Entitlement represents an entitlement with its claim and value
@@ -156,6 +159,9 @@ type RoleEntitlementMapping struct {
 
 	// Context provides optional additional context metadata for this mapping
 	Context Context `json:"context"`
+
+	// IsPrivate indicates if this mapping should be hidden from public listings
+	IsPrivate bool `json:"-"`
 }
 
 // ActionCapability represents capabilities for a specific action

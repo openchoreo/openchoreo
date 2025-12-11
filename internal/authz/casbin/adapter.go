@@ -18,14 +18,15 @@ import (
 // CasbinRule defines the custom schema for Casbin policy storage
 // The unique index ensures no duplicate rules can be created, enabling atomic conflict resolution
 type CasbinRule struct {
-	ID    uint   `gorm:"primaryKey;autoIncrement"`
-	Ptype string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // Policy type: p (policy) or g (grouping/role)
-	V0    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - entitlement, g - role
-	V1    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - resource path, g - action
-	V2    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - role name
-	V3    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - effect (allow/deny)
-	V4    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - context info
-	V5    string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // extra field
+	ID        uint   `gorm:"primaryKey;autoIncrement"`
+	Ptype     string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // Policy type: p (policy) or g (grouping/role)
+	V0        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - entitlement, g - role
+	V1        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - resource path, g - action
+	V2        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - role name
+	V3        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - effect (allow/deny)
+	V4        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // p - context info
+	V5        string `gorm:"type:text;uniqueIndex:idx_casbin_rule"` // extra field
+	IsPrivate bool   `gorm:"column:private;default:false;not null"` // Filter flag
 }
 
 // Action defines the schema for storing available actions
@@ -141,13 +142,14 @@ func seedRoles(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
 	for _, roleDef := range roleDefinitions {
 		for _, action := range roleDef.Actions {
 			ruleRecords = append(ruleRecords, CasbinRule{
-				Ptype: "g",
-				V0:    roleDef.Name,
-				V1:    action,
-				V2:    "",
-				V3:    "",
-				V4:    "",
-				V5:    "",
+				Ptype:     "g",
+				V0:        roleDef.Name,
+				V1:        action,
+				V2:        "",
+				V3:        "",
+				V4:        "",
+				V5:        "",
+				IsPrivate: roleDef.IsPrivate,
 			})
 		}
 	}
