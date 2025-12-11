@@ -692,14 +692,33 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
 	}
 
-	// Remove mapping
-	err := enforcer.RemoveRoleEntitlementMapping(ctx, mapping)
+	// Get the mapping ID by listing mappings
+	mappings, err := enforcer.ListRoleEntitlementMappings(ctx)
+	if err != nil {
+		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+	}
+
+	var mappingID uint
+	found := false
+	for _, m := range mappings {
+		if m.Entitlement.Claim == "group" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+			mappingID = m.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("AddRoleEntitlementMapping() mapping not found after creation")
+	}
+
+	// Remove mapping by ID
+	err = enforcer.RemoveRoleEntitlementMapping(ctx, mappingID)
 	if err != nil {
 		t.Fatalf("RemoveRoleEntitlementMapping() error = %v", err)
 	}
 
 	// Verify mapping was removed
-	mappings, err := enforcer.ListRoleEntitlementMappings(ctx)
+	mappings, err = enforcer.ListRoleEntitlementMappings(ctx)
 	if err != nil {
 		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
 	}

@@ -466,26 +466,22 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 }
 
 // RemoveRoleEntitlementMapping removes a role-entitlement mapping
-func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
-	ce.logger.Info("remove role entitlement mapping called",
-		"role", mapping.RoleName,
-		"entitlement_claim", mapping.Entitlement.Claim,
-		"entitlement_value", mapping.Entitlement.Value,
-		"hierarchy", mapping.Hierarchy,
-		"effect", mapping.Effect,
-		"context", mapping.Context,
-	)
+func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mappingId uint) error {
+	ce.logger.Info("remove role entitlement mapping called", "mapping_id", mappingId)
+	
+	// Get policy by id from database
+	rule, err := ce.getPoliciesByID(ctx, mappingId)
+	if err != nil {
+		return err
+	}
 
-	subject := formatSubject(mapping.Entitlement.Claim, mapping.Entitlement.Value)
-
-	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
 	// TODO: Handle context conditions properly in the future
 	ok, err := ce.enforcer.RemovePolicy(
-		subject,
-		resourcePath,
-		mapping.RoleName,
-		string(mapping.Effect),
-		emptyContextJSON,
+		rule.V0,
+		rule.V1,
+		rule.V2,
+		rule.V3,
+		rule.V4,
 	)
 	// if err is nil and ok is false, mapping did not exist
 	if !ok {
@@ -502,30 +498,28 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context) ([]*authzcore.RoleEntitlementMapping, error) {
 	ce.logger.Debug("list role entitlement mappings called")
 
-	rules, err := ce.enforcer.GetPolicy()
+	// Query database directly to get IDs
+	rules, err := ce.getAllPolicies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get role entitlement mappings: %w", err)
+		return nil, err
 	}
 
 	mappings := make([]*authzcore.RoleEntitlementMapping, 0, len(rules))
 	for _, rule := range rules {
-		if len(rule) < 5 {
-			ce.logger.Warn("skipping malformed role-entitlement mapping", "rule", rule)
-			continue
-		}
-		subject := rule[0]
+		subject := rule.V0
 		claim, value, err := parseSubject(subject)
 		if err != nil {
 			ce.logger.Warn("skipping malformed entitlement in mapping", "subject", subject, "error", err)
 			continue
 		}
-		resourcePath := rule[1]
-		roleName := rule[2]
-		effect := authzcore.PolicyEffectType(rule[3])
+		resourcePath := rule.V1
+		roleName := rule.V2
+		effect := authzcore.PolicyEffectType(rule.V3)
 		// TODO: Handle context conditions properly in the future
 		context := authzcore.Context{}
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
+			ID: rule.ID,
 			Entitlement: authzcore.Entitlement{
 				Claim: claim,
 				Value: value,
@@ -669,6 +663,28 @@ func (ce *CasbinEnforcer) Close() error {
 		ce.logger.Info("casbin database connection closed")
 	}
 	return nil
+}
+
+// getPoliciesByID retrieves a P rule by its ID
+func (ce *CasbinEnforcer) getPoliciesByID(ctx context.Context, id uint) (*CasbinRule, error) {
+	var policy CasbinRule
+	err := ce.db.Where("id = ? AND ptype = ?", id, "p").First(&policy).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, authzcore.ErrRolePolicyMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to query role entitlement mapping: %w", err)
+	}
+	return &policy, nil
+}
+
+// getAllPolicies retrieves all P rules from the database
+func (ce *CasbinEnforcer) getAllPolicies(ctx context.Context) ([]CasbinRule, error) {
+	var rules []CasbinRule
+	if err := ce.db.Where("ptype = ?", "p").Find(&rules).Error; err != nil {
+		return nil, fmt.Errorf("failed to get role entitlement mappings: %w", err)
+	}
+	return rules, nil
 }
 
 // These var declarations enforce at compile-time that CasbinEnforcer

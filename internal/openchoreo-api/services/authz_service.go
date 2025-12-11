@@ -109,21 +109,15 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 	return nil
 }
 
-// RemoveRoleMapping removes a role-entitlement mapping
-func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
-	s.logger.Debug("Removing authorization role mapping",
-		"entitlement_claim", mapping.Entitlement.Claim,
-		"entitlement_value", mapping.Entitlement.Value,
-		"role", mapping.RoleName)
+// RemoveRoleMappingByID removes a role-entitlement mapping by ID
+func (s *AuthzService) RemoveRoleMappingByID(ctx context.Context, mappingID uint) error {
+	s.logger.Debug("Removing authorization role mapping", "mapping_id", mappingID)
 
-	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mapping); err != nil {
+	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mappingID); err != nil {
 		return fmt.Errorf("failed to remove role mapping: %w", err)
 	}
 
-	s.logger.Debug("Authorization role mapping removed",
-		"entitlement_claim", mapping.Entitlement.Claim,
-		"entitlement_value", mapping.Entitlement.Value,
-		"role", mapping.RoleName)
+	s.logger.Debug("Authorization role mapping removed", "mapping_id", mappingID)
 	return nil
 }
 

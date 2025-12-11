@@ -139,6 +139,9 @@ type UserTypeInfo struct {
 
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
+	// ID is the unique identifier for the mapping
+	ID uint `json:"id"`
+
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 

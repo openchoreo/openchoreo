@@ -166,7 +166,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("DELETE "+v1+"/authz/roles/{roleName}", h.RemoveRole)
 	api.HandleFunc("GET "+v1+"/authz/role-mappings", h.ListRoleMappings)
 	api.HandleFunc("POST "+v1+"/authz/role-mappings", h.AddRoleMapping)
-	api.HandleFunc("DELETE "+v1+"/authz/role-mappings", h.RemoveRoleMapping)
+	api.HandleFunc("DELETE "+v1+"/authz/role-mappings/{mappingId}", h.RemoveRoleMapping)
 	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
 	api.HandleFunc("GET "+v1+"/authz/user-types", h.ListUserTypes)
 
