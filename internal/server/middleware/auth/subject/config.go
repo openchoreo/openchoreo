@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package subject_resolver
+package subject
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 
 // UserTypeConfig represents configuration for a single user type
 type UserTypeConfig struct {
-	Type           auth.SubjectType      `yaml:"type"`             // "user" or "service_account"
-	DisplayName    string                `yaml:"display_name"`     // Human-readable name for user type
-	Priority       int                   `yaml:"priority"`         // Check order (lower = higher priority)
-	AuthMechanisms []AuthMechanismConfig `yaml:"auth_mechanisms"`  // Supported authentication mechanisms
+	Type           auth.SubjectType      `yaml:"type"`            // "user" or "service_account"
+	DisplayName    string                `yaml:"display_name"`    // Human-readable name for user type
+	Priority       int                   `yaml:"priority"`        // Check order (lower = higher priority)
+	AuthMechanisms []AuthMechanismConfig `yaml:"auth_mechanisms"` // Supported authentication mechanisms
 }
 
 // AuthMechanismConfig represents configuration for a specific authentication mechanism

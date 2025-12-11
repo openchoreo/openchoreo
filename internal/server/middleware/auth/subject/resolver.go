@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package subject_resolver
+package subject
 
 import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
