@@ -190,7 +190,7 @@ func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzc
 
 	scopePath := hierarchyToResourcePath(request.Scope)
 
-	allConcreteActions, err := ce.actionRepository.ListConcreteActions()
+	allConcreteActions, err := ce.actionRepository.ListConcretePublicActions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list concrete actions: %w", err)
 	}
@@ -555,7 +555,7 @@ func (ce *CasbinEnforcer) GetRoleMappings(ctx context.Context, roleName string) 
 func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	ce.logger.Debug("list actions called")
 
-	actions, err := ce.actionRepository.List()
+	actions, err := ce.actionRepository.ListPublicActions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list actions: %w", err)
 	}

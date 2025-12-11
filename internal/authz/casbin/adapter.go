@@ -30,8 +30,9 @@ type CasbinRule struct {
 
 // Action defines the schema for storing available actions
 type Action struct {
-	ID     uint   `gorm:"primaryKey;autoIncrement"`
-	Action string `gorm:"type:text;uniqueIndex;not null"`
+	ID        uint   `gorm:"primaryKey;autoIncrement"`
+	Action    string `gorm:"type:text;uniqueIndex;not null"`
+	IsPrivate bool   `gorm:"column:private;default:false;not null"`
 }
 
 // InitializeSQLite initializes a SQLite database connection
@@ -106,8 +107,11 @@ func seedActions(db *gorm.DB, logger *slog.Logger) error {
 
 	// Prepare action records for batch insert
 	actionRecords := make([]Action, 0, len(actions))
-	for _, actionName := range actions {
-		actionRecords = append(actionRecords, Action{Action: actionName})
+	for _, actionData := range actions {
+		actionRecords = append(actionRecords, Action{
+			Action:    actionData.Name,
+			IsPrivate: actionData.IsPrivate,
+		})
 	}
 
 	// This is idempotent and safe for concurrent execution

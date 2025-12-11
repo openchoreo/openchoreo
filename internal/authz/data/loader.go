@@ -21,73 +21,80 @@ type RolesData struct {
 	Roles []authzcore.Role `yaml:"roles"`
 }
 
+// ActionData represents an action name and whether it is visibility
+type ActionData struct {
+	Name      string
+	IsPrivate bool
+}
+
 // systemActions defines all available actions in the system
-var systemActions = []string{
+// IsPrivate indicates if the action is private (not publicly visible)
+var systemActions = []ActionData{
 	// Organization
-	"organization:view",
+	{Name: "organization:view", IsPrivate: false},
 
 	// Project
-	"project:view",
-	"project:create",
+	{Name: "project:view", IsPrivate: false},
+	{Name: "project:create", IsPrivate: false},
 
 	// Component
-	"component:view",
-	"component:create",
-	"component:update",
-	"component:deploy",
+	{Name: "component:view", IsPrivate: false},
+	{Name: "component:create", IsPrivate: false},
+	{Name: "component:update", IsPrivate: false},
+	{Name: "component:deploy", IsPrivate: false},
 
 	// ComponentRelease
-	"componentrelease:view",
-	"componentrelease:create",
+	{Name: "componentrelease:view", IsPrivate: false},
+	{Name: "componentrelease:create", IsPrivate: false},
 
 	// ReleaseBinding
-	"releasebinding:view",
-	"releasebinding:update",
+	{Name: "releasebinding:view", IsPrivate: false},
+	{Name: "releasebinding:update", IsPrivate: false},
 
 	// ComponentBinding
-	"componentbinding:view",
-	"componentbinding:update",
+	{Name: "componentbinding:view", IsPrivate: false},
+	{Name: "componentbinding:update", IsPrivate: false},
 
 	// ComponentType
-	"componenttype:view",
+	{Name: "componenttype:view", IsPrivate: false},
 
 	// ComponentWorkflow
-	"componentworkflow:view",
-	"componentworkflow:trigger",
+	{Name: "componentworkflow:view", IsPrivate: false},
+	{Name: "componentworkflow:trigger", IsPrivate: false},
 
 	// Workflow
-	"workflow:view",
+	{Name: "workflow:view", IsPrivate: false},
 
 	// Trait
-	"trait:view",
+	{Name: "trait:view", IsPrivate: false},
 
 	// Environment
-	"environment:view",
-	"environment:create",
+	{Name: "environment:view", IsPrivate: false},
+	{Name: "environment:create", IsPrivate: false},
 
 	// DataPlane
-	"dataplane:view",
-	"dataplane:create",
+	{Name: "dataplane:view", IsPrivate: false},
+	{Name: "dataplane:create", IsPrivate: false},
 
 	// BuildPlane
-	"buildplane:view",
+	{Name: "buildplane:view", IsPrivate: false},
 
 	// DeploymentPipeline
-	"deploymentpipeline:view",
+	{Name: "deploymentpipeline:view", IsPrivate: false},
 
 	// Schema
-	"schema:view",
+	{Name: "schema:view", IsPrivate: false},
 
 	// SecretReference
-	"secretreference:view",
+	{Name: "secretreference:view", IsPrivate: false},
 
 	// Workload
-	"workload:view",
-	"workload:create",
+	{Name: "workload:view", IsPrivate: false},
+	{Name: "workload:create", IsPrivate: false},
 }
 
 // LoadActions returns the system-defined actions
-func LoadActions() ([]string, error) {
+func LoadActions() ([]ActionData, error) {
 	return systemActions, nil
 }
 

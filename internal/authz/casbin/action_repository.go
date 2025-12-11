@@ -19,10 +19,13 @@ func NewActionRepository(db *gorm.DB) *ActionRepository {
 	return &ActionRepository{db: db}
 }
 
-// List retrieves all actions from the database
-func (r *ActionRepository) List() ([]Action, error) {
+// ListPublicActions retrieves all public actions from the database
+func (r *ActionRepository) ListPublicActions() ([]Action, error) {
 	var actions []Action
-	result := r.db.Order("action").Find(&actions)
+	result := r.db.
+		Where("private = ?", false).
+		Order("action").
+		Find(&actions)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to list actions: %w", result.Error)
 	}
@@ -30,12 +33,13 @@ func (r *ActionRepository) List() ([]Action, error) {
 	return actions, nil
 }
 
-// ListConcreteActions retrieves only concrete (non-wildcarded) actions from the database.
-func (r *ActionRepository) ListConcreteActions() ([]Action, error) {
+// ListConcretePublicActions retrieves only concrete (non-wildcarded) public actions from the database.
+func (r *ActionRepository) ListConcretePublicActions() ([]Action, error) {
 	var actions []Action
-	// exclude wildcarded actions (containing *)
+	// exclude wildcarded actions (containing *) and private actions
 	result := r.db.
 		Where("action NOT LIKE '%*%'").
+		Where("private = ?", false).
 		Order("action").
 		Find(&actions)
 
