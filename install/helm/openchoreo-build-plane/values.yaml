@@ -7,8 +7,12 @@ global:
   baseDomain: ""
   # -- Ingress class name for registry ingress
   ingressClassName: openchoreo-traefik
-  # Development mode - enables port suffixes for local development (e.g., k3d)
-  devMode: false
+  # TLS configuration
+  # When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>)
+  tls:
+    enabled: false
+    # Secret containing TLS certificate for registry
+    secretName: "registry-tls"
   # -- Configuration for the default workflow templates required for building container images.
   defaultResources:
     # -- If true, applies the workflow templates.
@@ -71,40 +75,6 @@ argo-workflows:
 # Wait job configuration for post-install hooks
 waitJob:
   image: bitnamilegacy/kubectl:1.32.4
-
-# customizing the cert-manager configurations
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  # -- Resource limits and requests for the cert-manager controller
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    # -- Resource limits and requests for the cert-manager cainjector
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    # -- Resource limits and requests for the cert-manager webhook
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
 
 # External Secrets Operator configuration for secret management
 # Single cluster: Set to false to use data plane's ESO

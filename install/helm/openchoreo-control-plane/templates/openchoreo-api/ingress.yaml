@@ -1,4 +1,5 @@
 {{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.ingress.enabled -}}
+{{- $host := include "openchoreo.apiHost" . -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,14 +14,20 @@ metadata:
   {{- end }}
 spec:
   ingressClassName: {{ .Values.openchoreoApi.ingress.ingressClassName | default .Values.global.ingressClassName }}
-  {{- if .Values.openchoreoApi.ingress.tls }}
+  {{- if or .Values.global.tls.enabled .Values.openchoreoApi.ingress.tls }}
   tls:
+    {{- if .Values.openchoreoApi.ingress.tls }}
     {{- range .Values.openchoreoApi.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
         {{- end }}
       secretName: {{ .secretName }}
+    {{- end }}
+    {{- else }}
+    - hosts:
+        - {{ $host | quote }}
+      secretName: {{ .Values.global.tls.secretName }}
     {{- end }}
   {{- end }}
   rules:
@@ -40,7 +47,7 @@ spec:
           {{- end }}
     {{- end }}
     {{- else }}
-    - host: {{ include "openchoreo.apiHost" . | quote }}
+    - host: {{ $host | quote }}
       http:
         paths:
           - path: /

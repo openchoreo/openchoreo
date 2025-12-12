@@ -49,6 +49,7 @@ data:
     cors:
       allowed_origins:
         - "https://localhost:9090"
+        - "{{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}"
         {{- if .Values.asgardeoThunder.ingress.enabled }}
         {{- range .Values.asgardeoThunder.ingress.hosts }}
         - "http{{ if $.Values.asgardeoThunder.ingress.tls }}s{{ end }}://{{ .host }}"

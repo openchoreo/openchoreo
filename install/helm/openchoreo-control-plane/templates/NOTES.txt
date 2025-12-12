@@ -7,11 +7,6 @@ Access URLs:
   API:      {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.apiHost" . }}{{ include "openchoreo.port" . }}
   Thunder:  {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.thunderHost" . }}{{ include "openchoreo.port" . }}
 
-{{- if .Values.global.devMode }}
-Add to /etc/hosts:
-  127.0.0.1  {{ include "openchoreo.consoleHost" . }} {{ include "openchoreo.apiHost" . }} {{ include "openchoreo.thunderHost" . }}
-{{- end }}
-
 Default Credentials: admin@openchoreo.dev / Admin@123
 
 {{- else }}

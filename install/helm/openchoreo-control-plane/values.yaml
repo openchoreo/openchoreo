@@ -4,12 +4,16 @@ global:
   # Console: <baseDomain>, API: api.<baseDomain>, IDP: thunder.<baseDomain>
   baseDomain: openchoreo.local
 
-  # Development mode - adds :8080 port suffix (for k3d/minikube with port mapping)
-  devMode: false
+  # Port suffix for URLs (e.g., ":8080" for non-standard ports)
+  # Include the colon. Leave empty for standard ports (80/443)
+  port: ""
 
   # TLS - enables HTTPS for all ingresses
+  # When enabled, TLS hosts are auto-derived from baseDomain
   tls:
     enabled: false
+    # Secret containing TLS certificate (must have all hosts: baseDomain, api.baseDomain, thunder.baseDomain)
+    secretName: "control-plane-tls"
 
   # Ingress class for all services (uses Traefik by default)
   ingressClassName: openchoreo-traefik
@@ -340,40 +344,6 @@ openchoreoApi:
         entitlement:
           claim: "sub"
           display_name: "Client ID"
-# Dependency configurations
-
-# Cert-Manager configuration
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  config:
-    enableGatewayAPI: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
 # Backstage UI configuration
 backstage:
   enabled: true
@@ -569,7 +539,7 @@ asgardeoThunder:
       port: 8090
       httpOnly: true
     gateClient:
-      # port and scheme are auto-derived from global.devMode and TLS config
+      # port and scheme are auto-derived from global.tls.enabled config
       # Override only if you need non-standard values
       port: ""
       scheme: ""
@@ -602,7 +572,7 @@ asgardeoThunder:
     client:
       base: "/signin"
     server:
-      # port and httpOnly are auto-derived from global.devMode and TLS config
+      # port and httpOnly are auto-derived from global.tls.enabled config
       port: ""
       httpOnly: ""
   persistence:
@@ -702,6 +672,20 @@ traefik:
     name: openchoreo-traefik
   service:
     type: LoadBalancer
+  # Port configuration for Traefik LoadBalancer
+  ports:
+    web:
+      port: 8000           # Container port
+      exposedPort: 80      # LoadBalancer port for HTTP
+      expose:
+        default: true
+    websecure:
+      port: 8443           # Container port
+      exposedPort: 443     # LoadBalancer port for HTTPS
+      expose:
+        default: true
+      tls:
+        enabled: true
   resources:
     requests:
       cpu: 100m

@@ -207,7 +207,6 @@ Get the Thunder IDP hostname
 
 {{/*
 Check if TLS is enabled
-Priority: global.tls.enabled (explicit) > devMode implies no TLS
 */}}
 {{- define "openchoreo.tlsEnabled" -}}
 {{- if .Values.global.tls.enabled -}}
@@ -229,25 +228,21 @@ http
 {{- end -}}
 
 {{/*
-Get the port suffix for URLs
-- devMode: :8080 (k3d port mapping)
-- production: empty (standard ports don't need suffix)
+Get the port suffix for URLs (e.g., ":8080" for non-standard ports)
 */}}
 {{- define "openchoreo.port" -}}
-{{- if .Values.global.devMode -}}
-:8080
-{{- end -}}
+{{- .Values.global.port | default "" -}}
 {{- end -}}
 
 {{/*
 Get the external port number (for Thunder config)
-- devMode: 8080
+- Custom port: strip colon from global.port (e.g., ":8080" -> "8080")
 - TLS: 443
 - no TLS: 80
 */}}
 {{- define "openchoreo.externalPort" -}}
-{{- if .Values.global.devMode -}}
-8080
+{{- if .Values.global.port -}}
+{{- .Values.global.port | trimPrefix ":" -}}
 {{- else if .Values.global.tls.enabled -}}
 443
 {{- else -}}
@@ -273,11 +268,10 @@ Get the scheme (http or https) - alias for protocol
 Check if HTTP-only mode (no TLS)
 */}}
 {{- define "openchoreo.httpOnly" -}}
-{{- if .Values.global.devMode -}}
-true
-{{- else if .Values.global.tls.enabled -}}
+{{- if .Values.global.tls.enabled -}}
 false
 {{- else -}}
 true
 {{- end -}}
 {{- end -}}
+

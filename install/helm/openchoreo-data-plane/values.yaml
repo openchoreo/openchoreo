@@ -5,9 +5,6 @@ global:
   # Base domain for external access (e.g., "apps.openchoreo.example.com")
   # Used for gateway hostname derivation (*.baseDomain)
   baseDomain: "openchoreo.local"
-  # Development mode - enables port suffixes for local development (e.g., k3d)
-  # Auto-detected from baseDomain if not set (.localhost, .local domains)
-  devMode: false
 
 kubernetesClusterDomain: cluster.local
 
@@ -42,8 +39,8 @@ gateway:
   enabled: true
 
   # OpenChoreo gateway configuration
-  httpPort: 80
-  httpsPort: 443
+  httpPort: 9080
+  httpsPort: 9443
 
   # TLS configuration for HTTPS listeners
   # When cert-manager is available, HTTPS is automatically enabled with self-signed certificates
@@ -96,43 +93,6 @@ gateway:
     registry: cr.kgateway.dev/kgateway-dev
     tag: ""
     pullPolicy: IfNotPresent
-
-# customizing the cert-manager configurations
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  # -- Enable Gateway API support in cert-manager
-  config:
-    enableGatewayAPI: true
-  # -- Resource limits and requests for the cert-manager controller
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    # -- Resource limits and requests for the cert-manager cainjector
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    # -- Resource limits and requests for the cert-manager webhook
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
 
 # customizing the external-secrets configurations
 external-secrets:

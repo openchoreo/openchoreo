@@ -157,10 +157,13 @@ Get the registry ingress class name
 
 {{/*
 Get the registry TLS secret name
+Priority: registry.ingress.tls.secretName > global.tls.secretName > default
 */}}
 {{- define "openchoreo-build-plane.registryTlsSecretName" -}}
 {{- if .Values.registry.ingress.tls.secretName -}}
   {{- .Values.registry.ingress.tls.secretName -}}
+{{- else if .Values.global.tls.secretName -}}
+  {{- .Values.global.tls.secretName -}}
 {{- else -}}
   {{- "registry-tls" -}}
 {{- end -}}
@@ -195,3 +198,4 @@ Cluster Agent service account name
 {{- default "default" .Values.clusterAgent.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
