@@ -24,7 +24,6 @@ clusterAgent:
   dnsRewrite:
     enabled: true
 
-  # Client certificate auto-generation via cert-manager
   tls:
     enabled: true
     generateCerts: true

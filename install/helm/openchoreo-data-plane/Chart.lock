@@ -11,11 +11,8 @@ dependencies:
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
   version: 0.140.0
-- name: cert-manager
-  repository: oci://quay.io/jetstack/charts
-  version: v1.16.2
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.0.1
-digest: sha256:68fdd74bd6af20cf8ee91692ed26f52508abc0930ee2cc70b7321d64d992853e
-generated: "2025-12-06T18:08:03.802808+05:30"
+digest: sha256:092497728ce8b9cf94bef70a32807bb16f2b3537fd416018c3f725028f288463
+generated: "2025-12-12T23:12:17.040575+05:30"

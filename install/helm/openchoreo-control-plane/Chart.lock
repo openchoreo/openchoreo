@@ -1,9 +1,6 @@
 dependencies:
-- name: cert-manager
-  repository: oci://quay.io/jetstack/charts
-  version: v1.16.2
 - name: traefik
   repository: https://traefik.github.io/charts
   version: 34.4.1
-digest: sha256:7edf00dbda57bffa293b34e308e5bed9785ff7cd6071d1dce5adc46f365ba088
-generated: "2025-11-27T17:02:39.883199+05:30"
+digest: sha256:431077956a1c078f2e439fa848804ea2333c1a4152b07deb7c04b21cdf3602f2
+generated: "2025-12-12T23:12:09.945055+05:30"

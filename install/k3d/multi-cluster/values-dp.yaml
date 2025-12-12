@@ -15,7 +15,6 @@ clusterAgent:
   dnsRewrite:
     enabled: true
 
-  # Client certificate auto-generation via cert-manager
   tls:
     enabled: true
     generateCerts: true
@@ -45,12 +44,8 @@ fluentBit:
       port: "11082"
 
 gateway:
-  # Enable gateway
+  # Enable gateway (uses default ports 9080/9443)
   enabled: true
-
-  # Use custom ports for k3d multi-cluster setup
-  httpPort: 80
-  httpsPort: 443
 
   # Envoy - enabled by default for traffic routing
   envoy:

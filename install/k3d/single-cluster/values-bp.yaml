@@ -1,10 +1,6 @@
 # Helm values for OpenChoreo Build Plane in k3d single-cluster setup
 # This file contains overrides specific to running the build plane in a k3d environment
 
-# Disable cert-manager since it's already installed by Control Plane
-cert-manager:
-  enabled: false
-
 argo-workflows:
   server:
     # Argo Workflows UI is enabled for testing/development purposes

@@ -43,10 +43,6 @@ dependencies:
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
     version: 0.140.0
     condition: opentelemetry-collector.enabled
-  - name: cert-manager
-    repository: oci://quay.io/jetstack/charts
-    condition: cert-manager.enabled
-    version: "v1.16.2"
   - name: gateway-operator
     alias: api-platform
     version: 0.0.1

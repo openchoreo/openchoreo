@@ -494,6 +494,59 @@ install_helm_chart() {
     fi
 }
 
+# Install cert-manager (prerequisite for TLS certificate management)
+install_cert_manager() {
+    log_info "Installing cert-manager..."
+
+    # Add Jetstack Helm repository
+    if ! helm repo list 2>/dev/null | grep -q "jetstack"; then
+        log_info "Adding Jetstack Helm repository..."
+        helm repo add jetstack "$CERT_MANAGER_REPO" --force-update
+    fi
+
+    # Update helm repos
+    helm repo update jetstack
+
+    # Install cert-manager with CRDs
+    local helm_args=(
+        "upgrade" "--install" "cert-manager" "jetstack/cert-manager"
+        "--namespace" "$CONTROL_PLANE_NS"
+        "--create-namespace"
+        "--version" "$CERT_MANAGER_VERSION"
+        "--set" "crds.enabled=true"
+        "--set" "resources.requests.cpu=10m"
+        "--set" "resources.requests.memory=32Mi"
+        "--set" "resources.limits.cpu=50m"
+        "--set" "resources.limits.memory=64Mi"
+        "--set" "cainjector.resources.requests.cpu=10m"
+        "--set" "cainjector.resources.requests.memory=32Mi"
+        "--set" "cainjector.resources.limits.cpu=50m"
+        "--set" "cainjector.resources.limits.memory=64Mi"
+        "--set" "webhook.resources.requests.cpu=10m"
+        "--set" "webhook.resources.requests.memory=32Mi"
+        "--set" "webhook.resources.limits.cpu=50m"
+        "--set" "webhook.resources.limits.memory=64Mi"
+        "--wait"
+        "--timeout" "300s"
+    )
+
+    if helm "${helm_args[@]}"; then
+        log_success "cert-manager installed successfully"
+    else
+        log_error "Failed to install cert-manager"
+        return 1
+    fi
+
+    # Wait for cert-manager webhook to be ready
+    log_info "Waiting for cert-manager webhook to be ready..."
+    if kubectl wait --for=condition=available deployment/cert-manager-webhook \
+        -n "$CONTROL_PLANE_NS" --timeout=120s >/dev/null 2>&1; then
+        log_success "cert-manager webhook is ready"
+    else
+        log_warning "cert-manager webhook readiness check timed out, but continuing..."
+    fi
+}
+
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
@@ -601,7 +654,7 @@ check_system_resources() {
 
     # Calculate required resources based on actual measured usage:
     # - k3s kubernetes control plane: ~1.5GB baseline
-    # - Control Plane pods: ~350MB (cert-manager, controller, api, ui, thunder)
+    # - Control Plane pods: ~350MB (controller, api, ui, thunder)
     # - Data Plane pods: ~200MB (envoy-gateway, external-secrets, gateway)
     # - Build Plane pods: ~70MB steady + ~500MB during builds (argo, registry)
     # - Observability pods: ~1GB (OpenSearch is memory intensive)

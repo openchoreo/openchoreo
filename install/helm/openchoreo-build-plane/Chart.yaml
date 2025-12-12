@@ -36,7 +36,3 @@ dependencies:
     repository: "https://twuni.github.io/docker-registry.helm"
     condition: registry.enabled
     alias: registry
-  - name: cert-manager
-    repository: oci://quay.io/jetstack/charts
-    condition: cert-manager.enabled
-    version: "v1.16.2"

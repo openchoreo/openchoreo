@@ -147,7 +147,7 @@ k3d cluster delete openchoreo-quick-start
 
 In single-cluster setups, the cluster agent should start automatically after Helm completes the installation. The Helm post-install jobs automatically:
 - Copy the cluster-gateway CA from control plane to data/build plane namespaces
-- Create TLS certificates using cert-manager
+- Create TLS certificates for secure communication
 
 If the agent pod is stuck, check the Helm job logs:
 

@@ -1,10 +1,6 @@
 # Helm values for OpenChoreo Build Plane in quick-start environment
 # Based on single-cluster setup, optimized for containerized quick-start experience
 
-# Disable cert-manager since it's already installed by Control Plane
-cert-manager:
-  enabled: false
-
 # Argo Workflows configuration
 argo-workflows:
   server:

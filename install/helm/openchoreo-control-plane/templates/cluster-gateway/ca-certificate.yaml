@@ -10,9 +10,6 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-gateway
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "-5"
 spec:
   selfSigned: {}
 ---
@@ -25,9 +22,6 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-gateway
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "-4"
 spec:
   isCA: true
   commonName: openchoreo-cluster-gateway-ca

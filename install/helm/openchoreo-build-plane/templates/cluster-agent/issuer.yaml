@@ -12,9 +12,6 @@ metadata:
   labels:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "-4"
 spec:
   ca:
     secretName: {{ .Values.clusterAgent.tls.caSecretName }}
@@ -29,9 +26,6 @@ metadata:
   labels:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "-5"
 spec:
   selfSigned: {}
 {{- end }}

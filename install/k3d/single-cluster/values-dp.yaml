@@ -1,13 +1,7 @@
 # Helm values for OpenChoreo Data Plane in k3d single-cluster setup
 
-# Disable cert-manager since it's already installed by Control Plane
-cert-manager:
-  enabled: false
-
-# Gateway configuration for single-cluster setup (ports 9080/9443 for k3d)
+# Gateway configuration for single-cluster setup (default ports 9080/9443)
 gateway:
-  httpPort: 9080
-  httpsPort: 9443
   envoy:
     # Mount /tmp as emptyDir to fix Envoy temp file issues on macOS Docker/Colima
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800

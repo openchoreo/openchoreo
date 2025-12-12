@@ -2,18 +2,10 @@
 # This file contains overrides for running the data plane in the quick-start k3d environment
 # Port mapping: k3d maps host ports 9080:9080 (HTTP) and 9443:9443 (HTTPS) for KGateway
 
-# Disable cert-manager since it's already installed by Control Plane
-cert-manager:
-  enabled: false
-  crds:
-    enabled: false
-
 # Gateway configuration for quick-start setup
-# The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS)
+# The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS) by default
 gateway:
   enabled: true
-  httpPort: 9080
-  httpsPort: 9443
   # Envoy - enabled by default for traffic routing
   envoy:
     enabled: true
