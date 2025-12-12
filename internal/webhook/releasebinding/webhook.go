@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // nolint:unused
@@ -81,6 +82,9 @@ func (d *Defaulter) Handle(ctx context.Context, req admission.Request) admission
 			releasebinding.Spec.ReleaseName = oldBinding.Spec.ReleaseName
 		}
 	}
+
+	// Set labels
+	labels.SetLabels(&releasebinding.ObjectMeta, labels.MakeReleaseBindingLabels(releasebinding))
 
 	// Marshal the modified object
 	marshaledBinding, err := json.Marshal(releasebinding)
