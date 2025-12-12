@@ -23,8 +23,10 @@ func TestDisabledAuthorizer_Evaluate(t *testing.T) {
 	ctx := context.Background()
 
 	request := &authzcore.EvaluateRequest{
-		Subject: authzcore.Subject{
-			JwtToken: "any-jwt",
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"test"},
 		},
 		Resource: authzcore.Resource{
 			Hierarchy: authzcore.ResourceHierarchy{
@@ -50,7 +52,11 @@ func TestDisabledAuthorizer_Evaluate(t *testing.T) {
 func TestDisabledAuthorizer_BatchEvaluate(t *testing.T) {
 	ctx := context.Background()
 	request := authzcore.EvaluateRequest{
-		Subject: authzcore.Subject{JwtToken: "test-jwt"},
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"test"},
+		},
 		Resource: authzcore.Resource{
 			Hierarchy: authzcore.ResourceHierarchy{Organization: "org1"},
 		},
@@ -87,8 +93,10 @@ func TestDisabledAuthorizer_GetSubjectProfile(t *testing.T) {
 	ctx := context.Background()
 
 	request := &authzcore.ProfileRequest{
-		Subject: authzcore.Subject{
-			JwtToken: "test-jwt",
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"test"},
 		},
 		Scope: authzcore.ResourceHierarchy{
 			Organization: "org1",

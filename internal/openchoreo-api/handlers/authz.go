@@ -10,7 +10,7 @@ import (
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 // ListRoles handles GET /api/v1/authz/roles
@@ -175,21 +175,6 @@ func (h *Handler) ListActions(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, actions)
 }
 
-// ListUserTypes handles GET /api/v1/authz/user-types
-func (h *Handler) ListUserTypes(w http.ResponseWriter, r *http.Request) {
-	userTypes, err := h.services.AuthzService.ListUserTypes(r.Context())
-	if err != nil {
-		h.logger.Error("Failed to list user types", "error", err)
-		if handleAuthzDisabledError(w, err) {
-			return
-		}
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list user types", services.CodeInternalError)
-		return
-	}
-
-	writeSuccessResponse(w, http.StatusOK, userTypes)
-}
-
 // Evaluate handles POST /api/v1/authz/evaluate
 func (h *Handler) Evaluate(w http.ResponseWriter, r *http.Request) {
 	var request authz.EvaluateRequest
@@ -234,13 +219,6 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 
 // GetSubjectProfile handles GET /api/v1/authz/profile
 func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
-	// Extract token from context
-	token := jwt.GetTokenFromContext(r.Context())
-	if token == "" {
-		writeErrorResponse(w, http.StatusUnauthorized, "Missing subject token", services.CodeInvalidInput)
-		return
-	}
-
 	// Extract query parameters
 	org := r.URL.Query().Get("org")
 	if org == "" {
@@ -251,10 +229,16 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	component := r.URL.Query().Get("component")
 	orgUnits := r.URL.Query()["ou"]
 
+	subjectCtx, ok := auth.GetSubjectContextFromContext(r.Context())
+	if !ok || subjectCtx == nil {
+		writeErrorResponse(w, http.StatusForbidden, "Subject context not found", services.CodeForbidden)
+		return
+	}
+
+	authzSubjectCtx := authz.FromAuthSubjectContext(subjectCtx)
+
 	request := &authz.ProfileRequest{
-		Subject: authz.Subject{
-			JwtToken: token,
-		},
+		SubjectContext: authzSubjectCtx,
 		Scope: authz.ResourceHierarchy{
 			Organization:      org,
 			OrganizationUnits: orgUnits,

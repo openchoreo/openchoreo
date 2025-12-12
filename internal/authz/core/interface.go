@@ -45,7 +45,4 @@ type PAP interface {
 
 	// ListActions lists all defined actions in the system
 	ListActions(ctx context.Context) ([]string, error)
-
-	// ListUserTypes returns all configured user types in the system
-	ListUserTypes(ctx context.Context) ([]UserTypeInfo, error)
 }

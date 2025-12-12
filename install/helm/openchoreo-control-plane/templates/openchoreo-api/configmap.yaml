@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/component: api-server
 data:
   config.yaml: |
-    authz:
+    security:
       user_types:
-        {{- toYaml .Values.openchoreoApi.authz.userTypes | nindent 8 }}
+        {{- toYaml .Values.openchoreoApi.security.userTypes | nindent 8 }}
 {{- end }}

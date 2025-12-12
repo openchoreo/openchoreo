@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang-jwt/jwt/v5"
-
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -28,26 +26,6 @@ func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	config := CasbinConfig{
 		DatabasePath: dbPath,
 		EnableCache:  false,
-		UserTypeConfigs: []authzcore.UserTypeConfig{
-			{
-				Type:        authzcore.SubjectTypeUser,
-				DisplayName: "Human User",
-				Priority:    1,
-				Entitlement: authzcore.EntitlementConfig{
-					Claim:       "group",
-					DisplayName: "User Group",
-				},
-			},
-			{
-				Type:        authzcore.SubjectTypeServiceAccount,
-				DisplayName: "Service Account",
-				Priority:    2,
-				Entitlement: authzcore.EntitlementConfig{
-					Claim:       "service_account",
-					DisplayName: "Service Account ID",
-				},
-			},
-		},
 	}
 
 	enforcer, err := NewCasbinEnforcer(config, logger)
@@ -64,19 +42,6 @@ func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	return enforcer
 }
 
-// createTestJWT creates a JWT token with the specified claims
-func createTestJWT(t *testing.T, claims jwt.MapClaims) string {
-	t.Helper()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte("test-secret"))
-	if err != nil {
-		t.Fatalf("failed to create test JWT: %v", err)
-	}
-
-	return tokenString
-}
-
 func TestCasbinEnforcer_Evaluate(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
@@ -91,7 +56,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 
 	orgMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "test-group",
 		},
 		RoleName: "multi-role",
@@ -105,16 +70,16 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		jwtClaims jwt.MapClaims
-		resource  authzcore.ResourceHierarchy
-		action    string
-		want      bool
-		reason    string
+		name              string
+		entitlementValues []string
+		resource          authzcore.ResourceHierarchy
+		action            string
+		want              bool
+		reason            string
 	}{
 		{
-			name:      "basic evaluate check",
-			jwtClaims: jwt.MapClaims{"group": "test-group"},
+			name:              "basic evaluate check",
+			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 			},
@@ -123,8 +88,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "organization:* at org level should match organization:view",
 		},
 		{
-			name:      "evaluate with hierarchical resource matching",
-			jwtClaims: jwt.MapClaims{"group": "test-group"},
+			name:              "evaluate with hierarchical resource matching",
+			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Project:      "p1",
@@ -135,8 +100,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "policy at org level should apply to components within org",
 		},
 		{
-			name:      "wildcard action match",
-			jwtClaims: jwt.MapClaims{"group": "test-group"},
+			name:              "wildcard action match",
+			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Component:    "c1",
@@ -146,8 +111,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "component:* should match component:read",
 		},
 		{
-			name:      "multiple claims - access via at least one group",
-			jwtClaims: jwt.MapClaims{"group": []interface{}{"other-group", "test-group", "another-group"}},
+			name:              "multiple claims - access via at least one group",
+			entitlementValues: []string{"other-group", "test-group", "another-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Component:    "c1",
@@ -157,8 +122,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "should grant access if ANY group in array has permission (test-group does)",
 		},
 		{
-			name:      "access denied - action not permitted",
-			jwtClaims: jwt.MapClaims{"group": "test-group"},
+			name:              "access denied - action not permitted",
+			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Project:      "p1",
@@ -168,8 +133,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "project:delete not allowed by multi-role actions",
 		},
 		{
-			name:      "access denied - no matching group",
-			jwtClaims: jwt.MapClaims{"group": []interface{}{"group1", "group2", "group3"}},
+			name:              "access denied - no matching group",
+			entitlementValues: []string{"group1", "group2", "group3"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Component:    "c1",
@@ -179,8 +144,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			reason: "should deny if NO group in array has permission",
 		},
 		{
-			name:      "access denied - hierarchy out of scope",
-			jwtClaims: jwt.MapClaims{"group": "project-group"},
+			name:              "access denied - hierarchy out of scope",
+			entitlementValues: []string{"project-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Project:      "p2",
@@ -194,11 +159,11 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testToken := createTestJWT(t, tt.jwtClaims)
-
 			request := &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: testToken,
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: tt.entitlementValues,
 				},
 				Resource: authzcore.Resource{
 					Type:      "some-resource-type",
@@ -237,7 +202,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 	// Setup: Add allow policy at org level
 	allowMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "user-group",
 		},
 		RoleName: "developer",
@@ -253,7 +218,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 	// Setup: Add deny policy at project level
 	denyMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "user-group",
 		},
 		RoleName: "developer",
@@ -268,16 +233,16 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		jwtClaims jwt.MapClaims
-		resource  authzcore.ResourceHierarchy
-		action    string
-		want      bool
-		reason    string
+		name              string
+		entitlementValues []string
+		resource          authzcore.ResourceHierarchy
+		action            string
+		want              bool
+		reason            string
 	}{
 		{
-			name:      "allow in public project",
-			jwtClaims: jwt.MapClaims{"group": "user-group"},
+			name:              "allow in public project",
+			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Project:      "public",
@@ -288,8 +253,8 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			reason: "allow policy at org level permits access to public project",
 		},
 		{
-			name:      "deny in secret project (deny overrides allow)",
-			jwtClaims: jwt.MapClaims{"group": "user-group"},
+			name:              "deny in secret project (deny overrides allow)",
+			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Project:      "secret",
@@ -303,11 +268,11 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jwtToken := createTestJWT(t, tt.jwtClaims)
-
 			request := &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: jwtToken,
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: tt.entitlementValues,
 				},
 				Resource: authzcore.Resource{
 					Type:      "some-resource-type",
@@ -352,7 +317,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 
 	mapping1 := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "reader",
@@ -363,7 +328,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 	}
 	mapping2 := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "writer",
@@ -384,8 +349,10 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 	batchRequest := &authzcore.BatchEvaluateRequest{
 		Requests: []authzcore.EvaluateRequest{
 			{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
 				},
 				Resource: authzcore.Resource{
 					Type: "component",
@@ -397,8 +364,10 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 				Action: "component:read",
 			},
 			{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
 				},
 				Resource: authzcore.Resource{
 					Type: "component",
@@ -410,8 +379,10 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 				Action: "component:write",
 			},
 			{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
 				},
 				Resource: authzcore.Resource{
 					Type: "component",
@@ -631,7 +602,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 
 	mapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "test-group",
 		},
 		RoleName: "test-role",
@@ -653,7 +624,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 
 	found := false
 	for _, m := range mappings {
-		if m.Entitlement.Claim == "group" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+		if m.Entitlement.Claim == "groups" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
 			found = true
 			break
 		}
@@ -678,7 +649,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 
 	mapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "test-group",
 		},
 		RoleName: "test-role",
@@ -856,7 +827,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	// Setup: Add role entitlement mappings
 	viewerMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "editor",
@@ -867,7 +838,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	}
 	editorMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "viewer",
@@ -879,7 +850,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	}
 	denyMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "group",
+			Claim: "groups",
 			Value: "dev-group",
 		},
 		RoleName: "editor",
@@ -916,8 +887,10 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		{
 			name: "get profile with org scope",
 			request: &authzcore.ProfileRequest{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              authzcore.SubjectTypeUser,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
 					Organization: "acme",
@@ -926,7 +899,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
 				Type:              authzcore.SubjectTypeUser,
-				EntitlementClaim:  "group",
+				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"dev-group"},
 			},
 			expectedCapabilities: []expectedCapability{
@@ -941,8 +914,10 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		{
 			name: "get profile for scope within an organization",
 			request: &authzcore.ProfileRequest{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "dev-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              authzcore.SubjectTypeUser,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
 					Organization: "acme",
@@ -952,7 +927,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
 				Type:              authzcore.SubjectTypeUser,
-				EntitlementClaim:  "group",
+				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"dev-group"},
 			},
 			expectedCapabilities: []expectedCapability{
@@ -967,8 +942,10 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		{
 			name: "get profile for user with no permissions",
 			request: &authzcore.ProfileRequest{
-				Subject: authzcore.Subject{
-					JwtToken: createTestJWT(t, jwt.MapClaims{"group": "no-permissions-group"}),
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              authzcore.SubjectTypeUser,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"no-permissions-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
 					Organization: "acme",
@@ -978,7 +955,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			wantEmptyCapability: true,
 			expectedUser: authzcore.SubjectContext{
 				Type:              authzcore.SubjectTypeUser,
-				EntitlementClaim:  "group",
+				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"no-permissions-group"},
 			},
 		},

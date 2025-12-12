@@ -73,6 +73,11 @@ type Config struct {
 	// HTTPClient is the HTTP client used to fetch JWKS
 	// If not set, http.DefaultClient is used
 	HTTPClient *http.Client
+
+	// Detector is used to detect user type and extract SubjectContext from JWT tokens
+	// If provided, the middleware will resolve SubjectContext and store it in the request context
+	// If not provided, only token and claims will be stored in the context
+	Detector *Resolver
 }
 
 // setDefaults sets default values for unspecified config fields
