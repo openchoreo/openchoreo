@@ -96,7 +96,7 @@ gateway:
 
 # customizing the external-secrets configurations
 external-secrets:
-  enabled: true
+  enabled: false
   fullnameOverride: external-secrets
   nameOverride: external-secrets
 

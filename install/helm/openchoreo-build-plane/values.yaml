@@ -80,7 +80,7 @@ waitJob:
 # Single cluster: Set to false to use data plane's ESO
 # Multi-cluster: Set to true to install dedicated ESO in build plane
 external-secrets:
-  enabled: true
+  enabled: false
   fullnameOverride: external-secrets
   nameOverride: external-secrets
 
