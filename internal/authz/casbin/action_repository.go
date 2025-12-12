@@ -23,7 +23,7 @@ func NewActionRepository(db *gorm.DB) *ActionRepository {
 func (r *ActionRepository) ListPublicActions() ([]Action, error) {
 	var actions []Action
 	result := r.db.
-		Where("private = ?", false).
+		Where("internal = ?", false).
 		Order("action").
 		Find(&actions)
 	if result.Error != nil {
@@ -36,10 +36,10 @@ func (r *ActionRepository) ListPublicActions() ([]Action, error) {
 // ListConcretePublicActions retrieves only concrete (non-wildcarded) public actions from the database.
 func (r *ActionRepository) ListConcretePublicActions() ([]Action, error) {
 	var actions []Action
-	// exclude wildcarded actions (containing *) and private actions
+	// exclude wildcarded actions (containing *) and internal actions
 	result := r.db.
 		Where("action NOT LIKE '%*%'").
-		Where("private = ?", false).
+		Where("internal = ?", false).
 		Order("action").
 		Find(&actions)
 

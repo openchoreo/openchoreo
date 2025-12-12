@@ -23,74 +23,74 @@ type RolesData struct {
 
 // ActionData represents an action name and whether it is visibility
 type ActionData struct {
-	Name      string
-	IsPrivate bool
+	Name       string
+	IsInternal bool
 }
 
 // systemActions defines all available actions in the system
-// IsPrivate indicates if the action is private (not publicly visible)
+// IsInternal indicates if the action is internal (not publicly visible)
 var systemActions = []ActionData{
 	// Organization
-	{Name: "organization:view", IsPrivate: false},
+	{Name: "organization:view", IsInternal: false},
 
 	// Project
-	{Name: "project:view", IsPrivate: false},
-	{Name: "project:create", IsPrivate: false},
+	{Name: "project:view", IsInternal: false},
+	{Name: "project:create", IsInternal: false},
 
 	// Component
-	{Name: "component:view", IsPrivate: false},
-	{Name: "component:create", IsPrivate: false},
-	{Name: "component:update", IsPrivate: false},
-	{Name: "component:deploy", IsPrivate: false},
+	{Name: "component:view", IsInternal: false},
+	{Name: "component:create", IsInternal: false},
+	{Name: "component:update", IsInternal: false},
+	{Name: "component:deploy", IsInternal: false},
 
 	// ComponentRelease
-	{Name: "componentrelease:view", IsPrivate: false},
-	{Name: "componentrelease:create", IsPrivate: false},
+	{Name: "componentrelease:view", IsInternal: false},
+	{Name: "componentrelease:create", IsInternal: false},
 
 	// ReleaseBinding
-	{Name: "releasebinding:view", IsPrivate: false},
-	{Name: "releasebinding:update", IsPrivate: false},
+	{Name: "releasebinding:view", IsInternal: false},
+	{Name: "releasebinding:update", IsInternal: false},
 
 	// ComponentBinding
-	{Name: "componentbinding:view", IsPrivate: false},
-	{Name: "componentbinding:update", IsPrivate: false},
+	{Name: "componentbinding:view", IsInternal: false},
+	{Name: "componentbinding:update", IsInternal: false},
 
 	// ComponentType
-	{Name: "componenttype:view", IsPrivate: false},
+	{Name: "componenttype:view", IsInternal: false},
 
 	// ComponentWorkflow
-	{Name: "componentworkflow:view", IsPrivate: false},
-	{Name: "componentworkflow:trigger", IsPrivate: false},
+	{Name: "componentworkflow:view", IsInternal: false},
+	{Name: "componentworkflow:trigger", IsInternal: false},
 
 	// Workflow
-	{Name: "workflow:view", IsPrivate: false},
+	{Name: "workflow:view", IsInternal: false},
 
 	// Trait
-	{Name: "trait:view", IsPrivate: false},
+	{Name: "trait:view", IsInternal: false},
 
 	// Environment
-	{Name: "environment:view", IsPrivate: false},
-	{Name: "environment:create", IsPrivate: false},
+	{Name: "environment:view", IsInternal: false},
+	{Name: "environment:create", IsInternal: false},
 
 	// DataPlane
-	{Name: "dataplane:view", IsPrivate: false},
-	{Name: "dataplane:create", IsPrivate: false},
+	{Name: "dataplane:view", IsInternal: false},
+	{Name: "dataplane:create", IsInternal: false},
 
 	// BuildPlane
-	{Name: "buildplane:view", IsPrivate: false},
+	{Name: "buildplane:view", IsInternal: false},
 
 	// DeploymentPipeline
-	{Name: "deploymentpipeline:view", IsPrivate: false},
+	{Name: "deploymentpipeline:view", IsInternal: false},
 
 	// Schema
-	{Name: "schema:view", IsPrivate: false},
+	{Name: "schema:view", IsInternal: false},
 
 	// SecretReference
-	{Name: "secretreference:view", IsPrivate: false},
+	{Name: "secretreference:view", IsInternal: false},
 
 	// Workload
-	{Name: "workload:view", IsPrivate: false},
-	{Name: "workload:create", IsPrivate: false},
+	{Name: "workload:view", IsInternal: false},
+	{Name: "workload:create", IsInternal: false},
 }
 
 // LoadActions returns the system-defined actions
