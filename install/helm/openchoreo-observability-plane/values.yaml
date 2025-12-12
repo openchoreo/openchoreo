@@ -249,6 +249,7 @@ openSearchClusterSetup:
   image:
     repository: ghcr.io/openchoreo/init-observability-opensearch
     tag: ""
+  observerUrl: "http://observer.openchoreo-observability-plane:8080"
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
