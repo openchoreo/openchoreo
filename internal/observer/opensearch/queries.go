@@ -599,17 +599,17 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSComponentID + ".keyword": params.Metadata.ComponentUid,
+				labels.OSComponentID + ".keyword": params.Metadata.ComponentUID,
 			},
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSEnvironmentID + ".keyword": params.Metadata.EnvironmentUid,
+				labels.OSEnvironmentID + ".keyword": params.Metadata.EnvironmentUID,
 			},
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSProjectID + ".keyword": params.Metadata.ProjectUid,
+				labels.OSProjectID + ".keyword": params.Metadata.ProjectUID,
 			},
 		},
 		{
@@ -716,16 +716,16 @@ func GetOperatorSymbol(operator string) string {
 func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 	// Escape JSON strings properly
 	ruleName, _ := json.Marshal(params.Metadata.Name)
-	componentUid, _ := json.Marshal(params.Metadata.ComponentUid)
-	projectUid, _ := json.Marshal(params.Metadata.ProjectUid)
-	environmentUid, _ := json.Marshal(params.Metadata.EnvironmentUid)
+	componentUID, _ := json.Marshal(params.Metadata.ComponentUID)
+	projectUID, _ := json.Marshal(params.Metadata.ProjectUID)
+	environmentUID, _ := json.Marshal(params.Metadata.EnvironmentUID)
 
 	// Build the JSON template with Mustache variables
 	return fmt.Sprintf(
 		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
 		string(ruleName),
-		string(componentUid),
-		string(projectUid),
-		string(environmentUid),
+		string(componentUID),
+		string(projectUID),
+		string(environmentUID),
 	)
 }
