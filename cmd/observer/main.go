@@ -87,9 +87,9 @@ func main() {
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
 	// API routes - Alerting
-	mux.HandleFunc("PUT /api/alerting/rule/", handler.CreateOrUpdateAlertingRule)                   // Create or update alerting rule in OpenSearch or Prometheus
-	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule) // Delete alerting rule from OpenSearch or Prometheus
-	mux.HandleFunc("POST /api/alerting/webhook", handler.AlertingWebhook)                           // Alerting webhook
+	mux.HandleFunc("PUT /api/alerting/rule/", handler.CreateOrUpdateAlertingRule)
+	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
+	mux.HandleFunc("POST /api/alerting/webhook", handler.AlertingWebhook) // Internal webhook for alerting
 
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))

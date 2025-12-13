@@ -114,13 +114,13 @@ func validateAlertingRule(req types.AlertingRuleRequest) error {
 	if strings.TrimSpace(req.Metadata.Name) == "" {
 		return fmt.Errorf("metadata.name is required")
 	}
-	if strings.TrimSpace(req.Metadata.ComponentUid) == "" {
+	if strings.TrimSpace(req.Metadata.ComponentUID) == "" {
 		return fmt.Errorf("metadata.component-uid is required")
 	}
-	if strings.TrimSpace(req.Metadata.ProjectUid) == "" {
+	if strings.TrimSpace(req.Metadata.ProjectUID) == "" {
 		return fmt.Errorf("metadata.project-uid is required")
 	}
-	if strings.TrimSpace(req.Metadata.EnvironmentUid) == "" {
+	if strings.TrimSpace(req.Metadata.EnvironmentUID) == "" {
 		return fmt.Errorf("metadata.environment-uid is required")
 	}
 	if strings.TrimSpace(req.Metadata.Severity) == "" {

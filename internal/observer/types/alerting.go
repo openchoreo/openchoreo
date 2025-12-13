@@ -13,9 +13,9 @@ type AlertingRuleRequest struct {
 // AlertingRuleMetadata contains metadata about an alerting rule
 type AlertingRuleMetadata struct {
 	Name           string `json:"name"`
-	ComponentUid   string `json:"component-uid"`
-	ProjectUid     string `json:"project-uid"`
-	EnvironmentUid string `json:"environment-uid"`
+	ComponentUID   string `json:"component-uid"`
+	ProjectUID     string `json:"project-uid"`
+	EnvironmentUID string `json:"environment-uid"`
 	Severity       string `json:"severity"`
 }
 

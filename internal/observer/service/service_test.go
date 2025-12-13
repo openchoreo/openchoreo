@@ -25,6 +25,7 @@ type MockOpenSearchClient struct {
 	monitorExists  bool
 	monitorSearch  error
 	monitorCreate  error
+	monitorDelete  error
 }
 
 func (m *MockOpenSearchClient) Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error) {
@@ -51,6 +52,10 @@ func (m *MockOpenSearchClient) CreateMonitor(ctx context.Context, monitor map[st
 		return "", m.monitorCreate
 	}
 	return m.monitorID, nil
+}
+
+func (m *MockOpenSearchClient) DeleteMonitor(ctx context.Context, monitorID string) error {
+	return m.monitorDelete
 }
 
 func newMockLoggingService() *LoggingService {

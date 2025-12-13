@@ -188,7 +188,6 @@ func (c *Client) SearchMonitorByName(ctx context.Context, name string) (string, 
 
 // CreateMonitor creates a new alerting monitor using the Alerting plugin API.
 func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, error) {
-
 	body, err := json.Marshal(monitor)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal monitor: %w", err)

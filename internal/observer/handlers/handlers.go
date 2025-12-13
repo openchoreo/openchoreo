@@ -570,7 +570,6 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 
 // CreateOrUpdateAlertingRule handles PUT /api/alerting/rule/
 func (h *Handler) CreateOrUpdateAlertingRule(w http.ResponseWriter, r *http.Request) {
-
 	var req types.AlertingRuleRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind alerting rule request", "error", err)
