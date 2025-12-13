@@ -140,9 +140,18 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     fi
 fi
 
-# Step 11: Configure the dataplane and buildplane with observer reference
+# Step 11: Add default observabilityplane (if observability plane enabled)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
-    configure_observer_reference
+    if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
+        bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
+    else
+        log_warning "add-observability-plane.sh not found, skipping observabilityplane configuration"
+    fi
+fi
+
+# Step 12: Configure the dataplane and buildplane with observabilityplane reference
+if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    configure_observabilityplane_reference
 fi
 
 log_success "OpenChoreo installation completed successfully!"
