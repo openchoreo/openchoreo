@@ -389,9 +389,7 @@ backstage:
     tokenUrl: ""
     clientId: "openchoreo-backstage-client"
     clientSecret: "backstage-portal-secret"
-    redirectUrls:
-      - "http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame"
-      - "http://localhost:7007/api/auth/default-idp/handler/frame"
+    redirectUrls: []
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -488,6 +486,7 @@ thunder:
       # Must be false for SQLite to work (needs write access to database directory)
       readOnlyRootFilesystem: false
       enableRunAsUser: true
+      fsGroup: 802
       runAsUser: 802
       seccompProfile:
         enabled: true
@@ -508,9 +507,12 @@ thunder:
         cpu: 100m
         memory: 128Mi
 
-  persistentVolume:
+  persistence:
     enabled: true
-    size: 500Mi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    annotations: {}
 
   # Service configuration
   service:
@@ -624,16 +626,6 @@ thunder:
       requests:
         cpu: 250m
         memory: 128Mi
-    # Pass Backstage OAuth credentials to setup job via environment variables
-    # Note: These values are also stored in backstage-secrets for Backstage to use
-    env:
-      - name: BACKSTAGE_CLIENT_ID
-        value: "openchoreo-backstage-client"
-      - name: BACKSTAGE_CLIENT_SECRET
-        value: "backstage-portal-secret"  # Must match backstage.auth.clientSecret
-      - name: BACKSTAGE_REDIRECT_URLS
-        # IMPORTANT: Must match backstage.auth.redirectUrls (comma-separated)
-        value: "http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame,http://localhost:7007/api/auth/default-idp/handler/frame"
 
   # Bootstrap configuration for Backstage OAuth app and default users
   # These scripts run during the setup job to initialize Thunder

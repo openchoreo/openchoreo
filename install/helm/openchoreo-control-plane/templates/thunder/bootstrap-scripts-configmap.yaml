@@ -35,8 +35,8 @@ data:
         {
           "type": "oauth2",
           "config": {
-            "client_id": "'"$BACKSTAGE_CLIENT_ID"'",
-            "client_secret": "'"$BACKSTAGE_CLIENT_SECRET"'",
+            "client_id": "{{ .Values.backstage.auth.clientId }}",
+            "client_secret": "{{ .Values.backstage.auth.clientSecret }}",
             "redirect_uris": [
               {{- if .Values.backstage.auth.redirectUrls }}
               {{- range $index, $url := .Values.backstage.auth.redirectUrls }}
