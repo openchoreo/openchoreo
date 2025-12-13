@@ -27,6 +27,7 @@ type SearchResponse struct {
 
 // Hit represents a single search result hit
 type Hit struct {
+	ID     string                 `json:"_id"`
 	Source map[string]interface{} `json:"_source"`
 	Score  *float64               `json:"_score"`
 }
