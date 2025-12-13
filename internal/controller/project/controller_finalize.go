@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,7 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	k8sintegrations "github.com/openchoreo/openchoreo/internal/controller/project/integrations/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/dataplane"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -113,68 +111,34 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 	return true, nil
 }
 
-// deleteComponentsAndWait cleans up any resources that are dependent on this Project
+// deleteComponentsAndWait checks if any Components owned by this Project still exist,
+// and deletes them if they exist.
 func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
-	// Find all Components owned by this Project using the project label
+	// List Components owned by this Project using shared field index
 	componentsList := &openchoreov1alpha1.ComponentList{}
-	listOpts := []client.ListOption{
+	if err := r.List(ctx, componentsList,
 		client.InNamespace(project.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName: controller.GetOrganizationName(project),
-			labels.LabelKeyProjectName:      controller.GetName(project),
-		},
-	}
-
-	if err := r.List(ctx, componentsList, listOpts...); err != nil {
-		if errors.IsNotFound(err) {
-			// The Component resource may have been deleted since it triggered the reconcile
-			logger.Info("Component not found. Ignoring since it must either be deleted or no components have been created.")
-			return true, nil
-		}
-
-		// It's a real error
+		client.MatchingFields{controller.IndexKeyComponentOwnerProjectName: project.Name}); err != nil {
 		return false, fmt.Errorf("failed to list components: %w", err)
 	}
 
-	pendingDeletion := false
-	// Check if any components still exist
-	if len(componentsList.Items) > 0 {
-		// Process each Component
-		for i := range componentsList.Items {
-			component := &componentsList.Items[i]
+	if len(componentsList.Items) == 0 {
+		logger.Info("All components are deleted")
+		return true, nil
+	}
 
-			// Check if the component is already being deleted
-			if !component.DeletionTimestamp.IsZero() {
-				// Still in the process of being deleted
-				pendingDeletion = true
-				logger.Info("Component is still being deleted", "name", component.Name)
-				continue
-			}
-
-			// If not being deleted, trigger deletion
-			logger.Info("Deleting component", "name", component.Name)
-			if err := r.Delete(ctx, component); err != nil {
-				if errors.IsNotFound(err) {
-					logger.Info("Component already deleted", "name", component.Name)
-					continue
-				}
-				return false, fmt.Errorf("failed to delete component %s: %w", component.Name, err)
-			}
-
-			// Mark as pending since we just triggered deletion
-			pendingDeletion = true
-		}
-
-		// If there are still components being deleted, go to next iteration to check again later
-		if pendingDeletion {
-			return false, nil
+	// Delete all Components owned by this Project
+	logger.Info("Deleting owned Components", "count", len(componentsList.Items))
+	for i := range componentsList.Items {
+		component := &componentsList.Items[i]
+		if err := client.IgnoreNotFound(r.Delete(ctx, component)); err != nil {
+			return false, fmt.Errorf("failed to delete component %s: %w", component.Name, err)
 		}
 	}
 
-	logger.Info("All components are deleted")
-	return true, nil
+	return false, nil
 }
 
 // deleteExternalResourcesAndWait cleans up any resources that are dependent on this Project

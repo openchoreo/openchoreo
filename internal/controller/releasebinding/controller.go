@@ -47,7 +47,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
@@ -67,6 +67,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// Keep a copy for comparison
 	old := releaseBinding.DeepCopy()
+
+	// Handle deletion - run finalizer logic
+	if !releaseBinding.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing releaseBinding")
+		return r.finalize(ctx, old, releaseBinding)
+	}
+
+	// Ensure finalizer is added
+	if finalizerAdded, err := r.ensureFinalizer(ctx, releaseBinding); err != nil || finalizerAdded {
+		return ctrl.Result{}, err
+	}
 
 	// Deferred status update
 	defer func() {
@@ -629,6 +640,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.Release{}).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

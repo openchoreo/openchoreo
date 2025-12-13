@@ -4,8 +4,10 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 
 	// +kubebuilder:scaffold:imports
@@ -25,6 +27,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
@@ -101,14 +104,13 @@ func setupControlPlaneControllers(
 		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
 	}
 
+	// Setup shared field indexes before controllers are initialized.
+	if err := controller.SetupSharedIndexes(context.Background(), mgr); err != nil {
+		return fmt.Errorf("failed to setup shared indexes: %w", err)
+	}
+
 	if enableLegacyCRDs {
 		if err := (&organization.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
-		if err := (&project.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
@@ -148,6 +150,13 @@ func setupControlPlaneControllers(
 		ClientMgr:     k8sClientMgr,
 		GatewayClient: gwClient,
 		CacheVersion:  "v2",
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&project.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
