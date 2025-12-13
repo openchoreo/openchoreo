@@ -29,6 +29,7 @@ type OpenSearchClient interface {
 	GetIndexMapping(ctx context.Context, index string) (*opensearch.MappingResponse, error)
 	SearchMonitorByName(ctx context.Context, name string) (id string, exists bool, err error)
 	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, err error)
+	DeleteMonitor(ctx context.Context, monitorID string) error
 	HealthCheck(ctx context.Context) error
 }
 
@@ -407,6 +408,58 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		LogicalID:  rule.Metadata.Name,
 		BackendID:  backendID,
 		Action:     action,
+		LastSynced: now,
+	}, nil
+}
+
+// DeleteAlertRule deletes an alert rule from the observability backend
+func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+	// Decide the observability backend based on the type of rule
+	switch sourceType {
+	case "log":
+		return s.DeleteOpenSearchAlertRule(ctx, ruleName)
+	// case "metric": (not implemented yet)
+	// 	return s.DeleteMetricAlertRule(ctx, ruleName)
+	default:
+		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
+	}
+}
+
+// DeleteOpenSearchAlertRule deletes an alert rule from OpenSearch
+func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+	// Search for the monitor by name to get its ID
+	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, ruleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
+	}
+
+	if !exists {
+		// Rule doesn't exist - return a response indicating it wasn't found
+		now := time.Now().UTC().Format(time.RFC3339)
+		return &types.AlertingRuleSyncResponse{
+			Status:     "not_found",
+			LogicalID:  ruleName,
+			BackendID:  "",
+			Action:     "not_found",
+			LastSynced: now,
+		}, nil
+	}
+
+	// Delete the monitor
+	err = s.osClient.DeleteMonitor(ctx, monitorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete alert rule: %w", err)
+	}
+
+	s.logger.Debug("Alert rule deleted successfully", "rule_name", ruleName, "monitor_id", monitorID)
+
+	// Return the deletion response
+	now := time.Now().UTC().Format(time.RFC3339)
+	return &types.AlertingRuleSyncResponse{
+		Status:     "deleted",
+		LogicalID:  ruleName,
+		BackendID:  monitorID,
+		Action:     "deleted",
 		LastSynced: now,
 	}, nil
 }

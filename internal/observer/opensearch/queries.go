@@ -613,7 +613,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		},
 		{
 			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.Source.Query),
+				"log.keyword": fmt.Sprintf("*%s*", params.Source.Query),
 			},
 		},
 	}
@@ -623,23 +623,6 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
 				"filter": filterConditions,
-			},
-		},
-		"aggs": map[string]interface{}{
-			"number_of_matching_logs": map[string]interface{}{
-				"composite": map[string]interface{}{
-					"sources": []map[string]interface{}{
-						{
-							"time_bucket": map[string]interface{}{
-								"date_histogram": map[string]interface{}{
-									"field":    "@timestamp",
-									"interval": params.Condition.Window,
-									"format":   "epoch_millis",
-								},
-							},
-						},
-					},
-				},
 			},
 		},
 	}
@@ -657,8 +640,8 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 	}
 	monitorBody := map[string]interface{}{
 		"type":         "monitor",
+		"monitor_type": "query_level_monitor",
 		"name":         params.Metadata.Name,
-		"monitor_type": "bucket_level_monitor",
 		"enabled":      params.Condition.Enabled,
 		"schedule": map[string]interface{}{
 			"period": period,
@@ -673,44 +656,35 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 		},
 		"triggers": []map[string]interface{}{
 			{
-				"bucket_level_trigger": map[string]interface{}{
-					"name":     "trigger-" + params.Metadata.Name,
-					"severity": "1",
-					"condition": map[string]interface{}{
-						"buckets_path": map[string]interface{}{
-							"log_count": "_count",
-						},
-						"parent_bucket_path": "number_of_matching_logs",
-						"script": map[string]interface{}{
-							"source": "params.log_count >" + strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64),
-							"lang":   "painless",
-						},
+				"name":     "trigger-" + params.Metadata.Name,
+				"severity": "1",
+				"condition": map[string]interface{}{
+					"script": map[string]interface{}{
+						"source": "ctx.results[0].hits.total.value " + GetOperatorSymbol(params.Condition.Operator) + " " + strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64),
+						"lang":   "painless",
 					},
-					"actions": []map[string]interface{}{
-						{
-							"name":           "action-" + params.Metadata.Name,
-							"destination_id": "openchoreo-observer-alerting-webhook",
-							"message_template": map[string]interface{}{
-								"source": "This is my message body.",
-								"lang":   "mustache",
-							},
-							"throttle_enabled": true,
-							"throttle": map[string]interface{}{
-								"value": 60, // TODO: Make throttle value configurable in future
-								"unit":  "MINUTES",
-							},
-							"subject_template": map[string]interface{}{
-								"source": "TheSubject",
-								"lang":   "mustache",
-							},
-							"action_execution_policy": map[string]interface{}{
-								"action_execution_scope": map[string]interface{}{
-									"per_alert": map[string]interface{}{
-										"actionable_alerts": []string{
-											"DEDUPED",
-											"NEW",
-										},
-									},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":           "action-" + params.Metadata.Name,
+						"destination_id": "openchoreo-observer-alerting-webhook",
+						"message_template": map[string]interface{}{
+							"source": "Found {{ctx.results[0].hits.total.value}} matching logs in last " + params.Condition.Window + ".",
+							"lang":   "mustache",
+						},
+						"throttle_enabled": true,
+						"throttle": map[string]interface{}{
+							"value": 60, // TODO: Make throttle value configurable in future
+							"unit":  "MINUTES",
+						},
+						"subject_template": map[string]interface{}{
+							"source": "TheSubject",
+							"lang":   "mustache",
+						},
+						"action_execution_policy": map[string]interface{}{
+							"action_execution_scope": map[string]interface{}{
+								"per_alert": map[string]interface{}{
+									"actionable_alerts": []string{"DEDUPED", "NEW"},
 								},
 							},
 						},
