@@ -20,6 +20,8 @@ tags:
     description: Trace retrieval endpoints
   - name: Metrics
     description: Resource metrics endpoints
+  - name: RCA Reports
+    description: AI-powered Root Cause Analysis report retrieval endpoints
   - name: Health
     description: Health check endpoints
 
@@ -351,6 +353,104 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/rca-reports/project/{projectId}:
+    post:
+      tags:
+        - RCA Reports
+      summary: Get RCA reports by project
+      description: Retrieve AI-powered Root Cause Analysis reports for a specific project with optional filtering
+      operationId: getRCAReportsByProject
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: The unique identifier of the project
+          schema:
+            type: string
+            example: '8a4c5e3f-9a3b-4a9e-b1e6-2c8d409f3a7b'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRCAReportsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved RCA reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RCAReportsResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: RCA service not available
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "RCA service not available"
+
+  /api/rca-reports/alert/{alertId}:
+    get:
+      tags:
+        - RCA Reports
+      summary: Get single RCA report by alert
+      description: Retrieve a single AI-powered Root Cause Analysis report for a specific alert. Returns the latest version by default, or a specific version if provided via query parameter.
+      operationId: getRCAReportByAlert
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          description: The unique identifier of the alert
+          schema:
+            type: string
+            example: 'alert-789'
+        - name: version
+          in: query
+          required: false
+          description: Specific version number of the report to retrieve. If not provided, returns the latest version.
+          schema:
+            type: integer
+            minimum: 1
+            example: 2
+      responses:
+        '200':
+          description: Successfully retrieved RCA report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RCAReportDetailed'
+        '404':
+          description: RCA report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: RCA service not available
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "RCA service not available"
 
 components:
   schemas:
@@ -937,3 +1037,132 @@ components:
           type: string
           description: Human-readable error message
           example: "Invalid request format"
+
+    ProjectRCAReportsRequest:
+      type: object
+      properties:
+        componentUids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of component UIDs to filter reports (optional)
+          example:
+            [
+              '8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b',
+              '3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b',
+            ]
+        environmentUid:
+          type: string
+          format: uuid
+          description: Environment UID to filter reports (optional)
+          example: '2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c'
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for report query in RFC3339 format (optional)
+          example: '2025-01-10T00:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          description: End time for report query in RFC3339 format (optional)
+          example: '2025-01-10T23:59:59Z'
+        status:
+          type: string
+          description: Filter by report status (optional)
+          enum: [pending, completed, failed]
+          example: 'completed'
+        limit:
+          type: integer
+          description: Maximum number of reports to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+
+    RCAReportSummary:
+      type: object
+      properties:
+        alertId:
+          type: string
+          description: Alert identifier
+          example: 'alert-789'
+        projectUid:
+          type: string
+          format: uuid
+          description: Project UID
+          example: '1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b'
+        reportId:
+          type: string
+          description: Report identifier
+          example: 'report-456'
+        timestamp:
+          type: string
+          format: date-time
+          description: Report generation timestamp
+          example: '2025-01-10T12:34:56.789Z'
+        summary:
+          type: string
+          description: Brief summary of the RCA report
+          example: 'High CPU usage detected in authentication service'
+        status:
+          type: string
+          description: Report generation status
+          enum: [pending, completed, failed]
+          example: 'completed'
+
+    RCAReportsResponse:
+      type: object
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/RCAReportSummary'
+          description: Array of RCA report summaries
+        totalCount:
+          type: integer
+          description: Total number of matching reports
+          example: 42
+        tookMs:
+          type: integer
+          description: Query execution time in milliseconds
+          example: 15
+
+    RCAReportDetailed:
+      type: object
+      description: Full AI-powered Root Cause Analysis report with version information
+      additionalProperties: true
+      properties:
+        alertId:
+          type: string
+          description: Alert identifier
+          example: 'alert-789'
+        projectUid:
+          type: string
+          format: uuid
+          description: Project UID
+          example: '1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b'
+        reportVersion:
+          type: integer
+          description: The version number of the report being returned
+          example: 2
+        reportId:
+          type: string
+          description: Report identifier for this version
+          example: 'report-456'
+        timestamp:
+          type: string
+          format: date-time
+          description: Report generation timestamp for this version
+          example: '2025-01-10T12:34:56.789Z'
+        status:
+          type: string
+          description: Report generation status for this version
+          enum: [pending, completed, failed]
+          example: 'completed'
+        availableVersions:
+          type: array
+          items:
+            type: integer
+          description: List of all available version numbers for this alert (sorted descending, latest first)
+          example: [2, 1]

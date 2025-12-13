@@ -154,6 +154,12 @@ rcaReportsIndexTemplate='
         },
         "resource": {
           "properties": {
+            "openchoreo.dev/project-uid": {
+              "type": "keyword"
+            },
+            "openchoreo.dev/component-uids": {
+              "type": "keyword"
+            },
             "openchoreo.dev/environment-uid": {
               "type": "keyword"
             },
@@ -161,7 +167,7 @@ rcaReportsIndexTemplate='
               "type": "keyword"
             }
           }
-        },
+        }
       }
     }
   }

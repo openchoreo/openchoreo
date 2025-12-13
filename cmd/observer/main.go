@@ -86,6 +86,11 @@ func main() {
 	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
+	// API routes - RCA Reports
+	// TODO: Remove temporary RCA service availability check middleware
+	mux.HandleFunc("POST /api/rca-reports/project/{projectId}", requireRCAService(handler.GetRCAReportsByProject, logger))
+	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", requireRCAService(handler.GetRCAReportByAlert, logger))
+
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
@@ -170,4 +175,19 @@ func createBootstrapLogger() *slog.Logger {
 	// Use JSON handler for structured logging
 	handler := slog.NewJSONHandler(os.Stderr, opts)
 	return slog.New(handler)
+}
+
+// requireRCAService wraps a handler and checks if the RCA service is available
+func requireRCAService(next http.HandlerFunc, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get("http://rca-service:8080/health")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			logger.Debug("RCA service not available", "endpoint", r.URL.Path)
+			http.Error(w, "RCA service not available", http.StatusServiceUnavailable)
+			return
+		}
+		resp.Body.Close()
+		next(w, r)
+	}
 }
