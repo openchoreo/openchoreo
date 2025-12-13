@@ -5,7 +5,11 @@ package handlers
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // Validates that the limit is a positive integer and does not exceed 10000
@@ -98,6 +102,66 @@ func validateTraceID(traceID string) error {
 		if !isValid {
 			return fmt.Errorf("traceId contains invalid character '%c' at position %d. Only hexadecimal characters (0-9, a-f, A-F) and wildcards (*, ?) are allowed", char, i)
 		}
+	}
+
+	return nil
+}
+
+// validateAlertingRule ensures the alerting rule payload contains required fields
+// and uses supported values.
+func validateAlertingRule(req types.AlertingRuleRequest) error {
+	// Metadata validations
+	if strings.TrimSpace(req.Metadata.Name) == "" {
+		return fmt.Errorf("metadata.name is required")
+	}
+	if strings.TrimSpace(req.Metadata.ComponentUID) == "" {
+		return fmt.Errorf("metadata.component-uid is required")
+	}
+	if strings.TrimSpace(req.Metadata.ProjectUID) == "" {
+		return fmt.Errorf("metadata.project-uid is required")
+	}
+	if strings.TrimSpace(req.Metadata.EnvironmentUID) == "" {
+		return fmt.Errorf("metadata.environment-uid is required")
+	}
+	if strings.TrimSpace(req.Metadata.Severity) == "" {
+		return fmt.Errorf("metadata.severity is required")
+	}
+
+	// Source validations
+	if req.Source.Type != "log" { // TODO: Add validation for metric-based alert rules
+		return fmt.Errorf("source.type must be 'log'")
+	}
+	if req.Source.Type == "log" && strings.TrimSpace(req.Source.Query) == "" {
+		return fmt.Errorf("source.query is required for log-based alert rules")
+	}
+
+	// Condition validations
+	windowDuration, err := time.ParseDuration(req.Condition.Window)
+	if err != nil {
+		return fmt.Errorf("condition.window must be a valid duration (e.g., 5m): %w", err)
+	}
+	intervalDuration, err := time.ParseDuration(req.Condition.Interval)
+	if err != nil {
+		return fmt.Errorf("condition.interval must be a valid duration (e.g., 1m): %w", err)
+	}
+
+	if intervalDuration <= 0 {
+		return fmt.Errorf("condition.interval must be greater than zero")
+	}
+	if windowDuration <= 0 {
+		return fmt.Errorf("condition.window must be greater than zero")
+	}
+	if intervalDuration > windowDuration {
+		return fmt.Errorf("condition.interval must not exceed condition.window")
+	}
+
+	allowedOps := []string{"gt", "gte", "lt", "lte", "eq", "neq"}
+	if !slices.Contains(allowedOps, req.Condition.Operator) {
+		return fmt.Errorf("condition.operator must be one of %s", strings.Join(allowedOps, ", "))
+	}
+
+	if req.Condition.Threshold <= 0 {
+		return fmt.Errorf("condition.threshold must be greater than zero")
 	}
 
 	return nil

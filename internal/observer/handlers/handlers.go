@@ -4,6 +4,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
@@ -34,6 +37,8 @@ const (
 	ErrorMsgComponentIDRequired     = "Component ID is required"
 	ErrorMsgProjectIDRequired       = "Project ID is required"
 	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
+	ErrorMsgRuleNameRequired        = "Rule name is required"
+	ErrorMsgSourceTypeRequired      = "Source type is required"
 	ErrorMsgInvalidRequestFormat    = "Invalid request format"
 	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
 	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
@@ -561,4 +566,102 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	}
 
 	h.writeJSON(w, http.StatusOK, result)
+}
+
+// CreateOrUpdateAlertingRule handles PUT /api/alerting/rule/
+func (h *Handler) CreateOrUpdateAlertingRule(w http.ResponseWriter, r *http.Request) {
+	var req types.AlertingRuleRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind alerting rule request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Input validations
+	err := validateAlertingRule(req)
+	if err != nil {
+		h.logger.Debug("Invalid alerting rule request", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	// Upsert the alerting rule
+	ctx := r.Context()
+	resp, err := h.service.UpsertAlertRule(ctx, req)
+	if err != nil {
+		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", req.Metadata.Name)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to upsert alerting rule")
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// DeleteAlertingRule handles DELETE /api/alerting/rule/{ruleName}
+func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
+	sourceType := httputil.GetPathParam(r, "sourceType")
+	if sourceType == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgSourceTypeRequired)
+		return
+	}
+	ruleName := httputil.GetPathParam(r, "ruleName")
+	if ruleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgRuleNameRequired)
+		return
+	}
+
+	// Delete the alerting rule
+	ctx := r.Context()
+	resp, err := h.service.DeleteAlertRule(ctx, sourceType, ruleName)
+	if err != nil {
+		h.logger.Error("Failed to delete alerting rule", "error", err, "ruleName", ruleName)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to delete alerting rule")
+		return
+	}
+
+	// If rule was not found, return 404
+	if resp.Status == "not_found" {
+		h.writeJSON(w, http.StatusNotFound, resp)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// AlertingWebhook handles POST /api/alerting/webhook
+func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement full alerting support
+	// Received the triggered alerts from the observability backends
+	// Send the notification to the appropriate channels
+	h.logger.Info("AlertingWebhook called")
+
+	// TEMP: Print the request body and return 200
+	// Read the request body
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Error("Failed to read request body", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
+		return
+	}
+	defer r.Body.Close()
+
+	// Log the raw body as string for debugging
+	bodyString := string(bodyBytes)
+	h.logger.Info("AlertingWebhook called", "requestBody", bodyString)
+
+	// Try to parse as JSON to see the structure
+	var requestBody map[string]interface{}
+	if len(bodyBytes) > 0 {
+		if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+			h.logger.Warn("Failed to parse request body as JSON", "error", err, "body", bodyString)
+		} else {
+			h.logger.Info("Parsed webhook payload", "payload", requestBody)
+		}
+	} else {
+		h.logger.Warn("AlertingWebhook called with empty request body")
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Alerting webhook received",
+	})
 }

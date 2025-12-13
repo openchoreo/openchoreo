@@ -26,6 +26,8 @@ spec:
             secretKeyRef:
               name: observer-opensearch
               key: password
+        - name: OBSERVER_URL
+          value: "{{ .Values.openSearchClusterSetup.observerUrl | default "http://observer.openchoreo-observability-plane:8080" }}"
         image: "{{ .Values.openSearchClusterSetup.image.repository }}:{{ .Values.openSearchClusterSetup.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openSearchClusterSetup.image.pullPolicy | default "IfNotPresent" }}
         resources:

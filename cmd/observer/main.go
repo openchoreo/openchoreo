@@ -86,6 +86,11 @@ func main() {
 	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
+	// API routes - Alerting
+	mux.HandleFunc("PUT /api/alerting/rule/", handler.CreateOrUpdateAlertingRule)
+	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
+	mux.HandleFunc("POST /api/alerting/webhook", handler.AlertingWebhook) // Internal webhook for alerting
+
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 

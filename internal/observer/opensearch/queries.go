@@ -4,11 +4,14 @@
 package opensearch
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryBuilder provides methods to build OpenSearch queries
@@ -581,4 +584,148 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleRequest) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"range": map[string]interface{}{
+				"@timestamp": map[string]interface{}{
+					"gte":    "{{period_end}}||-" + params.Condition.Window,
+					"lte":    "{{period_end}}",
+					"format": "epoch_millis",
+				},
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSComponentID + ".keyword": params.Metadata.ComponentUID,
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSEnvironmentID + ".keyword": params.Metadata.EnvironmentUID,
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSProjectID + ".keyword": params.Metadata.ProjectUID,
+			},
+		},
+		{
+			"wildcard": map[string]interface{}{
+				"log.keyword": fmt.Sprintf("*%s*", params.Source.Query),
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": 0,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter": filterConditions,
+			},
+		},
+	}
+	return query
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRuleRequest) (map[string]interface{}, error) {
+	intervalDuration, err := time.ParseDuration(params.Condition.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interval format: %w", err)
+	}
+	period := map[string]interface{}{
+		"interval": intervalDuration.Minutes(),
+		"unit":     "MINUTES",
+	}
+	monitorBody := map[string]interface{}{
+		"type":         "monitor",
+		"monitor_type": "query_level_monitor",
+		"name":         params.Metadata.Name,
+		"enabled":      params.Condition.Enabled,
+		"schedule": map[string]interface{}{
+			"period": period,
+		},
+		"inputs": []map[string]interface{}{
+			{
+				"search": map[string]interface{}{
+					"indices": []string{qb.indexPrefix + "*"},
+					"query":   qb.BuildLogAlertingRuleQuery(params),
+				},
+			},
+		},
+		"triggers": []map[string]interface{}{
+			{
+				"name":     "trigger-" + params.Metadata.Name,
+				"severity": "1",
+				"condition": map[string]interface{}{
+					"script": map[string]interface{}{
+						"source": "ctx.results[0].hits.total.value " + GetOperatorSymbol(params.Condition.Operator) + " " + strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64),
+						"lang":   "painless",
+					},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":           "action-" + params.Metadata.Name,
+						"destination_id": "openchoreo-observer-alerting-webhook",
+						"message_template": map[string]interface{}{
+							"source": buildWebhookMessageTemplate(params),
+							"lang":   "mustache",
+						},
+						"throttle_enabled": true,
+						"throttle": map[string]interface{}{
+							"value": 60, // TODO: Make throttle value configurable in future
+							"unit":  "MINUTES",
+						},
+						"subject_template": map[string]interface{}{
+							"source": "TheSubject",
+							"lang":   "mustache",
+						},
+						"action_execution_policy": map[string]interface{}{
+							"action_execution_scope": map[string]interface{}{
+								"per_alert": map[string]interface{}{
+									"actionable_alerts": []string{"DEDUPED", "NEW"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return monitorBody, nil
+}
+
+func GetOperatorSymbol(operator string) string {
+	switch operator {
+	case "gt":
+		return ">"
+	case "gte":
+		return ">="
+	case "lt":
+		return "<"
+	case "lte":
+		return "<="
+	}
+	return ""
+}
+
+// buildWebhookMessageTemplate builds a JSON message template for webhook notifications
+// It includes all metadata and alert context that will be available when the alert fires
+func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
+	// Escape JSON strings properly
+	ruleName, _ := json.Marshal(params.Metadata.Name)
+	componentUID, _ := json.Marshal(params.Metadata.ComponentUID)
+	projectUID, _ := json.Marshal(params.Metadata.ProjectUID)
+	environmentUID, _ := json.Marshal(params.Metadata.EnvironmentUID)
+
+	// Build the JSON template with Mustache variables
+	return fmt.Sprintf(
+		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		string(ruleName),
+		string(componentUID),
+		string(projectUID),
+		string(environmentUID),
+	)
 }
