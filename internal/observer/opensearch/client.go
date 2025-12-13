@@ -225,3 +225,31 @@ func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface
 
 	return parsed.ID, nil
 }
+
+// DeleteMonitor deletes an alerting monitor using the Alerting plugin API.
+func (c *Client) DeleteMonitor(ctx context.Context, monitorID string) error {
+	path := fmt.Sprintf("/_plugins/_alerting/monitors/%s", monitorID)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", path, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := c.client.Perform(req)
+	if err != nil {
+		return fmt.Errorf("monitor delete request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		c.logger.Error("Monitor delete failed",
+			"status", res.StatusCode,
+			"monitor_id", monitorID,
+			"response", string(bodyBytes))
+		return fmt.Errorf("monitor delete request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	c.logger.Debug("Monitor deleted successfully", "monitor_id", monitorID)
+	return nil
+}
