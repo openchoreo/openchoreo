@@ -48,7 +48,7 @@ func checkAuthorization(ctx context.Context, logger *slog.Logger, pdp authz.PDP,
 	)
 
 	if !decision.Decision {
-		return ErrUnauthorized
+		return ErrForbidden
 	}
 
 	return nil

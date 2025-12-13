@@ -89,7 +89,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 		// Authorization check for each project
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, item.Name,
 			authz.ResourceHierarchy{Organization: orgName, Project: item.Name}); err != nil {
-			if errors.Is(err, ErrUnauthorized) {
+			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized projects silently (user doesn't have permission to see this project)
 				s.logger.Debug("Skipping unauthorized project", "org", orgName, "project", item.Name)
 				continue

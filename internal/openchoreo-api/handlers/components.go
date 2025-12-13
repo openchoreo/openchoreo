@@ -40,9 +40,9 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	// Call service to create component
 	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to create component", "org", orgName, "project", projectName, "component", req.Name)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -126,9 +126,9 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	// Call service to get component
 	component, err := h.services.ComponentService.GetComponent(ctx, orgName, projectName, componentName, additionalResources)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to view component", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -175,9 +175,9 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 
 	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to update component", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -370,9 +370,9 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 
 	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to promote component", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -586,9 +586,9 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 
 	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, orgName, projectName, componentName, req.ReleaseName)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to create component release", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -667,9 +667,9 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 
 	release, err := h.services.ComponentService.GetComponentRelease(ctx, orgName, projectName, componentName, releaseName)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to view component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -896,9 +896,9 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 
 	binding, err := h.services.ComponentService.DeployRelease(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to deploy component", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -943,9 +943,9 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 	// Call service to list component traits
 	traits, err := h.services.ComponentService.ListComponentTraits(ctx, orgName, projectName, componentName)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to view component traits", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
@@ -1003,9 +1003,9 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	// Call service to update component traits
 	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrUnauthorized) {
+		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to update component traits", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrUnauthorized.Error(), services.CodeForbidden)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {

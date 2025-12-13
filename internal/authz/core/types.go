@@ -102,6 +102,9 @@ type Role struct {
 
 	// Actions is the list of actions this role permits
 	Actions []string `json:"actions"`
+
+	// IsInternal indicates if this role should be hidden from public listings
+	IsInternal bool `json:"-"`
 }
 
 // Entitlement represents an entitlement with its claim and value
@@ -139,6 +142,9 @@ type UserTypeInfo struct {
 
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
+	// ID is the unique identifier for the mapping
+	ID uint `json:"id"`
+
 	// RoleName is the name of the role being assigned
 	RoleName string `json:"role_name"`
 
@@ -153,6 +159,9 @@ type RoleEntitlementMapping struct {
 
 	// Context provides optional additional context metadata for this mapping
 	Context Context `json:"context"`
+
+	// IsInternal indicates if this mapping should be hidden from public listings
+	IsInternal bool `json:"-"`
 }
 
 // ActionCapability represents capabilities for a specific action

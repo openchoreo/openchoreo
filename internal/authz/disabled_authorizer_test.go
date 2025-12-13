@@ -192,15 +192,7 @@ func TestDisabledAuthorizer_AddRoleEntitlementMapping(t *testing.T) {
 func TestDisabledAuthorizer_RemoveRoleEntitlementMapping(t *testing.T) {
 	ctx := context.Background()
 
-	err := disabledAuthorizer.RemoveRoleEntitlementMapping(ctx, &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: "group",
-			Value: "test-group",
-		},
-		RoleName:  "test-role",
-		Hierarchy: authzcore.ResourceHierarchy{Organization: "org1"},
-		Effect:    authzcore.PolicyEffectAllow,
-	})
+	err := disabledAuthorizer.RemoveRoleEntitlementMapping(ctx, 1)
 	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
 		t.Errorf("expected ErrAuthzDisabled, got %v", err)
 	}

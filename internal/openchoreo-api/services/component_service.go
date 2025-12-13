@@ -357,7 +357,7 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 		// Authorization check for each release
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, item.Name,
 			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
-			if errors.Is(err, ErrUnauthorized) {
+			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized releases
 				s.logger.Debug("Skipping unauthorized component release", "org", orgName, "project", projectName, "component", componentName, "release", item.Name)
 				continue
@@ -1369,7 +1369,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 			// Authorization check for each component
 			if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, item.Name,
 				authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: item.Name}); err != nil {
-				if errors.Is(err, ErrUnauthorized) {
+				if errors.Is(err, ErrForbidden) {
 					// Skip unauthorized components
 					s.logger.Debug("Skipping unauthorized component", "org", orgName, "project", projectName, "component", item.Name)
 					continue

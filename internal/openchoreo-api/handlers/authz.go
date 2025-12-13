@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -136,21 +137,27 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusCreated, map[string]string{"message": "Role mapping added successfully"})
 }
 
-// RemoveRoleMapping handles DELETE /api/v1/authz/role-mappings
+// RemoveRoleMapping handles DELETE /api/v1/authz/role-mappings/{mappingId}
 func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
-	var mapping *authz.RoleEntitlementMapping
-	if err := json.NewDecoder(r.Body).Decode(&mapping); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+	idStr := r.PathValue("mappingId")
+	if idStr == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Mapping ID is required", services.CodeInvalidInput)
 		return
 	}
 
-	if err := h.services.AuthzService.RemoveRoleMapping(r.Context(), mapping); err != nil {
-		h.logger.Error("Failed to remove role mapping", "error", err)
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid mapping ID", services.CodeInvalidInput)
+		return
+	}
+
+	if err := h.services.AuthzService.RemoveRoleMappingByID(r.Context(), uint(id)); err != nil {
+		h.logger.Error("Failed to remove role mapping", "error", err, "id", id)
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
 		if errors.Is(err, authz.ErrRolePolicyMappingNotFound) {
-			writeSuccessResponse(w, http.StatusNotFound, err.Error())
+			writeErrorResponse(w, http.StatusNotFound, "Role mapping not found", services.CodeNotFound)
 			return
 		}
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to remove role mapping", services.CodeInternalError)

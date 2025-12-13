@@ -34,7 +34,7 @@ func TestLoadActions(t *testing.T) {
 	for _, expected := range expectedActions {
 		found := false
 		for _, action := range actions {
-			if action == expected {
+			if action.Name == expected {
 				found = true
 				break
 			}
