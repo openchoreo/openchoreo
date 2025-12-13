@@ -539,8 +539,9 @@ thunder:
     hosts: []
     tls: []
   
-  customIngress:
+  ocIngress:
     enabled: true
+    ingressClassName: ""
     annotations: {}
     hosts: []
     tls: []

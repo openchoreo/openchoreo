@@ -1,22 +1,22 @@
 {{- if .Values.thunder.enabled }}
-{{- if .Values.thunder.customIngress.enabled -}}
+{{- if .Values.thunder.ocIngress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Values.thunder.fullnameOverride }}-custom-ingress
+  name: {{ .Values.thunder.fullnameOverride }}-openchoreo-ingress
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: thunder
   annotations:
-    {{- with .Values.thunder.customIngress.annotations }}
+    {{- with .Values.thunder.ocIngress.annotations }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.thunder.customIngress.customIngressClassName | default .Values.global.ingressClassName }}
-  {{- if .Values.thunder.customIngress.tls }}
+  ingressClassName: {{ .Values.thunder.ocIngress.ingressClassName | default .Values.global.ingressClassName }}
+  {{- if .Values.thunder.ocIngress.tls }}
   tls:
-    {{- range .Values.thunder.customIngress.tls }}
+    {{- range .Values.thunder.ocIngress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -30,8 +30,8 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- if .Values.thunder.customIngress.hosts }}
-    {{- range .Values.thunder.customIngress.hosts }}
+    {{- if .Values.thunder.ocIngress.hosts }}
+    {{- range .Values.thunder.ocIngress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
