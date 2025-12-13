@@ -4,12 +4,15 @@
 package opensearch
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
@@ -139,4 +142,86 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("health check failed: %w", err)
 	}
 	return nil
+}
+
+// SearchMonitorByName searches alerting monitors by name using the Alerting plugin API.
+func (c *Client) SearchMonitorByName(ctx context.Context, name string) (string, bool, error) {
+	path := "/_plugins/_alerting/monitors/_search"
+	queryBody := fmt.Sprintf(`{
+		"query": {
+				"match_phrase": {
+						"monitor.name": "%s"
+				}
+		}
+  }`, name)
+
+	req, err := http.NewRequest("POST", path, strings.NewReader(queryBody))
+	if err != nil {
+		return "", false, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := c.client.Perform(req)
+	if err != nil {
+		return "", false, fmt.Errorf("monitor search request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return "", false, fmt.Errorf("monitor search request failed with status: %d", res.StatusCode)
+	}
+
+	// parse the monitor search response using parseSearchResponse function
+	parsed, err := parseSearchResponse(res.Body)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to parse monitor search response: %w", err)
+	}
+
+	if parsed.Hits.Total.Value == 0 || len(parsed.Hits.Hits) == 0 {
+		return "", false, nil
+	}
+	if parsed.Hits.Hits[0].ID == "" {
+		return "", false, fmt.Errorf("monitor search response missing _id field")
+	}
+	return parsed.Hits.Hits[0].ID, true, nil
+}
+
+// CreateMonitor creates a new alerting monitor using the Alerting plugin API.
+func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, error) {
+
+	body, err := json.Marshal(monitor)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal monitor: %w", err)
+	}
+	c.logger.Debug("Creating monitor", "body", string(body))
+
+	path := "/_plugins/_alerting/monitors"
+	req, err := http.NewRequest("POST", path, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := c.client.Perform(req)
+	if err != nil {
+		return "", fmt.Errorf("monitor create request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		c.logger.Error("Monitor create failed",
+			"status", res.StatusCode,
+			"response", string(bodyBytes))
+		return "", fmt.Errorf("monitor create request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	var parsed struct {
+		ID string `json:"_id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
+		return "", fmt.Errorf("failed to parse monitor create response: %w", err)
+	}
+
+	return parsed.ID, nil
 }

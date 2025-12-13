@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
@@ -34,6 +35,7 @@ const (
 	ErrorMsgComponentIDRequired     = "Component ID is required"
 	ErrorMsgProjectIDRequired       = "Project ID is required"
 	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
+	ErrorMsgRuleNameRequired        = "Rule name is required"
 	ErrorMsgInvalidRequestFormat    = "Invalid request format"
 	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
 	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
@@ -561,4 +563,65 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	}
 
 	h.writeJSON(w, http.StatusOK, result)
+}
+
+// CreateOrUpdateAlertingRule handles PUT /api/alerting/rule/{ruleName}
+func (h *Handler) CreateOrUpdateAlertingRule(w http.ResponseWriter, r *http.Request) {
+	ruleName := httputil.GetPathParam(r, "ruleName")
+	if ruleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgRuleNameRequired)
+		return
+	}
+
+	var req types.AlertingRuleRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind alerting rule request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Input validations
+	err := validateAlertingRule(req)
+	if err != nil {
+		h.logger.Debug("Invalid alerting rule request", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	// Upsert the alerting rule
+	ctx := r.Context()
+	resp, err := h.service.UpsertAlertRule(ctx, req)
+	if err != nil {
+		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", ruleName)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to upsert alerting rule")
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// DeleteAlertingRule handles DELETE /api/alerting/rule/{ruleName}
+func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement
+	h.logger.Warn("DeleteAlertingRule called but alerting support is not implemented")
+	h.writeJSON(w, http.StatusNotImplemented, map[string]string{
+		"error":   "notImplemented",
+		"message": "Alerting rule deletion is not yet implemented in observer",
+	})
+
+	// Decide the observability backend based on the type of rule
+	// Delete the rule from the observability backend
+}
+
+// AlertingWebhook handles POST /api/alerting/webhook
+func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement
+	h.logger.Warn("AlertingWebhook called but alerting support is not implemented")
+	h.writeJSON(w, http.StatusNotImplemented, map[string]string{
+		"error":   "notImplemented",
+		"message": "Alerting webhook is not yet implemented in observer",
+	})
+
+	// Received the triggered alerts from the observability backends
+	// Send the notification to the appropriate channels
 }

@@ -21,6 +21,10 @@ type MockOpenSearchClient struct {
 	searchResponse *opensearch.SearchResponse
 	searchError    error
 	healthError    error
+	monitorID      string
+	monitorExists  bool
+	monitorSearch  error
+	monitorCreate  error
 }
 
 func (m *MockOpenSearchClient) Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error) {
@@ -36,6 +40,17 @@ func (m *MockOpenSearchClient) GetIndexMapping(ctx context.Context, index string
 
 func (m *MockOpenSearchClient) HealthCheck(ctx context.Context) error {
 	return m.healthError
+}
+
+func (m *MockOpenSearchClient) SearchMonitorByName(ctx context.Context, name string) (string, bool, error) {
+	return m.monitorID, m.monitorExists, m.monitorSearch
+}
+
+func (m *MockOpenSearchClient) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, error) {
+	if m.monitorCreate != nil {
+		return "", m.monitorCreate
+	}
+	return m.monitorID, nil
 }
 
 func newMockLoggingService() *LoggingService {

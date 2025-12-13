@@ -4,7 +4,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -14,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
@@ -24,6 +27,8 @@ const (
 type OpenSearchClient interface {
 	Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error)
 	GetIndexMapping(ctx context.Context, index string) (*opensearch.MappingResponse, error)
+	SearchMonitorByName(ctx context.Context, name string) (id string, exists bool, err error)
+	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, err error)
 	HealthCheck(ctx context.Context) error
 }
 
@@ -337,6 +342,73 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 
 	s.logger.Debug("Health check passed")
 	return nil
+}
+
+// UpsertAlertRule creates or updates an alert rule in the observability backend
+func (s *LoggingService) UpsertAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+	// Decide the observability backend based on the type of rule
+	switch rule.Source.Type {
+	case "log":
+		return s.UpsertOpenSearchAlertRule(ctx, rule)
+	// case "metric": (not implemented yet)
+	// 	return s.UpsertMetricAlertRule(ctx, rule)
+	default:
+		return nil, fmt.Errorf("invalid alert rule source type: %s", rule.Source.Type)
+	}
+}
+
+// UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
+func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, rule.Metadata.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
+	}
+
+	action := "created"
+	backendID := monitorID
+
+	if exists {
+		s.logger.Debug("Alert rule " + rule.Metadata.Name + " already exists. Alert rule ID: " + backendID + ". Updating the alert rule.")
+		// TODO: Update the alert rule
+		action = "updated"
+	} else {
+		s.logger.Debug("Alert rule " + rule.Metadata.Name + " does not exist. Creating the alert rule.")
+		alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build log alerting rule body: %w", err)
+		}
+		// print the alert rule body in a pretty json format for debugging
+		if s.config.LogLevel == logLevelDebug {
+			alertRuleBodyJSON, err := json.Marshal(alertRuleBody)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal alert rule body: %w", err)
+			}
+			var prettyJSON bytes.Buffer
+			err = json.Indent(&prettyJSON, alertRuleBodyJSON, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("failed to indent alert rule body: %w", err)
+			}
+			fmt.Println("Alert rule body:")
+			fmt.Println(prettyJSON.String())
+			fmt.Println("--------------------------------")
+		}
+
+		// create the alert rule
+		backendID, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create alert rule: %w", err)
+		}
+	}
+
+	// Return the alert rule ID
+	now := time.Now().UTC().Format(time.RFC3339)
+	return &types.AlertingRuleSyncResponse{
+		Status:     "synced",
+		LogicalID:  rule.Metadata.Name,
+		BackendID:  backendID,
+		Action:     action,
+		LastSynced: now,
+	}, nil
 }
 
 // GetComponentHTTPMetrics retrieves HTTP metrics for a component

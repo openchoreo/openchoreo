@@ -5,10 +5,12 @@ package opensearch
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryBuilder provides methods to build OpenSearch queries
@@ -581,4 +583,155 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleRequest) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"range": map[string]interface{}{
+				"@timestamp": map[string]interface{}{
+					"gte":    "{{period_end}}||-" + params.Condition.Window,
+					"lte":    "{{period_end}}",
+					"format": "epoch_millis",
+				},
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSComponentID + ".keyword": params.Metadata.ComponentUid,
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSEnvironmentID + ".keyword": params.Metadata.EnvironmentUid,
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSProjectID + ".keyword": params.Metadata.ProjectUid,
+			},
+		},
+		{
+			"wildcard": map[string]interface{}{
+				"log": fmt.Sprintf("*%s*", params.Source.Query),
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": 0,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter": filterConditions,
+			},
+		},
+		"aggs": map[string]interface{}{
+			"number_of_matching_logs": map[string]interface{}{
+				"composite": map[string]interface{}{
+					"sources": []map[string]interface{}{
+						{
+							"time_bucket": map[string]interface{}{
+								"date_histogram": map[string]interface{}{
+									"field":    "@timestamp",
+									"interval": params.Condition.Window,
+									"format":   "epoch_millis",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return query
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRuleRequest) (map[string]interface{}, error) {
+	intervalDuration, err := time.ParseDuration(params.Condition.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interval format: %w", err)
+	}
+	period := map[string]interface{}{
+		"interval": intervalDuration.Minutes(),
+		"unit":     "MINUTES",
+	}
+	monitorBody := map[string]interface{}{
+		"type":         "monitor",
+		"name":         params.Metadata.Name,
+		"monitor_type": "bucket_level_monitor",
+		"enabled":      params.Condition.Enabled,
+		"schedule": map[string]interface{}{
+			"period": period,
+		},
+		"inputs": []map[string]interface{}{
+			{
+				"search": map[string]interface{}{
+					"indices": []string{qb.indexPrefix + "*"},
+					"query":   qb.BuildLogAlertingRuleQuery(params),
+				},
+			},
+		},
+		"triggers": []map[string]interface{}{
+			{
+				"bucket_level_trigger": map[string]interface{}{
+					"name":     "trigger-" + params.Metadata.Name,
+					"severity": "1",
+					"condition": map[string]interface{}{
+						"buckets_path": map[string]interface{}{
+							"log_count": "_count",
+						},
+						"parent_bucket_path": "number_of_matching_logs",
+						"script": map[string]interface{}{
+							"source": "params.log_count >" + strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64),
+							"lang":   "painless",
+						},
+					},
+					"actions": []map[string]interface{}{
+						{
+							"name":           "action-" + params.Metadata.Name,
+							"destination_id": "openchoreo-observer-alerting-webhook",
+							"message_template": map[string]interface{}{
+								"source": "This is my message body.",
+								"lang":   "mustache",
+							},
+							"throttle_enabled": true,
+							"throttle": map[string]interface{}{
+								"value": 60, // TODO: Make throttle value configurable in future
+								"unit":  "MINUTES",
+							},
+							"subject_template": map[string]interface{}{
+								"source": "TheSubject",
+								"lang":   "mustache",
+							},
+							"action_execution_policy": map[string]interface{}{
+								"action_execution_scope": map[string]interface{}{
+									"per_alert": map[string]interface{}{
+										"actionable_alerts": []string{
+											"DEDUPED",
+											"NEW",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return monitorBody, nil
+}
+
+func GetOperatorSymbol(operator string) string {
+	switch operator {
+	case "gt":
+		return ">"
+	case "gte":
+		return ">="
+	case "lt":
+		return "<"
+	case "lte":
+		return "<="
+	}
+	return ""
 }
