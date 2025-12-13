@@ -4,6 +4,7 @@
 package opensearch
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -669,7 +670,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 						"name":           "action-" + params.Metadata.Name,
 						"destination_id": "openchoreo-observer-alerting-webhook",
 						"message_template": map[string]interface{}{
-							"source": "Found {{ctx.results[0].hits.total.value}} matching logs in last " + params.Condition.Window + ".",
+							"source": buildWebhookMessageTemplate(params),
 							"lang":   "mustache",
 						},
 						"throttle_enabled": true,
@@ -708,4 +709,23 @@ func GetOperatorSymbol(operator string) string {
 		return "<="
 	}
 	return ""
+}
+
+// buildWebhookMessageTemplate builds a JSON message template for webhook notifications
+// It includes all metadata and alert context that will be available when the alert fires
+func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
+	// Escape JSON strings properly
+	ruleName, _ := json.Marshal(params.Metadata.Name)
+	componentUid, _ := json.Marshal(params.Metadata.ComponentUid)
+	projectUid, _ := json.Marshal(params.Metadata.ProjectUid)
+	environmentUid, _ := json.Marshal(params.Metadata.EnvironmentUid)
+
+	// Build the JSON template with Mustache variables
+	return fmt.Sprintf(
+		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		string(ruleName),
+		string(componentUid),
+		string(projectUid),
+		string(environmentUid),
+	)
 }
