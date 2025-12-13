@@ -70,8 +70,7 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --create-namespace \
   --values install/k3d/single-cluster/values-op.yaml \
   --set openSearch.enabled=true \
-  --set openSearchCluster.enabled=false \
-  --set clusterAgent.enabled=true
+  --set openSearchCluster.enabled=false
 
 ## HA mode
 
@@ -91,8 +90,7 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --kube-context k3d-openchoreo \
   --namespace openchoreo-observability-plane \
   --create-namespace \
-  --values install/k3d/single-cluster/values-op.yaml \
-  --set clusterAgent.enabled=true
+  --values install/k3d/single-cluster/values-op.yaml
 ```
 
 ### 3. Create DataPlane Resource
@@ -143,37 +141,23 @@ The agent establishes an outbound WebSocket connection to the cluster gateway, p
 
 ### 5. Create ObservabilityPlane Resource (optional)
 
-Create an ObservabilityPlane resource to enable observability in data plane and build plane.
+Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 
 ```bash
-OP_CA_CERT=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls -n openchoreo-observability-plane \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d)
-
-kubectl --context k3d-openchoreo apply -f - <<EOF
-apiVersion: openchoreo.dev/v1alpha1
-kind: ObservabilityPlane
-metadata:
-  name: default
-  namespace: default
-spec:
-  agent:
-    enabled: true
-    clientCA:
-      value: |
-$(echo "$OP_CA_CERT" | sed 's/^/        /')
-  observerURL: http://observer.openchoreo-observability-plane.svc.cluster.local:8080
-EOF
+./install/add-observability-plane.sh \
+  --control-plane-context k3d-openchoreo \
+  --name default \
+  --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080
 ```
-
 The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-Configure DataPlane to use default ObservabilityPlane:
-```bash
+Configure DataPlane to use default ObservabilityPlane
+```
 kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
 
-Configure BuildPlane (if installed) to use default ObservabilityPlane:
-```bash
+Configure BuildPlane (if installed) to use default ObservabilityPlane
+```
 kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
 
