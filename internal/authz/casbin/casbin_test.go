@@ -687,8 +687,8 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 
 	mapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
-			Claim: "groups",
-			Value: "test-group",
+			Claim: testEntitlementType,
+			Value: testEntitlementValue,
 		},
 		RoleName: testRoleName,
 		Hierarchy: authzcore.ResourceHierarchy{
