@@ -349,40 +349,7 @@ openchoreoApi:
             entitlement:
               claim: "sub"
               display_name: "Client ID"
-# Dependency configurations
 
-# Cert-Manager configuration
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  config:
-    enableGatewayAPI: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
 # Backstage UI configuration
 backstage:
   enabled: true
