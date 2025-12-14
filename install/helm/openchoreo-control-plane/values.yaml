@@ -507,7 +507,7 @@ thunder:
     image:
       registry: ghcr.io/asgardeo
       repository: thunder
-      tag: "0.14.0"
+      tag: "0.15.0"
       pullPolicy: IfNotPresent
     container:
       port: 8090
