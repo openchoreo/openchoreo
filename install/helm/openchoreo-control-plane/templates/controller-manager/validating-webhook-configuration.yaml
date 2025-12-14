@@ -73,26 +73,6 @@ webhooks:
     service:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
-      path: /validate-openchoreo-dev-v1alpha1-project
-  failurePolicy: Fail
-  name: vproject-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - openchoreo.dev
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - projects
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: {{ .Values.controllerManager.name }}-webhook-service
-      namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-releasebinding
   failurePolicy: Fail
   name: vreleasebinding-v1alpha1.kb.io

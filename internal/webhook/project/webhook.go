@@ -9,7 +9,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -24,7 +23,7 @@ var projectlog = logf.Log.WithName("project-resource")
 // SetupProjectWebhookWithManager registers the webhook for Project in the manager.
 func SetupProjectWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreov1alpha1.Project{}).
-		WithValidator(&Validator{client: mgr.GetClient()}).
+		WithValidator(&Validator{}).
 		WithDefaulter(&Defaulter{}).
 		Complete()
 }
@@ -67,9 +66,7 @@ func (d *Defaulter) Default(ctx context.Context, obj runtime.Object) error {
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type Validator struct {
-	client client.Client
-}
+type Validator struct{}
 
 var _ webhook.CustomValidator = &Validator{}
 
@@ -79,10 +76,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	if !ok {
 		return nil, fmt.Errorf("expected a Project object but got %T", obj)
 	}
+	projectlog.Info("Validation for Project upon creation", "name", project.GetName())
 
-	if err := v.validateProjectCommon(ctx, project); err != nil {
-		return nil, err
-	}
 	return nil, nil
 }
 
@@ -93,9 +88,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		return nil, fmt.Errorf("expected a Project object for the newObj but got %T", newObj)
 	}
 	projectlog.Info("Validation for Project upon update", "name", project.GetName())
-	if err := v.validateProjectCommon(ctx, project); err != nil {
-		return nil, err
-	}
+
 	return nil, nil
 }
 
@@ -110,24 +103,4 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 	// TODO(user): fill in your validation logic upon object deletion.
 
 	return nil, nil
-}
-
-func (v *Validator) validateProjectCommon(ctx context.Context, project *openchoreov1alpha1.Project) error {
-	if err := v.ensureDeploymentPipelineExists(ctx, project.Spec.DeploymentPipelineRef, project); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ensureDeploymentPipelineExists checks whether the deployment pipeline specified in the project exists in the namespace.
-func (v *Validator) ensureDeploymentPipelineExists(ctx context.Context, pipelineName string, project *openchoreov1alpha1.Project) error {
-	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
-	pipelineKey := client.ObjectKey{
-		Name:      pipelineName,
-		Namespace: project.Namespace,
-	}
-	if err := v.client.Get(ctx, pipelineKey, pipeline); err != nil {
-		return fmt.Errorf("deployment pipeline '%s' specified in project '%s' not found: %w", pipelineName, project.Name, err)
-	}
-	return nil
 }
