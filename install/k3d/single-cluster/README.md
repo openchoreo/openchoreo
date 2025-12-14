@@ -24,7 +24,29 @@ lower resource requirements.
 k3d cluster create --config install/k3d/single-cluster/config.yaml
 ```
 
-### 2. Install Components
+### 2. Install cert-manager (Prerequisite)
+
+cert-manager is required for TLS certificate management:
+
+```bash
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm repo update jetstack
+
+helm install cert-manager jetstack/cert-manager \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-control-plane \
+  --create-namespace \
+  --version v1.17.1 \
+  --set crds.enabled=true
+
+# Wait for cert-manager to be ready
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager \
+  -n openchoreo-control-plane --timeout=120s
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager-webhook \
+  -n openchoreo-control-plane --timeout=120s
+```
+
+### 3. Install Components
 
 > [!NOTE]
 > This setup uses **cluster gateway and agents** by default for secure communication between Control Plane and Data/Build Planes. The agents connect via in-cluster service (`cluster-gateway.openchoreo-control-plane.svc.cluster.local`) using mTLS authentication.
@@ -93,7 +115,7 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
-### 3. Create DataPlane Resource
+### 4. Create DataPlane Resource
 
 Create a DataPlane resource to enable workload deployment.
 
@@ -122,7 +144,7 @@ For testing purposes, you can use direct Kubernetes API access instead:
 > **Note:** Direct API access is not recommended. The cluster agent approach provides better security and doesn't require exposing the Kubernetes API server.
 </details>
 
-### 4. Create BuildPlane Resource (optional)
+### 5. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source.
 
@@ -139,7 +161,7 @@ This setup uses cluster agent for secure communication between control plane and
 
 The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-### 5. Create ObservabilityPlane Resource (optional)
+### 6. Create ObservabilityPlane Resource (optional)
 
 Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 

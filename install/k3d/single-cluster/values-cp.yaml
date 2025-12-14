@@ -1,9 +1,11 @@
 # Helm values for OpenChoreo Control Plane in k3d single-cluster setup
-# Note: devMode adds :8080 to URLs (k3d port mapping), disables HTTPS
+# Note: devMode disables HTTPS, port adds :8080 to URLs for k3d port mapping
 
 global:
   baseDomain: openchoreo.localhost
   devMode: true
+  # Port suffix for URLs (k3d maps host:8080 -> container:80)
+  port: ":8080"
   # Use k3d's built-in Traefik ingress class
   ingressClassName: traefik
 

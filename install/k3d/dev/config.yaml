@@ -12,12 +12,12 @@ kubeAPI:
 # Port mappings for all planes
 ports:
   # Control Plane uses port range 8xxx
-  # HTTP traffic to OpenChoreo UI and API
-  - port: 8080:8080
+  # HTTP traffic to OpenChoreo UI and API (Traefik LoadBalancer on port 80)
+  - port: 8080:80
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to OpenChoreo UI and API
-  - port: 8443:8443
+  # HTTPS traffic to OpenChoreo UI and API (Traefik LoadBalancer on port 443)
+  - port: 8443:443
     nodeFilters:
       - loadbalancer
   # Data Plane uses port range 9xxx
