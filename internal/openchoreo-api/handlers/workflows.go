@@ -23,15 +23,26 @@ func (h *Handler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wfs, err := h.services.WorkflowService.ListWorkflows(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.WorkflowService.ListWorkflows(ctx, orgName, opts)
+	if err != nil {
+		if handlePaginationError(w, err, logger) {
+			return
+		}
 		logger.Error("Failed to list Workflows", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	logger.Debug("Listed Workflows successfully", "org", orgName, "count", len(wfs))
-	writeListResponse(w, wfs, len(wfs), 1, len(wfs))
+	logger.Debug("Listed Workflows successfully", "org", orgName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {

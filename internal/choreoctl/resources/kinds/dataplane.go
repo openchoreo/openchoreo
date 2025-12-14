@@ -100,11 +100,18 @@ func (d *DataPlaneResource) PrintTableItems(dataPlanes []resources.ResourceWrapp
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (d *DataPlaneResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	dataPlanes, err := d.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	dataPlanes, err := d.List(limit)
 	if err != nil {
 		return err
 	}
 
+	// Apply name filter if specified
 	if filter != nil && filter.Name != "" {
 		filtered, err := resources.FilterByName(dataPlanes, filter.Name)
 		if err != nil {
@@ -181,7 +188,7 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 
 // GetDataPlanesForOrganization returns dataplanes filtered by organization
 func (d *DataPlaneResource) GetDataPlanesForOrganization(orgName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DataPlane], error) {
-	allDataPlanes, err := d.List()
+	allDataPlanes, err := d.List(0)
 	if err != nil {
 		return nil, err
 	}

@@ -22,14 +22,37 @@ func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	environments, err := h.services.EnvironmentService.ListEnvironments(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		h.logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.EnvironmentService.ListEnvironments(ctx, orgName, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			h.logger.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			h.logger.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
 		h.logger.Error("Failed to list environments", "error", err, "org", orgName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list environments", services.CodeInternalError)
 		return
 	}
 
-	writeListResponse(w, environments, len(environments), 1, len(environments))
+	h.logger.Debug("Listed environments successfully", "count", len(result.Items), "org", orgName, "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 // GetEnvironment handles GET /api/v1/orgs/{orgName}/environments/{envName}

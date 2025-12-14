@@ -32,8 +32,11 @@ func NewSecretReferenceService(k8sClient client.Client, logger *slog.Logger) *Se
 }
 
 // ListSecretReferences lists all secret references for an organization
-func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgName string) ([]*models.SecretReferenceResponse, error) {
-	s.logger.Debug("Listing secret references", "org", orgName)
+func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.SecretReferenceResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing secret references", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	// Get the organization to find its namespace
 	org := &openchoreov1alpha1.Organization{}
@@ -54,11 +57,12 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 	var secretRefList openchoreov1alpha1.SecretReferenceList
 	listOptions := &client.ListOptions{
 		Namespace: org.Status.Namespace,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
 	if err := s.k8sClient.List(ctx, &secretRefList, listOptions); err != nil {
-		s.logger.Error("Failed to list secret references", "error", err, "org", orgName, "namespace", org.Status.Namespace)
-		return nil, fmt.Errorf("failed to list secret references: %w", err)
+		return nil, HandleListError(err, s.logger, opts.Continue, "secret references")
 	}
 
 	secretReferences := make([]*models.SecretReferenceResponse, 0, len(secretRefList.Items))
@@ -66,8 +70,15 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 		secretReferences = append(secretReferences, s.toSecretReferenceResponse(&item))
 	}
 
-	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", orgName)
-	return secretReferences, nil
+	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", orgName, "hasMore", secretRefList.Continue != "")
+	return &models.ListResponse[*models.SecretReferenceResponse]{
+		Items: secretReferences,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: secretRefList.ResourceVersion,
+			Continue:        secretRefList.Continue,
+			HasMore:         secretRefList.Continue != "",
+		},
+	}, nil
 }
 
 // toSecretReferenceResponse converts a SecretReference CR to a SecretReferenceResponse

@@ -41,7 +41,8 @@ func getDeploymentPipelines(params api.GetDeploymentPipelineParams, config const
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

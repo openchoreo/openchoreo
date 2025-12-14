@@ -22,12 +22,33 @@ func (h *MCPHandler) ListOrganizations(ctx context.Context) (any, error) {
 }
 
 func (h *MCPHandler) listOrganizations(ctx context.Context) (ListOrganizationsResponse, error) {
-	organizations, err := h.Services.OrganizationService.ListOrganizations(ctx)
-	if err != nil {
-		return ListOrganizationsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.OrganizationResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.OrganizationService.ListOrganizations(ctx, opts)
+		if err != nil {
+			return ListOrganizationsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("organizations", len(allItems))
+
 	return ListOrganizationsResponse{
-		Organizations: organizations,
+		Organizations: allItems,
 	}, nil
 }
 

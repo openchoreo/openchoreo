@@ -9,7 +9,24 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openchoreo/openchoreo/pkg/constants"
 )
+
+// ListOptions represents parameters for list operations
+type ListOptions struct {
+	Limit    int    // Items per page (optional, default: 100, max: 500)
+	Continue string // Opaque K8s continue token (optional)
+}
+
+// DefaultPageLimit is the default number of items per page for list operations
+const DefaultPageLimit = constants.DefaultPageLimit
+
+// MaxPageLimit is the maximum number of items allowed per page
+const MaxPageLimit = constants.MaxPageLimit
+
+// MinPageLimit is the minimum number of items per page
+const MinPageLimit = constants.MinPageLimit
 
 // CreateProjectRequest represents the request to create a new project
 type CreateProjectRequest struct {

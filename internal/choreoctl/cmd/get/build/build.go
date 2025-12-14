@@ -48,7 +48,8 @@ func getBuilds(params api.GetBuildParams, config constants.CRDConfig) error {
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -317,8 +319,11 @@ func (s *ComponentService) generateReleaseName(ctx context.Context, orgName, pro
 }
 
 // ListComponentReleases lists all component releases for a specific component
-func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentReleaseResponse, error) {
-	s.logger.Debug("Listing component releases", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, projectName, componentName string, opts *models.ListOptions) (*models.ListResponse[*models.ComponentReleaseResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing component releases", "org", orgName, "project", projectName, "component", componentName, "limit", opts.Limit, "continue", opts.Continue)
 
 	componentKey := client.ObjectKey{
 		Namespace: orgName,
@@ -340,13 +345,18 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 	}
 
 	var releaseList openchoreov1alpha1.ComponentReleaseList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
+		LabelSelector: k8slabels.SelectorFromSet(map[string]string{
+			labels.LabelKeyProjectName:   projectName,
+			labels.LabelKeyComponentName: componentName,
+		}),
 	}
 
-	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		s.logger.Error("Failed to list component releases", "error", err)
-		return nil, fmt.Errorf("failed to list component releases: %w", err)
+	if err := s.k8sClient.List(ctx, &releaseList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "component releases")
 	}
 
 	releases := make([]*models.ComponentReleaseResponse, 0, len(releaseList.Items))
@@ -375,8 +385,15 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 		})
 	}
 
-	s.logger.Debug("Listed component releases", "org", orgName, "project", projectName, "component", componentName, "count", len(releases))
-	return releases, nil
+	s.logger.Debug("Listed component releases", "org", orgName, "project", projectName, "component", componentName, "count", len(releases), "hasMore", releaseList.Continue != "")
+	return &models.ListResponse[*models.ComponentReleaseResponse]{
+		Items: releases,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: releaseList.ResourceVersion,
+			Continue:        releaseList.Continue,
+			HasMore:         releaseList.Continue != "",
+		},
+	}, nil
 }
 
 // GetComponentRelease retrieves a specific component release by its name
@@ -1049,8 +1066,11 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 
 // ListReleaseBindings lists all release bindings for a specific component
 // If environments is provided, only returns bindings for those environments
-func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.ReleaseBindingResponse, error) {
-	s.logger.Debug("Listing release bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments)
+func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string, opts *models.ListOptions) (*models.ListResponse[*models.ReleaseBindingResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing release bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "limit", opts.Limit, "continue", opts.Continue)
 
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
@@ -1080,13 +1100,18 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 	}
 
 	var bindingList openchoreov1alpha1.ReleaseBindingList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
+		LabelSelector: k8slabels.SelectorFromSet(map[string]string{
+			labels.LabelKeyProjectName:   projectName,
+			labels.LabelKeyComponentName: componentName,
+		}),
 	}
 
-	if err := s.k8sClient.List(ctx, &bindingList, listOpts...); err != nil {
-		s.logger.Error("Failed to list release bindings", "error", err)
-		return nil, fmt.Errorf("failed to list release bindings: %w", err)
+	if err := s.k8sClient.List(ctx, &bindingList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "release bindings")
 	}
 
 	bindings := make([]*models.ReleaseBindingResponse, 0, len(bindingList.Items))
@@ -1112,8 +1137,15 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 		bindings = append(bindings, s.toReleaseBindingResponse(binding, orgName, projectName, componentName))
 	}
 
-	s.logger.Debug("Listed release bindings", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
-	return bindings, nil
+	s.logger.Debug("Listed release bindings", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings), "hasMore", bindingList.Continue != "")
+	return &models.ListResponse[*models.ReleaseBindingResponse]{
+		Items: bindings,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: bindingList.ResourceVersion,
+			Continue:        bindingList.Continue,
+			HasMore:         bindingList.Continue != "",
+		},
+	}, nil
 }
 
 // DeployRelease deploys a component release to the lowest environment in the deployment pipeline
@@ -1340,8 +1372,11 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 }
 
 // ListComponents lists all components in the given project
-func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectName string) ([]*models.ComponentResponse, error) {
-	s.logger.Debug("Listing components", "org", orgName, "project", projectName)
+func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectName string, opts *models.ListOptions) (*models.ListResponse[*models.ComponentResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing components", "org", orgName, "project", projectName, "limit", opts.Limit, "continue", opts.Continue)
 
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
@@ -1353,13 +1388,17 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 	}
 
 	var componentList openchoreov1alpha1.ComponentList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
+		LabelSelector: k8slabels.SelectorFromSet(map[string]string{
+			labels.LabelKeyProjectName: projectName,
+		}),
 	}
 
-	if err := s.k8sClient.List(ctx, &componentList, listOpts...); err != nil {
-		s.logger.Error("Failed to list components", "error", err)
-		return nil, fmt.Errorf("failed to list components: %w", err)
+	if err := s.k8sClient.List(ctx, &componentList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "components")
 	}
 
 	components := make([]*models.ComponentResponse, 0, len(componentList.Items))
@@ -1381,8 +1420,15 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		}
 	}
 
-	s.logger.Debug("Listed components", "org", orgName, "project", projectName, "count", len(components))
-	return components, nil
+	s.logger.Debug("Listed components", "org", orgName, "project", projectName, "count", len(components), "hasMore", componentList.Continue != "")
+	return &models.ListResponse[*models.ComponentResponse]{
+		Items: components,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: componentList.ResourceVersion,
+			Continue:        componentList.Continue,
+			HasMore:         componentList.Continue != "",
+		},
+	}, nil
 }
 
 // GetComponent retrieves a specific component
@@ -1639,6 +1685,9 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 			Name:        req.Name,
 			Namespace:   orgName,
 			Annotations: annotations,
+			Labels: map[string]string{
+				labels.LabelKeyProjectName: projectName,
+			},
 		},
 		Spec: componentSpec,
 	}
@@ -1738,9 +1787,39 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	return response
 }
 
+// encodeBindingCursor encodes a binding cursor to a string
+const bindingCursorPrefix = "ei:"
+
+func encodeBindingCursor(index int) string {
+	return fmt.Sprintf("%s%d", bindingCursorPrefix, index)
+}
+
+// decodeBindingCursor decodes a binding cursor string
+func decodeBindingCursor(cursor string) (int, error) {
+	if !strings.HasPrefix(cursor, bindingCursorPrefix) {
+		return 0, ErrInvalidContinueToken
+	}
+
+	parts := strings.SplitN(cursor, ":", 2)
+	if len(parts) != 2 {
+		return 0, ErrInvalidContinueToken
+	}
+
+	index, err := strconv.Atoi(parts[1])
+	if err != nil || index < 0 {
+		return 0, ErrInvalidContinueToken
+	}
+
+	return index, nil
+}
+
 // GetComponentBindings retrieves bindings for a component in multiple environments
 // If environments is empty, it will get all environments from the project's deployment pipeline
-func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.BindingResponse, error) {
+//
+// Note on pagination: This function aggregates bindings from multiple environments in memory,
+// and uses a custom cursor mechanism for pagination. The cursor encodes the environment index
+// offset to allow resuming from where the previous page left off.
+func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, projectName, componentName string, environments []string, opts *models.ListOptions) (*models.ListResponse[*models.BindingResponse], error) {
 	s.logger.Debug("Getting component bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments)
 
 	// First get the component to determine its type
@@ -1759,23 +1838,72 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 		s.logger.Debug("Using environments from deployment pipeline", "environments", environments)
 	}
 
-	bindings := make([]*models.BindingResponse, 0, len(environments))
-	for _, environment := range environments {
+	// Parse continue token to determine starting environment index
+	startIndex := 0
+	if opts != nil && opts.Continue != "" {
+		startIndex, err = decodeBindingCursor(opts.Continue)
+		if err != nil {
+			return nil, ErrInvalidContinueToken
+		}
+		s.logger.Debug("Using continue token", "startIndex", startIndex)
+	}
+
+	// Validate startIndex is within bounds
+	if startIndex >= len(environments) {
+		return &models.ListResponse[*models.BindingResponse]{
+			Items: []*models.BindingResponse{},
+			Metadata: models.ResponseMetadata{
+				ResourceVersion: "",
+				Continue:        "",
+				HasMore:         false,
+			},
+		}, nil
+	}
+
+	// Fetch bindings for environments starting from startIndex
+	// Environment lists are typically small (<20), so sequential processing is reliable
+	bindings := make([]*models.BindingResponse, 0, len(environments)-startIndex)
+	hasMore := false
+	continueToken := ""
+	limit := 0
+	if opts != nil {
+		limit = opts.Limit
+	}
+
+	for i := startIndex; i < len(environments); i++ {
+		environment := environments[i]
 		binding, err := s.getComponentBinding(ctx, orgName, projectName, componentName, environment, component.Type)
 		if err != nil {
-			// If binding not found for an environment, skip it rather than failing the entire request
+			// If binding not found for an environment, skip it
 			if errors.Is(err, ErrBindingNotFound) {
 				s.logger.Debug("Binding not found for environment", "environment", environment)
 				continue
 			}
 			return nil, err
 		}
+
 		bindings = append(bindings, binding)
+
+		// Stop early when we have one extra item so we can set a precise cursor
+		if limit > 0 && len(bindings) > limit {
+			hasMore = true
+			// Resume from the current environment index on the next page
+			continueToken = encodeBindingCursor(i)
+			bindings = bindings[:limit]
+			break
+		}
 	}
 
-	s.logger.Info("Bindings", "bindings", bindings)
+	s.logger.Debug("Retrieved component bindings successfully", "count", len(bindings), "startIndex", startIndex, "hasMore", hasMore)
 
-	return bindings, nil
+	return &models.ListResponse[*models.BindingResponse]{
+		Items: bindings,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: "",
+			Continue:        continueToken,
+			HasMore:         hasMore,
+		},
+	}, nil
 }
 
 // GetComponentBinding retrieves the binding for a component in a specific environment
@@ -2216,8 +2344,11 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, pro
 }
 
 // GetComponentWorkloads retrieves workload data for a specific component
-func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (interface{}, error) {
-	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string, opts *models.ListOptions) (*models.ListResponse[*openchoreov1alpha1.WorkloadSpec], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName, "limit", opts.Limit, "continue", opts.Continue)
 
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
@@ -2250,19 +2381,44 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 		return nil, ErrComponentNotFound
 	}
 
-	// Use the WorkloadSpecFetcher to get workload data
-	fetcher := &WorkloadSpecFetcher{}
-	workloadSpec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
-	if err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workload not found for component", "org", orgName, "project", projectName, "component", componentName)
-			return nil, fmt.Errorf("workload not found for component: %s", componentName)
-		}
-		s.logger.Error("Failed to fetch workload spec", "error", err)
-		return nil, fmt.Errorf("failed to fetch workload spec: %w", err)
+	// List workloads with label selector for efficiency
+	workloadList := &openchoreov1alpha1.WorkloadList{}
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
+		LabelSelector: k8slabels.SelectorFromSet(map[string]string{
+			labels.LabelKeyProjectName:   projectName,
+			labels.LabelKeyComponentName: componentName,
+		}),
 	}
 
-	return workloadSpec, nil
+	if err := s.k8sClient.List(ctx, workloadList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "workloads")
+	}
+
+	// Convert workload items to specs
+	workloads := make([]*openchoreov1alpha1.WorkloadSpec, 0, len(workloadList.Items))
+	for i := range workloadList.Items {
+		workload := &workloadList.Items[i]
+		workloads = append(workloads, &workload.Spec)
+	}
+
+	if len(workloads) == 0 && opts.Continue == "" {
+		s.logger.Warn("Workload not found", "org", orgName, "project", projectName, "component", componentName)
+		return nil, ErrWorkloadNotFound
+	}
+
+	hasMore := workloadList.Continue != ""
+	s.logger.Debug("Got component workloads", "org", orgName, "project", projectName, "component", componentName, "count", len(workloads), "hasMore", hasMore)
+	return &models.ListResponse[*openchoreov1alpha1.WorkloadSpec]{
+		Items: workloads,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: workloadList.ResourceVersion,
+			Continue:        workloadList.Continue,
+			HasMore:         hasMore,
+		},
+	}, nil
 }
 
 // CreateComponentWorkload creates or updates workload data for a specific component
@@ -2332,6 +2488,10 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      workloadName,
 				Namespace: orgName,
+				Labels: map[string]string{
+					labels.LabelKeyProjectName:   projectName,
+					labels.LabelKeyComponentName: componentName,
+				},
 			},
 			Spec: *workloadSpec,
 		}

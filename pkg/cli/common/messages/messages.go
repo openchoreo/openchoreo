@@ -66,4 +66,5 @@ const (
 	FlagWaitDesc               = "Wait for resources to be deleted before returning"
 	FlagEnvironmentOrderDesc   = "Comma-separated list of environment names in promotion order (e.g., dev,staging,prod)"
 	FlagDeploymentPipelineDesc = "Name of the deployment pipeline (e.g., dev-prod-pipeline)"
+	FlagLimitDesc              = "Maximum number of resources to return (0 for all)"
 )

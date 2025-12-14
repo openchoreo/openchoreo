@@ -32,17 +32,22 @@ func NewDataPlaneService(k8sClient client.Client, logger *slog.Logger) *DataPlan
 }
 
 // ListDataPlanes lists all dataplanes in the specified organization
-func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string) ([]*models.DataPlaneResponse, error) {
-	s.logger.Debug("Listing dataplanes", "org", orgName)
+func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.DataPlaneResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing dataplanes", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var dpList openchoreov1alpha1.DataPlaneList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &dpList, listOpts...); err != nil {
-		s.logger.Error("Failed to list dataplanes", "error", err, "org", orgName)
-		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
+	if err := s.k8sClient.List(ctx, &dpList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "dataplanes")
 	}
 
 	dataplanes := make([]*models.DataPlaneResponse, 0, len(dpList.Items))
@@ -50,8 +55,15 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string) (
 		dataplanes = append(dataplanes, s.toDataPlaneResponse(&item))
 	}
 
-	s.logger.Debug("Listed dataplanes", "count", len(dataplanes), "org", orgName)
-	return dataplanes, nil
+	s.logger.Debug("Listed dataplanes", "count", len(dataplanes), "org", orgName, "hasMore", dpList.Continue != "")
+	return &models.ListResponse[*models.DataPlaneResponse]{
+		Items: dataplanes,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: dpList.ResourceVersion,
+			Continue:        dpList.Continue,
+			HasMore:         dpList.Continue != "",
+		},
+	}, nil
 }
 
 // GetDataPlane retrieves a specific dataplane

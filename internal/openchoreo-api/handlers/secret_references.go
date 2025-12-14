@@ -20,10 +20,32 @@ func (h *Handler) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secretReferences, err := h.services.SecretReferenceService.ListSecretReferences(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		h.logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, orgName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrOrganizationNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "Organization not found", services.CodeOrganizationNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			h.logger.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			h.logger.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
 			return
 		}
 		h.logger.Error("Failed to list secret references", "error", err, "org", orgName)
@@ -31,5 +53,5 @@ func (h *Handler) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeListResponse(w, secretReferences, len(secretReferences), 1, len(secretReferences))
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }

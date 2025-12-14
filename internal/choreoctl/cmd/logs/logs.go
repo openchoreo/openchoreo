@@ -58,8 +58,8 @@ func handleLogs(params api.LogParams) error {
 }
 
 func getBuildLogs(params api.LogParams) error {
-	if params.Organization == "" || params.Build == "" {
-		return fmt.Errorf("organization and build name are required for build logs")
+	if params.Organization == "" {
+		return fmt.Errorf("organization is required for build logs")
 	}
 
 	buildRes, err := kinds.NewBuildResource(
@@ -77,26 +77,31 @@ func getBuildLogs(params api.LogParams) error {
 		Name: params.Build,
 	}
 
-	// Get all builds matching the filter
-	builds, err := buildRes.List()
-	if err != nil {
-		return fmt.Errorf("failed to list builds: %w", err)
-	}
-
-	// Filter by name if needed
-	if filter.Name != "" {
-		filtered, err := resources.FilterByName(builds, filter.Name)
+	// If no build is specified, list a small number of recent builds instead of
+	// fetching the entire history.
+	if filter.Name == "" {
+		const defaultRecentBuildsLimit = 20
+		builds, err := buildRes.List(defaultRecentBuildsLimit)
 		if err != nil {
-			return fmt.Errorf("build '%s' not found: %w", params.Build, err)
+			return fmt.Errorf("failed to list builds: %w", err)
 		}
-		builds = filtered
+		// Best-effort: show newest first within the limited window.
+		sort.Slice(builds, func(i, j int) bool {
+			return builds[i].GetResource().GetCreationTimestamp().After(builds[j].GetResource().GetCreationTimestamp().Time)
+		})
+		return buildRes.PrintItems(builds, resources.OutputFormatTable)
 	}
 
+	// Optimized lookup for a single build by logical name label or Kubernetes name.
+	builds, err := buildRes.FindByName(filter.Name, 2)
+	if err != nil {
+		return fmt.Errorf("failed to find build '%s': %w", filter.Name, err)
+	}
 	if len(builds) == 0 {
-		return fmt.Errorf("build '%s' not found", params.Build)
+		return fmt.Errorf("build '%s' not found", filter.Name)
 	}
 	if len(builds) > 1 {
-		return fmt.Errorf("multiple builds found with name '%s'", params.Build)
+		return fmt.Errorf("multiple builds found with name '%s'", filter.Name)
 	}
 
 	fmt.Print("\nFetching build logs...\n")
@@ -146,8 +151,87 @@ func getBuildLogs(params api.LogParams) error {
 }
 
 func getDeploymentLogs(params api.LogParams) error {
-	// Deprecated: Deployment CRD has been removed
-	return fmt.Errorf("deployment CRD has been removed")
+	if params.Organization == "" || params.Project == "" ||
+		params.Component == "" || params.Environment == "" || params.Deployment == "" {
+		return fmt.Errorf("organization, project, component, environment and deployment values are required for deployment logs")
+	}
+
+	deployRes, err := kinds.NewDeploymentResource(
+		constants.DeploymentV1Config,
+		params.Organization,
+		params.Project,
+		params.Component,
+		params.Environment,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create Deployment resource: %w", err)
+	}
+
+	// Existence check should not list the entire namespace.
+	exists, err := deployRes.Exists(params.Deployment)
+	if err != nil {
+		return fmt.Errorf("failed to check deployment existence: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("deployment '%s' not found", params.Deployment)
+	}
+
+	k8sClient, err := resources.GetClient()
+	if err != nil {
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	// Get all pods with matching deployment labels
+	pods := &corev1.PodList{}
+	if err := k8sClient.List(context.Background(), pods,
+		client.MatchingLabels{
+			"organization-name": params.Organization,
+			"project-name":      params.Project,
+			"component-name":    params.Component,
+			"environment-name":  params.Environment,
+			"deployment-name":   params.Deployment,
+			"belong-to":         "user-workloads",
+			"managed-by":        "choreo-deployment-controller",
+		}); err != nil {
+		return fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no deployment pods found for component '%s' in environment '%s'",
+			params.Component, params.Environment)
+	}
+
+	// Sort pods by creation timestamp to show newest first
+	sort.Slice(pods.Items, func(i, j int) bool {
+		return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
+	})
+
+	tailLinesPtr := &params.TailLines
+
+	// If following logs, only show the latest pod
+	if params.Follow {
+		pod := pods.Items[0]
+		fmt.Printf("\n=== Pod: %s ===\n", pod.Name)
+		logs, err := GetPodLogs(pod.Name, pod.Namespace, "", true, tailLinesPtr)
+		if err != nil {
+			return fmt.Errorf("failed to get logs for pod %s: %w", pod.Name, err)
+		}
+		fmt.Println("=======================================")
+		fmt.Println(logs)
+		return nil
+	}
+
+	// Show logs from all pods if not following
+	for _, pod := range pods.Items {
+		fmt.Printf("\n=== Pod: %s ===\n", pod.Name)
+		logs, err := GetPodLogs(pod.Name, pod.Namespace, "", false, tailLinesPtr)
+		if err != nil {
+			return fmt.Errorf("failed to get logs for pod %s: %w", pod.Name, err)
+		}
+		fmt.Println(logs)
+	}
+
+	return nil
 }
 
 func GetPodLogs(podName, namespace, containerName string, follow bool, tailLines *int64) (string, error) {

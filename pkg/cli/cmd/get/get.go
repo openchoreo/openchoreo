@@ -12,6 +12,27 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
+// buildListCommand creates a list command that accepts an optional name argument.
+func buildListCommand(
+	command constants.Command,
+	flags []flags.Flag,
+	executeFunc func(fg *builder.FlagGetter, name string) error,
+) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: command,
+		Flags:   flags,
+		RunE: func(fg *builder.FlagGetter) error {
+			name := ""
+			if len(fg.GetArgs()) > 0 {
+				name = fg.GetArgs()[0]
+			}
+			return executeFunc(fg, name)
+		},
+	}).Build()
+	cmd.Args = cobra.MaximumNArgs(1)
+	return cmd
+}
+
 func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   constants.List.Use,
@@ -20,73 +41,63 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	// Organization command
-	orgCmd := (&builder.CommandBuilder{
-		Command: constants.ListOrganization,
-		Flags:   []flags.Flag{flags.Output},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	orgCmd := buildListCommand(
+		constants.ListOrganization,
+		[]flags.Flag{flags.Output, flags.Limit},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetOrganization(api.GetParams{
 				OutputFormat: fg.GetString(flags.Output),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	orgCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(orgCmd)
 
 	// Project command
-	projectCmd := (&builder.CommandBuilder{
-		Command: constants.ListProject,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	projectCmd := buildListCommand(
+		constants.ListProject,
+		[]flags.Flag{
+			flags.Organization, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetProject(api.GetProjectParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	projectCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(projectCmd)
 
 	// Component command
-	componentCmd := (&builder.CommandBuilder{
-		Command: constants.ListComponent,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	componentCmd := buildListCommand(
+		constants.ListComponent,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetComponent(api.GetComponentParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	componentCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(componentCmd)
 
 	// Build command
-	buildCmd := (&builder.CommandBuilder{
-		Command: constants.ListBuild,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	buildCmd := buildListCommand(
+		constants.ListBuild,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetBuild(api.GetBuildParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
@@ -94,22 +105,20 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	buildCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(buildCmd)
 
 	// Deployable Artifact command
-	deployableArtifactCmd := (&builder.CommandBuilder{
-		Command: constants.ListDeployableArtifact,
-		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.DeploymentTrack,
-			flags.Build, flags.Image, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	deployableArtifactCmd := buildListCommand(
+		constants.ListDeployableArtifact,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Component, flags.DeploymentTrack,
+			flags.Build, flags.Image, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetDeployableArtifact(api.GetDeployableArtifactParams{
 				Organization:    fg.GetString(flags.Organization),
 				Project:         fg.GetString(flags.Project),
@@ -120,40 +129,37 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				OutputFormat:    fg.GetString(flags.Output),
 				Interactive:     fg.GetBool(flags.Interactive),
 				Name:            name,
+				Limit:           fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
+	)
 	listCmd.AddCommand(deployableArtifactCmd)
 
 	// Environment command
-	envCmd := (&builder.CommandBuilder{
-		Command: constants.ListEnvironment,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	envCmd := buildListCommand(
+		constants.ListEnvironment,
+		[]flags.Flag{
+			flags.Organization, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetEnvironment(api.GetEnvironmentParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	envCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(envCmd)
 
 	// Deployment Track command
-	deploymentTrackCmd := (&builder.CommandBuilder{
-		Command: constants.ListDeploymentTrack,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	deploymentTrackCmd := buildListCommand(
+		constants.ListDeploymentTrack,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetDeploymentTrack(api.GetDeploymentTrackParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
@@ -161,22 +167,20 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	deploymentTrackCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(deploymentTrackCmd)
 
 	// Deployment command
-	deploymentCmd := (&builder.CommandBuilder{
-		Command: constants.ListDeployment,
-		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Environment,
-			flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	deploymentCmd := buildListCommand(
+		constants.ListDeployment,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Component, flags.Environment,
+			flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetDeployment(api.GetDeploymentParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
@@ -185,21 +189,20 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
+	)
 	listCmd.AddCommand(deploymentCmd)
 
 	// Endpoint command
-	endpointCmd := (&builder.CommandBuilder{
-		Command: constants.ListEndpoint,
-		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Environment,
-			flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	endpointCmd := buildListCommand(
+		constants.ListEndpoint,
+		[]flags.Flag{
+			flags.Organization, flags.Project, flags.Component, flags.Environment,
+			flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetEndpoint(api.GetEndpointParams{
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
@@ -208,68 +211,62 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	endpointCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(endpointCmd)
 
 	// DataPlane command
-	dataPlaneCmd := (&builder.CommandBuilder{
-		Command: constants.ListDataPlane,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	dataPlaneCmd := buildListCommand(
+		constants.ListDataPlane,
+		[]flags.Flag{
+			flags.Organization, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetDataPlane(api.GetDataPlaneParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
 				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	dataPlaneCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(dataPlaneCmd)
 
 	// Deployment Pipeline command
-	deploymentPipelineCmd := (&builder.CommandBuilder{
-		Command: constants.ListDeploymentPipeline,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	deploymentPipelineCmd := buildListCommand(
+		constants.ListDeploymentPipeline,
+		[]flags.Flag{
+			flags.Organization, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetDeploymentPipeline(api.GetDeploymentPipelineParams{
 				Name:         name,
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	deploymentPipelineCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(deploymentPipelineCmd)
 
 	// Configuration groups command
-	configurationGroupsCmd := (&builder.CommandBuilder{
-		Command: constants.ListConfigurationGroup,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
-		RunE: func(fg *builder.FlagGetter) error {
-			name := ""
-			if len(fg.GetArgs()) > 0 {
-				name = fg.GetArgs()[0]
-			}
+	configurationGroupsCmd := buildListCommand(
+		constants.ListConfigurationGroup,
+		[]flags.Flag{
+			flags.Organization, flags.Output, flags.Interactive, flags.Limit,
+		},
+		func(fg *builder.FlagGetter, name string) error {
 			return impl.GetConfigurationGroup(api.GetConfigurationGroupParams{
 				Name:         name,
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
+				Limit:        fg.GetInt(flags.Limit),
 			})
 		},
-	}).Build()
-	configurationGroupsCmd.Args = cobra.MaximumNArgs(1)
+	)
 	listCmd.AddCommand(configurationGroupsCmd)
 
 	return listCmd

@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/constants"
 )
 
 // APIClient provides HTTP client for OpenChoreo API server
@@ -59,12 +61,17 @@ type OrganizationResponse struct {
 	CreatedAt   string `json:"createdAt"`
 }
 
-// ListResponse represents a paginated list response
+// ResponseMetadata contains metadata for list responses
+type ResponseMetadata struct {
+	ResourceVersion string `json:"resourceVersion"`
+	Continue        string `json:"continue,omitempty"`
+	HasMore         bool   `json:"hasMore"`
+}
+
+// ListResponse represents a list response with items and metadata
 type ListResponse struct {
-	Items      []OrganizationResponse `json:"items"`
-	TotalCount int                    `json:"totalCount"`
-	Page       int                    `json:"page"`
-	PageSize   int                    `json:"pageSize"`
+	Items    []OrganizationResponse `json:"items"`
+	Metadata ResponseMetadata       `json:"metadata"`
 }
 
 // ListOrganizationsResponse represents the response from listing organizations
@@ -90,10 +97,8 @@ type ProjectResponse struct {
 type ListProjectsResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Items      []ProjectResponse `json:"items"`
-		TotalCount int               `json:"totalCount"`
-		Page       int               `json:"page"`
-		PageSize   int               `json:"pageSize"`
+		Items    []ProjectResponse `json:"items"`
+		Metadata ResponseMetadata  `json:"metadata"`
 	} `json:"data"`
 	Error string `json:"error,omitempty"`
 	Code  string `json:"code,omitempty"`
@@ -115,14 +120,42 @@ type ComponentResponse struct {
 type ListComponentsResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Items      []ComponentResponse `json:"items"`
-		TotalCount int                 `json:"totalCount"`
-		Page       int                 `json:"page"`
-		PageSize   int                 `json:"pageSize"`
+		Items    []ComponentResponse `json:"items"`
+		Metadata ResponseMetadata    `json:"metadata"`
 	} `json:"data"`
 	Error string `json:"error,omitempty"`
 	Code  string `json:"code,omitempty"`
 }
+
+/*
+// TO ENABLE OPENCHOREO REST API CLIENT:
+// Uncomment the following structs and methods to enable the REST API client for single resource retrieval.
+// This will allow choreoctl to use the REST API instead of the Kubernetes client directly.
+
+// GetOrganizationResponse represents the response for a single organization
+type GetOrganizationResponse struct {
+	Success bool                 `json:"success"`
+	Data    OrganizationResponse `json:"data"`
+	Error   string               `json:"error,omitempty"`
+	Code    string               `json:"code,omitempty"`
+}
+
+// GetProjectResponse represents the response for a single project
+type GetProjectResponse struct {
+	Success bool            `json:"success"`
+	Data    ProjectResponse `json:"data"`
+	Error   string          `json:"error,omitempty"`
+	Code    string          `json:"code,omitempty"`
+}
+
+// GetComponentResponse represents the response for a single component
+type GetComponentResponse struct {
+	Success bool              `json:"success"`
+	Data    ComponentResponse `json:"data"`
+	Error   string            `json:"error,omitempty"`
+	Code    string            `json:"code,omitempty"`
+}
+*/
 
 // NewAPIClient creates a new API client with control plane auto-detection
 func NewAPIClient() (*APIClient, error) {
@@ -203,80 +236,268 @@ func (c *APIClient) Delete(ctx context.Context, resource map[string]interface{})
 }
 
 // ListOrganizations retrieves all organizations from the API
-func (c *APIClient) ListOrganizations(ctx context.Context) ([]OrganizationResponse, error) {
-	resp, err := c.get(ctx, "/api/v1/orgs")
-	if err != nil {
-		return nil, fmt.Errorf("failed to make list organizations request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var listResp ListOrganizationsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+func (c *APIClient) ListOrganizations(ctx context.Context, maxItems int) ([]OrganizationResponse, error) {
+	var allOrganizations []OrganizationResponse
+	continueToken := ""
+	pageLimit := constants.DefaultPageLimit
+	if maxItems > 0 {
+		// Cap at MaxPageLimit (better to make fewer, larger requests)
+		if maxItems > constants.MaxPageLimit {
+			pageLimit = constants.MaxPageLimit
+		} else {
+			pageLimit = maxItems
+		}
 	}
 
-	if !listResp.Success {
-		return nil, fmt.Errorf("list organizations failed: %s", listResp.Error)
+	for {
+		params := url.Values{}
+		effectiveLimit := pageLimit
+		if maxItems > 0 {
+			remaining := maxItems - len(allOrganizations)
+			if remaining <= 0 {
+				break
+			}
+			if remaining < effectiveLimit {
+				effectiveLimit = remaining
+			}
+		}
+		params.Set("limit", fmt.Sprintf("%d", effectiveLimit))
+		if continueToken != "" {
+			params.Set("continue", continueToken)
+		}
+
+		resp, err := c.getWithParams(ctx, "/api/v1/orgs", params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make list organizations request: %w", err)
+		}
+
+		// Handle HTTP 410 Gone (expired continue token)
+		if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
+			continueToken = ""
+			allOrganizations = nil
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		var listResp ListOrganizationsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if !listResp.Success {
+			return nil, fmt.Errorf("list organizations failed: %s", listResp.Error)
+		}
+
+		allOrganizations = append(allOrganizations, listResp.Data.Items...)
+
+		if maxItems > 0 && len(allOrganizations) >= maxItems {
+			allOrganizations = allOrganizations[:maxItems]
+			break
+		}
+
+		// Check if there are more pages
+		if !listResp.Data.Metadata.HasMore || listResp.Data.Metadata.Continue == "" {
+			break
+		}
+		continueToken = listResp.Data.Metadata.Continue
 	}
 
-	return listResp.Data.Items, nil
+	return allOrganizations, nil
 }
 
 // ListProjects retrieves all projects for an organization from the API
-func (c *APIClient) ListProjects(ctx context.Context, orgName string) ([]ProjectResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects", orgName)
-	resp, err := c.get(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make list projects request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var listResp ListProjectsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+func (c *APIClient) ListProjects(ctx context.Context, orgName string, maxItems int) ([]ProjectResponse, error) {
+	var allProjects []ProjectResponse
+	continueToken := ""
+	basePath := fmt.Sprintf("/api/v1/orgs/%s/projects", orgName)
+	pageLimit := constants.DefaultPageLimit
+	if maxItems > 0 {
+		// Cap at MaxPageLimit (better to make fewer, larger requests)
+		if maxItems > constants.MaxPageLimit {
+			pageLimit = constants.MaxPageLimit
+		} else {
+			pageLimit = maxItems
+		}
 	}
 
-	if !listResp.Success {
-		return nil, fmt.Errorf("list projects failed: %s", listResp.Error)
+	for {
+		params := url.Values{}
+		effectiveLimit := pageLimit
+		if maxItems > 0 {
+			remaining := maxItems - len(allProjects)
+			if remaining <= 0 {
+				break
+			}
+			if remaining < effectiveLimit {
+				effectiveLimit = remaining
+			}
+		}
+		params.Set("limit", fmt.Sprintf("%d", effectiveLimit))
+		if continueToken != "" {
+			params.Set("continue", continueToken)
+		}
+
+		resp, err := c.getWithParams(ctx, basePath, params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make list projects request: %w", err)
+		}
+
+		// Handle HTTP 410 Gone (expired continue token)
+		if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
+			continueToken = ""
+			allProjects = nil
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		var listResp ListProjectsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if !listResp.Success {
+			return nil, fmt.Errorf("list projects failed: %s", listResp.Error)
+		}
+
+		allProjects = append(allProjects, listResp.Data.Items...)
+
+		if maxItems > 0 && len(allProjects) >= maxItems {
+			allProjects = allProjects[:maxItems]
+			break
+		}
+
+		// Check if there are more pages
+		if !listResp.Data.Metadata.HasMore || listResp.Data.Metadata.Continue == "" {
+			break
+		}
+		continueToken = listResp.Data.Metadata.Continue
 	}
 
-	return listResp.Data.Items, nil
+	return allProjects, nil
 }
 
 // ListComponents retrieves all components for an organization and project from the API
-func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName string) ([]ComponentResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", orgName, projectName)
+func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName string, maxItems int) ([]ComponentResponse, error) {
+	var allComponents []ComponentResponse
+	continueToken := ""
+	basePath := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", orgName, projectName)
+	pageLimit := constants.DefaultPageLimit
+	if maxItems > 0 {
+		// Cap at MaxPageLimit (better to make fewer, larger requests)
+		if maxItems > constants.MaxPageLimit {
+			pageLimit = constants.MaxPageLimit
+		} else {
+			pageLimit = maxItems
+		}
+	}
+
+	for {
+		params := url.Values{}
+		effectiveLimit := pageLimit
+		if maxItems > 0 {
+			remaining := maxItems - len(allComponents)
+			if remaining <= 0 {
+				break
+			}
+			if remaining < effectiveLimit {
+				effectiveLimit = remaining
+			}
+		}
+		params.Set("limit", fmt.Sprintf("%d", effectiveLimit))
+		if continueToken != "" {
+			params.Set("continue", continueToken)
+		}
+
+		resp, err := c.getWithParams(ctx, basePath, params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make list components request: %w", err)
+		}
+
+		// Handle HTTP 410 Gone (expired continue token)
+		if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
+			continueToken = ""
+			allComponents = nil
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		var listResp ListComponentsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		if !listResp.Success {
+			return nil, fmt.Errorf("list components failed: %s", listResp.Error)
+		}
+
+		allComponents = append(allComponents, listResp.Data.Items...)
+
+		if maxItems > 0 && len(allComponents) >= maxItems {
+			allComponents = allComponents[:maxItems]
+			break
+		}
+
+		// Check if there are more pages
+		if !listResp.Data.Metadata.HasMore || listResp.Data.Metadata.Continue == "" {
+			break
+		}
+		continueToken = listResp.Data.Metadata.Continue
+	}
+
+	return allComponents, nil
+}
+
+/*
+// TO ENABLE OPENCHOREO REST API CLIENT:
+// Uncomment the following structs and methods to enable the REST API client for single resource retrieval.
+// This will allow choreoctl to use the REST API instead of the Kubernetes client directly.
+
+// GetOrganization retrieves a single organization by name
+func (c *APIClient) GetOrganization(ctx context.Context, name string) (*OrganizationResponse, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s", name)
 	resp, err := c.get(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make list components request: %w", err)
+		return nil, fmt.Errorf("failed to make get organization request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var listResp ListComponentsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
+	var getResp GetOrganizationResponse
+	if err := json.Unmarshal(body, &getResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if !listResp.Success {
-		return nil, fmt.Errorf("list components failed: %s", listResp.Error)
+	if !getResp.Success {
+		return nil, fmt.Errorf("get organization failed: %s", getResp.Error)
 	}
 
-	return listResp.Data.Items, nil
+	return &getResp.Data, nil
 }
 
 // GetComponentTypeSchema fetches ComponentType schema from the API
@@ -335,14 +556,108 @@ func (c *APIClient) getSchema(ctx context.Context, path string) (*json.RawMessag
 
 	return apiResponse.Data, nil
 }
+// GetComponentTypeSchema fetches ComponentType schema from the API
+func (c *APIClient) GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/component-types/%s/schema", orgName, ctName)
+	return c.getSchema(ctx, path)
+}
 
-// Get performs a GET request to the API
-func (c *APIClient) Get(ctx context.Context, path string) (*http.Response, error) {
-	return c.doRequest(ctx, "GET", path, nil)
+// GetTraitSchema fetches Trait schema from the API
+func (c *APIClient) GetTraitSchema(ctx context.Context, orgName, traitName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/traits/%s/schema", orgName, traitName)
+	return c.getSchema(ctx, path)
+}
+
+// GetComponentWorkflowSchema fetches ComponentWorkflow schema from the API
+func (c *APIClient) GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/component-workflows/%s/schema", orgName, cwName)
+	return c.getSchema(ctx, path)
+}
+
+// GetProject retrieves a single project by org and project name
+func (c *APIClient) GetProject(ctx context.Context, orgName, projectName string) (*ProjectResponse, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s", orgName, projectName)
+	resp, err := c.get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make get project request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var getResp GetProjectResponse
+	if err := json.Unmarshal(body, &getResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if !getResp.Success {
+		return nil, fmt.Errorf("get project failed: %s", getResp.Error)
+	}
+
+	return &getResp.Data, nil
+}
+
+// GetComponent retrieves a single component by org, project, and component name
+func (c *APIClient) GetComponent(ctx context.Context, orgName, projectName, componentName string) (*ComponentResponse, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components/%s", orgName, projectName, componentName)
+	resp, err := c.get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make get component request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var getResp GetComponentResponse
+	if err := json.Unmarshal(body, &getResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if !getResp.Success {
+		return nil, fmt.Errorf("get component failed: %s", getResp.Error)
+	}
+
+	return &getResp.Data, nil
 }
 
 // HTTP helper methods
 func (c *APIClient) get(ctx context.Context, path string) (*http.Response, error) {
+	return c.doRequest(ctx, "GET", path, nil)
+}
+
+// getWithParams performs a GET request with query parameters
+func (c *APIClient) getWithParams(ctx context.Context, path string, params url.Values) (*http.Response, error) {
+	if len(params) > 0 {
+		// Parse the path to safely add query parameters
+		parsedURL, err := url.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse path: %w", err)
+		}
+
+		// Merge existing query parameters with new ones
+		q := parsedURL.Query()
+		for key, values := range params {
+			for _, value := range values {
+				q.Add(key, value)
+			}
+		}
+		parsedURL.RawQuery = q.Encode()
+		path = parsedURL.String()
+	}
 	return c.doRequest(ctx, "GET", path, nil)
 }
 

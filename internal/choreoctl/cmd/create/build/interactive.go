@@ -127,7 +127,7 @@ func (m buildModel) handleResourceSelection(keyMsg tea.KeyMsg) (buildModel, tea.
 			}
 
 			// List the deployment track objects
-			trackObjects, err := trackRes.List()
+			trackObjects, err := trackRes.List(0)
 			if err != nil {
 				m.errorMsg = fmt.Sprintf("Failed to list deployment tracks: %v", err)
 				return m, tea.Quit

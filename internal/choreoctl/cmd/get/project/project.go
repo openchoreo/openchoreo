@@ -42,7 +42,8 @@ func getProjects(params api.GetProjectParams, config constants.CRDConfig) error 
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

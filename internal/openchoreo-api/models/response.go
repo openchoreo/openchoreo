@@ -17,12 +17,17 @@ type APIResponse[T any] struct {
 	Code    string `json:"code,omitempty"`
 }
 
-// ListResponse represents a paginated list response
+// ListResponse represents a list response
 type ListResponse[T any] struct {
-	Items      []T `json:"items"`
-	TotalCount int `json:"totalCount"`
-	Page       int `json:"page"`
-	PageSize   int `json:"pageSize"`
+	Items    []T              `json:"items"`
+	Metadata ResponseMetadata `json:"metadata"`
+}
+
+// ResponseMetadata contains metadata following Kubernetes API conventions
+type ResponseMetadata struct {
+	ResourceVersion string `json:"resourceVersion"`
+	Continue        string `json:"continue,omitempty"` // Empty when no more results
+	HasMore         bool   `json:"hasMore"`            // True if more results available
 }
 
 // ProjectResponse represents a project in API responses
@@ -216,14 +221,17 @@ func SuccessResponse[T any](data T) APIResponse[T] {
 	}
 }
 
-func ListSuccessResponse[T any](items []T, total, page, pageSize int) APIResponse[ListResponse[T]] {
+// ListSuccessResponse creates a successful list API response
+func ListSuccessResponse[T any](items []T, resourceVersion, continueToken string) APIResponse[ListResponse[T]] {
 	return APIResponse[ListResponse[T]]{
 		Success: true,
 		Data: ListResponse[T]{
-			Items:      items,
-			TotalCount: total,
-			Page:       page,
-			PageSize:   pageSize,
+			Items: items,
+			Metadata: ResponseMetadata{
+				ResourceVersion: resourceVersion,
+				Continue:        continueToken,
+				HasMore:         continueToken != "",
+			},
 		},
 	}
 }

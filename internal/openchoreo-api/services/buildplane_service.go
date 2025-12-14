@@ -88,21 +88,29 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 }
 
 // ListBuildPlanes retrieves all build planes for an organization
-func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string) ([]models.BuildPlaneResponse, error) {
-	s.logger.Debug("Listing build planes", "org", orgName)
+func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.BuildPlaneResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing build planes", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	// List all build planes in the organization namespace
 	var buildPlanes openchoreov1alpha1.BuildPlaneList
-	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
-	if err != nil {
-		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
-		return nil, fmt.Errorf("failed to list build planes: %w", err)
+
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	s.logger.Debug("Found build planes", "count", len(buildPlanes.Items), "org", orgName)
+	if err := s.k8sClient.List(ctx, &buildPlanes, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "build planes")
+	}
+
+	s.logger.Debug("Found build planes", "count", len(buildPlanes.Items), "org", orgName, "hasMore", buildPlanes.Continue != "")
 
 	// Convert to response format
-	buildPlaneResponses := make([]models.BuildPlaneResponse, 0, len(buildPlanes.Items))
+	buildPlaneResponses := make([]*models.BuildPlaneResponse, 0, len(buildPlanes.Items))
 	for _, buildPlane := range buildPlanes.Items {
 		displayName := buildPlane.Annotations[controller.AnnotationKeyDisplayName]
 		description := buildPlane.Annotations[controller.AnnotationKeyDescription]
@@ -116,7 +124,7 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			observabilityPlaneRef = buildPlane.Spec.ObservabilityPlaneRef
 		}
 
-		buildPlaneResponse := models.BuildPlaneResponse{
+		buildPlaneResponse := &models.BuildPlaneResponse{
 			Name:                  buildPlane.Name,
 			Namespace:             buildPlane.Namespace,
 			DisplayName:           displayName,
@@ -131,5 +139,12 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 		buildPlaneResponses = append(buildPlaneResponses, buildPlaneResponse)
 	}
 
-	return buildPlaneResponses, nil
+	return &models.ListResponse[*models.BuildPlaneResponse]{
+		Items: buildPlaneResponses,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: buildPlanes.ResourceVersion,
+			Continue:        buildPlanes.Continue,
+			HasMore:         buildPlanes.Continue != "",
+		},
+	}, nil
 }
