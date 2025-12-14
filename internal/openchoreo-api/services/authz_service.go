@@ -66,27 +66,67 @@ func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 }
 
 // RemoveRole deletes an authorization role
-func (s *AuthzService) RemoveRole(ctx context.Context, roleName string) error {
-	s.logger.Debug("Removing authorization role", "role", roleName)
+// If force is true, it will also remove all associated role-entitlement mappings
+func (s *AuthzService) RemoveRole(ctx context.Context, roleName string, force bool) error {
+	s.logger.Debug("Removing authorization role", "role", roleName, "force", force)
 
-	if err := s.pap.RemoveRole(ctx, roleName); err != nil {
-		return fmt.Errorf("failed to remove role: %w", err)
+	if force {
+		if err := s.pap.ForceRemoveRole(ctx, roleName); err != nil {
+			return fmt.Errorf("failed to force remove role: %w", err)
+		}
+		s.logger.Debug("Authorization role and mappings removed", "role", roleName)
+	} else {
+		if err := s.pap.RemoveRole(ctx, roleName); err != nil {
+			return fmt.Errorf("failed to remove role: %w", err)
+		}
+		s.logger.Debug("Authorization role removed", "role", roleName)
 	}
 
-	s.logger.Debug("Authorization role removed", "role", roleName)
 	return nil
 }
 
-// ListRoleMappings lists all role-entitlement mappings (role mappings)
-func (s *AuthzService) ListRoleMappings(ctx context.Context) ([]*authz.RoleEntitlementMapping, error) {
-	s.logger.Debug("Listing authorization role mappings")
+// UpdateRole updates an existing authorization role
+func (s *AuthzService) UpdateRole(ctx context.Context, role *authz.Role) error {
+	s.logger.Debug("Updating authorization role", "role", role.Name, "actions", role.Actions)
 
-	mappings, err := s.pap.ListRoleEntitlementMappings(ctx)
+	if err := s.pap.UpdateRole(ctx, role); err != nil {
+		return fmt.Errorf("failed to update role: %w", err)
+	}
+
+	s.logger.Debug("Authorization role updated", "role", role.Name)
+	return nil
+}
+
+// ListRoleMappings lists role-entitlement mappings with optional filters
+// Supports filtering by:
+//   - roleName: Filter by role name
+//   - claim & value: Filter by entitlement (both must be provided together)
+func (s *AuthzService) ListRoleMappings(ctx context.Context, roleName, claim, value string) ([]*authz.RoleEntitlementMapping, error) {
+	s.logger.Debug("Listing authorization role mappings with filters",
+		"role", roleName, "claim", claim, "value", value)
+
+	var filter *authz.RoleEntitlementMappingFilter
+	if roleName != "" || (claim != "" && value != "") {
+		filter = &authz.RoleEntitlementMappingFilter{}
+
+		if roleName != "" {
+			filter.RoleName = &roleName
+		}
+
+		if claim != "" && value != "" {
+			filter.Entitlement = &authz.Entitlement{
+				Claim: claim,
+				Value: value,
+			}
+		}
+	}
+
+	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
 	}
 
-	s.logger.Debug("Listed authorization role mappings", "count", len(mappings))
+	s.logger.Debug("Listed authorization role mappings with filters", "count", len(mappings))
 	return mappings, nil
 }
 
@@ -101,11 +141,22 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 	if err := s.pap.AddRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to add policy: %w", err)
 	}
+	return nil
+}
 
-	s.logger.Debug("Authorization policy added",
+// UpdateRoleMapping updates an existing role-entitlement mapping
+func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
+	s.logger.Debug("Updating authorization role entitlement mapping",
+		"mapping_id", mapping.ID,
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
-		"role", mapping.RoleName)
+		"role", mapping.RoleName,
+		"hierarchy", mapping.Hierarchy)
+
+	if err := s.pap.UpdateRoleEntitlementMapping(ctx, mapping); err != nil {
+		return fmt.Errorf("failed to update role mapping: %w", err)
+	}
+	s.logger.Debug("Authorization role entitlement mapping updated", "mapping_id", mapping.ID)
 	return nil
 }
 

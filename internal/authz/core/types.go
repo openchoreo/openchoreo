@@ -164,6 +164,15 @@ type RoleEntitlementMapping struct {
 	IsInternal bool `json:"-"`
 }
 
+// RoleEntitlementMappingFilter provides filters for listing role-entitlement mappings
+type RoleEntitlementMappingFilter struct {
+	// RoleName filters mappings by role name
+	RoleName *string
+
+	// Entitlement filters mappings by entitlement claim and value
+	Entitlement *Entitlement
+}
+
 // ActionCapability represents capabilities for a specific action
 type ActionCapability struct {
 	Allowed []*CapabilityResource `json:"allowed"`
@@ -188,7 +197,9 @@ var (
 	ErrAuthzDisabled                  = fmt.Errorf("authorization is disabled - policy management operations are not available")
 	ErrRoleAlreadyExists              = fmt.Errorf("role already exists")
 	ErrRoleNotFound                   = fmt.Errorf("role not found")
+	ErrRoleInUse                      = fmt.Errorf("role is in use and cannot be deleted")
 	ErrRolePolicyMappingAlreadyExists = fmt.Errorf("role policy mapping already exists")
 	ErrRolePolicyMappingNotFound      = fmt.Errorf("role policy mapping not found")
+	ErrCannotDeleteSystemMapping      = fmt.Errorf("cannot delete system mapping")
 	ErrInvalidRequest                 = fmt.Errorf("invalid request")
 )
