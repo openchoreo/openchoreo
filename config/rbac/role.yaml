@@ -85,7 +85,6 @@ rules:
   - observabilityalertrules
   - observabilityalertsnotificationchannels
   - observabilityplanes
-  - gitrepositorywebhooks
   - organizations
   - projects
   - releasebindings
@@ -146,7 +145,6 @@ rules:
   - deploymenttracks/status
   - environments/status
   - gitcommitrequests/status
-  - gitrepositorywebhooks/status
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status

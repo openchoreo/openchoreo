@@ -8,7 +8,7 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -620,11 +620,6 @@ func (in *ComponentStatus) DeepCopyInto(out *ComponentStatus) {
 	if in.LatestRelease != nil {
 		in, out := &in.LatestRelease, &out.LatestRelease
 		*out = new(LatestRelease)
-		**out = **in
-	}
-	if in.WebhookRegistered != nil {
-		in, out := &in.WebhookRegistered, &out.WebhookRegistered
-		*out = new(bool)
 		**out = **in
 	}
 }
