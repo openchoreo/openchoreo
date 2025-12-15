@@ -5,12 +5,10 @@ package services
 
 import (
 	"log/slog"
-	"os"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 type Services struct {
@@ -36,27 +34,17 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"))
 
-	// Initialize Git Provider from environment
-	gitProvider := initializeGitProvider(logger)
-
-	// Get webhook base URL from environment
-	webhookBaseURL := os.Getenv("WEBHOOK_BASE_URL")
-	if webhookBaseURL == "" {
-		logger.Warn("WEBHOOK_BASE_URL not set, using default", "default", "http://localhost:8080")
-		webhookBaseURL = "http://localhost:8080"
-	}
-
 	// Create build plane service with client manager for multi-cluster support
 	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
 
 	// Create component workflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "component-workflow"))
 
-	// Create GitHub webhook service (depends on component workflow service and git provider)
-	githubWebhookService := NewGitHubWebhookService(k8sClient, gitProvider, componentWorkflowService)
+	// Create GitHub webhook service (simplified - no git provider needed)
+	githubWebhookService := NewGitHubWebhookService(k8sClient, componentWorkflowService)
 
-	// Create component service (depends on project service and git provider)
-	componentService := NewComponentService(k8sClient, projectService, gitProvider, webhookBaseURL, logger.With("service", "component"))
+	// Create component service (depends on project service)
+	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"))
 
 	// Create organization service
 	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"))
@@ -102,35 +90,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		GitHubWebhookService:      githubWebhookService,
 		k8sClient:                 k8sClient,
 	}
-}
-
-// initializeGitProvider initializes the git provider based on environment variables
-func initializeGitProvider(logger *slog.Logger) git.Provider {
-	gitProviderType := os.Getenv("GIT_PROVIDER")
-	if gitProviderType == "" {
-		gitProviderType = "github" // Default to GitHub
-	}
-
-	gitToken := os.Getenv("GIT_TOKEN")
-	if gitToken == "" {
-		logger.Warn("GIT_TOKEN not set, git provider will not be able to create webhooks")
-	}
-
-	gitBaseURL := os.Getenv("GIT_BASE_URL") // For GitHub Enterprise
-
-	config := git.ProviderConfig{
-		Token:   gitToken,
-		BaseURL: gitBaseURL,
-	}
-
-	provider, err := git.GetProvider(git.ProviderType(gitProviderType), config)
-	if err != nil {
-		logger.Error("Failed to initialize git provider", "error", err, "type", gitProviderType)
-		return nil
-	}
-
-	logger.Info("Git provider initialized", "type", gitProviderType)
-	return provider
 }
 
 // GetKubernetesClient returns the Kubernetes client for direct API operations

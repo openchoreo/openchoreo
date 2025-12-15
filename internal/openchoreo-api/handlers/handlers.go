@@ -60,8 +60,10 @@ func (h *Handler) Routes() http.Handler {
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
 
-	// Webhook endpoint (public - called by GitHub)
+	// Webhook endpoints (public - called by Git providers)
 	routes.HandleFunc("POST "+v1+"/webhooks/github", h.HandleGitHubWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/gitlab", h.HandleGitLabWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/bitbucket", h.HandleBitbucketWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
@@ -161,11 +163,6 @@ func (h *Handler) Routes() http.Handler {
 	// Workload management
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
-
-	// Webhook management (protected - requires authentication)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.RegisterWebhook)
-	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.DeregisterWebhook)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/webhook", h.GetWebhookStatus)
 
 	return mux
 }
