@@ -15,4 +15,17 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      hostname: {{ .Values.gateway.tls.hostname | default "*.openchoreoapis.localhost" | quote }}
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: openchoreo-gateway-tls
+            namespace: {{ .Release.Namespace }}
 {{- end }}
