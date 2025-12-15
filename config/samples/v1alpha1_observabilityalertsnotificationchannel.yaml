@@ -1,0 +1,20 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: observabilityalertsnotificationchannel-sample
+spec:
+  type: email
+  config:
+    email:
+      from: test@example.com
+      to:
+        - test@example.com
+      smtp:
+        host: smtp.example.com
+        port: 587
+      template:
+        subject: "[${alert.severity}] - ${alert.name} Triggered"
+        body: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"

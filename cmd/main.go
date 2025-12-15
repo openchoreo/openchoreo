@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
+	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
@@ -395,6 +396,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityPlane")
 		os.Exit(1)
 	}
+	if err = (&observabilityalertsnotificationchannel.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityAlertsNotificationChannel")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	// -----------------------------------------------------------------------------

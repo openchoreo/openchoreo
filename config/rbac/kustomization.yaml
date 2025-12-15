@@ -89,3 +89,6 @@ resources:
   - observabilityplane_admin_role.yaml
   - observabilityplane_editor_role.yaml
   - observabilityplane_viewer_role.yaml
+  - observabilityalertsnotificationchannel_admin_role.yaml
+  - observabilityalertsnotificationchannel_editor_role.yaml
+  - observabilityalertsnotificationchannel_viewer_role.yaml
