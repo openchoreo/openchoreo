@@ -557,6 +557,74 @@ dynamicHash: ${oc_hash(metadata.value)}
 dynamicHash: 578fbe87
 `,
 		},
+		{
+			name: "CEL reserved keywords as field names",
+			template: `
+varValue: ${parameters.var}
+namespaceValue: ${parameters.namespace}
+forValue: ${parameters.for}
+ifValue: ${parameters.if}
+returnValue: ${parameters.return}
+`,
+			inputs: `{
+  "parameters": {
+    "var": "var-value",
+    "namespace": "my-namespace",
+    "for": "for-value",
+    "if": "if-value",
+    "return": "return-value"
+  }
+}`,
+			want: `varValue: var-value
+namespaceValue: my-namespace
+forValue: for-value
+ifValue: if-value
+returnValue: return-value
+`,
+		},
+		{
+			name: "CEL reserved keywords in nested field access",
+			template: `
+config:
+  loopVar: ${parameters.forEach.var}
+  condition: ${parameters.forEach.if}
+`,
+			inputs: `{
+  "parameters": {
+    "forEach": {
+      "var": "item",
+      "if": "enabled"
+    }
+  }
+}`,
+			want: `config:
+  loopVar: item
+  condition: enabled
+`,
+		},
+		{
+			name: "has() function with CEL reserved keyword field names",
+			template: `
+hasVar: "${has(parameters.var)}"
+hasNamespace: "${has(parameters.namespace)}"
+hasFor: "${has(parameters.for)}"
+hasMissing: "${has(parameters.missing)}"
+varValue: "${has(parameters.var) ? parameters.var : 'default'}"
+`,
+			inputs: `{
+  "parameters": {
+    "var": "loop-variable",
+    "namespace": "my-ns",
+    "for": "iteration"
+  }
+}`,
+			want: `hasVar: true
+hasNamespace: true
+hasFor: true
+hasMissing: false
+varValue: loop-variable
+`,
+		},
 	}
 
 	engine := NewEngine()
