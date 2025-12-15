@@ -618,7 +618,6 @@ func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha
 	}
 }
 
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.IsGitOpsMode = true

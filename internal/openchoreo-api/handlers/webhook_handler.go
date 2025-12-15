@@ -19,9 +19,9 @@ import (
 
 const (
 	// WebhookSecretName is the name of the Kubernetes Secret containing webhook secrets
-	WebhookSecretName = "git-webhook-secrets"
+	WebhookSecretName = "git-webhook-secrets" // #nosec G101 -- This is a secret name, not a hardcoded credential
 	// WebhookSecretNamespace is the namespace where the webhook secret is stored
-	WebhookSecretNamespace = "openchoreo-control-plane"
+	WebhookSecretNamespace = "openchoreo-control-plane" // #nosec G101 -- This is a namespace name, not a credential
 )
 
 // HandleGitHubWebhook processes incoming GitHub webhook events

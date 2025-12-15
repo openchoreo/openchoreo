@@ -2502,21 +2502,6 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 	return nil
 }
 
-// extractRepoURLFromComponent extracts the repository URL from component workflow system parameters
-func (s *ComponentService) extractRepoURLFromComponent(comp *openchoreov1alpha1.Component) (string, error) {
-	if comp.Spec.Workflow == nil {
-		return "", fmt.Errorf("component has no workflow configuration")
-	}
-
-	// Extract repository URL from system parameters
-	repoURL := comp.Spec.Workflow.SystemParameters.Repository.URL
-	if repoURL == "" {
-		return "", fmt.Errorf("repository URL not found in workflow system parameters")
-	}
-
-	return repoURL, nil
-}
-
 // ListComponentTraits returns all trait instances attached to a component
 func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentTraitResponse, error) {
 	s.logger.Debug("Listing component traits", "org", orgName, "project", projectName, "component", componentName)
