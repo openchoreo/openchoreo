@@ -91,6 +91,21 @@ labels:
 
 ## CEL Capabilities
 
+### Map Access Notation
+
+Both dot notation and bracket notation work for accessing map fields:
+
+```yaml
+# These are equivalent for static keys:
+${workload.containers.app.image}
+${workload.containers["app"].image}
+```
+
+Bracket notation is **required** for:
+- **Dynamic keys** (variables): `${configurations[parameters.containerName].configs.envs}`
+- **Keys with special characters**: `${resource.metadata.labels["app.kubernetes.io/name"]}`
+- **Optional dynamic keys**: `${configurations[?containerName].?configs.orValue({})}`
+
 ### Conditional Logic
 
 ```yaml
@@ -128,8 +143,11 @@ resources: |
 ### Safe Navigation
 
 ```yaml
-# Optional chaining with ?
+# Optional chaining with ? for static keys
 customValue: ${parameters.?custom.?value.orValue("default")}
+
+# Optional index access with dynamic keys
+containerConfig: ${configurations[?containerName].?configs.?envs.orValue([])}
 
 # Map with optional keys (entire map must be inside CEL expression)
 config: |
@@ -153,6 +171,22 @@ lastItem: ${parameters.items[size(parameters.items) - 1]}
 sortedItems: ${parameters.items.sort()}
 uniqueItems: ${sets.unique(parameters.items)}
 joined: ${parameters.items.join(",")}
+
+# Flatten nested lists
+flattened: ${[[1, 2], [3, 4]].flatten()}  # returns [1, 2, 3, 4]
+
+# Flatten with depth limit
+partial: ${[[1, [2, 3]], [4]].flatten(1)}  # returns [1, [2, 3], 4]
+
+# Flatten combined with transformList - useful for iterating over all items
+# across multiple containers/groups
+allFiles: |
+  ${configurations.transformList(containerName, cfg,
+    has(cfg.files) ? cfg.files.map(f, {
+      "container": containerName,
+      "name": f.name
+    }) : []
+  ).flatten()}
 ```
 
 ### Map Operations
@@ -187,6 +221,14 @@ uppercaseName: ${metadata.name.upperAscii()}
 trimmedValue: ${parameters.value.trim()}
 replaced: ${parameters.text.replace("old", "new")}
 prefixed: ${parameters.value.startsWith("prefix")}
+
+# Split string into list
+parts: ${parameters.path.split("/")}                    # "/a/b/c" → ["", "a", "b", "c"]
+limited: ${parameters.text.split(",", 2)}               # "a,b,c" → ["a", "b,c"]
+
+# Extract substring
+suffix: ${parameters.name.substring(4)}                 # "hello-world" → "o-world"
+middle: ${parameters.name.substring(0, 5)}              # "hello-world" → "hello"
 ```
 
 ### Math Operations
@@ -196,6 +238,16 @@ prefixed: ${parameters.value.startsWith("prefix")}
 maxValue: ${math.greatest([parameters.min, parameters.max, parameters.default])}
 minValue: ${math.least([parameters.v1, parameters.v2, parameters.v3])}
 rounded: ${math.ceil(parameters.floatValue)}
+```
+
+### Encoding Operations
+
+```yaml
+# Base64 encode a string (must convert to bytes first)
+encoded: ${base64.encode(bytes(parameters.value))}
+
+# Base64 decode to bytes, then convert to string
+decoded: ${string(base64.decode(parameters.encodedValue))}
 ```
 
 ## Built-in Functions
