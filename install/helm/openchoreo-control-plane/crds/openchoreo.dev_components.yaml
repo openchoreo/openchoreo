@@ -54,8 +54,8 @@ spec:
               autoBuild:
                 description: |-
                   AutoBuild enables automatic builds when code is pushed to the repository
-                  When enabled, the component controller will register a webhook with the git provider
-                  to trigger builds automatically on push events
+                  When enabled, webhook events will trigger builds automatically
+                  Users must manually configure webhooks in their Git provider
                 type: boolean
               autoDeploy:
                 description: |-
@@ -289,20 +289,6 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              webhookID:
-                description: |-
-                  WebhookID stores the webhook ID from the git provider
-                  Used for webhook management (updates, deletion)
-                type: string
-              webhookProvider:
-                description: WebhookProvider stores the git provider type (github,
-                  gitlab, bitbucket)
-                type: string
-              webhookRegistered:
-                description: |-
-                  WebhookRegistered indicates whether a webhook has been successfully registered
-                  with the git provider for auto-build functionality
-                type: boolean
             type: object
         type: object
     served: true
