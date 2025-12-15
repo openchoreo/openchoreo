@@ -12,11 +12,12 @@ type AlertingRuleRequest struct {
 
 // AlertingRuleMetadata contains metadata about an alerting rule
 type AlertingRuleMetadata struct {
-	Name           string `json:"name"`
-	ComponentUID   string `json:"component-uid"`
-	ProjectUID     string `json:"project-uid"`
-	EnvironmentUID string `json:"environment-uid"`
-	Severity       string `json:"severity"`
+	Name                      string `json:"name"`
+	ComponentUID              string `json:"component-uid"`
+	ProjectUID                string `json:"project-uid"`
+	EnvironmentUID            string `json:"environment-uid"`
+	Severity                  string `json:"severity"`
+	EnableAiRootCauseAnalysis bool   `json:"enableAiRootCauseAnalysis"`
 }
 
 // AlertingRuleSource defines the source of data for the alerting rule

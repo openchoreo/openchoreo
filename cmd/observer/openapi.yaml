@@ -1067,6 +1067,10 @@ components:
           type: string
           description: Severity level of the alert
           example: "high"
+        enableAiRootCauseAnalysis:
+          type: boolean
+          description: Enable AI-powered root cause analysis for this alerting rule
+          example: false
 
     AlertingRuleSource:
       type: object
