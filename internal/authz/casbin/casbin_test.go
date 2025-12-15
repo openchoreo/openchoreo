@@ -507,37 +507,69 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	role := &authzcore.Role{
-		Name:    "removable-role",
-		Actions: []string{"component:read"},
-	}
+	t.Run("success - remove role with no mappings", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "removable-role",
+			Actions: []string{"component:read"},
+		}
 
-	// Add role
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
+		// Add role
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
 
-	// Remove role
-	err := enforcer.RemoveRole(ctx, "removable-role")
-	if err != nil {
-		t.Fatalf("RemoveRole() error = %v", err)
-	}
+		// Remove role
+		err := enforcer.RemoveRole(ctx, "removable-role")
+		if err != nil {
+			t.Fatalf("RemoveRole() error = %v", err)
+		}
 
-	// Verify role was removed
-	_, err = enforcer.GetRole(ctx, "removable-role")
-	if err == nil {
-		t.Error("GetRole() after remove should return error")
-	}
-}
+		// Verify role was removed
+		_, err = enforcer.GetRole(ctx, "removable-role")
+		if err == nil {
+			t.Error("GetRole() after remove should return error")
+		}
+	})
 
-func TestCasbinEnforcer_RemoveRole_NonExistent(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
+	t.Run("non-existent role", func(t *testing.T) {
+		err := enforcer.RemoveRole(ctx, "non-existent-role")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
 
-	err := enforcer.RemoveRole(ctx, "non-existent-role")
-	if !errors.Is(err, authzcore.ErrRoleNotFound) {
-		t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
-	}
+	t.Run("role in use", func(t *testing.T) {
+		// Create a role
+		role := &authzcore.Role{
+			Name:    "in-use-role",
+			Actions: []string{"component:read", "component:write"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Create a role-entitlement mapping that uses this role
+		mapping := &authzcore.RoleEntitlementMapping{
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "test-group",
+			},
+			RoleName: "in-use-role",
+			Hierarchy: authzcore.ResourceHierarchy{
+				Organization: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
+			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Attempt to remove the role - should fail because it's in use
+		err := enforcer.RemoveRole(ctx, "in-use-role")
+		if !errors.Is(err, authzcore.ErrRoleInUse) {
+			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
+		}
+	})
 }
 
 func TestCasbinEnforcer_GetRole(t *testing.T) {
@@ -1229,4 +1261,384 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCasbinEnforcer_ForceRemoveRole tests force removal of roles
+func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("force remove role with associated mappings", func(t *testing.T) {
+		// Setup: Create role
+		role := &authzcore.Role{
+			Name:    "force-removable",
+			Actions: []string{"component:read"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Add a mapping for this role
+		mapping := &authzcore.RoleEntitlementMapping{
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "test-group",
+			},
+			RoleName: "force-removable",
+			Hierarchy: authzcore.ResourceHierarchy{
+				Organization: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
+			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Force remove the role
+		err := enforcer.ForceRemoveRole(ctx, "force-removable")
+		if err != nil {
+			t.Fatalf("ForceRemoveRole() error = %v", err)
+		}
+
+		// Verify role is gone
+		_, err = enforcer.GetRole(ctx, "force-removable")
+		if err == nil {
+			t.Error("ForceRemoveRole() role still exists after removal")
+		}
+
+		// Verify mappings are gone
+		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, &authzcore.RoleEntitlementMappingFilter{
+			RoleName: strPtr("force-removable"),
+		})
+		if err != nil {
+			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+		}
+		if len(mappings) != 0 {
+			t.Errorf("ForceRemoveRole() expected 0 mappings, got %d", len(mappings))
+		}
+	})
+
+	t.Run("force remove non-existent role", func(t *testing.T) {
+		err := enforcer.ForceRemoveRole(ctx, "non-existent")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("ForceRemoveRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("force remove role without mappings", func(t *testing.T) {
+		// Setup: Create role without mappings
+		role := &authzcore.Role{
+			Name:    "no-mappings-role",
+			Actions: []string{"component:read"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Force remove should succeed
+		err := enforcer.ForceRemoveRole(ctx, "no-mappings-role")
+		if err != nil {
+			t.Fatalf("ForceRemoveRole() error = %v", err)
+		}
+
+		// Verify role is gone
+		_, err = enforcer.GetRole(ctx, "no-mappings-role")
+		if err == nil {
+			t.Error("ForceRemoveRole() role still exists after removal")
+		}
+	})
+}
+
+// TestCasbinEnforcer_UpdateRole tests updating existing roles
+func TestCasbinEnforcer_UpdateRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("update role with both added and removed actions", func(t *testing.T) {
+		// Setup: Create role
+		role := &authzcore.Role{
+			Name:    "mixed-update-role",
+			Actions: []string{"component:read", "component:write", "project:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Update: remove component:write, keep component:read, add component:delete
+		updatedRole := &authzcore.Role{
+			Name:    "mixed-update-role",
+			Actions: []string{"component:read", "component:delete"},
+		}
+		err := enforcer.UpdateRole(ctx, updatedRole)
+		if err != nil {
+			t.Fatalf("UpdateRole() error = %v", err)
+		}
+
+		// Verify updated actions
+		retrieved, err := enforcer.GetRole(ctx, "mixed-update-role")
+		if err != nil {
+			t.Fatalf("GetRole() error = %v", err)
+		}
+
+		if len(retrieved.Actions) != 2 {
+			t.Errorf("UpdateRole() got %d actions, want 2", len(retrieved.Actions))
+		}
+
+		expectedActions := map[string]bool{
+			"component:read":   true,
+			"component:delete": true,
+		}
+		for _, action := range retrieved.Actions {
+			if !expectedActions[action] {
+				t.Errorf("UpdateRole() unexpected action: %s", action)
+			}
+		}
+	})
+
+	t.Run("update role with empty actions should fail", func(t *testing.T) {
+		// Setup: Create role
+		role := &authzcore.Role{
+			Name:    "removable-actions-role",
+			Actions: []string{"component:read", "component:write"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Attempt to update with empty actions - should fail
+		updatedRole := &authzcore.Role{
+			Name:    "removable-actions-role",
+			Actions: []string{},
+		}
+		err := enforcer.UpdateRole(ctx, updatedRole)
+		if err == nil {
+			t.Error("UpdateRole() with empty actions should return error")
+		}
+
+		// Verify role still has original actions
+		retrieved, err := enforcer.GetRole(ctx, "removable-actions-role")
+		if err != nil {
+			t.Fatalf("GetRole() error = %v", err)
+		}
+
+		if len(retrieved.Actions) != 2 {
+			t.Errorf("UpdateRole() failed but role actions changed, got %d actions, want 2", len(retrieved.Actions))
+		}
+	})
+
+	t.Run("update non-existent role", func(t *testing.T) {
+		nonExistentRole := &authzcore.Role{
+			Name:    "does-not-exist",
+			Actions: []string{"component:read"},
+		}
+		err := enforcer.UpdateRole(ctx, nonExistentRole)
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("UpdateRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_UpdateRoleEntitlementMapping tests updating mappings
+func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create role
+	role := &authzcore.Role{
+		Name:    "update-test-role",
+		Actions: []string{"component:read"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	t.Run("update existing mapping", func(t *testing.T) {
+		mapping := &authzcore.RoleEntitlementMapping{
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "dev-group",
+			},
+			RoleName: "update-test-role",
+			Hierarchy: authzcore.ResourceHierarchy{
+				Organization: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
+			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Get mapping ID
+		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
+		if err != nil {
+			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+		}
+
+		var mappingID uint
+		for _, m := range mappings {
+			if m.RoleName == "update-test-role" && m.Entitlement.Value == "dev-group" {
+				mappingID = m.ID
+				break
+			}
+		}
+
+		if mappingID == 0 {
+			t.Fatal("Could not find created mapping")
+		}
+
+		// Update the mapping
+		updatedMapping := &authzcore.RoleEntitlementMapping{
+			ID: mappingID,
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "prod-group",
+			},
+			RoleName: "update-test-role",
+			Hierarchy: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p1",
+			},
+			Effect: authzcore.PolicyEffectDeny,
+		}
+
+		err = enforcer.UpdateRoleEntitlementMapping(ctx, updatedMapping)
+		if err != nil {
+			t.Fatalf("UpdateRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Verify update
+		mappings, err = enforcer.ListRoleEntitlementMappings(ctx, nil)
+		if err != nil {
+			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+		}
+
+		var found bool
+		for _, m := range mappings {
+			if m.ID == mappingID {
+				found = true
+				if m.Entitlement.Value != "prod-group" {
+					t.Errorf("UpdateRoleEntitlementMapping() entitlement value = %s, want prod-group", m.Entitlement.Value)
+				}
+				if m.Hierarchy.Project != "p1" {
+					t.Errorf("UpdateRoleEntitlementMapping() project = %s, want p1", m.Hierarchy.Project)
+				}
+				if m.Effect != authzcore.PolicyEffectDeny {
+					t.Errorf("UpdateRoleEntitlementMapping() effect = %s, want deny", m.Effect)
+				}
+				break
+			}
+		}
+
+		if !found {
+			t.Error("UpdateRoleEntitlementMapping() updated mapping not found")
+		}
+	})
+
+	t.Run("update non-existent mapping", func(t *testing.T) {
+		mapping := &authzcore.RoleEntitlementMapping{
+			ID: 999999, // Non-existent ID
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "test",
+			},
+			RoleName: "update-test-role",
+			Hierarchy: authzcore.ResourceHierarchy{
+				Organization: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+
+		err := enforcer.UpdateRoleEntitlementMapping(ctx, mapping)
+		if !errors.Is(err, authzcore.ErrRolePolicyMappingNotFound) {
+			t.Errorf("UpdateRoleEntitlementMapping() error = %v, want ErrRolePolicyMappingNotFound", err)
+		}
+	})
+}
+
+// TestComputeActionsDiff tests the action diff computation
+func TestComputeActionsDiff(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingActions []string
+		newActions      []string
+		wantAdded       []string
+		wantRemoved     []string
+	}{
+		{
+			name:            "completely different action sets",
+			existingActions: []string{"component:read", "component:write"},
+			newActions:      []string{"project:view", "project:create"},
+			wantAdded:       []string{"project:view", "project:create"},
+			wantRemoved:     []string{"component:read", "component:write"},
+		},
+		{
+			name:            "identical action sets",
+			existingActions: []string{"component:read", "component:write"},
+			newActions:      []string{"component:read", "component:write"},
+			wantAdded:       []string{},
+			wantRemoved:     []string{},
+		},
+		{
+			name:            "only additions",
+			existingActions: []string{"component:read"},
+			newActions:      []string{"component:read", "component:write", "component:delete"},
+			wantAdded:       []string{"component:write", "component:delete"},
+			wantRemoved:     []string{},
+		},
+		{
+			name:            "only removals",
+			existingActions: []string{"component:read", "component:write", "component:delete"},
+			newActions:      []string{"component:read"},
+			wantAdded:       []string{},
+			wantRemoved:     []string{"component:write", "component:delete"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			added, removed := computeActionsDiff(tt.existingActions, tt.newActions)
+
+			// Convert to maps for comparison (order doesn't matter)
+			addedMap := make(map[string]bool)
+			for _, a := range added {
+				addedMap[a] = true
+			}
+			removedMap := make(map[string]bool)
+			for _, r := range removed {
+				removedMap[r] = true
+			}
+
+			wantAddedMap := make(map[string]bool)
+			for _, a := range tt.wantAdded {
+				wantAddedMap[a] = true
+			}
+			wantRemovedMap := make(map[string]bool)
+			for _, r := range tt.wantRemoved {
+				wantRemovedMap[r] = true
+			}
+
+			if len(addedMap) != len(wantAddedMap) {
+				t.Errorf("computeActionsDiff() added count = %d, want %d", len(addedMap), len(wantAddedMap))
+			}
+			for action := range wantAddedMap {
+				if !addedMap[action] {
+					t.Errorf("computeActionsDiff() missing added action: %s", action)
+				}
+			}
+
+			if len(removedMap) != len(wantRemovedMap) {
+				t.Errorf("computeActionsDiff() removed count = %d, want %d", len(removedMap), len(wantRemovedMap))
+			}
+			for action := range wantRemovedMap {
+				if !removedMap[action] {
+					t.Errorf("computeActionsDiff() missing removed action: %s", action)
+				}
+			}
+		})
+	}
+}
+
+// Helper function to create string pointers
+func strPtr(s string) *string {
+	return &s
 }

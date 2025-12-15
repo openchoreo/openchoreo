@@ -386,7 +386,6 @@ func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleName string) error
 }
 
 // ForceRemoveRole deletes a role and all its associated role-entitlement mappings
-// TODO: Add transaction support if needed
 func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleName string) error {
 	ce.logger.Info("force remove role called", "role_name", roleName)
 
@@ -395,27 +394,27 @@ func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleName string) 
 	}
 
 	// Check if the role exists first
-	existingRules, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
+	roleRuleSet, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
 	if err != nil {
 		return fmt.Errorf("failed to check if role exists: %w", err)
 	}
-	if len(existingRules) == 0 {
+	if len(roleRuleSet) == 0 {
 		return authzcore.ErrRoleNotFound
 	}
 
-	// Get all p policies (role-entitlement mappings) that reference this role
-	policies, err := ce.enforcer.GetFilteredPolicy(2, roleName)
+	// Get all p mappingPolicies (role-entitlement mappings) that reference this role
+	mappingPolicies, err := ce.enforcer.GetFilteredPolicy(2, roleName)
 	if err != nil {
 		return fmt.Errorf("failed to get mappings using role: %w", err)
 	}
 
-	if len(policies) > 0 {
+	if len(mappingPolicies) > 0 {
 		ce.logger.Debug("removing role-entitlement mappings for role",
 			"role_name", roleName,
-			"mapping_count", len(policies))
+			"mapping_count", len(mappingPolicies))
 
 		// Remove all policies that reference this role
-		ok, err := ce.enforcer.RemoveFilteredPolicy(2, roleName)
+		ok, err := ce.enforcer.RemovePolicies(mappingPolicies)
 		if err != nil {
 			return fmt.Errorf("failed to remove policies using role: %w", err)
 		}
@@ -425,7 +424,7 @@ func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleName string) 
 	}
 
 	// Remove the role itself
-	ok, err := ce.enforcer.RemoveFilteredGroupingPolicy(0, roleName)
+	ok, err := ce.enforcer.RemoveGroupingPolicies(roleRuleSet)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
@@ -435,7 +434,7 @@ func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleName string) 
 
 	ce.logger.Debug("role and all associated mappings removed successfully",
 		"role_name", roleName,
-		"removed_mappings", len(policies))
+		"removed_mappings", len(mappingPolicies))
 
 	return nil
 }

@@ -567,3 +567,268 @@ func TestExpandActionWildcard(t *testing.T) {
 		})
 	}
 }
+
+// TestFormatSubject tests the formatSubject helper function
+func TestFormatSubject(t *testing.T) {
+	tests := []struct {
+		name    string
+		claim   string
+		value   string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "basic format",
+			claim:   "group",
+			value:   "developers",
+			want:    "group:developers",
+			wantErr: false,
+		},
+		{
+			name:    "service account format",
+			claim:   "service_account",
+			value:   "my-service",
+			want:    "service_account:my-service",
+			wantErr: false,
+		},
+		{
+			name:    "empty claim - should error",
+			claim:   "",
+			value:   "test",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "empty value - should error",
+			claim:   "group",
+			value:   "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "both empty - should error",
+			claim:   "",
+			value:   "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "value with special characters",
+			claim:   "group",
+			value:   "dev-team@acme.com",
+			want:    "group:dev-team@acme.com",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := formatSubject(tt.claim, tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("formatSubject(%q, %q) error = %v, wantErr %v", tt.claim, tt.value, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("formatSubject(%q, %q) = %q, want %q", tt.claim, tt.value, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseSubject tests the parseSubject helper function
+func TestParseSubject(t *testing.T) {
+	tests := []struct {
+		name      string
+		subject   string
+		wantClaim string
+		wantValue string
+		wantErr   bool
+	}{
+		{
+			name:      "basic parse",
+			subject:   "group:developers",
+			wantClaim: "group",
+			wantValue: "developers",
+			wantErr:   false,
+		},
+		{
+			name:      "service account parse",
+			subject:   "service_account:my-service",
+			wantClaim: "service_account",
+			wantValue: "my-service",
+			wantErr:   false,
+		},
+		{
+			name:      "empty claim",
+			subject:   ":test",
+			wantClaim: "",
+			wantValue: "test",
+			wantErr:   false,
+		},
+		{
+			name:      "empty value",
+			subject:   "group:",
+			wantClaim: "group",
+			wantValue: "",
+			wantErr:   false,
+		},
+		{
+			name:      "value with special characters",
+			subject:   "group:dev-team@acme.com",
+			wantClaim: "group",
+			wantValue: "dev-team@acme.com",
+			wantErr:   false,
+		},
+		{
+			name:      "value with multiple colons",
+			subject:   "group:namespace:team",
+			wantClaim: "group",
+			wantValue: "namespace:team",
+			wantErr:   false,
+		},
+		{
+			name:      "no colon - invalid format",
+			subject:   "groupdevelopers",
+			wantClaim: "",
+			wantValue: "",
+			wantErr:   true,
+		},
+		{
+			name:      "empty subject",
+			subject:   "",
+			wantClaim: "",
+			wantValue: "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotClaim, gotValue, err := parseSubject(tt.subject)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseSubject(%q) error = %v, wantErr %v", tt.subject, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if gotClaim != tt.wantClaim {
+					t.Errorf("parseSubject(%q) claim = %q, want %q", tt.subject, gotClaim, tt.wantClaim)
+				}
+				if gotValue != tt.wantValue {
+					t.Errorf("parseSubject(%q) value = %q, want %q", tt.subject, gotValue, tt.wantValue)
+				}
+			}
+		})
+	}
+}
+
+// TestExtractActionResourceType tests the helper function
+func TestExtractActionResourceType(t *testing.T) {
+	tests := []struct {
+		name   string
+		action string
+		want   string
+	}{
+		{
+			name:   "standard action",
+			action: "component:read",
+			want:   "component",
+		},
+		{
+			name:   "wildcard action",
+			action: "component:*",
+			want:   "component",
+		},
+		{
+			name:   "global wildcard",
+			action: "*",
+			want:   "*",
+		},
+		{
+			name:   "empty action",
+			action: "",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractActionResourceType(tt.action)
+			if got != tt.want {
+				t.Errorf("extractActionResourceType(%q) = %q, want %q", tt.action, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestIndexActions tests the action indexing helper
+func TestIndexActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		actions []Action
+		wantLen int
+	}{
+		{
+			name: "various action types",
+			actions: []Action{
+				{Action: "component:create"},
+				{Action: "component:read"},
+				{Action: "component:update"},
+				{Action: "component:delete"},
+				{Action: "project:view"},
+				{Action: "project:create"},
+				{Action: "organization:view"},
+			},
+			wantLen: 7,
+		},
+		{
+			name: "actions with wildcards",
+			actions: []Action{
+				{Action: "component:*"},
+				{Action: "*"},
+				{Action: "project:read"},
+			},
+			wantLen: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx := indexActions(tt.actions)
+
+			// Verify actions string list length
+			if len(idx.actionsStringList) != tt.wantLen {
+				t.Errorf("indexActions() actionsStringList length = %d, want %d", len(idx.actionsStringList), tt.wantLen)
+			}
+
+			// Verify all actions are in the string list
+			actionMap := make(map[string]bool)
+			for _, a := range idx.actionsStringList {
+				actionMap[a] = true
+			}
+			for _, action := range tt.actions {
+				if !actionMap[action.Action] {
+					t.Errorf("indexActions() missing action %q in actionsStringList", action.Action)
+				}
+			}
+
+			// Verify resource type grouping
+			for _, action := range tt.actions {
+				resourceType := extractActionResourceType(action.Action)
+				if actions, ok := idx.ByResourceType[resourceType]; ok {
+					found := false
+					for _, a := range actions {
+						if a == action.Action {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("indexActions() action %q not found in ByResourceType[%q]", action.Action, resourceType)
+					}
+				} else {
+					t.Errorf("indexActions() resource type %q not found in ByResourceType", resourceType)
+				}
+			}
+		})
+	}
+}
