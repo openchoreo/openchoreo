@@ -1,0 +1,44 @@
+{{- if .Values.global.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-observability-plane-ca
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+spec:
+  isCA: true
+  commonName: "OpenChoreo Observability Plane CA"
+  subject:
+    organizations:
+      - OpenChoreo
+  secretName: openchoreo-observability-plane-ca
+  duration: 87600h # 10 years
+  renewBefore: 720h # 30 days
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: self-signed-issuer
+    kind: Issuer
+    group: cert-manager.io
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-observability-plane-wildcard
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "1"
+spec:
+  secretName: openchoreo-observability-plane-wildcard
+  issuerRef:
+    name: openchoreo-observability-plane-ca-issuer
+    kind: Issuer
+  dnsNames:
+  - "{{ .Values.global.baseDomain }}"
+  - "*.{{ .Values.global.baseDomain }}"
+{{- end }}

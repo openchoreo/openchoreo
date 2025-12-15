@@ -1,0 +1,18 @@
+{{- if and .Values.openSearch.enabled .Values.traefik.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: opensearch
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`opensearch.{{ .Values.global.baseDomain }}`)
+      kind: Rule
+      services:
+        - name: opensearch
+          port: 9200
+          scheme: https
+          serversTransport: opensearch
+{{- end }}

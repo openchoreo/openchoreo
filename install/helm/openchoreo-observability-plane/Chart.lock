@@ -20,5 +20,8 @@ dependencies:
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
-digest: sha256:58c0047a8b4ac997d7f527707203c2517daae1fec49d711b6bfe3d97c775fb42
-generated: "2025-11-27T23:03:57.998503+05:30"
+- name: traefik
+  repository: https://traefik.github.io/charts
+  version: 37.4.0
+digest: sha256:f109484e5b9eba485ef072b512c06323addfdb7823e00bbd1cb6dc40af6f6e2f
+generated: "2025-12-15T10:34:04.048424+05:30"

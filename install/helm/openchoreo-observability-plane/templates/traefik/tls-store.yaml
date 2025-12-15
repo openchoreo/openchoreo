@@ -1,0 +1,10 @@
+{{- if .Values.traefik.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: openchoreo-observability-plane
+  namespace: {{ .Release.Namespace }}
+spec:
+  defaultCertificate:
+    secretName: openchoreo-observability-plane-wildcard
+{{- end }}

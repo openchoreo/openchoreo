@@ -60,3 +60,7 @@ dependencies:
     repository: https://opensearch-project.github.io/helm-charts/
     version: 3.3.0
     condition: openSearchDashboards.enabled
+  - name: traefik
+    repository: https://traefik.github.io/charts
+    version: "v37.4.0"
+    condition: traefik.enabled

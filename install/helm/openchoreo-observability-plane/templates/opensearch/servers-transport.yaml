@@ -1,0 +1,10 @@
+{{- if and .Values.openSearch.enabled .Values.traefik.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: opensearch
+  namespace: {{ .Release.Namespace }}
+spec:
+  serverName: opensearch.{{ .Release.Namespace }}.svc.cluster.local 
+  insecureSkipVerify: true  # OpenSearch cluster uses self-signed certificates
+{{- end }}

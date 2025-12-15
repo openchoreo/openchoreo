@@ -1,5 +1,9 @@
 # Global values shared across all components
 global:
+
+  # To be used with Traefik for future IngressRoute configurations
+  baseDomain: "observability.openchoreo.localhost"
+
   # Common labels to add to all resources
   commonLabels: {}
 
@@ -9,6 +13,10 @@ global:
   # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
   # quickStart: Limited set of features for quick-start setup
   installationMode: singleCluster
+
+  # To be used with cert-manager for TLS certificates
+  tls:
+    enabled: false
 
 data-prepper:
   enabled: false
@@ -487,6 +495,27 @@ prometheus:
     enabled: false
   nodeExporter:
     enabled: false
+
+# Note - Currently disabled since more changes are needed to enable Traefik IngressRoute support
+traefik:
+  enabled: false
+  fullnameOverride: "traefik"
+  
+  providers:
+    kubernetesCRD:
+      enabled: true
+      allowCrossNamespace: false 
+
+  ports:
+    websecure:
+      port: 443
+      exposedPort: 443
+      tls:
+        enabled: true
+
+  service:
+    enabled: true
+    type: LoadBalancer
 
 # Wait job configuration for post-install hooks
 waitJob:

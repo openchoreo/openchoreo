@@ -35,3 +35,15 @@ clusterAgent:
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
   planeName: default
   planeType: observabilityplane
+
+traefik:
+  # Don't create IngressClass - use existing one from K3d
+  ingressClass:
+    enabled: false
+  ports:
+    web:
+      port: 10080
+      exposedPort: 10080
+    websecure:
+      port: 10443
+      exposedPort: 10443 
