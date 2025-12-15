@@ -65,7 +65,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger)
+	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
 
 	// Health check endpoint
 	mux.HandleFunc("GET /health", handler.Health)
@@ -89,7 +89,7 @@ func main() {
 	// API routes - Alerting
 	mux.HandleFunc("PUT /api/alerting/rule/", handler.CreateOrUpdateAlertingRule)
 	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
-	mux.HandleFunc("POST /api/alerting/webhook", handler.AlertingWebhook) // Internal webhook for alerting
+	mux.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook) // Internal webhook for alerting
 
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))

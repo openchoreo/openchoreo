@@ -47,15 +47,17 @@ const (
 
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
-	service *service.LoggingService
-	logger  *slog.Logger
+	service               *service.LoggingService
+	logger                *slog.Logger
+	alertingWebhookSecret string
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger, alertingWebhookSecret string) *Handler {
 	return &Handler{
-		service: service,
-		logger:  logger,
+		service:               service,
+		logger:                logger,
+		alertingWebhookSecret: alertingWebhookSecret,
 	}
 }
 
@@ -628,8 +630,20 @@ func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, resp)
 }
 
-// AlertingWebhook handles POST /api/alerting/webhook
+// AlertingWebhook handles POST /api/alerting/webhook/{secret}
 func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
+	// Validate the shared webhook secret to ensure the request originates from a trusted source.
+	secret := httputil.GetPathParam(r, "secret")
+	if secret == "" || secret != h.alertingWebhookSecret {
+		h.logger.Warn("Received alerting webhook with invalid or missing secret",
+			"remoteAddr", r.RemoteAddr,
+			"secret", secret,
+			"expectedSecret", h.alertingWebhookSecret,
+		)
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
 	// TODO: Implement full alerting support
 	// Receive triggered alerts from the observability backends
 	// Send the notification to the appropriate channels
