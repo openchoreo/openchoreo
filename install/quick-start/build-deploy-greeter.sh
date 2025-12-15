@@ -256,7 +256,7 @@ if [[ -z "$HOSTNAME" ]] || [[ "$HOSTNAME" == "null" ]]; then
 fi
 
 # Construct the full service URL
-BASE_URL="http://${HOSTNAME}:9080"
+BASE_URL="http://${HOSTNAME}:19080"
 SERVICE_URL="${BASE_URL}${PATH_PREFIX}/greeter/greet"
 
 echo ""
