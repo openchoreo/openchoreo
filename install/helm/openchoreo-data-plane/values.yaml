@@ -208,7 +208,7 @@ fakeSecretStore:
 networking:
   enabled: true
 
-# Customizing security configurations  
+# Customizing security configurations
 security:
   enabled: true
 
@@ -232,13 +232,13 @@ fluentBit:
     repository: fluent/fluent-bit
     tag: "2.1.10"
     pullPolicy: IfNotPresent
-  
+
   config:
     service:
       flush: 1
       logLevel: info
       daemon: off
-    
+
     input:
       name: tail
       tag: "kube.*"
@@ -252,7 +252,7 @@ fluentBit:
       memBufLimit: "256MB"
       skipLongLines: true
       refreshInterval: 10
-    
+
     filter:
       name: kubernetes
       match: "kube.*"
@@ -264,18 +264,17 @@ fluentBit:
       mergeLogKey: "log_processed"
       k8sLoggingParser: true
       k8sLoggingExclude: false
-    
+
     output:
       name: opensearch
       match: "kube.*"
-      index: kubernetes_cluster
       type: flb_type
       logstashFormat: true
-      logstashPrefix: kubernetes
+      logstashPrefix: container-logs
       timeKey: "@timestamp"
       traceError: true
       suppressTypeName: true
-    
+
     # OpenSearch connection configuration
     opensearch:
       host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
@@ -286,18 +285,18 @@ fluentBit:
           password: "ThisIsTheOpenSearchPassword1"
       tls: true
       tlsVerify: false
-    
+
     parser:
       name: docker
       format: json
       timeKey: time
       timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
       timeKeep: true
-  
+
   rbac:
     create: true
     serviceAccountName: fluent-bit
-  
+
   hostPaths:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers

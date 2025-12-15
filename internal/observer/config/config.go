@@ -169,8 +169,8 @@ func getDefaults() map[string]interface{} {
 			"password":       "admin",
 			"timeout":        "180s",
 			"max.retries":    3,
-			"index.prefix":   "kubernetes-",
-			"index.pattern":  "kubernetes-*",
+			"index.prefix":   "container-logs-",
+			"index.pattern":  "container-logs-*",
 			"legacy.pattern": "choreo*",
 		},
 		"prometheus": map[string]interface{}{

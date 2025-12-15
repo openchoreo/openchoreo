@@ -614,7 +614,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		},
 		{
 			"wildcard": map[string]interface{}{
-				"log.keyword": fmt.Sprintf("*%s*", params.Source.Query),
+				"log": fmt.Sprintf("*%s*", params.Source.Query),
 			},
 		},
 	}
