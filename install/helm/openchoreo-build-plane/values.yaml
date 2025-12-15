@@ -192,7 +192,7 @@ fluentBit:
 
 # Cluster Agent configuration for agent-based communication with control plane
 clusterAgent:
-  enabled: false  # Set to true to enable cluster agent
+  enabled: true  # Enabled by default for single-cluster setups
   name: cluster-agent-buildplane
   replicas: 1
   image:

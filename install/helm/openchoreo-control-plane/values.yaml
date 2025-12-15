@@ -194,7 +194,8 @@ controllerManager:
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
     tls:
       caPath: /etc/cluster-gateway/ca.crt
-      caConfigMap: cluster-gateway-ca
+      # CA Secret created by cert-manager (contains ca.crt from cluster-gateway-ca Certificate)
+      caSecret: cluster-gateway-ca
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:
