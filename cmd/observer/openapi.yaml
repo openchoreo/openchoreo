@@ -20,6 +20,8 @@ tags:
     description: Trace retrieval endpoints
   - name: Metrics
     description: Resource metrics endpoints
+  - name: Alerting
+    description: Alerting rule management endpoints
   - name: Health
     description: Health check endpoints
 
@@ -352,6 +354,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/alerting/rule/:
+    put:
+      tags:
+        - Alerting
+      summary: Create or update alerting rule
+      description: Create or update an alerting rule for monitoring logs or metrics
+      operationId: createOrUpdateAlertingRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertingRuleRequest'
+      responses:
+        '200':
+          description: Successfully created or updated alerting rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertingRuleSyncResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/alerting/rule/{sourceType}/{ruleName}:
+    delete:
+      tags:
+        - Alerting
+      summary: Delete alerting rule
+      description: Delete an alerting rule by source type and rule name
+      operationId: deleteAlertingRule
+      parameters:
+        - name: sourceType
+          in: path
+          required: true
+          description: The source type of the alerting rule (e.g., "log", "metric")
+          schema:
+            type: string
+            example: "log"
+        - name: ruleName
+          in: path
+          required: true
+          description: The name of the alerting rule to delete
+          schema:
+            type: string
+            example: "high-error-rate"
+      responses:
+        '200':
+          description: Successfully deleted alerting rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertingRuleSyncResponse'
+        '404':
+          description: Alerting rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertingRuleSyncResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     BuildLogsRequest:
@@ -573,7 +656,7 @@ components:
             Trace ID to filter by (optional). Supports wildcard characters:
             - `*` matches zero or more characters
             - `?` matches exactly one character
-            
+
             Examples:
             - Exact match: `63d7c3065ab25375e6c5d6bb135a77db`
             - Prefix match: `63d7c3065ab2537*`
@@ -937,3 +1020,138 @@ components:
           type: string
           description: Human-readable error message
           example: "Invalid request format"
+
+    AlertingRuleRequest:
+      type: object
+      required:
+        - metadata
+        - source
+        - condition
+      properties:
+        metadata:
+          $ref: '#/components/schemas/AlertingRuleMetadata'
+        source:
+          $ref: '#/components/schemas/AlertingRuleSource'
+        condition:
+          $ref: '#/components/schemas/AlertingRuleCondition'
+
+    AlertingRuleMetadata:
+      type: object
+      required:
+        - name
+        - component-uid
+        - project-uid
+        - environment-uid
+        - severity
+      properties:
+        name:
+          type: string
+          description: Name of the alerting rule
+          example: "high-error-rate"
+        component-uid:
+          type: string
+          format: uuid
+          description: Component UID associated with the alerting rule
+          example: "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b"
+        project-uid:
+          type: string
+          format: uuid
+          description: Project UID associated with the alerting rule
+          example: "1c4e7a9b-3f6d-4e2a-8b5c-7d9f1e3a4c6b"
+        environment-uid:
+          type: string
+          format: uuid
+          description: Environment UID associated with the alerting rule
+          example: "2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c"
+        severity:
+          type: string
+          description: Severity level of the alert
+          example: "high"
+
+    AlertingRuleSource:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Source type for the alerting rule
+          enum:
+            - log
+          example: "log"
+        query:
+          type: string
+          description: Query string for log-based alert rules (required when type is "log")
+          example: "fields.message: *error*"
+
+    AlertingRuleCondition:
+      type: object
+      required:
+        - enabled
+        - window
+        - interval
+        - operator
+        - threshold
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the alerting rule is enabled
+          example: true
+        window:
+          type: string
+          description: Time window for evaluating the condition (e.g., "5m", "1h")
+          example: "5m"
+        interval:
+          type: string
+          description: Evaluation interval for the condition (e.g., "1m", "30s"). Must not exceed the window duration.
+          example: "1m"
+        operator:
+          type: string
+          description: Comparison operator for the condition
+          enum:
+            - gt
+            - gte
+            - lt
+            - lte
+            - eq
+            - neq
+          example: "gt"
+        threshold:
+          type: number
+          format: double
+          description: Threshold value for the condition
+          minimum: 0
+          exclusiveMinimum: true
+          example: 10.0
+
+    AlertingRuleSyncResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Status of the alerting rule operation
+          enum:
+            - synced
+            - not_found
+          example: "synced"
+        logicalId:
+          type: string
+          description: Logical identifier (rule name) of the alerting rule
+          example: "high-error-rate"
+        backendId:
+          type: string
+          description: Backend identifier of the alerting rule in the observability backend
+          example: "monitor-12345"
+        action:
+          type: string
+          description: Action performed (created, updated, or deleted)
+          enum:
+            - created
+            - updated
+            - deleted
+          example: "created"
+        lastSynced:
+          type: string
+          format: date-time
+          description: Timestamp when the rule was last synced in RFC3339 format
+          example: "2025-01-10T12:34:56Z"
