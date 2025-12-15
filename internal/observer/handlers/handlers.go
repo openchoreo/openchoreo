@@ -631,11 +631,9 @@ func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
 // AlertingWebhook handles POST /api/alerting/webhook
 func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	// TODO: Implement full alerting support
-	// Received the triggered alerts from the observability backends
+	// Receive triggered alerts from the observability backends
 	// Send the notification to the appropriate channels
-	h.logger.Info("AlertingWebhook called")
 
-	// TEMP: Print the request body and return 200
 	// Read the request body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -645,20 +643,17 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Log the raw body as string for debugging
-	bodyString := string(bodyBytes)
-	h.logger.Info("AlertingWebhook called", "requestBody", bodyString)
-
-	// Try to parse as JSON to see the structure
-	var requestBody map[string]interface{}
-	if len(bodyBytes) > 0 {
-		if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
-			h.logger.Warn("Failed to parse request body as JSON", "error", err, "body", bodyString)
-		} else {
-			h.logger.Info("Parsed webhook payload", "payload", requestBody)
-		}
+	// Parse and log the webhook payload
+	if len(bodyBytes) == 0 {
+		h.logger.Warn("Alerting webhook received with empty request body")
 	} else {
-		h.logger.Warn("AlertingWebhook called with empty request body")
+		var requestBody map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+			h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
+		} else {
+			// TEMP: Print the request body and return 200
+			h.logger.Debug("Alerting webhook received", "payload", requestBody)
+		}
 	}
 
 	h.writeJSON(w, http.StatusOK, map[string]string{
