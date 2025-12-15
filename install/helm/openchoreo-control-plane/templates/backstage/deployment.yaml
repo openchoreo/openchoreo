@@ -92,6 +92,8 @@ spec:
           value: {{ .Values.backstage.features.observability.enabled | default true | quote }}
         - name: OPENCHOREO_FEATURES_AUTH_ENABLED
           value: {{ .Values.security.enabled | default true | quote }}
+        - name: OPENCHOREO_FEATURES_AUTHZ_ENABLED
+          value: {{ .Values.security.authz.enabled | default true | quote }}
         livenessProbe:
           httpGet:
             path: /healthcheck
