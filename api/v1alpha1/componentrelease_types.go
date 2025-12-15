@@ -61,6 +61,9 @@ type ComponentReleaseStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
+// +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ComponentRelease is the Schema for the componentreleases API.
 type ComponentRelease struct {

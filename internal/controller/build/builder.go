@@ -24,15 +24,17 @@ import (
 type Builder struct {
 	client       client.Client
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	gatewayURL   string
 	logger       logr.Logger
 	buildEngines map[string]engines.BuildEngine
 }
 
 // NewBuilder creates a new build service
-func NewBuilder(client client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager) *Builder {
+func NewBuilder(client client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string) *Builder {
 	service := &Builder{
 		client:       client,
 		k8sClientMgr: k8sClientMgr,
+		gatewayURL:   gatewayURL,
 		logger:       log.Log.WithName("build-service"),
 		buildEngines: make(map[string]engines.BuildEngine),
 	}
@@ -207,7 +209,7 @@ func (s *Builder) getBuildPlaneClient(ctx context.Context, build *openchoreov1al
 		return nil, fmt.Errorf("cannot retrieve the build plane: %w", err)
 	}
 
-	bpClient, err := kubernetesClient.GetK8sClient(s.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(s.k8sClientMgr, buildPlane, s.gatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
@@ -217,7 +219,7 @@ func (s *Builder) getBuildPlaneClient(ctx context.Context, build *openchoreov1al
 
 // GetBuildPlaneClient gets the build plane client for a given build - public method for controller access
 func (s *Builder) GetBuildPlaneClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClient(s.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(s.k8sClientMgr, buildPlane, s.gatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}

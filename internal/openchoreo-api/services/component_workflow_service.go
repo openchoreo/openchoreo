@@ -23,6 +23,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
+	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // ComponentWorkflowService handles component workflow-related business logic
@@ -312,6 +313,9 @@ func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Contex
 
 	def := schema.Definition{
 		Schemas: []map[string]any{schemaMap},
+		Options: extractor.Options{
+			SkipDefaultValidation: true,
+		},
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)

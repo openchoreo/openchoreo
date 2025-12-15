@@ -8,6 +8,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// TargetPlane constants define which plane resources should be deployed to.
+const (
+	// TargetPlaneDataPlane indicates resources should be deployed to the data plane.
+	TargetPlaneDataPlane = "dataplane"
+
+	// TargetPlaneObservabilityPlane indicates resources should be deployed to the observability plane.
+	TargetPlaneObservabilityPlane = "observabilityplane"
+)
+
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
 type ComponentTypeSpec struct {
@@ -64,7 +73,7 @@ type ComponentTypeSchema struct {
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides can be overridden per environment via ComponentDeployment by platform engineers.
+	// EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
 	// These are also exposed to developers but can be changed per environment.
 	// Same nested map structure and type definition format as Parameters.
 	// +optional
@@ -81,6 +90,13 @@ type ResourceTemplate struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
+
+	// TargetPlane specifies which plane this resource should be deployed to
+	// Defaults to "dataplane" if not specified
+	// +optional
+	// +kubebuilder:validation:Enum=dataplane;observabilityplane
+	// +kubebuilder:default=dataplane
+	TargetPlane string `json:"targetPlane,omitempty"`
 
 	// IncludeWhen is a CEL expression that determines if this resource should be created
 	// If not specified, the resource is always created

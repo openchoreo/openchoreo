@@ -11,31 +11,31 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// createKubernetesClient creates a Kubernetes client
+// createKubernetesClient creates a Kubernetes client and returns both the client and config
 // If kubeconfigPath is empty, it uses in-cluster config
 // Otherwise, it loads the kubeconfig from the specified path
-func createKubernetesClient(kubeconfigPath string) (k8sclient.Client, error) {
+func createKubernetesClient(kubeconfigPath string) (k8sclient.Client, *rest.Config, error) {
 	var config *rest.Config
 	var err error
 
 	if kubeconfigPath == "" {
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get in-cluster config: %w (use --kubeconfig for local development)", err)
+			return nil, nil, fmt.Errorf("failed to get in-cluster config: %w (use --kubeconfig for local development)", err)
 		}
 	} else {
 		config, err = loadKubeconfig(kubeconfigPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
+			return nil, nil, fmt.Errorf("failed to load kubeconfig: %w", err)
 		}
 	}
 
 	k8sClient, err := k8sclient.New(config, k8sclient.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	return k8sClient, nil
+	return k8sClient, config, nil
 }
 
 func loadKubeconfig(kubeconfigPath string) (*rest.Config, error) {

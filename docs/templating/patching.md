@@ -22,9 +22,10 @@ metadata:
 spec:
   patches:
     - target:
+        kind: Deployment
         group: apps
         version: v1
-        kind: Deployment
+      targetPlane: dataplane
       operations:
         - op: add
           path: /spec/template/spec/containers/-
@@ -232,18 +233,43 @@ OpenChoreo's behavior is designed for Trait authors who expect Kubernetes-like c
 
 ### Basic Targeting
 
+The `target` spec requires `kind`, `group`, and `version` fields. The `targetPlane` field is optional and defaults to `"dataplane"`:
+
 ```yaml
 patches:
+  # Patch apps/v1 Deployment in dataplane
   - target:
-      group: apps        # API group (empty for core resources)
-      version: v1        # API version
-      kind: Deployment   # Resource kind
-      name: my-app       # Optional: specific resource name
+      kind: Deployment   # Required: Resource kind
+      group: apps        # Required: API group (use "" for core resources)
+      version: v1        # Required: API version
+      where: ""          # Optional: CEL expression to filter resources
+    targetPlane: dataplane  # Optional: defaults to "dataplane" if not specified
     operations:
       - op: add
         path: /metadata/labels/patched
         value: "true"
+
+  # Patch core v1 Service (note: group is explicitly "")
+  - target:
+      kind: Service
+      group: ""          # Empty string for core API resources
+      version: v1
+    # targetPlane omitted - defaults to "dataplane"
+    operations:
+      - op: add
+        path: /metadata/annotations/patched
+        value: "true"
 ```
+
+**Key Points:**
+- `kind`, `group`, and `version` are **always required**
+- For core API resources (Service, ConfigMap, Secret), use `group: ""`
+- `targetPlane` is optional and defaults to `"dataplane"` if not specified
+- `where` clause is optional for filtering resources
+
+**Design Rationale:**
+- **Why `group` is required**: Making `group` required eliminates ambiguity. Empty string `""` has semantic meaning (core API resources like Service, ConfigMap, Secret), so we require explicit specification. This ensures patches target the intended resources; omitting the group could result in not matching any resources at all.
+- **Why `targetPlane` defaults to "dataplane"**: Most resources are deployed to the dataplane, with few (if any) on the observability plane. Defaulting to the common case reduces verbosity while allowing explicit specification when needed.
 
 ### CEL-Based Filtering
 
@@ -252,10 +278,11 @@ Use `where` clause with CEL expressions to target resources conditionally:
 ```yaml
 patches:
   - target:
+      kind: Deployment
       group: apps
       version: v1
-      kind: Deployment
       where: ${resource.spec.replicas > 1}  # Only multi-replica deployments
+    targetPlane: dataplane
     operations:
       - op: add
         path: /metadata/annotations/ha-mode
@@ -263,7 +290,10 @@ patches:
 
   - target:
       kind: Service
+      group: ""          # Core API
+      version: v1
       where: ${resource.spec.type == 'LoadBalancer'}
+    targetPlane: dataplane
     operations:
       - op: add
         path: /metadata/annotations/external
@@ -278,6 +308,9 @@ Apply patches iteratively over a list:
 patches:
   - target:
       kind: ConfigMap
+      group: ""
+      version: v1
+    targetPlane: dataplane
     forEach: ${parameters.environments}
     var: env
     operations:
@@ -286,9 +319,10 @@ patches:
         value: ${env.value}
 
   - target:
+      kind: Deployment
       group: apps
       version: v1
-      kind: Deployment
+    targetPlane: dataplane
     forEach: ${parameters.extraPorts}
     var: port
     operations:

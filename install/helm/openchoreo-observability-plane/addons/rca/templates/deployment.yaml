@@ -20,6 +20,7 @@ spec:
         {{- else }}
         checksum/llm-external-secret: {{ include (print $.Template.BasePath "/rca-llm-external-secret.yaml") . | sha256sum }}
         {{- end }}
+        checksum/opensearch-secret: {{ include (print $.Template.BasePath "/rca-opensearch-secret.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-observer-rca.componentSelectorLabels" (dict "context" . "component" .Values.rcaService.name) | nindent 8 }}
     spec:
@@ -91,6 +92,22 @@ spec:
               name: {{ include "openchoreo-observer-rca.fullname" . }}-llm-config
               key: RCA_AZURE_DEPLOYMENT
         {{- end }}
+
+        # OpenSearch Configuration
+        - name: OPENSEARCH_ADDRESS
+          value: "https://opensearch:9200"
+
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observer-rca.fullname" . }}-opensearch-secret
+              key: username
+
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observer-rca.fullname" . }}-opensearch-secret
+              key: password
 
         resources:
           {{- toYaml .Values.rcaService.resources | nindent 10 }}

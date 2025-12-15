@@ -120,7 +120,7 @@ var _ = Describe("Environment Controller", Ordered, func() {
 		By("Reconciling the environment resource", func() {
 			envReconciler := &Reconciler{
 				Client:       k8sClient,
-				k8sClientMgr: k8sClientMgr,
+				K8sClientMgr: k8sClientMgr,
 				Scheme:       k8sClient.Scheme(),
 				Recorder:     record.NewFakeRecorder(100),
 			}
@@ -150,7 +150,7 @@ var _ = Describe("Environment Controller", Ordered, func() {
 		By("Reconciling the environment resource after deletion - attempt 1 to update status conditions", func() {
 			envReconciler := &Reconciler{
 				Client:       k8sClient,
-				k8sClientMgr: k8sClientMgr,
+				K8sClientMgr: k8sClientMgr,
 				Scheme:       k8sClient.Scheme(),
 				Recorder:     record.NewFakeRecorder(100),
 			}

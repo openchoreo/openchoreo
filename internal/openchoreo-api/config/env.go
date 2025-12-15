@@ -25,6 +25,9 @@ const (
 
 	// EnvJWTDisabled is the flag to disable JWT authentication
 	EnvJWTDisabled = "JWT_DISABLED"
+
+	// EnvLogLevel is the log level for the API server (debug, info, warn, error)
+	EnvLogLevel = "LOG_LEVEL"
 )
 
 // Default values for configuration

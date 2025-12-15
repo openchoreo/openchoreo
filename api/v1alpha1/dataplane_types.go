@@ -70,28 +70,6 @@ type GatewaySpec struct {
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 }
 
-// BasicAuthCredentials defines username and password for basic authentication
-type BasicAuthCredentials struct {
-	// Username for basic authentication
-	Username string `json:"username"`
-	// Password for basic authentication
-	Password string `json:"password"`
-}
-
-// ObserverAuthentication defines authentication configuration for Observer API
-type ObserverAuthentication struct {
-	// BasicAuth contains basic authentication credentials
-	BasicAuth BasicAuthCredentials `json:"basicAuth"`
-}
-
-// ObserverAPI defines the configuration for the Observer API integration
-type ObserverAPI struct {
-	// URL is the base URL of the Observer API
-	URL string `json:"url"`
-	// Authentication contains the authentication configuration
-	Authentication ObserverAuthentication `json:"authentication"`
-}
-
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore
 type SecretStoreRef struct {
 	// Name of the ClusterSecretStore resource in the data plane cluster
@@ -139,9 +117,10 @@ type DataPlaneSpec struct {
 	KubernetesCluster *KubernetesClusterSpec `json:"kubernetesCluster,omitempty"`
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
 	Gateway GatewaySpec `json:"gateway"`
-	// Observer specifies the configuration for the Observer API integration.
+
+	// ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this DataPlane.
 	// +optional
-	Observer ObserverAPI `json:"observer,omitempty"`
+	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
 }
 
 // DataPlaneStatus defines the observed state of DataPlane.

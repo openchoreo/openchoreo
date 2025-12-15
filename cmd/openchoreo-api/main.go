@@ -14,8 +14,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/cmdutil"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -27,8 +30,8 @@ var (
 func main() {
 	flag.Parse()
 
-	slogHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
-	baseLogger := slog.New(slogHandler)
+	// Get log level from environment variable, default to "info"
+	baseLogger := cmdutil.SetupLogger(os.Getenv(config.EnvLogLevel))
 	slog.SetDefault(baseLogger)
 
 	// Create shutdown context
@@ -41,8 +44,39 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize services
-	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), baseLogger)
+	// Load configuration
+	configPath := os.Getenv("OPENCHOREO_API_CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		baseLogger.Error("Failed to load configuration file",
+			slog.String("config_path", configPath),
+			slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	baseLogger.Info("Loaded configuration from file",
+		slog.String("config_path", configPath))
+
+	// Initialize authorization
+	authzConfig := authz.AuthZConfig{
+		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
+		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
+		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
+		UserTypeConfigs:      cfg.Authz.UserTypes,
+		EnableCache:          false,
+	}
+	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))
+	if err != nil {
+		baseLogger.Error("Failed to initialize authorization", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// Initialize services with PAP and PDP
+	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, baseLogger)
 
 	// Initialize HTTP handlers
 	handler := handlers.New(services, k8sClient, baseLogger.With("component", "handlers"))
@@ -73,6 +107,13 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		baseLogger.Error("Server shutdown error", slog.Any("error", err))
+	}
+
+	// Close authorization database connection
+	if casbinEnforcer, ok := pap.(interface{ Close() error }); ok {
+		if err := casbinEnforcer.Close(); err != nil {
+			baseLogger.Error("Failed to close authorization database", slog.Any("error", err))
+		}
 	}
 
 	baseLogger.Info("Server stopped gracefully")

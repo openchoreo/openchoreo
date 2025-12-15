@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/go-playground/validator/v10"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,6 +18,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
+
+var validate = validator.New(validator.WithRequiredStructEnabled())
 
 // BuildComponentContext builds a CEL evaluation context for rendering component resources.
 //
@@ -28,28 +31,12 @@ import (
 //   - metadata: Additional metadata
 //
 // Parameter precedence (highest to lowest):
-//   - ComponentDeployment.Spec.Overrides (environment-specific)
+//   - ReleaseBinding.Spec.ComponentTypeEnvOverrides (environment-specific)
 //   - Component.Spec.Parameters (component defaults)
 //   - Schema defaults from ComponentType
 func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, error) {
-	if input == nil {
-		return nil, fmt.Errorf("component context input is nil")
-	}
-	if input.Component == nil {
-		return nil, fmt.Errorf("component is nil")
-	}
-	if input.ComponentType == nil {
-		return nil, fmt.Errorf("component type is nil")
-	}
-	if input.DataPlane == nil {
-		return nil, fmt.Errorf("dataplane is nil")
-	}
-
-	if input.Metadata.Name == "" {
-		return nil, fmt.Errorf("metadata.name is required")
-	}
-	if input.Metadata.Namespace == "" {
-		return nil, fmt.Errorf("metadata.namespace is required")
+	if err := validate.Struct(input); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
 	ctx := &ComponentContext{}
@@ -69,7 +56,17 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	ctx.Workload = extractWorkloadData(workload)
 	ctx.Configurations = extractConfigurationsFromWorkload(input.SecretReferences, workload)
 
+	// Ensure metadata maps are always initialized
 	ctx.Metadata = input.Metadata
+	if ctx.Metadata.Labels == nil {
+		ctx.Metadata.Labels = make(map[string]string)
+	}
+	if ctx.Metadata.Annotations == nil {
+		ctx.Metadata.Annotations = make(map[string]string)
+	}
+	if ctx.Metadata.PodSelectors == nil {
+		ctx.Metadata.PodSelectors = make(map[string]string)
+	}
 
 	ctx.DataPlane = DataPlaneData{
 		PublicVirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
@@ -84,34 +81,34 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 // processComponentParameters processes component parameters and envOverrides separately,
 // validates each against their respective schemas, merges them, and returns the final map.
 func processComponentParameters(input *ComponentContextInput) (map[string]any, error) {
-	// Build separate structural schemas for parameters and envOverrides
-	// This allows independent validation and defaulting for each section
-	parametersSchema, err := BuildStructuralSchema(&SchemaInput{
-		Types:            input.ComponentType.Spec.Schema.Types,
-		ParametersSchema: input.ComponentType.Spec.Schema.Parameters,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to build parameters schema: %w", err)
-	}
-
-	envOverridesSchema, err := BuildStructuralSchema(&SchemaInput{
+	// Build both structural schemas in one call to share types unmarshaling
+	parametersSchema, envOverridesSchema, err := BuildStructuralSchemas(&SchemaInput{
 		Types:              input.ComponentType.Spec.Schema.Types,
+		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
 		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to build envOverrides schema: %w", err)
+		return nil, fmt.Errorf("failed to build schemas: %w", err)
 	}
 
-	// Process parameters: extract from component, prune to parameters schema, apply defaults
-	// Note: extractParameters() unmarshals into a new map, so no deep copy needed before pruning
-	parameters, err := extractParameters(input.Component.Spec.Parameters)
+	// Extract component parameters once (used for both parameters and envOverrides sections)
+	componentParams, err := extractParameters(input.Component.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
+
+	// Process parameters: prune to parameters schema, apply defaults
+	var parameters map[string]any
 	if parametersSchema != nil {
+		// Clone the map to avoid modifying the original (needed for envOverrides processing)
+		parameters = make(map[string]any, len(componentParams))
+		maps.Copy(parameters, componentParams)
 		pruning.Prune(parameters, parametersSchema, false)
+		parameters = schema.ApplyDefaults(parameters, parametersSchema)
+	} else {
+		// No parameters schema defined - discard all parameters
+		parameters = make(map[string]any)
 	}
-	parameters = schema.ApplyDefaults(parameters, parametersSchema)
 
 	// Process envOverrides: extract and merge based on DiscardComponentEnvOverrides flag
 	var envOverrides map[string]any
@@ -127,11 +124,8 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 			envOverrides = make(map[string]any)
 		}
 	} else {
-		// Merge component envOverride values with ReleaseBinding
-		envOverrides, err = extractParameters(input.Component.Spec.Parameters)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract component parameters for envOverrides: %w", err)
-		}
+		// Use extracted component parameters as starting point for envOverrides
+		envOverrides = componentParams
 
 		// Merge with ReleaseBinding envOverrides
 		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
@@ -143,13 +137,14 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 		}
 	}
 
-	// Prune merged result against schema
+	// Prune merged result against schema and apply defaults
 	if envOverridesSchema != nil {
 		pruning.Prune(envOverrides, envOverridesSchema, false)
+		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
+	} else {
+		// No envOverrides schema defined - discard all envOverrides
+		envOverrides = make(map[string]any)
 	}
-
-	// Apply defaults
-	envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
 
 	// Top-level merge: combine parameters and envOverrides
 	// Safe because parameter and envOverride schemas don't overlap
@@ -230,61 +225,63 @@ func structToMap(v any) (map[string]any, error) {
 	return result, nil
 }
 
-// BuildStructuralSchema converts schema input into a Kubernetes structural schema.
-// This function is exported to allow per-render caching of schemas for reused traits.
-func BuildStructuralSchema(input *SchemaInput) (*apiextschema.Structural, error) {
-	if input.Structural != nil {
-		return input.Structural, nil
-	}
-
-	// Extract types from RawExtension
+// BuildStructuralSchemas builds separate structural schemas for parameters and envOverrides
+// while unmarshaling types only once.
+//
+// Returns (parametersSchema, envOverridesSchema, error). Either schema can be nil if not provided.
+func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apiextschema.Structural, error) {
+	// Extract types from RawExtension once
 	var types map[string]any
 	if input.Types != nil {
 		if err := yaml.Unmarshal(input.Types.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
+			return nil, nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
 
-	// Extract schemas from RawExtensions
-	var schemas []map[string]any
-
+	// Build parameters schema
+	var parametersSchema *apiextschema.Structural
 	if input.ParametersSchema != nil {
 		params, err := extractParameters(input.ParametersSchema)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to extract parameters schema: %w", err)
 		}
-		schemas = append(schemas, params)
+
+		def := schema.Definition{
+			Types:   types,
+			Schemas: []map[string]any{params},
+		}
+
+		parametersSchema, err = schema.ToStructural(def)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create parameters structural schema: %w", err)
+		}
 	}
 
+	// Build envOverrides schema
+	var envOverridesSchema *apiextschema.Structural
 	if input.EnvOverridesSchema != nil {
 		envOverrides, err := extractParameters(input.EnvOverridesSchema)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract envOverrides schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to extract envOverrides schema: %w", err)
 		}
-		schemas = append(schemas, envOverrides)
+
+		def := schema.Definition{
+			Types:   types,
+			Schemas: []map[string]any{envOverrides},
+		}
+
+		envOverridesSchema, err = schema.ToStructural(def)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create envOverrides structural schema: %w", err)
+		}
 	}
 
-	// If no schemas are defined, return nil to skip schema-based validation and pruning
-	if len(schemas) == 0 {
-		return nil, nil
-	}
-
-	def := schema.Definition{
-		Types:   types,
-		Schemas: schemas,
-	}
-
-	structural, err := schema.ToStructural(def)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create structural schema: %w", err)
-	}
-
-	return structural, nil
+	return parametersSchema, envOverridesSchema, nil
 }
 
 // deepMerge recursively merges two parameter maps with override precedence.
 //
-// This function implements the parameter precedence model for ComponentDeployments:
+// This function implements the parameter precedence model:
 // values from 'override' take precedence over 'base'.
 //
 // Merge behavior:
@@ -292,7 +289,7 @@ func BuildStructuralSchema(input *SchemaInput) (*apiextschema.Structural, error)
 //   - Other values: override completely replaces base
 //   - All values are deep copied to prevent shared references
 //
-// This allows environment-specific ComponentDeployment.Spec.Overrides to selectively
+// This allows environment-specific ReleaseBinding overrides to selectively
 // override parts of Component.Spec.Parameters without replacing the entire structure.
 //
 // Example:

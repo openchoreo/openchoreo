@@ -6,6 +6,7 @@ package opensearch
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -59,8 +60,15 @@ func NewClient(cfg *config.OpenSearchConfig, logger *slog.Logger) (*Client, erro
 // Search executes a search request against OpenSearch
 func (c *Client) Search(ctx context.Context, indices []string, query map[string]interface{}) (*SearchResponse, error) {
 	c.logger.Debug("Executing search",
-		"indices", indices,
-		"query", query)
+		"indices", indices)
+
+	if c.logger.Enabled(ctx, slog.LevelDebug) {
+		queryJSON, err := json.MarshalIndent(query, "", "  ")
+		if err == nil {
+			fmt.Println("OpenSearch Query:")
+			fmt.Println(string(queryJSON))
+		}
+	}
 
 	req := opensearchapi.SearchRequest{
 		Index:             indices,

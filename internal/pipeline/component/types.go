@@ -6,11 +6,12 @@ package component
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 // Pipeline orchestrates the complete rendering workflow for Component resources.
-// It combines Component, ComponentType, Traits, Workload and ComponentDeployment
+// It combines Component, ComponentType, Traits, Workload and ReleaseBinding
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine
@@ -21,11 +22,11 @@ type Pipeline struct {
 type RenderInput struct {
 	// ComponentType is the component type containing resource templates.
 	// Required.
-	ComponentType *v1alpha1.ComponentType
+	ComponentType *v1alpha1.ComponentType `validate:"required"`
 
 	// Component is the component specification with parameters.
 	// Required.
-	Component *v1alpha1.Component
+	Component *v1alpha1.Component `validate:"required"`
 
 	// Traits is the list of trait definitions used by the component.
 	// Optional - if nil or empty, no traits are processed.
@@ -33,24 +34,18 @@ type RenderInput struct {
 
 	// Workload contains the workload spec with build information.
 	// Required.
-	Workload *v1alpha1.Workload
+	Workload *v1alpha1.Workload `validate:"required"`
 
 	// Environment to which the component is being deployed.
 	// Required.
-	Environment *v1alpha1.Environment
-
-	// ComponentDeployment contains environment-specific overrides for the component.
-	// Optional - if nil, no environment overrides are applied.
-	// Deprecated: this field will be removed in a future release. Use
-	ComponentDeployment *v1alpha1.ComponentDeployment
+	Environment *v1alpha1.Environment `validate:"required"`
 
 	// ReleaseBinding contains release reference and environment-specific overrides for the component.
-	// Optional - if nil, no environment overrides are applied.
 	ReleaseBinding *v1alpha1.ReleaseBinding
 
 	// DataPlane contains the data plane configuration.
-	// Optional - can be nil if no data plane is configured.
-	DataPlane *v1alpha1.DataPlane
+	// Required
+	DataPlane *v1alpha1.DataPlane `validate:"required"`
 
 	// SecretReferences is a map of SecretReference objects needed for rendering.
 	// Keyed by SecretReference name.
@@ -59,13 +54,41 @@ type RenderInput struct {
 
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
-	Metadata pipelinecontext.MetadataContext
+	Metadata pipelinecontext.MetadataContext `validate:"required"`
+}
+
+// ApplyTargetPlaneDefaults normalizes empty targetPlane fields to "dataplane".
+// This handles backward compatibility with resources created before the targetPlane field existed.
+//
+// Deprecated: This method exists for backward compatibility during development
+// and should be removed when reaching 1.0.
+func (input *RenderInput) ApplyTargetPlaneDefaults() {
+	// Normalize ComponentType resources
+	for i := range input.ComponentType.Spec.Resources {
+		if input.ComponentType.Spec.Resources[i].TargetPlane == "" {
+			input.ComponentType.Spec.Resources[i].TargetPlane = v1alpha1.TargetPlaneDataPlane
+		}
+	}
+
+	// Normalize Traits
+	for i := range input.Traits {
+		for j := range input.Traits[i].Spec.Creates {
+			if input.Traits[i].Spec.Creates[j].TargetPlane == "" {
+				input.Traits[i].Spec.Creates[j].TargetPlane = v1alpha1.TargetPlaneDataPlane
+			}
+		}
+		for j := range input.Traits[i].Spec.Patches {
+			if input.Traits[i].Spec.Patches[j].TargetPlane == "" {
+				input.Traits[i].Spec.Patches[j].TargetPlane = v1alpha1.TargetPlaneDataPlane
+			}
+		}
+	}
 }
 
 // RenderOutput contains the results of the rendering process.
 type RenderOutput struct {
-	// Resources is the list of fully rendered Kubernetes resource manifests.
-	Resources []map[string]any
+	// Resources is the list of fully rendered Kubernetes resource manifests with their target planes.
+	Resources []renderer.RenderedResource
 
 	// Metadata contains information about the rendering process.
 	Metadata *RenderMetadata

@@ -109,17 +109,5 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Build, *openchoreov1alpha1.DeploymentTrack](
 				r.Client, controller.GetDeploymentTrack)),
 		).
-		// Watch for DeployableArtifact changes to reconcile the Deployment Track
-		Watches(
-			&openchoreov1alpha1.DeployableArtifact{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.DeployableArtifact, *openchoreov1alpha1.DeploymentTrack](
-				r.Client, controller.GetDeploymentTrack)),
-		).
-		// Watch for Deployment changes to reconcile the Deployment Track
-		Watches(
-			&openchoreov1alpha1.Deployment{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Deployment, *openchoreov1alpha1.DeploymentTrack](
-				r.Client, controller.GetDeploymentTrack)),
-		).
 		Complete(r)
 }

@@ -183,7 +183,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 				"client_cert", "client_key", "public_virtual_host", "organization_virtual_host",
 			},
 			optionalParams: []string{
-				"display_name", "description", "observer_url", "observer_username", "observer_password",
+				"display_name", "description", "observability_plane_ref",
 			},
 			testArgs: map[string]any{
 				"org_name":                  testOrgName,

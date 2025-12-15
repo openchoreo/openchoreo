@@ -1,0 +1,95 @@
+{{- if .Values.clusterAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+    app: cluster-agent
+spec:
+  # Start with 0 replicas to prevent Helm --wait deadlock
+  # The cluster-agent requires TLS secrets created by post-install hooks
+  # A separate post-install hook will scale this to desired replicas after certificates are ready
+  replicas: 0
+  selector:
+    matchLabels:
+      app: cluster-agent
+      app.kubernetes.io/component: cluster-agent
+      {{- include "openchoreo-observability-plane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: cluster-agent
+        app.kubernetes.io/component: cluster-agent
+        {{- include "openchoreo-observability-plane.selectorLabels" . | nindent 8 }}
+      {{- with .Values.clusterAgent.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "openchoreo-observability-plane.clusterAgent.serviceAccountName" . }}
+      {{- if .Values.clusterAgent.priorityClass.create }}
+      priorityClassName: {{ .Values.clusterAgent.priorityClass.name }}
+      {{- end }}
+      {{- with .Values.clusterAgent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterAgent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterAgent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clusterAgent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: agent
+        image: "{{ .Values.clusterAgent.image.repository }}:{{ .Values.clusterAgent.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.clusterAgent.image.pullPolicy }}
+        args:
+        - --server-url={{ .Values.clusterAgent.serverUrl }}
+        - --plane-name={{ .Values.clusterAgent.planeName }}
+        - --plane-type={{ .Values.clusterAgent.planeType }}
+        - --client-cert=/certs/tls.crt
+        - --client-key=/certs/tls.key
+        - --server-ca=/ca-certs/ca.crt
+        - --heartbeat-interval={{ .Values.clusterAgent.heartbeatInterval }}
+        - --reconnect-delay={{ .Values.clusterAgent.reconnectDelay }}
+        - --log-level={{ .Values.clusterAgent.logLevel }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          {{- toYaml .Values.clusterAgent.resources | nindent 10 }}
+        {{- with .Values.clusterAgent.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: client-certs
+          mountPath: /certs
+          readOnly: true
+        - name: server-ca
+          mountPath: /ca-certs
+          readOnly: true
+      volumes:
+      - name: client-certs
+        secret:
+          secretName: {{ .Values.clusterAgent.tls.clientSecretName }}
+      - name: server-ca
+        configMap:
+          name: {{ .Values.clusterAgent.tls.serverCAConfigMap }}
+{{- end }}

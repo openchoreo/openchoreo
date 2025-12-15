@@ -31,6 +31,9 @@ var (
 	ErrWorkflowSchemaInvalid      = errors.New("workflow schema is invalid")
 	ErrReleaseNotFound            = errors.New("release not found")
 	ErrInvalidCommitSHA           = errors.New("invalid commit SHA format")
+	ErrForbidden                  = errors.New("insufficient permissions to perform this action")
+	ErrDuplicateTraitInstanceName = errors.New("duplicate trait instance name")
+	ErrInvalidTraitInstance       = errors.New("invalid trait instance")
 )
 
 // Error codes for API responses
@@ -58,8 +61,13 @@ const (
 	CodeReleaseBindingNotFound     = "RELEASE_BINDING_NOT_FOUND"
 	CodeReleaseNotFound            = "RELEASE_NOT_FOUND"
 	CodeInvalidInput               = "INVALID_INPUT"
+	CodeConflict                   = "CONFLICT"
 	CodeInternalError              = "INTERNAL_ERROR"
+	CodeForbidden                  = "FORBIDDEN"
+	CodeNotFound                   = "NOT_FOUND"
 	CodeWorkflowSchemaInvalid      = "WORKFLOW_SCHEMA_INVALID"
 	CodeInvalidCommitSHA           = "INVALID_COMMIT_SHA"
 	CodeInvalidParams              = "INVALID_PARAMS"
+	CodeDuplicateTraitInstanceName = "DUPLICATE_TRAIT_INSTANCE_NAME"
+	CodeInvalidTraitInstance       = "INVALID_TRAIT_INSTANCE"
 )

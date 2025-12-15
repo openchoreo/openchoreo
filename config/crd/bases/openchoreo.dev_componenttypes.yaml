@@ -83,6 +83,15 @@ spec:
                         If not specified, the resource is always created
                         Example: "${spec.autoscaling.enabled}"
                       type: string
+                    targetPlane:
+                      default: dataplane
+                      description: |-
+                        TargetPlane specifies which plane this resource should be deployed to
+                        Defaults to "dataplane" if not specified
+                      enum:
+                      - dataplane
+                      - observabilityplane
+                      type: string
                     template:
                       description: |-
                         Template contains the Kubernetes resource with CEL expressions
@@ -110,7 +119,7 @@ spec:
                 properties:
                   envOverrides:
                     description: |-
-                      EnvOverrides can be overridden per environment via ComponentDeployment by platform engineers.
+                      EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
                       These are also exposed to developers but can be changed per environment.
                       Same nested map structure and type definition format as Parameters.
                     type: object

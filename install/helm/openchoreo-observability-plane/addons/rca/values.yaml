@@ -83,6 +83,9 @@ rcaService:
         # Optional: Property/field within the secret (e.g., "apiKey")
         property: ""
 
+  openSearchUsername: admin
+  openSearchPassword: ThisIsTheOpenSearchPassword1
+
 # Pre-install hook will create its own temporary RBAC for validation
 rbac:
   create: false

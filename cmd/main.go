@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
-	"time"
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -26,41 +25,25 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	clustergateway "github.com/openchoreo/openchoreo/internal/cluster-gateway"
-	"github.com/openchoreo/openchoreo/internal/controller/api"
-	"github.com/openchoreo/openchoreo/internal/controller/apibinding"
-	"github.com/openchoreo/openchoreo/internal/controller/apiclass"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
-	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
-	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
-	"github.com/openchoreo/openchoreo/internal/controller/deployableartifact"
-	"github.com/openchoreo/openchoreo/internal/controller/deployment"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
-	"github.com/openchoreo/openchoreo/internal/controller/endpoint"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
+	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
 	"github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtask"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/scheduledtaskclass"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
-	"github.com/openchoreo/openchoreo/internal/controller/service"
-	"github.com/openchoreo/openchoreo/internal/controller/servicebinding"
-	"github.com/openchoreo/openchoreo/internal/controller/serviceclass"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplication"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplicationbinding"
-	"github.com/openchoreo/openchoreo/internal/controller/webapplicationclass"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
 	"github.com/openchoreo/openchoreo/internal/controller/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
@@ -107,14 +90,25 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var enableLegacyCRDs bool
-	var agentServerURL string
-	var agentServerCAPath string
-	var agentClientCertPath string
-	var agentClientKeyPath string
+	var clusterGatewayURL string
+	var clusterGatewayCACert string
+	var clusterGatewayClientCert string
+	var clusterGatewayClientKey string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&clusterGatewayURL, "cluster-gateway-url",
+		getEnv("CLUSTER_GATEWAY_URL", "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443"),
+		"The URL of the cluster gateway for HTTP proxy communication with data planes. "+
+			"Required for agent mode. Example: https://localhost:8443")
+	flag.StringVar(&clusterGatewayCACert, "cluster-gateway-ca-cert", getEnv("CLUSTER_GATEWAY_CA_CERT", ""),
+		"Path to CA certificate for verifying the cluster gateway's TLS certificate. "+
+			"If not specified, InsecureSkipVerify will be used (not recommended for production).")
+	flag.StringVar(&clusterGatewayClientCert, "cluster-gateway-client-cert", getEnv("CLUSTER_GATEWAY_CLIENT_CERT", ""),
+		"Path to client certificate for mTLS authentication with the cluster gateway.")
+	flag.StringVar(&clusterGatewayClientKey, "cluster-gateway-client-key", getEnv("CLUSTER_GATEWAY_CLIENT_KEY", ""),
+		"Path to client private key for mTLS authentication with the cluster gateway.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -124,18 +118,6 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
-	flag.StringVar(&agentServerURL, "agent-server-url",
-		getEnv("AGENT_SERVER_URL", "https://cluster-agent-server.openchoreo-control-plane.svc.cluster.local:8443"),
-		"URL of the cluster agent server (e.g. https://cluster-agent-server.openchoreo-control-plane.svc.cluster.local:8443)")
-	flag.StringVar(&agentServerCAPath, "agent-server-ca",
-		getEnv("AGENT_SERVER_CA_PATH", ""),
-		"Path to CA certificate for verifying agent server TLS certificate (leave empty to use system CA pool or insecure)")
-	flag.StringVar(&agentClientCertPath, "agent-client-cert",
-		getEnv("AGENT_CLIENT_CERT_PATH", ""),
-		"Path to client certificate for mTLS with agent server (optional)")
-	flag.StringVar(&agentClientKeyPath, "agent-client-key",
-		getEnv("AGENT_CLIENT_KEY_PATH", ""),
-		"Path to client private key for mTLS with agent server (optional)")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -212,52 +194,29 @@ func main() {
 	}
 
 	// -----------------------------------------------------------------------------
-	// Setup remote agent server client
+	// Setup Kubernetes multi-client manager
 	// -----------------------------------------------------------------------------
-	// Controller manager always connects to a separate cluster agent server deployment
-	// The agent server manages WebSocket connections from cluster agents in data planes
-
-	var agentSrv clustergateway.Dispatcher
-
-	// Determine if we should use production TLS configuration or dev mode
-	useProductionTLS := agentServerCAPath != "" || agentClientCertPath != ""
-
-	if useProductionTLS {
-		// Production mode: Use proper TLS configuration with CA verification
-		setupLog.Info("connecting to cluster agent server with TLS verification",
-			"url", agentServerURL,
-			"caPath", agentServerCAPath,
-			"clientCertPath", agentClientCertPath,
-			"mode", "production",
-		)
-
-		clientConfig := &clustergateway.RemoteServerClientConfig{
-			ServerURL:          agentServerURL,
-			InsecureSkipVerify: false, // Verify server certificate
-			ServerCAPath:       agentServerCAPath,
-			ClientCertPath:     agentClientCertPath,
-			ClientKeyPath:      agentClientKeyPath,
-			Timeout:            60 * time.Second,
+	// The k8sClientMgr manages cached Kubernetes clients for accessing data planes and build planes.
+	// It supports both direct access mode and agent mode (via HTTP proxy through cluster gateway).
+	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	if clusterGatewayCACert != "" || clusterGatewayClientCert != "" || clusterGatewayClientKey != "" {
+		// Create client manager with TLS configuration for HTTP proxy
+		k8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+			CACertPath:     clusterGatewayCACert,
+			ClientCertPath: clusterGatewayClientCert,
+			ClientKeyPath:  clusterGatewayClientKey,
+		})
+		setupLog.Info("Kubernetes client manager created with proxy TLS configuration",
+			"caCert", clusterGatewayCACert != "",
+			"clientCert", clusterGatewayClientCert != "",
+			"clientKey", clusterGatewayClientKey != "")
+	} else {
+		// Create client manager without TLS configuration (insecure mode)
+		k8sClientMgr = kubernetesClient.NewManager()
+		if clusterGatewayURL != "" {
+			setupLog.Info("WARNING: Using insecure mode for cluster gateway connection. " +
+				"Please provide TLS certificates for production use.")
 		}
-
-		var clientErr error
-		agentSrv, clientErr = clustergateway.NewRemoteServerClientWithConfig(clientConfig)
-		if clientErr != nil {
-			setupLog.Error(clientErr, "failed to create agent server client")
-			os.Exit(1)
-		}
-
-		setupLog.Info("cluster agent server client initialized with TLS verification")
-	} else if agentServerURL != "" {
-		// Development mode: Use insecure TLS (skip verification)
-		setupLog.Info("connecting to cluster agent server in development mode",
-			"url", agentServerURL,
-			"mode", "development",
-			"warning", "TLS certificate verification disabled - not suitable for production",
-		)
-
-		agentSrv = clustergateway.NewRemoteServerClient(agentServerURL, true)
-		setupLog.Info("cluster agent server client initialized (insecure mode)")
 	}
 
 	// -----------------------------------------------------------------------------
@@ -280,9 +239,10 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&environment.Reconciler{
-			Client:      mgr.GetClient(),
-			Scheme:      mgr.GetScheme(),
-			AgentServer: agentSrv,
+			Client:       mgr.GetClient(),
+			K8sClientMgr: k8sClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GatewayURL:   clusterGatewayURL,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			os.Exit(1)
@@ -306,29 +266,6 @@ func main() {
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
-			os.Exit(1)
-		}
-		if err = (&deployableartifact.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
-			os.Exit(1)
-		}
-		if err = (&deployment.Reconciler{
-			Client:      mgr.GetClient(),
-			Scheme:      mgr.GetScheme(),
-			AgentServer: agentSrv,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
-			os.Exit(1)
-		}
-		if err = (&endpoint.Reconciler{
-			Client:      mgr.GetClient(),
-			Scheme:      mgr.GetScheme(),
-			AgentServer: agentSrv,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 			os.Exit(1)
 		}
 		if err = (&workload.Reconciler{
@@ -393,27 +330,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ComponentDeployment controller
-	// Create a single pipeline instance shared across all reconciliations.
-	// This enables CEL environment caching for better performance (~4x faster after first render).
-	if err = (&componentdeployment.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
-		os.Exit(1)
-	}
-
-	// ComponentEnvSnapshot controller
-	if err = (&componentenvsnapshot.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
-		os.Exit(1)
-	}
-
 	// ComponentRelease controller
 	if err = (&componentrelease.Reconciler{
 		Client: mgr.GetClient(),
@@ -441,102 +357,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// API controllers
-	if err = (&api.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "API")
-		os.Exit(1)
-	}
-	if err = (&apiclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
-		os.Exit(1)
-	}
-	if err = (&apibinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
-		os.Exit(1)
-	}
-
-	// Service controllers
-	if err := (&service.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
-		os.Exit(1)
-	}
-	if err := (&serviceclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceClass")
-		os.Exit(1)
-	}
-	if err := (&servicebinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
-		os.Exit(1)
-	}
-
-	// WebApplication controllers
-	if err := (&webapplication.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplication")
-		os.Exit(1)
-	}
-	if err := (&webapplicationclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationClass")
-		os.Exit(1)
-	}
-	if err := (&webapplicationbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
-		os.Exit(1)
-	}
-
-	// ScheduledTask controllers
-	if err := (&scheduledtask.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTask")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskClass")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
-		os.Exit(1)
-	}
-
 	if err = (&release.Reconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		AgentServer: agentSrv,
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
 		os.Exit(1)
@@ -551,17 +376,21 @@ func main() {
 	}
 
 	if err := (&workflowrun.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: workflowpipeline.NewPipeline(),
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		GatewayURL:   clusterGatewayURL,
+		Pipeline:     workflowpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
 		os.Exit(1)
 	}
 
 	if err := (&build.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Build")
 		os.Exit(1)
@@ -581,11 +410,20 @@ func main() {
 		os.Exit(1)
 	}
 	if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentworkflowpipeline.NewPipeline(),
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		Pipeline:     componentworkflowpipeline.NewPipeline(),
+		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ComponentWorkflowRun")
+		os.Exit(1)
+	}
+	if err = (&observabilityplane.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityPlane")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

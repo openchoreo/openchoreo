@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -21,13 +23,15 @@ import (
 type ProjectService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewProjectService creates a new project service
-func NewProjectService(k8sClient client.Client, logger *slog.Logger) *ProjectService {
+func NewProjectService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *ProjectService {
 	return &ProjectService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -37,6 +41,12 @@ func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req 
 
 	// Sanitize input
 	req.Sanitize()
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateProject, ResourceTypeProject, req.Name,
+		authz.ResourceHierarchy{Organization: orgName, Project: req.Name}); err != nil {
+		return nil, err
+	}
 
 	// Check if project already exists
 	exists, err := s.projectExists(ctx, orgName, req.Name)
@@ -76,6 +86,17 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 
 	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
 	for _, item := range projectList.Items {
+		// Authorization check for each project
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, item.Name,
+			authz.ResourceHierarchy{Organization: orgName, Project: item.Name}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				// Skip unauthorized projects silently (user doesn't have permission to see this project)
+				s.logger.Debug("Skipping unauthorized project", "org", orgName, "project", item.Name)
+				continue
+			}
+			// system failures, return the error
+			return nil, err
+		}
 		projects = append(projects, s.toProjectResponse(&item))
 	}
 
@@ -85,6 +106,16 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 
 // GetProject retrieves a specific project
 func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		return nil, err
+	}
+	return s.getProject(ctx, orgName, projectName)
+}
+
+// getProject is the internal helper without authorization (INTERNAL USE ONLY)
+func (s *ProjectService) getProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
 	s.logger.Debug("Getting project", "org", orgName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}

@@ -1,41 +1,24 @@
 # Helm values for OpenChoreo Control Plane in k3d single-cluster setup
-# This file contains overrides specific to running the control plane in a k3d environment
+# Note: devMode disables HTTPS, port adds :8080 to URLs for k3d port mapping
+
+global:
+  baseDomain: openchoreo.localhost
+  devMode: true
+  # Port suffix for URLs (k3d maps host:8080 -> container:80)
+  port: ":8080"
+  # Use k3d's built-in Traefik ingress class
+  ingressClassName: traefik
+
+# Disable helm chart's Traefik (use k3d's built-in Traefik instead)
+traefik:
+  enabled: false
 
 # Enable cluster gateway for agent-based data plane communication
 clusterGateway:
   enabled: true
 
+# Controller Manager cluster gateway configuration
+# Enables controllers to communicate with data/build planes via cluster gateway
 controllerManager:
   clusterGateway:
     enabled: true
-
-openchoreoApi:
-  ingress:
-    enabled: true
-    hosts:
-      - host: api.openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-
-backstage:
-  ingress:
-    enabled: true
-    hosts:
-      - host: openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-  baseUrl: http://openchoreo.localhost:8080
-  auth:
-    authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize
-
-asgardeoThunder:
-  ingress:
-    enabled: true
-    hosts:
-      - host: thunder.openchoreo.localhost
-        paths:
-          - path: /
-            pathType: Prefix
-            port: 8090

@@ -4,13 +4,13 @@
 package choreoctl
 
 import (
+	"fmt"
+
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/apply"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/build"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/component"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/dataplane"
-	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/deployableartifact"
-	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/deployment"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/create/environment"
@@ -22,17 +22,15 @@ import (
 	getcomponent "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/component"
 	getconfigurationgroup "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/configurationgroup"
 	getdataplane "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/dataplane"
-	getdeployartifcat "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deployableartifact"
-	getdeploy "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deployment"
 	getdeploymentpipeline "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deploymentpipeline"
 	getdeploymenttrack "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/deploymenttrack"
-	getendpoint "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/endpoint"
 	getenv "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/environment"
 	getorganization "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/organization"
 	getproject "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/get/project"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/choreoctl/cmd/logs"
+	scaffoldcomponent "github.com/openchoreo/openchoreo/internal/choreoctl/cmd/scaffold/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -68,13 +66,11 @@ func (c *CommandImplementation) GetBuild(params api.GetBuildParams) error {
 }
 
 func (c *CommandImplementation) GetDeployableArtifact(params api.GetDeployableArtifactParams) error {
-	deployableArtifactImpl := getdeployartifcat.NewGetDeployableArtifactImpl(constants.DeployableArtifactV1Config)
-	return deployableArtifactImpl.GetDeployableArtifact(params)
+	return fmt.Errorf("DeployableArtifact CRD has been removed")
 }
 
 func (c *CommandImplementation) GetDeployment(params api.GetDeploymentParams) error {
-	deploymentImpl := getdeploy.NewGetDeploymentImpl(constants.DeploymentV1Config)
-	return deploymentImpl.GetDeployment(params)
+	return fmt.Errorf("Deployment CRD has been removed")
 }
 
 func (c *CommandImplementation) GetEnvironment(params api.GetEnvironmentParams) error {
@@ -93,8 +89,7 @@ func (c *CommandImplementation) GetDeploymentTrack(params api.GetDeploymentTrack
 }
 
 func (c *CommandImplementation) GetEndpoint(params api.GetEndpointParams) error {
-	endpointImpl := getendpoint.NewGetEndpointImpl(constants.EndpointV1Config)
-	return endpointImpl.GetEndpoint(params)
+	return fmt.Errorf("Endpoint CRD has been removed")
 }
 
 // Create Operations
@@ -120,8 +115,7 @@ func (c *CommandImplementation) CreateBuild(params api.CreateBuildParams) error 
 }
 
 func (c *CommandImplementation) CreateDeployment(params api.CreateDeploymentParams) error {
-	deployImpl := deployment.NewCreateDeploymentImpl(constants.DeploymentV1Config)
-	return deployImpl.CreateDeployment(params)
+	return fmt.Errorf("Deployment CRD has been removed")
 }
 
 func (c *CommandImplementation) CreateEnvironment(params api.CreateEnvironmentParams) error {
@@ -140,8 +134,7 @@ func (c *CommandImplementation) CreateDeploymentTrack(params api.CreateDeploymen
 }
 
 func (c *CommandImplementation) CreateDeployableArtifact(params api.CreateDeployableArtifactParams) error {
-	daImpl := deployableartifact.NewCreateDeployableArtifactImpl(constants.DeployableArtifactV1Config)
-	return daImpl.CreateDeployableArtifact(params)
+	return fmt.Errorf("DeployableArtifact CRD has been removed")
 }
 
 func (c *CommandImplementation) CreateDeploymentPipeline(params api.CreateDeploymentPipelineParams) error {
@@ -232,4 +225,11 @@ func (c *CommandImplementation) GetDeploymentPipeline(params api.GetDeploymentPi
 func (c *CommandImplementation) GetConfigurationGroup(params api.GetConfigurationGroupParams) error {
 	configurationGroupImpl := getconfigurationgroup.NewGetConfigurationGroupImpl(constants.ConfigurationGroupV1Config)
 	return configurationGroupImpl.GetConfigurationGroup(params)
+}
+
+// Scaffold Operations
+
+func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentParams) error {
+	scaffoldImpl := scaffoldcomponent.NewScaffoldComponentImpl()
+	return scaffoldImpl.ScaffoldComponent(params)
 }

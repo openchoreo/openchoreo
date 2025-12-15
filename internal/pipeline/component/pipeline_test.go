@@ -16,6 +16,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
+// testSnapshot is a test-only struct for parsing legacy ComponentEnvSnapshot YAML in tests
+type testSnapshot struct {
+	Spec struct {
+		Component     v1alpha1.Component     `json:"component"`
+		ComponentType v1alpha1.ComponentType `json:"componentType"`
+		Workload      v1alpha1.Workload      `json:"workload"`
+		Traits        []v1alpha1.Trait       `json:"traits,omitempty"`
+	} `json:"spec"`
+}
+
 // loadTestDataFile loads a file from the testdata directory
 func loadTestDataFile(t *testing.T, path string) string {
 	t.Helper()
@@ -94,6 +104,9 @@ spec:
         replicas: 2
   componentType:
     spec:
+      schema:
+        parameters:
+          replicas: "integer"
       resources:
         - id: deployment
           template:
@@ -136,6 +149,9 @@ spec:
         expose: true
   componentType:
     spec:
+      schema:
+        parameters:
+          expose: "boolean"
       resources:
         - id: deployment
           template:
@@ -191,6 +207,9 @@ spec:
           - secret2
   componentType:
     spec:
+      schema:
+        parameters:
+          secrets: "[]string"
       resources:
         - id: secrets
           forEach: ${parameters.secrets}
@@ -255,6 +274,9 @@ spec:
     - metadata:
         name: mysql
       spec:
+        schema:
+          parameters:
+            database: "string"
         creates:
           - template:
               apiVersion: v1
@@ -371,8 +393,8 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Parse snapshot
-			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			// Parse snapshot (using test-only struct for legacy YAML format)
+			snapshot := &testSnapshot{}
 			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
 				t.Fatalf("Failed to parse snapshot YAML: %v", err)
 			}
@@ -431,11 +453,20 @@ spec:
 					Name:            "test-component-dev-12345678",
 					Namespace:       "test-namespace",
 					ComponentName:   "test-app",
-					EnvironmentName: "dev",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "dev-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
 						"openchoreo.dev/component":   "test-component",
 						"openchoreo.dev/environment": "dev",
+					},
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
 			}
@@ -456,7 +487,13 @@ spec:
 					t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 				}
 
-				if diff := cmp.Diff(wantResources, output.Resources, sortAnySlicesByName()); diff != "" {
+				// Extract just the Resource field from RenderedResource
+				actualResources := make([]map[string]any, len(output.Resources))
+				for i, rr := range output.Resources {
+					actualResources[i] = rr.Resource
+				}
+
+				if diff := cmp.Diff(wantResources, actualResources, sortAnySlicesByName()); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -602,8 +639,8 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Parse snapshot
-			snapshot := &v1alpha1.ComponentEnvSnapshot{}
+			// Parse snapshot (using test-only struct for legacy YAML format)
+			snapshot := &testSnapshot{}
 			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
 				t.Fatalf("Failed to parse snapshot YAML: %v", err)
 			}
@@ -638,11 +675,20 @@ spec:
 					Name:            "test-component-dev-12345678",
 					Namespace:       "test-namespace",
 					ComponentName:   "test-app",
-					EnvironmentName: "dev",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "dev-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
 						"openchoreo.dev/component":   "test-component",
 						"openchoreo.dev/environment": "dev",
+					},
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
 			}
@@ -660,8 +706,14 @@ spec:
 				t.Fatalf("Failed to parse wantResourceYAML: %v", err)
 			}
 
+			// Extract just the Resource field from RenderedResource
+			actualResources := make([]map[string]any, len(output.Resources))
+			for i, rr := range output.Resources {
+				actualResources[i] = rr.Resource
+			}
+
 			// Compare actual vs expected
-			if diff := cmp.Diff(wantResources, output.Resources); diff != "" {
+			if diff := cmp.Diff(wantResources, actualResources); diff != "" {
 				t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 			}
 		})

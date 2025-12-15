@@ -39,22 +39,18 @@ type ProjectResponse struct {
 
 // ComponentResponse represents a component in API responses
 type ComponentResponse struct {
-	UID               string                                 `json:"uid"`
-	Name              string                                 `json:"name"`
-	DisplayName       string                                 `json:"displayName,omitempty"`
-	Description       string                                 `json:"description,omitempty"`
-	Type              string                                 `json:"type"`
-	AutoDeploy        bool                                   `json:"autoDeploy"`
-	ProjectName       string                                 `json:"projectName"`
-	OrgName           string                                 `json:"orgName"`
-	CreatedAt         time.Time                              `json:"createdAt"`
-	Status            string                                 `json:"status,omitempty"`
-	Service           *openchoreov1alpha1.ServiceSpec        `json:"service,omitempty"`
-	WebApplication    *openchoreov1alpha1.WebApplicationSpec `json:"webApplication,omitempty"`
-	ScheduledTask     *openchoreov1alpha1.ScheduledTaskSpec  `json:"scheduledTask,omitempty"`
-	API               *openchoreov1alpha1.APISpec            `json:"api,omitempty"`
-	Workload          *openchoreov1alpha1.WorkloadSpec       `json:"workload,omitempty"`
-	ComponentWorkflow *ComponentWorkflow                     `json:"componentWorkflow,omitempty"`
+	UID               string                           `json:"uid"`
+	Name              string                           `json:"name"`
+	DisplayName       string                           `json:"displayName,omitempty"`
+	Description       string                           `json:"description,omitempty"`
+	Type              string                           `json:"type"`
+	AutoDeploy        bool                             `json:"autoDeploy"`
+	ProjectName       string                           `json:"projectName"`
+	OrgName           string                           `json:"orgName"`
+	CreatedAt         time.Time                        `json:"createdAt"`
+	Status            string                           `json:"status,omitempty"`
+	Workload          *openchoreov1alpha1.WorkloadSpec `json:"workload,omitempty"`
+	ComponentWorkflow *ComponentWorkflow               `json:"componentWorkflow,omitempty"`
 }
 
 type BindingResponse struct {
@@ -177,12 +173,12 @@ type DataPlaneResponse struct {
 	Description             string    `json:"description,omitempty"`
 	ImagePullSecretRefs     []string  `json:"imagePullSecretRefs,omitempty"`
 	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
+	AgentEnabled            bool      `json:"agentEnabled,omitempty"`
 	KubernetesClusterName   string    `json:"kubernetesClusterName"`
-	APIServerURL            string    `json:"apiServerURL"`
+	APIServerURL            string    `json:"apiServerURL,omitempty"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
 	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
-	ObserverURL             string    `json:"observerURL,omitempty"`
-	ObserverUsername        string    `json:"observerUsername,omitempty"`
+	ObservabilityPlaneRef   string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt               time.Time `json:"createdAt"`
 	Status                  string    `json:"status,omitempty"`
 }
@@ -195,8 +191,7 @@ type BuildPlaneResponse struct {
 	Description           string    `json:"description,omitempty"`
 	KubernetesClusterName string    `json:"kubernetesClusterName"`
 	APIServerURL          string    `json:"apiServerURL"`
-	ObserverURL           string    `json:"observerURL,omitempty"`
-	ObserverUsername      string    `json:"observerUsername,omitempty"`
+	ObservabilityPlaneRef string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt             time.Time `json:"createdAt"`
 	Status                string    `json:"status,omitempty"`
 }
@@ -257,6 +252,13 @@ type TraitResponse struct {
 	DisplayName string    `json:"displayName,omitempty"`
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// ComponentTraitResponse represents a trait instance attached to a component in API responses
+type ComponentTraitResponse struct {
+	Name         string                 `json:"name"`
+	InstanceName string                 `json:"instanceName"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // WorkflowResponse represents a Workflow in API responses
@@ -353,4 +355,14 @@ type WebhookEventResponse struct {
 	Message            string   `json:"message"`
 	AffectedComponents []string `json:"affectedComponents,omitempty"`
 	TriggeredBuilds    int      `json:"triggeredBuilds"`
+}
+
+// ObservabilityPlaneResponse represents an observability plane in API responses
+type ObservabilityPlaneResponse struct {
+	Name        string    `json:"name"`
+	Namespace   string    `json:"namespace"`
+	DisplayName string    `json:"displayName,omitempty"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	Status      string    `json:"status,omitempty"`
 }

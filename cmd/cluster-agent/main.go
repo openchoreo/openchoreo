@@ -43,7 +43,7 @@ func main() {
 		cmdutil.GetEnv("SERVER_URL", "wss://cluster-gateway:8443/ws"),
 		"Cluster gateway WebSocket URL")
 	flag.StringVar(&planeType, "plane-type", cmdutil.GetEnv("PLANE_TYPE", "dataplane"),
-		"Plane type: dataplane or buildplane (required)")
+		"Plane type: dataplane, buildplane, or observabilityplane (required)")
 	flag.StringVar(&planeName, "plane-name", cmdutil.GetEnv("PLANE_NAME", ""),
 		"Plane name (required)")
 	flag.StringVar(&clientCertPath, "client-cert",
@@ -73,9 +73,8 @@ func main() {
 		planeType = "dataplane"
 	}
 
-	// Validate planeType
-	if planeType != "dataplane" && planeType != "buildplane" {
-		fmt.Printf("Error: plane-type must be 'dataplane' or 'buildplane', got: %s\n", planeType)
+	if planeType != "dataplane" && planeType != "buildplane" && planeType != "observabilityplane" {
+		fmt.Printf("Error: plane-type must be 'dataplane' or 'buildplane' or 'observabilityplane', got: %s\n", planeType)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -93,7 +92,7 @@ func main() {
 	)
 
 	// Create Kubernetes client (in-cluster or from kubeconfig)
-	k8sClient, err := createKubernetesClient(kubeconfig)
+	k8sClient, k8sConfig, err := createKubernetesClient(kubeconfig)
 	if err != nil {
 		logger.Error("failed to create Kubernetes client", "error", err)
 		os.Exit(1)
@@ -115,9 +114,10 @@ func main() {
 		ReconnectDelay:    reconnectDelay,
 		HeartbeatInterval: heartbeatInterval,
 		RequestTimeout:    requestTimeout,
+		Routes:            []agentclient.RouteConfig{}, // Empty for now, can be loaded from config file later
 	}
 
-	agent, err := agentclient.New(config, k8sClient, logger)
+	agent, err := agentclient.New(config, k8sClient, k8sConfig, logger)
 	if err != nil {
 		logger.Error("failed to create agent", "error", err)
 		os.Exit(1)

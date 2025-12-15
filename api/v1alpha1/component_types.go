@@ -11,6 +11,9 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=comp;comps
+// +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
+// +kubebuilder:printcolumn:name="ComponentType",type=string,JSONPath=`.spec.componentType`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Component is the Schema for the components API.
 type Component struct {

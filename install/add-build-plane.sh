@@ -28,19 +28,25 @@ Options:
   --control-plane-context CONTEXT   Kubernetes context where BuildPlane resource will be created
                                     Default: current context
 
-  --target-context CONTEXT          Kubernetes context to extract credentials from
-                                    Default: same as control-plane-context
-                                    Cannot be specified without --control-plane-context
-
-  --server URL                      Kubernetes API server URL of the target cluster
-                                    Default: https://kubernetes.default.svc.cluster.local
-                                    Required when control-plane and target contexts differ
-
   --name NAME                       Name for the BuildPlane resource
                                     Default: default
 
   --namespace NAMESPACE             Namespace for the BuildPlane resource
-                                    Default: default
+                                    Default: default (Note: BuildPlane CRs are typically created in 'default')
+
+  --enable-agent                    Use cluster agent for build plane communication (recommended)
+
+  --agent-ca-secret NAME            (Optional) Secret name containing agent client CA certificate
+                                    If provided, uses secretRef mode to reference existing secret
+                                    If omitted, auto-extracts CA from build plane (inline value mode)
+                                    Only used with --enable-agent
+
+  --agent-ca-namespace NAMESPACE    Namespace of agent CA secret (only with --agent-ca-secret)
+                                    Default: same as --namespace
+
+  --buildplane-context CONTEXT      Kubernetes context of build plane to extract client CA from
+                                    Used in auto-extract mode (when --agent-ca-secret is not provided)
+                                    Default: current context (only used with --enable-agent)
 
   --dry-run                         Preview the YAML without applying changes
 
@@ -48,39 +54,42 @@ Options:
 
 Examples:
 
-  # Single-cluster (default)
-  $script_name
+  # Single-cluster with agent mode (auto-extract CA)
+  $script_name --enable-agent --control-plane-context k3d-openchoreo
 
-  # Single-cluster with custom context
-  $script_name --control-plane-context k3d-openchoreo
+  # Multi-cluster with agent mode and auto-extract
+  $script_name --enable-agent \\
+    --control-plane-context k3d-openchoreo-cp \\
+    --buildplane-context k3d-openchoreo-bp \\
+    --name default
 
-  # Single-cluster with external server URL
-  $script_name --control-plane-context k3d-openchoreo --server https://localhost:6443
-
-  # Multi-cluster
-  $script_name --control-plane-context k3d-openchoreo-cp \\
-     --target-context k3d-openchoreo-bp \\
-     --server https://k3d-openchoreo-bp-server-0:6443
+  # Using agent with custom CA secret
+  $script_name --enable-agent \\
+    --agent-ca-secret my-agent-ca \\
+    --agent-ca-namespace openchoreo-control-plane \\
+    --control-plane-context k3d-openchoreo
 
   # Custom name and namespace
-  $script_name --name prod-buildplane --namespace production
+  $script_name --enable-agent --name prod-buildplane --namespace production
 
   # Preview without applying
-  $script_name --dry-run
+  $script_name --enable-agent --dry-run
 
 Note:
-  Single-cluster: Both control plane and build plane in same cluster
-  Multi-cluster:  Different clusters, requires explicit --server URL
+  Agent mode (recommended): Uses cluster agent for secure communication
 EOF
 }
 
 # Defaults
-TARGET_CONTEXT=""              # Build plane cluster (extract creds, the "target")
-CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
-SERVER_URL="https://kubernetes.default.svc.cluster.local"
+CONTROL_PLANE_CONTEXT=""
+BUILDPLANE_CONTEXT=""          # Build plane cluster for CA extraction
 BUILDPLANE_NAME="default"
 NAMESPACE="default"
 DRY_RUN=false
+ENABLE_AGENT=false
+AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
+AGENT_CA_NAMESPACE=""
+AGENT_CA_SECRET_EXPLICIT=false # Track if user explicitly set --agent-ca-secret
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -89,12 +98,33 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=true
       shift
       ;;
-    --target-context)
+    --enable-agent)
+      ENABLE_AGENT=true
+      shift
+      ;;
+    --agent-ca-secret)
       if [ -z "$2" ] || [[ "$2" == --* ]]; then
-        error "Error: --target-context requires a value"
+        error "Error: --agent-ca-secret requires a value"
         exit 1
       fi
-      TARGET_CONTEXT="$2"
+      AGENT_CA_SECRET="$2"
+      AGENT_CA_SECRET_EXPLICIT=true
+      shift 2
+      ;;
+    --agent-ca-namespace)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --agent-ca-namespace requires a value"
+        exit 1
+      fi
+      AGENT_CA_NAMESPACE="$2"
+      shift 2
+      ;;
+    --buildplane-context)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --buildplane-context requires a value"
+        exit 1
+      fi
+      BUILDPLANE_CONTEXT="$2"
       shift 2
       ;;
     --control-plane-context)
@@ -103,14 +133,6 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       CONTROL_PLANE_CONTEXT="$2"
-      shift 2
-      ;;
-    --server)
-      if [ -z "$2" ] || [[ "$2" == --* ]]; then
-        error "Error: --server requires a value"
-        exit 1
-      fi
-      SERVER_URL="$2"
       shift 2
       ;;
     --name)
@@ -150,31 +172,17 @@ if [ -z "$CURRENT_CONTEXT" ]; then
   exit 1
 fi
 
-# Rule 1: Reject target-only (cannot specify target without control plane)
-if [ -n "$TARGET_CONTEXT" ] && [ -z "$CONTROL_PLANE_CONTEXT" ]; then
-  error "Error: Cannot specify --target-context without --control-plane-context"
-  echo "Use --help for more information"
-  exit 1
-fi
-
 # Set defaults
 if [ -z "$CONTROL_PLANE_CONTEXT" ]; then
   CONTROL_PLANE_CONTEXT="$CURRENT_CONTEXT"
 fi
 
-if [ -z "$TARGET_CONTEXT" ]; then
-  TARGET_CONTEXT="$CONTROL_PLANE_CONTEXT"
+# Set buildplane context default
+if [ -z "$BUILDPLANE_CONTEXT" ]; then
+  BUILDPLANE_CONTEXT="$CURRENT_CONTEXT"
 fi
 
-# Rule 2: Multi-cluster requires explicit external server URL
-if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ] && [ "$SERVER_URL" == "https://kubernetes.default.svc.cluster.local" ]; then
-  error "Error: Multi-cluster mode requires --server with external URL"
-  echo "Use --help for more information"
-  exit 1
-fi
-
-# Validate contexts exist
-# Check control plane context first
+# Validate control plane context exists
 if ! kubectl config get-contexts "$CONTROL_PLANE_CONTEXT" &>/dev/null; then
   error "Error: Control plane context '$CONTROL_PLANE_CONTEXT' not found in kubeconfig"
   echo "Available contexts:"
@@ -182,115 +190,92 @@ if ! kubectl config get-contexts "$CONTROL_PLANE_CONTEXT" &>/dev/null; then
   exit 1
 fi
 
-# Only check target if different from control plane
-if [ "$CONTROL_PLANE_CONTEXT" != "$TARGET_CONTEXT" ]; then
-  if ! kubectl config get-contexts "$TARGET_CONTEXT" &>/dev/null; then
-    error "Error: Target context '$TARGET_CONTEXT' not found in kubeconfig"
-    echo "Available contexts:"
-    kubectl config get-contexts -o name
-    exit 1
+# If using agent mode, extract or validate client CA
+if [ "$ENABLE_AGENT" = true ]; then
+  # Determine if we should use secretRef or extract CA value
+  CLIENT_CA_CONFIG=""
+
+  # Check if agent CA secret was explicitly provided
+  if [ "$AGENT_CA_SECRET_EXPLICIT" = true ]; then
+    # User provided explicit secret reference - use secretRef mode
+    # Set default namespace if not provided
+    if [ -z "$AGENT_CA_NAMESPACE" ]; then
+      AGENT_CA_NAMESPACE="$NAMESPACE"
+    fi
+
+    if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get secret "$AGENT_CA_SECRET" -n "$AGENT_CA_NAMESPACE" >/dev/null 2>&1; then
+      error "Agent CA secret '$AGENT_CA_SECRET' not found in namespace '$AGENT_CA_NAMESPACE'"
+      echo ""
+      echo "Please ensure the secret exists or omit --agent-ca-secret to auto-extract from build plane"
+      echo ""
+      exit 1
+    fi
+
+    echo "Using secret reference mode: $AGENT_CA_SECRET in namespace $AGENT_CA_NAMESPACE"
+    CLIENT_CA_CONFIG="    clientCA:
+      secretRef:
+        name: $AGENT_CA_SECRET
+        namespace: $AGENT_CA_NAMESPACE
+        key: ca.crt"
+  else
+    # Auto-extract mode - extract CA from build plane and use inline value
+    echo "Extracting cluster agent client CA from build plane..."
+    CLIENT_CA_CERT=$(kubectl --context="$BUILDPLANE_CONTEXT" get secret cluster-agent-tls -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d)
+
+    if [ -z "$CLIENT_CA_CERT" ]; then
+      error "Failed to extract cluster agent client CA certificate from build plane"
+      echo ""
+      echo "Please ensure:"
+      echo "  1. Build plane context '$BUILDPLANE_CONTEXT' is correct"
+      echo "  2. Cluster agent is deployed in build plane (openchoreo-build-plane namespace)"
+      echo "  3. The cluster-agent-tls secret exists and contains ca.crt"
+      echo ""
+      echo "Alternatively, use --agent-ca-secret to reference an existing secret in control plane"
+      echo ""
+      echo "You can check the status with:"
+      echo "  kubectl --context=$BUILDPLANE_CONTEXT get secret cluster-agent-tls -n openchoreo-build-plane"
+      echo ""
+      exit 1
+    fi
+    CLIENT_CA_CONFIG="    clientCA:
+      value: |
+$(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
   fi
-fi
 
-# Extract cluster and user info from target context
-CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$TARGET_CONTEXT')].context.cluster}")
-USER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$TARGET_CONTEXT')].context.user}")
-
-if [ -z "$CLUSTER_NAME" ] || [ -z "$USER_NAME" ]; then
-  error "Error: Could not find cluster or user for context '$TARGET_CONTEXT'"
-  exit 1
-fi
-
-# Extract base64-encoded credentials
-CA_CERT=$(kubectl config view --raw -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority-data}" 2>/dev/null)
-CLIENT_CERT=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate-data}" 2>/dev/null)
-CLIENT_KEY=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key-data}" 2>/dev/null)
-USER_TOKEN=$(kubectl config view --raw -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.token}" 2>/dev/null)
-
-# Fallback: encode from file paths if not already base64-encoded
-if [ -z "$CA_CERT" ]; then
-  CA_PATH=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='$CLUSTER_NAME')].cluster.certificate-authority}" 2>/dev/null)
-  if [ -n "$CA_PATH" ] && [ -f "$CA_PATH" ]; then
-    CA_CERT=$(base64 < "$CA_PATH" | tr -d '\n')
-  fi
-fi
-
-if [ -z "$CLIENT_CERT" ]; then
-  CERT_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-certificate}" 2>/dev/null)
-  if [ -n "$CERT_PATH" ] && [ -f "$CERT_PATH" ]; then
-    CLIENT_CERT=$(base64 < "$CERT_PATH" | tr -d '\n')
-  fi
-fi
-
-if [ -z "$CLIENT_KEY" ]; then
-  KEY_PATH=$(kubectl config view -o jsonpath="{.users[?(@.name=='$USER_NAME')].user.client-key}" 2>/dev/null)
-  if [ -n "$KEY_PATH" ] && [ -f "$KEY_PATH" ]; then
-    CLIENT_KEY=$(base64 < "$KEY_PATH" | tr -d '\n')
-  fi
-fi
-
-# Determine authentication method and build YAML sections
-AUTH_SECTION=""
-TLS_SECTION=""
-
-# Determine auth method
-if [ -n "$CLIENT_CERT" ] && [ -n "$CLIENT_KEY" ]; then
-  AUTH_SECTION="    auth:
-      mtls:
-        clientCert:
-          value: $CLIENT_CERT
-        clientKey:
-          value: $CLIENT_KEY"
-elif [ -n "$USER_TOKEN" ]; then
-  AUTH_SECTION="    auth:
-      bearerToken:
-        value: $USER_TOKEN"
-else
-  error "Error: No valid authentication credentials found in context '$TARGET_CONTEXT'"
-  echo "Need either:"
-  echo "  - Client certificate and key (mTLS), or"
-  echo "  - Bearer token"
-  exit 1
-fi
-
-# CA certificate (required for TLS)
-if [ -z "$CA_CERT" ]; then
-  error "Error: CA certificate not found in context '$TARGET_CONTEXT'"
-  echo "CA certificate is required for secure connection to the cluster"
-  exit 1
-fi
-
-TLS_SECTION="    tls:
-      ca:
-        value: $CA_CERT"
-
-# Generate the BuildPlane YAML
-BUILDPLANE_YAML=$(cat <<EOF
+  # Generate the BuildPlane YAML with agent configuration
+  BUILDPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
 metadata:
   name: $BUILDPLANE_NAME
   namespace: $NAMESPACE
   annotations:
-    openchoreo.dev/description: "BuildPlane created via $(basename $0) script"
+    openchoreo.dev/description: "BuildPlane created via $(basename $0) script with cluster agent"
     openchoreo.dev/display-name: "BuildPlane $BUILDPLANE_NAME"
 spec:
-  kubernetesCluster:
-    server: $SERVER_URL
-$TLS_SECTION
-$AUTH_SECTION
+  agent:
+    enabled: true
+$CLIENT_CA_CONFIG
 EOF
 )
 
-# Apply or preview the manifest
-if [ "$DRY_RUN" = true ]; then
-  echo "$BUILDPLANE_YAML"
-  exit 0
-else
-  if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
-    :
+  # Apply or preview the manifest
+  if [ "$DRY_RUN" = true ]; then
+    echo "$BUILDPLANE_YAML"
+    exit 0
   else
-    error "Failed to create BuildPlane resource"
-    exit 1
+    if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
+      :
+    else
+      error "Failed to create BuildPlane resource"
+      exit 1
+    fi
   fi
+  exit 0
 fi
+
+# Non-agent mode error
+error "Error: --enable-agent is required"
+echo "BuildPlane resources must use cluster agent mode for communication"
+echo "Use --enable-agent flag and see --help for more information"
+exit 1

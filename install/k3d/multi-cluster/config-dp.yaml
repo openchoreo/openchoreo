@@ -10,11 +10,11 @@ kubeAPI:
 # Data Plane uses port range 9xxx
 ports:
   # HTTP traffic to workloads via Envoy Gateway
-  - port: 9080:80
+  - port: 9080:9080
     nodeFilters:
       - loadbalancer
   # HTTPS traffic to workloads via Envoy Gateway
-  - port: 9443:443
+  - port: 9443:9443
     nodeFilters:
       - loadbalancer
 options:

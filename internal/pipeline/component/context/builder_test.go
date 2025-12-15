@@ -76,6 +76,11 @@ metadata:
 					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
 					"environmentName": "dev",
 					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					"labels":          map[string]any{},
+					"annotations":     map[string]any{},
+					"podSelectors": map[string]any{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 				"workload": map[string]any{
 					"containers": map[string]any{},
@@ -105,8 +110,9 @@ metadata:
 spec:
   schema:
     parameters:
-      replicas: "integer | default=1"
       cpu: "string | default=100m"
+    envOverrides:
+      replicas: "integer | default=1"
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -137,6 +143,11 @@ spec:
 					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
 					"environmentName": "prod",
 					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					"labels":          map[string]any{},
+					"annotations":     map[string]any{},
+					"podSelectors": map[string]any{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 				"workload": map[string]any{
 					"containers": map[string]any{},
@@ -217,6 +228,11 @@ metadata:
 					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
 					"environmentName": "dev",
 					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					"labels":          map[string]any{},
+					"annotations":     map[string]any{},
+					"podSelectors": map[string]any{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 			},
 			wantErr: false,
@@ -245,7 +261,16 @@ metadata:
 					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
 					EnvironmentName: tt.environment,
 					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
-					Labels:          tt.additionalMetadata,
+					Labels: func() map[string]string {
+						if tt.additionalMetadata == nil {
+							return map[string]string{}
+						}
+						return tt.additionalMetadata
+					}(),
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 			}
 
@@ -426,6 +451,11 @@ spec:
 					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
 					EnvironmentName: "dev",
 					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					Labels:          map[string]string{},
+					Annotations:     map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 				DiscardComponentEnvOverrides: tt.discardComponentEnvOverrides,
 			}
@@ -527,8 +557,21 @@ metadata:
 					"instanceName": "db-1",
 				},
 				"metadata": map[string]any{
-					"name":      "test-component-dev-12345678",
-					"namespace": "test-namespace",
+					"name":            "test-component-dev-12345678",
+					"namespace":       "test-namespace",
+					"componentName":   "test-component",
+					"componentUID":    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					"projectName":     "test-project",
+					"projectUID":      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					"dataPlaneName":   "test-dataplane",
+					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					"environmentName": "dev",
+					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					"labels":          map[string]any{},
+					"annotations":     map[string]any{},
+					"podSelectors": map[string]any{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 			},
 			wantErr: false,
@@ -544,6 +587,7 @@ spec:
   schema:
     parameters:
       database: "string"
+    envOverrides:
       size: "string | default=small"
 `,
 			componentYAML: `
@@ -582,8 +626,21 @@ spec:
 					"instanceName": "db-1",
 				},
 				"metadata": map[string]any{
-					"name":      "test-component-dev-12345678",
-					"namespace": "test-namespace",
+					"name":            "test-component-dev-12345678",
+					"namespace":       "test-namespace",
+					"componentName":   "test-component",
+					"componentUID":    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					"projectName":     "test-project",
+					"projectUID":      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					"dataPlaneName":   "test-dataplane",
+					"dataPlaneUID":    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					"environmentName": "dev",
+					"environmentUID":  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					"labels":          map[string]any{},
+					"annotations":     map[string]any{},
+					"podSelectors": map[string]any{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 			},
 			wantErr: false,
@@ -595,9 +652,26 @@ spec:
 			// Build input from YAML
 			input := &TraitContextInput{
 				Metadata: MetadataContext{
-					Name:      "test-component-dev-12345678",
-					Namespace: "test-namespace",
-					Labels:    tt.additionalMetadata,
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-component",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "test-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					Labels: func() map[string]string {
+						if tt.additionalMetadata == nil {
+							return map[string]string{}
+						}
+						return tt.additionalMetadata
+					}(),
+					Annotations: map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 			}
 
@@ -637,7 +711,7 @@ spec:
 				input.ReleaseBinding = settings
 			}
 
-			got, err := BuildTraitContext(input)
+			traitCtx, err := BuildTraitContext(input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildTraitContext() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -645,6 +719,9 @@ spec:
 			if tt.wantErr {
 				return
 			}
+
+			// Convert to map for comparison
+			got := traitCtx.ToMap()
 
 			// Compare the entire result using cmp.Diff
 			if diff := cmp.Diff(tt.want, got); diff != "" {
@@ -772,8 +849,21 @@ spec:
 			// Build input from YAML
 			input := &TraitContextInput{
 				Metadata: MetadataContext{
-					Name:      "test-component-dev-12345678",
-					Namespace: "test-namespace",
+					Name:            "test-component-dev-12345678",
+					Namespace:       "test-namespace",
+					ComponentName:   "test-component",
+					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					ProjectName:     "test-project",
+					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:   "test-dataplane",
+					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName: "dev",
+					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					Labels:          map[string]string{},
+					Annotations:     map[string]string{},
+					PodSelectors: map[string]string{
+						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
 				},
 				DiscardComponentEnvOverrides: tt.discardComponentEnvOverrides,
 			}
@@ -804,7 +894,7 @@ spec:
 				input.ReleaseBinding = rb
 			}
 
-			got, err := BuildTraitContext(input)
+			traitCtx, err := BuildTraitContext(input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildTraitContext() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -812,6 +902,9 @@ spec:
 			if tt.wantErr {
 				return
 			}
+
+			// Convert to map for comparison
+			got := traitCtx.ToMap()
 
 			// Compare only the parameters field
 			gotParams := got["parameters"]

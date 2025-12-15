@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sync"
-	"time"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -16,23 +15,38 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	clustergateway "github.com/openchoreo/openchoreo/internal/cluster-gateway"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 )
 
+// ProxyTLSConfig holds TLS configuration for HTTP proxy connections to the cluster gateway
+type ProxyTLSConfig struct {
+	CACertPath     string
+	ClientCertPath string
+	ClientKeyPath  string
+}
+
 // KubeMultiClientManager maintains a cache of Kubernetes clients keyed by a unique identifier.
 // Uses RWMutex to allow concurrent reads while still protecting writes.
 type KubeMultiClientManager struct {
-	mu      sync.RWMutex
-	clients map[string]client.Client
+	mu             sync.RWMutex
+	clients        map[string]client.Client
+	ProxyTLSConfig *ProxyTLSConfig // TLS configuration for HTTP proxy connections
 }
 
 // NewManager initializes a new KubeMultiClientManager.
 func NewManager() *KubeMultiClientManager {
 	return &KubeMultiClientManager{
 		clients: make(map[string]client.Client),
+	}
+}
+
+// NewManagerWithProxyTLS initializes a new KubeMultiClientManager with proxy TLS configuration.
+func NewManagerWithProxyTLS(tlsConfig *ProxyTLSConfig) *KubeMultiClientManager {
+	return &KubeMultiClientManager{
+		clients:        make(map[string]client.Client),
+		ProxyTLSConfig: tlsConfig,
 	}
 }
 
@@ -202,47 +216,75 @@ func GetK8sClient(
 }
 
 // GetK8sClientFromDataPlane retrieves a Kubernetes client from DataPlane specification.
-// It automatically handles agent mode vs direct access mode.
+// Supports both agent mode (via HTTP proxy) and direct access mode.
 func GetK8sClientFromDataPlane(
 	clientMgr *KubeMultiClientManager,
 	dataplane *openchoreov1alpha1.DataPlane,
-	agentServer interface{}, // *server.Server, passed as interface to avoid circular dependency
+	gatewayURL string,
 ) (client.Client, error) {
-	key := makeClientKey(dataplane.Namespace, dataplane.Name)
+	// Include plane type in cache key to avoid collision with BuildPlane
+	key := fmt.Sprintf("dataplane/%s/%s", dataplane.Namespace, dataplane.Name)
 
+	// Agent mode - use HTTP proxy through cluster gateway
 	if dataplane.Spec.Agent != nil && dataplane.Spec.Agent.Enabled {
-		// Agent mode - use GetOrAddClient to handle caching and locking
+		if gatewayURL == "" {
+			return nil, fmt.Errorf("gatewayURL is required for agent mode")
+		}
+
+		// Use planeType/planeName format to match agent registration
+		// Agent registers as "dataplane/<name>", so we use the same identifier
+		planeIdentifier := fmt.Sprintf("dataplane/%s", dataplane.Name)
+
+		// Use GetOrAddClient to cache the proxy client
 		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-			if agentServer == nil {
-				return nil, fmt.Errorf("agent server is required for agent mode but not provided")
-			}
-
-			srv, ok := agentServer.(clustergateway.Dispatcher)
-			if !ok {
-				return nil, fmt.Errorf("invalid agent server type: expected clustergateway.Dispatcher")
-			}
-
-			// Construct composite plane identifier: {planeType}/{planeName}
-			// PlaneType is always "dataplane" for DataPlane CRs
-			planeIdentifier := fmt.Sprintf("dataplane/%s", dataplane.Name)
-
-			// Create agent client with 30 second timeout for requests
-			requestTimeout := 30 * time.Second
-			cl, err := NewAgentClient(planeIdentifier, srv, requestTimeout)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create agent client: %w", err)
-			}
-
-			return cl, nil
+			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
 		})
 	}
 
 	// Direct access mode
 	if dataplane.Spec.KubernetesCluster == nil {
-		return nil, fmt.Errorf("kubernetesCluster configuration is required when agent mode is disabled")
+		return nil, fmt.Errorf("kubernetesCluster configuration is required for direct access mode")
 	}
 
 	cl, err := clientMgr.GetClient(key, dataplane.Spec.KubernetesCluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
+	}
+	return cl, nil
+}
+
+// GetK8sClientFromBuildPlane retrieves a Kubernetes client from BuildPlane specification.
+// Supports both agent mode (via HTTP proxy) and direct access mode.
+func GetK8sClientFromBuildPlane(
+	clientMgr *KubeMultiClientManager,
+	buildplane *openchoreov1alpha1.BuildPlane,
+	gatewayURL string,
+) (client.Client, error) {
+	// Include plane type in cache key to avoid collision with DataPlane
+	key := fmt.Sprintf("buildplane/%s/%s", buildplane.Namespace, buildplane.Name)
+
+	// Agent mode - use HTTP proxy through cluster gateway
+	if buildplane.Spec.Agent != nil && buildplane.Spec.Agent.Enabled {
+		if gatewayURL == "" {
+			return nil, fmt.Errorf("gatewayURL is required for agent mode")
+		}
+
+		// Use planeType/planeName format to match agent registration
+		// Agent registers as "buildplane/<name>", so we use the same identifier
+		planeIdentifier := fmt.Sprintf("buildplane/%s", buildplane.Name)
+
+		// Use GetOrAddClient to cache the proxy client
+		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+		})
+	}
+
+	// Direct access mode
+	if buildplane.Spec.KubernetesCluster == nil {
+		return nil, fmt.Errorf("kubernetesCluster configuration is required for direct access mode")
+	}
+
+	cl, err := clientMgr.GetClient(key, buildplane.Spec.KubernetesCluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Kubernetes client: %w", err)
 	}

@@ -9,10 +9,10 @@ source "${SCRIPT_DIR}/.config.sh"
 get_component_group() {
     local group="$1"
     case "$group" in
-        "Control_Plane") echo "cert_manager_cp controller_manager" ;; # TODO: add api_server, backstage and thunder
+        "Control_Plane") echo "cert_manager controller_manager" ;; # TODO: add api_server, backstage and thunder
         "Data_Plane") echo "gateway_controller" ;;
         "Build_Plane") echo "argo_workflow_controller registry" ;;
-        "Observability_Plane") echo "opensearch opensearch_dashboard observer" ;;
+        "Observability_Plane") echo "opensearch observer" ;;
         *) echo "" ;;
     esac
 }
@@ -33,25 +33,24 @@ get_group_display_name() {
 }
 
 # Component lists for multi-cluster mode (kept for backward compatibility)
-components_cp=("cert_manager_cp" "controller_manager" "api_server")
+components_cp=("cert_manager" "controller_manager" "api_server")
 components_dp=("gateway_controller")
 
 # Core vs optional component classification (used in multi-cluster mode)
-core_components=("cert_manager_cp" "controller_manager" "api_server" "gateway_controller")
-optional_components=("opensearch" "opensearch_dashboard" "observer")
+core_components=("cert_manager" "controller_manager" "api_server" "gateway_controller")
+optional_components=("opensearch" "observer")
 
 # Function to get component configuration (namespace:label)
 get_component_config() {
     local component="$1"
     case "$component" in
-        "cert_manager_cp") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=cert-manager" ;;
+        "cert_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=cert-manager" ;;
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
         "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway" ;;
         "argo_workflow_controller") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$BUILD_PLANE_NS:app=registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
-        "opensearch_dashboard") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=opensearch-dashboards" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
     esac

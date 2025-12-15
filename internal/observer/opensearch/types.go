@@ -68,19 +68,26 @@ type LogEntry struct {
 
 // TraceResponse represents the response structure for trace queries
 type TraceResponse struct {
-	Spans      []Span `json:"spans"`
-	TotalCount int    `json:"totalCount"`
-	Took       int    `json:"tookMs"`
+	Traces []Trace `json:"traces"`
+	Took   int     `json:"tookMs"`
+}
+
+// Trace represents a trace with its associated spans
+type Trace struct {
+	TraceID string `json:"traceId"`
+	Spans   []Span `json:"spans"`
 }
 
 // Span represents a parsed span entry from OpenSearch
 type Span struct {
-	DurationInNanos int64     `json:"durationInNanos"`
-	EndTime         time.Time `json:"endTime"`
-	Name            string    `json:"name"`
-	SpanID          string    `json:"spanId"`
-	StartTime       time.Time `json:"startTime"`
-	TraceID         string    `json:"traceId"`
+	DurationNanoseconds    int64     `json:"durationNanoseconds"`
+	EndTime                time.Time `json:"endTime"`
+	Name                   string    `json:"name"`
+	OpenChoreoComponentUID string    `json:"openChoreoComponentUid"`
+	OpenChoreoProjectUID   string    `json:"openChoreoProjectUid"`
+	ParentSpanID           string    `json:"parentSpanId"`
+	SpanID                 string    `json:"spanId"`
+	StartTime              time.Time `json:"startTime"`
 }
 
 // QueryParams holds common query parameters
@@ -236,11 +243,14 @@ func ExtractLogType(logType string) string {
 	}
 }
 
-// ComponentTracesRequestParams holds request body parameters for component traces
-type ComponentTracesRequestParams struct {
-	EndTime     string `json:"endTime"`
-	Limit       int    `json:"limit,omitempty"`
-	ServiceName string `json:"serviceName"`
-	SortOrder   string `json:"sortOrder,omitempty"`
-	StartTime   string `json:"startTime"`
+// TracesRequestParams holds request body parameters for traces
+type TracesRequestParams struct {
+	ComponentUIDs  []string `json:"componentUids,omitempty"`
+	EndTime        string   `json:"endTime"`
+	EnvironmentUID string   `json:"environmentUid,omitempty"`
+	Limit          int      `json:"limit,omitempty"`
+	ProjectUID     string   `json:"projectUid"`
+	SortOrder      string   `json:"sortOrder,omitempty"`
+	StartTime      string   `json:"startTime"`
+	TraceID        string   `json:"traceId,omitempty"`
 }

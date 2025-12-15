@@ -161,17 +161,9 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 		},
 	}
 
-	// Add observer configuration if provided
-	if req.ObserverURL != "" {
-		spec.Observer = openchoreov1alpha1.ObserverAPI{
-			URL: req.ObserverURL,
-			Authentication: openchoreov1alpha1.ObserverAuthentication{
-				BasicAuth: openchoreov1alpha1.BasicAuthCredentials{
-					Username: req.ObserverUsername,
-					Password: req.ObserverPassword,
-				},
-			},
-		}
+	// Set observability plane reference if provided
+	if req.ObservabilityPlaneRef != "" {
+		spec.ObservabilityPlaneRef = req.ObservabilityPlaneRef
 	}
 
 	return &openchoreov1alpha1.DataPlane{
@@ -219,6 +211,19 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		secretStoreRef = dp.Spec.SecretStoreRef.Name
 	}
 
+	// Extract agent configuration
+	var agentEnabled bool
+	if dp.Spec.Agent != nil {
+		agentEnabled = dp.Spec.Agent.Enabled
+	}
+
+	// Extract KubernetesCluster fields if present (optional when agent mode is enabled)
+	// TODO: Implement a generic reflection-based utility function to handle extraction of values
+	var apiServerURL string
+	if dp.Spec.KubernetesCluster != nil {
+		apiServerURL = dp.Spec.KubernetesCluster.Server
+	}
+
 	response := &models.DataPlaneResponse{
 		Name:                    dp.Name,
 		Namespace:               dp.Namespace,
@@ -226,19 +231,18 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Description:             description,
 		ImagePullSecretRefs:     dp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:          secretStoreRef,
+		AgentEnabled:            agentEnabled,
 		KubernetesClusterName:   dp.Name,
-		APIServerURL:            dp.Spec.KubernetesCluster.Server,
+		APIServerURL:            apiServerURL,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
 		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 		CreatedAt:               dp.CreationTimestamp.Time,
 		Status:                  status,
 	}
 
-	// Add observer configuration if present
-	if dp.Spec.Observer.URL != "" {
-		response.ObserverURL = dp.Spec.Observer.URL
-		response.ObserverUsername = dp.Spec.Observer.Authentication.BasicAuth.Username
-		// Password is excluded for security
+	// Add observability plane reference if present
+	if dp.Spec.ObservabilityPlaneRef != "" {
+		response.ObservabilityPlaneRef = dp.Spec.ObservabilityPlaneRef
 	}
 
 	return response

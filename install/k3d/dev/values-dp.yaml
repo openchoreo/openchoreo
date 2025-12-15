@@ -1,18 +1,7 @@
 # Data Plane values for k3d dev environment
 
-# Disable cert-manager (already installed by control plane)
-cert-manager:
-  enabled: false
-
-# Gateway configuration for k3d dev environment
+# Gateway configuration for k3d dev environment (default ports 9080/9443)
 gateway:
-  # Enable gateway
-  enabled: true
-
-  # Use custom ports for k3d dev
-  httpPort: 9080
-  httpsPort: 9443
-
   # Envoy - enabled by default for traffic routing
   envoy:
     enabled: true

@@ -1,6 +1,9 @@
 {{- if .Values.clusterAgent.enabled }}
+{{- if .Values.clusterAgent.tls.enabled }}
+{{- if not .Values.clusterAgent.tls.serverCAValue }}
 ---
-# Job to copy cluster-gateway CA certificate from control plane to data plane
+# Job to copy cluster-gateway CA ConfigMap from control plane to data plane
+# Only runs in single-cluster setup (when serverCAValue is not provided inline)
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,7 +20,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/component: cluster-agent-ca-copier
+        app.kubernetes.io/component: cluster-gateway-ca-copier
     spec:
       restartPolicy: OnFailure
       serviceAccountName: {{ include "openchoreo-data-plane.clusterAgent.serviceAccountName" . }}
@@ -83,4 +86,6 @@ spec:
 
           echo ""
           echo "=== CA Copy Completed Successfully ==="
+{{- end }}
+{{- end }}
 {{- end }}

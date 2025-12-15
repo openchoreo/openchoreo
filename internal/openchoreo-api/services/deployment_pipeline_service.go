@@ -40,7 +40,7 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 	s.logger.Debug("Getting project deployment pipeline", "org", orgName, "project", projectName)
 
 	// First verify the project exists and get its deployment pipeline reference
-	project, err := s.projectService.GetProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		return nil, err
 	}

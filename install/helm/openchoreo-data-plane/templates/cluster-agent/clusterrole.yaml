@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}
+  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-{{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
@@ -16,6 +16,13 @@ rules:
   - daemonsets
   - replicasets
   verbs: ["*"]
+# Deployment scale subresource (required for kubectl scale)
+- apiGroups: ["apps"]
+  resources:
+  - deployments/scale
+  - statefulsets/scale
+  - replicasets/scale
+  verbs: ["get", "update", "patch"]
 - apiGroups: [""]
   resources:
   - pods

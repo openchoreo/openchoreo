@@ -6,6 +6,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "15"
+    "helm.sh/delete-policy": hook-failed
   labels:
     {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
 spec:
@@ -104,7 +105,7 @@ spec:
             #####################################################################
             # 2. Registry configuration and pull pre-cached images
             #####################################################################
-            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
             # Pull pre-cached buildpack images from registry
             BUILDER="${REGISTRY_ENDPOINT}/buildpacks-cache/google-builder:latest"
@@ -168,7 +169,7 @@ spec:
             #####################################################################
             # 2. Registry
             #####################################################################
-            REGISTRY_ENDPOINT="{{ .Values.global.defaultResources.registry.endpoint }}"
+            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
 
             #####################################################################
             # 3. Podman storage configuration

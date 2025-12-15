@@ -200,3 +200,78 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 		Status:       status,
 	}
 }
+
+// EnvironmentObserverResponse represents the response for observer URL requests
+type EnvironmentObserverResponse struct {
+	ObserverURL string `json:"observerUrl,omitempty"`
+	Message     string `json:"message,omitempty"`
+}
+
+// GetEnvironmentObserverURL retrieves the observer URL for the environment
+func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, orgName, envName string) (*EnvironmentObserverResponse, error) {
+	s.logger.Debug("Getting environment observer URL", "org", orgName, "env", envName)
+
+	env, err := s.GetEnvironment(ctx, orgName, envName)
+	if err != nil {
+		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "env", envName)
+		return nil, err
+	}
+
+	// Check if environment has a dataplane reference
+	if env.DataPlaneRef == "" {
+		s.logger.Error("Environment has no dataplane reference", "environment", envName)
+		return nil, ErrDataPlaneNotFound
+	}
+
+	// Get the DataPlane configuration for the environment
+	dp := &openchoreov1alpha1.DataPlane{}
+	dpKey := client.ObjectKey{
+		Name:      env.DataPlaneRef,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Error("DataPlane not found", "org", orgName, "dataplane", env.DataPlaneRef)
+			return nil, ErrDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get dataplane", "error", err, "org", orgName, "dataplane", env.DataPlaneRef)
+		return nil, fmt.Errorf("failed to get dataplane: %w", err)
+	}
+
+	// Check if observer is configured via ObservabilityPlaneRef
+	if dp.Spec.ObservabilityPlaneRef == "" {
+		s.logger.Debug("ObservabilityPlaneRef not configured in dataplane", "dataplane", dp.Name)
+		return &EnvironmentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	// Fetch the ObservabilityPlane to get the ObserverURL
+	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+	opKey := client.ObjectKey{
+		Name:      dp.Spec.ObservabilityPlaneRef,
+		Namespace: dp.Namespace,
+	}
+	if err := s.k8sClient.Get(ctx, opKey, observabilityPlane); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Debug("ObservabilityPlane not found", "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+			return &EnvironmentObserverResponse{
+				Message: "observability-logs have not been configured",
+			}, nil
+		}
+		s.logger.Error("Failed to get observability plane", "error", err, "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+		return nil, fmt.Errorf("failed to get observability plane: %w", err)
+	}
+
+	if observabilityPlane.Spec.ObserverURL == "" {
+		s.logger.Debug("ObserverURL not configured in observability plane", "observabilityPlane", observabilityPlane.Name)
+		return &EnvironmentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
+	}
+
+	return &EnvironmentObserverResponse{
+		ObserverURL: observabilityPlane.Spec.ObserverURL,
+	}, nil
+}

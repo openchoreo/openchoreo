@@ -1,9 +1,28 @@
 # Global values shared across all components
 global:
-  # The name of the cluster where OpenChoreo is deployed
+  # Base domain for all services
+  # Console: <baseDomain>, API: api.<baseDomain>
+  baseDomain: openchoreo.local
+
+  # Port suffix for URLs (e.g., ":8080" for non-standard ports)
+  # Include the colon. Leave empty for standard ports (80/443)
+  port: ""
+
+  # TLS - enables HTTPS for all ingresses
+  # When enabled, TLS hosts are auto-derived from baseDomain
+  tls:
+    enabled: false
+    # Secret containing TLS certificate (must have all hosts: baseDomain, api.baseDomain, thunder.baseDomain)
+    secretName: "control-plane-tls"
+
+  # Ingress class for all services (uses Traefik by default)
+  ingressClassName: openchoreo-traefik
+
+  # Other settings
   clusterName: openchoreo
-  # Common labels to add to all resources
+  imagePullSecrets: []
   commonLabels: {}
+
   # Default OpenChoreo resources created during installation
   defaultResources:
     enabled: true
@@ -43,6 +62,25 @@ global:
               requiresApproval: false
 # Override the full name of the chart release
 fullnameOverride: openchoreo
+# Common security configuration shared across all components
+security:
+  # Global security toggle - when disabled, authentication is turned off for all components
+  enabled: false
+  oidc:
+    issuer: ""
+    wellKnownEndpoint: ""
+    jwksUrl: ""
+    authorizationUrl: ""
+    tokenUrl: ""
+  jwt:
+    # Expected audience claim in JWT tokens
+    audience: ""
+  authz:
+    enabled: false
+    databasePath: "/var/lib/openchoreo/data/casbin.db"
+    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
+    # To use custom roles, set this path and mount a ConfigMap with your roles
+    defaultRolesFilePath: ""
 controllerManager:
   name: controller-manager
   replicas: 1
@@ -152,7 +190,7 @@ controllerManager:
       enableWebhooks: "true"
   # Cluster Gateway configuration for agent-based data plane communication
   clusterGateway:
-    enabled: false  # Set to true to enable cluster gateway integration
+    enabled: true
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
     tls:
       caPath: /etc/cluster-gateway/ca.crt
@@ -186,11 +224,13 @@ openchoreoApi:
     pullPolicy: IfNotPresent
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
-  jwt:
-    disabled: true
-    issuer: ""
-    jwksUrl: ""
-    audience: ""
+  logLevel: info
+  database:
+    path: "/var/lib/openchoreo/data/controlplane.db"
+    persistence:
+      enabled: true
+      size: 500Mi
+      storageClassName: "" # Use default storage class if not specified
   resources:
     requests:
       cpu: "200m"
@@ -250,7 +290,7 @@ openchoreoApi:
         prometheus: kube-prometheus
       relabelings: []
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: ""
     annotations: {}
     hosts: []
@@ -290,40 +330,20 @@ openchoreoApi:
       type: RuntimeDefault
     appArmorProfile:
       type: Unconfined
-# Dependency configurations
-
-# Cert-Manager configuration
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  config:
-    enableGatewayAPI: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
+  authz:
+    userTypes:
+      - type: "user"
+        display_name: "Human User"
+        priority: 1
+        entitlement:
+          claim: "groups"
+          display_name: "User Group"
+      - type: "service_account"
+        display_name: "Service Account"
+        priority: 2
+        entitlement:
+          claim: "sub"
+          display_name: "Client ID"
 # Backstage UI configuration
 backstage:
   enabled: true
@@ -353,6 +373,18 @@ backstage:
   backendSecret: ""
   openchoreoApi:
     url: ""
+
+  # Feature flags for enabling/disabling OpenChoreo features in Backstage
+  # These control which plugins and functionality are available in the UI
+  features:
+    # Build plane / Workflows functionality
+    # When disabled, hides Workflows tab and WorkflowsOverviewCard from entity pages
+    workflows:
+      enabled: true
+    # Observability plane features (Metrics, Traces, Runtime Logs)
+    # When disabled, hides Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard from entity pages
+    observability:
+      enabled: true
   env:
     - name: NODE_ENV
       value: production
@@ -367,6 +399,9 @@ backstage:
   auth:
     authorizationUrl: ""
     tokenUrl: ""
+    clientId: "openchoreo-backstage-client"
+    clientSecret: "backstage-portal-secret"
+    redirectUrls: []
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -408,7 +443,7 @@ backstage:
         prometheus: kube-prometheus
       relabelings: []
   ingress:
-    enabled: false
+    enabled: true
     ingressClassName: ""
     annotations: {}
     hosts: []
@@ -449,143 +484,186 @@ backstage:
     appArmorProfile:
       type: Unconfined
 # Asgardeo Thunder (Platform Identity Provider) configuration
-asgardeoThunder:
+thunder:
   enabled: true
-  replicaCount: 1
-  image:
-    repository: ghcr.io/asgardeo/thunder
-    pullPolicy: IfNotPresent
-    tag: "0.11.0"
-  imagePullSecrets: []
-  env:
-    - name: ENABLE_HTTPS
-      value: "false"
-    - name: PORT
-      value: "8090"
-    - name: HOST
-      value: "0.0.0.0"
-  podAnnotations: {}
-  podLabels: {}
-  podSecurityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-    runAsUser: 802
-    runAsGroup: 802
-    fsGroup: 802
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 802
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  fullnameOverride: thunder
+  # Deployment configuration
+  deployment:
+    replicaCount: 1
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    securityContext:
+      # Must be false for SQLite to work (needs write access to database directory)
+      readOnlyRootFilesystem: false
+      enableRunAsUser: true
+      fsGroup: 802
+      runAsUser: 802
+      seccompProfile:
+        enabled: true
+        type: RuntimeDefault
+    terminationGracePeriodSeconds: 10
+    image:
+      registry: ghcr.io/asgardeo
+      repository: thunder
+      tag: "0.15.0"
+      pullPolicy: IfNotPresent
+    container:
+      port: 8090
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    annotations: {}
+
+  # Service configuration
   service:
-    type: ClusterIP
     port: 8090
-    targetPort: 8090
-    nodePort: null
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
-  volumes: []
-  volumeMounts: []
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-  autoscaling:
+
+  # Service Account configuration
+  serviceAccount:
+    name: thunder-service-account
+    create: true
+
+  # HPA configuration (disabled for local dev)
+  hpa:
     enabled: false
-    minReplicas: 1
-    maxReplicas: 3
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  podDisruptionBudget:
-    enabled: false
-    minAvailable: 1
-  networkPolicy:
-    enabled: false
-    ingress: []
-    egress: []
+
+  # PDB configuration (disabled for local dev)
+  pdb:
+    minAvailable: "50%"
+
+  # Ingress configuration (disabled - using k3d ingress instead)
   ingress:
     enabled: false
     ingressClassName: ""
     annotations: {}
     hosts: []
     tls: []
-  config:
+  
+  ocIngress:
+    enabled: true
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+  # Thunder application configuration
+  configuration:
     server:
-      hostname: "0.0.0.0"
       port: 8090
       httpOnly: true
+      publicUrl: "http://thunder.openchoreo.localhost:8080"
+
     gateClient:
       hostname: "thunder.openchoreo.localhost"
       port: 8080
       scheme: "http"
-      loginPath: "/signin"
-      errorPath: "/error"
+      loginPath: "/gate/signin"
+      errorPath: "/gate/error"
+
     security:
       certFile: "repository/resources/security/server.cert"
       keyFile: "repository/resources/security/server.key"
+      cryptoFile: "repository/resources/security/crypto.key"
+
+    # Database configuration - Using SQLite for local k3d development
     database:
       identity:
-        type: "sqlite"
-        path: "repository/database/thunderdb.db"
-        options: "_journal_mode=WAL&_busy_timeout=5000"
+        type: sqlite
+        sqlitePath: "repository/database/thunderdb.db"
+        sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
       runtime:
-        type: "sqlite"
-        path: "repository/database/runtimedb.db"
-        options: "_journal_mode=WAL&_busy_timeout=5000"
+        type: sqlite
+        sqlitePath: "repository/database/runtimedb.db"
+        sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
+      user:
+        type: sqlite
+        sqlitePath: "repository/database/userdb.db"
+        sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
+
+    # Cache configuration
+    cache:
+      disabled: false
+      type: "inmemory"
+      size: 1000
+      ttl: 3600
+      evictionPolicy: "LRU"
+      cleanupInterval: 300
+
+    # Token configuration
+    jwt:
+      issuer: "thunder"
+      validityPeriod: 3600
+      audience: "application"
+
+    # OAuth configuration
     oauth:
-      jwt:
-        issuer: "thunder"
-        validityPeriod: 3600
       refreshToken:
         renewOnGrant: false
         validityPeriod: 86400
+
+    # Flow configuration
     flow:
       graphDirectory: "repository/resources/graphs/"
       authn:
         defaultFlow: "auth_flow_config_basic"
-  runtimeConfig:
-    client:
-      base: "/signin"
-    server:
-      hostname: "thunder.openchoreo.localhost"
-      port: 8080
-      httpOnly: true
-  persistence:
-    database:
-      enabled: true
-      storageClassName: ""
-      accessMode: ReadWriteOnce
-      size: 500Mi
-      reclaimPolicy: Delete
-  backstagePortal:
+
+    # CORS configuration - Include both ingress hosts
+    cors:
+      allowedOrigins:
+        - "http://openchoreo.localhost:8080"
+        - "http://localhost:7007"
+
+  # Setup job configuration
+  setup:
     enabled: true
-    name: "Backstage"
-    description: "OpenChoreo Backstage Portal"
-    clientId: "openchoreo-backstage-client"
-    clientSecret: "backstage-portal-secret"
-    redirectUrls:
-      - http://openchoreo.localhost:8080/api/auth/default-idp/handler/frame
-      - http://localhost:7007/api/auth/default-idp/handler/frame
-  userDetails:
-    userSchemaName: "engineer"
-    users:
+    backoffLimit: 3
+    ttlSecondsAfterFinished: 86400  # 24 hours
+    preserveJob: true
+    debug: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi
+
+  # Bootstrap configuration for Backstage OAuth app and default users
+  # These scripts run during the setup job to initialize Thunder
+  # Scripts are defined in templates/thunder/bootstrap-scripts-configmap.yaml
+  bootstrap:
+    enabled: true
+    configMap:
+      # Reference to external ConfigMap containing bootstrap scripts
+      # Using Pattern 2: Only override specific files while preserving Thunder's default bootstrap scripts
+      name: openchoreo-thunder-bootstrap
+      files:
+        - 50-backstage-app.sh
+        - 51-user-schema-and-users.sh
+    # Default users to create during bootstrap
+    defaultUsers:
       - username: "admin@openchoreo.dev"
         password: "Admin@123"
-        given_name: "Admin"
-        family_name: "User"
-        group: "platformEngineer"
+        givenName: "Admin"
+        familyName: "User"
+        groups: ["platformEngineer"]
 
 # Cluster Gateway configuration
 # The gateway manages WebSocket connections from cluster agents
 clusterGateway:
-  enabled: false
+  enabled: true
   name: cluster-gateway
   replicas: 1
   image:
@@ -617,6 +695,11 @@ clusterGateway:
     nodePort: null
     loadBalancerIP: null
     clusterIP: null
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    annotations: {}
+    hosts: []
   tls:
     enabled: true
     secretName: cluster-gateway-tls
@@ -641,3 +724,45 @@ clusterGateway:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+traefik:
+  enabled: true
+  fullnameOverride: openchoreo-traefik
+  ingressClass:
+    enabled: true
+    isDefaultClass: false
+    name: openchoreo-traefik
+  service:
+    type: LoadBalancer
+  # Port configuration for Traefik LoadBalancer
+  ports:
+    web:
+      port: 8000           # Container port
+      exposedPort: 80      # LoadBalancer port for HTTP
+      expose:
+        default: true
+    websecure:
+      port: 8443           # Container port
+      exposedPort: 443     # LoadBalancer port for HTTPS
+      expose:
+        default: true
+      tls:
+        enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  ingressRoute:
+    dashboard:
+      enabled: false
+  providers:
+    kubernetesIngress:
+      ingressClass: openchoreo-traefik
+  logs:
+    general:
+      level: INFO
+    access:
+      enabled: false

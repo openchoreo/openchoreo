@@ -14,6 +14,12 @@ WORKDIR /
 # Copy the pre-built binary produced by the Makefile into the image
 COPY bin/dist/${TARGETOS}/${TARGETARCH}/openchoreo-api .
 
+# Copy default configuration file
+COPY cmd/openchoreo-api/config.yaml /etc/openchoreo/config.yaml
+
+# Set default configuration path
+ENV OPENCHOREO_API_CONFIG_PATH=/etc/openchoreo/config.yaml
+
 # Use non-root user for security (65532 is 'nonroot' user in distroless)
 USER 65532:65532
 

@@ -78,8 +78,8 @@ spec:
         - /manager
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         {{- if .Values.controllerManager.clusterGateway.enabled }}
-        - --agent-server-url={{ .Values.controllerManager.clusterGateway.url }}
-        - --agent-server-ca={{ .Values.controllerManager.clusterGateway.tls.caPath }}
+        - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
+        - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
         {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
@@ -87,9 +87,9 @@ spec:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         {{- if .Values.controllerManager.clusterGateway.enabled }}
-        - name: AGENT_SERVER_URL
+        - name: CLUSTER_GATEWAY_URL
           value: {{ quote .Values.controllerManager.clusterGateway.url }}
-        - name: AGENT_SERVER_CA_PATH
+        - name: CLUSTER_GATEWAY_CA_CERT
           value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
         {{- end }}
         ports:

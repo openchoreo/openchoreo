@@ -138,6 +138,10 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
 
+	// Component trait management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", h.ListComponentTraits)
+	api.HandleFunc("PUT "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", h.UpdateComponentTraits)
+
 	// Component bindings
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
 	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", h.UpdateComponentBinding)
@@ -163,6 +167,25 @@ func (h *Handler) Routes() http.Handler {
 	// Workload management
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
+
+	// Authorization admin endpoints
+	api.HandleFunc("GET "+v1+"/authz/roles", h.ListRoles)
+	api.HandleFunc("GET "+v1+"/authz/roles/{roleName}", h.GetRole)
+	api.HandleFunc("POST "+v1+"/authz/roles", h.AddRole)
+	api.HandleFunc("DELETE "+v1+"/authz/roles/{roleName}", h.RemoveRole)
+	api.HandleFunc("GET "+v1+"/authz/role-mappings", h.ListRoleMappings)
+	api.HandleFunc("POST "+v1+"/authz/role-mappings", h.AddRoleMapping)
+	api.HandleFunc("DELETE "+v1+"/authz/role-mappings/{mappingId}", h.RemoveRoleMapping)
+	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
+	api.HandleFunc("GET "+v1+"/authz/user-types", h.ListUserTypes)
+
+	// Authorization evaluation endpoints
+	api.HandleFunc("POST "+v1+"/authz/evaluate", h.Evaluate)
+	api.HandleFunc("POST "+v1+"/authz/batch-evaluate", h.BatchEvaluate)
+	api.HandleFunc("GET "+v1+"/authz/profile", h.GetSubjectProfile)
+
+	// ObservabilityPlane management
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/observabilityplanes", h.ListObservabilityPlanes)
 
 	return mux
 }

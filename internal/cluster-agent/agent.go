@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
@@ -27,13 +28,13 @@ type Agent struct {
 	serverCA   *x509.CertPool
 	conn       *websocket.Conn
 	k8sClient  client.Client
-	executor   *KubernetesExecutor
+	router     *Router
 	mu         sync.Mutex
 	logger     *slog.Logger
 	stopChan   chan struct{}
 }
 
-func New(cfg *Config, k8sClient client.Client, logger *slog.Logger) (*Agent, error) {
+func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *slog.Logger) (*Agent, error) {
 	// Load client certificate
 	cert, err := tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
 	if err != nil {
@@ -60,14 +61,18 @@ func New(cfg *Config, k8sClient client.Client, logger *slog.Logger) (*Agent, err
 		}
 	}
 
-	executor := NewKubernetesExecutor(k8sClient)
+	// Create router for HTTP proxy support
+	router, err := NewRouter(k8sConfig, cfg.Routes, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create router: %w", err)
+	}
 
 	return &Agent{
 		config:     cfg,
 		clientCert: cert,
 		serverCA:   serverCertPool,
 		k8sClient:  k8sClient,
-		executor:   executor,
+		router:     router,
 		logger:     logger.With("component", "agent", "plane", cfg.PlaneName),
 		stopChan:   make(chan struct{}),
 	}, nil
@@ -203,49 +208,43 @@ func (a *Agent) handleConnection(ctx context.Context) {
 			return
 		}
 
-		// Parse ClusterAgentRequest
-		var agentReq messaging.ClusterAgentRequest
-		if err := json.Unmarshal(message, &agentReq); err != nil {
-			a.logger.Warn("failed to parse request", "error", err)
+		// Parse as HTTPTunnelRequest
+		var httpReq messaging.HTTPTunnelRequest
+		if err := json.Unmarshal(message, &httpReq); err != nil {
+			a.logger.Warn("failed to parse HTTP tunnel request", "error", err)
 			continue
 		}
 
-		// Validate request has ID
-		if agentReq.RequestID == "" {
-			a.logger.Warn("received request without requestID")
+		if httpReq.RequestID == "" {
+			a.logger.Warn("received HTTP tunnel request without requestID")
 			continue
 		}
 
-		go a.handleClusterAgentRequest(ctx, &agentReq)
+		go a.handleHTTPTunnelRequest(&httpReq)
 	}
 }
 
-// handleClusterAgentRequest handles ClusterAgentRequest
-func (a *Agent) handleClusterAgentRequest(ctx context.Context, req *messaging.ClusterAgentRequest) {
-	a.logger.Info("received cluster agent request",
-		"type", req.Type,
-		"identifier", req.Identifier,
+// handleHTTPTunnelRequest handles HTTPTunnelRequest
+func (a *Agent) handleHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) {
+	a.logger.Info("received HTTP tunnel request",
+		"target", req.Target,
+		"method", req.Method,
+		"path", req.Path,
 		"requestID", req.RequestID,
 	)
 
-	response, err := a.executor.ExecuteClusterAgentRequest(ctx, req)
-	if err != nil {
-		a.logger.Error("failed to execute cluster agent request",
-			"identifier", req.Identifier,
-			"error", err,
-		)
-		response = messaging.NewClusterAgentFailResponse(req, 500, fmt.Sprintf("execution error: %v", err), nil)
-	}
+	// Route the request to the appropriate backend service
+	response := a.router.Route(req)
 
-	if err := a.sendClusterAgentResponse(response); err != nil {
-		a.logger.Error("failed to send cluster agent response",
+	if err := a.sendHTTPTunnelResponse(response); err != nil {
+		a.logger.Error("failed to send HTTP tunnel response",
 			"requestID", req.RequestID,
 			"error", err,
 		)
 	}
 }
 
-func (a *Agent) sendClusterAgentResponse(resp *messaging.ClusterAgentResponse) error {
+func (a *Agent) sendHTTPTunnelResponse(resp *messaging.HTTPTunnelResponse) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -255,16 +254,16 @@ func (a *Agent) sendClusterAgentResponse(resp *messaging.ClusterAgentResponse) e
 
 	data, err := json.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("sendClusterAgentResponse: failed to marshal response: %w", err)
+		return fmt.Errorf("sendHTTPTunnelResponse: failed to marshal response: %w", err)
 	}
 
-	a.logger.Debug("sending cluster agent response",
+	a.logger.Debug("sending HTTP tunnel response",
 		"requestID", resp.RequestID,
-		"status", resp.Status,
+		"statusCode", resp.StatusCode,
 	)
 
 	if err := a.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		return fmt.Errorf("sendClusterAgentResponse: failed to write message: %w", err)
+		return fmt.Errorf("sendHTTPTunnelResponse: failed to write message: %w", err)
 	}
 	return nil
 }

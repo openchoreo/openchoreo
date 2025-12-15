@@ -85,6 +85,10 @@ type ReleaseBindingStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
+// +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
+// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ReleaseBinding is the Schema for the releasebindings API.
 type ReleaseBinding struct {

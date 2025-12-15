@@ -24,6 +24,7 @@ type CommandImplementationInterface interface {
 	DeploymentPipelineAPI
 	ConfigurationGroupAPI
 	WorkloadAPI
+	ScaffoldAPI
 }
 
 // OrganizationAPI defines organization-related operations
@@ -125,4 +126,9 @@ type ConfigurationGroupAPI interface {
 // WorkloadAPI defines methods for creating workloads from descriptors
 type WorkloadAPI interface {
 	CreateWorkload(params CreateWorkloadParams) error
+}
+
+// ScaffoldAPI defines methods for scaffolding resources
+type ScaffoldAPI interface {
+	ScaffoldComponent(params ScaffoldComponentParams) error
 }

@@ -40,6 +40,11 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	// Call service to create component
 	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to create component", "org", orgName, "project", projectName, "component", req.Name)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -121,6 +126,11 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	// Call service to get component
 	component, err := h.services.ComponentService.GetComponent(ctx, orgName, projectName, componentName, additionalResources)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -165,6 +175,11 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 
 	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to update component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -355,6 +370,11 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 
 	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to promote component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -566,6 +586,11 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 
 	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, orgName, projectName, componentName, req.ReleaseName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to create component release", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -642,6 +667,11 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 
 	release, err := h.services.ComponentService.GetComponentRelease(ctx, orgName, projectName, componentName, releaseName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -866,6 +896,11 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 
 	binding, err := h.services.ComponentService.DeployRelease(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to deploy component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -888,4 +923,112 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("Deployed release successfully", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
 	writeSuccessResponse(w, http.StatusCreated, binding)
+}
+
+func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("ListComponentTraits handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidParams)
+		return
+	}
+
+	// Call service to list component traits
+	traits, err := h.services.ComponentService.ListComponentTraits(ctx, orgName, projectName, componentName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view component traits", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		logger.Error("Failed to list component traits", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Listed component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	writeListResponse(w, traits, len(traits), 1, len(traits))
+}
+
+func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("UpdateComponentTraits handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidParams)
+		return
+	}
+
+	// Parse request body
+	var req models.UpdateComponentTraitsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Warn("Invalid JSON body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+	defer r.Body.Close()
+
+	// Sanitize and validate request
+	req.Sanitize()
+	if err := req.Validate(); err != nil {
+		logger.Warn("Invalid request", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Call service to update component traits
+	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to update component traits", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrTraitNotFound) {
+			logger.Warn("Trait not found", "org", orgName, "project", projectName, "component", componentName, "error", err)
+			writeErrorResponse(w, http.StatusNotFound, err.Error(), services.CodeTraitNotFound)
+			return
+		}
+		logger.Error("Failed to update component traits", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response
+	logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	writeListResponse(w, traits, len(traits), 1, len(traits))
 }

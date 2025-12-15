@@ -14,7 +14,17 @@ spec:
     singular: componentrelease
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.componentName
+      name: Component
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ComponentRelease is the Schema for the componentreleases API.
@@ -121,6 +131,15 @@ spec:
                             If not specified, the resource is always created
                             Example: "${spec.autoscaling.enabled}"
                           type: string
+                        targetPlane:
+                          default: dataplane
+                          description: |-
+                            TargetPlane specifies which plane this resource should be deployed to
+                            Defaults to "dataplane" if not specified
+                          enum:
+                          - dataplane
+                          - observabilityplane
+                          type: string
                         template:
                           description: |-
                             Template contains the Kubernetes resource with CEL expressions
@@ -148,7 +167,7 @@ spec:
                     properties:
                       envOverrides:
                         description: |-
-                          EnvOverrides can be overridden per environment via ComponentDeployment by platform engineers.
+                          EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
                           These are also exposed to developers but can be changed per environment.
                           Same nested map structure and type definition format as Parameters.
                         type: object
@@ -223,6 +242,15 @@ spec:
                         description: TraitCreate defines a resource template to be
                           created by the trait
                         properties:
+                          targetPlane:
+                            default: dataplane
+                            description: |-
+                              TargetPlane specifies which plane this resource should be deployed to
+                              Defaults to "dataplane" if not specified
+                            enum:
+                            - dataplane
+                            - observabilityplane
+                            type: string
                           template:
                             description: |-
                               Template contains the Kubernetes resource with CEL expressions
@@ -289,7 +317,7 @@ spec:
                               group:
                                 description: |-
                                   Group is the API group of the resource (e.g., "apps", "batch")
-                                  Use empty string for core resources
+                                  Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
                                 type: string
                               kind:
                                 description: Kind is the resource type to patch (e.g.,
@@ -307,9 +335,19 @@ spec:
                                   Example: ${resource.metadata.name.endsWith("-secret-envs")}
                                 type: string
                             required:
+                            - group
                             - kind
                             - version
                             type: object
+                          targetPlane:
+                            default: dataplane
+                            description: |-
+                              TargetPlane specifies which plane's resources this patch targets
+                              Defaults to "dataplane" if not specified
+                            enum:
+                            - dataplane
+                            - observabilityplane
+                            type: string
                           var:
                             description: |-
                               Var names the binding for forEach iterations
@@ -330,7 +368,7 @@ spec:
                       properties:
                         envOverrides:
                           description: |-
-                            EnvOverrides can be overridden per environment via ComponentDeployment.
+                            EnvOverrides can be overridden per environment via ReleaseBinding.
                             Same nested map structure and type definition format as Parameters.
                           type: object
                           x-kubernetes-preserve-unknown-fields: true

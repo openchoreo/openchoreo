@@ -316,6 +316,41 @@ var (
 		Name:  "token",
 		Usage: "Authentication token for remote OpenChoreo API server",
 	}
+
+	// Scaffold-specific flags
+
+	ScaffoldType = Flag{
+		Name:  "type",
+		Usage: "Component type in format workloadType/componentTypeName (e.g., deployment/web-app)",
+	}
+
+	Traits = Flag{
+		Name:  "traits",
+		Usage: "Comma-separated list of trait names to include",
+	}
+
+	Workflow = Flag{
+		Name:  "workflow",
+		Usage: "ComponentWorkflow name to include in the scaffold",
+	}
+
+	SkipComments = Flag{
+		Name:  "skip-comments",
+		Usage: "Skip section headers and field description comments for minimal output",
+		Type:  "bool",
+	}
+
+	SkipOptional = Flag{
+		Name:  "skip-optional",
+		Usage: "Skip optional fields without defaults (show only required fields)",
+		Type:  "bool",
+	}
+
+	OutputFile = Flag{
+		Name:      "output-file",
+		Shorthand: "o",
+		Usage:     "Write output to specified file instead of stdout",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -274,35 +275,53 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 	}, nil
 }
 
-func (s *LoggingService) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (*opensearch.TraceResponse, error) {
-	s.logger.Info("Getting component traces",
-		"serviceName", params.ServiceName)
+func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (*opensearch.TraceResponse, error) {
+	s.logger.Debug("Fetching traces from OpenSearch")
 
-	// Build component traces query
-	query := s.queryBuilder.BuildComponentTracesQuery(params)
+	// Build traces query
+	query := s.queryBuilder.BuildTracesQuery(params)
 
 	// Execute search
-	response, err := s.osClient.Search(ctx, []string{"otel-v1-apm-span"}, query)
+	response, err := s.osClient.Search(ctx, []string{"otel-traces-*"}, query)
 	if err != nil {
-		s.logger.Error("Failed to execute component traces search", "error", err)
+		s.logger.Error("Failed to execute traces search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
-	// Parse log entries
-	traces := make([]opensearch.Span, 0, len(response.Hits.Hits))
+	// Parse spans and group by traceId
+	traceMap := make(map[string][]opensearch.Span)
 	for _, hit := range response.Hits.Hits {
 		span := opensearch.ParseSpanEntry(hit)
-		traces = append(traces, span)
+		traceID := opensearch.GetTraceID(hit)
+		if traceID != "" {
+			traceMap[traceID] = append(traceMap[traceID], span)
+		}
 	}
 
-	s.logger.Info("Component traces retrieved",
-		"count", len(traces),
-		"total", response.Hits.Total.Value)
+	// Convert map to traces array and sort by traceID for consistent ordering
+	traces := make([]opensearch.Trace, 0, len(traceMap))
+	traceIDs := make([]string, 0, len(traceMap))
+
+	for traceID := range traceMap {
+		traceIDs = append(traceIDs, traceID)
+	}
+
+	// Sort trace IDs to ensure deterministic ordering
+	sort.Strings(traceIDs)
+
+	for _, traceID := range traceIDs {
+		traces = append(traces, opensearch.Trace{
+			TraceID: traceID,
+			Spans:   traceMap[traceID],
+		})
+	}
+
+	s.logger.Debug("Traces retrieved",
+		"traceCount", len(traces))
 
 	return &opensearch.TraceResponse{
-		Spans:      traces,
-		TotalCount: response.Hits.Total.Value,
-		Took:       response.Took,
+		Traces: traces,
+		Took:   response.Took,
 	}, nil
 }
 

@@ -399,8 +399,25 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			"warnings", renderOutput.Metadata.Warnings)
 	}
 
-	// Convert rendered resources to Release format
-	releaseResources, err := r.convertToReleaseResources(renderOutput.Resources)
+	// Filter resources by target plane and log non-dataplane resources
+	dataPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
+
+	for _, renderedResource := range renderOutput.Resources {
+		switch renderedResource.TargetPlane {
+		case openchoreov1alpha1.TargetPlaneDataPlane:
+			dataPlaneResources = append(dataPlaneResources, renderedResource.Resource)
+		case openchoreov1alpha1.TargetPlaneObservabilityPlane:
+			// Log observability plane resource for now (deployment will be implemented later)
+			kind, _ := renderedResource.Resource["kind"].(string)
+			metadata, _ := renderedResource.Resource["metadata"].(map[string]any)
+			name, _ := metadata["name"].(string)
+			logger.Info("Skipping observabilityplane resource (will be deployed in future)",
+				"kind", kind, "name", name)
+		}
+	}
+
+	// Convert filtered dataplane resources to Release format
+	releaseResources, err := r.convertToReleaseResources(dataPlaneResources)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to convert resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,

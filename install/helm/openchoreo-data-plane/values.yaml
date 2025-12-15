@@ -2,6 +2,9 @@
 global:
   # Common labels to add to all resources
   commonLabels: {}
+  # Base domain for external access (e.g., "apps.openchoreo.example.com")
+  # Used for gateway hostname derivation (*.baseDomain)
+  baseDomain: "openchoreo.local"
 
 kubernetesClusterDomain: cluster.local
 
@@ -36,10 +39,11 @@ gateway:
   enabled: true
 
   # OpenChoreo gateway configuration
-  httpPort: 80
-  httpsPort: 443
+  httpPort: 9080
+  httpsPort: 9443
 
   # TLS configuration for HTTPS listeners
+  # When cert-manager is available, HTTPS is automatically enabled with self-signed certificates
   tls:
     # -- Cert-manager ClusterIssuer to use for certificate generation
     # Defaults to openchoreo-selfsigned-issuer if not specified
@@ -90,46 +94,9 @@ gateway:
     tag: ""
     pullPolicy: IfNotPresent
 
-# customizing the cert-manager configurations
-cert-manager:
-  enabled: true
-  fullnameOverride: cert-manager
-  nameOverride: cert-manager
-  crds:
-    enabled: true
-  # -- Enable Gateway API support in cert-manager
-  config:
-    enableGatewayAPI: true
-  # -- Resource limits and requests for the cert-manager controller
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 64Mi
-  cainjector:
-    # -- Resource limits and requests for the cert-manager cainjector
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-  webhook:
-    # -- Resource limits and requests for the cert-manager webhook
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 50m
-        memory: 64Mi
-
 # customizing the external-secrets configurations
 external-secrets:
-  enabled: true
+  enabled: false
   fullnameOverride: external-secrets
   nameOverride: external-secrets
 
@@ -281,8 +248,8 @@ opentelemetry-collector:
 # Cluster Agent configuration
 # The agent connects to the control plane cluster gateway via WebSocket
 clusterAgent:
-  enabled: false  # Set to true to enable cluster agent
-  name: cluster-agent
+  enabled: true
+  name: cluster-agent-dataplane
   replicas: 1
   image:
     repository: ghcr.io/openchoreo/cluster-agent
@@ -294,33 +261,55 @@ clusterAgent:
   planeName: default
   # Type of plane (dataplane or buildplane)
   planeType: dataplane
+  # DNS rewrite configuration (for multi-cluster k3d setups)
+  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+  dnsRewrite:
+    enabled: false
   heartbeatInterval: 30s
   reconnectDelay: 5s
   logLevel: info
   resources:
     requests:
-      cpu: "100m"
+      cpu: "50m"
       memory: "128Mi"
     limits:
-      cpu: "1000m"
-      memory: "512Mi"
+      cpu: "100m"
+      memory: "256Mi"
   serviceAccount:
     create: true
-    name: cluster-agent
+    name: cluster-agent-dataplane
     annotations: {}
   rbac:
     create: true
   priorityClass:
     create: false
-    name: cluster-agent
+    name: cluster-agent-dataplane
     value: 900000
   tls:
     enabled: true
+    # Generate client certificates locally using cert-manager (multi-cluster setup)
+    # Set to true when the data plane is in a different cluster from control plane
+    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+    generateCerts: false
     # Secret containing client certificate and key
     secretName: cluster-agent-tls
     clientSecretName: cluster-agent-tls
-    # ConfigMap containing server CA certificate
+    # ConfigMap containing server CA certificate for verifying gateway
     serverCAConfigMap: cluster-gateway-ca
+    # Optional: Inline server CA certificate value (PEM format)
+    # For multi-cluster setup where agent needs to verify gateway server
+    # If provided, this value is used instead of copying from control plane
+    serverCAValue: ""
+    # CA secret for signing agent client certificates
+    # Option 1: Reference existing secret (single-cluster setup)
+    # This should be the name of the cluster-gateway-ca secret created in control plane
+    caSecretName: cluster-gateway-ca
+    # Namespace where the CA secret exists (control plane namespace)
+    caSecretNamespace: openchoreo-control-plane
+    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
+    # If provided, this takes precedence over caSecretName/caSecretNamespace
+    # Use this when data plane is in a different cluster from control plane
+    caValue: ""
     # Certificate duration and renewal
     duration: 2160h # 90 days
     renewBefore: 360h # 15 days
@@ -341,5 +330,6 @@ clusterAgent:
   tolerations: []
   affinity: {}
 
-
-
+# API Platform configuration
+api-platform:
+  enabled: false

@@ -50,6 +50,15 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+    # Allow egress to internet for external service invocations(ie. jwks fetch etc.)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
     {{- with .Values.openchoreoApi.networkPolicy.egress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

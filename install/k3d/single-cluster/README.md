@@ -24,7 +24,32 @@ lower resource requirements.
 k3d cluster create --config install/k3d/single-cluster/config.yaml
 ```
 
-### 2. Install Components
+### 2. Install cert-manager (Prerequisite)
+
+cert-manager is required for TLS certificate management:
+
+```bash
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm repo update jetstack
+
+helm install cert-manager jetstack/cert-manager \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-control-plane \
+  --create-namespace \
+  --version v1.17.1 \
+  --set crds.enabled=true
+
+# Wait for cert-manager to be ready
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager \
+  -n openchoreo-control-plane --timeout=120s
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager-webhook \
+  -n openchoreo-control-plane --timeout=120s
+```
+
+### 3. Install Components
+
+> [!NOTE]
+> This setup uses **cluster gateway and agents** by default for secure communication between Control Plane and Data/Build Planes. The agents connect via in-cluster service (`cluster-gateway.openchoreo-control-plane.svc.cluster.local`) using mTLS authentication.
 
 Install all planes in the single cluster:
 
@@ -36,6 +61,10 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-cp.yaml
+
+# Wait for cluster-gateway to be ready (required for agent connections)
+kubectl --context k3d-openchoreo wait --for=condition=available deployment/cluster-gateway \
+  -n openchoreo-control-plane --timeout=120s
 
 # Data Plane
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
@@ -54,50 +83,104 @@ helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
   --values install/k3d/single-cluster/values-bp.yaml
 
 # Observability Plane (optional)
+
+## Non-HA mode
 helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-observability-plane \
   --create-namespace \
-  --timeout 15m \
+  --values install/k3d/single-cluster/values-op.yaml \
+  --set openSearch.enabled=true \
+  --set openSearchCluster.enabled=false
+
+## HA mode
+
+### OpenSearch Kubernetes Operator (Prerequisite)
+helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
+
+helm repo update
+
+helm install opensearch-operator opensearch-operator/opensearch-operator \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 2.8.0
+
+### OpenChoreo Observability Plane
+helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --dependency-update \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-observability-plane \
+  --create-namespace \
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
-### 3. Create DataPlane Resource
+### 4. Create DataPlane Resource
 
 Create a DataPlane resource to enable workload deployment.
 
-**Using Cluster Agent (Recommended):**
+**Using Cluster Agent (Default):**
 
-The cluster agent provides secure communication between control plane and data plane without exposing the Kubernetes API:
+This setup uses cluster agent by default for secure communication between control plane and data plane:
 
 ```bash
 ./install/add-data-plane.sh \
   --enable-agent \
   --control-plane-context k3d-openchoreo \
-  --namespace default \
-  --agent-ca-namespace openchoreo-control-plane \
   --name default
 ```
 
-This creates a DataPlane CR that uses the cluster agent for communication. The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
+The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
-**Using Direct API Access (Alternative):**
+<details>
+<summary>Alternative: Using Direct API Access (Not recommended)</summary>
 
-For simple setups or testing, you can use direct Kubernetes API access:
+For testing purposes, you can use direct Kubernetes API access instead:
 
 ```bash
 ./install/add-data-plane.sh --control-plane-context k3d-openchoreo
 ```
 
-> **Note:** The cluster agent approach is recommended for production deployments as it provides better security and doesn't require exposing the Kubernetes API server.
+> **Note:** Direct API access is not recommended. The cluster agent approach provides better security and doesn't require exposing the Kubernetes API server.
+</details>
 
-### 4. Create BuildPlane Resource (optional)
+### 5. Create BuildPlane Resource (optional)
 
-Create a BuildPlane resource to enable building from source:
+Create a BuildPlane resource to enable building from source.
+
+**Using Cluster Agent (Default and only supported method):**
+
+This setup uses cluster agent for secure communication between control plane and build plane:
 
 ```bash
-./install/add-build-plane.sh --control-plane-context k3d-openchoreo
+./install/add-build-plane.sh \
+  --enable-agent \
+  --control-plane-context k3d-openchoreo \
+  --name default
+```
+
+The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
+
+### 6. Create ObservabilityPlane Resource (optional)
+
+Create a ObservabilityPlane resource to enable observability in data plane and build plane.
+
+```bash
+./install/add-observability-plane.sh \
+  --control-plane-context k3d-openchoreo \
+  --name default \
+  --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080
+```
+The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
+
+Configure DataPlane to use default ObservabilityPlane
+```
+kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```
+
+Configure BuildPlane (if installed) to use default ObservabilityPlane
+```
+kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
 
 ## Port Mappings
@@ -160,15 +243,30 @@ kubectl --context k3d-openchoreo get dataplane -n default
 # Verify BuildPlane resource (if created)
 kubectl --context k3d-openchoreo get buildplane -n default
 
+# Verify ObservabilityPlane resource (if created)
+kubectl --context k3d-openchoreo get observabilityplane -n default
+
 # Verify Cluster Agent Connection (if using agent mode)
-echo "=== Cluster Agent Status ==="
+echo "=== Data Plane Cluster Agent Status ==="
 kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane -l app=cluster-agent
 
-echo "=== Agent Connection Logs ==="
+echo "=== Data Plane Agent Connection Logs ==="
 kubectl --context k3d-openchoreo logs -n openchoreo-data-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
 
+echo "=== Build Plane Cluster Agent Status ==="
+kubectl --context k3d-openchoreo get pods -n openchoreo-build-plane -l app=cluster-agent
+
+echo "=== Build Plane Agent Connection Logs ==="
+kubectl --context k3d-openchoreo logs -n openchoreo-build-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
+
+echo "=== Observability Plane Cluster Agent Status ==="
+kubectl --context k3d-openchoreo get pods -n openchoreo-observability-plane -l app=cluster-agent
+
+echo "=== Observability Plane Agent Connection Logs ==="
+kubectl --context k3d-openchoreo logs -n openchoreo-observability-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
+
 echo "=== Gateway Registration ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -1
+kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -5
 ```
 
 ## Architecture

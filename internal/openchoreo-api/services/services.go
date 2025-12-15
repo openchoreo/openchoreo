@@ -8,6 +8,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 )
 
@@ -26,13 +27,15 @@ type Services struct {
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
 	GitHubWebhookService      *GitHubWebhookService
+	AuthzService              *AuthzService
+	ObservabilityPlaneService *ObservabilityPlaneService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger) *Services {
 	// Create project service
-	projectService := NewProjectService(k8sClient, logger.With("service", "project"))
+	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
 
 	// Create build plane service with client manager for multi-cluster support
 	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
@@ -44,10 +47,10 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	githubWebhookService := NewGitHubWebhookService(k8sClient, componentWorkflowService)
 
 	// Create component service (depends on project service)
-	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"))
+	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
 
 	// Create organization service
-	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"))
+	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"), authzPDP)
 
 	// Create environment service
 	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"))
@@ -73,6 +76,12 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create SecretReference service
 	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
 
+	// Create Authorization service
+	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
+
+	// Create ObservabilityPlane service
+	observabilityPlaneService := NewObservabilityPlaneService(k8sClient, logger.With("service", "observabilityplane"))
+
 	return &Services{
 		ProjectService:            projectService,
 		ComponentService:          componentService,
@@ -88,6 +97,8 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
 		GitHubWebhookService:      githubWebhookService,
+		AuthzService:              authzService,
+		ObservabilityPlaneService: observabilityPlaneService,
 		k8sClient:                 k8sClient,
 	}
 }

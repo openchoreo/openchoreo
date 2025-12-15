@@ -222,24 +222,8 @@ func (b *BaseModel) FetchBuildNames() ([]string, error) {
 
 // FetchDeployableArtifacts retrieves deployable artifact names based on the current selections.
 func (b *BaseModel) FetchDeployableArtifacts() ([]string, error) {
-	if b.OrgCursor >= len(b.Organizations) ||
-		b.ProjCursor >= len(b.Projects) ||
-		b.CompCursor >= len(b.Components) {
-		return nil, fmt.Errorf("invalid selection indices for deployable artifacts")
-	}
-
-	artifactRes, err := kinds.NewDeployableArtifactResource(
-		constants.DeployableArtifactV1Config,
-		b.Organizations[b.OrgCursor],
-		b.Projects[b.ProjCursor],
-		b.Components[b.CompCursor],
-		"",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create deployable artifact resource: %w", err)
-	}
-
-	return artifactRes.GetNames()
+	// Deprecated: DeployableArtifact CRD has been removed
+	return nil, fmt.Errorf("DeployableArtifact CRD has been removed")
 }
 
 // RenderProgress renders the selections made so far.
@@ -279,8 +263,9 @@ func (b BaseModel) RenderDeploymentTrackSelection() string {
 }
 
 // RenderDeployableArtifactSelection returns a prompt for deployable artifact selection.
+// Deprecated: DeployableArtifact CRD has been removed
 func (b BaseModel) RenderDeployableArtifactSelection() string {
-	return RenderListPrompt("Select deployable artifact:", b.DeployableArtifacts, b.DeployableArtifactCursor)
+	return "DeployableArtifact CRD has been removed"
 }
 
 // Reusable fetch functions
@@ -346,23 +331,7 @@ func (b *BaseModel) FetchDataPlanes() ([]string, error) {
 }
 
 // FetchDeployments retrieves deployment names based on the current selections.
+// Deprecated: Deployment CRD has been removed
 func (b *BaseModel) FetchDeployments() ([]string, error) {
-	if b.OrgCursor >= len(b.Organizations) ||
-		b.ProjCursor >= len(b.Projects) ||
-		b.CompCursor >= len(b.Components) {
-		return nil, fmt.Errorf("invalid selection indices for deployments")
-	}
-
-	deployRes, err := kinds.NewDeploymentResource(
-		constants.DeploymentV1Config,
-		b.Organizations[b.OrgCursor],
-		b.Projects[b.ProjCursor],
-		b.Components[b.CompCursor],
-		"", // No environment filter
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create deployment resource: %w", err)
-	}
-
-	return deployRes.GetNames()
+	return nil, fmt.Errorf("Deployment CRD has been removed")
 }

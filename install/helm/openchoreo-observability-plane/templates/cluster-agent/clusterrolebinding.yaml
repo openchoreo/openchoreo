@@ -1,0 +1,19 @@
+{{- if .Values.clusterAgent.enabled }}
+{{- if .Values.clusterAgent.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openchoreo-observability-plane.clusterAgent.name" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "openchoreo-observability-plane.clusterAgent.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

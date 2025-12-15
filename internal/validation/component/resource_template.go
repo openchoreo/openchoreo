@@ -34,10 +34,13 @@ func ValidateWorkloadResources(workloadType string, resources []v1alpha1.Resourc
 		// Still validate template structure for all resources
 		for i, resource := range resources {
 			resourcePath := basePath.Index(i)
-			if resource.Template != nil {
-				_, errs := ValidateResourceTemplateStructure(*resource.Template, resourcePath.Child("template"))
-				allErrs = append(allErrs, errs...)
+			templatePath := resourcePath.Child("template")
+			if resource.Template == nil {
+				allErrs = append(allErrs, field.Required(templatePath, "template is required"))
+				continue
 			}
+			_, errs := ValidateResourceTemplateStructure(*resource.Template, templatePath)
+			allErrs = append(allErrs, errs...)
 		}
 		return allErrs
 	}
@@ -48,15 +51,18 @@ func ValidateWorkloadResources(workloadType string, resources []v1alpha1.Resourc
 	// Validate resource templates have required fields and check for workload type match
 	for i, resource := range resources {
 		resourcePath := basePath.Index(i)
-		if resource.Template != nil {
-			obj, errs := ValidateResourceTemplateStructure(*resource.Template, resourcePath.Child("template"))
-			allErrs = append(allErrs, errs...)
+		templatePath := resourcePath.Child("template")
+		if resource.Template == nil {
+			allErrs = append(allErrs, field.Required(templatePath, "template is required"))
+			continue
+		}
+		obj, errs := ValidateResourceTemplateStructure(*resource.Template, templatePath)
+		allErrs = append(allErrs, errs...)
 
-			// Check if this resource's kind matches the workloadType
-			if obj != nil && strings.EqualFold(obj.Kind, workloadType) {
-				workloadTypeMatchCount++
-				workloadTypeIndices = append(workloadTypeIndices, i)
-			}
+		// Check if this resource's kind matches the workloadType
+		if obj != nil && strings.EqualFold(obj.Kind, workloadType) {
+			workloadTypeMatchCount++
+			workloadTypeIndices = append(workloadTypeIndices, i)
 		}
 	}
 

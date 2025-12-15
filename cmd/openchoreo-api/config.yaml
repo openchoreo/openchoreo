@@ -1,0 +1,17 @@
+# OpenChoreo API Configuration
+# This is the default configuration file for openchoreo-api
+
+authz:
+  user_types:
+    - type: "user"
+      display_name: "Human User"
+      priority: 1
+      entitlement:
+        claim: "groups"
+        display_name: "User Group"
+    - type: "service_account"
+      display_name: "Service Account"
+      priority: 2
+      entitlement:
+        claim: "sub"
+        display_name: "Client ID"

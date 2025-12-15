@@ -32,9 +32,9 @@ const (
 // Reconciler reconciles a Release object
 type Reconciler struct {
 	client.Client
-	k8sClientMgr *kubernetesClient.KubeMultiClientManager
-	AgentServer  interface{} // *agentserver.Server, passed as interface to avoid circular dependency
+	K8sClientMgr *kubernetesClient.KubeMultiClientManager
 	Scheme       *runtime.Scheme
+	GatewayURL   string
 }
 
 // TODO: Optimize to apply resource only if spec has changed
@@ -159,8 +159,8 @@ func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmen
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
 
-	// Use GetK8sClientFromDataPlane which handles both agent mode and direct access mode
-	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.k8sClientMgr, dataplane, r.AgentServer)
+	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
+	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataplane, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataplane.Name, err)
 	}
@@ -519,8 +519,8 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.k8sClientMgr == nil {
-		r.k8sClientMgr = kubernetesClient.NewManager()
+	if r.K8sClientMgr == nil {
+		r.K8sClientMgr = kubernetesClient.NewManager()
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

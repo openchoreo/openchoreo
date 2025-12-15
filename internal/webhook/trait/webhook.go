@@ -49,17 +49,14 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	allErrs := field.ErrorList{}
 
-	// 1. Validate schema if present
 	schemaErrs := validateTraitSchema(&trait.Spec.Schema)
 	allErrs = append(allErrs, schemaErrs...)
 
-	// 2. Validate CEL expressions in creates and patches
+	templateErrs := validateTraitCreatesTemplateStructure(trait)
+	allErrs = append(allErrs, templateErrs...)
+
 	celErrs := component.ValidateTraitCreatesAndPatches(trait)
 	allErrs = append(allErrs, celErrs...)
-
-	// 3. Validate resource templates in creates have required fields
-	templateErrs := validateTraitCreatesTemplates(trait)
-	allErrs = append(allErrs, templateErrs...)
 
 	if len(allErrs) > 0 {
 		return nil, allErrs.ToAggregate()
@@ -81,6 +78,9 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	// Validate the new spec (same as create)
 	schemaErrs := validateTraitSchema(&newTrait.Spec.Schema)
 	allErrs = append(allErrs, schemaErrs...)
+
+	templateErrs := validateTraitCreatesTemplateStructure(newTrait)
+	allErrs = append(allErrs, templateErrs...)
 
 	celErrs := component.ValidateTraitCreatesAndPatches(newTrait)
 	allErrs = append(allErrs, celErrs...)
@@ -179,18 +179,22 @@ func validateTraitSchema(schemaSpec *openchoreodevv1alpha1.TraitSchema) field.Er
 	return allErrs
 }
 
-// validateTraitCreatesTemplates validates that trait creates templates have required Kubernetes fields
-func validateTraitCreatesTemplates(trait *openchoreodevv1alpha1.Trait) field.ErrorList {
+// validateTraitCreatesTemplateStructure validates that trait creates templates have required K8s resource fields (apiVersion, kind, metadata.name)
+func validateTraitCreatesTemplateStructure(trait *openchoreodevv1alpha1.Trait) field.ErrorList {
 	allErrs := field.ErrorList{}
 	basePath := field.NewPath("spec", "creates")
 
 	for i, create := range trait.Spec.Creates {
 		createPath := basePath.Index(i)
+		templatePath := createPath.Child("template")
 
-		if create.Template != nil && len(create.Template.Raw) > 0 {
-			_, errs := component.ValidateResourceTemplateStructure(*create.Template, createPath.Child("template"))
-			allErrs = append(allErrs, errs...)
+		if create.Template == nil {
+			allErrs = append(allErrs, field.Required(templatePath, "template is required"))
+			continue
 		}
+
+		_, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
+		allErrs = append(allErrs, errs...)
 	}
 
 	return allErrs

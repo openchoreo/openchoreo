@@ -2,16 +2,27 @@
 global:
   # -- Common labels to add to every resource.
   commonLabels: {}
+  # -- Base domain for external access (e.g., "openchoreo.example.com")
+  # When set, registry will be accessible at registry.<baseDomain>
+  baseDomain: ""
+  # -- Ingress class name for registry ingress
+  ingressClassName: openchoreo-traefik
+  # TLS configuration
+  # When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>)
+  tls:
+    enabled: false
+    # Secret containing TLS certificate for registry
+    secretName: "registry-tls"
   # -- Configuration for the default workflow templates required for building container images.
   defaultResources:
     # -- If true, applies the workflow templates.
     enabled: true
-      # -- Container registry configuration
+    # -- Container registry configuration
     registry:
       # -- Registry endpoint for pushing and pulling images
-      # For local registry: "registry.openchoreo-build-plane:5000"
-      # For external registry: "gcr.io/my-project", "docker.io/my-org", "my-harbor.corp:5000"
-      endpoint: "registry.openchoreo-build-plane:5000"
+      # For local registry: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      # For external registry with baseDomain: automatically uses "registry.<baseDomain>"
+      endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
 
     # -- Podman build cache configuration for workflow templates
     # Shared PersistentVolumeClaim across all workflow executions for faster builds
@@ -25,7 +36,6 @@ global:
     buildpackCache:
       # -- Enable buildpack image caching hook
       enabled: true
-      # -- List of buildpack images to pre-push to the registry
       images:
         # Google Cloud Buildpacks
         - source: "docker.io/buildpacksio/lifecycle:0.20.5"
@@ -70,7 +80,7 @@ waitJob:
 # Single cluster: Set to false to use data plane's ESO
 # Multi-cluster: Set to true to install dedicated ESO in build plane
 external-secrets:
-  enabled: true
+  enabled: false
   fullnameOverride: external-secrets
   nameOverride: external-secrets
 
@@ -78,11 +88,18 @@ external-secrets:
 # Hosts container images built by Argo Workflows in the Build Plane
 registry:
   fullnameOverride: registry
-
   # Enable persistence
   persistence:
     enabled: true
     size: 10Gi
+  # Ingress for external registry access (auto-enabled when global.baseDomain is set)
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    tls:
+      enabled: false
+      secretName: ""
 
 # Fake Secret Store configuration for local development
 fakeSecretStore:
@@ -172,3 +189,87 @@ fluentBit:
   hostPaths:
     varLog: /var/log
     dockerContainers: /var/lib/docker/containers
+
+# Cluster Agent configuration for agent-based communication with control plane
+clusterAgent:
+  enabled: false  # Set to true to enable cluster agent
+  name: cluster-agent-buildplane
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/cluster-agent
+    tag: "" # If no value is set, use Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # Server URL of the cluster gateway in control plane
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # Name of this build plane
+  planeName: default
+  # Type of plane (dataplane or buildplane)
+  planeType: buildplane
+  # DNS rewrite configuration (for multi-cluster k3d setups)
+  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+  dnsRewrite:
+    enabled: false
+  heartbeatInterval: 30s
+  reconnectDelay: 5s
+  logLevel: info
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "100m"
+      memory: "256Mi"
+  serviceAccount:
+    create: true
+    name: cluster-agent-buildplane
+    annotations: {}
+  rbac:
+    create: true
+  priorityClass:
+    create: false
+    name: cluster-agent-buildplane
+    value: 900000
+  tls:
+    enabled: true
+    # Generate client certificates locally using cert-manager (multi-cluster setup)
+    # Set to true when the build plane is in a different cluster from control plane
+    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+    generateCerts: false
+    # Secret containing client certificate and key
+    secretName: cluster-agent-tls
+    clientSecretName: cluster-agent-tls
+    # ConfigMap containing server CA certificate for verifying gateway
+    serverCAConfigMap: cluster-gateway-ca
+    # Optional: Inline server CA certificate value (PEM format)
+    # For multi-cluster setup where agent needs to verify gateway server
+    # If provided, this value is used instead of copying from control plane
+    serverCAValue: ""
+    # CA secret for signing agent client certificates
+    # Option 1: Reference existing secret (single-cluster setup)
+    # This should be the name of the cluster-gateway-ca secret created in control plane
+    caSecretName: cluster-gateway-ca
+    # Namespace where the CA secret exists (control plane namespace)
+    caSecretNamespace: openchoreo-control-plane
+    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
+    # If provided, this takes precedence over caSecretName/caSecretNamespace
+    # Use this when build plane is in a different cluster from control plane
+    caValue: ""
+    # Certificate duration and renewal
+    duration: 2160h # 90 days
+    renewBefore: 360h # 15 days
+  # Namespace where cluster-gateway CA exists (control plane namespace)
+  serverCANamespace: openchoreo-control-plane
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

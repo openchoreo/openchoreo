@@ -16,19 +16,6 @@ func ParseSpanEntry(hit Hit) Span {
 		return Span{}
 	}
 
-	// Convert durationInNanos - handle both int64 and float64 cases
-	var durationInNanos int64
-	if val, ok := source["durationInNanos"]; ok && val != nil {
-		switch v := val.(type) {
-		case int64:
-			durationInNanos = v
-		case float64:
-			durationInNanos = int64(v)
-		case int:
-			durationInNanos = int64(v)
-		}
-	}
-
 	// Parse startTime
 	var startTime time.Time
 	if val, ok := source["startTime"]; ok && val != nil {
@@ -49,6 +36,12 @@ func ParseSpanEntry(hit Hit) Span {
 		}
 	}
 
+	// Calculate DurationNanoseconds from endTime - startTime
+	var durationNanoseconds int64
+	if !startTime.IsZero() && !endTime.IsZero() {
+		durationNanoseconds = endTime.Sub(startTime).Nanoseconds()
+	}
+
 	// Safe string extraction helper
 	getString := func(key string) string {
 		if val, ok := source[key]; ok && val != nil {
@@ -59,14 +52,44 @@ func ParseSpanEntry(hit Hit) Span {
 		return ""
 	}
 
+	// Extract resource fields (component-uid, project-uid, etc.)
+	var componentUID, projectUID string
+	if resource, ok := source["resource"].(map[string]interface{}); ok {
+		if val, ok := resource["openchoreo.dev/component-uid"]; ok {
+			if str, ok := val.(string); ok {
+				componentUID = str
+			}
+		}
+		if val, ok := resource["openchoreo.dev/project-uid"]; ok {
+			if str, ok := val.(string); ok {
+				projectUID = str
+			}
+		}
+	}
+
 	entry := Span{
-		DurationInNanos: durationInNanos,
-		EndTime:         endTime,
-		Name:            getString("name"),
-		StartTime:       startTime,
-		SpanID:          getString("spanId"),
-		TraceID:         getString("traceId"),
+		DurationNanoseconds:    durationNanoseconds,
+		EndTime:                endTime,
+		Name:                   getString("name"),
+		OpenChoreoComponentUID: componentUID,
+		OpenChoreoProjectUID:   projectUID,
+		ParentSpanID:           getString("parentSpanId"),
+		StartTime:              startTime,
+		SpanID:                 getString("spanId"),
 	}
 
 	return entry
+}
+
+// GetTraceID extracts the traceId from a span hit
+func GetTraceID(hit Hit) string {
+	if hit.Source == nil {
+		return ""
+	}
+	if val, ok := hit.Source["traceId"]; ok && val != nil {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
 }

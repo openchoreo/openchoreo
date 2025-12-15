@@ -237,36 +237,10 @@ spec:
                 - server
                 - tls
                 type: object
-              observer:
-                description: Observer specifies the configuration for the Observer
-                  API integration.
-                properties:
-                  authentication:
-                    description: Authentication contains the authentication configuration
-                    properties:
-                      basicAuth:
-                        description: BasicAuth contains basic authentication credentials
-                        properties:
-                          password:
-                            description: Password for basic authentication
-                            type: string
-                          username:
-                            description: Username for basic authentication
-                            type: string
-                        required:
-                        - password
-                        - username
-                        type: object
-                    required:
-                    - basicAuth
-                    type: object
-                  url:
-                    description: URL is the base URL of the Observer API
-                    type: string
-                required:
-                - authentication
-                - url
-                type: object
+              observabilityPlaneRef:
+                description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
+                  for this DataPlane.
+                type: string
               secretStoreRef:
                 description: SecretStoreRef specifies the ESO ClusterSecretStore to
                   use in the data plane

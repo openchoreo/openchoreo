@@ -43,7 +43,7 @@ type MockHandler struct {
 	projectLogsError              error
 	gatewayLogsError              error
 	organizationLogsError         error
-	componentTracesError          error
+	tracesError                   error
 	componentResourceMetricsError error
 }
 
@@ -109,10 +109,10 @@ func (m *MockHandler) GetOrganizationLogs(ctx context.Context, params opensearch
 	return logsData, nil
 }
 
-func (m *MockHandler) GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error) {
-	m.recordCall("GetComponentTraces", params)
-	if m.componentTracesError != nil {
-		return nil, m.componentTracesError
+func (m *MockHandler) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error) {
+	m.recordCall("GetTraces", params)
+	if m.tracesError != nil {
+		return nil, m.tracesError
 	}
 	var tracesData map[string]interface{}
 	if err := json.Unmarshal([]byte(testTracesResponse), &tracesData); err != nil {
@@ -468,29 +468,37 @@ var allToolSpecs = []toolTestSpec{
 		},
 	},
 	{
-		name:                "get_component_traces",
+		name:                "get_traces",
 		descriptionKeywords: []string{"traces", "component"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"service_name", "start_time", "end_time"},
-		optionalParams:      []string{"limit", "sort_order"},
+		requiredParams:      []string{"project_uid", "start_time", "end_time"},
+		optionalParams:      []string{"component_uids", "environment_uid", "trace_id", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"service_name": testServiceName,
-			"start_time":   testStartTime,
-			"end_time":     testEndTime,
-			"limit":        50,
-			"sort_order":   "asc",
+			"project_uid":     testProjectID,
+			"component_uids":  []string{testComponentID},
+			"environment_uid": testEnvironmentID,
+			"start_time":      testStartTime,
+			"end_time":        testEndTime,
+			"limit":           50,
+			"sort_order":      "asc",
 		},
-		expectedMethod: "GetComponentTraces",
+		expectedMethod: "GetTraces",
 		validateCall: func(t *testing.T, args []interface{}) {
 			if len(args) == 0 {
 				t.Fatal("Expected at least one argument")
 			}
-			params, ok := args[0].(opensearch.ComponentTracesRequestParams)
+			params, ok := args[0].(opensearch.TracesRequestParams)
 			if !ok {
-				t.Fatalf("Expected ComponentTracesRequestParams, got %T", args[0])
+				t.Fatalf("Expected TracesRequestParams, got %T", args[0])
 			}
-			if params.ServiceName != testServiceName {
-				t.Errorf("Expected service_name %q, got %q", testServiceName, params.ServiceName)
+			if params.ProjectUID != testProjectID {
+				t.Errorf("Expected project_uid %q, got %q", testProjectID, params.ProjectUID)
+			}
+			if len(params.ComponentUIDs) != 1 || params.ComponentUIDs[0] != testComponentID {
+				t.Errorf("Expected component_uids [%q], got %v", testComponentID, params.ComponentUIDs)
+			}
+			if params.EnvironmentUID != testEnvironmentID {
+				t.Errorf("Expected environment_uid %q, got %q", testEnvironmentID, params.EnvironmentUID)
 			}
 			if params.StartTime != testStartTime {
 				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
@@ -960,12 +968,12 @@ func TestMinimalParameterSets(t *testing.T) {
 			},
 		},
 		{
-			name:     "get_component_traces_minimal",
-			toolName: "get_component_traces",
+			name:     "get_traces_minimal",
+			toolName: "get_traces",
 			args: map[string]any{
-				"service_name": testServiceName,
-				"start_time":   testStartTime,
-				"end_time":     testEndTime,
+				"project_uid": testProjectID,
+				"start_time":  testStartTime,
+				"end_time":    testEndTime,
 			},
 		},
 		{
@@ -1080,15 +1088,15 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			},
 		},
 		{
-			name:     "get_component_traces_error",
-			toolName: "get_component_traces",
+			name:     "get_traces_error",
+			toolName: "get_traces",
 			args: map[string]any{
-				"service_name": testServiceName,
-				"start_time":   testStartTime,
-				"end_time":     testEndTime,
+				"project_uid": testProjectID,
+				"start_time":  testStartTime,
+				"end_time":    testEndTime,
 			},
 			setupErr: func(h *MockHandler) {
-				h.componentTracesError = errors.New("trace service unavailable")
+				h.tracesError = errors.New("trace service unavailable")
 			},
 		},
 		{
@@ -1407,12 +1415,15 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"limit":           "number",
 			"sort_order":      "string",
 		},
-		"get_component_traces": {
-			"service_name": "string",
-			"start_time":   "string",
-			"end_time":     "string",
-			"limit":        "number",
-			"sort_order":   "string",
+		"get_traces": {
+			"project_uid":     "string",
+			"component_uids":  "array",
+			"environment_uid": "string",
+			"trace_id":        "string",
+			"start_time":      "string",
+			"end_time":        "string",
+			"limit":           "number",
+			"sort_order":      "string",
 		},
 		"get_component_resource_metrics": {
 			"component_id":   "string",

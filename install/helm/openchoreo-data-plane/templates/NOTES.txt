@@ -1,0 +1,10 @@
+OpenChoreo Data Plane installed successfully!
+
+{{- if .Values.gateway.enabled }}
+
+Gateway Ports:
+  HTTP:  {{ .Values.gateway.httpPort }}
+  HTTPS: {{ .Values.gateway.httpsPort }}
+{{- end }}
+
+Next: Register this Data Plane with the Control Plane using the DataPlane CRD.

@@ -18,7 +18,7 @@ type Handler interface {
 	GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error)
 	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error)
 	GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error)
-	GetComponentTraces(ctx context.Context, params opensearch.ComponentTracesRequestParams) (any, error)
+	GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error)
 	GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
 	GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
 }
@@ -293,35 +293,44 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		return handleToolResult(result, err)
 	})
 
-	// Get Component Traces
+	// Get Traces
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_component_traces",
-		Description: "Retrieve distributed tracing spans for a specific component/service in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
+		Name:        "get_traces",
+		Description: "Retrieve distributed tracing spans for a specific trace ID or spans associated with specific components in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
 		InputSchema: createSchema(map[string]any{
-			"service_name": stringProperty("Required: Name of the service/component to retrieve traces for (e.g., 'user-service', 'payment-api')"),
-			"start_time":   stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":     stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":        limitLogsProperty(),
-			"sort_order":   sortOrderProperty(),
-		}, []string{"service_name", "start_time", "end_time"}),
+			"project_uid":     stringProperty("Required: Project UID to retrieve traces for"),
+			"component_uids":  arrayProperty("Optional: Array of component UIDs to filter traces (e.g., ['8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b', '3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b'])"),
+			"environment_uid": stringProperty("Optional: Environment UID to filter traces (e.g. '2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c', '6c8f1e4a-9d3b-4e7f-2a5c-8e4b1d3f9a7c')"),
+			"trace_id":        stringProperty("Optional: Specific trace ID to retrieve (e.g. 'a372188b620ba2d5e159a35fc529ae12')"),
+			"start_time":      stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":        stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":           limitTraceSpansProperty(),
+			"sort_order":      sortOrderProperty(),
+		}, []string{"project_uid", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ServiceName string `json:"service_name"`
-		StartTime   string `json:"start_time"`
-		EndTime     string `json:"end_time"`
-		Limit       int    `json:"limit"`
-		SortOrder   string `json:"sort_order"`
+		ProjectUID     string   `json:"project_uid"`
+		ComponentUIDs  []string `json:"component_uids"`
+		EnvironmentUID string   `json:"environment_uid"`
+		TraceID        string   `json:"trace_id"`
+		StartTime      string   `json:"start_time"`
+		EndTime        string   `json:"end_time"`
+		Limit          int      `json:"limit"`
+		SortOrder      string   `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
 		limit, sortOrder, _ := setDefaults(args.Limit, args.SortOrder, nil)
 
-		params := opensearch.ComponentTracesRequestParams{
-			ServiceName: args.ServiceName,
-			StartTime:   args.StartTime,
-			EndTime:     args.EndTime,
-			Limit:       limit,
-			SortOrder:   sortOrder,
+		params := opensearch.TracesRequestParams{
+			ProjectUID:     args.ProjectUID,
+			ComponentUIDs:  args.ComponentUIDs,
+			EnvironmentUID: args.EnvironmentUID,
+			TraceID:        args.TraceID,
+			StartTime:      args.StartTime,
+			EndTime:        args.EndTime,
+			Limit:          limit,
+			SortOrder:      sortOrder,
 		}
 
-		result, err := handler.GetComponentTraces(ctx, params)
+		result, err := handler.GetTraces(ctx, params)
 		return handleToolResult(result, err)
 	})
 
@@ -396,6 +405,13 @@ func limitLogsProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
 		"description": "Maximum number of log entries to return. Default: 100",
+	}
+}
+
+func limitTraceSpansProperty() map[string]any {
+	return map[string]any{
+		"type":        "number",
+		"description": "Maximum number of span entries to return. Default: 100",
 	}
 }
 

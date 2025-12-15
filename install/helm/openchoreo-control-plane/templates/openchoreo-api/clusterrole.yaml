@@ -15,8 +15,6 @@ rules:
   - apis
   - buildplanes
   - builds
-  - componentdeployments
-  - componentenvsnapshots
   - componentreleases
   - components
   - componenttypes
@@ -31,6 +29,7 @@ rules:
   - environments
   - gitcommitrequests
   - gitrepositorywebhooks
+  - observabilityplanes
   - organizations
   - projects
   - releasebindings
@@ -65,8 +64,6 @@ rules:
   - apis/status
   - buildplanes/status
   - builds/status
-  - componentdeployments/status
-  - componentenvsnapshots/status
   - componentreleases/status
   - components/status
   - componenttypes/status
@@ -81,6 +78,7 @@ rules:
   - environments/status
   - gitcommitrequests/status
   - gitrepositorywebhooks/status
+  - observabilityplanes/status
   - organizations/status
   - projects/status
   - releasebindings/status

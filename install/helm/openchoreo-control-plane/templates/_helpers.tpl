@@ -164,3 +164,116 @@ Cluster Gateway service account name
 {{- default "default" .Values.clusterGateway.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Get the API server hostname
+Precedence: ingress.hosts > baseDomain derivation
+*/}}
+{{- define "openchoreo.apiHost" -}}
+{{- if .Values.openchoreoApi.ingress.hosts -}}
+  {{- (index .Values.openchoreoApi.ingress.hosts 0).host -}}
+{{- else if .Values.global.baseDomain -}}
+  {{- printf "api.%s" .Values.global.baseDomain -}}
+{{- else -}}
+  {{- fail "Either global.baseDomain or openchoreoApi.ingress.hosts must be set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the Console (Backstage) hostname
+*/}}
+{{- define "openchoreo.consoleHost" -}}
+{{- if .Values.backstage.ingress.hosts -}}
+  {{- (index .Values.backstage.ingress.hosts 0).host -}}
+{{- else if .Values.global.baseDomain -}}
+  {{- .Values.global.baseDomain -}}
+{{- else -}}
+  {{- fail "Either global.baseDomain or backstage.ingress.hosts must be set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the Thunder IDP hostname
+*/}}
+{{- define "openchoreo.thunderHost" -}}
+{{- if .Values.thunder.configuration.server.publicUrl -}}
+  {{- $url := .Values.thunder.configuration.server.publicUrl -}}
+  {{- $url = $url | trimPrefix "http://" | trimPrefix "https://" -}}
+  {{- $url | splitList ":" | first -}}
+{{- else if .Values.global.baseDomain -}}
+  {{- printf "thunder.%s" .Values.global.baseDomain -}}
+{{- else -}}
+  {{- fail "Either global.baseDomain or thunder.configuration.server.publicUrl must be set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if TLS is enabled
+*/}}
+{{- define "openchoreo.tlsEnabled" -}}
+{{- if .Values.global.tls.enabled -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the protocol (http or https)
+*/}}
+{{- define "openchoreo.protocol" -}}
+{{- if .Values.global.tls.enabled -}}
+https
+{{- else -}}
+http
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the port suffix for URLs (e.g., ":8080" for non-standard ports)
+*/}}
+{{- define "openchoreo.port" -}}
+{{- .Values.global.port | default "" -}}
+{{- end -}}
+
+{{/*
+Get the external port number (for Thunder config)
+- Custom port: strip colon from global.port (e.g., ":8080" -> "8080")
+- TLS: 443
+- no TLS: 80
+*/}}
+{{- define "openchoreo.externalPort" -}}
+{{- if .Values.global.port -}}
+{{- .Values.global.port | trimPrefix ":" -}}
+{{- else if .Values.global.tls.enabled -}}
+443
+{{- else -}}
+80
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get Thunder internal URL for pod-to-pod communication
+*/}}
+{{- define "openchoreo.thunderInternalUrl" -}}
+{{- printf "http://%s-service.%s.svc.cluster.local:%d" .Values.thunder.fullnameOverride .Release.Namespace (.Values.thunder.service.port | int) -}}
+{{- end -}}
+
+{{/*
+Get the scheme (http or https) - alias for protocol
+*/}}
+{{- define "openchoreo.scheme" -}}
+{{- include "openchoreo.protocol" . -}}
+{{- end -}}
+
+{{/*
+Check if HTTP-only mode (no TLS)
+*/}}
+{{- define "openchoreo.httpOnly" -}}
+{{- if .Values.global.tls.enabled -}}
+false
+{{- else -}}
+true
+{{- end -}}
+{{- end -}}
+

@@ -1,7 +1,8 @@
 {{- if .Values.clusterGateway.enabled }}
 {{- if .Values.clusterGateway.tls.enabled }}
 ---
-# Job to extract CA certificate from secret and create ConfigMap
+# Job to extract CA certificate from cluster-gateway TLS secret and populate ConfigMap
+# This is needed for controller manager to verify the gateway server
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -1,6 +1,18 @@
 # Control Plane values for k3d dev environment
 # Uses locally-built images with pullPolicy: Never
 
+global:
+  baseDomain: openchoreo.localhost
+  devMode: true
+  # Port suffix for URLs (k3d maps host:8080 -> container:80)
+  port: ":8080"
+  # Use k3d's built-in Traefik ingress class
+  ingressClassName: traefik
+
+# Disable helm chart's Traefik (use k3d's built-in Traefik instead)
+traefik:
+  enabled: false
+
 controllerManager:
   image:
     repository: ghcr.io/openchoreo/controller
@@ -19,12 +31,10 @@ openchoreoApi:
   containerSecurityContext:
     appArmorProfile:
       type: Unconfined
-  jwt:
-    disabled: true
 
 # Disable UI and auth for dev
 backstage:
   enabled: false
 
-asgardeoThunder:
+thunder:
   enabled: false

@@ -29,11 +29,12 @@ import (
 type Reconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
-	k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	K8sClientMgr *kubernetesClient.KubeMultiClientManager
 
 	// Pipeline is the workflow rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different workflow runs and reconciliations.
-	Pipeline *workflowpipeline.Pipeline
+	Pipeline   *workflowpipeline.Pipeline
+	GatewayURL string
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -341,7 +342,7 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 }
 
 func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClient(r.k8sClientMgr, buildPlane.Namespace, buildPlane.Name, buildPlane.Spec.KubernetesCluster)
+	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(r.K8sClientMgr, buildPlane, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
@@ -361,8 +362,8 @@ func (r *Reconciler) updateStatusAndRequeueAfter(ctx context.Context, oldWorkflo
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.k8sClientMgr == nil {
-		r.k8sClientMgr = kubernetesClient.NewManager()
+	if r.K8sClientMgr == nil {
+		r.K8sClientMgr = kubernetesClient.NewManager()
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

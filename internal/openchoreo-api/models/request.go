@@ -5,6 +5,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,13 +56,24 @@ type ComponentWorkflowRepositoryRevision struct {
 	Commit string `json:"commit,omitempty"`
 }
 
+// ComponentTrait represents a trait instance attached to a component in API requests
+type ComponentTrait struct {
+	Name         string                `json:"name"`
+	InstanceName string                `json:"instanceName"`
+	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name              string             `json:"name"`
-	DisplayName       string             `json:"displayName,omitempty"`
-	Description       string             `json:"description,omitempty"`
-	Type              string             `json:"type"`
-	ComponentWorkflow *ComponentWorkflow `json:"workflow,omitempty"`
+	Name              string                `json:"name"`
+	DisplayName       string                `json:"displayName,omitempty"`
+	Description       string                `json:"description,omitempty"`
+	Type              string                `json:"type,omitempty"`          // LEGACY: Use componentType instead
+	ComponentType     string                `json:"componentType,omitempty"` // Format: {workloadType}/{componentTypeName}
+	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
+	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
+	Traits            []ComponentTrait      `json:"traits,omitempty"`
+	ComponentWorkflow *ComponentWorkflow    `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
@@ -128,9 +140,7 @@ type CreateDataPlaneRequest struct {
 	ClientKey               string `json:"clientKey"`
 	PublicVirtualHost       string `json:"publicVirtualHost"`
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-	ObserverURL             string `json:"observerURL,omitempty"`
-	ObserverUsername        string `json:"observerUsername,omitempty"`
-	ObserverPassword        string `json:"observerPassword,omitempty"`
+	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -177,6 +187,12 @@ func (req *CreateComponentRequest) Sanitize() {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
 	req.Type = strings.TrimSpace(req.Type)
+	req.ComponentType = strings.TrimSpace(req.ComponentType)
+
+	for i := range req.Traits {
+		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
+		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
+	}
 }
 
 // Sanitize sanitizes the CreateEnvironmentRequest by trimming whitespace
@@ -200,10 +216,7 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.ClientKey = strings.TrimSpace(req.ClientKey)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
-
-	req.ObserverURL = strings.TrimSpace(req.ObserverURL)
-	req.ObserverUsername = strings.TrimSpace(req.ObserverUsername)
-	req.ObserverPassword = strings.TrimSpace(req.ObserverPassword)
+	req.ObservabilityPlaneRef = strings.TrimSpace(req.ObservabilityPlaneRef)
 }
 
 // Sanitize sanitizes the PromoteComponentRequest by trimming whitespace
@@ -327,4 +340,45 @@ type SecretKeyRef struct {
 type UpdateComponentWorkflowSchemaRequest struct {
 	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
 	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
+}
+
+// ComponentTraitRequest represents a single trait instance in API requests
+type ComponentTraitRequest struct {
+	// Name is the name of the Trait resource to use
+	Name string `json:"name"`
+	// InstanceName uniquely identifies this trait instance within the component
+	InstanceName string `json:"instanceName"`
+	// Parameters contains the trait parameter values
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// UpdateComponentTraitsRequest represents the request to update all traits on a component
+type UpdateComponentTraitsRequest struct {
+	Traits []ComponentTraitRequest `json:"traits"`
+}
+
+// Validate validates the UpdateComponentTraitsRequest
+func (req *UpdateComponentTraitsRequest) Validate() error {
+	instanceNames := make(map[string]bool)
+	for i, trait := range req.Traits {
+		if strings.TrimSpace(trait.Name) == "" {
+			return errors.New("trait name is required at index " + fmt.Sprintf("%d", i))
+		}
+		if strings.TrimSpace(trait.InstanceName) == "" {
+			return errors.New("trait instanceName is required at index " + fmt.Sprintf("%d", i))
+		}
+		if instanceNames[trait.InstanceName] {
+			return errors.New("duplicate trait instanceName: " + trait.InstanceName)
+		}
+		instanceNames[trait.InstanceName] = true
+	}
+	return nil
+}
+
+// Sanitize sanitizes the UpdateComponentTraitsRequest by trimming whitespace
+func (req *UpdateComponentTraitsRequest) Sanitize() {
+	for i := range req.Traits {
+		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
+		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
+	}
 }

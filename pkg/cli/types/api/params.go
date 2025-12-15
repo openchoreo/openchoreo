@@ -141,9 +141,6 @@ type CreateDeployableArtifactParams struct {
 	DeploymentTrack string
 	DisplayName     string
 	Description     string
-	FromBuildRef    *openchoreov1alpha1.FromBuildRef
-	FromImageRef    *openchoreov1alpha1.FromImageRef
-	Configuration   *openchoreov1alpha1.Configuration
 	Interactive     bool
 }
 
@@ -196,7 +193,6 @@ type CreateDeploymentParams struct {
 	Environment        string
 	DeploymentTrack    string
 	DeployableArtifact string
-	ConfigOverrides    *openchoreov1alpha1.ConfigurationOverrides
 	Interactive        bool
 }
 
@@ -342,4 +338,17 @@ type CreateWorkloadParams struct {
 	ImageURL         string
 	OutputPath       string
 	Interactive      bool
+}
+
+// ScaffoldComponentParams defines parameters for scaffolding a component
+type ScaffoldComponentParams struct {
+	ComponentName string
+	ComponentType string   // format: workloadType/componentTypeName
+	Traits        []string // trait names
+	WorkflowName  string
+	Organization  string
+	ProjectName   string
+	OutputPath    string
+	SkipComments  bool // skip structural comments and field descriptions
+	SkipOptional  bool // skip optional fields without defaults
 }

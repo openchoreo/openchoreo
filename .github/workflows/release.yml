@@ -16,7 +16,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6.0.1
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -49,7 +49,7 @@ jobs:
           fi
 
       - name: Login to GitHub container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: Download choreoctl artifact from the build workflow
-        uses: dawidd6/action-download-artifact@v9
+        uses: dawidd6/action-download-artifact@v11
         with:
           workflow: build-and-test.yml
           commit: ${{ env.GIT_SHA_LONG }}
@@ -89,7 +89,7 @@ jobs:
           make helm-push HELM_CHART_VERSION=${{ env.RELEASE_TAG_WITHOUT_V }} TAG=${{ env.RELEASE_TAG }} HELM_CONTROLLER_IMAGE_PULL_POLICY=IfNotPresent
 
       - name: Upload GitHub release artifacts
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           draft: true
           generate_release_notes: true

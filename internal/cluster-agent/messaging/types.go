@@ -3,240 +3,150 @@
 
 package messaging
 
-// ClusterAgentRequest represents a request sent from control plane to data plane agent
-// Follows CQRS pattern: Commands modify state, Queries read state
-type ClusterAgentRequest struct {
-	// Type indicates whether this is a 'command' or 'query'
-	Type RequestType `json:"type"`
+import (
+	"net/http"
 
-	// Identifier specifies the operation (e.g., "apply-resource", "list-pods")
-	Identifier string `json:"identifier"`
+	"github.com/google/uuid"
+)
 
-	// RequestID is a unique identifier for this request (UUID)
-	RequestID string `json:"requestID"`
-
-	// ClusterID identifies the target cluster/plane
-	ClusterID string `json:"clusterId"`
-
-	// Payload contains operation-specific data (manifests, parameters, etc.)
-	Payload map[string]interface{} `json:"payload,omitempty"`
-
-	// OverrideRequestTimeouts allows custom retry timeouts (optional)
-	OverrideRequestTimeouts []int `json:"overrideRequestTimeouts,omitempty"`
-}
-
-// ClusterAgentResponse represents a response sent from data plane agent to control plane
-type ClusterAgentResponse struct {
-	// Type indicates whether this is a 'command' or 'query' response
-	Type RequestType `json:"type"`
-
-	// Identifier specifies the operation this is a response to
-	Identifier string `json:"identifier"`
-
-	// RequestID matches the ID from the original request
-	RequestID string `json:"requestID"`
-
-	// ClusterID identifies the responding cluster/plane
-	ClusterID string `json:"clusterId"`
-
-	// Status indicates success or failure
-	Status ResponseStatus `json:"status"`
-
-	// Payload contains the operation result data
-	Payload map[string]interface{} `json:"payload,omitempty"`
-
-	// Error contains error details if status is 'fail'
-	Error *ErrorDetails `json:"error,omitempty"`
+// GenerateMessageID generates a unique message ID
+func GenerateMessageID() string {
+	return uuid.New().String()
 }
 
 // ErrorDetails provides structured error information
 type ErrorDetails struct {
-	// Code is the error code (e.g., 404, 500)
-	Code int `json:"code,omitempty"`
-
-	// Message is a human-readable error message
-	Message string `json:"message"`
-
-	// Details contains additional error context
-	Details map[string]interface{} `json:"details,omitempty"`
+	Code    int            `json:"code,omitempty"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
-// RequestType represents the CQRS type
-type RequestType string
-
-const (
-	TypeCommand RequestType = "command"
-
-	TypeQuery RequestType = "query"
-)
-
-// ResponseStatus represents the outcome of a request
-type ResponseStatus string
-
-const (
-	StatusSuccess ResponseStatus = "success"
-
-	StatusFail ResponseStatus = "fail"
-)
-
-type Message struct {
-	// ID is a unique identifier for the message (UUID)
-	ID string `json:"id"`
-
-	// Type indicates the message type (request, response, broadcast, heartbeat)
-	Type MessageType `json:"type"`
-
-	// Action specifies the operation to perform (for request messages)
-	Action Action `json:"action,omitempty"`
-
-	// Payload contains the message data (resource manifests, query parameters, etc.)
-	Payload map[string]interface{} `json:"payload,omitempty"`
-
-	// ReplyTo contains the ID of the message being replied to (for response messages)
-	ReplyTo string `json:"replyTo,omitempty"`
-
-	// From identifies the sender (data plane name or control plane)
-	From string `json:"from,omitempty"`
-
-	// Success indicates whether the operation succeeded (for response messages)
-	Success bool `json:"success,omitempty"`
-
-	// Error contains error information if the operation failed
-	Error string `json:"error,omitempty"`
-
-	// Timestamp is when the message was created (RFC3339 format)
-	Timestamp string `json:"timestamp,omitempty"`
+// HTTPTunnelRequest represents an HTTP request to be proxied through the cluster agent
+// This enables proxying raw HTTP requests to Kubernetes API and other services in the data plane
+type HTTPTunnelRequest struct {
+	// RequestID is a unique identifier for this request (UUID)
+	// Used for matching request-response pairs in the WebSocket layer
+	RequestID string `json:"requestID"`
+	// GatewayRequestID is the request ID from the original HTTP request at the gateway
+	// Used for end-to-end request tracing and correlation
+	GatewayRequestID string `json:"gatewayRequestID,omitempty"`
+	// Target identifies the backend service ("k8s", "monitoring", "logs", etc.)
+	Target  string              `json:"target"`
+	Method  string              `json:"method"`
+	Path    string              `json:"path"`
+	Query   string              `json:"query,omitempty"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    []byte              `json:"body,omitempty"`
 }
 
-// MessageType represents the type of message (legacy)
-type MessageType string
+// HTTPTunnelResponse represents an HTTP response from the data plane backend service
+type HTTPTunnelResponse struct {
+	RequestID  string              `json:"requestID"`
+	StatusCode int                 `json:"statusCode"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
+	Error      *ErrorDetails       `json:"error,omitempty"`
+}
 
-const (
-	// TypeRequest is a request message from control plane to data plane
-	TypeRequest MessageType = "request"
-
-	// TypeResponse is a response message from data plane to control plane
-	TypeResponse MessageType = "response"
-
-	// TypeBroadcast is a broadcast message to all data planes
-	TypeBroadcast MessageType = "broadcast"
-
-	// TypeHeartbeat is a periodic heartbeat message
-	TypeHeartbeat MessageType = "heartbeat"
-)
-
-// Action represents the operation to perform
-type Action string
-
-const (
-	// ActionApplyResource applies a resource using server-side apply
-	ActionApplyResource Action = "apply-resource"
-
-	// ActionListResources lists resources by GVK and labels
-	ActionListResources Action = "list-resources"
-
-	// ActionGetResource gets a specific resource
-	ActionGetResource Action = "get-resource"
-
-	// ActionDeleteResource deletes a resource
-	ActionDeleteResource Action = "delete-resource"
-
-	// ActionPatchResource patches a resource
-	ActionPatchResource Action = "patch-resource"
-
-	// ActionCreateNamespace creates a namespace if it doesn't exist
-	ActionCreateNamespace Action = "create-namespace"
-
-	// ActionWatchResources watches resources for changes
-	ActionWatchResources Action = "watch-resources"
-)
-
-func (mt MessageType) IsValid() bool {
-	switch mt {
-	case TypeRequest, TypeResponse, TypeBroadcast, TypeHeartbeat:
-		return true
-	default:
-		return false
+func NewHTTPTunnelRequest(target, method, path, query string, headers map[string][]string, body []byte) *HTTPTunnelRequest {
+	return &HTTPTunnelRequest{
+		Target:  target,
+		Method:  method,
+		Path:    path,
+		Query:   query,
+		Headers: headers,
+		Body:    body,
 	}
 }
 
-func (a Action) IsValid() bool {
-	switch a {
-	case ActionApplyResource, ActionListResources, ActionGetResource,
-		ActionDeleteResource, ActionPatchResource, ActionCreateNamespace,
-		ActionWatchResources:
-		return true
-	default:
-		return false
-	}
-}
-
-func (mt MessageType) String() string {
-	return string(mt)
-}
-
-func (a Action) String() string {
-	return string(a)
-}
-
-func NewCommand(identifier, requestID, clusterID string, payload map[string]interface{}) *ClusterAgentRequest {
-	return &ClusterAgentRequest{
-		Type:       TypeCommand,
-		Identifier: identifier,
-		RequestID:  requestID,
-		ClusterID:  clusterID,
-		Payload:    payload,
-	}
-}
-
-func NewQuery(identifier, requestID, clusterID string, payload map[string]interface{}) *ClusterAgentRequest {
-	return &ClusterAgentRequest{
-		Type:       TypeQuery,
-		Identifier: identifier,
-		RequestID:  requestID,
-		ClusterID:  clusterID,
-		Payload:    payload,
-	}
-}
-
-func NewClusterAgentSuccessResponse(req *ClusterAgentRequest, payload map[string]interface{}) *ClusterAgentResponse {
-	return &ClusterAgentResponse{
-		Type:       req.Type,
-		Identifier: req.Identifier,
+func NewHTTPTunnelSuccessResponse(req *HTTPTunnelRequest, statusCode int, headers map[string][]string, body []byte) *HTTPTunnelResponse {
+	return &HTTPTunnelResponse{
 		RequestID:  req.RequestID,
-		ClusterID:  req.ClusterID,
-		Status:     StatusSuccess,
-		Payload:    payload,
+		StatusCode: statusCode,
+		Headers:    headers,
+		Body:       body,
 	}
 }
 
-func NewClusterAgentFailResponse(req *ClusterAgentRequest, errCode int, errMsg string, errDetails map[string]interface{}) *ClusterAgentResponse {
-	return &ClusterAgentResponse{
-		Type:       req.Type,
-		Identifier: req.Identifier,
+func NewHTTPTunnelErrorResponse(req *HTTPTunnelRequest, statusCode int, errMsg string) *HTTPTunnelResponse {
+	return &HTTPTunnelResponse{
 		RequestID:  req.RequestID,
-		ClusterID:  req.ClusterID,
-		Status:     StatusFail,
+		StatusCode: statusCode,
 		Error: &ErrorDetails{
-			Code:    errCode,
+			Code:    statusCode,
 			Message: errMsg,
-			Details: errDetails,
 		},
 	}
 }
 
-func (r *ClusterAgentRequest) IsCommand() bool {
-	return r.Type == TypeCommand
+func (r *HTTPTunnelResponse) IsSuccess() bool {
+	return r.StatusCode >= http.StatusOK && r.StatusCode < http.StatusMultipleChoices
 }
 
-func (r *ClusterAgentRequest) IsQuery() bool {
-	return r.Type == TypeQuery
+func (r *HTTPTunnelResponse) IsError() bool {
+	return r.Error != nil
 }
 
-func (r *ClusterAgentResponse) IsSuccess() bool {
-	return r.Status == StatusSuccess
+type HTTPTunnelStreamInit struct {
+	RequestID    string              `json:"requestID"`
+	Target       string              `json:"target"`
+	Method       string              `json:"method"`
+	Path         string              `json:"path"`
+	Query        string              `json:"query,omitempty"`
+	Headers      map[string][]string `json:"headers,omitempty"`
+	IsUpgrade    bool                `json:"isUpgrade"`              // True for SPDY/WebSocket upgrades
+	UpgradeProto string              `json:"upgradeProto,omitempty"` // "SPDY/3.1", "websocket", etc.
 }
 
-func (r *ClusterAgentResponse) IsFail() bool {
-	return r.Status == StatusFail
+type HTTPTunnelStreamChunk struct {
+	RequestID string `json:"requestID"`
+	Data      []byte `json:"data"`
+	StreamID  int    `json:"streamId,omitempty"` // For multiplexed streams (SPDY)
+	IsClose   bool   `json:"isClose,omitempty"`  // True when stream ends
+}
+
+type HTTPTunnelStreamResponse struct {
+	RequestID  string              `json:"requestID"`
+	StatusCode int                 `json:"statusCode"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Error      *ErrorDetails       `json:"error,omitempty"`
+}
+
+func NewHTTPTunnelStreamInit(target, method, path, query string, headers map[string][]string, isUpgrade bool, upgradeProto string) *HTTPTunnelStreamInit {
+	return &HTTPTunnelStreamInit{
+		Target:       target,
+		Method:       method,
+		Path:         path,
+		Query:        query,
+		Headers:      headers,
+		IsUpgrade:    isUpgrade,
+		UpgradeProto: upgradeProto,
+	}
+}
+
+func NewHTTPTunnelStreamChunk(requestID string, data []byte, isClose bool) *HTTPTunnelStreamChunk {
+	return &HTTPTunnelStreamChunk{
+		RequestID: requestID,
+		Data:      data,
+		IsClose:   isClose,
+	}
+}
+
+func NewHTTPTunnelStreamResponse(req *HTTPTunnelStreamInit, statusCode int, headers map[string][]string) *HTTPTunnelStreamResponse {
+	return &HTTPTunnelStreamResponse{
+		RequestID:  req.RequestID,
+		StatusCode: statusCode,
+		Headers:    headers,
+	}
+}
+
+func NewHTTPTunnelStreamErrorResponse(req *HTTPTunnelStreamInit, statusCode int, errMsg string) *HTTPTunnelStreamResponse {
+	return &HTTPTunnelStreamResponse{
+		RequestID:  req.RequestID,
+		StatusCode: statusCode,
+		Error: &ErrorDetails{
+			Code:    statusCode,
+			Message: errMsg,
+		},
+	}
 }

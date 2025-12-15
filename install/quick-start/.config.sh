@@ -15,3 +15,7 @@ OBSERVABILITY_NS="openchoreo-observability-plane"
 
 # Helm repository
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
+
+# Cert-manager configuration
+CERT_MANAGER_VERSION="v1.16.2"
+CERT_MANAGER_REPO="https://charts.jetstack.io"
