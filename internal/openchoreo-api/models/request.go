@@ -15,7 +15,7 @@ import (
 
 // ListOptions represents parameters for list operations
 type ListOptions struct {
-	Limit    int    // Items per page (optional, default: 100, max: 500)
+	Limit    int    // Items per page (optional, default: 100, max: 512)
 	Continue string // Opaque K8s continue token (optional)
 }
 
