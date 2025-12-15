@@ -527,10 +527,28 @@ func main() {
 
 	// Initialize Git Provider for webhook management
 	gitProvider := initializeGitProvider(setupLog)
+
+	// Get webhook base URL from Ingress (fallback to env var for local dev)
 	webhookBaseURL := os.Getenv("WEBHOOK_BASE_URL")
 	if webhookBaseURL == "" {
-		setupLog.Info("WEBHOOK_BASE_URL not set, using default", "default", "http://localhost:8080")
-		webhookBaseURL = "http://localhost:8080"
+		// Try to get from Ingress
+		ctx := context.Background()
+		namespace := os.Getenv("POD_NAMESPACE")
+		if namespace == "" {
+			namespace = "openchoreo-control-plane" // Default namespace
+		}
+		baseURL, err := component.GetWebhookBaseURLFromIngress(ctx, mgr.GetClient(), namespace, "openchoreo-api")
+		if err != nil {
+			setupLog.Info("Failed to get webhook base URL from Ingress, using default",
+				"error", err,
+				"default", "http://localhost:8080")
+			webhookBaseURL = "http://localhost:8080"
+		} else {
+			webhookBaseURL = baseURL
+			setupLog.Info("Using webhook base URL from Ingress", "url", webhookBaseURL)
+		}
+	} else {
+		setupLog.Info("Using webhook base URL from environment variable", "url", webhookBaseURL)
 	}
 
 	if err = (&component.Reconciler{

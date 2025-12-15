@@ -4,92 +4,21 @@
 package git
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"strconv"
 	"strings"
-
-	"github.com/google/go-github/v57/github"
-	"golang.org/x/oauth2"
 )
 
 // GitHubProvider implements the Provider interface for GitHub
 type GitHubProvider struct {
-	client *github.Client
-	config ProviderConfig
 }
 
 // NewGitHubProvider creates a new GitHub provider
-func NewGitHubProvider(config ProviderConfig) *GitHubProvider {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.Token})
-	tc := oauth2.NewClient(context.Background(), ts)
-	client := github.NewClient(tc)
-
-	// Support for GitHub Enterprise
-	if config.BaseURL != "" {
-		var err error
-		client, err = client.WithEnterpriseURLs(config.BaseURL, config.BaseURL)
-		if err != nil {
-			// Log error but continue with default client
-			fmt.Printf("Failed to configure GitHub Enterprise URL: %v\n", err)
-		}
-	}
-
-	return &GitHubProvider{
-		client: client,
-		config: config,
-	}
-}
-
-// RegisterWebhook creates a webhook in the GitHub repository
-func (p *GitHubProvider) RegisterWebhook(ctx context.Context, repoURL, webhookURL, secret string) (string, error) {
-	owner, repo, err := parseGitHubRepoURL(repoURL)
-	if err != nil {
-		return "", err
-	}
-
-	hook := &github.Hook{
-		Config: map[string]interface{}{
-			"url":          webhookURL,
-			"content_type": "json",
-			"secret":       secret,
-			"insecure_ssl": "0",
-		},
-		Events: []string{"push"},
-		Active: github.Bool(true),
-	}
-
-	createdHook, _, err := p.client.Repositories.CreateHook(ctx, owner, repo, hook)
-	if err != nil {
-		return "", fmt.Errorf("failed to create webhook: %w", err)
-	}
-
-	return fmt.Sprintf("%d", createdHook.GetID()), nil
-}
-
-// DeregisterWebhook removes a webhook from the GitHub repository
-func (p *GitHubProvider) DeregisterWebhook(ctx context.Context, repoURL, webhookID string) error {
-	owner, repo, err := parseGitHubRepoURL(repoURL)
-	if err != nil {
-		return err
-	}
-
-	id, err := strconv.ParseInt(webhookID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid webhook ID: %w", err)
-	}
-
-	_, err = p.client.Repositories.DeleteHook(ctx, owner, repo, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete webhook: %w", err)
-	}
-
-	return nil
+func NewGitHubProvider() *GitHubProvider {
+	return &GitHubProvider{}
 }
 
 // ValidateWebhookPayload validates the GitHub webhook signature
@@ -155,38 +84,6 @@ func (p *GitHubProvider) ParseWebhookPayload(payload []byte) (*WebhookEvent, err
 		Branch:        branch,
 		ModifiedPaths: modifiedPaths,
 	}, nil
-}
-
-// parseGitHubRepoURL extracts owner and repo from GitHub URL
-func parseGitHubRepoURL(repoURL string) (owner, repo string, err error) {
-	// Parse URLs like:
-	// - https://github.com/owner/repo
-	// - https://github.com/owner/repo.git
-	// - git@github.com:owner/repo.git
-
-	// Normalize SSH URLs to HTTPS
-	if strings.HasPrefix(repoURL, "git@") {
-		// git@github.com:owner/repo.git -> https://github.com/owner/repo.git
-		repoURL = strings.Replace(repoURL, ":", "/", 1)
-		repoURL = strings.Replace(repoURL, "git@", "https://", 1)
-	}
-
-	parsedURL, err := url.Parse(repoURL)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid repository URL: %w", err)
-	}
-
-	// Remove leading slash and .git suffix
-	path := strings.TrimPrefix(parsedURL.Path, "/")
-	path = strings.TrimSuffix(path, ".git")
-
-	// Split into owner/repo
-	parts := strings.Split(path, "/")
-	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid repository URL format: expected owner/repo")
-	}
-
-	return parts[0], parts[1], nil
 }
 
 // normalizeRepoURL normalizes repository URLs for comparison

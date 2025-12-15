@@ -15,40 +15,33 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
-// GitHubWebhookService handles GitHub webhook processing
+// GitHubWebhookService handles webhook processing for all git providers
 type GitHubWebhookService struct {
 	k8sClient       client.Client
-	gitProvider     git.Provider
 	workflowService *ComponentWorkflowService
 }
 
 // NewGitHubWebhookService creates a new GitHubWebhookService
-func NewGitHubWebhookService(k8sClient client.Client, gitProvider git.Provider, workflowService *ComponentWorkflowService) *GitHubWebhookService {
+func NewGitHubWebhookService(k8sClient client.Client, workflowService *ComponentWorkflowService) *GitHubWebhookService {
 	return &GitHubWebhookService{
 		k8sClient:       k8sClient,
-		gitProvider:     gitProvider,
 		workflowService: workflowService,
 	}
 }
 
-// ProcessWebhook processes an incoming webhook payload
-func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, payload []byte, signature, webhookSecret string) ([]string, error) {
+// ProcessWebhook processes an incoming webhook payload from any git provider
+func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
 	logger := log.FromContext(ctx)
 
-	// Validate signature
-	if err := s.gitProvider.ValidateWebhookPayload(payload, signature, webhookSecret); err != nil {
-		logger.Error(err, "Invalid webhook signature")
-		return nil, fmt.Errorf("invalid webhook signature: %w", err)
-	}
-
-	// Parse payload
-	event, err := s.gitProvider.ParseWebhookPayload(payload)
+	// Parse payload using the provider
+	event, err := provider.ParseWebhookPayload(payload)
 	if err != nil {
 		logger.Error(err, "Failed to parse webhook payload")
 		return nil, fmt.Errorf("failed to parse webhook payload: %w", err)
 	}
 
 	logger.Info("Processing webhook event",
+		"provider", event.Provider,
 		"repository", event.RepositoryURL,
 		"branch", event.Branch,
 		"commit", event.Commit,
@@ -90,7 +83,7 @@ func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, payload []byt
 			continue
 		}
 
-		triggeredComponents = append(triggeredComponents, componentName)
+		triggeredComponents = append(triggeredComponents, fmt.Sprintf("%s/%s", comp.Namespace, componentName))
 	}
 
 	logger.Info("Webhook processing completed",
@@ -134,10 +127,12 @@ func (s *GitHubWebhookService) findAffectedComponents(ctx context.Context, event
 		}
 
 		// Check if modified paths affect this component
-		if s.isComponentAffected(appPath, event.ModifiedPaths) {
+		// If no modified paths (e.g., Bitbucket), trigger all components for the repo
+		if len(event.ModifiedPaths) == 0 || s.isComponentAffected(appPath, event.ModifiedPaths) {
 			logger.Info("Component is affected by webhook event",
 				"component", comp.Name,
-				"appPath", appPath)
+				"appPath", appPath,
+				"modifiedPaths", len(event.ModifiedPaths))
 			affected = append(affected, comp)
 		}
 	}
@@ -194,4 +189,29 @@ func (s *GitHubWebhookService) isComponentAffected(appPath string, modifiedPaths
 	}
 
 	return false
+}
+
+// normalizeRepoURL normalizes repository URLs for comparison
+func normalizeRepoURL(repoURL string) string {
+	// Convert SSH to HTTPS for different providers
+	if strings.HasPrefix(repoURL, "git@github.com:") {
+		repoURL = strings.Replace(repoURL, "git@github.com:", "https://github.com/", 1)
+	}
+	if strings.HasPrefix(repoURL, "git@gitlab.com:") {
+		repoURL = strings.Replace(repoURL, "git@gitlab.com:", "https://gitlab.com/", 1)
+	}
+	if strings.HasPrefix(repoURL, "git@bitbucket.org:") {
+		repoURL = strings.Replace(repoURL, "git@bitbucket.org:", "https://bitbucket.org/", 1)
+	}
+
+	// Remove .git suffix
+	repoURL = strings.TrimSuffix(repoURL, ".git")
+
+	// Remove trailing slash
+	repoURL = strings.TrimSuffix(repoURL, "/")
+
+	// Convert to lowercase for case-insensitive comparison
+	repoURL = strings.ToLower(repoURL)
+
+	return repoURL
 }
