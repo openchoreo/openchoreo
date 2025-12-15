@@ -286,6 +286,8 @@ spec:
                 type: integer
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.owner.projectName
     served: true
     storage: true
     subresources:

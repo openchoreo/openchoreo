@@ -13,7 +13,20 @@ spec:
     singular: release
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.componentName
+      name: Component
+      type: string
+    - jsonPath: .spec.environmentName
+      name: Environment
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Release is the Schema for the releases API.
@@ -210,6 +223,10 @@ spec:
                 type: array
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.owner.projectName
+    - jsonPath: .spec.owner.componentName
+    - jsonPath: .spec.environmentName
     served: true
     storage: true
     subresources:

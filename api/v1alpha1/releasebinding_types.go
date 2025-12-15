@@ -85,6 +85,9 @@ type ReleaseBindingStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:selectablefield:JSONPath=`.spec.owner.projectName`
+// +kubebuilder:selectablefield:JSONPath=`.spec.owner.componentName`
+// +kubebuilder:selectablefield:JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`

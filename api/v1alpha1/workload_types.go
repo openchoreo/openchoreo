@@ -232,6 +232,8 @@ type WorkloadStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:selectablefield:JSONPath=`.spec.owner.projectName`
+// +kubebuilder:selectablefield:JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

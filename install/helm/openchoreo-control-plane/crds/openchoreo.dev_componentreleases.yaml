@@ -627,6 +627,9 @@ spec:
             description: ComponentReleaseStatus defines the observed state of ComponentRelease.
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.owner.projectName
+    - jsonPath: .spec.owner.componentName
     served: true
     storage: true
     subresources:

@@ -282,6 +282,10 @@ spec:
                 type: array
             type: object
         type: object
+    selectableFields:
+    - jsonPath: .spec.owner.projectName
+    - jsonPath: .spec.owner.componentName
+    - jsonPath: .spec.environment
     served: true
     storage: true
     subresources:
