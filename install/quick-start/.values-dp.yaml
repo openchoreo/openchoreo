@@ -7,6 +7,8 @@
 gateway:
   enabled: true
   # Envoy - enabled by default for traffic routing
+  httpPort: 19080
+  httpsPort: 19443
   envoy:
     enabled: true
     # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues

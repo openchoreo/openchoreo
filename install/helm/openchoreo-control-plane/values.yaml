@@ -65,7 +65,7 @@ fullnameOverride: openchoreo
 # Common security configuration shared across all components
 security:
   # Global security toggle - when disabled, authentication is turned off for all components
-  enabled: false
+  enabled: true
   oidc:
     issuer: ""
     wellKnownEndpoint: ""
@@ -563,10 +563,10 @@ thunder:
     server:
       port: 8090
       httpOnly: true
-      publicUrl: "http://thunder.openchoreo.localhost:8080"
+      publicUrl: ""
 
     gateClient:
-      hostname: "thunder.openchoreo.localhost"
+      hostname: ""
       port: 8080
       scheme: "http"
       loginPath: "/gate/signin"

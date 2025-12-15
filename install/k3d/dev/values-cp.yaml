@@ -13,6 +13,9 @@ global:
 traefik:
   enabled: false
 
+security:
+  enabled: false
+
 controllerManager:
   image:
     repository: ghcr.io/openchoreo/controller

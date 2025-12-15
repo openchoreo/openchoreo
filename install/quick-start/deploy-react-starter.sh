@@ -163,7 +163,7 @@ if [[ -z "$HOSTNAME" ]] || [[ "$HOSTNAME" == "null" ]]; then
     exit 1
 fi
 
-PUBLIC_URL="http://${HOSTNAME}:9080"
+PUBLIC_URL="http://${HOSTNAME}:19080"
 
 echo ""
 log_success "React Starter web application is ready!"
