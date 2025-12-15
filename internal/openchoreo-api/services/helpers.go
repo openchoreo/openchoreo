@@ -18,7 +18,7 @@ func constructAuthzCheckRequest(ctx context.Context, action, resourceType, resou
 	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
 
 	// Convert auth.SubjectContext to authz.SubjectContext
-	authzSubjectCtx := authz.FromAuthSubjectContext(authSubjectCtx)
+	authzSubjectCtx := authz.GetAuthzSubjectContext(authSubjectCtx)
 
 	return &authz.EvaluateRequest{
 		SubjectContext: authzSubjectCtx,

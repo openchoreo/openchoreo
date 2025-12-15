@@ -416,7 +416,7 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authzSubjectCtx := authz.FromAuthSubjectContext(subjectCtx)
+	authzSubjectCtx := authz.GetAuthzSubjectContext(subjectCtx)
 
 	request := &authz.ProfileRequest{
 		SubjectContext: authzSubjectCtx,

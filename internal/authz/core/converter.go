@@ -7,8 +7,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
-// FromAuthSubjectContext converts auth.SubjectContext to authz SubjectContext
-func FromAuthSubjectContext(authCtx *auth.SubjectContext) *SubjectContext {
+// GetAuthzSubjectContext converts auth.SubjectContext to authz SubjectContext
+func GetAuthzSubjectContext(authCtx *auth.SubjectContext) *SubjectContext {
 	if authCtx == nil {
 		return nil
 	}
