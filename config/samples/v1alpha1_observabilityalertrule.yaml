@@ -1,0 +1,25 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertRule
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+    openchoreo.dev/component-uid: 60c42b86-37db-419b-864f-f2d41e54dac6
+    openchoreo.dev/environment-uid: 88df0197-709a-4deb-bb5e-64084992180d
+    openchoreo.dev/project-uid: d60c2b14-7312-4d07-9c48-f5b49180afa6
+  name: observabilityalertrule-sample
+spec:
+  name: test-rule
+  description: "This is a test alert rule"
+  severity: warning
+  enabled: true
+  enableAiRootCauseAnalysis: true
+  notificationChannel: test-channel
+  source:
+    type: log
+    query: "error"
+  condition:
+    window: 5m
+    interval: 1m
+    operator: gt
+    threshold: 10

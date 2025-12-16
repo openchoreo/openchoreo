@@ -1,0 +1,227 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: observabilityalertrules.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ObservabilityAlertRule
+    listKind: ObservabilityAlertRuleList
+    plural: observabilityalertrules
+    singular: observabilityalertrule
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.severity
+      name: Severity
+      type: string
+    - jsonPath: .spec.notificationChannel
+      name: NotificationChannel
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ObservabilityAlertRule is the Schema for the observabilityalertrules
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ObservabilityAlertRuleSpec defines the desired state of ObservabilityAlertRule.
+            properties:
+              condition:
+                description: Condition controls how the rule should be evaluated against
+                  the source.
+                properties:
+                  interval:
+                    description: Interval dictates how often the alert rule is evaluated.
+                    type: string
+                  operator:
+                    description: Operator describes the comparison used when evaluating
+                      the threshold.
+                    enum:
+                    - gt
+                    - lt
+                    - gte
+                    - lte
+                    - eq
+                    type: string
+                  threshold:
+                    description: Threshold is the trigger value for the configured
+                      operator.
+                    format: int64
+                    type: integer
+                  window:
+                    description: Window is the time window that is aggregated before
+                      a comparison is made.
+                    type: string
+                required:
+                - interval
+                - operator
+                - threshold
+                - window
+                type: object
+              description:
+                description: Description is a human-friendly summary of the alert
+                  rule.
+                type: string
+              enableAiRootCauseAnalysis:
+                description: EnableAiRootCauseAnalysis allows an attached AI engine
+                  to attempt root cause analysis when the rule fires.
+                type: boolean
+              enabled:
+                description: Enabled toggles whether this alert rule should be evaluated.
+                type: boolean
+              name:
+                description: Name identifies the alert rule when defined as a Trait.
+                type: string
+              notificationChannel:
+                description: NotificationChannel references the alerts notification
+                  channel that should receive the alert.
+                type: string
+              severity:
+                description: Severity describes how urgent the alert is.
+                type: string
+              source:
+                description: Source specifies the origin and query that drives the
+                  rule.
+                properties:
+                  metric:
+                    description: |-
+                      Metric specifies the metric to alert on.
+                      This is required for metrics-based alerting.
+                    type: string
+                  query:
+                    description: |-
+                      Query defines the query or filter to locate relevant events.
+                      This is required for log-based alerting.
+                    type: string
+                  type:
+                    description: Type specifies the telemetry source type (log, metrics).
+                    enum:
+                    - log
+                    - metrics
+                    type: string
+                required:
+                - type
+                type: object
+            required:
+            - condition
+            - name
+            - notificationChannel
+            - source
+            type: object
+          status:
+            description: ObservabilityAlertRuleStatus defines the observed state of
+              ObservabilityAlertRule.
+            properties:
+              backendMonitorId:
+                description: BackendMonitorID is the identifier assigned by the backend
+                  observability tool.
+                type: string
+              conditions:
+                description: Conditions describe the latest observations of the rule's
+                  state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastReconcileTime:
+                description: LastReconcileTime records the last time the controller
+                  reconciled this object.
+                format: date-time
+                type: string
+              lastSyncTime:
+                description: LastSyncTime records when the rule was pushed to the
+                  backend observability tool.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration represents the .metadata.generation
+                  that the controller last handled.
+                format: int64
+                type: integer
+              phase:
+                description: Phase indicates the current lifecycle phase.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

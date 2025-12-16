@@ -209,4 +209,12 @@ resources:
   kind: ObservabilityAlertsNotificationChannel
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openchoreo.dev
+  kind: ObservabilityAlertRule
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 version: "3"

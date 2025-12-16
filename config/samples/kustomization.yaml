@@ -39,4 +39,5 @@ resources:
   - v1alpha1_componentworkflowrun.yaml
   - openchoreo_v1alpha1_observabilityplane.yaml
   - v1alpha1_observabilityalertsnotificationchannel.yaml
+  - v1alpha1_observabilityalertrule.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
