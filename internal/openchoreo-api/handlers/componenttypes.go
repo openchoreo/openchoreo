@@ -59,6 +59,11 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	// Call service to get ComponentType schema
 	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, orgName, ctName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view component type schema", "org", orgName, "componentType", ctName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
 			logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)

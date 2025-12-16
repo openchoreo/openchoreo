@@ -55,10 +55,10 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
 	// Create ComponentType service
-	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"))
+	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"), authzPDP)
 
 	// Create Trait service
-	traitService := NewTraitService(k8sClient, logger.With("service", "trait"))
+	traitService := NewTraitService(k8sClient, logger.With("service", "trait"), authzPDP)
 
 	// Create Workflow service
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))

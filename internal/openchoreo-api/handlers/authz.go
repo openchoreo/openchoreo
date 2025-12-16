@@ -32,6 +32,11 @@ type UpdateRoleMappingRequest struct {
 func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.services.AuthzService.ListRoles(r.Context())
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to list roles")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to list roles", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -53,6 +58,11 @@ func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
 
 	role, err := h.services.AuthzService.GetRole(r.Context(), roleName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to view role", "role", roleName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to get role", "error", err, "role", roleName)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -73,6 +83,11 @@ func (h *Handler) AddRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.services.AuthzService.AddRole(r.Context(), role); err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to create role", "role", role.Name)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to add role", "error", err, "role", role.Name)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -112,6 +127,11 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to update role", "role", roleName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, authz.ErrRoleNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, err.Error(), services.CodeNotFound)
 			return
@@ -136,6 +156,12 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.services.AuthzService.RemoveRole(r.Context(), roleName, force); err != nil {
 		h.logger.Error("Failed to remove role", "error", err, "role", roleName, "force", force)
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to delete role", "role", roleName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		h.logger.Error("Failed to remove role", "error", err, "role", roleName)
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
@@ -171,8 +197,12 @@ func (h *Handler) ListRoleMappings(w http.ResponseWriter, r *http.Request) {
 
 	mappings, err := h.services.AuthzService.ListRoleMappings(r.Context(), roleName, claim, value)
 	if err != nil {
-		h.logger.Error("Failed to list role mappings", "error", err,
-			"role", roleName, "claim", claim, "value", value)
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to list role mappings")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		h.logger.Error("Failed to list role mappings", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
@@ -192,6 +222,11 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.services.AuthzService.AddRoleMapping(r.Context(), mapping); err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to create role mapping")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to add role mapping", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -242,6 +277,11 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 		if handleAuthzDisabledError(w, err) {
 			return
 		}
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to update role mapping", "id", id)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, authz.ErrRolePolicyMappingNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "Role mapping not found", services.CodeNotFound)
 			return
@@ -276,6 +316,11 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.services.AuthzService.RemoveRoleMappingByID(r.Context(), uint(id)); err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to delete role mapping", "id", id)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to remove role mapping", "error", err, "id", id)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -299,6 +344,11 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListActions(w http.ResponseWriter, r *http.Request) {
 	actions, err := h.services.AuthzService.ListActions(r.Context())
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to list actions")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to list actions", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -314,6 +364,11 @@ func (h *Handler) ListActions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListUserTypes(w http.ResponseWriter, r *http.Request) {
 	userTypes, err := h.services.AuthzService.ListUserTypes(r.Context())
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to list user types")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		h.logger.Error("Failed to list user types", "error", err)
 		if handleAuthzDisabledError(w, err) {
 			return

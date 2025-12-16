@@ -18,6 +18,18 @@ const (
 	SystemActionViewComponentRelease   systemAction = "componentrelease:view"
 
 	SystemActionViewOrganization systemAction = "organization:view"
+
+	SystemActionCreateRole        systemAction = "role:create"
+	SystemActionViewRole          systemAction = "role:view"
+	SystemActionDeleteRole        systemAction = "role:delete"
+	SystemActionUpdateRole        systemAction = "role:update"
+	SystemActionCreateRoleMapping systemAction = "rolemapping:create"
+	SystemActionViewRoleMapping   systemAction = "rolemapping:view"
+	SystemActionDeleteRoleMapping systemAction = "rolemapping:delete"
+	SystemActionUpdateRoleMapping systemAction = "rolemapping:update"
+
+	SystemActionViewComponentType systemAction = "componenttype:view"
+	SystemActionViewTrait         systemAction = "trait:view"
 )
 
 type ResourceType string
@@ -27,4 +39,8 @@ const (
 	ResourceTypeComponent        ResourceType = "component"
 	ResourceTypeComponentRelease ResourceType = "componentRelease"
 	ResourceTypeOrganization     ResourceType = "organization"
+	ResourceTypeRole             ResourceType = "role"
+	ResourceTypeRoleMapping      ResourceType = "roleMapping"
+	ResourceTypeComponentType    ResourceType = "componentType"
+	ResourceTypeTrait            ResourceType = "trait"
 )
