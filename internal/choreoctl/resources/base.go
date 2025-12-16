@@ -75,8 +75,14 @@ func NewBaseResource[T client.Object, L client.ObjectList](opts ...ResourceOptio
 // List lists objects matching namespace/labels with optional server-side pagination.
 // When limit > 0: Auto-pages until the total item cap is reached
 // When limit = 0: Auto-pages through all results using continue tokens
+// Returns an error if limit is negative
 func (b *BaseResource[T, L]) List(limit int) ([]ResourceWrapper[T], error) {
 	var zero []ResourceWrapper[T]
+
+	// Validate limit parameter
+	if limit < 0 {
+		return zero, fmt.Errorf("limit must be non-negative, got %d", limit)
+	}
 
 	// Set up base list options
 	baseListOpts := []client.ListOption{

@@ -11,4 +11,6 @@ const (
 	MaxPageLimit = 512
 	// MinPageLimit is the minimum number of items per page (0 disables paging)
 	MinPageLimit = 0
+	// DefaultRecentBuildsLimit is the number of recent builds to show when no build name is specified
+	DefaultRecentBuildsLimit = 20
 )

@@ -22,6 +22,7 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+	pkgconstants "github.com/openchoreo/openchoreo/pkg/constants"
 )
 
 type LogsImpl struct{}
@@ -80,8 +81,7 @@ func getBuildLogs(params api.LogParams) error {
 	// If no build is specified, list a small number of recent builds instead of
 	// fetching the entire history.
 	if filter.Name == "" {
-		const defaultRecentBuildsLimit = 20
-		builds, err := buildRes.List(defaultRecentBuildsLimit)
+		builds, err := buildRes.List(pkgconstants.DefaultRecentBuildsLimit)
 		if err != nil {
 			return fmt.Errorf("failed to list builds: %w", err)
 		}
