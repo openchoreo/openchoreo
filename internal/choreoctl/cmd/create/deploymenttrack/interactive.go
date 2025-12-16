@@ -38,6 +38,21 @@ func (m deploymentTrackModel) Init() tea.Cmd {
 	return nil
 }
 
+// RenderOrgSelection renders the organization selection UI
+func (m deploymentTrackModel) RenderOrgSelection() string {
+	return interactive.RenderListPrompt("Select organization:", m.Organizations, m.OrgCursor)
+}
+
+// RenderProjSelection renders the project selection UI
+func (m deploymentTrackModel) RenderProjSelection() string {
+	return interactive.RenderListPrompt("Select project:", m.Projects, m.ProjCursor)
+}
+
+// RenderComponentSelection renders the component selection UI
+func (m deploymentTrackModel) RenderComponentSelection() string {
+	return interactive.RenderListPrompt("Select component:", m.Components, m.CompCursor)
+}
+
 func (m deploymentTrackModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {

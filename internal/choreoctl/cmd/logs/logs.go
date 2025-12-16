@@ -156,25 +156,6 @@ func getDeploymentLogs(params api.LogParams) error {
 		return fmt.Errorf("organization, project, component, environment and deployment values are required for deployment logs")
 	}
 
-	deployRes, err := kinds.NewDeploymentResource(
-		constants.DeploymentV1Config,
-		params.Organization,
-		params.Project,
-		params.Component,
-		params.Environment,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create Deployment resource: %w", err)
-	}
-
-	// Existence check should not list the entire namespace.
-	exists, err := deployRes.Exists(params.Deployment)
-	if err != nil {
-		return fmt.Errorf("failed to check deployment existence: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("deployment '%s' not found", params.Deployment)
-	}
 
 	k8sClient, err := resources.GetClient()
 	if err != nil {
@@ -197,8 +178,7 @@ func getDeploymentLogs(params api.LogParams) error {
 	}
 
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("no deployment pods found for component '%s' in environment '%s'",
-			params.Component, params.Environment)
+		return fmt.Errorf("no deployment pods found for component '%s' in environment '%s'", params.Component, params.Environment)
 	}
 
 	// Sort pods by creation timestamp to show newest first

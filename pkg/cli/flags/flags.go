@@ -317,7 +317,7 @@ var (
 		Usage: "Authentication token for remote OpenChoreo API server",
 	}
 
-	// Scaffold-specific flags
+	// ScaffoldType defines the scaffold type flag
 	ScaffoldType = Flag{
 		Name:  "type",
 		Usage: "Component type in format workloadType/componentTypeName (e.g., deployment/web-app)",

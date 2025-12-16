@@ -41,6 +41,11 @@ func (m environmentModel) Init() tea.Cmd {
 	return nil
 }
 
+// RenderOrgSelection renders the organization selection UI
+func (m environmentModel) RenderOrgSelection() string {
+	return interactive.RenderListPrompt("Select organization:", m.Organizations, m.OrgCursor)
+}
+
 func (m environmentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {

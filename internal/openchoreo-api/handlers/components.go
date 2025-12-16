@@ -1005,7 +1005,7 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 
 	// Success response
 	logger.Debug("Listed component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
-	writeListResponse(w, traits, len(traits), 1, len(traits))
+	writeListResponse(w, traits, "", "")
 }
 
 func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) {
@@ -1070,5 +1070,5 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 
 	// Success response
 	logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
-	writeListResponse(w, traits, len(traits), 1, len(traits))
+	writeListResponse(w, traits, "", "")
 }

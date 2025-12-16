@@ -4,12 +4,17 @@
 package logs
 
 import (
+	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/choreoctl/interactive"
+	"github.com/openchoreo/openchoreo/internal/choreoctl/resources"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -40,6 +45,47 @@ type logModel struct {
 	state        int
 	selected     bool
 	errorMsg     string
+}
+
+func (m logModel) FetchDeployments() ([]string, error) {
+	if m.OrgCursor >= len(m.Organizations) ||
+		m.ProjCursor >= len(m.Projects) ||
+		m.CompCursor >= len(m.Components) ||
+		m.envCursor >= len(m.environments) {
+		return nil, fmt.Errorf("invalid selection indices for deployments")
+	}
+
+	k8sClient, err := resources.GetClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	pods := &corev1.PodList{}
+	if err := k8sClient.List(context.Background(), pods,
+		client.MatchingLabels{
+			"organization-name": m.Organizations[m.OrgCursor],
+			"project-name":      m.Projects[m.ProjCursor],
+			"component-name":    m.Components[m.CompCursor],
+			"environment-name":  m.environments[m.envCursor],
+			"belong-to":         "user-workloads",
+			"managed-by":        "choreo-deployment-controller",
+		}); err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", err)
+	}
+
+	set := map[string]struct{}{}
+	for _, pod := range pods.Items {
+		if name := pod.Labels["deployment-name"]; name != "" {
+			set[name] = struct{}{}
+		}
+	}
+
+	deployments := make([]string, 0, len(set))
+	for name := range set {
+		deployments = append(deployments, name)
+	}
+	sort.Strings(deployments)
+	return deployments, nil
 }
 
 func (m logModel) Init() tea.Cmd {
