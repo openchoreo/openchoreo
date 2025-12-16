@@ -52,16 +52,15 @@ var systemActions = []ActionData{
 	{Name: "releasebinding:view", IsInternal: false},
 	{Name: "releasebinding:update", IsInternal: false},
 
-	// ComponentBinding
-	{Name: "componentbinding:view", IsInternal: false},
-	{Name: "componentbinding:update", IsInternal: false},
-
 	// ComponentType
 	{Name: "componenttype:view", IsInternal: false},
 
 	// ComponentWorkflow
 	{Name: "componentworkflow:view", IsInternal: false},
-	{Name: "componentworkflow:trigger", IsInternal: false},
+	{Name: "componentworkflow:create", IsInternal: false},
+
+	// ComponentWorkflowRun
+	{Name: "componentworkflowrun:view", IsInternal: false},
 
 	// Workflow
 	{Name: "workflow:view", IsInternal: false},
@@ -83,15 +82,36 @@ var systemActions = []ActionData{
 	// DeploymentPipeline
 	{Name: "deploymentpipeline:view", IsInternal: false},
 
-	// Schema
-	{Name: "schema:view", IsInternal: false},
-
 	// SecretReference
 	{Name: "secretreference:view", IsInternal: false},
 
 	// Workload
 	{Name: "workload:view", IsInternal: false},
 	{Name: "workload:create", IsInternal: false},
+
+	// roles
+	{Name: "role:view", IsInternal: false},
+	{Name: "role:create", IsInternal: false},
+	{Name: "role:delete", IsInternal: false},
+	{Name: "role:update", IsInternal: false},
+
+	// role mapping
+	{Name: "rolemapping:view", IsInternal: false},
+	{Name: "rolemapping:create", IsInternal: false},
+	{Name: "rolemapping:delete", IsInternal: false},
+	{Name: "rolemapping:update", IsInternal: false},
+
+	// logs
+	{Name: "logs:view", IsInternal: false},
+
+	// metrics
+	{Name: "metrics:view", IsInternal: false},
+
+	// traces
+	{Name: "traces:view", IsInternal: false},
+
+	// alerts
+	{Name: "alerts:view", IsInternal: false},
 }
 
 // LoadActions returns the system-defined actions
