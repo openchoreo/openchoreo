@@ -19,11 +19,11 @@ ports:
     nodeFilters:
       - loadbalancer
   # Data Plane uses port range 19xxx (matches kind and other cluster setups)
-  # HTTP traffic to workloads via Envoy Gateway
+  # HTTP traffic to workloads via Gateway
   - port: 19080:19080
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to workloads via Envoy Gateway
+  # HTTPS traffic to workloads via Gateway
   - port: 19443:19443
     nodeFilters:
       - loadbalancer

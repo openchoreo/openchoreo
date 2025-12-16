@@ -182,7 +182,7 @@ log_info "  • Redis (Cache)"
 echo ""
 
 if [[ -n "$HOSTNAME" ]] && [[ "$HOSTNAME" != "null" ]]; then
-    FRONTEND_URL="http://${HOSTNAME}:9080"
+    FRONTEND_URL="http://${HOSTNAME}:19080"
     echo "🌍 Access the frontend application at: $FRONTEND_URL"
     echo "   Open this URL in your browser to explore the microservices demo."
 else

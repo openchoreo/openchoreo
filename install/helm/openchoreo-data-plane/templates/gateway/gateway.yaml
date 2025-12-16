@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
-  {{- if and .Values.gateway.tls.enabled .Values.gateway.tls.clusterIssuer }}
+  {{- if .Values.gateway.tls.clusterIssuer }}
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer }}
   {{- end }}
@@ -22,9 +22,7 @@ spec:
     - name: https
       protocol: HTTPS
       port: {{ .Values.gateway.httpsPort | default 443 }}
-      {{- if .Values.gateway.tls.hostname }}
-      hostname: {{ .Values.gateway.tls.hostname | quote }}
-      {{- end }}
+      hostname: {{ .Values.gateway.tls.hostname | default "*.openchoreoapis.localhost" | quote }}
       allowedRoutes:
         namespaces:
           from: All
