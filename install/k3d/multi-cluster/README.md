@@ -298,7 +298,7 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 
 ### Data Plane
 
-- User Workloads: http://localhost:9080 (Envoy Gateway)
+- User Workloads: http://localhost:19080 (Envoy Gateway)
 
 ### Build Plane (if installed)
 
@@ -390,7 +390,7 @@ graph TB
         end
 
         subgraph "Data Plane Network (k3d-openchoreo-dp) - Ports: 9xxx"
-            DP_ExtLB["k3d-serverlb<br/>localhost:9080/9443/6551<br/>(host.k3d.internal for pods)"]
+            DP_ExtLB["k3d-serverlb<br/>localhost:19080/19443/6551<br/>(host.k3d.internal for pods)"]
             DP_K8sAPI["K8s API Server<br/>:6443"]
             DP_IntLB["Envoy Gateway<br/>LoadBalancer :80/:443"]
             Workloads["User Workloads"]

@@ -92,16 +92,16 @@ PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=patient-manag
 
 ### Health check
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/health"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/health"
 ```
 
 ```bash
-curl http://development.openchoreoapis.localhost:9080/patient-management-service/mediflow/health
+curl http://development.openchoreoapis.localhost:19080/patient-management-service/mediflow/health
 ```
 
 ### Add a new patient
 ```bash
-curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients" \
+curl -X POST "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/patients" \
 -H "Content-Type: application/json" \
 -d '{
 "name": "Alice",
@@ -112,12 +112,12 @@ curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients" \
 
 ### Retrieve a patient by name
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients/Alice"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/patients/Alice"
 ```
 
 ### List all patients
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/mediflow/patients"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/patients"
 ```
 
 ## Troubleshooting

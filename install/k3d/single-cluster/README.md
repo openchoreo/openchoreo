@@ -207,7 +207,7 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 
 ### Data Plane
 
-- User Workloads: http://localhost:9080 (Envoy Gateway)
+- User Workloads: http://localhost:19080 (Envoy Gateway)
 
 ### Build Plane (if installed)
 
@@ -275,7 +275,7 @@ kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster
 graph TB
     subgraph "Host Machine (Docker)"
         subgraph "Single k3d Cluster (k3d-openchoreo)"
-            ExtLB["k3d-serverlb<br/>localhost:6550/8080/8443/9080/9443/10081/10082/11080/11081/11082"]
+            ExtLB["k3d-serverlb<br/>localhost:6550/8080/8443/19080/19443/10081/10082/11080/11081/11082"]
             K8sAPI["K8s API Server<br/>:6443"]
 
             subgraph "Control Plane Namespace"
@@ -287,7 +287,7 @@ graph TB
             end
 
             subgraph "Data Plane Namespace"
-                DP_IntLB["Envoy Gateway<br/>LoadBalancer :9080/:9443"]
+                DP_IntLB["Envoy Gateway<br/>LoadBalancer :19080/:19443"]
                 Workloads["User Workloads"]
                 FB_ALL["Fluent Bit DaemonSet<br/>Collects logs from ALL namespaces<br/>(CP + DP + BP + OP)"]
             end
@@ -307,7 +307,7 @@ graph TB
             %% External access via load balancer
             ExtLB -->|":6550→:6443"| K8sAPI
             ExtLB -->|":8080→:80"| CP_IntLB
-            ExtLB -->|":9080→:9080"| DP_IntLB
+            ExtLB -->|":9080→:19080"| DP_IntLB
             ExtLB -->|":10081→:10081"| BP_IntLB
             ExtLB -->|":10082→:5000"| Registry
             ExtLB -->|":11080→:11080"| Observer

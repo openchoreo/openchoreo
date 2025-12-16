@@ -232,14 +232,14 @@ curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main
 
 With k3d, services from the Data Plane are automatically accessible via localhost port mappings. The port mappings are configured in the k3d cluster configuration:
 
-- **Port 9080**: HTTP access to workloads (Envoy Gateway)
-- **Port 9443**: HTTPS access to workloads
+- **Port 19080**: HTTP access to workloads (Envoy Gateway)
+- **Port 19443**: HTTPS access to workloads
 
 You can access your deployed services using:
 
 ```shell
 # Access a service deployed on the Data Plane
-curl http://localhost:9080/<service-path>
+curl http://localhost:19080/<service-path>
 ```
 
 > [!NOTE]

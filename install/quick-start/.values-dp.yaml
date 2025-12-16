@@ -1,9 +1,9 @@
 # Helm values for OpenChoreo Data Plane in quick-start container
 # This file contains overrides for running the data plane in the quick-start k3d environment
-# Port mapping: k3d maps host ports 9080:9080 (HTTP) and 9443:9443 (HTTPS) for KGateway
+# Port mapping: k3d maps host ports 19080:19080 (HTTP) and 19443:19443 (HTTPS) for KGateway
 
 # Gateway configuration for quick-start setup
-# The gateway will be accessible on port 9080 (HTTP) and 9443 (HTTPS) by default
+# The gateway will be accessible on port 19080 (HTTP) and 19443 (HTTPS) by default
 gateway:
   enabled: true
   # Envoy - enabled by default for traffic routing
