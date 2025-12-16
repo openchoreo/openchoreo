@@ -20,13 +20,13 @@ ports:
   - port: 8443:443
     nodeFilters:
       - loadbalancer
-  # Data Plane uses port range 19xxx
-  # HTTP traffic to workloads via Gateway
-  - port: 19080:19080
+  # Data Plane uses port range 9xxx
+  # HTTP traffic to workloads via Envoy Gateway
+  - port: 9080:9080
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to workloads via Gateway
-  - port: 19443:19443
+  # HTTPS traffic to workloads via Envoy Gateway
+  - port: 9443:9443
     nodeFilters:
       - loadbalancer
   # Build Plane uses port range 10xxx

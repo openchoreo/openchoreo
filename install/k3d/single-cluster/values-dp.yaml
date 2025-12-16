@@ -1,14 +1,8 @@
 # Helm values for OpenChoreo Data Plane in k3d single-cluster setup
 
-# Gateway configuration for single-cluster setup
+# Gateway configuration for single-cluster setup (default ports 9080/9443)
 gateway:
-  httpPort: 19080
-  httpsPort: 19443
   envoy:
     # Mount /tmp as emptyDir to fix Envoy temp file issues on macOS Docker/Colima
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
-
-# External Secrets Operator configuration
-external-secrets:
-  enabled: true
