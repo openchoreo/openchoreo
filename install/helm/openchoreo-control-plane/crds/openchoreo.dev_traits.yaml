@@ -82,7 +82,7 @@ spec:
                         ForEach repeats this patch for every item in a CEL-evaluated list
                         Requires 'var' to be set to name the binding used in operations
                         Example: forEach: ${spec.mounts}
-                      pattern: ^\$\{.+\}$
+                      pattern: ^\$\{[\s\S]+\}\s*$
                       type: string
                     operations:
                       description: Operations is the list of JSONPatch operations
@@ -142,6 +142,7 @@ spec:
                           description: |-
                             Where is an optional CEL expression to filter which resources to patch
                             Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                          pattern: ^\$\{[\s\S]+\}\s*$
                           type: string
                       required:
                       - group
