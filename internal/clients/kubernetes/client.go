@@ -129,3 +129,33 @@ func GetK8sClientFromBuildPlane(
 		return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
 	})
 }
+
+// GetK8sClientFromObservabilityPlane retrieves a Kubernetes client from ObservabilityPlane specification.
+// Currently only supports agent mode (via HTTP proxy through cluster gateway).
+func GetK8sClientFromObservabilityPlane(
+	clientMgr *KubeMultiClientManager,
+	observabilityPlane *openchoreov1alpha1.ObservabilityPlane,
+	gatewayURL string,
+) (client.Client, error) {
+	// Include plane type in cache key to avoid collision with DataPlane and BuildPlane
+	key := fmt.Sprintf("observabilityplane/%s/%s", observabilityPlane.Namespace, observabilityPlane.Name)
+
+	// Agent mode - use HTTP proxy through cluster gateway
+	if observabilityPlane.Spec.Agent != nil && observabilityPlane.Spec.Agent.Enabled {
+		if gatewayURL == "" {
+			return nil, fmt.Errorf("gatewayURL is required for agent mode")
+		}
+
+		// Use planeType/planeName format to match agent registration
+		// Agent registers as "observabilityplane/<name>", so we use the same identifier
+		planeIdentifier := fmt.Sprintf("observabilityplane/%s", observabilityPlane.Name)
+
+		// Use GetOrAddClient to cache the proxy client
+		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+		})
+	}
+
+	// ObservabilityPlane currently only supports agent mode
+	return nil, fmt.Errorf("agent mode must be enabled for ObservabilityPlane")
+}

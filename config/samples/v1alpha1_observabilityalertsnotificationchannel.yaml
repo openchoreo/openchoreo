@@ -8,13 +8,32 @@ metadata:
 spec:
   type: email
   config:
-    email:
-      from: test@example.com
-      to:
-        - test@example.com
-      smtp:
-        host: smtp.example.com
-        port: 587
-      template:
-        subject: "[${alert.severity}] - ${alert.name} Triggered"
-        body: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
+    from: test@example.com
+    to:
+      - test@example.com
+    smtp:
+      host: smtp.example.com
+      port: 587
+      auth:
+        username:
+          secretKeyRef:
+            name: observability-sample-smtp-auth
+            key: username
+        password:
+          secretKeyRef:
+            name: observability-sample-smtp-auth
+            key: password
+      tls:
+        insecureSkipVerify: true
+    template:
+      subject: "[${alert.severity}] - ${alert.name} Triggered"
+      body: "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: observability-sample-smtp-auth
+data:
+  username: dGVzdEBleGFtcGxlLmNvbQ==
+  password: dGVzdEBleGFtcGxlLmNvbQ==
