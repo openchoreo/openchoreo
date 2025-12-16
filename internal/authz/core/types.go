@@ -201,5 +201,6 @@ var (
 	ErrRolePolicyMappingAlreadyExists = fmt.Errorf("role policy mapping already exists")
 	ErrRolePolicyMappingNotFound      = fmt.Errorf("role policy mapping not found")
 	ErrCannotDeleteSystemMapping      = fmt.Errorf("cannot delete system mapping")
+	ErrCannotModifySystemMapping      = fmt.Errorf("cannot modify system mapping")
 	ErrInvalidRequest                 = fmt.Errorf("invalid request")
 )

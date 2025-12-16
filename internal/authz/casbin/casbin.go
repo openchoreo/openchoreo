@@ -333,6 +333,9 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 
 // AddRole creates a new role with the specified name and actions
 func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) error {
+	if role == nil {
+		return fmt.Errorf("role cannot be nil")
+	}
 	ce.logger.Info("add role called", "role_name", role.Name, "actions", role.Actions)
 
 	rules := make([][]string, 0, len(role.Actions))
@@ -453,7 +456,7 @@ func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (*authzc
 	}
 
 	if len(rules) == 0 {
-		return nil, fmt.Errorf("role not found: %s", roleName)
+		return nil, authzcore.ErrRoleNotFound
 	}
 
 	actions := make([]string, 0, len(rules))
@@ -533,7 +536,10 @@ func computeActionsDiff(existingActions, newActions []string) (added, removed []
 }
 
 // UpdateRole updates an existing role's actions
-func (ce *CasbinEnforcer) UpdateRole(ctx context.Context, role *authzcore.Role) error {
+func (ce *CasbinEnforcer) UpdateRole(tx context.Context, role *authzcore.Role) error {
+	if role == nil {
+		return fmt.Errorf("role cannot be empty")
+	}
 	if len(role.Actions) == 0 {
 		return fmt.Errorf("role must have at least one action")
 	}
@@ -593,6 +599,9 @@ func (ce *CasbinEnforcer) UpdateRole(ctx context.Context, role *authzcore.Role) 
 
 // AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
+	if mapping == nil {
+		return fmt.Errorf("mapping cannot be nil")
+	}
 	ce.logger.Info("add role entitlement mapping called",
 		"role", mapping.RoleName,
 		"entitlement_claim", mapping.Entitlement.Claim,
@@ -632,6 +641,9 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 
 // UpdateRoleEntitlementMapping updates an existing role-entitlement mapping
 func (ce *CasbinEnforcer) UpdateRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
+	if mapping == nil {
+		return fmt.Errorf("mapping cannot be nil")
+	}
 	ce.logger.Debug("update role entitlement mapping called",
 		"mapping_id", mapping.ID,
 		"role", mapping.RoleName,
@@ -651,7 +663,7 @@ func (ce *CasbinEnforcer) UpdateRoleEntitlementMapping(ctx context.Context, mapp
 	}
 
 	if existingRule.IsInternal {
-		return authzcore.ErrCannotDeleteSystemMapping
+		return authzcore.ErrCannotModifySystemMapping
 	}
 
 	resourcePath := hierarchyToResourcePath(mapping.Hierarchy)
