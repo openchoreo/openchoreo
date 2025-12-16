@@ -1,7 +1,0 @@
-# Default roles that can be seeded at installation time
-# This file can be customized per deployment
-
-roles:
-  - name: super-admin
-    actions:
-      - "*" 

@@ -45,54 +45,84 @@ func TestLoadActions(t *testing.T) {
 	}
 }
 
-func TestLoadEmbeddedRoles(t *testing.T) {
-	roles, err := LoadEmbeddedRoles()
+func TestLoadEmbeddedAuthzData(t *testing.T) {
+	data, err := LoadEmbeddedAuthzData()
 	if err != nil {
-		t.Fatalf("LoadEmbeddedRoles() error = %v", err)
+		t.Fatalf("LoadEmbeddedAuthzData() error = %v", err)
 	}
 
-	if len(roles) == 0 {
-		t.Error("LoadEmbeddedRoles() returned empty roles list")
+	if len(data.Roles) == 0 {
+		t.Error("LoadEmbeddedAuthzData() returned empty roles list")
 	}
 }
 
-func TestLoadRolesFromFile(t *testing.T) {
+func TestLoadDefaultAuthzDataFromFile(t *testing.T) {
 	tests := []struct {
-		name          string
-		setupFile     bool
-		filePath      string
-		fileContent   string
-		wantErr       bool
-		expectedRoles int
+		name             string
+		setupFile        bool
+		filePath         string
+		fileContent      string
+		wantErr          bool
+		expectedRoles    int
+		expectedMappings int
 	}{
 		{
-			name:      "valid file with multiple roles",
+			name:      "valid file with roles and mappings",
 			setupFile: true,
-			filePath:  "test_roles.yaml",
+			filePath:  "test_authz_data.yaml",
 			fileContent: `roles:
-  - name: test-admin
+  - name: admin
     actions:
       - "*"
+mappings:
+  - role_name: admin
+    entitlement:
+      claim: groups
+      value: admin-group
+    hierarchy:
+      organization: "acme"
+    effect: allow
+  - role_name: viewer
+    entitlement:
+      claim: groups
+      value: viewers
+    effect: allow
+`,
+			wantErr:          false,
+			expectedRoles:    1,
+			expectedMappings: 2,
+		},
+		{
+			name:      "invalid file - mapping with missing required field",
+			setupFile: true,
+			filePath:  "test_authz_data.yaml",
+			fileContent: `roles:
   - name: viewer
     actions:
       - "component:view"
-      - "project:view"
+mappings:
+  - role_name: viewer
+    entitlement:
+      claim: groups
+      value: viewers
 `,
-			wantErr:       false,
-			expectedRoles: 2,
+			wantErr: true,
 		},
 		{
-			name:          "empty path falls back to embedded roles",
-			setupFile:     false,
-			filePath:      "",
-			wantErr:       false,
-			expectedRoles: -1,
-		},
-		{
-			name:      "non-existent file returns error",
-			setupFile: false,
-			filePath:  "/non/existent/path/roles.yaml",
-			wantErr:   true,
+			name:      "invalid file - mapping with missing role_name",
+			setupFile: true,
+			filePath:  "test_authz_data.yaml",
+			fileContent: `roles:
+  - name: admin
+    actions:
+      - "*"
+mappings:
+  - entitlement:
+      claim: groups
+      value: admin-group
+    effect: allow
+`,
+			wantErr: true,
 		},
 	}
 
@@ -106,16 +136,21 @@ func TestLoadRolesFromFile(t *testing.T) {
 					t.Fatalf("failed to create test file: %v", err)
 				}
 			}
-			roles, err := LoadRolesFromFile(testFilePath)
+			data, err := LoadDefaultAuthzDataFromFile(testFilePath)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("LoadRolesFromFile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("LoadDefaultAuthzDataFromFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			// Check expected roles count if specified
-			if tt.expectedRoles >= 0 && len(roles) != tt.expectedRoles {
-				t.Errorf("LoadRolesFromFile() returned %d roles, want %d", len(roles), tt.expectedRoles)
+			// Check expected counts if specified (only if no error)
+			if !tt.wantErr {
+				if tt.expectedRoles >= 0 && len(data.Roles) != tt.expectedRoles {
+					t.Errorf("LoadDefaultAuthzDataFromFile() returned %d roles, want %d", len(data.Roles), tt.expectedRoles)
+				}
+				if tt.expectedMappings >= 0 && len(data.Mappings) != tt.expectedMappings {
+					t.Errorf("LoadDefaultAuthzDataFromFile() returned %d mappings, want %d", len(data.Mappings), tt.expectedMappings)
+				}
 			}
 		})
 	}
@@ -161,6 +196,106 @@ func TestValidateRoles(t *testing.T) {
 			err := validateRoles(tt.roles)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateRoles() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateMappings(t *testing.T) {
+	tests := []struct {
+		name     string
+		mappings []authzcore.RoleEntitlementMapping
+		wantErr  bool
+	}{
+		{
+			name: "valid mapping",
+			mappings: []authzcore.RoleEntitlementMapping{
+				{
+					RoleName: "admin",
+					Entitlement: authzcore.Entitlement{
+						Claim: "groups",
+						Value: "admin-group",
+					},
+					Hierarchy: authzcore.ResourceHierarchy{
+						Organization: "acme",
+						Project:      "payment",
+					},
+					Effect: authzcore.PolicyEffectAllow,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty role_name",
+			mappings: []authzcore.RoleEntitlementMapping{
+				{
+					RoleName: "",
+					Entitlement: authzcore.Entitlement{
+						Claim: "groups",
+						Value: "admin-group",
+					},
+					Effect: authzcore.PolicyEffectAllow,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty entitlement claim",
+			mappings: []authzcore.RoleEntitlementMapping{
+				{
+					RoleName: "admin",
+					Entitlement: authzcore.Entitlement{
+						Claim: "",
+						Value: "",
+					},
+					Effect: authzcore.PolicyEffectAllow,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid effect",
+			mappings: []authzcore.RoleEntitlementMapping{
+				{
+					RoleName: "admin",
+					Entitlement: authzcore.Entitlement{
+						Claim: "groups",
+						Value: "admin-group",
+					},
+					Effect: "invalid",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "multiple valid mappings",
+			mappings: []authzcore.RoleEntitlementMapping{
+				{
+					RoleName: "admin",
+					Entitlement: authzcore.Entitlement{
+						Claim: "groups",
+						Value: "admin-group",
+					},
+					Effect: authzcore.PolicyEffectAllow,
+				},
+				{
+					RoleName: "viewer",
+					Entitlement: authzcore.Entitlement{
+						Claim: "groups",
+						Value: "viewers",
+					},
+					Effect: authzcore.PolicyEffectAllow,
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMappings(tt.mappings)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateMappings() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

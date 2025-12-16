@@ -13,12 +13,13 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
-//go:embed default_roles.yaml
-var defaultRolesYAML []byte
+//go:embed default_authz_data.yaml
+var defaultAuthzDataYAML []byte
 
-// RolesData represents the structure of the roles data file
-type RolesData struct {
-	Roles []authzcore.Role `yaml:"roles"`
+// DefaultRolesAndMappingsData represents the structure of the default roles and mappings data file
+type DefaultRolesAndMappingsData struct {
+	Roles    []authzcore.Role                   `yaml:"roles"`
+	Mappings []authzcore.RoleEntitlementMapping `yaml:"mappings"`
 }
 
 // ActionData represents an action name and whether it is visibility
@@ -98,45 +99,53 @@ func LoadActions() ([]ActionData, error) {
 	return systemActions, nil
 }
 
-// LoadRolesFromFile loads roles with the following priority:
+// LoadDefaultAuthzDataFromFile loads both roles and mappings from a file with the following priority:
 // 1. If filePath is provided, load from file
-// 2. else, fall back to embedded default roles
-func LoadRolesFromFile(filePath string) ([]authzcore.Role, error) {
+// 2. else, fall back to embedded default data
+func LoadDefaultAuthzDataFromFile(filePath string) (*DefaultRolesAndMappingsData, error) {
 	if filePath == "" {
-		return LoadEmbeddedRoles()
+		return LoadEmbeddedAuthzData()
 	}
 	if _, err := os.Stat(filePath); err != nil {
-		return nil, fmt.Errorf("failed to access roles file %s: %w", filePath, err)
+		return nil, fmt.Errorf("failed to access authz data file %s: %w", filePath, err)
 	}
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read roles file %s: %w", filePath, err)
+		return nil, fmt.Errorf("failed to read authz data file %s: %w", filePath, err)
 	}
 
-	var data RolesData
+	var data DefaultRolesAndMappingsData
 	if err := yaml.Unmarshal(fileData, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse roles data from %s: %w", filePath, err)
+		return nil, fmt.Errorf("failed to parse authz data from %s: %w", filePath, err)
 	}
 
 	if err := validateRoles(data.Roles); err != nil {
 		return nil, fmt.Errorf("invalid roles data in %s: %w", filePath, err)
 	}
 
-	return data.Roles, nil
+	if err := validateMappings(data.Mappings); err != nil {
+		return nil, fmt.Errorf("invalid mappings data in %s: %w", filePath, err)
+	}
+
+	return &data, nil
 }
 
-// LoadEmbeddedRoles loads the embedded default roles
-func LoadEmbeddedRoles() ([]authzcore.Role, error) {
-	var data RolesData
-	if err := yaml.Unmarshal(defaultRolesYAML, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse embedded roles data: %w", err)
+// LoadEmbeddedAuthzData loads the embedded default roles and mappings
+func LoadEmbeddedAuthzData() (*DefaultRolesAndMappingsData, error) {
+	var data DefaultRolesAndMappingsData
+	if err := yaml.Unmarshal(defaultAuthzDataYAML, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse embedded authz data: %w", err)
 	}
 
 	if err := validateRoles(data.Roles); err != nil {
 		return nil, fmt.Errorf("invalid embedded roles data: %w", err)
 	}
 
-	return data.Roles, nil
+	if err := validateMappings(data.Mappings); err != nil {
+		return nil, fmt.Errorf("invalid embedded mappings data: %w", err)
+	}
+
+	return &data, nil
 }
 
 // validateRoles ensures the roles data is valid
@@ -152,6 +161,26 @@ func validateRoles(roles []authzcore.Role) error {
 		}
 		if len(role.Actions) == 0 {
 			return fmt.Errorf("role %q has no actions", role.Name)
+		}
+	}
+
+	return nil
+}
+
+// validateMappings ensures the mappings data is valid
+func validateMappings(mappings []authzcore.RoleEntitlementMapping) error {
+	for i, mapping := range mappings {
+		if mapping.RoleName == "" {
+			return fmt.Errorf("mapping at index %d has empty role_name", i)
+		}
+		if mapping.Entitlement.Claim == "" {
+			return fmt.Errorf("mapping at index %d has empty entitlement claim", i)
+		}
+		if mapping.Entitlement.Value == "" {
+			return fmt.Errorf("mapping at index %d has empty entitlement value", i)
+		}
+		if mapping.Effect != authzcore.PolicyEffectAllow && mapping.Effect != authzcore.PolicyEffectDeny {
+			return fmt.Errorf("mapping at index %d has invalid effect %q (must be 'allow' or 'deny')", i, mapping.Effect)
 		}
 	}
 

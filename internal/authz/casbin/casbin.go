@@ -35,7 +35,7 @@ type CasbinEnforcer struct {
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
 	DatabasePath      string                     // Required: Path to SQLite database path
-	RolesFilePath     string                     // Optional: Path to roles YAML file (falls back to embedded if empty)
+	AuthzDataFilePath string                     // Optional: Path to authz data YAML file containing roles and mappings (falls back to embedded if empty)
 	UserTypeConfigs   []authzcore.UserTypeConfig // Required: User type detection configuration
 	EnableCache       bool                       // Optional: Enable policy cache (default: false)
 	CacheTTLInSeconds int                        // Optional: Cache TTL in seconds (default: 300)
@@ -57,7 +57,7 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("UserTypeConfigs is required in CasbinConfig")
 	}
 
-	// RolesFilePath is optional - will use embedded default if not provided
+	// AuthzDataFilePath is optional - will use embedded default if not provided
 	if config.CacheTTLInSeconds == 0 {
 		config.CacheTTLInSeconds = 300 // Default: 5 minutes
 	}
@@ -74,8 +74,8 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("failed to load embedded casbin model: %w", err)
 	}
 
-	// Create adapter with configured database path and roles file
-	adapter, db, err := newAdapter(config.DatabasePath, config.RolesFilePath, logger)
+	// Create adapter with configured database path and authz data file
+	adapter, db, err := newAdapter(config.DatabasePath, config.AuthzDataFilePath, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin adapter: %w", err)
 	}
