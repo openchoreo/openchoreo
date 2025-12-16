@@ -30,6 +30,11 @@ const (
 
 	SystemActionViewComponentType systemAction = "componenttype:view"
 	SystemActionViewTrait         systemAction = "trait:view"
+
+	SystemActionCreateDataPlane systemAction = "dataplane:create"
+	SystemActionViewDataPlane   systemAction = "dataplane:view"
+
+	SystemActionViewBuildPlane systemAction = "buildplane:view"
 )
 
 type ResourceType string
@@ -43,4 +48,6 @@ const (
 	ResourceTypeRoleMapping      ResourceType = "roleMapping"
 	ResourceTypeComponentType    ResourceType = "componentType"
 	ResourceTypeTrait            ResourceType = "trait"
+	ResourceTypeDataPlane        ResourceType = "dataPlane"
+	ResourceTypeBuildPlane       ResourceType = "buildPlane"
 )

@@ -4,9 +4,11 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 // There is only one buildplane per org
@@ -26,6 +28,11 @@ func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	// Call service to get build plane
 	buildPlane, err := h.services.BuildPlaneService.GetBuildPlane(ctx, orgName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to view build plane", "org", orgName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		log.Error("Failed to get build plane", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get build plane", "INTERNAL_ERROR")
 		return

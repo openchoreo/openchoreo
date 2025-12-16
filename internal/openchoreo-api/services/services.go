@@ -46,10 +46,10 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"))
 
 	// Create dataplane service
-	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
+	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
 
 	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"), authzPDP)
 
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
