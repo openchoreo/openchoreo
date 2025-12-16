@@ -3,6 +3,63 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
+# Kubernetes cluster domain for controller manager defaults
+kubernetesClusterDomain: cluster.local
+
+controllerManager:
+  enabled: true
+  name: controller-manager
+  replicas: 1
+  image:
+    repository: ghcr.io/openchoreo/controller
+    tag: ""
+    pullPolicy: IfNotPresent
+  deploymentPlane: observabilityplane
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  serviceAccount:
+    create: true
+    annotations: {}
+  priorityClass:
+    create: false
+    name: observabilityplane-controller-manager
+    value: 900000
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    seccompProfile:
+      type: RuntimeDefault
+  manager:
+    args:
+      - --metrics-bind-address=:0
+      - --health-probe-bind-address=:8081
+      - --deployment-plane=observabilityplane
+    env:
+      enableWebhooks: "false"
+  clusterGateway:
+    enabled: false
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    tls:
+      caPath: /etc/cluster-gateway/ca.crt
+      caConfigMap: cluster-gateway-ca
+
   # Installation mode of OpenChoreo
   # Supported values:
   # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster

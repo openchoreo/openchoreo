@@ -63,6 +63,11 @@ import (
 	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
 )
 
+const (
+	deploymentPlaneControlPlane       = "controlplane"
+	deploymentPlaneObservabilityPlane = "observabilityplane"
+)
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -93,6 +98,7 @@ func main() {
 	var clusterGatewayCACert string
 	var clusterGatewayClientCert string
 	var clusterGatewayClientKey string
+	var deploymentPlane string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -117,6 +123,8 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
+	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
+		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -125,7 +133,12 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	setupLog.Info("starting controller manager", version.GetLogKeyValues()...)
+	if deploymentPlane != deploymentPlaneControlPlane && deploymentPlane != deploymentPlaneObservabilityPlane {
+		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
+		os.Exit(1)
+	}
+
+	setupLog.Info("starting controller manager", append(version.GetLogKeyValues(), "deploymentPlane", deploymentPlane)...)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -222,198 +235,208 @@ func main() {
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
 
-	if enableLegacyCRDs {
-		if err = (&organization.Reconciler{
+	switch deploymentPlane {
+	// Control plane controllers
+	case deploymentPlaneControlPlane:
+		if enableLegacyCRDs {
+			if err = (&organization.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Organization")
+				os.Exit(1)
+			}
+			if err = (&project.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Project")
+				os.Exit(1)
+			}
+			if err = (&environment.Reconciler{
+				Client:       mgr.GetClient(),
+				K8sClientMgr: k8sClientMgr,
+				Scheme:       mgr.GetScheme(),
+				GatewayURL:   clusterGatewayURL,
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Environment")
+				os.Exit(1)
+			}
+			if err = (&dataplane.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+				os.Exit(1)
+			}
+			if err = (&deploymentpipeline.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+				os.Exit(1)
+			}
+			if err = (&deploymenttrack.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
+				os.Exit(1)
+			}
+			if err = (&workload.Reconciler{
+				Client: mgr.GetClient(),
+				Scheme: mgr.GetScheme(),
+			}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Workload")
+				os.Exit(1)
+			}
+		}
+
+		if err = (&component.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Organization")
+			setupLog.Error(err, "unable to create controller", "controller", "Component")
 			os.Exit(1)
 		}
-		if err = (&project.Reconciler{
+
+		// ComponentType controller
+		if err = (&componenttype.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Project")
+			setupLog.Error(err, "unable to create controller", "controller", "ComponentType")
 			os.Exit(1)
 		}
-		if err = (&environment.Reconciler{
+
+		if err = (&trait.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Trait")
+			os.Exit(1)
+		}
+
+		// ComponentRelease controller
+		if err = (&componentrelease.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
+			os.Exit(1)
+		}
+
+		// ReleaseBinding controller
+		if err = (&releasebinding.Reconciler{
+			Client:   mgr.GetClient(),
+			Scheme:   mgr.GetScheme(),
+			Pipeline: componentpipeline.NewPipeline(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
+			os.Exit(1)
+		}
+
+		if err = (&gitcommitrequest.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
+			os.Exit(1)
+		}
+
+		if err = (&release.Reconciler{
 			Client:       mgr.GetClient(),
 			K8sClientMgr: k8sClientMgr,
 			Scheme:       mgr.GetScheme(),
 			GatewayURL:   clusterGatewayURL,
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Environment")
+			setupLog.Error(err, "unable to create controller", "controller", "Release")
 			os.Exit(1)
 		}
-		if err = (&dataplane.Reconciler{
+
+		if err := (&workflow.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
+			setupLog.Error(err, "unable to create controller", "controller", "Workflow")
 			os.Exit(1)
 		}
-		if err = (&deploymentpipeline.Reconciler{
+
+		if err := (&workflowrun.Reconciler{
+			Client:       mgr.GetClient(),
+			K8sClientMgr: k8sClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GatewayURL:   clusterGatewayURL,
+			Pipeline:     workflowpipeline.NewPipeline(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
+			os.Exit(1)
+		}
+
+		if err := (&build.Reconciler{
+			Client:       mgr.GetClient(),
+			K8sClientMgr: k8sClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GatewayURL:   clusterGatewayURL,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Build")
+			os.Exit(1)
+		}
+		if err := (&buildplane.BuildPlaneReconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
+			setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
 			os.Exit(1)
 		}
-		if err = (&deploymenttrack.Reconciler{
+		if err = (&secretreference.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
+			setupLog.Error(err, "unable to create controller", "controller", "SecretReference")
 			os.Exit(1)
 		}
-		if err = (&workload.Reconciler{
+		if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
+			Client:       mgr.GetClient(),
+			K8sClientMgr: k8sClientMgr,
+			Scheme:       mgr.GetScheme(),
+			Pipeline:     componentworkflowpipeline.NewPipeline(),
+			GatewayURL:   clusterGatewayURL,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ComponentWorkflowRun")
+			os.Exit(1)
+		}
+		if err = (&observabilityplane.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Workload")
+			setupLog.Error(err, "unable to create controller", "controller", "ObservabilityPlane")
 			os.Exit(1)
 		}
-	}
+		if err = (&observabilityalertsnotificationchannel.Reconciler{
+			Client:       mgr.GetClient(),
+			K8sClientMgr: k8sClientMgr,
+			Scheme:       mgr.GetScheme(),
+			GatewayURL:   clusterGatewayURL,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ObservabilityAlertsNotificationChannel")
+			os.Exit(1)
+		}
 
-	if err = (&component.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Component")
-		os.Exit(1)
-	}
-
-	// ComponentType controller
-	if err = (&componenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentType")
-		os.Exit(1)
-	}
-
-	if err = (&trait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Trait")
+	// Observability plane controllers
+	case deploymentPlaneObservabilityPlane:
+		if err = (&observabilityalertrule.Reconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ObservabilityAlertRule")
+			os.Exit(1)
+		}
+	default:
+		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
 		os.Exit(1)
 	}
 
-	// ComponentRelease controller
-	if err = (&componentrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
-		os.Exit(1)
-	}
-
-	// ReleaseBinding controller
-	if err = (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
-		os.Exit(1)
-	}
-
-	if err = (&gitcommitrequest.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
-		os.Exit(1)
-	}
-
-	if err = (&release.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Release")
-		os.Exit(1)
-	}
-
-	if err := (&workflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Workflow")
-		os.Exit(1)
-	}
-
-	if err := (&workflowrun.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-		Pipeline:     workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
-		os.Exit(1)
-	}
-
-	if err := (&build.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Build")
-		os.Exit(1)
-	}
-	if err := (&buildplane.BuildPlaneReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BuildPlane")
-		os.Exit(1)
-	}
-	if err = (&secretreference.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SecretReference")
-		os.Exit(1)
-	}
-	if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		Pipeline:     componentworkflowpipeline.NewPipeline(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentWorkflowRun")
-		os.Exit(1)
-	}
-	if err = (&observabilityplane.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityPlane")
-		os.Exit(1)
-	}
-	if err = (&observabilityalertsnotificationchannel.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityAlertsNotificationChannel")
-		os.Exit(1)
-	}
-
-	if err = (&observabilityalertrule.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ObservabilityAlertRule")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	// -----------------------------------------------------------------------------

@@ -33,13 +33,22 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
 		fi \
 	fi
-	@# Copy CRDs and RBAC to openchoreo-control-plane chart
-	@if [ ${CHART_NAME} == "openchoreo-control-plane" ]; then \
+	@case ${CHART_NAME} in \
+	"openchoreo-control-plane") \
 		$(call log_info, Generating resources for control-plane chart); \
 		$(MAKE) manifests; \
 		$(call log_info, Running helm-gen for openchoreo-control-plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-	fi
+		$(call log_info, Removing ObservabilityAlertRule CRD from control-plane chart); \
+		rm -f $(CHART_PATH)/crds/openchoreo.dev_observabilityalertrules.yaml; \
+		;; \
+	"openchoreo-observability-plane") \
+		$(call log_info, Generating CRDs for observability plane chart); \
+		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
+		$(call log_info, Keeping only ObservabilityAlertRule CRD); \
+		find $(CHART_PATH)/crds -maxdepth 1 -type f ! -name openchoreo.dev_observabilityalertrules.yaml -delete; \
+		;; \
+	esac
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)
 

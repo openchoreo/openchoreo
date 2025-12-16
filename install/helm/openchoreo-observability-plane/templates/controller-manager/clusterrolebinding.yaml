@@ -1,0 +1,16 @@
+{{- if .Values.controllerManager.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-controller-manager-role
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-controller-manager-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.controllerManager.name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-controller-manager-role
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-controller-manager-role
   labels:
-    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: controller-manager
 rules:
 - apiGroups:
