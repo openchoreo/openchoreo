@@ -26,7 +26,7 @@ options:
       - arg: "--tls-san=host.k3d.internal"
         nodeFilters:
           - server:*
-      # Disable Traefik ingress controller (use Envoy Gateway instead)
+      # Disable Traefik ingress controller (use kgateway instead)
       - arg: "--disable=traefik"
         nodeFilters:
           - server:*

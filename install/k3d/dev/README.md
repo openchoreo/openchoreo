@@ -72,7 +72,7 @@ This avoids the need for a registry while using production-like image names.
 |-------|------|-------------|
 | Control | 8080 | HTTP (UI/API) |
 | Control | 8443 | HTTPS |
-| Data | 19080 | HTTP (Envoy Gateway) |
+| Data | 19080 | HTTP (kgateway) |
 | Data | 19443 | HTTPS |
 | Build | 10081 | Argo Workflows UI |
 | Build | 10082 | Container Registry |

@@ -207,7 +207,7 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 
 ### Data Plane
 
-- User Workloads: http://localhost:19080 (Envoy Gateway)
+- User Workloads: http://localhost:19080 (kgateway)
 
 ### Build Plane (if installed)
 
@@ -287,7 +287,7 @@ graph TB
             end
 
             subgraph "Data Plane Namespace"
-                DP_IntLB["Envoy Gateway<br/>LoadBalancer :19080/:19443"]
+                DP_IntLB["kgateway<br/>LoadBalancer :19080/:19443"]
                 Workloads["User Workloads"]
                 FB_ALL["Fluent Bit DaemonSet<br/>Collects logs from ALL namespaces<br/>(CP + DP + BP + OP)"]
             end

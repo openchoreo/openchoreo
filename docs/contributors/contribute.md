@@ -133,7 +133,7 @@ make k3d.down
 Once the cluster is running, you can access services via localhost:
 
 - **Control Plane UI/API**: http://openchoreo.localhost:8080
-- **Data Plane Workloads**: http://localhost:19080 (Envoy Gateway)
+- **Data Plane Workloads**: http://localhost:19080 (kgateway)
 - **Build Plane**: Argo Workflows at http://localhost:10081, Registry at http://localhost:10082
 - **Observability**: Observer API at http://localhost:11080, OpenSearch at http://localhost:11082
 
