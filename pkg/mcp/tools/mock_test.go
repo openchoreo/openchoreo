@@ -15,12 +15,40 @@ const emptyObjectSchema = `{"type":"object","properties":{}}`
 type MockCoreToolsetHandler struct {
 	// Track which methods were called and with what parameters
 	calls map[string][]interface{}
+	// Pagination configuration
+	paginationConfig map[string]*PaginationConfig
+}
+
+// PaginationConfig configures pagination behavior for a specific method
+type PaginationConfig struct {
+	TotalItems      int
+	PageSize        int
+	SimulateHasMore bool
 }
 
 func NewMockCoreToolsetHandler() *MockCoreToolsetHandler {
 	return &MockCoreToolsetHandler{
-		calls: make(map[string][]interface{}),
+		calls:            make(map[string][]interface{}),
+		paginationConfig: make(map[string]*PaginationConfig),
 	}
+}
+
+// SetPaginationConfig configures pagination for a specific method
+func (m *MockCoreToolsetHandler) SetPaginationConfig(method string, config *PaginationConfig) {
+	m.paginationConfig[method] = config
+}
+
+// GetCallCount returns the number of times a method was called
+func (m *MockCoreToolsetHandler) GetCallCount(method string) int {
+	return len(m.calls[method])
+}
+
+// GetCallArgs returns the arguments for a specific method call
+func (m *MockCoreToolsetHandler) GetCallArgs(method string, callIndex int) []interface{} {
+	if calls, exists := m.calls[method]; exists && callIndex < len(calls) {
+		return calls[callIndex].([]interface{})
+	}
+	return nil
 }
 
 func (m *MockCoreToolsetHandler) recordCall(method string, args ...interface{}) {

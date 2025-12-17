@@ -404,6 +404,162 @@ func TestComponentReleaseNameGeneration(t *testing.T) {
 	}
 }
 
+// TestEncodeBindingCursor tests the encodeBindingCursor function
+func TestEncodeBindingCursor(t *testing.T) {
+	tests := []struct {
+		name  string
+		index int
+		want  string
+	}{
+		{
+			name:  "Zero index",
+			index: 0,
+			want:  "ei:0",
+		},
+		{
+			name:  "Positive index",
+			index: 5,
+			want:  "ei:5",
+		},
+		{
+			name:  "Large index",
+			index: 9999,
+			want:  "ei:9999",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := encodeBindingCursor(tt.index)
+			if got != tt.want {
+				t.Errorf("encodeBindingCursor() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDecodeBindingCursor tests the decodeBindingCursor function
+func TestDecodeBindingCursor(t *testing.T) {
+	tests := []struct {
+		name    string
+		cursor  string
+		want    int
+		wantErr bool
+	}{
+		{
+			name:    "Valid cursor zero",
+			cursor:  "ei:0",
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name:    "Valid cursor positive",
+			cursor:  "ei:5",
+			want:    5,
+			wantErr: false,
+		},
+		{
+			name:    "Valid cursor large",
+			cursor:  "ei:9999",
+			want:    9999,
+			wantErr: false,
+		},
+		{
+			name:    "Invalid prefix",
+			cursor:  "invalid:5",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "No prefix",
+			cursor:  "5",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "Empty cursor",
+			cursor:  "",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "Invalid format",
+			cursor:  "ei:",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "Non-numeric value",
+			cursor:  "ei:abc",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "Negative number",
+			cursor:  "ei:-5",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "Multiple colons",
+			cursor:  "ei:5:extra",
+			want:    0,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeBindingCursor(tt.cursor)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("decodeBindingCursor() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("decodeBindingCursor() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBindingCursorRoundTrip tests round-trip encoding and decoding
+func TestBindingCursorRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		index int
+	}{
+		{
+			name:  "Zero",
+			index: 0,
+		},
+		{
+			name:  "Small number",
+			index: 1,
+		},
+		{
+			name:  "Medium number",
+			index: 50,
+		},
+		{
+			name:  "Large number",
+			index: 9999,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded := encodeBindingCursor(tt.index)
+			decoded, err := decodeBindingCursor(encoded)
+			if err != nil {
+				t.Errorf("Round-trip failed with error: %v", err)
+			}
+			if decoded != tt.index {
+				t.Errorf("Round-trip failed: got %v, want %v", decoded, tt.index)
+			}
+		})
+	}
+}
+
 // TestDetermineReleaseBindingStatus tests the ReleaseBinding status determination logic
 func TestDetermineReleaseBindingStatus(t *testing.T) {
 	service := &ComponentService{logger: nil}
