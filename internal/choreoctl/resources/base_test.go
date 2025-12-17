@@ -67,9 +67,7 @@ func TestPrint_FilterByName_FallbackPagedSearch(t *testing.T) {
 
 	items = append(items, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: target, Namespace: "default"}})
 	objs := make([]client.Object, len(items))
-	for i := range items {
-		objs[i] = items[i]
-	}
+	copy(objs, items)
 	fc := fakeclient.NewClientBuilder().WithObjects(objs...).Build()
 	b := &BaseResource[*corev1.Pod, *corev1.PodList]{client: fc, namespace: "default", labels: map[string]string{}}
 
