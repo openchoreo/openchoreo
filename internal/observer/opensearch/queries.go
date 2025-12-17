@@ -635,57 +635,57 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 	if err != nil {
 		return nil, fmt.Errorf("invalid interval format: %w", err)
 	}
-	period := map[string]interface{}{
-		"interval": intervalDuration.Minutes(),
-		"unit":     "MINUTES",
-	}
-	monitorBody := map[string]interface{}{
-		"type":         "monitor",
-		"monitor_type": "query_level_monitor",
-		"name":         params.Metadata.Name,
-		"enabled":      params.Condition.Enabled,
-		"schedule": map[string]interface{}{
-			"period": period,
+
+	monitorBody := MonitorBody{
+		Type:        "monitor",
+		MonitorType: "query_level_monitor",
+		Name:        params.Metadata.Name,
+		Enabled:     params.Condition.Enabled,
+		Schedule: MonitorSchedule{
+			Period: MonitorSchedulePeriod{
+				Interval: intervalDuration.Minutes(),
+				Unit:     "MINUTES",
+			},
 		},
-		"inputs": []map[string]interface{}{
+		Inputs: []MonitorInput{
 			{
-				"search": map[string]interface{}{
-					"indices": []string{qb.indexPrefix + "*"},
-					"query":   qb.BuildLogAlertingRuleQuery(params),
+				Search: MonitorInputSearch{
+					Indices: []string{qb.indexPrefix + "*"},
+					Query:   qb.BuildLogAlertingRuleQuery(params),
 				},
 			},
 		},
-		"triggers": []map[string]interface{}{
+		Triggers: []MonitorTrigger{
 			{
-				"name":     "trigger-" + params.Metadata.Name,
-				"severity": "1",
-				"condition": map[string]interface{}{
-					"script": map[string]interface{}{
-						"source": "ctx.results[0].hits.total.value " + GetOperatorSymbol(params.Condition.Operator) + " " + strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64),
-						"lang":   "painless",
+				Name:     "trigger-" + params.Metadata.Name,
+				Severity: "1",
+				Condition: MonitorTriggerCondition{
+					Script: MonitorTriggerConditionScript{
+						Source: fmt.Sprintf("ctx.results[0].hits.total.value %s %s", GetOperatorSymbol(params.Condition.Operator), strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64)),
+						Lang:   "painless",
 					},
 				},
-				"actions": []map[string]interface{}{
+				Actions: []MonitorTriggerAction{
 					{
-						"name":           "action-" + params.Metadata.Name,
-						"destination_id": "openchoreo-observer-alerting-webhook",
-						"message_template": map[string]interface{}{
-							"source": buildWebhookMessageTemplate(params),
-							"lang":   "mustache",
+						Name:          "action-" + params.Metadata.Name,
+						DestinationID: "openchoreo-observer-alerting-webhook",
+						MessageTemplate: MonitorMessageTemplate{
+							Source: buildWebhookMessageTemplate(params),
+							Lang:   "mustache",
 						},
-						"throttle_enabled": true,
-						"throttle": map[string]interface{}{
-							"value": 60, // TODO: Make throttle value configurable in future
-							"unit":  "MINUTES",
+						ThrottleEnabled: true,
+						Throttle: MonitorTriggerActionThrottle{
+							Value: 60, // TODO: Make throttle value configurable in future
+							Unit:  "MINUTES",
 						},
-						"subject_template": map[string]interface{}{
-							"source": "TheSubject",
-							"lang":   "mustache",
+						SubjectTemplate: MonitorMessageTemplate{
+							Source: "TheSubject", // TODO: Add appropriate subject template
+							Lang:   "mustache",
 						},
-						"action_execution_policy": map[string]interface{}{
-							"action_execution_scope": map[string]interface{}{
-								"per_alert": map[string]interface{}{
-									"actionable_alerts": []string{"DEDUPED", "NEW"},
+						ActionExecutionPolicy: MonitorTriggerActionExecutionPolicy{
+							ActionExecutionScope: MonitorTriggerActionExecutionScope{
+								PerAlert: MonitorActionExecutionScopePerAlert{
+									ActionableAlerts: []string{"DEDUPED", "NEW"},
 								},
 							},
 						},
@@ -694,7 +694,19 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 			},
 		},
 	}
-	return monitorBody, nil
+
+	// Convert to map[string]interface{} for compatibility with existing code
+	bodyBytes, err := json.Marshal(monitorBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal monitor body: %w", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal monitor body: %w", err)
+	}
+
+	return result, nil
 }
 
 func GetOperatorSymbol(operator string) string {

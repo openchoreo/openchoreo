@@ -255,3 +255,93 @@ type TracesRequestParams struct {
 	StartTime      string   `json:"startTime"`
 	TraceID        string   `json:"traceId,omitempty"`
 }
+
+// MonitorBody represents the structure of an OpenSearch monitor
+type MonitorBody struct {
+	Type        string           `json:"type"`
+	MonitorType string           `json:"monitor_type"`
+	Name        string           `json:"name"`
+	Enabled     bool             `json:"enabled"`
+	Schedule    MonitorSchedule  `json:"schedule"`
+	Inputs      []MonitorInput   `json:"inputs"`
+	Triggers    []MonitorTrigger `json:"triggers"`
+}
+
+// MonitorSchedule defines the monitoring schedule
+type MonitorSchedule struct {
+	Period MonitorSchedulePeriod `json:"period"`
+}
+
+// MonitorSchedulePeriod defines the time period for schedule
+type MonitorSchedulePeriod struct {
+	Interval float64 `json:"interval"`
+	Unit     string  `json:"unit"`
+}
+
+// MonitorInput defines the search input for the monitor
+type MonitorInput struct {
+	Search MonitorInputSearch `json:"search"`
+}
+
+// MonitorInputSearch defines the search query and indices
+type MonitorInputSearch struct {
+	Indices []string               `json:"indices"`
+	Query   map[string]interface{} `json:"query"`
+}
+
+// MonitorTrigger defines the conditions and actions for the monitor
+type MonitorTrigger struct {
+	Name      string                  `json:"name"`
+	Severity  string                  `json:"severity"`
+	Condition MonitorTriggerCondition `json:"condition"`
+	Actions   []MonitorTriggerAction  `json:"actions"`
+}
+
+// MonitorTriggerCondition defines the trigger condition
+type MonitorTriggerCondition struct {
+	Script MonitorTriggerConditionScript `json:"script"`
+}
+
+// MonitorTriggerConditionScript defines the script for evaluation
+type MonitorTriggerConditionScript struct {
+	Source string `json:"source"`
+	Lang   string `json:"lang"`
+}
+
+// MonitorTriggerAction defines the action to take when triggered
+type MonitorTriggerAction struct {
+	Name                  string                              `json:"name"`
+	DestinationID         string                              `json:"destination_id"`
+	MessageTemplate       MonitorMessageTemplate              `json:"message_template"`
+	ThrottleEnabled       bool                                `json:"throttle_enabled"`
+	Throttle              MonitorTriggerActionThrottle        `json:"throttle"`
+	SubjectTemplate       MonitorMessageTemplate              `json:"subject_template"`
+	ActionExecutionPolicy MonitorTriggerActionExecutionPolicy `json:"action_execution_policy"`
+}
+
+// MonitorMessageTemplate defines the message template
+type MonitorMessageTemplate struct {
+	Source string `json:"source"`
+	Lang   string `json:"lang"`
+}
+
+// MonitorTriggerActionThrottle defines the throttle settings
+type MonitorTriggerActionThrottle struct {
+	Value int    `json:"value"`
+	Unit  string `json:"unit"`
+}
+
+// MonitorTriggerActionExecutionPolicy defines when actions should be executed
+type MonitorTriggerActionExecutionPolicy struct {
+	ActionExecutionScope MonitorTriggerActionExecutionScope `json:"action_execution_scope"`
+}
+
+// MonitorTriggerActionExecutionScope defines the scope of action execution
+type MonitorTriggerActionExecutionScope struct {
+	PerAlert MonitorActionExecutionScopePerAlert `json:"per_alert"`
+}
+
+// MonitorActionExecutionScopePerAlert defines per-alert action settings
+type MonitorActionExecutionScopePerAlert struct {
+	ActionableAlerts []string `json:"actionable_alerts"`
+}
