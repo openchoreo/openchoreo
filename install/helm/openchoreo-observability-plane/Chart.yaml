@@ -41,6 +41,9 @@ dependencies:
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0
     condition: fluentBit.enabled
+  - name: kgateway
+    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
+    version: v2.1.2
   - name: kube-prometheus-stack
     alias: prometheus
     repository: https://prometheus-community.github.io/helm-charts

@@ -1,0 +1,15 @@
+{{- if and .Values.gateway.enabled .Values.openSearch.enabled }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: BackendConfigPolicy
+metadata:
+  name: opensearch
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: opensearch
+  tls:
+    sni: "opensearch"
+    insecureSkipVerify: true
+{{- end }}
