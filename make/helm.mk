@@ -48,7 +48,8 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 			$(call log_info, Removing $$crd CRD from control-plane chart); \
 			rm -f $(CHART_PATH)/crds/openchoreo.dev_$$crd.yaml; \
 			$(call log_info, Removing $$crd RBAC from control-plane chart); \
-			sed -i '' "/$$crd/d" $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml; \
+			sed -i.bak "/$$crd/d" $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml && \
+			rm -f $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml.bak; \
 		done; \
 		;; \
 	"openchoreo-observability-plane") \
