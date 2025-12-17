@@ -222,25 +222,44 @@ func (b *BaseResource[T, L]) Update(obj T) error {
 
 // Delete removes one or more matching resources by name.
 func (b *BaseResource[T, L]) Delete(name string) error {
-	// Prefer server-side label lookup (logical name) to avoid listing the whole namespace.
-	items, err := b.listByLogicalName(name, 0)
+	// First, search for resources matching the name (checks both Kubernetes and logical names)
+	items, err := b.searchByNamePaged(name, 1)
 	if err != nil {
-		return fmt.Errorf("failed to list before delete: %w", err)
+		return fmt.Errorf("failed to search before delete: %w", err)
 	}
 
-	// Fallback: page through results and stop once we find a match.
-	if len(items) == 0 {
-		items, err = b.searchByNamePaged(name, 1)
-		if err != nil {
-			return fmt.Errorf("failed to search before delete: %w", err)
-		}
-	}
+	// Prioritize Kubernetes Name (unique identifier) over Logical Name
+	var k8sNameMatches []ResourceWrapper[T]
+	var logicalNameMatches []ResourceWrapper[T]
 
 	for _, item := range items {
-		if err := b.client.Delete(context.Background(), item.Resource); err != nil {
-			return fmt.Errorf("failed to delete resource: %w", err)
+		if item.KubernetesName == name {
+			k8sNameMatches = append(k8sNameMatches, item)
+		} else if item.LogicalName == name {
+			logicalNameMatches = append(logicalNameMatches, item)
 		}
 	}
+
+	// Delete Kubernetes name matches first (unique identifier takes precedence)
+	if len(k8sNameMatches) > 0 {
+		for _, item := range k8sNameMatches {
+			if err := b.client.Delete(context.Background(), item.Resource); err != nil {
+				return fmt.Errorf("failed to delete resource: %w", err)
+			}
+		}
+		return nil
+	}
+
+	// Fallback to logical name matches if no Kubernetes name matches found
+	if len(logicalNameMatches) > 0 {
+		for _, item := range logicalNameMatches {
+			if err := b.client.Delete(context.Background(), item.Resource); err != nil {
+				return fmt.Errorf("failed to delete resource: %w", err)
+			}
+		}
+		return nil
+	}
+
 	return nil
 }
 

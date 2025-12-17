@@ -61,10 +61,10 @@ func extractListParams(query url.Values) (*models.ListOptions, error) {
 		if err != nil {
 			return nil, fmt.Errorf("limit must be a valid integer")
 		}
-		if limit != 0 && limit < models.MinPageLimit {
+		if limit < models.MinPageLimit {
 			return nil, fmt.Errorf("limit %d out of range [%d, %d]", limit, models.MinPageLimit, models.MaxPageLimit)
 		}
-		if limit != 0 && limit > models.MaxPageLimit {
+		if limit > models.MaxPageLimit {
 			limit = models.MaxPageLimit
 		}
 		opts.Limit = limit

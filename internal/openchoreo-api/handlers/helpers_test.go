@@ -23,16 +23,17 @@ func TestExtractListParams_ClampLimitAboveMax(t *testing.T) {
 	}
 }
 
-func TestExtractListParams_AllowsZeroToDisablePaging(t *testing.T) {
+func TestExtractListParams_RejectsZeroLimit(t *testing.T) {
 	q := url.Values{}
 	q.Set("limit", "0")
 
-	opts, err := extractListParams(q)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	_, err := extractListParams(q)
+	if err == nil {
+		t.Fatalf("expected error for limit=0, got nil")
 	}
-	if opts.Limit != 0 {
-		t.Fatalf("expected limit=0, got %d", opts.Limit)
+	expectedErr := "limit 0 out of range [1, 512]"
+	if err.Error() != expectedErr {
+		t.Fatalf("expected error %q, got %v", expectedErr, err)
 	}
 }
 

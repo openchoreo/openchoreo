@@ -78,17 +78,21 @@ func getBuildLogs(params api.LogParams) error {
 		Name: params.Build,
 	}
 
-	// If no build is specified, list a small number of recent builds instead of
-	// fetching the entire history.
+	// If no build is specified, fetch all builds and show the most recent ones.
 	if filter.Name == "" {
-		builds, err := buildRes.List(pkgconstants.DefaultRecentBuildsLimit)
+		// Fetch all builds to ensure we get the actual most recent ones
+		builds, err := buildRes.List(0)
 		if err != nil {
 			return fmt.Errorf("failed to list builds: %w", err)
 		}
-		// Best-effort: show newest first within the limited window.
+		// Sort by creation timestamp (newest first)
 		sort.Slice(builds, func(i, j int) bool {
 			return builds[i].GetResource().GetCreationTimestamp().After(builds[j].GetResource().GetCreationTimestamp().Time)
 		})
+		// Apply limit after sorting to get the actual recent builds
+		if len(builds) > pkgconstants.DefaultRecentBuildsLimit {
+			builds = builds[:pkgconstants.DefaultRecentBuildsLimit]
+		}
 		return buildRes.PrintItems(builds, resources.OutputFormatTable)
 	}
 
@@ -117,11 +121,12 @@ func getBuildLogs(params api.LogParams) error {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	// Get all pods in the namespace with workflow label matching build's k8s name
+	// Get pods with workflow label matching build's k8s name
 	pods := &corev1.PodList{}
 	if err := k8sClient.List(context.Background(), pods,
 		client.InNamespace(buildNamespace),
-		client.MatchingLabels{"workflow": dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildK8sName)}); err != nil {
+		client.MatchingLabels{"workflow": dpkubernetes.GenerateK8sNameWithLengthLimit(63, buildK8sName)},
+		client.Limit(100)); err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
@@ -161,7 +166,7 @@ func getDeploymentLogs(params api.LogParams) error {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	// Get all pods with matching deployment labels
+	// Get pods with matching deployment labels
 	pods := &corev1.PodList{}
 	if err := k8sClient.List(context.Background(), pods,
 		client.MatchingLabels{
@@ -172,7 +177,8 @@ func getDeploymentLogs(params api.LogParams) error {
 			"deployment-name":   params.Deployment,
 			"belong-to":         "user-workloads",
 			"managed-by":        "choreo-deployment-controller",
-		}); err != nil {
+		},
+		client.Limit(100)); err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
 

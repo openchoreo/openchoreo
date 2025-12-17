@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
-	"strconv"
 	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -1787,30 +1786,34 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	return response
 }
 
-// encodeBindingCursor encodes a binding cursor to a string
-const bindingCursorPrefix = "ei:"
+// encodeBindingCursor encodes a binding cursor to a string using environment name
+const bindingCursorPrefix = "env:"
 
-func encodeBindingCursor(index int) string {
-	return fmt.Sprintf("%s%d", bindingCursorPrefix, index)
+func encodeBindingCursor(envName string) string {
+	return fmt.Sprintf("%s%s", bindingCursorPrefix, envName)
 }
 
-// decodeBindingCursor decodes a binding cursor string
-func decodeBindingCursor(cursor string) (int, error) {
+// decodeBindingCursor decodes a binding cursor string and finds the environment index
+func decodeBindingCursor(cursor string, environments []string) (int, error) {
 	if !strings.HasPrefix(cursor, bindingCursorPrefix) {
 		return 0, ErrInvalidContinueToken
 	}
 
-	parts := strings.SplitN(cursor, ":", 2)
-	if len(parts) != 2 {
+	envName := strings.TrimPrefix(cursor, bindingCursorPrefix)
+	if envName == "" {
 		return 0, ErrInvalidContinueToken
 	}
 
-	index, err := strconv.Atoi(parts[1])
-	if err != nil || index < 0 {
-		return 0, ErrInvalidContinueToken
+	// Find the environment index by name
+	for i, env := range environments {
+		if env == envName {
+			// Start from the next environment
+			return i + 1, nil
+		}
 	}
 
-	return index, nil
+	// Environment not found - start from beginning
+	return 0, nil
 }
 
 // GetComponentBindings retrieves bindings for a component in multiple environments
@@ -1841,7 +1844,7 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 	// Parse continue token to determine starting environment index
 	startIndex := 0
 	if opts != nil && opts.Continue != "" {
-		startIndex, err = decodeBindingCursor(opts.Continue)
+		startIndex, err = decodeBindingCursor(opts.Continue, environments)
 		if err != nil {
 			return nil, ErrInvalidContinueToken
 		}
@@ -1887,8 +1890,8 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 		// Stop early when we have one extra item so we can set a precise cursor
 		if limit > 0 && len(bindings) > limit {
 			hasMore = true
-			// Resume from the current environment index on the next page
-			continueToken = encodeBindingCursor(i)
+			// Resume from the next environment on the next page
+			continueToken = encodeBindingCursor(environment)
 			bindings = bindings[:limit]
 			break
 		}

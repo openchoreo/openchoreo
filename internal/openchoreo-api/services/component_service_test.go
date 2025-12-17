@@ -407,30 +407,30 @@ func TestComponentReleaseNameGeneration(t *testing.T) {
 // TestEncodeBindingCursor tests the encodeBindingCursor function
 func TestEncodeBindingCursor(t *testing.T) {
 	tests := []struct {
-		name  string
-		index int
-		want  string
+		name    string
+		envName string
+		want    string
 	}{
 		{
-			name:  "Zero index",
-			index: 0,
-			want:  "ei:0",
+			name:    "Development environment",
+			envName: "development",
+			want:    "env:development",
 		},
 		{
-			name:  "Positive index",
-			index: 5,
-			want:  "ei:5",
+			name:    "Production environment",
+			envName: "production",
+			want:    "env:production",
 		},
 		{
-			name:  "Large index",
-			index: 9999,
-			want:  "ei:9999",
+			name:    "Environment with hyphen",
+			envName: "staging-us-west",
+			want:    "env:staging-us-west",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := encodeBindingCursor(tt.index)
+			got := encodeBindingCursor(tt.envName)
 			if got != tt.want {
 				t.Errorf("encodeBindingCursor() = %v, want %v", got, tt.want)
 			}
@@ -441,76 +441,80 @@ func TestEncodeBindingCursor(t *testing.T) {
 // TestDecodeBindingCursor tests the decodeBindingCursor function
 func TestDecodeBindingCursor(t *testing.T) {
 	tests := []struct {
-		name    string
-		cursor  string
-		want    int
-		wantErr bool
+		name         string
+		cursor       string
+		environments []string
+		want         int
+		wantErr      bool
 	}{
 		{
-			name:    "Valid cursor zero",
-			cursor:  "ei:0",
-			want:    0,
-			wantErr: false,
+			name:         "Valid cursor first environment",
+			cursor:       "env:development",
+			environments: []string{"development", "staging", "production"},
+			want:         1, // Returns index+1 to start after the found environment
+			wantErr:      false,
 		},
 		{
-			name:    "Valid cursor positive",
-			cursor:  "ei:5",
-			want:    5,
-			wantErr: false,
+			name:         "Valid cursor middle environment",
+			cursor:       "env:staging",
+			environments: []string{"development", "staging", "production"},
+			want:         2,
+			wantErr:      false,
 		},
 		{
-			name:    "Valid cursor large",
-			cursor:  "ei:9999",
-			want:    9999,
-			wantErr: false,
+			name:         "Valid cursor last environment",
+			cursor:       "env:production",
+			environments: []string{"development", "staging", "production"},
+			want:         3,
+			wantErr:      false,
 		},
 		{
-			name:    "Invalid prefix",
-			cursor:  "invalid:5",
-			want:    0,
-			wantErr: true,
+			name:         "Environment not in list",
+			cursor:       "env:test",
+			environments: []string{"development", "staging", "production"},
+			want:         0, // Not found, start from beginning
+			wantErr:      false,
 		},
 		{
-			name:    "No prefix",
-			cursor:  "5",
-			want:    0,
-			wantErr: true,
+			name:         "Invalid prefix",
+			cursor:       "invalid:staging",
+			environments: []string{"development", "staging", "production"},
+			want:         0,
+			wantErr:      true,
 		},
 		{
-			name:    "Empty cursor",
-			cursor:  "",
-			want:    0,
-			wantErr: true,
+			name:         "No prefix",
+			cursor:       "staging",
+			environments: []string{"development", "staging", "production"},
+			want:         0,
+			wantErr:      true,
 		},
 		{
-			name:    "Invalid format",
-			cursor:  "ei:",
-			want:    0,
-			wantErr: true,
+			name:         "Empty cursor",
+			cursor:       "",
+			environments: []string{"development", "staging", "production"},
+			want:         0,
+			wantErr:      true,
 		},
 		{
-			name:    "Non-numeric value",
-			cursor:  "ei:abc",
-			want:    0,
-			wantErr: true,
+			name:         "Invalid format - missing environment name",
+			cursor:       "env:",
+			environments: []string{"development", "staging", "production"},
+			want:         0,
+			wantErr:      true,
 		},
 		{
-			name:    "Negative number",
-			cursor:  "ei:-5",
-			want:    0,
-			wantErr: true,
-		},
-		{
-			name:    "Multiple colons",
-			cursor:  "ei:5:extra",
-			want:    0,
-			wantErr: true,
+			name:         "Environment with hyphen",
+			cursor:       "env:staging-us-west",
+			environments: []string{"development", "staging-us-west", "production"},
+			want:         2,
+			wantErr:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := decodeBindingCursor(tt.cursor)
+			got, err := decodeBindingCursor(tt.cursor, tt.environments)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("decodeBindingCursor() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -524,37 +528,39 @@ func TestDecodeBindingCursor(t *testing.T) {
 
 // TestBindingCursorRoundTrip tests round-trip encoding and decoding
 func TestBindingCursorRoundTrip(t *testing.T) {
+	environments := []string{"development", "staging", "production", "test", "qa"}
+
 	tests := []struct {
-		name  string
-		index int
+		name      string
+		envName   string
+		wantIndex int
 	}{
 		{
-			name:  "Zero",
-			index: 0,
+			name:      "First environment",
+			envName:   "development",
+			wantIndex: 1, // Returns index+1
 		},
 		{
-			name:  "Small number",
-			index: 1,
+			name:      "Middle environment",
+			envName:   "production",
+			wantIndex: 3,
 		},
 		{
-			name:  "Medium number",
-			index: 50,
-		},
-		{
-			name:  "Large number",
-			index: 9999,
+			name:      "Last environment",
+			envName:   "qa",
+			wantIndex: 5,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encoded := encodeBindingCursor(tt.index)
-			decoded, err := decodeBindingCursor(encoded)
+			encoded := encodeBindingCursor(tt.envName)
+			decoded, err := decodeBindingCursor(encoded, environments)
 			if err != nil {
 				t.Errorf("Round-trip failed with error: %v", err)
 			}
-			if decoded != tt.index {
-				t.Errorf("Round-trip failed: got %v, want %v", decoded, tt.index)
+			if decoded != tt.wantIndex {
+				t.Errorf("Round-trip failed: got %v, want %v", decoded, tt.wantIndex)
 			}
 		})
 	}
