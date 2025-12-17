@@ -228,16 +228,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Name).To(Equal(channel.Name))
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
-
-			// Verify owner references
-			Expect(configMap.OwnerReferences).To(HaveLen(1))
-			Expect(configMap.OwnerReferences[0].Name).To(Equal(channel.Name))
-			Expect(configMap.OwnerReferences[0].APIVersion).To(Equal("openchoreo.dev/v1alpha1"))
-			Expect(configMap.OwnerReferences[0].Kind).To(Equal("ObservabilityAlertsNotificationChannel"))
-			Expect(secret.OwnerReferences).To(HaveLen(1))
-			Expect(secret.OwnerReferences[0].Name).To(Equal(channel.Name))
-			Expect(secret.OwnerReferences[0].APIVersion).To(Equal("openchoreo.dev/v1alpha1"))
-			Expect(secret.OwnerReferences[0].Kind).To(Equal("ObservabilityAlertsNotificationChannel"))
 		})
 	})
 

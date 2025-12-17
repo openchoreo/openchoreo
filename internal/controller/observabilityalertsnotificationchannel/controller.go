@@ -37,6 +37,7 @@ type Reconciler struct {
 // move the current state of the cluster closer to the desired state.
 // It creates a ConfigMap and Secret with the same name as ObservabilityAlertsNotificationChannel
 // and applies them to the observability plane cluster using cluster-gateway and cluster-agent architecture.
+// Owner references are not set on the ConfigMap and Secret as they are applied to a separate cluster.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.4/pkg/reconcile
@@ -63,11 +64,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Create ConfigMap with the same name as the channel
 	configMap := r.createConfigMap(channel)
-	// Set owner reference using scheme to get correct APIVersion and Kind
-	if err := ctrl.SetControllerReference(channel, configMap, r.Scheme); err != nil {
-		logger.Error(err, "Failed to set owner reference on ConfigMap")
-		return ctrl.Result{}, err
-	}
 	if err := r.applyConfigMap(ctx, opClient, configMap); err != nil {
 		logger.Error(err, "Failed to apply ConfigMap to observability plane")
 		return ctrl.Result{}, err
@@ -75,11 +71,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Create Secret with the same name as the channel
 	secret := r.createSecret(channel)
-	// Set owner reference using scheme to get correct APIVersion and Kind
-	if err := ctrl.SetControllerReference(channel, secret, r.Scheme); err != nil {
-		logger.Error(err, "Failed to set owner reference on Secret")
-		return ctrl.Result{}, err
-	}
 	if err := r.applySecret(ctx, opClient, secret); err != nil {
 		logger.Error(err, "Failed to apply Secret to observability plane")
 		return ctrl.Result{}, err
