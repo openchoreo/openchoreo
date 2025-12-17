@@ -52,7 +52,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"), authzPDP)
 
 	// Create deployment pipeline service (depends on project service)
-	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
+	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"), authzPDP)
 
 	// Create ComponentType service
 	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"), authzPDP)

@@ -38,6 +38,8 @@ const (
 
 	SystemActionCreateEnvironment systemAction = "environment:create"
 	SystemActionViewEnvironment   systemAction = "environment:view"
+
+	SystemActionViewDeploymentPipeline systemAction = "deploymentpipeline:view"
 )
 
 type ResourceType string
@@ -51,7 +53,8 @@ const (
 	ResourceTypeRoleMapping      ResourceType = "roleMapping"
 	ResourceTypeComponentType    ResourceType = "componentType"
 	ResourceTypeTrait            ResourceType = "trait"
-	ResourceTypeDataPlane        ResourceType = "dataPlane"
-	ResourceTypeBuildPlane       ResourceType = "buildPlane"
-	ResourceTypeEnvironment      ResourceType = "environment"
+	ResourceTypeDataPlane           ResourceType = "dataPlane"
+	ResourceTypeBuildPlane          ResourceType = "buildPlane"
+	ResourceTypeEnvironment         ResourceType = "environment"
+	ResourceTypeDeploymentPipeline  ResourceType = "deploymentPipeline"
 )
