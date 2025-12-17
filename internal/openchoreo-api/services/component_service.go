@@ -1890,8 +1890,8 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 		// Stop early when we have one extra item so we can set a precise cursor
 		if limit > 0 && len(bindings) > limit {
 			hasMore = true
-			// Resume from the next environment on the next page
-			continueToken = encodeBindingCursor(environment)
+			// Resume from the current environment on the next page
+			continueToken = encodeBindingCursor(environments[i-1])
 			bindings = bindings[:limit]
 			break
 		}
