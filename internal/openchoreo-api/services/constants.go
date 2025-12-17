@@ -35,6 +35,9 @@ const (
 	SystemActionViewDataPlane   systemAction = "dataplane:view"
 
 	SystemActionViewBuildPlane systemAction = "buildplane:view"
+
+	SystemActionCreateEnvironment systemAction = "environment:create"
+	SystemActionViewEnvironment   systemAction = "environment:view"
 )
 
 type ResourceType string
@@ -50,4 +53,5 @@ const (
 	ResourceTypeTrait            ResourceType = "trait"
 	ResourceTypeDataPlane        ResourceType = "dataPlane"
 	ResourceTypeBuildPlane       ResourceType = "buildPlane"
+	ResourceTypeEnvironment      ResourceType = "environment"
 )

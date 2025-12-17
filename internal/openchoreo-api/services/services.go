@@ -43,7 +43,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"), authzPDP)
 
 	// Create environment service
-	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"))
+	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"), authzPDP)
 
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
