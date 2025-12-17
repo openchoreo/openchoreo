@@ -290,3 +290,40 @@ func TestListPageWithToken_WithLabels(t *testing.T) {
 		}
 	}
 }
+
+// TestList_LimitZero_ReturnsAll ensures that providing a limit of 0 returns all
+// available resources (default/unlimited behavior).
+func TestList_LimitZero_ReturnsAll(t *testing.T) {
+	// Create 20 pods to test list behavior
+	var objects []client.Object
+	total := 20
+	for i := 0; i < total; i++ {
+		objects = append(objects, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("pod-%d", i),
+				Namespace: "default",
+			},
+		})
+	}
+
+	fc := fakeclient.NewClientBuilder().WithObjects(objects...).Build()
+	b := &BaseResource[*corev1.Pod, *corev1.PodList]{client: fc, namespace: "default", labels: map[string]string{}}
+
+	// List with limit = 0 should return all
+	allResults, err := b.List(0)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(allResults) != total {
+		t.Fatalf("expected %d items for limit=0, got %d", total, len(allResults))
+	}
+
+	// List with a positive limit should return that many items
+	capped, err := b.List(5)
+	if err != nil {
+		t.Fatalf("List with limit failed: %v", err)
+	}
+	if len(capped) != 5 {
+		t.Fatalf("expected 5 items for limit=5, got %d", len(capped))
+	}
+}

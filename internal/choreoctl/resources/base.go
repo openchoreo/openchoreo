@@ -32,7 +32,7 @@ type ResourceFilter struct {
 	Name      string
 	Labels    map[string]string
 	Namespace string
-	Limit     int // Maximum number of resources to return (0 for unlimited)
+	Limit     int // Maximum number of resources to return. 0 means no limit (return all). When the CLI omits --limit the default is unlimited (0)
 }
 
 // ResourceOperation is the interface for any resource operation.

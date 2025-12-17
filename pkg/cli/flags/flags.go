@@ -351,6 +351,12 @@ var (
 		Usage:     "Write output to specified file instead of stdout",
 	}
 
+	All = Flag{
+		Name:  "all",
+		Usage: messages.FlagAllDesc,
+		Type:  "bool",
+	}
+
 	Limit = Flag{
 		Name:  "limit",
 		Usage: messages.FlagLimitDesc,
