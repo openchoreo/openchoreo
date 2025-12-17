@@ -156,7 +156,6 @@ func getDeploymentLogs(params api.LogParams) error {
 		return fmt.Errorf("organization, project, component, environment and deployment values are required for deployment logs")
 	}
 
-
 	k8sClient, err := resources.GetClient()
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)

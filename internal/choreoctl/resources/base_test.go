@@ -53,7 +53,6 @@ func TestPrint_FilterByName_UsesLabelLookup(t *testing.T) {
 	if !strings.Contains(out, target) {
 		t.Fatalf("expected output to contain %q, got: %s", target, out)
 	}
-
 }
 
 func TestPrint_FilterByName_FallbackPagedSearch(t *testing.T) {
