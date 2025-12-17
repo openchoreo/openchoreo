@@ -13,6 +13,10 @@ HELM_OCI_REGISTRY ?= oci://ghcr.io/openchoreo/helm-charts
 HELM_CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller
 HELM_CONTROLLER_IMAGE_PULL_POLICY ?= Always
 
+# Define the CRDs to be applied only to the observability plane chart
+OBSERVABILITY_PLANE_CRDS := \
+	observabilityalertrules
+
 ##@ Helm
 
 # Define the generation targets for the helm charts that are required for the helm package and push.
@@ -39,18 +43,29 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		$(MAKE) manifests; \
 		$(call log_info, Running helm-gen for openchoreo-control-plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-		$(call log_info, Removing ObservabilityAlertRule CRD from control-plane chart); \
-		rm -f $(CHART_PATH)/crds/openchoreo.dev_observabilityalertrules.yaml; \
+		$(call log_info, Removing ObservabilityPlane related CRDs and RBAC from control-plane chart); \
+		for crd in $(OBSERVABILITY_PLANE_CRDS); do \
+			$(call log_info, Removing $$crd CRD from control-plane chart); \
+			rm -f $(CHART_PATH)/crds/openchoreo.dev_$$crd.yaml; \
+			$(call log_info, Removing $$crd RBAC from control-plane chart); \
+			sed -i '' "/$$crd/d" $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml; \
+		done; \
 		;; \
 	"openchoreo-observability-plane") \
 		$(call log_info, Generating CRDs for observability plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-		$(call log_info, Keeping only ObservabilityAlertRule CRD); \
-		find $(CHART_PATH)/crds -maxdepth 1 -type f ! -name openchoreo.dev_observabilityalertrules.yaml -delete; \
+		$(call log_info, Keeping only ObservabilityPlane related CRDs); \
+		for crd in $(OBSERVABILITY_PLANE_CRDS); do \
+      find $(CHART_PATH)/crds -maxdepth 1 -type f ! -name openchoreo.dev_$$crd.yaml -delete; \
+		done; \
+		: "TODO: Automate this in future"; \
+		$(call log_warning, Please remove RBAC for CRDs other than $(OBSERVABILITY_PLANE_CRDS) from the observability plane chart); \
 		;; \
 	esac
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)
+
+
 
 .PHONY: helm-generate
 helm-generate: $(addprefix helm-generate., $(HELM_CHART_NAMES)) ## Generate all helm charts.
