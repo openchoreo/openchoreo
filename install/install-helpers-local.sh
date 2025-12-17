@@ -254,21 +254,21 @@ install_observability_plane() {
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "false" "1800"
 }
 
-# Setup choreoctl auto-completion
-setup_choreoctl_completion() {
+# Setup occ auto-completion
+setup_occ_completion() {
     if [ -f "$KUBECONFIG_PATH" ]; then
-        log_info "Enabling choreoctl auto-completion..."
-        if command_exists choreoctl && choreoctl completion bash > ~/.choreoctl-completion 2>/dev/null; then
-            chmod +x ~/.choreoctl-completion
-            if ! grep -q "source ~/.choreoctl-completion" ~/.bashrc 2>/dev/null; then
-                echo "source ~/.choreoctl-completion" >> ~/.bashrc
+        log_info "Enabling occ auto-completion..."
+        if command_exists occ && occ completion bash > ~/.occ-completion 2>/dev/null; then
+            chmod +x ~/.occ-completion
+            if ! grep -q "source ~/.occ-completion" ~/.bashrc 2>/dev/null; then
+                echo "source ~/.occ-completion" >> ~/.bashrc
             fi
-            log_success "choreoctl auto-completion enabled"
+            log_success "occ auto-completion enabled"
         else
-            log_warning "choreoctl not found or completion failed, skipping auto-completion setup"
+            log_warning "occ not found or completion failed, skipping auto-completion setup"
         fi
     else
-        log_warning "Kubeconfig not found, skipping choreoctl auto-completion setup"
+        log_warning "Kubeconfig not found, skipping occ auto-completion setup"
     fi
 }
 

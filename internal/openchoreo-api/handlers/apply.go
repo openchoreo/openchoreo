@@ -86,8 +86,8 @@ func (h *Handler) applyToKubernetes(ctx context.Context, obj *unstructured.Unstr
 	// Get the Kubernetes client from services
 	k8sClient := h.services.GetKubernetesClient()
 
-	// Create a unique field manager for choreoctl
-	fieldManager := "choreoctl"
+	// Create a unique field manager for occ
+	fieldManager := "occ"
 
 	// Check if the resource already exists using shared helper
 	_, err := h.getExistingResource(ctx, obj)

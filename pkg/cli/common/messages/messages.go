@@ -6,7 +6,7 @@ package messages
 const (
 	// CLI configuration
 
-	DefaultCLIName             = "choreoctl"
+	DefaultCLIName             = "occ"
 	DefaultCLIShortDescription = "Welcome to Choreo CLI, " +
 		"the command-line interface for OpenChoreo - Internal Developer Platform"
 
@@ -18,7 +18,7 @@ const (
 
 	ErrFileRequired = "no file specified\n" +
 		"hint: use -f or --file flag to specify the configuration file\n" +
-		"See 'choreoctl apply --help' for usage"
+		"See 'occ apply --help' for usage"
 	ErrFileNotFound   = "file not found at '%s'\nhint: verify the file path exists"
 	ErrFilePermission = "permission denied accessing '%s'\nhint: check file permissions with 'ls -l'"
 	ErrApplyFailed    = "failed to apply configuration from '%s': %v\n" +
@@ -26,7 +26,7 @@ const (
 
 	// Apply command success messages
 
-	SuccessApplyMsg = "✓ Successfully applied configuration from '%s'\nUse 'choreoctl get' commands to view resources"
+	SuccessApplyMsg = "✓ Successfully applied configuration from '%s'\nUse 'occ get' commands to view resources"
 
 	// Flag descriptions with examples
 

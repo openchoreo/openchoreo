@@ -30,14 +30,14 @@ RUN curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETA
   curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSION} bash && \
   k3d completion bash > /etc/bash_completion.d/k3d
 
-# Copy choreoctl binary
-COPY bin/dist/${TARGETOS}/${TARGETARCH}/choreoctl /usr/local/bin/choreoctl
+# Copy occ binary
+COPY bin/dist/${TARGETOS}/${TARGETARCH}/occ /usr/local/bin/occ
 
-# Create user and generate choreoctl completion
+# Create user and generate occ completion
 RUN adduser -D -h ${USER_HOME} -s /bin/bash openchoreo && \
     echo "openchoreo ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/openchoreo && \
     chmod 0440 /etc/sudoers.d/openchoreo && \
-    /usr/local/bin/choreoctl completion bash > /etc/bash_completion.d/choreoctl
+    /usr/local/bin/occ completion bash > /etc/bash_completion.d/occ
 
 # Copy all configs and scripts in one go
 COPY install/ /tmp/install/
