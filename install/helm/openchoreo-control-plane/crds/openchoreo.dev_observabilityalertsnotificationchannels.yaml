@@ -151,6 +151,13 @@ spec:
                 - smtp
                 - to
                 type: object
+              environment:
+                description: Environment is the name of the openchoreo environment
+                  this notification channel belongs to
+                type: string
+                x-kubernetes-validations:
+                - message: spec.environment is immutable
+                  rule: self == oldSelf
               type:
                 description: |-
                   Type specifies the type of notification channel
@@ -160,6 +167,7 @@ spec:
                 type: string
             required:
             - config
+            - environment
             - type
             type: object
             x-kubernetes-validations:

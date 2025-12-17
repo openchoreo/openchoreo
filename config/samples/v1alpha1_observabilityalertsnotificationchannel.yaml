@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: observabilityalertsnotificationchannel-sample
 spec:
+  environment: development
   type: email
   config:
     from: test@example.com

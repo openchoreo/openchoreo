@@ -117,6 +117,11 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// Environment is the name of the openchoreo environment this notification channel belongs to
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.environment is immutable"
+	Environment string `json:"environment"`
+
 	// Type specifies the type of notification channel
 	// Currently only "email" is supported
 	// +kubebuilder:validation:Required

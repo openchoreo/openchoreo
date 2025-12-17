@@ -18,6 +18,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Reconciler reconciles a ObservabilityAlertsNotificationChannel object
@@ -31,6 +32,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertsnotificationchannels,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertsnotificationchannels/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertsnotificationchannels/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityplanes,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -56,7 +59,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Get ObservabilityPlane client
-	opClient, err := r.getObservabilityPlaneClient(ctx, channel.Namespace)
+	opClient, err := r.getObservabilityPlaneClient(ctx, channel)
 	if err != nil {
 		logger.Error(err, "Failed to get observability plane client")
 		return ctrl.Result{}, err
@@ -81,20 +84,42 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-// getObservabilityPlaneClient gets the observability plane client
-func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, namespace string) (client.Client, error) {
-	// List ObservabilityPlanes in the namespace
-	var observabilityPlanes openchoreodevv1alpha1.ObservabilityPlaneList
-	if err := r.List(ctx, &observabilityPlanes, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list ObservabilityPlanes in namespace %s: %w", namespace, err)
+// getObservabilityPlaneClient gets the observability plane client by deriving it from the environment.
+// It follows the chain: Channel.Environment -> Environment.DataPlaneRef -> DataPlane.ObservabilityPlaneRef -> ObservabilityPlane
+func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (client.Client, error) {
+	// Get the Environment
+	environment, err := controller.GetEnvironmentByName(ctx, r.Client, channel, channel.Spec.Environment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
 	}
 
-	if len(observabilityPlanes.Items) == 0 {
-		return nil, fmt.Errorf("no ObservabilityPlane found in namespace %s", namespace)
+	// Check if DataPlaneRef is configured
+	if environment.Spec.DataPlaneRef == "" {
+		return nil, fmt.Errorf("environment %s has no DataPlaneRef configured", environment.Name)
 	}
 
-	// Use the first ObservabilityPlane found
-	observabilityPlane := &observabilityPlanes.Items[0]
+	// Get the DataPlane
+	dataPlane, err := controller.GetDataPlaneByEnvironment(ctx, r.Client, environment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dataplane %s: %w", environment.Spec.DataPlaneRef, err)
+	}
+
+	// Check if ObservabilityPlaneRef is configured
+	if dataPlane.Spec.ObservabilityPlaneRef == "" {
+		return nil, fmt.Errorf("dataplane %s has no ObservabilityPlaneRef configured", dataPlane.Name)
+	}
+
+	// Get the ObservabilityPlane
+	observabilityPlane := &openchoreodevv1alpha1.ObservabilityPlane{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Name:      dataPlane.Spec.ObservabilityPlaneRef,
+		Namespace: channel.Namespace,
+	}, observabilityPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("observability plane %s not found", dataPlane.Spec.ObservabilityPlaneRef)
+		}
+		return nil, fmt.Errorf("failed to get observability plane %s: %w", dataPlane.Spec.ObservabilityPlaneRef, err)
+	}
 
 	// Get Kubernetes client - supports agent mode (via HTTP proxy) through cluster gateway
 	opClient, err := kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, observabilityPlane, r.GatewayURL)
